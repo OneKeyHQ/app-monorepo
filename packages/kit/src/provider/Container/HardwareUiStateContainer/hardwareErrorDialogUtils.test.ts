@@ -55,7 +55,7 @@ describe('hardwareErrorDialogUtils', () => {
     ).toBe(false);
   });
 
-  it('delivers a bond error immediately between throttled device-not-found events', () => {
+  it('does not deliver a trailing device-not-found error after a bond error', () => {
     jest.useFakeTimers();
     const deliveredErrors: string[] = [];
     const eventHandler = createHardwareErrorDialogEventHandler(
@@ -85,7 +85,6 @@ describe('hardwareErrorDialogUtils', () => {
       expect(deliveredErrors).toEqual([
         HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
         HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
       ]);
     } finally {
       eventHandler.cancel();

@@ -11,6 +11,10 @@ export function createHardwareErrorDialogEventHandler(
   const throttledDeviceNotFound = throttle(
     handleHardwareErrorDialog,
     throttleDuration,
+    {
+      leading: true,
+      trailing: false,
+    },
   );
 
   return Object.assign(

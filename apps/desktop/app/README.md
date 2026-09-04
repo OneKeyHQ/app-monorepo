@@ -41,14 +41,19 @@ Packaging notes:
 
 Externalized dependencies are loaded from this app directory at runtime, so a
 root-level `patch-package` patch does not modify the copy installed here.
-After Electron Builder installs appDir dependencies, `yarn install-app-deps`
-copies the patched `electron-updater` files from the workspace dependency into
-the packaged runtime dependency and verifies both copies before packaging
-continues.
+`yarn install-app-deps` first removes the generated appDir `node_modules` so
+stale patched files cannot survive a dependency reinstall. After Electron
+Builder installs pristine appDir dependencies, the command dynamically
+intersects every committed root patch with package instances found recursively
+under appDir `node_modules`. It applies the complete matching patch to every
+unpatched instance and then verifies the complete patch in reverse before
+packaging continues. The command is idempotent and fails if a dependency is
+partially patched, has drifted, or is on a different version. Runtime lookup
+never falls back to workspace `node_modules`; committed root patch files are the
+single source of truth, with no package, file, or marker allowlist to maintain.
 
-The Noble patch in `patches/` is applied directly by this package's
-`postinstall`. Because it changes native macOS sources, the Desktop install flow
-then runs a targeted check that only force-rebuilds this appDir Noble copy when
+Because the Noble patch changes native macOS sources, the Desktop install flow
+then runs a targeted check that only force-rebuilds the appDir Noble copy when
 needed. It also verifies that the runtime-selected binary contains both x64 and
 arm64 architectures.
 
