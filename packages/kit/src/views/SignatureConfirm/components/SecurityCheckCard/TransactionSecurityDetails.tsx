@@ -38,9 +38,11 @@ function getLevelStyle(level: EHostSecurityLevel): {
 }
 
 function FeatureRow({ feature }: { feature: ITransactionSecurityFeature }) {
-  const title = normalizeSecurityFindingTitle(
-    feature.title?.trim() || feature.address || feature.code,
-  );
+  const rawTitle = feature.title?.trim() || feature.address;
+  if (!rawTitle) {
+    return null;
+  }
+  const title = normalizeSecurityFindingTitle(rawTitle);
   if (!title) {
     return null;
   }

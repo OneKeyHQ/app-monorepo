@@ -1,5 +1,6 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -37,10 +38,14 @@ const parsedMessage: ISignatureConfirmDisplay = {
   alerts: [],
 };
 
-const permitMessage: IUnsignedMessage = {
-  type: EMessageTypesEth.TYPED_DATA_V4,
-  message: JSON.stringify({ primaryType: 'Permit' }),
-};
+function buildTypedDataMessage(primaryType: string): IUnsignedMessage {
+  return {
+    type: EMessageTypesEth.TYPED_DATA_V4,
+    message: stableStringify({ primaryType }),
+  };
+}
+
+const permitMessage = buildTypedDataMessage('Permit');
 
 function buildTransactionSecurityResult(
   level: EHostSecurityLevel,
@@ -185,32 +190,36 @@ describe('securityCheckModel', () => {
       type: 'transactionSecurity',
       result: transactionSecurityInfo,
     });
-    expect(card.featured?.id).toBe(model.findings[0]?.id);
-    expect(card.listed).toEqual([]);
+    expect(card.visibleFindings).toEqual(model.findings);
   });
 
-  it('keeps a trusted generic Permit request informational', () => {
-    const model = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: {
-        ...parsedMessage,
-        alerts: [ETranslations.dapp_connect_permit_sign_alert],
-      },
-      unsignedMessage: permitMessage,
-      isConfirmationRequired: true,
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Security,
-      ),
-      intl,
-    });
+  it('does not synthesize generic typed-data findings for a trusted site', () => {
+    const models = ['Permit', 'Order', 'Login'].map((primaryType) =>
+      buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay:
+          primaryType === 'Permit'
+            ? {
+                ...parsedMessage,
+                alerts: [ETranslations.dapp_connect_permit_sign_alert],
+              }
+            : parsedMessage,
+        unsignedMessage: buildTypedDataMessage(primaryType),
+        isConfirmationRequired: primaryType === 'Permit',
+        transactionSecurityInfo: buildTransactionSecurityResult(
+          EHostSecurityLevel.Security,
+        ),
+        intl,
+      }),
+    );
 
-    expect(model.status).toBe('success');
-    expect(model.confirmation).toBe('none');
-    expect(model.findings).toEqual([
-      expect.objectContaining({ id: 'message-permit', status: 'info' }),
-    ]);
+    models.forEach((model) => {
+      expect(model.status).toBe('success');
+      expect(model.findings).toEqual([]);
+    });
+    expect(models[0]?.confirmation).toBe('none');
   });
 
   it('uses address risk as a fallback when the targeted scan has no conclusion', () => {
@@ -350,6 +359,9 @@ describe('securityCheckModel', () => {
     });
 
     expect(untrustedPermit.confirmation).toBe('risk');
+    expect(untrustedPermit.findings).toContainEqual(
+      expect.objectContaining({ id: 'message-permit', status: 'warning' }),
+    );
     expect(trustedPermitWithAddressRisk.confirmation).toBe('risk');
     expect(trustedPermitWithAddressRisk.status).toBe('warning');
   });
@@ -475,9 +487,9 @@ describe('securityCheckModel', () => {
       status: 'unknown',
       confirmation: 'request',
     });
-    expect(getCardSecurityFindings(messageFallback.findings).featured?.id).toBe(
-      'message-parse-fallback',
-    );
+    expect(
+      getCardSecurityFindings(messageFallback.findings).visibleFindings[0]?.id,
+    ).toBe('message-parse-fallback');
     expect(serverAnalyzedLocalTransaction).toMatchObject({
       status: 'success',
       confirmation: 'none',
@@ -513,7 +525,7 @@ describe('securityCheckModel', () => {
     expect(model.status).toBe('check_failed');
     expect(model.confirmation).toBe('none');
     expect(model.findings[0]?.title).toBe(
-      ETranslations.kyt_risk_check_failed__title,
+      ETranslations.transaction_security_check_incomplete__title,
     );
     expect(model.findings[0]?.description).toBeUndefined();
     expect(model.findings[0]?.id).toBe('tx-security-check-failed');
@@ -642,9 +654,38 @@ describe('securityCheckModel', () => {
       'tx-security-unable_to_assess',
     ]);
     expect(operationFindings[1]?.title).toBe(
-      ETranslations.address_risk_check_level_failed__title,
+      ETranslations.transaction_security_unable_to_assess__title,
     );
   });
+
+  it.each([
+    [ETransactionSecurityResultCode.CheckUnavailable, 'unavailable'],
+    [ETransactionSecurityResultCode.NetworkNotSupported, 'networkUnsupported'],
+  ] as const)(
+    'keeps %s in coverage without degrading completed base checks',
+    (code, coverageState) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: parsedMessage,
+        transactionSecurityInfo: {
+          level: EHostSecurityLevel.Unknown,
+          detail: { code, features: [] },
+        },
+        isPrimeUser: true,
+        intl,
+      });
+
+      expect(model.status).toBe('success');
+      expect(model.confirmation).toBe('none');
+      expect(
+        model.coverage.find((item) => item.source === 'requestScan')?.state,
+      ).toBe(coverageState);
+      expect(model.findings).toEqual([]);
+      expect(canRetryTransactionSecurityCheck(model.findings)).toBe(false);
+    },
+  );
 
   it('drops a Prime warning description that only restates the badge', () => {
     const model = buildSecurityCheckModel({
@@ -877,7 +918,7 @@ describe('security check display helpers', () => {
     expect(unsupportedModel.showPrimeInvite).toBe(false);
   });
 
-  it('features the worst decision finding and keeps non-decision context visible', () => {
+  it('limits decision findings and keeps non-decision context visible', () => {
     const siteWarning = {
       id: 'site-medium',
       category: 'site' as const,
@@ -916,8 +957,8 @@ describe('security check display helpers', () => {
       siteWarning,
     ]);
 
-    expect(card.featured?.id).toBe('site-medium');
-    expect(card.listed.map((finding) => finding.id)).toEqual([
+    expect(card.visibleFindings.map((finding) => finding.id)).toEqual([
+      'site-medium',
       'extra',
       'allowance',
       'unverified',

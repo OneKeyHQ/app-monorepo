@@ -20,7 +20,6 @@ import {
   getSimulationAssetIconProps,
   getSimulationAssetLabel,
   getSimulationAssetSign,
-  getSimulationAssets,
   getSimulationGroups,
   normalizeSecurityFindingTitle,
   shouldHideGenericPermitAlert,
@@ -476,16 +475,6 @@ describe('SecurityCheckCard simulation asset display rules', () => {
       ]);
       expect(groups).toHaveLength(2);
       expect(new Set(groups.map((group) => group.id)).size).toBe(2);
-    });
-
-    it('flattens grouped assets in order', () => {
-      const token = buildTokenAsset();
-      const nft = buildNFTAsset();
-      const groups = getSimulationGroups([
-        buildSimulation('A', [token]),
-        buildSimulation('B', [nft]),
-      ]);
-      expect(getSimulationAssets(groups)).toEqual([token, nft]);
     });
 
     it('returns an empty list without simulation components', () => {

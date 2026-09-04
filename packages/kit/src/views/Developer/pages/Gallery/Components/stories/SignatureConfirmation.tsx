@@ -13,8 +13,6 @@ import {
   Accordion,
   Alert,
   Badge,
-  Button,
-  Checkbox,
   Icon,
   IconButton,
   ScrollView,
@@ -36,10 +34,12 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
   ETransferDirection,
-  type IDisplayComponent,
   type IDisplayComponentSimulation,
 } from '@onekeyhq/shared/types/signatureConfirm';
-import type { ITransactionSecurityCheckResult } from '@onekeyhq/shared/types/transactionSecurity';
+import {
+  ETransactionSecurityResultCode,
+  type ITransactionSecurityCheckResult,
+} from '@onekeyhq/shared/types/transactionSecurity';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { NetworkAvatar } from '../../../../../../components/NetworkAvatar';
@@ -50,19 +50,13 @@ import {
 } from '../../../../../DAppConnection/components/DAppRequestLayout';
 import {
   SecurityCheckCard,
-  SecurityCheckCoverageList,
   TransactionPreview,
   buildSecurityCheckModel,
-  getSecurityCheckCoverage,
 } from '../../../../../SignatureConfirm/components/SecurityCheckCard';
 
 import { Layout } from './utils/Layout';
 
 import type { ITokenProps } from '../../../../../../components/Token';
-import type {
-  ISecurityCheckConfirmation,
-  ISecurityCheckCoverageItem,
-} from '../../../../../SignatureConfirm/components/SecurityCheckCard/securityCheckModel';
 
 /*
   do not use this demo-only component
@@ -70,7 +64,9 @@ import type {
 function FakeWrapper({ children, ...rest }: IYStackProps) {
   return (
     <YStack
-      w={640}
+      width="100%"
+      maxWidth={640}
+      alignSelf="center"
       p="$5"
       borderWidth={1}
       borderColor="$borderSubdued"
@@ -637,7 +633,6 @@ function YourComponentDemo() {
   );
 }
 
-const GALLERY_ORIGIN = 'https://app.uniswap.org';
 const GALLERY_HOST_VERIFIED = {
   host: 'app.uniswap.org',
   level: EHostSecurityLevel.Security,
@@ -648,11 +643,19 @@ const GALLERY_HOST_VERIFIED = {
   projectName: 'Uniswap',
   createdAt: '',
 } as IHostSecurity;
+const GALLERY_HOST_UNVERIFIED = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'permit-dapp.example',
+  level: EHostSecurityLevel.Unknown,
+  projectName: '',
+} as IHostSecurity;
 const GALLERY_HOST_PHISHING = {
   ...GALLERY_HOST_VERIFIED,
+  host: 'approval-phishing.example',
   level: EHostSecurityLevel.High,
   phishingSite: true,
   alert: 'This site is known for approval phishing.',
+  projectName: '',
   detail: {
     title: 'Approval phishing',
     content: 'Other visitors lost funds after signing on lookalike domains.',
@@ -660,8 +663,10 @@ const GALLERY_HOST_PHISHING = {
 } as IHostSecurity;
 const GALLERY_HOST_WARNING = {
   ...GALLERY_HOST_VERIFIED,
+  host: 'new-dapp.example',
   level: EHostSecurityLevel.Medium,
   alert: 'This site has unusual traffic for a first-time visit.',
+  projectName: '',
   detail: {
     title: 'Unusual first-visit traffic',
     content: 'Similar domains were used in approval phishing this week.',
@@ -673,11 +678,28 @@ const GALLERY_SCAN_SECURITY: ITransactionSecurityCheckResult = {
 };
 const GALLERY_SCAN_UNKNOWN: ITransactionSecurityCheckResult = {
   level: EHostSecurityLevel.Unknown,
-  detail: { code: 'unable_to_assess', features: [] },
+  detail: {
+    code: ETransactionSecurityResultCode.UnableToAssess,
+    features: [],
+  },
 };
 const GALLERY_SCAN_FAILED: ITransactionSecurityCheckResult = {
   level: EHostSecurityLevel.Unknown,
-  detail: { code: 'check_failed', features: [] },
+  detail: { code: ETransactionSecurityResultCode.CheckFailed, features: [] },
+};
+const GALLERY_SCAN_UNAVAILABLE: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: {
+    code: ETransactionSecurityResultCode.CheckUnavailable,
+    features: [],
+  },
+};
+const GALLERY_SCAN_NETWORK_NOT_SUPPORTED: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: {
+    code: ETransactionSecurityResultCode.NetworkNotSupported,
+    features: [],
+  },
 };
 const GALLERY_SCAN_DRAIN: ITransactionSecurityCheckResult = {
   level: EHostSecurityLevel.High,
@@ -691,7 +713,7 @@ const GALLERY_SCAN_DRAIN: ITransactionSecurityCheckResult = {
         code: 'unlimited_approval',
         title: 'Unlimited USDC allowance',
         content: 'The spender can transfer the full balance.',
-        address: '0x000000000022d473030f116ddee9f6b43ac78ba3',
+        address: '0x111122223333444455556666777788889999aaaa',
       },
       {
         level: EHostSecurityLevel.Medium,
@@ -701,23 +723,8 @@ const GALLERY_SCAN_DRAIN: ITransactionSecurityCheckResult = {
     ],
   },
 };
-const GALLERY_SPENDER_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3';
-const GALLERY_SPENDER_ADDRESS_COMPONENT: IDisplayComponent = {
-  type: EParseTxComponentType.Address,
-  label: 'Approve to',
-  address: GALLERY_SPENDER_ADDRESS,
-  tags: [{ value: 'Suspicious spender', displayType: 'warning' }],
-};
 
-function galleryDecodedTx({
-  alerts = [],
-  components = [],
-  isConfirmationRequired = false,
-}: {
-  alerts?: string[];
-  components?: IDisplayComponent[];
-  isConfirmationRequired?: boolean;
-} = {}): IDecodedTx {
+function galleryDecodedTx(alerts: string[] = []): IDecodedTx {
   return {
     txid: 'gallery',
     owner: '0x13b30304dAa2129a21e42df663e8f49C49b276e8',
@@ -729,66 +736,19 @@ function galleryDecodedTx({
     accountId: 'gallery',
     extraInfo: null,
     isLocalParsed: false,
-    isConfirmationRequired,
+    isConfirmationRequired: false,
     txDisplay: {
       title: 'Approval',
-      components,
+      components: [],
       alerts,
     },
   } as IDecodedTx;
 }
 
-const GALLERY_PARSED_TX = galleryDecodedTx();
 const GALLERY_PERMIT_MESSAGE: IUnsignedMessage = {
   type: EMessageTypesEth.TYPED_DATA_V4,
   message: JSON.stringify({ primaryType: 'Permit' }),
 };
-const GALLERY_COVERAGE_PRIME_CHECKED = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  transactionSecurityInfo: GALLERY_SCAN_SECURITY,
-  isPrimeUser: true,
-});
-const GALLERY_COVERAGE_FREE_LOCKED = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  isPrimeUser: false,
-});
-const GALLERY_COVERAGE_NOT_AVAILABLE = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  isPrimeUser: true,
-});
-const GALLERY_COVERAGE_CHECKING = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  isTransactionSecurityPending: true,
-  isPrimeUser: true,
-});
-const GALLERY_COVERAGE_FAILED = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  transactionSecurityInfo: GALLERY_SCAN_FAILED,
-  isPrimeUser: true,
-});
-const GALLERY_COVERAGE_UNVERIFIED = getSecurityCheckCoverage({
-  kind: 'transaction',
-  origin: GALLERY_ORIGIN,
-  urlSecurityInfo: GALLERY_HOST_VERIFIED,
-  decodedTxs: [GALLERY_PARSED_TX],
-  transactionSecurityInfo: GALLERY_SCAN_UNKNOWN,
-  isPrimeUser: true,
-});
 
 const GALLERY_SIMULATION: IDisplayComponentSimulation[] = [
   {
@@ -799,7 +759,7 @@ const GALLERY_SIMULATION: IDisplayComponentSimulation[] = [
         type: EParseTxComponentType.InternalAssets,
         label: '',
         name: 'Ethereum',
-        icon: '',
+        icon: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
         symbol: 'ETH',
         amount: '',
         amountParsed: '0.12',
@@ -809,7 +769,7 @@ const GALLERY_SIMULATION: IDisplayComponentSimulation[] = [
         type: EParseTxComponentType.InternalAssets,
         label: '',
         name: 'USD Coin',
-        icon: '',
+        icon: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
         symbol: 'USDC',
         amount: '',
         amountParsed: '240.00',
@@ -819,35 +779,34 @@ const GALLERY_SIMULATION: IDisplayComponentSimulation[] = [
   },
 ];
 
-function BuiltSecurityCheckCard({
+function GallerySecurityCheckCard({
   onRetry,
   urlSecurityInfo = GALLERY_HOST_VERIFIED,
   decodedTxs,
   transactionSecurityInfo,
   isTransactionSecurityPending,
+  isTransactionSecurityApplicable,
   isPrimeUser,
-  isConfirmationRequired,
 }: {
   onRetry?: () => void;
   urlSecurityInfo?: IHostSecurity;
   decodedTxs?: IDecodedTx[];
   transactionSecurityInfo?: ITransactionSecurityCheckResult;
   isTransactionSecurityPending?: boolean;
+  isTransactionSecurityApplicable?: boolean;
   isPrimeUser?: boolean;
-  isConfirmationRequired?: boolean;
 }) {
   const intl = useIntl();
   return (
     <SecurityCheckCard
       model={buildSecurityCheckModel({
         kind: 'transaction',
-        origin: GALLERY_ORIGIN,
+        origin: `https://${urlSecurityInfo.host}`,
         urlSecurityInfo,
-        decodedTxs: decodedTxs ?? [
-          galleryDecodedTx({ isConfirmationRequired }),
-        ],
+        decodedTxs: decodedTxs ?? [galleryDecodedTx()],
         transactionSecurityInfo,
         isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
         isPrimeUser,
         intl,
       })}
@@ -859,113 +818,20 @@ function BuiltSecurityCheckCard({
 const GALLERY_ACCOUNT_TAGS = [
   { type: 'success' as const, name: 'Wallet 1 / Account #1' },
 ];
-const GALLERY_SPENDER_WARNING_TAGS = [
-  { type: 'warning' as const, name: 'Suspicious spender' },
-];
 
-function GalleryLabeledCase({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <YStack gap="$2" pb="$6">
-      <SizableText size="$bodyMdMedium">{title}</SizableText>
-      {children}
-    </YStack>
-  );
-}
-
-function GalleryCoveragePanel({
-  title,
-  coverage,
-}: {
-  title: string;
-  coverage: ISecurityCheckCoverageItem[];
-}) {
-  return (
-    <GalleryLabeledCase title={title}>
-      <YStack
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        bg="$bg"
-        width={300}
-        overflow="hidden"
-      >
-        <SecurityCheckCoverageList kind="transaction" coverage={coverage} />
-      </YStack>
-    </GalleryLabeledCase>
-  );
-}
-
-function ApprovalDecisionFooter({
-  confirmation,
-}: {
-  confirmation: ISecurityCheckConfirmation;
-}) {
-  const intl = useIntl();
-  const [checked, setChecked] = useState(false);
-  const showAlert = confirmation !== 'none' && confirmation !== 'pending';
-  const isRisk = confirmation === 'risk';
-  const confirmDisabled = confirmation === 'pending' || (showAlert && !checked);
-
-  return (
-    <YStack
-      gap="$3"
-      pt="$4"
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor="$borderSubdued"
-    >
-      {showAlert ? (
-        <Checkbox
-          label={intl.formatMessage({
-            id: isRisk
-              ? ETranslations.dapp_connect_proceed_at_my_own_risk
-              : ETranslations.global_i_understand,
-          })}
-          value={checked}
-          onChange={(value) => setChecked(Boolean(value))}
-        />
-      ) : null}
-      <XStack gap="$2.5" justifyContent="flex-end">
-        <Button variant="secondary">
-          {intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
-        <Button
-          variant={isRisk ? 'destructive' : 'primary'}
-          disabled={confirmDisabled}
-        >
-          {intl.formatMessage({ id: ETranslations.global_confirm })}
-        </Button>
-      </XStack>
-    </YStack>
-  );
-}
-
-function ApprovalCase({
+function SignatureCase({
   children,
   showSimulation = true,
-  urlSecurityInfo,
-  spenderAddress,
-  spenderTags,
-  confirmation,
-  showAllowance = false,
+  urlSecurityInfo = GALLERY_HOST_VERIFIED,
 }: {
   children: ReactNode;
   showSimulation?: boolean;
   urlSecurityInfo?: IHostSecurity;
-  spenderAddress?: string;
-  spenderTags?: { type: IBadgeType; name: string }[];
-  confirmation?: ISecurityCheckConfirmation;
-  showAllowance?: boolean;
 }) {
   return (
     <FakeWrapper gap="$5">
       <DAppSiteMark
-        origin={GALLERY_ORIGIN}
+        origin={`https://${urlSecurityInfo.host}`}
         urlSecurityInfo={urlSecurityInfo}
         hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
       />
@@ -979,323 +845,199 @@ function ApprovalCase({
         address="0x13b30304dAa2129a21e42df663e8f49C49b276e8"
         tags={GALLERY_ACCOUNT_TAGS}
       />
-      {spenderAddress ? (
-        <SignatureAddressDetailItem
-          label="Approve to"
-          address={spenderAddress}
-          tags={spenderTags}
-        />
-      ) : null}
-      {showAllowance ? (
-        <>
-          <SignatureDetailItem>
-            <SignatureDetailItem.Label>Allowance</SignatureDetailItem.Label>
-            <SignatureDetailItem.Value>
-              Unlimited USDC
-            </SignatureDetailItem.Value>
-          </SignatureDetailItem>
-          <SignatureDetailItem>
-            <SignatureDetailItem.Label>Expiry</SignatureDetailItem.Label>
-            <SignatureDetailItem.Value>Until revoked</SignatureDetailItem.Value>
-          </SignatureDetailItem>
-        </>
-      ) : null}
-      {confirmation !== undefined ? (
-        <ApprovalDecisionFooter confirmation={confirmation} />
-      ) : null}
     </FakeWrapper>
   );
 }
 
 function ApprovalCriticalDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_PHISHING} confirmation="risk">
-      <BuiltSecurityCheckCard
+    <SignatureCase urlSecurityInfo={GALLERY_HOST_PHISHING}>
+      <GallerySecurityCheckCard
         urlSecurityInfo={GALLERY_HOST_PHISHING}
         transactionSecurityInfo={GALLERY_SCAN_DRAIN}
         isPrimeUser
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalWarningDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_WARNING} confirmation="risk">
-      <BuiltSecurityCheckCard
-        urlSecurityInfo={GALLERY_HOST_WARNING}
+    <SignatureCase>
+      <GallerySecurityCheckCard
         decodedTxs={[
-          galleryDecodedTx({
-            alerts: ['The spender has not been seen before.'],
-          }),
+          galleryDecodedTx(['The spender has not been seen before.']),
         ]}
         isPrimeUser={false}
+        isTransactionSecurityApplicable
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalWarningCheckingDemo() {
   return (
-    <ApprovalCase
-      urlSecurityInfo={GALLERY_HOST_VERIFIED}
-      confirmation="pending"
-    >
-      <BuiltSecurityCheckCard
+    <SignatureCase>
+      <GallerySecurityCheckCard
         decodedTxs={[
-          galleryDecodedTx({
-            alerts: ['The spender is an EOA and may be a scam address'],
-          }),
+          galleryDecodedTx(['The spender is an EOA and may be a scam address']),
         ]}
         isTransactionSecurityPending
         isPrimeUser
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalUnknownDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED}>
-      <BuiltSecurityCheckCard
+    <SignatureCase>
+      <GallerySecurityCheckCard
         transactionSecurityInfo={GALLERY_SCAN_UNKNOWN}
         isPrimeUser
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalSuccessDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED}>
-      <BuiltSecurityCheckCard
+    <SignatureCase>
+      <GallerySecurityCheckCard
         transactionSecurityInfo={GALLERY_SCAN_SECURITY}
         isPrimeUser
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalSuccessFreeDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED} confirmation="none">
-      <BuiltSecurityCheckCard isPrimeUser={false} />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalRequestDemo() {
-  return (
-    <ApprovalCase
-      urlSecurityInfo={GALLERY_HOST_VERIFIED}
-      spenderAddress={GALLERY_SPENDER_ADDRESS}
-      showAllowance
-      confirmation="request"
-    >
-      <BuiltSecurityCheckCard isConfirmationRequired isPrimeUser={false} />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalCriticalFreeDemo() {
-  return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_PHISHING} confirmation="risk">
-      <BuiltSecurityCheckCard
-        urlSecurityInfo={GALLERY_HOST_PHISHING}
+    <SignatureCase>
+      <GallerySecurityCheckCard
         isPrimeUser={false}
+        isTransactionSecurityApplicable
       />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalSiteOnlyDemo() {
-  return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_PHISHING} confirmation="risk">
-      <BuiltSecurityCheckCard
-        urlSecurityInfo={GALLERY_HOST_PHISHING}
-        transactionSecurityInfo={GALLERY_SCAN_SECURITY}
-        isPrimeUser
-      />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalRequestScanOnlyDemo() {
-  return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED} confirmation="risk">
-      <BuiltSecurityCheckCard
-        transactionSecurityInfo={GALLERY_SCAN_DRAIN}
-        isPrimeUser
-      />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalParserOnlyDemo() {
-  return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED} confirmation="risk">
-      <BuiltSecurityCheckCard
-        decodedTxs={[
-          galleryDecodedTx({
-            alerts: ['The spender is an EOA and may be a scam address'],
-          }),
-        ]}
-        isPrimeUser={false}
-      />
-    </ApprovalCase>
-  );
-}
-
-function ApprovalAddressTagOnlyDemo() {
-  return (
-    <ApprovalCase
-      urlSecurityInfo={GALLERY_HOST_VERIFIED}
-      spenderAddress={GALLERY_SPENDER_ADDRESS}
-      spenderTags={GALLERY_SPENDER_WARNING_TAGS}
-    >
-      <BuiltSecurityCheckCard
-        decodedTxs={[
-          galleryDecodedTx({
-            components: [GALLERY_SPENDER_ADDRESS_COMPONENT],
-          }),
-        ]}
-        transactionSecurityInfo={GALLERY_SCAN_SECURITY}
-        isPrimeUser
-      />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
 function ApprovalLoadingDemo() {
   return (
-    <ApprovalCase
-      urlSecurityInfo={GALLERY_HOST_VERIFIED}
-      confirmation="pending"
-    >
-      <BuiltSecurityCheckCard isTransactionSecurityPending isPrimeUser />
-    </ApprovalCase>
+    <SignatureCase>
+      <GallerySecurityCheckCard isTransactionSecurityPending isPrimeUser />
+    </SignatureCase>
   );
 }
-
-const GALLERY_RETRY_SECURITY_CHECK = () => {};
 
 function ApprovalViewAllDemo() {
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_WARNING} confirmation="risk">
-      <BuiltSecurityCheckCard
+    <SignatureCase urlSecurityInfo={GALLERY_HOST_WARNING}>
+      <GallerySecurityCheckCard
         urlSecurityInfo={GALLERY_HOST_WARNING}
         decodedTxs={[
-          galleryDecodedTx({
-            alerts: [
-              'The spender has not been seen before.',
-              'The spender is an EOA and may be a scam address',
-              'This approval stays valid until you revoke it.',
-            ],
-          }),
+          galleryDecodedTx([
+            'The spender has not been seen before.',
+            'The spender is an EOA and may be a scam address',
+            'This approval stays valid until you revoke it.',
+          ]),
         ]}
         isPrimeUser={false}
+        isTransactionSecurityApplicable
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
-function ApprovalPermitInfoDemo() {
+function UnverifiedPermitDemo() {
   const intl = useIntl();
   return (
-    <ApprovalCase
-      urlSecurityInfo={GALLERY_HOST_VERIFIED}
+    <SignatureCase
       showSimulation={false}
-      confirmation="none"
+      urlSecurityInfo={GALLERY_HOST_UNVERIFIED}
     >
       <SecurityCheckCard
         model={buildSecurityCheckModel({
           kind: 'message',
-          origin: GALLERY_ORIGIN,
-          urlSecurityInfo: GALLERY_HOST_VERIFIED,
+          origin: `https://${GALLERY_HOST_UNVERIFIED.host}`,
+          urlSecurityInfo: GALLERY_HOST_UNVERIFIED,
           messageDisplay: {
             title: 'Permit',
             components: [],
-            alerts: [],
+            alerts: [
+              intl.formatMessage({
+                id: ETranslations.dapp_connect_permit_sign_alert,
+              }),
+            ],
           },
           unsignedMessage: GALLERY_PERMIT_MESSAGE,
+          isConfirmationRequired: true,
+          isTransactionSecurityApplicable: true,
           isPrimeUser: false,
           intl,
         })}
       />
-    </ApprovalCase>
+    </SignatureCase>
   );
 }
 
-function SecurityCheckQaScreenshotGallery() {
+function MessageParseFallbackDemo() {
+  const intl = useIntl();
   return (
-    <YStack>
-      <GalleryCoveragePanel
-        title="Coverage · Prime · Checked"
-        coverage={GALLERY_COVERAGE_PRIME_CHECKED}
+    <SignatureCase showSimulation={false}>
+      <SecurityCheckCard
+        model={buildSecurityCheckModel({
+          kind: 'message',
+          origin: `https://${GALLERY_HOST_VERIFIED.host}`,
+          urlSecurityInfo: GALLERY_HOST_VERIFIED,
+          messageDisplay: {
+            title: 'Message',
+            components: [],
+            alerts: [],
+          },
+          isMessageParseFallback: true,
+          isTransactionSecurityApplicable: false,
+          isPrimeUser: false,
+          intl,
+        })}
       />
-      <GalleryCoveragePanel
-        title="Coverage · free · Get Prime"
-        coverage={GALLERY_COVERAGE_FREE_LOCKED}
-      />
-      <GalleryCoveragePanel
-        title="Coverage · Prime · Not available"
-        coverage={GALLERY_COVERAGE_NOT_AVAILABLE}
-      />
-      <GalleryCoveragePanel
-        title="Coverage · Checking"
-        coverage={GALLERY_COVERAGE_CHECKING}
-      />
-      <GalleryCoveragePanel
-        title="Coverage · Check failed"
-        coverage={GALLERY_COVERAGE_FAILED}
-      />
-      <GalleryCoveragePanel
-        title="Coverage · Unverified"
-        coverage={GALLERY_COVERAGE_UNVERIFIED}
-      />
-      <GalleryLabeledCase title="Page · Loading">
-        <ApprovalLoadingDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Warning · checking">
-        <ApprovalWarningCheckingDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Check failed">
-        <ApprovalCheckFailedDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Unknown">
-        <ApprovalUnknownDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Success · free invite">
-        <ApprovalSuccessFreeDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Success · Prime">
-        <ApprovalSuccessDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · View All">
-        <ApprovalViewAllDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Unlimited · request">
-        <ApprovalRequestDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Permit · info">
-        <ApprovalPermitInfoDemo />
-      </GalleryLabeledCase>
-      <GalleryLabeledCase title="Page · Address tag only">
-        <ApprovalAddressTagOnlyDemo />
-      </GalleryLabeledCase>
-    </YStack>
+    </SignatureCase>
   );
 }
 
 function ApprovalCheckFailedDemo() {
+  const [isRetrying, setIsRetrying] = useState(false);
   return (
-    <ApprovalCase urlSecurityInfo={GALLERY_HOST_VERIFIED} confirmation="none">
-      <BuiltSecurityCheckCard
-        transactionSecurityInfo={GALLERY_SCAN_FAILED}
+    <SignatureCase>
+      <GallerySecurityCheckCard
+        transactionSecurityInfo={isRetrying ? undefined : GALLERY_SCAN_FAILED}
+        isTransactionSecurityPending={isRetrying}
         isPrimeUser
-        onRetry={GALLERY_RETRY_SECURITY_CHECK}
+        onRetry={() => setIsRetrying(true)}
       />
-    </ApprovalCase>
+    </SignatureCase>
+  );
+}
+
+function ApprovalUnavailableDemo() {
+  return (
+    <SignatureCase>
+      <GallerySecurityCheckCard
+        transactionSecurityInfo={GALLERY_SCAN_UNAVAILABLE}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalNetworkNotSupportedDemo() {
+  return (
+    <SignatureCase>
+      <GallerySecurityCheckCard
+        transactionSecurityInfo={GALLERY_SCAN_NETWORK_NOT_SUPPORTED}
+        isPrimeUser
+      />
+    </SignatureCase>
   );
 }
 
@@ -1303,69 +1045,97 @@ const SignatureConfirmationGallery = () => (
   <Layout
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="SignatureConfirmation"
+    description="安全检查案例由当前 buildSecurityCheckModel 生成，并渲染真实 SecurityCheckCard、Popover 和 Dialog；标题和说明可直接用于任务截图"
+    suggestions={[
+      '任务主图优先截 Critical、Safe / Free、View all 和 Permit',
+      '点击标题旁的信息图标查看检查覆盖，点击风险行查看详情，点击 View all 查看全部风险',
+    ]}
+    boundaryConditions={[
+      '站点、账户、地址和资产是演示数据，安全卡片及其状态计算使用生产代码',
+      'Gallery 不复制生产确认页 Footer；复选框和确认按钮门控应在真实确认页或自动化测试中验证',
+    ]}
     elements={[
       {
-        title: 'QA screenshots',
-        description: '截图表。覆盖清单已展开，不用点 i。标题可直接对测试表格',
-        element: <SecurityCheckQaScreenshotGallery />,
-      },
-      {
-        title: 'Core · Loading',
+        title: 'Loading · Prime scan pending',
+        description:
+          'Prime 交易安全检查尚未返回；卡片标题显示 Checking… / 检查中…，覆盖列表中的交易安全检查也为 Checking',
         element: <ApprovalLoadingDemo />,
       },
       {
-        title: 'Core · Success',
+        title: 'Loading · Existing warning stays visible',
+        description:
+          '已有解析器风险继续显示；标题左侧保持 Checking，右侧显示 Warning',
+        element: <ApprovalWarningCheckingDemo />,
+      },
+      {
+        title: 'Safe · Free user',
+        description:
+          '站点与解析已完成，网络支持交易安全检查但用户不是 Prime；显示 Prime 入口，交易安全检查为 Get Prime',
         element: <ApprovalSuccessFreeDemo />,
       },
       {
-        title: 'Core · Info / request',
-        element: <ApprovalRequestDemo />,
+        title: 'Safe · Prime checked',
+        description:
+          '站点、解析和 Prime 交易安全检查均已完成且未发现风险；不显示 Prime 入口，覆盖列表全部为 Checked',
+        element: <ApprovalSuccessDemo />,
       },
       {
-        title: 'Core · Warning',
+        title: 'Warning · Parser finding',
+        description:
+          '可信站点上的解析器风险；卡片显示 Warning 并保留解析器文案',
         element: <ApprovalWarningDemo />,
       },
       {
-        title: 'Core · Critical',
+        title: 'Permit · Unverified site',
+        description:
+          '未验证站点上的 Permit 保留授权风险提示；站点状态和 Permit 风险同时显示',
+        element: <UnverifiedPermitDemo />,
+      },
+      {
+        title: 'Critical · Site and transaction security',
+        description:
+          '恶意站点与 Prime 交易安全检查同时命中；展示最高风险，两个风险行可分别打开详情',
         element: <ApprovalCriticalDemo />,
       },
       {
-        title: 'Core · Check failed',
+        title: 'Unverified · Unable to assess',
+        description:
+          'Prime 无法完整评估当前请求；风险行显示 Unable to assess this request，覆盖状态显示 Unverified',
+        element: <ApprovalUnknownDemo />,
+      },
+      {
+        title: 'Unverified · Message parsing fallback',
+        description:
+          '消息无法结构化解析；卡片提示用户检查原始消息，解析覆盖显示 Unverified',
+        element: <MessageParseFallbackDemo />,
+      },
+      {
+        title: 'Incomplete · Retry',
+        description:
+          'Prime 交易安全检查失败；卡片状态显示 Unverified，失败行展示 Transaction security check incomplete 与 Retry，点击后切换到 Loading',
         element: <ApprovalCheckFailedDemo />,
       },
       {
-        title: 'Source variants',
-        element: (
-          <YStack>
-            <GalleryLabeledCase title="Success · Prime">
-              <ApprovalSuccessDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Critical · free">
-              <ApprovalCriticalFreeDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Warning · checking">
-              <ApprovalWarningCheckingDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Unknown">
-              <ApprovalUnknownDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Site only">
-              <ApprovalSiteOnlyDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Request scan only">
-              <ApprovalRequestScanOnlyDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Parser only">
-              <ApprovalParserOnlyDemo />
-            </GalleryLabeledCase>
-            <GalleryLabeledCase title="Address tag only">
-              <ApprovalAddressTagOnlyDemo />
-            </GalleryLabeledCase>
-          </YStack>
-        ),
+        title: 'Coverage · Prime unavailable',
+        description:
+          'Prime 权益校验失败；外层仍展示已完成基础检查的结果，仅在覆盖列表显示 Unavailable',
+        element: <ApprovalUnavailableDemo />,
       },
       {
-        title: 'Primitive coverage',
+        title: 'Coverage · Network not supported',
+        description:
+          '当前网络不支持 Prime 交易安全检查；外层仍展示已完成基础检查的结果，仅在覆盖列表显示 Network not supported',
+        element: <ApprovalNetworkNotSupportedDemo />,
+      },
+      {
+        title: 'View all · Four findings',
+        description:
+          '共有四条影响决策的风险；卡片以统一图标行展示前三条，View all (4) Dialog 展示全部四条',
+        element: <ApprovalViewAllDemo />,
+      },
+      {
+        title: 'Legacy · Signature detail primitives',
+        description: '保留上游已有的签名详情原语，不用于安全状态验收',
         element: <YourComponentDemo />,
       },
     ]}

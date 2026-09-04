@@ -113,12 +113,51 @@ export function createCheckFailedTransactionSecurityResult() {
   );
 }
 
+export function createCheckUnavailableTransactionSecurityResult() {
+  return createUnknownTransactionSecurityResult(
+    ETransactionSecurityResultCode.CheckUnavailable,
+  );
+}
+
+export function createNetworkNotSupportedTransactionSecurityResult() {
+  return createUnknownTransactionSecurityResult(
+    ETransactionSecurityResultCode.NetworkNotSupported,
+  );
+}
+
 export function isTransactionSecurityCheckFailed(
   result?: ITransactionSecurityCheckResult | ITransactionSecurityCheckResultRaw,
 ) {
   return isTransactionSecurityResultCode(
     result,
     ETransactionSecurityResultCode.CheckFailed,
+  );
+}
+
+export function isTransactionSecurityCheckUnavailable(
+  result?: ITransactionSecurityCheckResult | ITransactionSecurityCheckResultRaw,
+) {
+  return isTransactionSecurityResultCode(
+    result,
+    ETransactionSecurityResultCode.CheckUnavailable,
+  );
+}
+
+export function isTransactionSecurityNetworkNotSupported(
+  result?: ITransactionSecurityCheckResult | ITransactionSecurityCheckResultRaw,
+) {
+  return isTransactionSecurityResultCode(
+    result,
+    ETransactionSecurityResultCode.NetworkNotSupported,
+  );
+}
+
+function isTransactionSecurityAvailabilityIssue(
+  result?: ITransactionSecurityCheckResult | ITransactionSecurityCheckResultRaw,
+) {
+  return (
+    isTransactionSecurityCheckUnavailable(result) ||
+    isTransactionSecurityNetworkNotSupported(result)
   );
 }
 
@@ -244,7 +283,19 @@ export function normalizeTransactionSecurityResult(
     .filter((feature): feature is ITransactionSecurityFeature =>
       Boolean(feature),
     );
-  const level = normalizeTransactionSecurityLevel(result.level);
+  const isNonConclusiveResult =
+    isTransactionSecurityResultCode(
+      result,
+      ETransactionSecurityResultCode.UnableToAssess,
+    ) ||
+    isTransactionSecurityResultCode(
+      result,
+      ETransactionSecurityResultCode.CheckFailed,
+    ) ||
+    isTransactionSecurityAvailabilityIssue(result);
+  const level = isNonConclusiveResult
+    ? EHostSecurityLevel.Unknown
+    : normalizeTransactionSecurityLevel(result.level);
 
   if (level === EHostSecurityLevel.Security && !code) {
     return undefined;
@@ -304,8 +355,15 @@ export function hasTransactionSecurityFeatures(
 export function mergeTransactionSecurityResults(
   results: Array<ITransactionSecurityCheckResult | undefined>,
 ): ITransactionSecurityCheckResult | undefined {
+  const availabilityIssues = results.filter(
+    (result): result is ITransactionSecurityCheckResult =>
+      Boolean(result) && isTransactionSecurityAvailabilityIssue(result),
+  );
   const hasUncoveredCheck = results.some(
-    (result) => !result || result.coverage?.hasUncoveredRequests,
+    (result) =>
+      !result ||
+      isTransactionSecurityAvailabilityIssue(result) ||
+      result.coverage?.hasUncoveredRequests,
   );
   const hasFailedCheck = results.some(
     (result) =>
@@ -314,12 +372,23 @@ export function mergeTransactionSecurityResults(
   );
   const validResults = results.filter(
     (result): result is ITransactionSecurityCheckResult =>
-      Boolean(result) && !isTransactionSecurityCheckFailed(result),
+      Boolean(result) &&
+      !isTransactionSecurityCheckFailed(result) &&
+      !isTransactionSecurityAvailabilityIssue(result),
   );
   if (!validResults.length) {
-    return hasFailedCheck
-      ? createCheckFailedTransactionSecurityResult()
-      : undefined;
+    if (hasFailedCheck) {
+      return createCheckFailedTransactionSecurityResult();
+    }
+    if (availabilityIssues.length) {
+      const first = availabilityIssues[0];
+      return availabilityIssues.every(
+        (result) => result.detail.code === first.detail.code,
+      )
+        ? first
+        : createUnableToAssessTransactionSecurityResult();
+    }
+    return undefined;
   }
 
   const primary = validResults.reduce((best, current) =>

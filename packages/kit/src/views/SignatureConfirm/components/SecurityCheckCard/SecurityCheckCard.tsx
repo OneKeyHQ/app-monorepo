@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Badge,
+  ButtonFrame,
   Dialog,
-  Divider,
   Icon,
   IconButton,
   Popover,
@@ -49,10 +49,9 @@ type IProps = {
 
 const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
   critical: ETranslations.global_risk,
-  warning:
-    ETranslations.dapp_connect_security_checks_risk_review_required__title,
+  warning: ETranslations.global_warning,
   unknown: ETranslations.global_unverified,
-  check_failed: ETranslations.kyt_risk_check_failed__title,
+  check_failed: ETranslations.global_unverified,
   info: ETranslations.global_info,
   success: ETranslations.kyt_no_significant_risk_detected__title,
   loading: ETranslations.global_checking,
@@ -61,6 +60,12 @@ const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
 const FINDING_DETAILS_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
 const INVITE_HOVER_STYLE = { opacity: 0.7 } as const;
 const INVITE_PRESS_STYLE = { opacity: 0.5 } as const;
+const INTERACTIVE_FOCUS_STYLE = {
+  outlineColor: '$focusRing',
+  outlineWidth: 2,
+  outlineStyle: 'solid',
+  outlineOffset: 0,
+} as const;
 const COVERAGE_CONTENT_PADDING = {
   px: '$5',
   pb: '$5',
@@ -71,6 +76,9 @@ const COVERAGE_STATE_ID: Record<ISecurityCheckCoverageState, ETranslations> = {
   pending: ETranslations.global_checking,
   completed: ETranslations.security_check_checked__title,
   failed: ETranslations.kyt_risk_check_failed__title,
+  unavailable: ETranslations.transaction_security_check_unavailable__title,
+  networkUnsupported:
+    ETranslations.transaction_security_network_not_supported__title,
   unknown: ETranslations.global_unverified,
   notApplicable: ETranslations.global_not_available,
   locked: ETranslations.prime_get_prime,
@@ -116,7 +124,11 @@ function getCoverageStateTone(state: ISecurityCheckCoverageState): {
       textColor: '$textSubdued',
     };
   }
-  if (state === 'notApplicable') {
+  if (
+    state === 'notApplicable' ||
+    state === 'unavailable' ||
+    state === 'networkUnsupported'
+  ) {
     return {
       icon: 'MinusCircleOutline',
       iconColor: '$iconDisabled',
@@ -131,7 +143,12 @@ function getCoverageStateTone(state: ISecurityCheckCoverageState): {
 }
 
 function isMutedCoverageState(state: ISecurityCheckCoverageState) {
-  return state === 'locked' || state === 'notApplicable';
+  return (
+    state === 'locked' ||
+    state === 'notApplicable' ||
+    state === 'unavailable' ||
+    state === 'networkUnsupported'
+  );
 }
 
 function useOpenPrimeTransactionSecurity() {
@@ -234,18 +251,26 @@ function SecurityCheckCoverageRow({
   const statusLabel = intl.formatMessage({ id: COVERAGE_STATE_ID[state] });
   const stateTone = getCoverageStateTone(state);
   const muted = isMutedCoverageState(state);
+  const CoverageRowFrame = onPress ? ButtonFrame : XStack;
 
   return (
-    <XStack
+    <CoverageRowFrame
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
       width="100%"
+      minHeight="$6"
+      p="$0"
+      borderWidth={0}
+      borderRadius="$0"
+      bg="$transparent"
       userSelect="none"
       hoverStyle={onPress ? INVITE_HOVER_STYLE : undefined}
       pressStyle={onPress ? INVITE_PRESS_STYLE : undefined}
       hitSlop={onPress ? FINDING_DETAILS_HIT_SLOP : undefined}
       role={onPress ? 'button' : undefined}
+      focusable={Boolean(onPress)}
+      focusVisibleStyle={onPress ? INTERACTIVE_FOCUS_STYLE : undefined}
       accessibilityLabel={onPress ? `${title}, ${statusLabel}` : undefined}
       onPress={onPress}
     >
@@ -258,6 +283,7 @@ function SecurityCheckCoverageRow({
         <SizableText
           size="$bodyMdMedium"
           color={muted ? '$textSubdued' : '$text'}
+          textAlign="left"
           flex={1}
           minWidth={0}
           numberOfLines={1}
@@ -270,7 +296,7 @@ function SecurityCheckCoverageRow({
           <CheckingMark accessibilityLabel={statusLabel} />
         ) : null}
         {!stateTone.pending && stateTone.icon ? (
-          <Icon name={stateTone.icon} size="$3.5" color={stateTone.iconColor} />
+          <Icon name={stateTone.icon} size="$4" color={stateTone.iconColor} />
         ) : null}
         <SizableText size="$bodySm" color={stateTone.textColor}>
           {statusLabel}
@@ -283,7 +309,7 @@ function SecurityCheckCoverageRow({
           />
         ) : null}
       </XStack>
-    </XStack>
+    </CoverageRowFrame>
   );
 }
 
@@ -293,20 +319,30 @@ function PrimeInviteRow() {
   const inviteLabel = intl.formatMessage({
     id: ETranslations.know_more_about_this_transaction__desc,
   });
+  const primeLabel = intl.formatMessage({
+    id: ETranslations.prime_status_prime,
+  });
 
   return (
-    <XStack
+    <ButtonFrame
       testID={SignatureConfirmTestIDs.SecurityCheckPrime}
       alignItems="center"
       justifyContent="space-between"
       gap="$1.5"
       width="100%"
+      minHeight="$6"
+      p="$0"
+      borderWidth={0}
+      borderRadius="$0"
+      bg="$transparent"
       userSelect="none"
       hoverStyle={INVITE_HOVER_STYLE}
       pressStyle={INVITE_PRESS_STYLE}
       hitSlop={FINDING_DETAILS_HIT_SLOP}
       role="button"
-      accessibilityLabel={inviteLabel}
+      focusable
+      focusVisibleStyle={INTERACTIVE_FOCUS_STYLE}
+      accessibilityLabel={`${inviteLabel}, ${primeLabel}`}
       onPress={openPrime}
     >
       <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
@@ -314,6 +350,7 @@ function PrimeInviteRow() {
         <SizableText
           size="$bodySm"
           color="$textSubdued"
+          textAlign="left"
           flex={1}
           minWidth={0}
           numberOfLines={1}
@@ -323,25 +360,23 @@ function PrimeInviteRow() {
       </XStack>
       <XStack alignItems="center" gap="$0.5" flexShrink={0}>
         <SizableText size="$bodySmMedium" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.prime_status_prime })}
+          {primeLabel}
         </SizableText>
         <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
       </XStack>
-    </XStack>
+    </ButtonFrame>
   );
 }
 
-export function SecurityCheckCoverageList({
+function SecurityCheckCoverageList({
   kind,
   coverage,
   onLockedPress,
 }: {
   kind: ISecurityCheckViewModel['kind'];
   coverage: ISecurityCheckCoverageItem[];
-  onLockedPress?: () => void;
+  onLockedPress: () => void;
 }) {
-  const openPrime = useOpenPrimeTransactionSecurity();
-  const handleLockedPress = onLockedPress ?? openPrime;
   return (
     <YStack {...COVERAGE_CONTENT_PADDING} gap="$3">
       {coverage.map((item) => (
@@ -350,7 +385,7 @@ export function SecurityCheckCoverageList({
           source={item.source}
           state={item.state}
           kind={kind}
-          onPress={item.state === 'locked' ? handleLockedPress : undefined}
+          onPress={item.state === 'locked' ? onLockedPress : undefined}
         />
       ))}
     </YStack>
@@ -399,55 +434,112 @@ function SecurityCheckCoverageTooltip({
 
 function SecurityCheckFindingRow({
   finding,
-  featured,
-  emphasizeTitle,
+  onRetry,
+  standalone,
 }: {
   finding: ISecurityCheckFinding;
-  featured?: boolean;
-  emphasizeTitle?: boolean;
+  onRetry?: () => void;
+  standalone?: boolean;
 }) {
-  const style = getStatusTone(finding.status);
+  const intl = useIntl();
+  const isCheckFailed = canRetryTransactionSecurityCheck([finding]);
+  const displayStatus = isCheckFailed ? 'check_failed' : finding.status;
+  const style = getStatusTone(displayStatus);
+  const statusLabel = intl.formatMessage({
+    id: STATUS_LABEL_ID[displayStatus],
+  });
+  const retryLabel = intl.formatMessage({ id: ETranslations.global_retry });
+  const canRetry = Boolean(onRetry) && isCheckFailed;
+  const FindingRowFrame = finding.action ? ButtonFrame : XStack;
   const handlePress = useCallback(() => {
     showSecurityFindingDetails({ finding });
   }, [finding]);
-  const titleSize = featured || emphasizeTitle ? '$bodyMdMedium' : '$bodyMd';
 
   return (
-    <XStack
-      gap="$2"
+    <FindingRowFrame
+      gap="$1.5"
       alignItems="flex-start"
+      justifyContent="flex-start"
+      width="100%"
+      minHeight="$6"
+      p="$0"
+      borderWidth={0}
+      borderRadius="$0"
+      bg="$transparent"
       onPress={finding.action ? handlePress : undefined}
       hoverStyle={finding.action ? INVITE_HOVER_STYLE : undefined}
       pressStyle={finding.action ? INVITE_PRESS_STYLE : undefined}
       hitSlop={finding.action ? FINDING_DETAILS_HIT_SLOP : undefined}
       role={finding.action ? 'button' : undefined}
+      focusable={Boolean(finding.action)}
+      focusVisibleStyle={finding.action ? INTERACTIVE_FOCUS_STYLE : undefined}
       accessibilityLabel={
         finding.action
-          ? [finding.title, finding.description].filter(Boolean).join(', ')
+          ? [statusLabel, finding.title, finding.description]
+              .filter(Boolean)
+              .join(', ')
           : undefined
       }
     >
-      {featured ? null : (
-        <YStack
-          w="$4"
-          h="$5"
-          alignItems="center"
-          justifyContent="center"
-          flexShrink={0}
-        >
-          <Icon name={style.rowIcon} size="$4" color={style.iconColor} />
-        </YStack>
-      )}
-      <YStack gap={featured ? '$1.5' : '$1'} flex={1} minWidth={0}>
-        <SizableText size={titleSize}>{finding.title}</SizableText>
+      <YStack
+        w="$4"
+        h="$5"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        {standalone ? null : (
+          <Icon
+            name={style.rowIcon}
+            size="$4"
+            color={style.iconColor}
+            accessibilityLabel={finding.action ? undefined : statusLabel}
+          />
+        )}
+      </YStack>
+      <YStack gap={standalone ? '$1.5' : '$1'} flex={1} minWidth={0}>
+        <SizableText size="$bodyMdMedium" textAlign="left">
+          {finding.title}
+        </SizableText>
         {finding.description ? (
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="left">
             {finding.description}
           </SizableText>
         ) : null}
       </YStack>
-      {finding.action ? (
-        <YStack h="$5" justifyContent="center" flexShrink={0}>
+      {canRetry ? (
+        <ButtonFrame
+          h="$6"
+          gap="$1"
+          alignItems="center"
+          flexShrink={0}
+          p="$0"
+          borderWidth={0}
+          borderRadius="$0"
+          bg="$transparent"
+          onPress={onRetry}
+          hoverStyle={INVITE_HOVER_STYLE}
+          pressStyle={INVITE_PRESS_STYLE}
+          hitSlop={FINDING_DETAILS_HIT_SLOP}
+          role="button"
+          focusable
+          focusVisibleStyle={INTERACTIVE_FOCUS_STYLE}
+          accessibilityLabel={retryLabel}
+          testID={SignatureConfirmTestIDs.SecurityCheckRetry}
+          userSelect="none"
+        >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {retryLabel}
+          </SizableText>
+          <Icon
+            name="RotateCounterclockwiseOutline"
+            size="$4"
+            color="$iconSubdued"
+          />
+        </ButtonFrame>
+      ) : null}
+      {!canRetry && finding.action ? (
+        <YStack h="$6" justifyContent="center" flexShrink={0}>
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"
@@ -455,7 +547,7 @@ function SecurityCheckFindingRow({
           />
         </YStack>
       ) : null}
-    </XStack>
+    </FindingRowFrame>
   );
 }
 
@@ -490,11 +582,7 @@ function SecurityCheckCategoryGroup({
       ) : null}
       <YStack gap="$2.5">
         {findings.map((finding) => (
-          <SecurityCheckFindingRow
-            key={finding.id}
-            finding={finding}
-            emphasizeTitle
-          />
+          <SecurityCheckFindingRow key={finding.id} finding={finding} />
         ))}
       </YStack>
     </YStack>
@@ -505,20 +593,16 @@ function showAllSecurityFindings({
   kind,
   title,
   findings,
-  orderedCategories,
 }: {
   kind: ISecurityCheckViewModel['kind'];
   title: string;
   findings: ISecurityCheckFinding[];
-  orderedCategories: ISecurityCheckCategory[];
 }) {
   const groupedFindings = {
     site: findings.filter((finding) => finding.category === 'site'),
     operation: findings.filter((finding) => finding.category === 'operation'),
   };
-  const categories = orderedCategories.filter(
-    (category) => groupedFindings[category].length > 0,
-  );
+  const categories = [...new Set(findings.map((finding) => finding.category))];
 
   Dialog.show({
     title,
@@ -544,13 +628,11 @@ function SecurityCheckHeader({
   status,
   title,
   statusLabel,
-  onRetry,
 }: {
   model: ISecurityCheckViewModel;
   status: ISecurityCheckStatus;
   title: string;
   statusLabel: string;
-  onRetry?: () => void;
 }) {
   const intl = useIntl();
   const showChecking = model.isPending;
@@ -558,11 +640,6 @@ function SecurityCheckHeader({
   const showBadge = status !== 'loading' && status !== 'success';
   const showLoadingLabel = status === 'loading';
   const showSuccessLabel = status === 'success';
-  const canRetry =
-    Boolean(onRetry) &&
-    !model.isPending &&
-    canRetryTransactionSecurityCheck(model.findings);
-  const retryLabel = intl.formatMessage({ id: ETranslations.global_retry });
 
   return (
     <XStack
@@ -595,22 +672,7 @@ function SecurityCheckHeader({
         />
       </XStack>
       {showLoadingLabel || showSuccessLabel || showBadge ? (
-        <XStack
-          alignItems="center"
-          gap="$2"
-          ml="auto"
-          maxWidth="100%"
-          onPress={canRetry ? onRetry : undefined}
-          hoverStyle={canRetry ? INVITE_HOVER_STYLE : undefined}
-          pressStyle={canRetry ? INVITE_PRESS_STYLE : undefined}
-          hitSlop={canRetry ? FINDING_DETAILS_HIT_SLOP : undefined}
-          role={canRetry ? 'button' : undefined}
-          accessibilityLabel={canRetry ? retryLabel : undefined}
-          testID={
-            canRetry ? SignatureConfirmTestIDs.SecurityCheckRetry : undefined
-          }
-          userSelect={canRetry ? 'none' : undefined}
-        >
+        <XStack alignItems="center" gap="$2" ml="auto" maxWidth="100%">
           {showLoadingLabel ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {`${statusLabel}...`}
@@ -630,36 +692,50 @@ function SecurityCheckHeader({
               {statusLabel}
             </Badge>
           ) : null}
-          {canRetry ? (
-            <Icon
-              name="RotateCounterclockwiseOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          ) : null}
         </XStack>
       ) : null}
     </XStack>
   );
 }
 
-function SecurityCheckViewAllButton({ onPress }: { onPress: () => void }) {
+function SecurityCheckViewAllButton({
+  count,
+  onPress,
+}: {
+  count: number;
+  onPress: () => void;
+}) {
   const intl = useIntl();
+  const label = `${intl.formatMessage({
+    id: ETranslations.tray_view_all,
+  })} (${intl.formatNumber(count)})`;
   return (
-    <SizableText
+    <ButtonFrame
       testID={SignatureConfirmTestIDs.SecurityCheckViewAll}
-      size="$bodySmMedium"
-      color="$textSubdued"
+      minHeight="$6"
+      p="$0"
+      borderWidth={0}
+      borderRadius="$0"
+      bg="$transparent"
+      alignItems="center"
+      justifyContent="flex-start"
+      gap="$1.5"
       userSelect="none"
-      hoverStyle={{ color: '$text' }}
-      pressStyle={{ color: '$text' }}
+      hoverStyle={INVITE_HOVER_STYLE}
+      pressStyle={INVITE_PRESS_STYLE}
       onPress={onPress}
       hitSlop={FINDING_DETAILS_HIT_SLOP}
       role="button"
+      focusable
+      focusVisibleStyle={INTERACTIVE_FOCUS_STYLE}
+      accessibilityLabel={label}
       alignSelf="flex-start"
     >
-      {intl.formatMessage({ id: ETranslations.tray_view_all })}
-    </SizableText>
+      <Stack width="$4" flexShrink={0} />
+      <SizableText size="$bodySmMedium" color="$textSubdued" textAlign="left">
+        {label}
+      </SizableText>
+    </ButtonFrame>
   );
 }
 
@@ -675,20 +751,15 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
     () => getCardSecurityFindings(model.findings),
     [model.findings],
   );
+  const isStandaloneFinding = cardFindings.visibleFindings.length === 1;
   const showViewAll = cardFindings.hasHiddenDecisionFindings;
   const handleViewAll = useCallback(() => {
     showAllSecurityFindings({
       kind: model.kind,
       title: headerTitle,
       findings: cardFindings.allDecisionFindings,
-      orderedCategories: model.orderedCategories,
     });
-  }, [
-    cardFindings.allDecisionFindings,
-    headerTitle,
-    model.kind,
-    model.orderedCategories,
-  ]);
+  }, [cardFindings.allDecisionFindings, headerTitle, model.kind]);
   if (!model.status) {
     return null;
   }
@@ -707,23 +778,26 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
             status={model.status}
             title={headerTitle}
             statusLabel={statusLabel}
-            onRetry={onRetry}
           />
           {model.showPrimeInvite ? <PrimeInviteRow /> : null}
         </YStack>
-        {cardFindings.featured ? (
+        {cardFindings.visibleFindings.length ? (
           <YStack gap="$4">
-            <SecurityCheckFindingRow finding={cardFindings.featured} featured />
-            {cardFindings.listed.length ? (
-              <YStack gap="$3">
-                <Divider />
-                {cardFindings.listed.map((finding) => (
-                  <SecurityCheckFindingRow key={finding.id} finding={finding} />
-                ))}
-              </YStack>
-            ) : null}
+            <YStack gap="$3">
+              {cardFindings.visibleFindings.map((finding) => (
+                <SecurityCheckFindingRow
+                  key={finding.id}
+                  finding={finding}
+                  onRetry={model.isPending ? undefined : onRetry}
+                  standalone={isStandaloneFinding}
+                />
+              ))}
+            </YStack>
             {showViewAll ? (
-              <SecurityCheckViewAllButton onPress={handleViewAll} />
+              <SecurityCheckViewAllButton
+                count={cardFindings.allDecisionFindings.length}
+                onPress={handleViewAll}
+              />
             ) : null}
           </YStack>
         ) : null}

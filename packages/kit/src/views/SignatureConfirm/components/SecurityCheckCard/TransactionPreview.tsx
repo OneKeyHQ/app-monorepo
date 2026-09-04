@@ -24,7 +24,6 @@ import {
   getSimulationAssetIconProps,
   getSimulationAssetLabel,
   getSimulationAssetSign,
-  getSimulationAssets,
   getSimulationGroups,
 } from './utils';
 
@@ -175,7 +174,7 @@ function TransactionPreview({ simulationComponents }: IProps) {
     [simulationComponents],
   );
   const assets = useMemo(
-    () => getSimulationAssets(simulationGroups),
+    () => simulationGroups.flatMap((group) => group.assets),
     [simulationGroups],
   );
   const networkIds = useMemo(

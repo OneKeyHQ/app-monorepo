@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -13,6 +14,8 @@ import {
   canSubmitTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityJsonRpc,
   createCheckFailedTransactionSecurityResult,
+  createCheckUnavailableTransactionSecurityResult,
+  createNetworkNotSupportedTransactionSecurityResult,
   createUnableToAssessTransactionSecurityResult,
   resolveTransactionSecurityServerResult,
 } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
@@ -85,6 +88,9 @@ type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
         jsonRpc: ITransactionSecurityJsonRpc;
       }
   );
+
+const TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE = 31_403;
+const TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE = 31_501;
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -706,7 +712,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     if (
       await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
     ) {
-      return undefined;
+      return createNetworkNotSupportedTransactionSecurityResult();
     }
 
     if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
@@ -780,7 +786,21 @@ class ServiceSignatureConfirm extends ServiceBase {
         },
       });
       return resolveTransactionSecurityServerResult(resp.data.data);
-    } catch {
+    } catch (error) {
+      const serverError = error as { className?: string; code?: number };
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code === TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE
+      ) {
+        return createCheckUnavailableTransactionSecurityResult();
+      }
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code ===
+          TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE
+      ) {
+        return createNetworkNotSupportedTransactionSecurityResult();
+      }
       return createCheckFailedTransactionSecurityResult();
     }
   }

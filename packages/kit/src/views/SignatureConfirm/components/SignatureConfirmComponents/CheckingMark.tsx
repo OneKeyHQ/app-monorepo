@@ -12,9 +12,15 @@ import Animated, {
 import { Stack } from '@onekeyhq/components';
 
 const SIZE = 16;
+const RING_SIZE = 14;
 const BORDER = 2;
 const SPIN_MS = 800;
-const SIZE_STYLE = { width: SIZE, height: SIZE } as const;
+const SIZE_STYLE = {
+  width: SIZE,
+  height: SIZE,
+  alignItems: 'center',
+  justifyContent: 'center',
+} as const;
 
 function CheckingMark({ accessibilityLabel }: { accessibilityLabel: string }) {
   const reducedMotion = useReducedMotion();
@@ -43,9 +49,9 @@ function CheckingMark({ accessibilityLabel }: { accessibilityLabel: string }) {
       style={[SIZE_STYLE, animatedStyle]}
     >
       <Stack
-        width={SIZE}
-        height={SIZE}
-        borderRadius={SIZE / 2}
+        width={RING_SIZE}
+        height={RING_SIZE}
+        borderRadius={RING_SIZE / 2}
         borderWidth={BORDER}
         borderColor="$neutral5"
         borderTopColor="$iconSubdued"

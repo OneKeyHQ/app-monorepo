@@ -233,7 +233,3 @@ export function getSimulationGroups(
       .filter((group) => group.assets.length > 0) ?? []
   );
 }
-
-export function getSimulationAssets(simulationGroups: ISimulationGroup[]) {
-  return simulationGroups.flatMap((group) => group.assets);
-}

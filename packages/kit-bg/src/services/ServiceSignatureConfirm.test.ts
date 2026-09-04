@@ -43,6 +43,8 @@ jest.mock('../states/jotai/atoms/prime', () => ({
 // eslint-disable-next-line import-js/order, import/first
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+// eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
   EParseTxType,
@@ -159,11 +161,14 @@ function mockActivePrimePersist() {
   });
 }
 
-function buildTransactionSecurityService(post: jest.Mock) {
+function buildTransactionSecurityService(
+  post: jest.Mock,
+  { isCustomNetwork = false }: { isCustomNetwork?: boolean } = {},
+) {
   mockActivePrimePersist();
   const backgroundApi = {
     serviceNetwork: {
-      isCustomNetwork: jest.fn().mockResolvedValue(false),
+      isCustomNetwork: jest.fn().mockResolvedValue(isCustomNetwork),
     },
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue(accountAddress),
@@ -420,10 +425,11 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('returns a failed result when the request throws', async () => {
-    const service = buildTransactionSecurityService(
-      jest.fn().mockRejectedValue(new Error('timeout')),
-    );
+  it('does not call the server for a custom network', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post, {
+      isCustomNetwork: true,
+    });
 
     await expect(
       service.checkTransactionSecurity({
@@ -437,9 +443,42 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     ).resolves.toEqual({
       level: 'unknown',
       detail: {
-        code: 'check_failed',
+        code: 'network_not_supported',
         features: [],
       },
+    });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['generic request errors', undefined, 'check_failed'],
+    ['downstream error 30401', 30_401, 'check_failed'],
+    ['Prime entitlement error 31403', 31_403, 'check_unavailable'],
+    ['unsupported network error 31501', 31_501, 'network_not_supported'],
+  ])('maps %s', async (_name, serverCode, expectedCode) => {
+    const service = buildTransactionSecurityService(
+      jest.fn().mockRejectedValue(
+        serverCode
+          ? {
+              className: EOneKeyErrorClassNames.OneKeyServerApiError,
+              code: serverCode,
+            }
+          : new Error('timeout'),
+      ),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: { code: expectedCode, features: [] },
     });
   });
 

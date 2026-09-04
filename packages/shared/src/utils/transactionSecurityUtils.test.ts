@@ -7,9 +7,13 @@ import {
   canSubmitTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityJsonRpc,
   createCheckFailedTransactionSecurityResult,
+  createCheckUnavailableTransactionSecurityResult,
+  createNetworkNotSupportedTransactionSecurityResult,
   createUnableToAssessTransactionSecurityResult,
   getTransactionSecurityEncodedTxIdentity,
   isTransactionSecurityCheckFailed,
+  isTransactionSecurityCheckUnavailable,
+  isTransactionSecurityNetworkNotSupported,
   mergeTransactionSecurityResults,
   normalizeTransactionSecurityLevel,
   normalizeTransactionSecurityResult,
@@ -109,6 +113,29 @@ describe('transactionSecurityUtils', () => {
       ).toEqual(createUnableToAssessTransactionSecurityResult());
     });
 
+    it.each([
+      ETransactionSecurityResultCode.UnableToAssess,
+      ETransactionSecurityResultCode.CheckFailed,
+    ])('does not accept %s as a safe result', (code) => {
+      expect(
+        resolveTransactionSecurityServerResult({
+          level: 'security',
+          detail: {
+            code,
+            title: 'Server detail',
+            features: [],
+          },
+        }),
+      ).toMatchObject({
+        level: EHostSecurityLevel.Unknown,
+        detail: {
+          code,
+          title: 'Server detail',
+          features: [],
+        },
+      });
+    });
+
     it('returns undefined when the server says the check is not applicable', () => {
       expect(
         normalizeTransactionSecurityResult({
@@ -145,6 +172,16 @@ describe('transactionSecurityUtils', () => {
           createUnableToAssessTransactionSecurityResult(),
         ),
       ).toBe(false);
+      expect(
+        isTransactionSecurityCheckUnavailable(
+          createCheckUnavailableTransactionSecurityResult(),
+        ),
+      ).toBe(true);
+      expect(
+        isTransactionSecurityNetworkNotSupported(
+          createNetworkNotSupportedTransactionSecurityResult(),
+        ),
+      ).toBe(true);
       expect(
         resolveTransactionSecurityServerResult({
           supported: false,
@@ -327,6 +364,7 @@ describe('transactionSecurityUtils', () => {
         detail: { code: 'unknown', features: [] },
       });
       const failed = createCheckFailedTransactionSecurityResult();
+      const unsupported = createNetworkNotSupportedTransactionSecurityResult();
       expect(
         mergeTransactionSecurityResults([undefined, highRisk]),
       ).toMatchObject({
@@ -354,6 +392,12 @@ describe('transactionSecurityUtils', () => {
       );
       expect(mergeTransactionSecurityResults([undefined])).toBeUndefined();
       expect(mergeTransactionSecurityResults([failed, failed])).toEqual(failed);
+      expect(mergeTransactionSecurityResults([unsupported, unsupported])).toBe(
+        unsupported,
+      );
+      expect(mergeTransactionSecurityResults([unsupported, safe])).toEqual(
+        createUnableToAssessTransactionSecurityResult(),
+      );
     });
 
     it('keeps distinct feature evidence and the highest duplicate severity', () => {

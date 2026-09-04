@@ -4,6 +4,8 @@ export enum ETransactionSecurityResultCode {
   UnableToAssess = 'unable_to_assess',
   NotSupported = 'not_supported',
   CheckFailed = 'check_failed',
+  CheckUnavailable = 'check_unavailable',
+  NetworkNotSupported = 'network_not_supported',
 }
 
 export type ITransactionSecurityFeature = {
