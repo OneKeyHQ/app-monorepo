@@ -12,6 +12,7 @@ const {
   computeModulesDigest,
   computeNativeContractKey,
   getNativeContractInputPaths,
+  getNativePackageAbiInputPaths,
   getPlatformOutputDirectory,
   sha256,
 } = require('../../plugins/devVendor');
@@ -64,18 +65,22 @@ function createTemporaryRepo() {
     ...devVendorConfig.nativeContractDependencies.android,
     ...devVendorConfig.nativeContractDependencies.ios,
   ]);
-  for (const name of nativeDependencies) {
-    const source = require.resolve(`${name}/package.json`, {
-      paths: [path.join(REPO_ROOT, 'apps/mobile')],
-    });
-    const destination = path.join(
-      repoRoot,
-      'node_modules',
-      ...name.split('/'),
-      'package.json',
-    );
+  const nativeAbiInputs = new Set();
+  for (const platform of ['android', 'ios']) {
+    for (const name of nativeDependencies) {
+      for (const relativePath of getNativePackageAbiInputPaths(
+        name,
+        platform,
+        REPO_ROOT,
+      )) {
+        nativeAbiInputs.add(relativePath);
+      }
+    }
+  }
+  for (const relativePath of nativeAbiInputs) {
+    const destination = path.join(repoRoot, relativePath);
     fs.ensureDirSync(path.dirname(destination));
-    fs.copyFileSync(source, destination);
+    fs.copyFileSync(path.join(REPO_ROOT, relativePath), destination);
   }
   const modulePath = 'node_modules/react/index.js';
   const moduleId = loadRegistry().modules[modulePath];
@@ -763,7 +768,7 @@ describe('metro-dev-prebundle release transport', () => {
     } finally {
       await fs.remove(fixture.repoRoot);
     }
-  }, 15_000);
+  }, 30_000);
 
   it('rejects OCI bearer token realms containing credentials', async () => {
     const registryBaseUrl = 'https://example.invalid';

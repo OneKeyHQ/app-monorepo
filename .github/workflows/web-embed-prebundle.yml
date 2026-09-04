@@ -56,7 +56,15 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
+          cache: yarn
           check-latest: true
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+
+      - name: Install dependency graph
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn install --immutable --mode=skip-builds
 
       - name: Verify OCI configuration
         run: |

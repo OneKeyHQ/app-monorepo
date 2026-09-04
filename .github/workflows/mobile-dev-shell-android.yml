@@ -60,6 +60,14 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+
+      - name: Install native ABI inputs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn install --immutable --mode=skip-builds
 
       - name: Resolve exact OCI shell
         id: shell
@@ -69,7 +77,7 @@ jobs:
           node apps/mobile/scripts/native-dev-shell.js resolve \
             --platform android \
             --output "$status_file"
-          exists="$(jq -er '.exists' "$status_file")"
+          exists="$(jq -r 'if (.exists | type) == "boolean" then .exists else error("invalid exists value") end' "$status_file")"
           tag="$(jq -er '.tag' "$status_file")"
           oci_digest="$(jq -r '.ociDigest // ""' "$status_file")"
           reference="ghcr.io/onekeyhq/mobile-dev-shell:$tag"

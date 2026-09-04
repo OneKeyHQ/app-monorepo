@@ -5,9 +5,13 @@
 const { execFile, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const { builtinModules } = require('module');
 const os = require('os');
 const path = require('path');
 const { promisify } = require('util');
+
+const babelParser = require('@babel/parser');
+const enhancedResolve = require('enhanced-resolve');
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -38,18 +42,14 @@ const TRUSTED_ROOT_PATH = path.join(
   'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
 );
 const INPUT_PATHS = [
-  '.env.version',
-  '.github/workflows/web-embed-prebundle.yml',
-  'apps/web-embed',
-  'development',
-  'package.json',
-  'packages/components',
-  'packages/core',
-  'packages/kit',
-  'packages/kit-bg',
-  'packages/shared',
-  'patches',
-  'yarn.lock',
+  'apps/ext/src/assets/preload-html-head.js',
+  'apps/web-embed/babel.config.js',
+  'apps/web-embed/index.js',
+  'apps/web-embed/public/static/images/icons/favicon/favicon.png',
+  'apps/web-embed/rspack.config.ts',
+  'apps/web-embed/scripts/finalize-production-assets.js',
+  'apps/web-embed/sentry.js',
+  'packages/shared/src/web/index.html.ejs',
 ];
 const EXCLUDED_DIRECTORY_NAMES = new Set([
   '.cache',
@@ -69,6 +69,43 @@ const EXCLUDED_GENERATED_INPUT_PATHS = new Set([
   'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
   'packages/shared/src/web/index.html',
 ]);
+const SOURCE_EXTENSIONS = new Set([
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.ts',
+  '.tsx',
+]);
+const WEB_EMBED_RESOLVE_EXTENSIONS = [
+  '.web-embed.ts',
+  '.web-embed.tsx',
+  '.web-embed.js',
+  '.web-embed.jsx',
+  '.web-only.ts',
+  '.web-only.tsx',
+  '.web-only.mjs',
+  '.web-only.js',
+  '.web-only.jsx',
+  '.web.ts',
+  '.web.tsx',
+  '.web.mjs',
+  '.web.js',
+  '.web.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.json',
+  '.wasm',
+  '.d.ts',
+];
+const BUILTIN_MODULES = new Set(
+  builtinModules.flatMap((name) => [name, `node:${name}`]),
+);
+let cachedDefaultInputKey;
 const CANONICAL_EMPTY_ENV_KEYS = [
   'BUILD_APP_VERSION',
   'CI_BUILD_APP_VERSION',
@@ -139,6 +176,279 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   );
 }
 
+function parseModuleSpecifiers(filePath) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const commonPlugins = [
+    'classProperties',
+    'decorators-legacy',
+    'dynamicImport',
+    'importMeta',
+    'jsx',
+    'topLevelAwait',
+  ];
+  let ast;
+  try {
+    ast = babelParser.parse(source, {
+      errorRecovery: false,
+      plugins: [...commonPlugins, 'typescript'],
+      sourceType: 'unambiguous',
+    });
+  } catch {
+    try {
+      ast = babelParser.parse(source, {
+        errorRecovery: false,
+        plugins: [...commonPlugins, 'flow', 'flowComments'],
+        sourceType: 'unambiguous',
+      });
+    } catch {
+      const specifiers = new Set();
+      const importPattern =
+        /(?:\b(?:import|export)\b[\s\S]*?\bfrom\s*|\brequire(?:\.resolve)?\s*\(|\bimport\s*\()\s*['"]([^'"]+)['"]/gu;
+      for (const match of source.matchAll(importPattern)) {
+        specifiers.add(match[1]);
+      }
+      return [...specifiers].toSorted(compareStrings);
+    }
+  }
+  const specifiers = new Set();
+  const addSource = (sourceNode) => {
+    if (sourceNode?.type === 'StringLiteral') specifiers.add(sourceNode.value);
+  };
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type') {
+      addSource(node.source);
+    } else if (
+      ['ExportAllDeclaration', 'ExportNamedDeclaration'].includes(node.type) &&
+      node.exportKind !== 'type'
+    ) {
+      addSource(node.source);
+    } else if (node.type === 'ImportExpression') {
+      addSource(node.source);
+    } else if (node.type === 'CallExpression') {
+      const isRequire =
+        node.callee?.type === 'Identifier' && node.callee.name === 'require';
+      const isDynamicImport = node.callee?.type === 'Import';
+      const isRequireResolve =
+        node.callee?.type === 'MemberExpression' &&
+        node.callee.object?.type === 'Identifier' &&
+        node.callee.object.name === 'require' &&
+        node.callee.property?.type === 'Identifier' &&
+        node.callee.property.name === 'resolve';
+      if (isRequire || isDynamicImport || isRequireResolve) {
+        addSource(node.arguments?.[0]);
+      }
+    } else if (
+      node.type === 'NewExpression' &&
+      node.callee?.type === 'Identifier' &&
+      node.callee.name === 'URL'
+    ) {
+      addSource(node.arguments?.[0]);
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (!['comments', 'errors', 'loc', 'tokens'].includes(key)) visit(value);
+    }
+  };
+  visit(ast.program);
+  return [...specifiers].toSorted(compareStrings);
+}
+
+function createWebEmbedResolver(root) {
+  const moduleResolverMocks = path.join(root, 'development/module-resolver');
+  return enhancedResolve.create.sync({
+    alias: {
+      '@sentry/minimal$': path.join(
+        moduleResolverMocks,
+        'sentry-minimal-compat',
+      ),
+      'react-native$': 'react-native-web',
+      'react-native-aes-crypto': false,
+      'react-native-cloud-fs': false,
+      'react-native-fast-image': path.join(
+        moduleResolverMocks,
+        'react-native-fast-image-mock',
+      ),
+      'react-native-keyboard-controller': path.join(
+        moduleResolverMocks,
+        'react-native-keyboard-controller-mock',
+      ),
+    },
+    aliasFields: ['browser'],
+    conditionNames: ['browser', 'import', 'require', 'default'],
+    extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
+    mainFields: ['browser', 'module', 'main'],
+    modules: [path.join(root, 'node_modules'), 'node_modules'],
+    symlinks: true,
+  });
+}
+
+function findPackageRoot(filePath, root) {
+  let current = path.dirname(filePath);
+  while (current.startsWith(root) && current !== root) {
+    const packagePath = path.join(current, 'package.json');
+    if (fs.existsSync(packagePath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      if (
+        typeof packageJson.name === 'string' &&
+        typeof packageJson.version === 'string'
+      ) {
+        return { packageJson, packagePath, packageRoot: current };
+      }
+    }
+    current = path.dirname(current);
+  }
+  return undefined;
+}
+
+function readYarnLockResolutionRecords(root) {
+  const records = new Map();
+  let activeKey;
+  let activeRecord;
+  const flush = () => {
+    if (!activeRecord?.resolution || !activeRecord.version) return;
+    const key = `${activeRecord.resolution}\0${activeRecord.version}`;
+    records.set(key, {
+      checksum: activeRecord.checksum || null,
+      resolution: activeRecord.resolution,
+      version: activeRecord.version,
+    });
+  };
+  for (const line of fs
+    .readFileSync(path.join(root, 'yarn.lock'), 'utf8')
+    .split('\n')) {
+    if (line && !line.startsWith(' ') && line.endsWith(':')) {
+      flush();
+      activeKey = line.slice(0, -1);
+      activeRecord = activeKey === '__metadata' ? undefined : {};
+    } else if (activeRecord) {
+      const field = line.match(/^  (checksum|resolution|version): (.+)$/u);
+      if (field) {
+        activeRecord[field[1]] = field[2].startsWith('"')
+          ? JSON.parse(field[2])
+          : field[2];
+      }
+    }
+  }
+  flush();
+  return [...records.values()];
+}
+
+function getPackageResolutionRecords(packageJson, lockRecords) {
+  const exactNpmResolution = `${packageJson.name}@npm:${packageJson.version}`;
+  const matches = lockRecords.filter(
+    ({ resolution, version }) =>
+      version === packageJson.version &&
+      (resolution === exactNpmResolution ||
+        resolution.startsWith(`${packageJson.name}@`)),
+  );
+  if (matches.length === 0) {
+    throw new Error(
+      `[webEmbedPrebundle] Installed dependency is missing from yarn.lock: ${packageJson.name}@${packageJson.version}`,
+    );
+  }
+  return matches.toSorted((left, right) =>
+    compareStrings(JSON.stringify(left), JSON.stringify(right)),
+  );
+}
+
+function getWebEmbedInputDescriptor({
+  inputPaths = INPUT_PATHS,
+  root = REPO_ROOT,
+} = {}) {
+  const resolver = createWebEmbedResolver(root);
+  const repoFiles = new Set(listFiles(inputPaths, root));
+  const pending = [...repoFiles];
+  const visited = new Set();
+  const externalPackages = new Map();
+  while (pending.length > 0) {
+    const filePath = pending.pop();
+    if (!visited.has(filePath)) {
+      visited.add(filePath);
+      if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
+        const specifiers = parseModuleSpecifiers(filePath).filter(
+          (specifier) => !BUILTIN_MODULES.has(specifier),
+        );
+        for (const specifier of specifiers) {
+          let resolved;
+          try {
+            resolved = resolver(path.dirname(filePath), specifier);
+          } catch (error) {
+            const adjacentPath = path.resolve(
+              path.dirname(filePath),
+              specifier,
+            );
+            if (
+              fs.existsSync(adjacentPath) &&
+              fs.lstatSync(adjacentPath).isFile()
+            ) {
+              resolved = adjacentPath;
+            } else {
+              throw new Error(
+                `[webEmbedPrebundle] Unable to resolve ${specifier} from ${toRepoPath(filePath, root)}. Run yarn install first.`,
+                { cause: error },
+              );
+            }
+          }
+          if (resolved !== false && typeof resolved === 'string') {
+            const normalizedPath = resolved
+              .replaceAll('\0#', '#')
+              .replaceAll('\0?', '?');
+            const relativePath = toRepoPath(normalizedPath, root);
+            if (!relativePath.startsWith('node_modules/')) {
+              if (!repoFiles.has(normalizedPath)) {
+                repoFiles.add(normalizedPath);
+              }
+            } else {
+              const resolvedPackage = findPackageRoot(normalizedPath, root);
+              if (!resolvedPackage) {
+                throw new Error(
+                  `[webEmbedPrebundle] Unable to identify dependency for ${relativePath}.`,
+                );
+              }
+              externalPackages.set(
+                resolvedPackage.packageRoot,
+                resolvedPackage,
+              );
+            }
+            pending.push(normalizedPath);
+          }
+        }
+      }
+    }
+  }
+
+  const packages = [];
+  const lockRecords = readYarnLockResolutionRecords(root);
+  for (const dependency of externalPackages.values()) {
+    const { packageJson } = dependency;
+    packages.push({
+      browser: packageJson.browser ?? null,
+      dependencies: packageJson.dependencies || {},
+      exports: packageJson.exports ?? null,
+      main: packageJson.main ?? null,
+      module: packageJson.module ?? null,
+      name: packageJson.name,
+      optionalDependencies: packageJson.optionalDependencies || {},
+      peerDependencies: packageJson.peerDependencies || {},
+      resolutions: getPackageResolutionRecords(packageJson, lockRecords),
+      sideEffects: packageJson.sideEffects ?? null,
+      version: packageJson.version,
+    });
+  }
+
+  return {
+    files: [...repoFiles].toSorted((left, right) =>
+      compareStrings(toRepoPath(left, root), toRepoPath(right, root)),
+    ),
+    packages: packages.toSorted((left, right) =>
+      compareStrings(
+        `${left.name}@${left.version}`,
+        `${right.name}@${right.version}`,
+      ),
+    ),
+  };
+}
+
 function hashFiles(absolutePaths, root = REPO_ROOT) {
   const hash = crypto.createHash('sha256');
   for (const absolutePath of absolutePaths) {
@@ -161,11 +471,28 @@ function hashFiles(absolutePaths, root = REPO_ROOT) {
   return hash.digest('hex');
 }
 
-function getInputKey({ inputPaths = INPUT_PATHS, root = REPO_ROOT } = {}) {
+function getInputKey(options = {}) {
+  if (Object.keys(options).length === 0 && cachedDefaultInputKey) {
+    return cachedDefaultInputKey;
+  }
+  const {
+    inputPaths = INPUT_PATHS,
+    root = REPO_ROOT,
+    traceDependencies = inputPaths === INPUT_PATHS,
+  } = options;
   const hash = crypto.createHash('sha256');
   hash.update(`schema:${SCHEMA_VERSION}\0`);
-  hash.update(hashFiles(listFiles(inputPaths, root), root));
-  return hash.digest('hex');
+  if (traceDependencies) {
+    const descriptor = getWebEmbedInputDescriptor({ inputPaths, root });
+    hash.update(hashFiles(descriptor.files, root));
+    hash.update('\0');
+    hash.update(JSON.stringify(descriptor.packages));
+  } else {
+    hash.update(hashFiles(listFiles(inputPaths, root), root));
+  }
+  const inputKey = hash.digest('hex');
+  if (Object.keys(options).length === 0) cachedDefaultInputKey = inputKey;
+  return inputKey;
 }
 
 function getReleaseTag() {
@@ -1058,6 +1385,7 @@ module.exports = {
   getCanonicalBuildEnvironment,
   getInputKey,
   getReleaseTag,
+  getWebEmbedInputDescriptor,
   hashFiles,
   listFiles,
   packageRelease,

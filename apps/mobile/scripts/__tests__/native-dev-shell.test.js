@@ -1747,6 +1747,13 @@ describe('native-dev-shell', () => {
       path.join(__dirname, '../../metro.config.js'),
       'utf8',
     );
+    const webViewWebEmbed = fs.readFileSync(
+      path.join(
+        __dirname,
+        '../../../../packages/kit/src/components/WebViewWebEmbed/index.tsx',
+      ),
+      'utf8',
+    );
 
     expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
     expect(androidApplication).toContain(
@@ -1763,6 +1770,14 @@ describe('native-dev-shell', () => {
     expect(iosDelegate).toContain('!host.isEmpty');
     expect(iosDelegate).toContain('components.path = ""');
     expect(metroConfig).not.toContain('/onekey-dev/');
+    expect(metroConfig).toContain('/onekey-dev-session/web-embed/');
+    expect(metroConfig).toContain("res.setHeader('Cache-Control', 'no-store')");
+    expect(webViewWebEmbed).toContain(
+      "searchParams.get('resolver.devSessionId')",
+    );
+    expect(webViewWebEmbed).toContain(
+      '/onekey-dev-session/web-embed/index.html',
+    );
     expect(nativeDevShell).toContain(
       "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
     );
@@ -1780,6 +1795,9 @@ describe('native-dev-shell', () => {
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),
     );
+    expect(
+      launchSource.indexOf('await prepareWebEmbedForDevSession(report)'),
+    ).toBeLessThan(launchSource.indexOf('await resolveAndInstallShell({'));
     expect(
       launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
     ).toBeLessThan(launchSource.indexOf('launchNativeApp('));
@@ -1959,7 +1977,6 @@ describe('native-dev-shell', () => {
     const compatibility = getShellCompatibility({
       nativeContractKey: '4'.repeat(64),
       platform: 'ios',
-      webEmbedInputKey: '5'.repeat(64),
     });
 
     expect(compatibility).toMatchObject({
@@ -1968,7 +1985,6 @@ describe('native-dev-shell', () => {
       nativeContractKey: '4'.repeat(64),
       platform: 'ios',
       resourcePlatform: 'ios-simulator',
-      webEmbedInputKey: '5'.repeat(64),
     });
     expect(compatibility.shellCompatibilityKey).toMatch(/^[0-9a-f]{64}$/u);
     expect(compatibility.shellInputKey).toMatch(/^[0-9a-f]{64}$/u);

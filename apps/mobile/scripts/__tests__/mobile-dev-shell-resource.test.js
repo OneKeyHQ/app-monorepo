@@ -139,7 +139,6 @@ describe('mobile-dev-shell-resource', () => {
       'platform=android',
       'architecture=arm64-v8a',
       `native-contract=${nativeContractKey}`,
-      `web-embed=${webEmbedInputKey}`,
     ],
   );
   const shellInputKey = '2'.repeat(64);
@@ -651,6 +650,81 @@ describe('mobile-dev-shell-resource', () => {
         }),
       ).resolves.toMatchObject({ exists: true });
       expect(remote.fetchImpl).toHaveBeenCalledTimes(2);
+      expect(wait).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('retries an exact OCI shell lookup after a request timeout', async () => {
+    const remote = createRemoteShell({
+      compatibility,
+      inputKey: compatibility.shellInputKey,
+    });
+    remote.fetchImpl.mockRejectedValueOnce(
+      new DOMException(
+        'The operation was aborted due to timeout',
+        'TimeoutError',
+      ),
+    );
+    const wait = jest.fn().mockResolvedValue(undefined);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        resolveExactMobileDevShell({
+          compatibility,
+          fetchImpl: remote.fetchImpl,
+          retryDelayMs: 0,
+          wait,
+        }),
+      ).resolves.toMatchObject({ exists: true });
+      expect(remote.fetchImpl).toHaveBeenCalledTimes(2);
+      expect(wait).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('retries an exact OCI shell lookup after a token service failure', async () => {
+    const remote = createRemoteShell({
+      compatibility,
+      inputKey: compatibility.shellInputKey,
+    });
+    let tokenRequests = 0;
+    const fetchImpl = jest.fn(async (url, options = {}) => {
+      const requestUrl = new URL(url);
+      if (requestUrl.pathname === '/token') {
+        tokenRequests += 1;
+        return tokenRequests === 1
+          ? new Response('unavailable', { status: 503 })
+          : Response.json({ token: 'public-token' });
+      }
+      if (!options.headers?.Authorization) {
+        return new Response('authentication required', {
+          headers: {
+            'www-authenticate': `Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:onekeyhq/mobile-dev-shell:pull"`,
+          },
+          status: 401,
+        });
+      }
+      return remote.fetchImpl(url, options);
+    });
+    const wait = jest.fn().mockResolvedValue(undefined);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        resolveExactMobileDevShell({
+          compatibility,
+          fetchImpl,
+          retryDelayMs: 0,
+          wait,
+        }),
+      ).resolves.toMatchObject({ exists: true });
+      expect(tokenRequests).toBe(2);
       expect(wait).toHaveBeenCalledTimes(1);
     } finally {
       consoleError.mockRestore();
