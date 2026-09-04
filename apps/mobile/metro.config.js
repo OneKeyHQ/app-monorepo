@@ -21,7 +21,6 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const {
   withStorybook,
 } = require('@storybook/react-native/metro/withStorybook');
-const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
 
@@ -124,8 +123,11 @@ config.resolver.sourceExts = [
 ];
 
 // Configure SVG transformer for .svgx files (used by react-native-bottom-tabs)
-config.resolver.assetExts = (config.resolver.assetExts || []).filter(
-  (ext) => ext !== 'svgx',
+config.resolver.assetExts = Array.from(
+  new Set([
+    ...(config.resolver.assetExts || []).filter((ext) => ext !== 'svgx'),
+    'txt',
+  ]),
 );
 config.transformer = config.transformer || {};
 config.transformer.babelTransformerPath =
@@ -188,6 +190,12 @@ const revenueCatBrowserMappingsStub = path.resolve(
   projectRoot,
   'shims/revenueCatBrowserMappings.js',
 );
+// Aptos SDK 1.39 statically imports an unused script composer whose generated
+// WASM byte array expands to more than 11 MB in Hermes bytecode.
+const aptosScriptComposerNativeStub = path.resolve(
+  monorepoRoot,
+  'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -211,6 +219,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@aptos-labs/script-composer-pack'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: aptosScriptComposerNativeStub,
+    };
+  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === '@revenuecat/purchases-js-hybrid-mappings'
@@ -635,7 +652,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 };
 
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
+  applyFixImageAssetsMiddleware(metroMiddleware);
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
 // transform-cache key cannot see — flipping modes would serve stale transforms
