@@ -113,14 +113,17 @@ describe('detectMimeTypeFromMagicBytes', () => {
 
 describe('probeImageMimeType', () => {
   const uri = 'https://example.com/nft-media';
-  const fetchMock = jest.spyOn(global, 'fetch');
+  const originalFetch = globalThis.fetch;
+  const fetchMock = jest.fn();
 
   beforeEach(() => {
     Object.assign(platformEnv, { isNative: false });
+    globalThis.fetch = fetchMock as never;
   });
 
   afterEach(() => {
     fetchMock.mockReset();
+    globalThis.fetch = originalFetch;
     Object.assign(platformEnv, { isNative: true });
   });
 

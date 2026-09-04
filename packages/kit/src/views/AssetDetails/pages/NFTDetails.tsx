@@ -139,10 +139,7 @@ export default function NFTDetails() {
       .then((mimeType) => {
         if (
           isCurrent &&
-          isCollectibleNftMediaSupportedOnDevice(
-            device?.deviceType,
-            mimeType,
-          )
+          isCollectibleNftMediaSupportedOnDevice(device?.deviceType, mimeType)
         ) {
           setSupportedCollectibleImageSource(collectibleImageSource);
         }
