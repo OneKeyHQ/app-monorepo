@@ -64,6 +64,28 @@ describe('web-embed-prebundle', () => {
     expect(getReleaseTag()).toBe(`web-embed-prebundle-v1-${inputKey}`);
   });
 
+  it('filters x pushes to declared build inputs', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+
+    expect(workflow).toContain('push:\n    branches:\n      - x\n    paths:');
+    for (const inputPath of INPUT_PATHS) {
+      const triggerPath = fs
+        .statSync(path.join(repoRoot, inputPath))
+        .isDirectory()
+        ? `${inputPath}/**`
+        : inputPath;
+      expect(workflow).toContain(`- '${triggerPath}'`);
+    }
+    expect(workflow).toContain("cron: '30 18 * * 0'");
+    expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain(
+      "github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'",
+    );
+  });
+
   it('fails closed when the publish tag lookup has a registry error', () => {
     const workflow = fs.readFileSync(
       path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
