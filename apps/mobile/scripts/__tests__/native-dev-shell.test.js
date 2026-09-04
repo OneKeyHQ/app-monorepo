@@ -1773,6 +1773,9 @@ describe('native-dev-shell', () => {
     expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
       nativeDevShell.indexOf('preparationLock.release();'),
     );
+    expect(nativeDevShell.indexOf('preparationLock.release();')).toBeLessThan(
+      nativeDevShell.indexOf('await prewarmNativeRuntimeBundles({'),
+    );
     const launchSource = nativeDevShell.slice(
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),

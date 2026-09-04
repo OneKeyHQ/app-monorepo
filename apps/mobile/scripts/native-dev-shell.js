@@ -2321,14 +2321,14 @@ async function launchDevShell({
       child.once('exit', (code, signal) => resolve({ code, signal }));
     });
     await waitForMetro(metroPort, child, () => metroSpawnError);
+    preparationLock.release();
+    preparationLock = undefined;
     await prewarmNativeRuntimeBundles({
       fingerprint: vendorManifest.fingerprint,
       metroPort,
       platform,
       sessionId,
     });
-    preparationLock.release();
-    preparationLock = undefined;
     const nativeLaunch = launchNativeApp(platform, selectedDevice.id);
     report.launchedAt = new Date().toISOString();
     await waitForNativeAppStartup({

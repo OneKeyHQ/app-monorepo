@@ -456,6 +456,16 @@ describe('web-embed-prebundle', () => {
       .update(ociManifest)
       .digest('hex')}`;
     const immutableReference = `${OCI_REGISTRY}/${OCI_REPOSITORY}@${ociDigest}`;
+    const archiveDigest = layers.find(
+      (layer) =>
+        layer.annotations['org.opencontainers.image.title'] === ARCHIVE_NAME,
+    ).digest;
+    const attestationDigest = layers.find(
+      (layer) =>
+        layer.annotations['org.opencontainers.image.title'] ===
+        ATTESTATION_BUNDLE_NAME,
+    ).digest;
+    const blobAttempts = new Map();
     const fetchImpl = jest.fn(async (input, options) => {
       const url = new URL(input);
       if (url.pathname === '/token') {
@@ -481,7 +491,20 @@ describe('web-embed-prebundle', () => {
           status: 200,
         });
       }
-      const bytes = blobs.get(url.pathname.split('/').at(-1));
+      const digest = url.pathname.split('/').at(-1);
+      const attempt = (blobAttempts.get(digest) || 0) + 1;
+      blobAttempts.set(digest, attempt);
+      if (digest === archiveDigest && attempt === 1) {
+        throw Object.assign(new TypeError('terminated'), {
+          cause: Object.assign(new Error('connection reset'), {
+            code: 'ECONNRESET',
+          }),
+        });
+      }
+      if (digest === attestationDigest && attempt === 1) {
+        return new Response('service unavailable', { status: 503 });
+      }
+      const bytes = blobs.get(digest);
       return bytes
         ? new Response(bytes, { status: 200 })
         : new Response('missing', { status: 404 });
@@ -497,9 +520,20 @@ describe('web-embed-prebundle', () => {
     expect(fs.existsSync(outputDirectory)).toBe(false);
     expect(fs.existsSync(receiptPath)).toBe(false);
 
-    await restoreRelease({ fetchImpl, outputDirectory, receiptPath });
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      await restoreRelease({ fetchImpl, outputDirectory, receiptPath });
+      expect(consoleError).toHaveBeenCalledTimes(2);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('after a transient download failure'),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
 
-    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(fetchImpl).toHaveBeenCalledTimes(8);
     expect(execFile).not.toHaveBeenCalledWith(
       'oras',
       expect.any(Array),

@@ -30,6 +30,7 @@ const MAX_EXTRACTED_BYTES = 512 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 50_000;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 const MAX_OCI_TOKEN_BYTES = 32 * 1024;
+const OCI_DOWNLOAD_MAX_ATTEMPTS = 3;
 const SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/web-embed-prebundle.yml';
 const TRUSTED_ROOT_PATH = path.join(
@@ -690,12 +691,50 @@ async function resolveOciArtifact({ fetchImpl, tagName }) {
   };
 }
 
-async function downloadOciLayer({ client, descriptor, filePath, maxBytes }) {
+function isRetryableDownloadError(error) {
+  const retryableCodes = new Set([
+    'EAI_AGAIN',
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'ETIMEDOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_SOCKET',
+  ]);
+  let current = error;
+  while (current) {
+    if (current.retryable === true || retryableCodes.has(current.code)) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+async function downloadOciLayerOnce({
+  client,
+  descriptor,
+  filePath,
+  maxBytes,
+}) {
+  if (descriptor.size > maxBytes) {
+    throw new Error(
+      `[webEmbedPrebundle] Download is too large: ${path.basename(filePath)}.`,
+    );
+  }
   const response = await client.fetchBlob(descriptor.digest);
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       `[webEmbedPrebundle] OCI blob download failed: HTTP ${response.status}.`,
     );
+    error.retryable =
+      response.status === 408 ||
+      response.status === 425 ||
+      response.status === 429 ||
+      response.status >= 500;
+    throw error;
   }
   if (!response.body) {
     throw new Error(
@@ -728,6 +767,38 @@ async function downloadOciLayer({ client, descriptor, filePath, maxBytes }) {
     throw new Error(
       `[webEmbedPrebundle] OCI blob integrity mismatch: ${path.basename(filePath)}.`,
     );
+  }
+}
+
+async function downloadOciLayer({
+  client,
+  descriptor,
+  filePath,
+  maxAttempts = OCI_DOWNLOAD_MAX_ATTEMPTS,
+  maxBytes,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await downloadOciLayerOnce({
+        client,
+        descriptor,
+        filePath,
+        maxBytes,
+      });
+      return;
+    } catch (error) {
+      await fs.promises.rm(filePath, { force: true });
+      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+        throw error;
+      }
+      console.error(
+        `[webEmbedPrebundle] Retrying ${path.basename(filePath)} after a transient download failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
   }
 }
 
