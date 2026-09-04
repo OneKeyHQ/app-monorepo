@@ -188,17 +188,8 @@ export const ensureMarketTopCoinsCategory = (
     id: MARKET_TOP_COINS_CATEGORY_ID,
     name: fallbackName,
   };
-  const firstStockCategoryIndex = categories.findIndex((category) =>
-    isMarketStockCategory(category),
-  );
 
-  if (firstStockCategoryIndex < 0) {
-    return [...categories, topCoinsCategory];
-  }
-
-  return [
-    ...categories.slice(0, firstStockCategoryIndex),
-    topCoinsCategory,
-    ...categories.slice(firstStockCategoryIndex),
-  ];
+  // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps. Perps is
+  // appended after every spot category, so Top coins goes last among them.
+  return [...categories, topCoinsCategory];
 };

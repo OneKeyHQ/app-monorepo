@@ -169,6 +169,8 @@ export function TabBarItem({
   focusedTabStyle,
   variant = 'default',
   textSize,
+  focusedTextSize,
+  hideActiveIndicator,
   animatedPillIndicator,
   indexDecimal,
   index: tabIndex,
@@ -305,12 +307,14 @@ export function TabBarItem({
       {...(isFocused ? focusedTabStyle : undefined)}
     >
       <SizableText
-        size={resolvedTextSize}
+        size={
+          isFocused ? (focusedTextSize ?? resolvedTextSize) : resolvedTextSize
+        }
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {displayLabel}
       </SizableText>
-      {isFocused ? (
+      {isFocused && !hideActiveIndicator ? (
         <YStack
           position="absolute"
           bottom={0}
@@ -641,6 +645,10 @@ export interface ITabBarProps extends TabBarProps<string> {
   showsHorizontalScrollIndicator?: boolean;
   /** Fills the row space before an optional toolbar. */
   fillAvailableSpace?: boolean;
+  /** Type token for the focused label; defaults to the inactive one. */
+  focusedTextSize?: ISizableTextProps['size'];
+  /** Drops the underline under the focused tab, animated one included. */
+  hideActiveIndicator?: boolean;
 }
 
 export interface ITabBarItemProps {
@@ -653,6 +661,11 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
+  /** Type token for the focused label. Defaults to `textSize`, so a bar that
+   *  does not set it keeps one weight across both states. */
+  focusedTextSize?: ISizableTextProps['size'];
+  /** Drops the underline the `default` variant draws under the focused tab. */
+  hideActiveIndicator?: boolean;
   // When true, the pill background is handled by AnimatedPillIndicator,
   // so TabBarItem should not render its own background color.
   animatedPillIndicator?: boolean;
@@ -770,6 +783,8 @@ export function TabBar({
   keepFocusedTabVisible = false,
   showsHorizontalScrollIndicator = false,
   fillAvailableSpace = false,
+  focusedTextSize,
+  hideActiveIndicator = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -781,6 +796,8 @@ export function TabBar({
   scrollable?: boolean;
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
+  focusedTextSize?: ISizableTextProps['size'];
+  hideActiveIndicator?: boolean;
   indexDecimal?: SharedValue<number>;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
@@ -1192,6 +1209,8 @@ export function TabBar({
             focusedTabStyle,
             variant,
             textSize,
+            focusedTextSize,
+            hideActiveIndicator,
             animatedPillIndicator: hasAnimatedIndicator,
             indexDecimal: shouldPassAnimatedProps ? indexDecimal : undefined,
             index: shouldPassAnimatedProps ? index : undefined,
@@ -1208,6 +1227,8 @@ export function TabBar({
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          focusedTextSize={focusedTextSize}
+          hideActiveIndicator={hideActiveIndicator}
           indexDecimal={useAnimatedTextColor ? indexDecimal : undefined}
           index={useAnimatedTextColor ? index : undefined}
         />
@@ -1247,6 +1268,8 @@ export function TabBar({
     handleItemLayout,
     itemsLayout,
     renderItem,
+    focusedTextSize,
+    hideActiveIndicator,
     tabItemStyle,
     tabNames,
     textSize,
@@ -1292,7 +1315,8 @@ export function TabBar({
           <XStack ai="center" jc="space-between">
             <XStack position="relative">
               {tabItems}
-              {itemsLayout.length === tabNames.length ? (
+              {itemsLayout.length === tabNames.length &&
+              !hideActiveIndicator ? (
                 <AnimatedIndicator
                   indexDecimal={animatedDefaultIndexDecimal}
                   itemsLayout={itemsLayout}
@@ -1317,6 +1341,7 @@ export function TabBar({
   }, [
     useAnimatedDefault,
     animatedDefaultIndexDecimal,
+    hideActiveIndicator,
     itemsLayout,
     tabNames.length,
     currentTab,
@@ -1342,6 +1367,8 @@ export function TabBar({
             focusedTabStyle,
             variant,
             textSize,
+            focusedTextSize,
+            hideActiveIndicator,
           },
           index,
         )
@@ -1355,12 +1382,16 @@ export function TabBar({
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          focusedTextSize={focusedTextSize}
+          hideActiveIndicator={hideActiveIndicator}
         />
       );
     },
     [
       currentTab,
       focusedTabStyle,
+      focusedTextSize,
+      hideActiveIndicator,
       onTabPress,
       renderItem,
       tabItemStyle,

@@ -29,6 +29,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_LOGO_GAP,
+} from '../../../MarketListCell';
+
 import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenIdentityItemProps {
@@ -122,7 +127,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   perpsSubtitle,
   showStockSubtitle = true,
   tokenSize = 'md',
-  gap = '$3',
+  gap = MARKET_CELL_LOGO_GAP,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -211,7 +216,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         size={tokenSize}
       />
 
-      <Stack flex={1} minWidth={0}>
+      <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
         <XStack alignItems="center" gap="$1">
           {symbolElement}
           {maxLeverage ? <LeverageBadge leverage={maxLeverage} /> : null}

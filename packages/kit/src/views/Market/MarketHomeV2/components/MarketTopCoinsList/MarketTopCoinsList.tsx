@@ -10,7 +10,6 @@ import {
   Table,
   XStack,
   YStack,
-  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -20,8 +19,14 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { PriceChangePercentage } from '../../../components/PriceChangePercentage';
 import SparklineChart from '../../../components/SparklineChart';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
@@ -95,7 +100,6 @@ function MarketValue({
 }
 
 function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
-  const { gt2xl } = useMedia();
   const themeVariant = useThemeVariant();
 
   return useMemo(() => {
@@ -106,12 +110,32 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
     } as const;
     const columns: (ITableColumn<IMarketAssetListItem> | undefined)[] = [
       {
-        title: '#',
+        title: (
+          <SizableText
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            textAlign="center"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
+            #
+          </SizableText>
+        ),
         dataIndex: 'star',
-        columnWidth: 48,
-        columnProps: { flexShrink: 0, px: '$2' },
+        // No right padding: the column's trailing space IS the design's 6px gap
+        // to the name group, so the next column starts its logo flush.
+        columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
+        // Not a `MarketStarV2`: this list is served by the legacy CoinGecko
+        // category endpoint, whose items carry no chain/contract pair, and the
+        // V2 watchlist is keyed by one. Plain icon on the shared slot.
         render: () => (
-          <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+          <Stack
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+          </Stack>
         ),
         renderSkeleton: () => (
           <Skeleton width={24} height={24} borderRadius="$full" />
@@ -120,10 +144,18 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
       {
         title: 'Name',
         dataIndex: 'name',
-        columnWidth: 220,
-        columnProps: { flexShrink: 0, px: '$2' },
+        columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
+        // No left padding: the star column already spends the shared star-to-
+        // logo distance, so the logo starts on this column's edge.
+        columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
         render: (_: unknown, record: IMarketAssetListItem) => (
-          <XStack alignItems="center" gap={14} minWidth={0}>
+          <XStack
+            width="100%"
+            minWidth={0}
+            overflow="hidden"
+            alignItems="center"
+            gap={MARKET_CELL_LOGO_GAP}
+          >
             <Token
               size="lg"
               borderRadius="$full"
@@ -171,19 +203,17 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
         renderSkeleton: () => <Skeleton width={64} height={16} />,
       },
-      gt2xl
-        ? {
-            title: '7d Change',
-            dataIndex: 'priceChange7dPercent',
-            columnProps: metricColumnProps,
-            render: (value: string) => (
-              <PriceChangePercentage size="$bodyLgMedium">
-                {value}
-              </PriceChangePercentage>
-            ),
-            renderSkeleton: () => <Skeleton width={64} height={16} />,
-          }
-        : undefined,
+      {
+        title: '7d Change',
+        dataIndex: 'priceChange7dPercent',
+        columnProps: metricColumnProps,
+        render: (value: string) => (
+          <PriceChangePercentage size="$bodyLgMedium">
+            {value}
+          </PriceChangePercentage>
+        ),
+        renderSkeleton: () => <Skeleton width={64} height={16} />,
+      },
       {
         title: 'Mcap',
         dataIndex: 'marketCap',
@@ -202,54 +232,52 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
-      gt2xl
-        ? {
-            title: '24h price range',
-            dataIndex: 'sparkline24h',
-            columnProps: {
-              ...metricColumnProps,
-              minWidth: TOP_COINS_SPARKLINE_WIDTH,
-            },
-            render: (
-              sparkline: IMarketAssetListItem['sparkline24h'],
-              record: IMarketAssetListItem,
-            ) => {
-              if (!sparkline || sparkline.length < 2) {
-                return <MissingValue />;
-              }
-              const isNegative = Number(record.priceChange24hPercent) < 0;
-              const themeColors =
-                TOP_COINS_SPARKLINE_COLORS[
-                  themeVariant === 'dark' ? 'dark' : 'light'
-                ];
-              const [lineColor, gradientColor] = isNegative
-                ? themeColors.negative
-                : themeColors.positive;
-
-              return (
-                <SparklineChart
-                  data={sparkline.slice(-24)}
-                  width={TOP_COINS_SPARKLINE_WIDTH}
-                  height={TOP_COINS_SPARKLINE_HEIGHT}
-                  lineColor={lineColor}
-                  linearGradientColor={gradientColor}
-                />
-              );
-            },
-            renderSkeleton: () => (
-              <Skeleton
-                width={TOP_COINS_SPARKLINE_WIDTH}
-                height={TOP_COINS_SPARKLINE_HEIGHT}
-              />
-            ),
+      {
+        title: '24h price range',
+        dataIndex: 'sparkline24h',
+        columnProps: {
+          ...metricColumnProps,
+          minWidth: TOP_COINS_SPARKLINE_WIDTH,
+        },
+        render: (
+          sparkline: IMarketAssetListItem['sparkline24h'],
+          record: IMarketAssetListItem,
+        ) => {
+          if (!sparkline || sparkline.length < 2) {
+            return <MissingValue />;
           }
-        : undefined,
+          const isNegative = Number(record.priceChange24hPercent) < 0;
+          const themeColors =
+            TOP_COINS_SPARKLINE_COLORS[
+              themeVariant === 'dark' ? 'dark' : 'light'
+            ];
+          const [lineColor, gradientColor] = isNegative
+            ? themeColors.negative
+            : themeColors.positive;
+
+          return (
+            <SparklineChart
+              data={sparkline.slice(-24)}
+              width={TOP_COINS_SPARKLINE_WIDTH}
+              height={TOP_COINS_SPARKLINE_HEIGHT}
+              lineColor={lineColor}
+              linearGradientColor={gradientColor}
+            />
+          );
+        },
+        renderSkeleton: () => (
+          <Skeleton
+            width={TOP_COINS_SPARKLINE_WIDTH}
+            height={TOP_COINS_SPARKLINE_HEIGHT}
+          />
+        ),
+      },
     ];
 
     return columns.filter(
       (column): column is ITableColumn<IMarketAssetListItem> => Boolean(column),
     );
-  }, [gt2xl, themeVariant]);
+  }, [themeVariant]);
 }
 
 export function MarketTopCoinsList({
@@ -334,24 +362,17 @@ export function MarketTopCoinsList({
     <Stack flex={1} width="100%" testID="market-top-coins-list">
       {useDesktopPortal && portalTarget ? (
         <StickyHeaderPortal target={portalTarget}>
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp" px="$3">
-            <Table.HeaderRow
-              columns={columns}
-              headerRowProps={{ height: 36 }}
-              onHeaderRow={onHeaderRow}
-            />
-          </YStack>
+          {/* No toolbar on this page: the shared header falls back to the
+              design's table inset. */}
+          <MarketDesktopStickyHeader<IMarketAssetListItem>
+            columns={columns}
+            onHeaderRow={onHeaderRow}
+          />
         </StickyHeaderPortal>
       ) : null}
-      <Stack
-        flex={1}
-        style={{ paddingTop: 4, overflowX: 'auto', overflowY: 'hidden' }}
-      >
+      <Stack flex={1} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <Table<IMarketAssetListItem>
-          contentContainerStyle={{
-            paddingTop: 4,
-            paddingBottom: contentPaddingBottom,
-          }}
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           columns={columns}
           dataSource={sortedData}
           estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}

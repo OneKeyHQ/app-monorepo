@@ -11,16 +11,33 @@ import {
   useWatchListV2Actions,
 } from '../../../states/jotai/contexts/marketV2';
 
+// The atom actions are async: `void`-ing them inside a `try` block never routes
+// a rejection to the `catch`, so a failing write (Prime cloud sync being off,
+// for one) surfaced as an unhandled rejection and the user saw nothing. Attach
+// the handler to the promise instead.
+function reportWatchListFailure(promise: Promise<unknown>, message: string) {
+  void promise.catch(() => {
+    Toast.error({ title: message });
+  });
+}
+
 export const useWatchListV2Action = () => {
   const intl = useIntl();
   const actions = useWatchListV2Actions();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
+  const errorMessage = intl.formatMessage({
+    id: ETranslations.global_an_error_occurred,
+  });
+
   const removeFromWatchListV2 = useCallback(
     (chainId: string, contractAddress: string) => {
-      void actions.current.removeFromWatchListV2(chainId, contractAddress);
+      reportWatchListFailure(
+        actions.current.removeFromWatchListV2(chainId, contractAddress),
+        errorMessage,
+      );
     },
-    [actions],
+    [actions, errorMessage],
   );
 
   const addIntoWatchListV2 = useCallback(
@@ -46,17 +63,12 @@ export const useWatchListV2Action = () => {
         }),
       );
 
-      try {
-        void actions.current.addIntoWatchListV2(watchListItems);
-      } catch (_error) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      }
+      reportWatchListFailure(
+        actions.current.addIntoWatchListV2(watchListItems),
+        errorMessage,
+      );
     },
-    [actions, intl, isMounted, watchListData],
+    [actions, errorMessage, isMounted, watchListData],
   );
 
   const isInWatchListV2 = useCallback(
@@ -68,24 +80,22 @@ export const useWatchListV2Action = () => {
   // Perps watchlist actions
   const addPerpsIntoWatchListV2 = useCallback(
     (perpsCoin: string) => {
-      try {
-        void actions.current.addPerpsIntoWatchListV2(perpsCoin);
-      } catch (_error) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      }
+      reportWatchListFailure(
+        actions.current.addPerpsIntoWatchListV2(perpsCoin),
+        errorMessage,
+      );
     },
-    [actions, intl],
+    [actions, errorMessage],
   );
 
   const removePerpsFromWatchListV2 = useCallback(
     (perpsCoin: string) => {
-      void actions.current.removePerpsFromWatchListV2(perpsCoin);
+      reportWatchListFailure(
+        actions.current.removePerpsFromWatchListV2(perpsCoin),
+        errorMessage,
+      );
     },
-    [actions],
+    [actions, errorMessage],
   );
 
   return useMemo(

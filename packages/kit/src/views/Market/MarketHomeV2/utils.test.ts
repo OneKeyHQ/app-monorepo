@@ -411,7 +411,9 @@ describe('Market Stock Category Detection Tests', () => {
 });
 
 describe('Top Coins Category Fallback Tests', () => {
-  test('inserts Top Coins before the first stock category', () => {
+  test('appends Top Coins after the spot categories', () => {
+    // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
+    // Perps is appended after every spot category.
     expect(
       ensureMarketTopCoinsCategory(
         [
@@ -422,8 +424,8 @@ describe('Top Coins Category Fallback Tests', () => {
       ),
     ).toEqual([
       { id: 'trending', name: 'Trending' },
-      { id: 'top_coins', name: 'Top Coins' },
       { id: 'stocks', name: 'Stocks' },
+      { id: 'top_coins', name: 'Top Coins' },
     ]);
   });
 

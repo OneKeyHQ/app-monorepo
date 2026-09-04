@@ -81,6 +81,7 @@ function MarketWatchlistCategorySelectorMobile({
 function MarketWatchlistCategorySelectorDesktop({
   selectedFilter,
   onSelectFilter,
+  containerStyle,
 }: IMarketWatchlistCategorySelectorProps) {
   const categories = useWatchlistFilterCategories();
   const handleSelect = useCallback(
@@ -99,17 +100,13 @@ function MarketWatchlistCategorySelectorDesktop({
   } = useNetworkFilterScroll();
 
   return (
+    // Same plain frame the Stocks selector uses: the shared toolbar band owns
+    // the spacing, so the selector carries no border, margin or padding.
     <XStack
       position="relative"
-      p="$1"
-      gap="$1"
-      mt="$3"
-      mb="$2"
       maxWidth="100%"
       overflow="hidden"
-      borderWidth={1}
-      borderColor="$neutral4"
-      borderRadius="$3"
+      {...containerStyle}
     >
       <XStack flex={1} position="relative">
         <ScrollView

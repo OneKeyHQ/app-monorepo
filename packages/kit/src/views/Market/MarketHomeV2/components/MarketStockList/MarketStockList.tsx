@@ -28,9 +28,13 @@ import type {
   IMarketStockPublicListSortBy,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_LIST_ROW_HEIGHT,
+} from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -85,13 +89,11 @@ function MarketStockListImpl({
 
   const CategorySelector = useMemo(
     () => (
-      <Stack pt="$4" pb="$5" px="$5">
-        <MarketStockCategorySelector
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={onSelectCategory}
-        />
-      </Stack>
+      <MarketStockCategorySelector
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        onSelectCategory={onSelectCategory}
+      />
     ),
     [categories, onSelectCategory, selectedCategoryId],
   );
@@ -159,20 +161,12 @@ function MarketStockListImpl({
     }
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp">
-          {CategorySelector}
-          <Stack px="$3" overflow="hidden">
-            <Table.HeaderRow
-              columns={columns}
-              onHeaderRow={handleHeaderRow}
-              rowProps={{
-                width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
-              }}
-              headerRowProps={{ height: 36 }}
-            />
-          </Stack>
-        </YStack>
+        <MarketDesktopStickyHeader<IMarketStockPublicItem>
+          toolbar={CategorySelector}
+          columns={columns}
+          onHeaderRow={handleHeaderRow}
+          rowProps={{ width: '100%', minWidth: STOCK_TABLE_MIN_WIDTH }}
+        />
       </StickyHeaderPortal>
     );
   }, [
@@ -279,7 +273,7 @@ function MarketStockListImpl({
               rowProps={{
                 width: '100%',
                 minWidth: STOCK_TABLE_MIN_WIDTH,
-                height: 72,
+                height: MARKET_LIST_ROW_HEIGHT,
               }}
             />
           ) : (
@@ -298,7 +292,7 @@ function MarketStockListImpl({
               rowProps={{
                 width: '100%',
                 minWidth: STOCK_TABLE_MIN_WIDTH,
-                height: 72,
+                height: MARKET_LIST_ROW_HEIGHT,
               }}
               headerRowProps={{ height: 36 }}
               TableEmptyComponent={TableEmptyComponent}
