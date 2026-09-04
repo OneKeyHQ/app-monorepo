@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { SizableText, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
@@ -11,6 +14,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -37,6 +41,7 @@ export function UniversalSearchAddressItem({
   getSearchInput,
   source,
 }: IUniversalSearchAddressItemProps) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const accountSelectorActions = useAccountSelectorActions();
   const universalSearchActions = useUniversalSearchActions();
@@ -87,23 +92,47 @@ export function UniversalSearchAddressItem({
     });
 
     navigation.pop();
-    if (
-      accountUtils.isOthersAccount({
-        accountId: item.payload.account?.id,
-      })
-    ) {
-      await accountSelectorActions.current.confirmAccountSelect({
-        num: 0,
-        indexedAccount: undefined,
-        othersWalletAccount: item.payload.account,
-        forceSelectToNetworkId: item.payload.network?.id,
-      });
-    } else {
-      await accountSelectorActions.current.confirmAccountSelect({
-        num: 0,
-        indexedAccount: item.payload.indexedAccount,
-        othersWalletAccount: undefined,
-        forceSelectToNetworkId: item.payload.network?.id,
+    try {
+      let confirmed: boolean;
+      if (
+        accountUtils.isOthersAccount({
+          accountId: item.payload.account?.id,
+        })
+      ) {
+        confirmed = await accountSelectorActions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: undefined,
+          othersWalletAccount: item.payload.account,
+          entry: 'universalSearch:othersWallet',
+          forceSelectToNetworkId: item.payload.network?.id,
+          throwOnError: true,
+        });
+      } else {
+        confirmed = await accountSelectorActions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: item.payload.indexedAccount,
+          othersWalletAccount: undefined,
+          entry: 'universalSearch:indexedAccount',
+          forceSelectToNetworkId: item.payload.network?.id,
+          throwOnError: true,
+        });
+      }
+      // `false` also represents a stale request superseded by a newer user
+      // action, so abort silently instead of reporting that expected race as
+      // an error. Rejections below are real execution failures.
+      if (!confirmed) {
+        // Recent-search recording below is independent from selection state.
+      }
+    } catch {
+      // The search modal is already popped, so surface execution failures and
+      // still record the click in recent searches.
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred_desc,
+        }),
       });
     }
 
@@ -148,6 +177,7 @@ export function UniversalSearchAddressItem({
   }, [
     accountSelectorActions,
     getSearchInput,
+    intl,
     item.payload,
     item.type,
     navigation,
@@ -250,6 +280,43 @@ export function UniversalSearchAddressItem({
     networkInfoMap,
   ]);
 
+  // ListItem renders this prop as a component, so an inline arrow would be a
+  // new element type on every render and React would remount the whole text
+  // subtree instead of updating it in place.
+  const renderItemText = useCallback(
+    (textProps: IListItemTextProps) => (
+      <ListItem.Text
+        {...textProps}
+        flex={1}
+        primary={
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            {item.payload.accountInfo?.formattedName}
+          </SizableText>
+        }
+        secondary={
+          <XStack alignItems="center">
+            {renderAccountValue()}
+            <AccountAddress
+              num={0}
+              linkedNetworkId={item.payload.network?.id}
+              address={accountUtils.shortenAddress({
+                address: item.payload.addressInfo?.displayAddress,
+              })}
+              isEmptyAddress={false}
+              showSplitter={!(platformEnv.isWebDappMode || platformEnv.isE2E)}
+            />
+          </XStack>
+        }
+      />
+    ),
+    [
+      item.payload.accountInfo?.formattedName,
+      item.payload.addressInfo?.displayAddress,
+      item.payload.network?.id,
+      renderAccountValue,
+    ],
+  );
+
   if (item.payload.account || item.payload.isSearchedByAccountName) {
     return (
       <ListItem
@@ -264,33 +331,7 @@ export function UniversalSearchAddressItem({
           />
         }
         title={item.payload.accountInfo?.formattedName}
-        renderItemText={(textProps) => (
-          <ListItem.Text
-            {...textProps}
-            flex={1}
-            primary={
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {item.payload.accountInfo?.formattedName}
-              </SizableText>
-            }
-            secondary={
-              <XStack alignItems="center">
-                {renderAccountValue()}
-                <AccountAddress
-                  num={0}
-                  linkedNetworkId={item.payload.network?.id}
-                  address={accountUtils.shortenAddress({
-                    address: item.payload.addressInfo?.displayAddress,
-                  })}
-                  isEmptyAddress={false}
-                  showSplitter={
-                    !(platformEnv.isWebDappMode || platformEnv.isE2E)
-                  }
-                />
-              </XStack>
-            }
-          />
-        )}
+        renderItemText={renderItemText}
         subtitle={item.payload.addressInfo?.displayAddress}
       />
     );

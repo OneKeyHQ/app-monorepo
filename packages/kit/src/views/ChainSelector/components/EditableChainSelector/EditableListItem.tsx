@@ -8,6 +8,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -73,6 +74,47 @@ export const EditableListItem = ({
       .toFixed();
   }, [item.isAllNetworks, accountNetworkValues, accountDeFiOverview, item.id]);
 
+  // ListItem renders this prop as a component (`<Render {...props} />`), so an
+  // inline arrow would be a brand-new element type on every render and React
+  // would unmount and remount the whole text subtree. That destroys the DOM
+  // node under the pointer, and Chromium drops the click when the mousedown
+  // target leaves the tree mid-press.
+  const renderItemText = useCallback(
+    (textProps: IListItemTextProps) => (
+      <ListItem.Text
+        userSelect="none"
+        {...textProps}
+        primary={
+          <XStack alignItems="center" gap="$3">
+            <SizableText size="$bodyLgMedium">
+              {item.isAllNetworks
+                ? intl.formatMessage({
+                    id: ETranslations.global_all_networks,
+                  })
+                : item.name}
+            </SizableText>
+            {Array.isArray(actions)
+              ? actions?.map((action) => (
+                  <Button
+                    testID="chain-selector-btn"
+                    key={action.title}
+                    size="small"
+                    variant="secondary"
+                    icon={action.leadingIcon}
+                    iconAfter={action.trailingIcon}
+                    onPress={action.onPress}
+                  >
+                    {action.title}
+                  </Button>
+                ))
+              : actions}
+          </XStack>
+        }
+      />
+    ),
+    [actions, intl, item.isAllNetworks, item.name],
+  );
+
   return (
     <ListItem
       testID={item.id}
@@ -95,38 +137,7 @@ export const EditableListItem = ({
           }}
         />
       }
-      renderItemText={(textProps) => (
-        <ListItem.Text
-          userSelect="none"
-          {...textProps}
-          primary={
-            <XStack alignItems="center" gap="$3">
-              <SizableText size="$bodyLgMedium">
-                {item.isAllNetworks
-                  ? intl.formatMessage({
-                      id: ETranslations.global_all_networks,
-                    })
-                  : item.name}
-              </SizableText>
-              {Array.isArray(actions)
-                ? actions?.map((action) => (
-                    <Button
-                      testID="chain-selector-btn"
-                      key={action.title}
-                      size="small"
-                      variant="secondary"
-                      icon={action.leadingIcon}
-                      iconAfter={action.trailingIcon}
-                      onPress={action.onPress}
-                    >
-                      {action.title}
-                    </Button>
-                  ))
-                : actions}
-            </XStack>
-          }
-        />
-      )}
+      renderItemText={renderItemText}
       onPress={onPress}
       disabled={isDisabled}
       bg={networkId === item.id ? '$bgActive' : undefined}

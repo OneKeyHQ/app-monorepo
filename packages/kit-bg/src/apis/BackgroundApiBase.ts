@@ -52,6 +52,7 @@ import {
   providerApiLoaders,
 } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
+import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
@@ -450,6 +451,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       );
       throw error;
     }
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async updateJotaiContextStoreRegistration(
+    update: Parameters<
+      typeof updateJotaiContextStoreRegistrationInBackground
+    >[0],
+  ) {
+    return updateJotaiContextStoreRegistrationInBackground(update);
   }
 
   @backgroundMethod()

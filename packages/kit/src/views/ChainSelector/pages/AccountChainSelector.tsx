@@ -264,6 +264,7 @@ function AccountChainSelector({
       void actions.current.updateSelectedAccountNetwork({
         num,
         networkId: item.id,
+        reason: 'userSelectNetwork',
       });
 
       // Surgically drop only the ChainSelectorModal route. popStack() triggers

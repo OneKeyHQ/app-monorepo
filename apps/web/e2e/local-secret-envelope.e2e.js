@@ -83,7 +83,7 @@ async function findAvailablePort(startPort) {
 async function waitForRenderer(url, child, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (child?.exitCode !== null) {
+    if (child && child.exitCode !== null) {
       throw new Error(
         `Web dev server exited early with code ${child.exitCode}`,
       );
@@ -99,6 +99,14 @@ async function waitForRenderer(url, child, timeoutMs) {
 }
 
 async function startWebRenderer() {
+  const externalRendererUrl = process.env.WEB_E2E_RENDERER_URL;
+  if (externalRendererUrl) {
+    const rendererUrl = new URL(externalRendererUrl).toString();
+    log(`reuse renderer at ${rendererUrl}`);
+    await waitForRenderer(rendererUrl, undefined, RENDERER_TIMEOUT_MS);
+    return { child: undefined, rendererUrl };
+  }
+
   const preferredPort = Number(process.env.WEB_E2E_PORT) || 3201;
   const port = await findAvailablePort(preferredPort);
   const rendererUrl = `http://localhost:${port}/`;
@@ -114,6 +122,7 @@ async function startWebRenderer() {
         ...process.env,
         ...webE2EEnv,
         BROWSER: 'none',
+        NODE_OPTIONS: process.env.NODE_OPTIONS || '--max-old-space-size=10240',
         TRANSFORM_REGENERATOR_DISABLED: 'true',
         WEB_PORT: String(port),
       },
@@ -195,6 +204,43 @@ function getChromeExecutablePath() {
   return undefined;
 }
 
+function parseBooleanEnv(value, fallbackValue) {
+  if (value === undefined) {
+    return fallbackValue;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalizedValue)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off', ''].includes(normalizedValue)) {
+    return false;
+  }
+  throw new Error(
+    `Invalid boolean value "${value}". Expected true/false, 1/0, yes/no, or on/off.`,
+  );
+}
+
+function shouldRunHeadless() {
+  const isCI = parseBooleanEnv(process.env.CI, false);
+  return parseBooleanEnv(process.env.WEB_E2E_HEADLESS, isCI);
+}
+
+function getSlowMoMs() {
+  const rawValue = process.env.WEB_E2E_SLOW_MO_MS;
+  if (rawValue === undefined) {
+    return 0;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(
+      `Invalid WEB_E2E_SLOW_MO_MS value "${rawValue}". Expected a non-negative number.`,
+    );
+  }
+  return value;
+}
+
 async function launchBrowser() {
   const executablePath = getChromeExecutablePath();
   if (!executablePath) {
@@ -202,10 +248,17 @@ async function launchBrowser() {
       'No browser executable found. Set WEB_E2E_BROWSER_EXECUTABLE to run web E2E.',
     );
   }
+  const headless = shouldRunHeadless();
+  const slowMo = getSlowMoMs();
+  const slowMoDescription = slowMo > 0 ? ` with ${slowMo}ms slow motion` : '';
+  log(
+    `launch browser in ${headless ? 'headless' : 'headed'} mode${slowMoDescription}`,
+  );
   return chromium.launch({
     args: ['--no-sandbox'],
     executablePath,
-    headless: true,
+    headless,
+    slowMo,
   });
 }
 
@@ -378,7 +431,17 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  getDevOnlyPassword,
+  launchBrowser,
+  shouldRunHeadless,
+  startWebRenderer,
+  stopProcess,
+};

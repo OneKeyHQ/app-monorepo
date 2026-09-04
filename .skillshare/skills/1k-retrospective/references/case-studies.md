@@ -7,6 +7,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 <!-- New cases are appended below this line -->
 
 ## Case: iOS OneKey ID logout dialog stuck with loading spinner
+
 **Date**: 2026-02-26 | **Platforms**: iOS (native)
 **Symptom**: After clicking logout in OneKey ID page, the confirmation dialog showed a permanent loading spinner and never closed, even after the modal behind it was dismissed.
 **Root Cause**: Race condition between explicit logout (Dialog onConfirm) and automatic `handleLoggedOutWhileFocused` effect. When `apiLogout()` updated `primePersistAtom`, the effect fired and called `popModalPagesOnNative()` while the dialog's `onConfirm` was still executing, orphaning the dialog.
@@ -14,6 +15,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 5: No race conditions in async operations
 
 ## Case: Web header settings dropdown overlap
+
 **Date**: 2026-02-26 | **Platforms**: Web
 **Symptom**: In the web header settings dropdown, clicking currency then language (or vice versa) caused both Select floating panels to appear simultaneously, overlapping.
 **Root Cause**: Two `Select` components inside a `Popover` managed their own `isOpen` state independently. Opening one did not close the other.
@@ -21,6 +23,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî not covered (UI component interaction within shared container)
 
 ## Case: Perps history tab title highlighted when share dialog opens
+
 **Date**: 2026-02-26 | **Platforms**: iOS, Android (native)
 **Symptom**: When opening the share position dialog from the history page, the tab header text got visually highlighted/selected.
 **Root Cause**: Tab header `SizableText` and `XStack` elements lacked `userSelect="none"`, allowing text selection when focus shifted to the dialog.
@@ -28,6 +31,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 1: Code Quality ‚Äî UI interactive elements should have userSelect="none"
 
 ## Case: Web language dropdown stays open when clicking Settings
+
 **Date**: 2026-02-28 | **Platforms**: Web
 **Symptom**: In the DappHeader MoreDappAction popover, opening the language Select dropdown then clicking "Settings" left the dropdown visible while the Settings modal opened.
 **Root Cause**: `SettingListItem` only called `closePopover()` to close the parent Popover, but due to `keepChildrenMounted`, the child `LanguageListItem`'s Select stayed mounted with `isOpen=true`.
@@ -35,6 +39,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 5: No stale state after parent container dismissal (related to existing case "Web header settings dropdown overlap")
 
 ## Case: Keyless avatar provider fallback
+
 **Date**: 2026-03-12 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Keyless wallet avatar badge could show the original login provider instead of the provider parsed for avatar display.
 **Root Cause**: Wallet avatar rendering only read `keylessProvider`, while the refreshed avatar-specific provider was not persisted or prioritized.
@@ -42,12 +47,15 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Type definitions changed -> all consumers updated
 
 ## Case: Swap invitee reward counted undistributed bonus twice
+
 **Date**: 2026-08-13 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: The Swap invitee reward summary showed the cumulative total as distributed and then added the undistributed reward again, so a fully undistributed reward appeared as already distributed.
 **Root Cause**: The client treated `totalBonus`, which already includes `undistributed`, as the distributed amount instead of deriving the distributed portion.
 **Fix**: Derived `distributedBonus` with BigNumber as `totalBonus - undistributed` and passed it explicitly to the summary card, with regression coverage for partially, fully, and zero undistributed rewards.
 **Catchable by**: Section 4: Data flow end-to-end: API -> state -> UI
+
 ## Case: Perps stuck on "Loading tokens..." after IndexedDB blob corruption
+
 **Date**: 2026-08-11 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
 **Symptom**: Desktop 6.5.0 user's Perps chart and token selector permanently stuck on "Loading tokens..." across restarts; realtime prices kept updating; mobile unaffected (OK-59997).
 **Root Cause**: All Perps caches live in one `simple_db_v5:perp` record. Chromium stores large IndexedDB values as external blob files; a crash corrupted the blob so every read rejected with `UnknownError: Failed to read large IndexedDB value`. `setRawData(builder)` reads the old record before writing, so all writes failed too ‚Äî the record could never be repaired by normal usage.
@@ -55,6 +63,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî storage-layer read errors need a recovery path for caches that can be rebuilt; read-before-write persistence cannot self-repair a corrupted record
 
 ## Case: Mobile Market Detail TradingView height flicker
+
 **Date**: 2026-08-17 | **Platforms**: iOS, Android (native main runtime)
 **Symptom**: The Market Detail TradingView flashed and resized when its async indicator quick bar loaded; an earlier fix also left a permanent 31px blank strip when indicators were explicitly disabled.
 **Root Cause**: The parent treated a null quick bar during configuration loading and a null quick bar after `indicatorsEnabled: false` as the same state, so it could not reserve or release chart height at the correct lifecycle point.
@@ -62,6 +71,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 5: "Not loaded" versus intentionally unavailable state must be distinguished
 
 ## Case: Swap invite history showed invite-code remarks unlike other rebate modules
+
 **Date**: 2026-08-18 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Rebate Swap invite history rendered the invite-code remark under the code badge; Perps and hardware invite/list rows only showed the invite code.
 **Root Cause**: Swap invite rows had a dedicated remark renderer that other rebate invite histories never used.
@@ -69,6 +79,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers (cross-module UI consistency)
 
 ## Case: Rebate module order was inconsistent across invite reward surfaces
+
 **Date**: 2026-08-18 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Commission rates, share links, and reward cards listed Hardware / Perps / Swap / DeFi in different orders.
 **Root Cause**: Commission-rate sorting put DeFi before Swap, and share-link items were hardcoded as Hardware / DeFi / Perps / Swap.
@@ -76,6 +87,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers
 
 ## Case: DeFi referral bonus entry unreachable on mobile
+
 **Date**: 2026-08-18 | **Platforms**: iOS, Android (Earn tab)
 **Symptom**: The Earn "Referral Bonus" trigger was invisible on mobile; desktop showed it only because the overview reserved `paddingRight="$24"` for it.
 **Root Cause**: The trigger was absolutely positioned at the top-right of the Earn overview, so on narrow layouts it landed under the tab header and its slot depended on hardcoded padding.
@@ -83,6 +95,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest)
 
 ## Case: Canonical rebate order table gave two DeFi subjects the same rank
+
 **Date**: 2026-08-18 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: Commission rate lists could still order DeFi subjects differently per surface even after the "one canonical order" fix; the unit test only passed because the fixture happened to list `Earn` before `Onchain`.
 **Root Cause**: `COMMISSION_RATE_SUBJECT_ORDER` assigned rank 3 to both `Earn` and `Onchain`, so a stable sort fell back to API response order for that pair.
@@ -90,6 +103,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî an ordering/priority map must be a total order over its keys; equal ranks silently defer to input order
 
 ## Case: Reward history opened behind the still-open rewards dialog
+
 **Date**: 2026-08-18 | **Platforms**: iOS, Android (Earn tab)
 **Symptom**: Tapping the history icon inside the DeFi invitee reward sheet pushed the history screen while the sheet overlay stayed up.
 **Root Cause**: The original popover called `setOpen(false)` before navigating; when the content moved into a dialog the close step was not carried over.
@@ -97,6 +111,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope
 
 ## Case: Activity Hub popover ignored half of its own layout contract
+
 **Date**: 2026-08-19 | **Platforms**: desktop, web, extension (Earn, Swap, Perps gift menus)
 **Symptom**: The gift menu on Earn and Swap rendered its two shortcut tiles at a quarter of the row each inside a panel with no width driver; Perps also lost the fixed 384px panel it had before the refactor.
 **Root Cause**: `getActivityHubLayout` pairs a panel width with a tile basis, but the paired values were passed in as props: the dialog host set both while the popover host set neither, so the content fell back to a hardcoded `'25%'`.
@@ -104,6 +119,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî values that must change together should be derived from one source, not passed as independent props to every call site
 
 ## Case: Swap settings gated the Activity Hub on stale store state
+
 **Date**: 2026-08-19 | **Platforms**: iOS, Android, web, extension (medium/mobile Swap layouts)
 **Symptom**: On layouts where Swap settings is the only hub entry, the Activity Hub row could briefly appear on Limit/Stock or be missing on Swap right after a route-driven tab switch.
 **Root Cause**: The header used the route-aware placement hook while `SwapHeaderRightActionContainer` called the pure placement helper straight from the swap store, which lags the route by the delayed mount-time tab switch.
@@ -111,6 +127,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers
 
 ## Case: Activity Hub tiles grew to half the screen on the md sheet
+
 **Date**: 2026-08-19 | **Platforms**: iOS, Android, web (Earn, Swap gift entries below md)
 **Symptom**: The two shortcut tiles filled a whole phone row (~180pt each) in Earn and Swap, while Perps kept ~89pt tiles because its campaign cards force the 4-column grid.
 **Root Cause**: The tile basis was chosen by "does the panel have campaign cards", which is only a proxy for panel width on desktop. Below md the hub is a screen-wide sheet no host sizes, so the grown basis meant for the 208px desktop panel was applied to the full screen.
@@ -118,6 +135,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest)
 
 ## Case: Activity Hub inferred compact layout from gtMd
+
 **Date**: 2026-08-19 | **Platforms**: iPad, Android tablet, desktop web (Perps account/settings embeds)
 **Symptom**: Shortcut tiles doubled in size inside native tablet sheets (~400‚Äì480px) and inside the Perps account/settings panels whenever campaigns were empty.
 **Root Cause**: `gtMd` was used as a stand-in for "this is the 208px desktop floating panel". Native popovers always Adapt to a Sheet, and `ActivityHubContent` is also inlined into wider hosts that never set that width.
@@ -125,6 +143,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 3: Cross-platform impact ‚Äî platform-specific overlay (Popover Sheet vs floating panel) plus every inlined consumer of a shared layout
 
 ## Case: Popover's native-sheet rule was copied onto a Dialog host
+
 **Date**: 2026-08-19 | **Platforms**: iPad, Android tablet (Swap settings ‚Üí Activity Hub)
 **Symptom**: On native tablets the Swap settings Activity Hub opened at the Dialog default 400px with two ~92px tiles and ~184px of dead space, instead of the 208px panel filled by two tiles.
 **Root Cause**: `gtMd && !platformEnv.isNative` was reused for the Dialog host. That exclusion only holds for Popover, which always Adapts to a Sheet on native; Dialog degrades to a sheet solely below the md breakpoint and renders `TMDialog.Content` (honouring `floatingPanelProps`) on native tablets.
@@ -132,6 +151,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition ‚Äî an overlay-specific guard is not transferable to a different overlay primitive
 
 ## Case: Swap and Perps reward overlays stayed above the onboarding screen
+
 **Date**: 2026-08-19 | **Platforms**: web dapp mode (wide layout), Swap and Perps reward dialogs
 **Symptom**: Tapping create/connect wallet in the reward dialog pushed the onboarding modal behind the still-open dialog.
 **Root Cause**: The shared `InviteeRewardNoWallet` gained an optional `onBeforeNavigate` dismiss step, but only the Earn host supplied it. Where onboarding resets the navigation root the overlay unmounts anyway, which hid the gap everywhere except web dapp mode, where onboarding is pushed as a modal and the in-tab dialog portal survives.
@@ -139,6 +159,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Type definitions changed ‚Üí all consumers updated (a new optional prop on a shared component needs every host audited)
 
 ## Case: Awaiting the overlay close cost the tap's user activation
+
 **Date**: 2026-08-19 | **Platforms**: web (Perps Activity Hub campaign cards)
 **Symptom**: Tapping a campaign card in the gift menu did nothing on web ‚Äî no new tab, no error.
 **Root Cause**: A shared `closeThenRun` helper was introduced so navigation would not land behind a dismissing native sheet, and every hub action was routed through it. The host resolves its close promise from a timer, so `window.open` ran in a later task than the tap and popup blockers dropped it as unsolicited. Only web is affected: the extension uses `chrome.tabs.create` and native uses Linking / an in-app browser.
@@ -146,6 +167,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî not covered. Section 5 asks about race conditions but not about capability-gated browser APIs (`window.open`, clipboard, fullscreen, autoplay) that silently require the caller to still hold user activation. Awaiting anything before them forfeits it.
 
 ## Case: Private Send dropped the Gas Account quote when the server preferred Megafuel
+
 **Date**: 2026-08-19 | **Platforms**: mobile, desktop, web, extension
 **Symptom**: On BNB-chain Private Send, when the fee service returned `payer='megafuel'` together with an eligible Gas Account quote, the confirm flow suppressed Megafuel for display but kept `selectedPayer='user'`, so the sponsored quote was silently dropped and the tx broadcast user-paid (OK-59993 follow-up, PR #12916).
 **Root Cause**: The display payer (`effectiveFeePayer`) and the submit wiring (`selectedPayer`) were derived in separate places from different inputs ‚Äî display from the post-filtered sponsor state, submit from the raw backend `payer` ‚Äî so scenario suppression (Private Send disables Megafuel) could update one without the other. Review also caught that the extracted eligibility check (`gasAccountEligible && gasAccountQuote`) omitted the non-empty `quoteId` guard every downstream consumer requires, which would have shown a sponsored UI while broadcasting user-paid.
@@ -153,12 +175,15 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Data flow end-to-end: API -> state -> UI (display state and submit wiring must derive from the same filtered source); Section 5: runtime-validate network-response fields even when typed as required
 
 ## Case: Swap account network stayed on the pre-switch FromToken after Pro remapped the pair
+
 **Date**: 2026-08-21 | **Platforms**: iOS, Android (native main runtime; persisted account selection is a shared native resource)
 **Symptom**: Leaving native Swap Pro after a cross-chain ordinary pair whose source matched the Pro target remapped the pair (BNB‚ÜíUNI became UNI‚ÜíBNB) but the account network was still written as the old source (BSC). Cold-start context validation could then block later corrections.
 **Root Cause**: `swapTypeSwitchAction` remapped From/To when the Pro target equaled the restored FromToken, but `SwapHeaderContainer` synced the account from the pre-switch `fromToken.networkId` captured in the React closure.
 **Fix**: Return the settled FromToken from `swapTypeSwitchAction` and sync the account network from that value after the type switch leaves the Pro owner.
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope; Section 4: Data flow end-to-end after a state remapping
+
 ## Case: BLE pairing dialog shown while device already paired and communicating
+
 **Date**: 2026-08-13 | **Platforms**: Desktop (macOS/Windows desktop BLE)
 **Symptom**: Creating a wallet over Bluetooth showed the "Pairing with your device" dialog mid-flow (OK-60091) even though the device was OS-paired and actively communicating on a live Noble session; the dialog's repair then re-scanned and "discovered" the very connectId the caller passed in.
 **Root Cause**: `getCompatibleConnectId` triggered the USB‚ÜíBLE pairing repair purely from DB bookkeeping (device record missing `bleConnectId` ‚Äî recreated that way by a USB wallet creation after wallet removal deleted the record), never recognizing the caller's incoming connectId as the live BLE endpoint. DB binding state is neither necessary nor sufficient evidence of OS pairing state.
@@ -166,6 +191,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî not covered (interactive dialog triggered from persistence bookkeeping instead of live transport evidence)
 
 ## Case: Daily backup advanced its throttle while agent-secret scrub failed
+
 **Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; canBackup() targets only)
 **Symptom**: Review finding on PR #12990 ‚Äî stale (possibly plaintext |HLP|) HyperLiquid agent credential rows could stay in the backupAccount bucket forever: scrub failures were logged and swallowed, then the put-by-id daily snapshot completed and advanced lastDBBackupTime.
 **Root Cause**: `removeBackupHyperLiquidAgentCredentials` reported nothing, so `_backupDatabaseDaily` could not distinguish a clean scrub from a failed one, and the snapshot itself never deletes stale rows (put-by-id).
@@ -173,6 +199,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup feeding a state-advancing step must report its outcome)
 
 ## Case: One undecryptable agent credential aborted the whole Perps status batch
+
 **Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime)
 **Symptom**: Review finding on PR #12990 ‚Äî after agent credentials moved to session-encrypted storage, a single unreadable credential (locked session or transient LSE layer outage) made the `checkAgentStatus` Promise.all reject, skipped remaining status checks, and popped one error toast per failing agent during Perps polling.
 **Root Cause**: `getHyperLiquidAgentCredentialInfo` propagated new throw paths (session getKeyOrThrow, LocalSecretEnvelopeUnavailable, durable-upgrade write) that the legacy decrypt path had surfaced as `undefined`, while the caller and its `@toastIfError` decorator were built around the never-throw contract.
@@ -180,6 +207,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers (an error-contract change must be audited at every call site)
 
 ## Case: Proxy signer advertised one agent address while signing with another key
+
 **Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; Perps agent signing)
 **Symptom**: Review finding on PR #12990 ‚Äî `WalletHyperliquidProxy.getAddress()` returned the setup-time agentAddress while `signTypedData()` signed with whatever private key the per-signature localDb fetch returned, so a re-approval race (record swapped to a new key while an exchange client held an old proxy) or an inconsistent record could silently sign under a different agent identity than advertised.
 **Root Cause**: Moving from a captured-key wallet to per-signature key fetching removed the implicit key‚Üîaddress binding that constructing `ethers.Wallet` at setup time used to provide; no explicit check replaced it.
@@ -187,6 +215,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 5: No stale closures capturing outdated state (identity captured at setup must be re-validated against data fetched later)
 
 ## Case: onekeyIdLogout analytics flood with user IDs embedded in server-bound reason text
+
 **Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime emits; analytics is a shared server-side resource)
 **Symptom**: PostHog showed 1.76M `onekeyIdLogout` events in 30 days across ~70k persons ‚Äî the highest-volume Prime event ‚Äî drowning genuine logout signals and inflating analytics cost. Several `reason` strings carried Privy DIDs (`did:privy:‚Ä¶` = onekeyUserId), leaking account identifiers into server-bound free text; single users emitted 1000+ events in loops.
 **Root Cause**: `onekeyIdLogout` is decorated `@LogToServer`, but state-maintenance code paths (`setPrimePersistAtomNotLoggedIn` before/after clears on hot startup paths, `updatePrimeAtomByServerUserInfo` before/after every user-info refresh, discarded-response diagnostics) reused it as a general trace channel, interpolating atom values including `onekeyUserId` into `reason`.
@@ -194,6 +223,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 1: no sensitive/identifier interpolation into server-bound free text (scrub at the scene method, not call sites); NEW ‚Äî @LogToServer methods called from hot/state-maintenance paths need a volume review (dedup or LogToLocal)
 
 ## Case: PrimeLoginInvalidToken still counted as onekeyIdLogout
+
 **Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension
 **Symptom**: After demoting hot-path `onekeyIdLogout` traces, invalid-token bus handling still emitted a server `onekeyIdLogout` before the stale-generation gate, so retries and superseded clears kept polluting the genuine logout event.
 **Root Cause**: `PrimeGlobalEffectView` logged logout at handler entry, then separately local-traced stale events. Background already emits `onekeyIdInvalidToken` for the server signal.
@@ -201,6 +231,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a reserved server event must stay behind the same skip gate as the handler body)
 
 ## Case: Prime profile/identity TTL written before analytics delivery
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
 **Symptom**: Review on PR #13008 ‚Äî a failed or out-of-order `updateUserProfile` POST left membership attributes missing for up to 7 days, and `onekeyIdIdentityLinked` could skip after a fire-and-forget emit.
 **Root Cause**: `markPrimeProfileReported` / `markIdentityLinkReported` persisted the TTL before the network send, and `updateUserProfile` / `@LogToServer()` did not await delivery. `lastHandledPrimeProfileKey` was also set before persist, so the same session would not retry.
@@ -208,6 +239,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup or send feeding a state-advancing step must report its outcome); Section 5: No race conditions in async operations
 
 ## Case: Native restore success rewritten as failed by user-info refresh
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android (native main runtime)
 **Symptom**: Review on PR #13008 ‚Äî RevenueCat restore already had an active Prime entitlement, but a later `apiFetchPrimeUserInfo()` throw reported `primeRestorePurchaseResult({ result: 'failed' })` and skipped the success toast.
 **Root Cause**: Success tracking sat after the user-info refresh inside one try/catch, so a transient server/network error rewrote a real store restore as failed.
@@ -215,6 +247,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a success signal must stay behind the same store-outcome gate, not a later refresh)
 
 ## Case: Bind/restore login committed without identity or profile analytics
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
 **Symptom**: Review on PR #13008 ‚Äî `apiBindLegacyOneKeyIdOAuth` and auth-state restore wrote `isLoggedIn: true` through `updatePrimeAtomByOneKeyIdAccount` but never emitted `onekeyIdIdentityLinked` or membership profile attributes when the later user-info refresh failed or was skipped.
 **Root Cause**: Identity/profile reporting was only attached to `updatePrimeAtomByServerUserInfo` / `updatePrimeAtomByOAuthLoginResponse`, not the shared OneKey-account commit path.
@@ -222,6 +255,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers (every login-commit writer needs the same analytics pair)
 
 ## Case: Identity-link races and unbounded analytics init wait
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
 **Symptom**: Review on PR #13008 after the reporter extract ‚Äî one login emitted `onekeyIdIdentityLinked` twice (atom commit + user-info refresh); cold-start `waitForServer` identity throws before `analytics.init`; a hung `whenInitialized()` blocked every later profile report.
 **Root Cause**: Persist-after-send deleted the session Set without an in-flight replacement; identity used `trackEventAsync` (no `cacheEvents`) without waiting for init; `whenInitialized()` has no timeout and sat on the serial profile chain.
@@ -229,6 +263,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 5: No race conditions in async operations; Section 4: Logic moved between files carries its surrounding guard/condition and scope; NEW ‚Äî `waitForServer` / `trackEventAsync` callers must wait for analytics init with a bounded timeout
 
 ## Case: Session Set written on not-due blocked 7-day identity re-assert
+
 **Date**: 2026-08-26 | **Platforms**: desktop, web (single-runtime, long-lived); iOS/Android/extension less exposed because bg restarts
 **Symptom**: Review on PR #13008 ‚Äî a desktop session that started while `onekeyIdIdentityLinked` TTL was still valid never re-emitted after the 7-day mark, even though Dashboard / user-info refresh kept calling the reporter.
 **Root Cause**: The not-due branch wrote `onekeyUserId` into `identityLinkReportedThisSession`, and the entry gate returned before reading simpleDb again. Profile `lastHandledPrimeProfileKey` had the same not-due write.
@@ -236,6 +271,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Data flow end-to-end (a persisted TTL meant to re-assert must not be shadowed by a never-expiring in-memory guard)
 
 ## Case: Site-scan usage event only remembered the last OneKey account
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (main runtime)
 **Symptom**: Review on PR #13008 ‚Äî `siteScanRiskWarned` used a single `reportedUserId`. A ‚Üí B ‚Üí A in one JS session re-emitted A and broke the once-per-account-per-session volume bound.
 **Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
@@ -243,6 +279,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers (a per-user session guard must keep every seen user, not only the last)
 
 ## Case: iOS Infini subscription management opened a OneKey invite page
+
 **Date**: 2026-08-30 | **Platforms**: iOS, Android Google Play, desktop, web
 **Symptom**: Tapping Prime ËÆ¢ÈòÖÁÆ°ÁêÜ on iOS opened Safari to a OneKey Perps invite/marketing page instead of Infini or store subscription management (OK-61464).
 **Root Cause**: Infini has no web portal. The router fell through to `subscriptions[].managementUrl`, which was a OneKey marketing page.
@@ -250,6 +287,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Edge cases ‚Äî a channel without a real management portal must not fall through to another destination
 
 ## Case: Channel-less Prime managementUrl opened a marketing page
+
 **Date**: 2026-08-30 | **Platforms**: iOS, Android, desktop, web, extension
 **Symptom**: A Prime row with no `channel` but a leftover `managementUrl` (often the OneKey invite page) would open that URL and skip the legacy Infini probe.
 **Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
@@ -257,6 +295,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Edge cases ‚Äî a URL without a declared channel is not a management portal
 
 ## Case: Settings dApp Connection opened a second Bottom Sheet
+
 **Date**: 2026-08-31 | **Platforms**: iOS, Android
 **Symptom**: Tapping dApp ËøûÊé• from Settings stacked a second Bottom Sheet on top of the settings sheet (OK-61439).
 **Root Cause**: The settings entry used `pushModal(DAppConnectionModal)` instead of in-stack `push()` like sibling pages.
@@ -264,6 +303,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers (settings entries that open a page should use the same stack as siblings)
 
 ## Case: Protection Prime badge misaligned on mobile
+
 **Date**: 2026-08-31 | **Platforms**: iOS, Android
 **Symptom**: The Prime badge on Êî∂Ê¨æÈ£éÈô©ÁõëÊéß sat between subtitle and switch, aligned with neither (OK-61456).
 **Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
@@ -271,6 +311,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 3: UI changes verified on mobile ‚Äî trailing children of a two-line ListItem do not vertically align with the title
 
 ## Case: Union-build ownership promotion dropped runtime-divergent modules from every bundle
+
 **Date**: 2026-08-26 | **Platforms**: iOS, Android (split-bundle union build)
 **Symptom**: CI "Native startup graph budget" failed: 38 `react-native-mmkv/src/*` modules were reachable via sync edges in the background graph but landed in no eager bundle and no segment, which would crash the bg runtime with "Requiring unknown module".
 **Root Cause**: `buildRuntimeOwnership` promoted every sync dep of a shared-startup module into the common-bundle set, but the common bundle is serialized from the MAIN graph only. A dep that resolves differently per runtime (react-native-mmkv ‚Üí real package in bg, guard shim in main) exists only in the bg graph, so promotion removed it from bg-only ownership while the common bundle could never emit it.
@@ -278,6 +319,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: NEW ‚Äî not covered (build allocator invariants need a cross-runtime completeness gate; the union build's assertBundleCompleteness caught it only in CI)
 
 ## Case: Jest suite mocking platformEnv as native crashed the whole shard via WebStorage
+
 **Date**: 2026-08-26 | **Platforms**: CI unit tests (all shards at risk)
 **Symptom**: Unit Tests shard crashed the Node process: `IndexedDBPromised.open` threw "Cannot read properties of undefined (reading 'open')" inside `new WebStorage()`'s async promise executor, killing jest before any suite result was reported.
 **Root Cause**: A test mocked `platformEnv` with `isNative: true` but without `isJest: true`; after a base-branch merge extended ServiceApp's import graph to `webStorageInstance.ts`, the falsy `isJest` made the module construct real IndexedDB-backed WebStorage singletons in Node, and the unhandled rejection killed the worker process.
@@ -285,6 +327,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Catchable by**: Section 6: Tests cover happy path AND edge cases (platformEnv mocks must preserve `isJest`); NEW ‚Äî a platformEnv test mock omitting `isJest` is a systemic hazard worth a lint/setup guard
 
 ## Case: Shared stock balance atom loop and stale restore
+
 **Date**: 2026-09-01 | **Platforms**: iOS, Android, desktop, web, extension
 **Symptom**: Navigating from a stock Market detail page to a Trending/Top Coins token caused `Maximum update depth exceeded` (white screen, OK-61600). After breaking the loop, returning to the retained stock page left trading disabled until its balance changed.
 **Root Cause**: Two retained Market detail screens share `marketSwap`. Each `useSwapStockSelectedBalanceSync` instance wrote the same atom and listed `storedBalance` as an effect dep, so write ‚Üí rerender ‚Üí write ping-ponged. Removing that dep stopped the loop, but the retained stock instance no longer republished on return, and an unfocused stock instance could still overwrite the current screen when its fetch completed.
@@ -353,3 +396,11 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries ‚Ä
 **Root Cause**: `markOneKeyIdLoggedOutPreservingSessions` writes a tombstone in SimpleDB while keeping credentials in `supabaseStorageInstance`. After delete, `getRawData()` is `null`, so `persistMigratedLegacyAuthSessionSourceIfUnset` treats "empty" as "never logged out" and commits LegacyEmailSupabase + `loggedIn`. Unreadable ‚â† empty.
 **Fix**: `SimpleDbEntityPrime` opts out of unreadable-record self-heal so the Chromium blob error stays loud-fail; other SimpleDB entities remain default-on.
 **Catchable by**: Section 4: Shared hook/utility modified ‚Üí checked all consumers; NEW ‚Äî tombstone / monotonic-epoch records must not treat self-heal `null` as "never written"
+
+## Case: Removed-account activeAccount clear only worked in E2E/dev perf mode
+
+**Date**: 2026-08-20 | **Platforms**: mobile, desktop, web, extension (production builds)
+**Symptom**: On this branch, deleting the selected account in a non-auto-select scene (addressInput/primePayment) cleared `selectedAccount` but production builds kept the deleted account's full `activeAccount` (address included) until manual re-selection; E2E and dev builds cleared it correctly.
+**Root Cause**: The guard bypass in `reloadActiveAccountInfo` branched on `transitionMeta?.reason === 'removeAccountSelectionClear'`, but that reason travels through the perfDebug WeakMap attribution channel, which is only populated when `isAccountSelectorPerfDebugEnabled()` (isE2E or dev+logger) ‚Äî empty in production, so `shouldKeepNetworkOnlySelection` kept the stale active account. This violated the perfDebug contract "Diagnostics only ‚Äî never branch on these entries", and E2E could not catch it because `isE2E` keeps perf attribution permanently on.
+**Fix**: Added a formal `forceIncompleteSelectionReload` payload flag to `reloadActiveAccountInfo`, removed the perf-reason inference, and made the `autoSelectNextAccount` clear branch call the reload directly with the flag after a committed clear; added a regression test asserting perf metadata alone cannot bypass the guard.
+**Catchable by**: NEW ‚Äî control flow must never depend on diagnostics-only channels (perf WeakMaps, trace metadata); test-mode-only wiring needs a perf-off regression path

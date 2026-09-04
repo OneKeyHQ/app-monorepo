@@ -82,6 +82,8 @@ export interface IDevSettings {
   useLocalTradingViewUrl?: boolean;
   // show the TradingViewNative event log panel
   showTradingViewNativeDebugPanel?: boolean;
+  // Show the Web-only Account Selector React Context inspector.
+  showAccountSelectorMirrorInspector?: boolean;
   showPerpsRenderStats?: boolean;
   // Route Unifold deposits to the Arbitrum USDC destination instead of
   // HyperCore, so the whole deposit pipeline can be exercised for source-chain

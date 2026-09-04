@@ -33,6 +33,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -108,7 +109,13 @@ function WalletAddressListItemIcon({
 }
 const WalletAddressListItemIconMemo = memo(WalletAddressListItemIcon);
 
-function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
+// Exported for tests only (render-prop identity guard in
+// SingleWalletAddressListItem.test.tsx).
+export function SingleWalletAddressListItem({
+  network,
+}: {
+  network: IServerNetwork;
+}) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const {
@@ -306,47 +313,64 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     ],
   );
 
+  // ListItem renders this prop as a component, so an inline arrow would be a
+  // new element type on every render and React would remount the whole text
+  // subtree instead of updating it in place.
+  const renderItemText = useCallback(
+    (textProps: IListItemTextProps) => (
+      <ListItem.Text
+        {...textProps}
+        primary={
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$bodyLgMedium">{network.name}</SizableText>
+            {!isBotWalletAddressBlocked &&
+            networkUtils
+              .getDefaultDeriveTypeVisibleNetworks()
+              .includes(network.id) ? (
+              <AddressTypeSelector
+                placement="bottom-start"
+                walletId={walletId ?? ''}
+                networkId={network.id}
+                activeDeriveType={account?.deriveType}
+                activeDeriveInfo={account?.deriveInfo}
+                indexedAccountId={indexedAccountId ?? ''}
+                onSelect={async () => {
+                  await refreshLocalData();
+                }}
+                onCreate={async ({ deriveType }) => {
+                  const defaultDeriveType =
+                    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                      {
+                        networkId: network.id,
+                      },
+                    );
+                  if (deriveType === defaultDeriveType) {
+                    await refreshLocalData();
+                  }
+                }}
+              />
+            ) : null}
+          </XStack>
+        }
+        flex={1}
+      />
+    ),
+    [
+      account?.deriveInfo,
+      account?.deriveType,
+      indexedAccountId,
+      isBotWalletAddressBlocked,
+      network.id,
+      network.name,
+      refreshLocalData,
+      walletId,
+    ],
+  );
+
   return useMemo(
     () => (
       <ListItem
-        renderItemText={(textProps) => (
-          <ListItem.Text
-            {...textProps}
-            primary={
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {!isBotWalletAddressBlocked &&
-                networkUtils
-                  .getDefaultDeriveTypeVisibleNetworks()
-                  .includes(network.id) ? (
-                  <AddressTypeSelector
-                    placement="bottom-start"
-                    walletId={walletId ?? ''}
-                    networkId={network.id}
-                    activeDeriveType={account?.deriveType}
-                    activeDeriveInfo={account?.deriveInfo}
-                    indexedAccountId={indexedAccountId ?? ''}
-                    onSelect={async () => {
-                      await refreshLocalData();
-                    }}
-                    onCreate={async ({ deriveType }) => {
-                      const defaultDeriveType =
-                        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                          {
-                            networkId: network.id,
-                          },
-                        );
-                      if (deriveType === defaultDeriveType) {
-                        await refreshLocalData();
-                      }
-                    }}
-                  />
-                ) : null}
-              </XStack>
-            }
-            flex={1}
-          />
-        )}
+        renderItemText={renderItemText}
         subtitle={subtitle}
         subtitleProps={{
           color:
@@ -371,15 +395,11 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [
       account,
       avatar,
-      indexedAccountId,
       isEnabledNetwork,
       loading,
-      network.id,
-      network.name,
       onPress,
-      refreshLocalData,
+      renderItemText,
       subtitle,
-      walletId,
       isBotWalletAddressBlocked,
     ],
   );

@@ -30,6 +30,7 @@ import {
   useAccountSelectorTrigger,
   useMockAccountSelectorLoading,
 } from '../hooks/useAccountSelectorTrigger';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 const InterAccountAvatar = ({
   isLoading,
@@ -83,7 +84,12 @@ const InterWalletAndAccountName = ({
         /
       </SizableText>
       <XStack maxWidth="$40">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          testID={AccountSelectorTestIDs.dappAccountName}
+        >
           {accountName}
         </SizableText>
       </XStack>
@@ -109,7 +115,13 @@ const InterAddressText = ({
     );
   }
   return (
-    <SizableText flex={1} size="$bodyMdMedium" numberOfLines={1} color="$text">
+    <SizableText
+      flex={1}
+      size="$bodyMdMedium"
+      numberOfLines={1}
+      color="$text"
+      testID={AccountSelectorTestIDs.dappAccountAddress}
+    >
       {addressText}
     </SizableText>
   );
@@ -246,10 +258,6 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
         await beforeShowTrigger?.();
         showAccountSelector();
       }, [beforeShowTrigger, showAccountSelector]);
-
-      useEffect(() => {
-        console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-      }, []);
 
       return (
         <AccountSelectorTriggerDappConnectionCmp

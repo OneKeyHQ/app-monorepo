@@ -41,7 +41,7 @@ class ServicePromise extends ServiceBase {
     this._rejectExpiredCallbacks();
   }
 
-  private callbacks: Array<IPromiseContainerCallback> = [];
+  private callbacks: Record<number, IPromiseContainerCallback | undefined> = {};
 
   // TODO increase timeout as hardware sign transaction may take a long time
   //    can set timeout for each callback
@@ -79,6 +79,11 @@ class ServicePromise extends ServiceBase {
     return latestId;
   }
 
+  hasCallback(id: number | string) {
+    const callbackId = Number(id);
+    return this.callbacks[callbackId]?.id === callbackId;
+  }
+
   @backgroundMethod()
   async rejectCallback({ id, error }: IPromiseContainerReject) {
     this._processCallback({
@@ -90,7 +95,11 @@ class ServicePromise extends ServiceBase {
 
   @backgroundMethod()
   async resolveCallback({ id, data }: IPromiseContainerResolve) {
-    this._processCallback({
+    this.resolveCallbackSync({ id, data });
+  }
+
+  resolveCallbackSync({ id, data }: IPromiseContainerResolve) {
+    return this._processCallback({
       method: 'resolve',
       id,
       data,
@@ -116,8 +125,9 @@ class ServicePromise extends ServiceBase {
     if (!id) {
       console.error('ServicePromise processCallback ERROR: id not exists');
     }
-    const callbackInfo = this.callbacks[id as number];
-    if (callbackInfo) {
+    const callbackId = Number(id);
+    const callbackInfo = this.callbacks[callbackId];
+    if (callbackInfo?.id === callbackId) {
       if (method === 'reject') {
         if (callbackInfo.reject) {
           callbackInfo.reject(error);
@@ -130,11 +140,13 @@ class ServicePromise extends ServiceBase {
         }
       }
       this.removeCallback(id);
+      return true;
     }
+    return false;
   }
 
   removeCallback(id: number | string) {
-    this.callbacks.splice(id as number, 1);
+    delete this.callbacks[Number(id)];
   }
 
   _rejectExpiredCallbacks() {
@@ -155,7 +167,7 @@ class ServicePromise extends ServiceBase {
       }
     }
     if (isCallbacksEmpty) {
-      this.callbacks = [];
+      this.callbacks = {};
     }
     setTimeout(() => {
       this._rejectExpiredCallbacks();

@@ -16,6 +16,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import { AddressInputContext } from '../AddressInputContext';
+import { AddressInputTestIDs } from '../testIDs';
 
 import type { IAddressPluginProps } from '../types';
 
@@ -75,7 +76,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
           })}
           variant="tertiary"
           icon="DotVerOutline"
-          testID={testID ?? 'address-input-contacts-btn'}
+          testID={testID ?? AddressInputTestIDs.contactsButton}
         />
       }
     />
@@ -265,7 +266,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         disabled={disabled}
         variant="tertiary"
         icon="PeopleOutline"
-        testID={testID ?? 'address-input-account-selector-btn'}
+        testID={testID ?? AddressInputTestIDs.accountSelectorButton}
         onPress={onShowAccountSelector}
       />
     );
@@ -305,7 +306,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           disabled={disabled}
           variant="tertiary"
           icon="PeopleOutline"
-          testID={testID ?? 'address-input-selector-btn'}
+          testID={testID ?? AddressInputTestIDs.selectorButton}
         />
       }
     />

@@ -192,7 +192,7 @@ const QuickSelectListItem = memo(
         wallet={item.wallet}
         customRenderAvatar={item.customRenderAvatar}
         onPress={onPress}
-        testID={`recipient-item-${item.address}`}
+        testID={SendTestIDs.recipientItem(item.address)}
         primary={
           <XStack gap="$2" alignItems="center" flexWrap="nowrap">
             <MatchSizeableText
@@ -1206,6 +1206,10 @@ function RecipientQuickSelect({
     };
     return visibleTabKeys.map((tab) => ({
       label: formatLabel(labelMap[tab], tab),
+      testID:
+        tab === 'account'
+          ? SendTestIDs.recipientQuickSelectAccountTab
+          : undefined,
       value: tab,
     }));
   }, [intl, isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys]);

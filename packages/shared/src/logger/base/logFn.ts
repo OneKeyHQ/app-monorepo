@@ -83,7 +83,10 @@ function processEntry(entry: ILogEntry) {
   let needsColorful = false;
   const pendingServerLogs: Promise<void>[] = [];
 
-  for (const metadata of entry.metadataList) {
+  const enabledMetadataList = entry.metadataList.filter(
+    (metadata) => !metadata.devOnly || platformEnv.isDev,
+  );
+  for (const metadata of enabledMetadataList) {
     switch (metadata.type) {
       case 'local':
         // Dedup is handled per-platform in the transport layer:

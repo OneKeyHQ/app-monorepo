@@ -62,7 +62,7 @@ Never violate this dependency order:
 - Use `toLowerCase()` / `toUpperCase()`, never locale variants.
 - Load `@onekeyfe/hd-core` through `await CoreSDKLoader()`; never import it directly.
 - Use `localDb`, never import `localDbInstance` directly.
-- Do not commit code that fails lint or TypeScript checks.
+- Use yarn/oxfmt, not prettier; do not commit failing checks.
 
 ## Data And Dependencies
 

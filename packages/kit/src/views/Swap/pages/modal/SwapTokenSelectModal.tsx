@@ -526,6 +526,7 @@ const SwapTokenSelectPage = ({
       void updateSelectedAccountNetwork({
         num: type === ESwapDirectionType.FROM ? 0 : 1,
         networkId: currentSelectNetwork?.networkId,
+        reason: 'swapTokenSelectNetworkSync',
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
