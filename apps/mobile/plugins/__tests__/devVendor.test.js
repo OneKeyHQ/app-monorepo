@@ -1209,6 +1209,62 @@ describe('devVendor', () => {
     ).toThrow('no valid ONEKEY_DEV_SESSION_ID');
   });
 
+  it('serves embedded native requests only from a session-less Metro server', () => {
+    const manifest = { fingerprint: 'fingerprint-ios' };
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const embeddedRequest = {
+      devVendor: 'true',
+      devVendorNative: 'true',
+      devVendorEmbedded: 'true',
+      devVendorFingerprint: 'fingerprint-ios',
+      runtimeTarget: 'background',
+    };
+
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          ...embeddedRequest,
+          devVendorFingerprint: 'stale',
+        },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('cache fingerprint mismatch');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, runtimeTarget: 'worker' },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('invalid runtime target');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, devSessionId: sessionId },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('must not carry a dev session ID');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: { ONEKEY_DEV_SESSION_ID: sessionId },
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('reached a DevSession Metro server');
+  });
+
   it('keeps non-native dev-vendor requests backward compatible', () => {
     expect(() =>
       assertNativeDevVendorResolverContract({

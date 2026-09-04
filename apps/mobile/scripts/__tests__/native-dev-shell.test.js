@@ -60,19 +60,34 @@ function createDevSession({
   };
 }
 
+// Source a build without ONEKEY_DEV_SHELL compiles: dev-shell `#if` branches
+// are dropped, their `#else` branches are kept because that is exactly what a
+// production (non dev-shell) variant, including Xcode device Debug builds, gets.
 function stripSwiftDevShellBlocks(source) {
   const output = [];
-  let excludedDepth = 0;
+  const stack = [];
+  const isExcluded = () =>
+    stack.some((frame) => frame.devShell && !frame.inElse);
   for (const line of source.split('\n')) {
     if (/^\s*#if\b/u.test(line)) {
-      if (excludedDepth > 0 || line.includes('ONEKEY_DEV_SHELL')) {
-        excludedDepth += 1;
-      } else {
+      const devShell = line.includes('ONEKEY_DEV_SHELL');
+      const wasExcluded = isExcluded();
+      stack.push({ devShell, inElse: false });
+      if (!wasExcluded && !devShell) {
         output.push(line);
       }
-    } else if (/^\s*#endif\b/u.test(line) && excludedDepth > 0) {
-      excludedDepth -= 1;
-    } else if (excludedDepth === 0) {
+    } else if (/^\s*#else\b/u.test(line) && stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      frame.inElse = true;
+      if (!frame.devShell && !isExcluded()) {
+        output.push(line);
+      }
+    } else if (/^\s*#endif\b/u.test(line) && stack.length > 0) {
+      const frame = stack.pop();
+      if (!frame.devShell && !isExcluded()) {
+        output.push(line);
+      }
+    } else if (!isExcluded()) {
       output.push(line);
     }
   }
@@ -1865,8 +1880,19 @@ describe('native-dev-shell', () => {
     expect(androidDebug).toContain('resolver.devSessionId');
     expect(androidReleaseConfig).not.toContain('ONEKEY_DEV_SHELL');
     expect(iosSource).toContain(
-      '#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)',
+      '#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)',
     );
+    // Xcode Debug builds outside the Simulator dev shell must keep the embedded
+    // common HBC path (no DevSession) or physical devices fall back to two full
+    // Metro bundles and hit the per-process memory limit.
+    expect(iosProductionSource).toContain('#if DEBUG');
+    expect(iosProductionSource).toContain(
+      'forResource: "onekey-dev-vendor-common"',
+    );
+    expect(iosProductionSource).toContain(
+      'values["resolver.devVendorEmbedded"] = "true"',
+    );
+    expect(iosProductionSource).not.toContain('devVendorBundleInfo.sessionId');
 
     expect(androidDebug).toContain(
       'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "main", fingerprint)',

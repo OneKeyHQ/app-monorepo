@@ -1430,6 +1430,24 @@ function assertNativeDevVendorResolverContract({
     );
   }
   const requestedSessionId = customResolverOptions.devSessionId;
+  const serverSessionId = env.ONEKEY_DEV_SESSION_ID;
+  if (customResolverOptions.devVendorEmbedded === 'true') {
+    // Xcode/Gradle Debug builds embed the validated common HBC + manifest and
+    // run against a plain `yarn app:native-bundle` Metro. They have no
+    // DevSession, so they may only be served by a Metro server that is not
+    // bound to a DevSession either; DevSession isolation stays intact.
+    if (requestedSessionId !== undefined) {
+      throw new Error(
+        `[devVendor] Native ${platform} embedded request must not carry a dev session ID.`,
+      );
+    }
+    if (typeof serverSessionId === 'string' && serverSessionId.length > 0) {
+      throw new Error(
+        `[devVendor] Native ${platform} embedded request reached a DevSession Metro server.`,
+      );
+    }
+    return;
+  }
   if (
     typeof requestedSessionId !== 'string' ||
     !DEV_SESSION_ID_PATTERN.test(requestedSessionId)
@@ -1438,7 +1456,6 @@ function assertNativeDevVendorResolverContract({
       `[devVendor] Native ${platform} request has an invalid dev session ID.`,
     );
   }
-  const serverSessionId = env.ONEKEY_DEV_SESSION_ID;
   if (
     typeof serverSessionId !== 'string' ||
     !DEV_SESSION_ID_PATTERN.test(serverSessionId)
