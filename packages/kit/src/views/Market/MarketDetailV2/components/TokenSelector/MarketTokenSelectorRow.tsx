@@ -156,7 +156,9 @@ const MarketTokenSelectorRow = memo(
             </NumberSizeableText>
           );
         case 'change':
-          return (
+          return item.priceChangeRaw === '-' ? (
+            <MissingValue />
+          ) : (
             <NumberSizeableText
               size={METRIC_TEXT_SIZE}
               formatter="priceChange"

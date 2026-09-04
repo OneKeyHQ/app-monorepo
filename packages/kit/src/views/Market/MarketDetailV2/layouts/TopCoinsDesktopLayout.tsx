@@ -169,11 +169,12 @@ function normalizeAssetValue(value?: string | number | null) {
 // so the item gap only separates the label from that pair.
 // Figma 26430:60331: period items show the percentage alone; only the
 // all-time-high item carries its price, inline after the percentage on the
-// same baseline. Items keep their content width as the flex basis (never a
-// zero basis: the wrap algorithm breaks lines by the basis, and a zero basis
-// would keep every item on one line and squeeze the figures into mid-number
-// wraps) with a 112px floor — when the row cannot fit an item's content, the
-// whole item wraps to the next line instead.
+// same baseline. Items lay out at their content width (flexBasis auto with
+// shrink disabled — `flex={1}` would reset the basis to 0 and the wrap
+// algorithm would only ever see the 112px floor, squeezing long translated
+// labels into ellipses instead of wrapping); when the row cannot fit an
+// item's content, the whole item wraps to the next line, and leftover space
+// still spreads across the row via flexGrow.
 const TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH = 112;
 
 function TopCoinsPerformanceItem({
@@ -187,7 +188,9 @@ function TopCoinsPerformanceItem({
 }) {
   return (
     <YStack
-      flex={1}
+      flexGrow={1}
+      flexShrink={0}
+      flexBasis="auto"
       minWidth={TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH}
       py="$2"
       justifyContent="center"
@@ -331,7 +334,7 @@ function TopCoinsOverview({
         <SizableText size="$headingXl">
           {intl.formatMessage({ id: ETranslations.market_performance })}
         </SizableText>
-        <XStack flexWrap="wrap">
+        <XStack flexWrap="wrap" columnGap="$4">
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
               key={item.key}

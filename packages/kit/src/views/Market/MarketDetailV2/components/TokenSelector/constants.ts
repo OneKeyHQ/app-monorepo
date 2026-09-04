@@ -83,6 +83,9 @@ export function convertSearchTokenToMarketToken(
     decimals: item.decimals,
     price: Number(item.price) || 0,
     change24h: Number(item.priceChange24hPercent) || 0,
+    // Carried raw so a '-' (no data) can be told apart from a real 0% after
+    // the numeric normalization above.
+    priceChangeRaw: item.priceChange24hPercent,
     marketCap: Number(item.marketCap) || 0,
     liquidity: Number(item.liquidity) || 0,
     transactions: 0,
