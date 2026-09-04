@@ -1,6 +1,7 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -203,12 +204,17 @@ const fetchMarketAssetListLight = memoizee(
   },
 );
 
+const resolveMarketTokenBatchLocale = (requestLocale?: string) => {
+  const locale = requestLocale?.trim() || appLocale.intl.locale;
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+};
+
 const fetchMarketTokenListBatchFromApi = async ({
   tokenAddressList,
   requestLocale,
 }: IMarketTokenBatchRequestParams) => {
   const client = await getUtilityClient();
-  const locale = (requestLocale?.trim() || appLocale.intl.locale).toLowerCase();
+  const locale = resolveMarketTokenBatchLocale(requestLocale);
   const response = await client.post<
     IApiClientResponse<IMarketTokenBatchListResponse>
   >(
@@ -265,9 +271,7 @@ const getMarketTokenBatchCacheKey = ({
 const fetchMarketTokenListBatchLight = async (
   params: IMarketTokenBatchRequestParams,
 ) => {
-  const requestLocale = (
-    params.requestLocale?.trim() || appLocale.intl.locale
-  ).toLowerCase();
+  const requestLocale = resolveMarketTokenBatchLocale(params.requestLocale);
   const now = Date.now();
 
   for (const [key, value] of marketTokenBatchCache) {

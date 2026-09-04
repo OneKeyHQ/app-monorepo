@@ -26,6 +26,10 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/locale/getDefaultLocale', () => ({
+  getDefaultLocale: jest.fn(() => 'fr-FR'),
+}));
+
 jest.mock('./marketPerf', () => ({
   markMarketPerf: jest.fn(),
 }));
@@ -184,6 +188,42 @@ describe('marketLightApi', () => {
       headers: {
         'x-onekey-request-currency': 'usd',
         'x-onekey-request-locale': 'en-us',
+      },
+    });
+  });
+
+  it('resolves the system locale before sending and caching a batch', async () => {
+    const token = {
+      chainId: 'evm--system-locale-cache-test',
+      contractAddress: '0xsystem-locale-cache-test',
+      isNative: false,
+    };
+    const item = {
+      address: token.contractAddress,
+      networkId: token.chainId,
+      isNative: false,
+      symbol: 'SYSTEM_LOCALE',
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [item] } } });
+
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [token],
+        requestLocale: 'system',
+      }),
+    ).resolves.toEqual({ list: [item] });
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [token],
+        requestLocale: 'fr-FR',
+      }),
+    ).resolves.toEqual({ list: [item] });
+
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    expect(mockPost.mock.calls[0]?.[2]).toEqual({
+      headers: {
+        'x-onekey-request-currency': 'usd',
+        'x-onekey-request-locale': 'fr-fr',
       },
     });
   });
