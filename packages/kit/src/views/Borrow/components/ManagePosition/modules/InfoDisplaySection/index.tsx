@@ -49,11 +49,11 @@ export function InfoDisplaySection({
   const hasRefundableFee = !!transactionConfirmation?.refundableFee;
   const hasRefundFee = !!transactionConfirmation?.refundFee;
   const canBeCollateral = transactionConfirmation?.canBeCollateral;
-  const collateralEnabled = transactionConfirmation?.enabled;
-  // Older responses omit enabled; do not infer the collateral switch state.
+  const usageAsCollateral = transactionConfirmation?.usageAsCollateral;
+  // Older responses omit usageAsCollateral; do not infer the collateral switch state.
   const hasCollateralStatus =
     canBeCollateral === false ||
-    (canBeCollateral === true && collateralEnabled !== undefined);
+    (canBeCollateral === true && usageAsCollateral !== undefined);
 
   // Determine if we should show swap/bridge based on action
   const shouldShowSwapOrBridge =
@@ -151,7 +151,7 @@ export function InfoDisplaySection({
           {hasCollateralStatus ? (
             <CollateralInfo
               canBeCollateral={canBeCollateral}
-              enabled={collateralEnabled}
+              usageAsCollateral={usageAsCollateral}
             />
           ) : null}
           {shouldShowSwapOrBridge ? (

@@ -2764,7 +2764,7 @@ export interface IBorrowTransactionConfirmation {
   };
   apyDetail?: IBorrowApy;
   canBeCollateral?: boolean;
-  enabled?: boolean;
+  usageAsCollateral?: boolean;
   refundableFee?: {
     title: IEarnText;
     description: IEarnText;

@@ -8,10 +8,10 @@ import { BorrowInfoItem } from '../../../BorrowInfoItem';
 
 export function CollateralInfo({
   canBeCollateral,
-  enabled,
+  usageAsCollateral,
 }: {
   canBeCollateral: boolean;
-  enabled?: boolean;
+  usageAsCollateral?: boolean;
 }) {
   const intl = useIntl();
   const status = (() => {
@@ -25,7 +25,7 @@ export function CollateralInfo({
         textColor: '$textCritical' as const,
       };
     }
-    if (enabled === true) {
+    if (usageAsCollateral === true) {
       return {
         icon: 'Checkmark2SmallOutline' as const,
         iconColor: '$iconSuccess' as const,
