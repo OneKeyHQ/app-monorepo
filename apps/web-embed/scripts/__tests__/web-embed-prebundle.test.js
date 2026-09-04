@@ -82,7 +82,10 @@ describe('web-embed-prebundle', () => {
     expect(workflow).toContain("cron: '30 18 * * 0'");
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain(
-      "github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'",
+      "(github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')",
+    );
+    expect(workflow).toContain(
+      "github.ref == 'refs/heads/x' &&\n      needs.build.result == 'success'",
     );
   });
 

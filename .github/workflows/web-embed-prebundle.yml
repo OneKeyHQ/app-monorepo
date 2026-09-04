@@ -37,7 +37,9 @@ env:
 jobs:
   resolve:
     name: Resolve public OCI prebundle
-    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    if: >-
+      github.repository == 'OneKeyHQ/app-monorepo' &&
+      (github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: read
@@ -170,7 +172,10 @@ jobs:
     needs:
       - resolve
       - build
-    if: needs.build.result == 'success' && needs.resolve.outputs.exists != 'true'
+    if: >-
+      github.ref == 'refs/heads/x' &&
+      needs.build.result == 'success' &&
+      needs.resolve.outputs.exists != 'true'
     permissions:
       attestations: write
       contents: read
