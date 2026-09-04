@@ -98,6 +98,15 @@ export type IPrimeCryptoPaymentFlowParams = {
   amountDue?: string;
   reason?: string;
   sendStarted?: boolean;
+  hasBeforeBroadcastAction?: boolean;
+  isDevModeEnabled?: boolean;
+  isAlwaysSignOnlySendTxConfigured?: boolean;
+  isSignOnlyRequested?: boolean;
+  isExternalAccount?: boolean;
+  hasCompletedBeforeBroadcastAction?: boolean;
+  hasAttemptedBroadcast?: boolean;
+  hasBroadcastTxId?: boolean;
+  isWithoutBroadcastTxIdAllowed?: boolean;
   isRetry?: boolean;
   durationMs?: number;
   retryCount?: number;
@@ -169,6 +178,7 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
+      | 'accountSelectorAddMenu'
       | 'browserTranslate'
       | 'historySettings'
       | 'sendAddressInput';
