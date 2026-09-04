@@ -126,9 +126,7 @@ describe('EnumBasicDialogContentContainer', () => {
 
     rerender(
       <EnumBasicDialogContentContainer
-        contentType={
-          EFirmwareAuthenticationDialogContentType.error_fallback
-        }
+        contentType={EFirmwareAuthenticationDialogContentType.error_fallback}
         errorObj={{ code: 0 }}
       />,
     );
