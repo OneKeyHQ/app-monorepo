@@ -554,41 +554,52 @@ async function copyLegacyAppStorageKeys({
     );
   }
 
-  const readResults = await Promise.all(
-    enumeration.keys.map((key, index) =>
-      readLegacyAppStorageKey({
-        enumerated: enumeration.enumeratedKeys.has(key),
-        index,
-        key,
-        legacy,
-      }),
-    ),
-  );
   const failures: ILegacyAppStorageMigrationFailure[] = [];
   const migratedKeys: string[] = [];
   let recoveredUnlistedKeyCount = 0;
   let totalBytes = 0;
 
-  for (let index = 0; index < readResults.length; index += 1) {
-    const readResult = readResults[index];
-    const key = enumeration.keys[index];
-    if (!readResult) {
-      failures.push({ attemptCount: 4, key, reason: 'read' });
-    } else if (readResult.value !== null) {
-      totalBytes += getUtf8ByteLength(readResult.value);
-      const migrated = await writeAppStorageKeyWithRetry({
-        index,
-        key,
-        mmkv,
-        value: readResult.value,
-      });
-      if (migrated) {
-        migratedKeys.push(key);
-        if (!enumeration.enumeratedKeys.has(key)) {
-          recoveredUnlistedKeyCount += 1;
+  for (
+    let offset = 0;
+    offset < enumeration.keys.length;
+    offset += LEGACY_READ_CHUNK_SIZE
+  ) {
+    const keys = enumeration.keys.slice(
+      offset,
+      offset + LEGACY_READ_CHUNK_SIZE,
+    );
+    const readResults = await Promise.all(
+      keys.map((key, chunkIndex) =>
+        readLegacyAppStorageKey({
+          enumerated: enumeration.enumeratedKeys.has(key),
+          index: offset + chunkIndex,
+          key,
+          legacy,
+        }),
+      ),
+    );
+    for (let chunkIndex = 0; chunkIndex < readResults.length; chunkIndex += 1) {
+      const index = offset + chunkIndex;
+      const readResult = readResults[chunkIndex];
+      const key = keys[chunkIndex];
+      if (!readResult) {
+        failures.push({ attemptCount: 4, key, reason: 'read' });
+      } else if (readResult.value !== null) {
+        totalBytes += getUtf8ByteLength(readResult.value);
+        const migrated = await writeAppStorageKeyWithRetry({
+          index,
+          key,
+          mmkv,
+          value: readResult.value,
+        });
+        if (migrated) {
+          migratedKeys.push(key);
+          if (!enumeration.enumeratedKeys.has(key)) {
+            recoveredUnlistedKeyCount += 1;
+          }
+        } else {
+          failures.push({ attemptCount: 4, key, reason: 'write' });
         }
-      } else {
-        failures.push({ attemptCount: 4, key, reason: 'write' });
       }
     }
   }

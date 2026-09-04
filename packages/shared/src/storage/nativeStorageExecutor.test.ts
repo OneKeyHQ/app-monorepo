@@ -299,6 +299,42 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyData.get(jotaiKey)).toBe('jotai-value');
   });
 
+  it('bounds legacy value retention by reading migration keys in chunks', async () => {
+    for (let index = 0; index < 101; index += 1) {
+      mockLegacyData.set(`key-${String(index).padStart(3, '0')}`, `${index}`);
+    }
+    let releaseLastKeyInFirstChunk: (() => void) | undefined;
+    let markLastKeyInFirstChunkStarted: (() => void) | undefined;
+    const lastKeyInFirstChunkStarted = new Promise<void>((resolve) => {
+      markLastKeyInFirstChunkStarted = resolve;
+    });
+    mockLegacyStorage.multiGet.mockImplementation(async (keys: string[]) => {
+      if (keys[0] === 'key-099') {
+        markLastKeyInFirstChunkStarted?.();
+        await new Promise<void>((resolve) => {
+          releaseLastKeyInFirstChunk = resolve;
+        });
+      }
+      return keys.map(
+        (key) =>
+          [key, mockLegacyData.get(key) ?? null] as [string, string | null],
+      );
+    });
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    const migration = executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'getItem',
+      key: 'key-100',
+    });
+    await lastKeyInFirstChunkStarted;
+
+    expect(mockLegacyStorage.multiGet).toHaveBeenCalledTimes(100);
+    releaseLastKeyInFirstChunk?.();
+    await expect(migration).resolves.toBe('100');
+    expect(mockLegacyStorage.multiGet).toHaveBeenCalledTimes(103);
+  });
+
   it('retries a transient key failure before publishing MMKV', async () => {
     mockLegacyData.set('key', 'fresh');
     mockAppMMKV.set('app:key', 'partial');

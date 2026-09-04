@@ -5,6 +5,9 @@ import { createMMKV } from 'react-native-mmkv';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const mmkvInstance = createMMKV({ id: 'onekey-jotai-states-test' });
+const appStorageMMKVInstance = createMMKV({
+  id: 'onekey-app-storage-snapshot-test',
+});
 const legacyData = new Map<string, string>();
 const migrationLedger = new Map<string, string>();
 const mockSetMigrationLedger = jest.fn(async (key: string, value: string) => {
@@ -31,6 +34,10 @@ const legacyStorage = {
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance',
   () => ({ __esModule: true, default: mmkvInstance }),
+);
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/appStorageMMKVInstance',
+  () => ({ __esModule: true, default: appStorageMMKVInstance }),
 );
 jest.mock('@onekeyhq/shared/src/storage/legacyAsyncStorageMigration', () => ({
   getLegacyAsyncStorageForMigration: () => legacyStorage,
@@ -107,6 +114,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     legacyData.clear();
     migrationLedger.clear();
     mmkvInstance.clearAll();
+    appStorageMMKVInstance.clearAll();
     legacyStorage.multiGet.mockImplementation(async (keys: string[]) =>
       keys.map(
         (key) => [key, legacyData.get(key) ?? null] as [string, string | null],
@@ -213,6 +221,67 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(await storage.getItem('g_states_v5:aAtom', null)).toBe('fresh');
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
     expect(mockLegacyRetryWait.mock.calls).toEqual([[50]]);
+  });
+
+  it('uses the AppStorage MMKV snapshot when legacy Jotai reads fail', async () => {
+    const key = 'g_states_v5:historicalAtom';
+    appStorageMMKVInstance.set(`app:${key}`, '"from-app-storage"');
+    legacyStorage.getAllKeys.mockRejectedValue(
+      new OneKeyLocalError('legacy manifest unavailable'),
+    );
+    legacyStorage.multiGet.mockRejectedValue(
+      new OneKeyLocalError('legacy value unavailable'),
+    );
+    const storage = createStorage();
+
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+
+    expect(await storage.getItem(key, null)).toBe('from-app-storage');
+    expect(legacyStorage.multiGet).not.toHaveBeenCalledWith([key]);
+    expect(
+      JSON.parse(mmkvInstance.getString(MIGRATION_REPORT_KEY) || '{}'),
+    ).toMatchObject({
+      snapshotKeyCount: 1,
+      status: 'degraded',
+    });
+    expect(JSON.stringify(mockNativeLoggerWrite.mock.calls)).toContain(
+      'source=app-storage-mmkv',
+    );
+  });
+
+  it('bounds legacy Jotai value retention by reading migration keys in chunks', async () => {
+    for (let index = 0; index < 101; index += 1) {
+      legacyData.set(
+        `g_states_v5:atom${String(index).padStart(3, '0')}`,
+        `${index}`,
+      );
+    }
+    let releaseLastKeyInFirstChunk: (() => void) | undefined;
+    let markLastKeyInFirstChunkStarted: (() => void) | undefined;
+    const lastKeyInFirstChunkStarted = new Promise<void>((resolve) => {
+      markLastKeyInFirstChunkStarted = resolve;
+    });
+    legacyStorage.multiGet.mockImplementation(async (keys: string[]) => {
+      if (keys[0] === 'g_states_v5:atom099') {
+        markLastKeyInFirstChunkStarted?.();
+        await new Promise<void>((resolve) => {
+          releaseLastKeyInFirstChunk = resolve;
+        });
+      }
+      return keys.map(
+        (key) => [key, legacyData.get(key) ?? null] as [string, string | null],
+      );
+    });
+    const storage = createStorage();
+
+    const migration = storage.migrateFromAsyncStorage([], PROBE_KEY);
+    await lastKeyInFirstChunkStarted;
+
+    expect(legacyStorage.multiGet).toHaveBeenCalledTimes(100);
+    releaseLastKeyInFirstChunk?.();
+    await migration;
+    expect(legacyStorage.multiGet).toHaveBeenCalledTimes(101);
+    expect(await storage.getItem('g_states_v5:atom100', null)).toBe(100);
   });
 
   it('skips a permanently unreadable key and publishes a degraded report', async () => {

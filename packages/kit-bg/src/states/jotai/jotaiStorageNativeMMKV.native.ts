@@ -32,6 +32,8 @@ const JOTAI_LEGACY_RETENTION_POLICY_KEY = '__mmkv_legacy_retention_v1__';
 const JOTAI_LEGACY_RETENTION_POLICY_RETAINED = 'retained-v1';
 const JOTAI_MIGRATION_REPORT_KEY = '__mmkv_migration_report_v1__';
 const JOTAI_STORAGE_KEY_PREFIX = 'g_states_v5:';
+const APP_STORAGE_KEY_PREFIX = 'app:';
+const JOTAI_MIGRATION_CHUNK_SIZE = 100;
 
 type IJotaiMigrationFailure = {
   attemptCount: number;
@@ -45,6 +47,7 @@ type IJotaiMigrationReport = {
   enumerationStatus: 'complete' | 'failed';
   failures: IJotaiMigrationFailure[];
   migratedKeyCount: number;
+  snapshotKeyCount: number;
   sourceKeyCount: number;
   status: 'complete' | 'degraded';
   version: 1;
@@ -108,6 +111,51 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     return getLegacyAsyncStorageForMigration();
   }
 
+  private getAppStorageSnapshot() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@onekeyhq/shared/src/storage/instance/appStorageMMKVInstance')
+      .default as {
+      getAllKeys(): string[];
+      getString(key: string): string | undefined;
+    };
+  }
+
+  private getAppStorageSnapshotKeys() {
+    try {
+      const keys = this.getAppStorageSnapshot()
+        .getAllKeys()
+        .filter((key) =>
+          key.startsWith(
+            `${APP_STORAGE_KEY_PREFIX}${JOTAI_STORAGE_KEY_PREFIX}`,
+          ),
+        )
+        .map((key) => key.slice(APP_STORAGE_KEY_PREFIX.length));
+      return [...new Set(keys)].toSorted();
+    } catch (error) {
+      this.log(
+        `app-storage snapshot enumeration result=failed errorType=${this.getLegacyOperationErrorType(
+          error,
+        )}`,
+      );
+      return [];
+    }
+  }
+
+  private readAppStorageSnapshotValue(key: string) {
+    try {
+      return this.getAppStorageSnapshot().getString(
+        `${APP_STORAGE_KEY_PREFIX}${key}`,
+      );
+    } catch (error) {
+      this.log(
+        `app-storage snapshot read result=failed key=${this.getLegacyKeyDiagnosticLabel(
+          key,
+        )} errorType=${this.getLegacyOperationErrorType(error)}`,
+      );
+      return undefined;
+    }
+  }
+
   private assertMigrated() {
     if (!this.migrationReady) {
       throw new OneKeyLocalError(
@@ -139,7 +187,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     return error instanceof Error && error.name ? error.name : 'UnknownError';
   }
 
-  private async enumerateLegacyKeysWithRetry(expectedKeys: string[]) {
+  private async enumerateLegacyKeysWithRetry(
+    expectedKeys: string[],
+    snapshotKeys: string[],
+  ) {
     const result = await retryLegacyAsyncStorageOperation({
       operation: async () => {
         const legacy = this.getLegacyAsyncStorage();
@@ -160,7 +211,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       },
     });
     if (!result.ok) {
-      const keys = [...new Set(expectedKeys)].toSorted();
+      const keys = [...new Set([...snapshotKeys, ...expectedKeys])].toSorted();
       this.log(
         `source enumeration result=failed attempts=${result.attemptCount} fallbackKeyCount=${keys.length} errorType=${this.getLegacyOperationErrorType(
           result.error,
@@ -181,7 +232,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     );
     const uniqueSourceKeys = [...new Set(sourceKeys)].toSorted();
     const keys = [
-      ...new Set([...uniqueSourceKeys, ...expectedKeys]),
+      ...new Set([...uniqueSourceKeys, ...snapshotKeys, ...expectedKeys]),
     ].toSorted();
     this.log(
       `source enumeration result=complete attempts=${result.attemptCount} sourceKeyCount=${uniqueSourceKeys.length} candidateKeyCount=${keys.length}`,
@@ -195,7 +246,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     } satisfies IJotaiLegacyKeyEnumeration;
   }
 
-  private async readLegacyKeyWithRetry({
+  private async readMigrationKeyWithRetry({
     enumerated,
     index,
     key,
@@ -205,6 +256,13 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     key: string;
   }) {
     const keyLabel = this.getLegacyKeyDiagnosticLabel(key);
+    const snapshotValue = this.readAppStorageSnapshotValue(key);
+    if (snapshotValue !== undefined) {
+      this.log(
+        `source key result=read index=${index} key=${keyLabel} source=app-storage-mmkv present=true attempts=0 sourceChars=${snapshotValue.length}`,
+      );
+      return { attemptCount: 0, value: snapshotValue };
+    }
     const result = await retryLegacyAsyncStorageOperation({
       operation: async () => {
         const legacy = this.getLegacyAsyncStorage();
@@ -244,7 +302,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       return undefined;
     }
     this.log(
-      `source key result=read index=${index} key=${keyLabel} present=${result.value !== null} attempts=${result.attemptCount} sourceChars=${result.value?.length ?? 0}`,
+      `source key result=read index=${index} key=${keyLabel} source=legacy-async-storage present=${result.value !== null} attempts=${result.attemptCount} sourceChars=${result.value?.length ?? 0}`,
     );
     return { attemptCount: result.attemptCount, value: result.value };
   }
@@ -441,7 +499,11 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         );
       }
 
-      const enumeration = await this.enumerateLegacyKeysWithRetry(expectedKeys);
+      const snapshotKeys = this.getAppStorageSnapshotKeys();
+      const enumeration = await this.enumerateLegacyKeysWithRetry(
+        expectedKeys,
+        snapshotKeys,
+      );
       const candidateKeys = enumeration.keys;
 
       if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING) {
@@ -456,32 +518,47 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         void this.store.delete(key as any);
       });
 
-      const readResults = await Promise.all(
-        candidateKeys.map((key, index) =>
-          this.readLegacyKeyWithRetry({
-            enumerated: enumeration.enumeratedKeys.has(key),
-            index,
-            key,
-          }),
-        ),
-      );
       const failures: IJotaiMigrationFailure[] = [];
       let migratedCount = 0;
-      for (let index = 0; index < candidateKeys.length; index += 1) {
-        const key = candidateKeys[index];
-        const readResult = readResults[index];
-        if (!readResult) {
-          failures.push({ attemptCount: 4, key, reason: 'read' });
-        } else if (readResult.value !== null) {
-          const migrated = await this.writeMigratedKeyWithRetry({
-            index,
-            key,
-            value: readResult.value,
-          });
-          if (!migrated) {
-            failures.push({ attemptCount: 4, key, reason: 'write' });
-          } else {
-            migratedCount += 1;
+      for (
+        let offset = 0;
+        offset < candidateKeys.length;
+        offset += JOTAI_MIGRATION_CHUNK_SIZE
+      ) {
+        const keys = candidateKeys.slice(
+          offset,
+          offset + JOTAI_MIGRATION_CHUNK_SIZE,
+        );
+        const readResults = await Promise.all(
+          keys.map((key, chunkIndex) =>
+            this.readMigrationKeyWithRetry({
+              enumerated: enumeration.enumeratedKeys.has(key),
+              index: offset + chunkIndex,
+              key,
+            }),
+          ),
+        );
+        for (
+          let chunkIndex = 0;
+          chunkIndex < readResults.length;
+          chunkIndex += 1
+        ) {
+          const index = offset + chunkIndex;
+          const key = keys[chunkIndex];
+          const readResult = readResults[chunkIndex];
+          if (!readResult) {
+            failures.push({ attemptCount: 4, key, reason: 'read' });
+          } else if (readResult.value !== null) {
+            const migrated = await this.writeMigratedKeyWithRetry({
+              index,
+              key,
+              value: readResult.value,
+            });
+            if (!migrated) {
+              failures.push({ attemptCount: 4, key, reason: 'write' });
+            } else {
+              migratedCount += 1;
+            }
           }
         }
       }
@@ -496,6 +573,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         enumerationStatus: enumeration.enumerationStatus,
         failures,
         migratedKeyCount: migratedCount,
+        snapshotKeyCount: snapshotKeys.length,
         sourceKeyCount: enumeration.sourceKeyCount,
         status,
         version: 1,

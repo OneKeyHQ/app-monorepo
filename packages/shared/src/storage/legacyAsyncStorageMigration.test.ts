@@ -49,6 +49,7 @@ describe('legacyAsyncStorageMigration Android oversized rows', () => {
       async (keys: string[]): Promise<Array<[string, string | null]>> =>
         keys.map((key) => [key, `raw:${key}`]),
     );
+    mockRawModule.reloadManifest.mockImplementation(async () => undefined);
     mockChunkedRead.mockImplementation(
       async (key: string): Promise<string | null> => `chunked:${key}`,
     );
@@ -125,5 +126,18 @@ describe('legacyAsyncStorageMigration Android oversized rows', () => {
     expect(
       mockRawModule.reloadManifest.mock.invocationCallOrder[3],
     ).toBeLessThan(mockRawModule.multiRemove.mock.invocationCallOrder[0]);
+  });
+
+  it('continues with the current iOS manifest when refresh fails', async () => {
+    mockPlatformEnv.isNativeAndroid = false;
+    mockPlatformEnv.isNativeIOS = true;
+    mockRawModule.reloadManifest.mockRejectedValueOnce(
+      new Error('manifest protected'),
+    );
+    const adapter = createLegacyAdapter();
+
+    await expect(adapter.multiGet(['a'])).resolves.toEqual([['a', 'raw:a']]);
+    expect(mockRawModule.reloadManifest).toHaveBeenCalledTimes(1);
+    expect(mockRawModule.multiGet).toHaveBeenCalledWith(['a']);
   });
 });

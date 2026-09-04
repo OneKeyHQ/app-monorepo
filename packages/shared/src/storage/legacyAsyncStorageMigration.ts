@@ -19,6 +19,22 @@ let legacyModule: ILegacyAsyncStorageNativeModule | undefined;
 let legacyMigrationAdapter: ILegacyAsyncStorageNativeModule | undefined;
 let legacyOperationChain: Promise<void> = Promise.resolve();
 
+function logManifestRefreshFailure(error: unknown) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../modules3rdParty/react-native-file-logger') as typeof import('../modules3rdParty/react-native-file-logger');
+    const errorType =
+      error instanceof Error && error.name ? error.name : 'UnknownError';
+    NativeLogger.write(
+      LogLevel.Info,
+      `[NativeStorageMigration] iOS manifest refresh result=failed errorType=${errorType}; using current manifest`,
+    );
+  } catch {
+    // Legacy access must not depend on diagnostics being available.
+  }
+}
+
 function enqueueLegacyOperation<T>(operation: () => Promise<T>): Promise<T> {
   const execution = legacyOperationChain.then(operation, operation);
   legacyOperationChain = execution.then(
@@ -34,7 +50,13 @@ function runWithFreshIOSManifest<T>(
 ) {
   return enqueueLegacyOperation(async () => {
     if (platformEnv.isNativeIOS) {
-      await module.reloadManifest();
+      try {
+        await module.reloadManifest();
+      } catch (error) {
+        // Match the public AsyncStorage wrapper: data protection can make a
+        // refresh temporarily unavailable while the current manifest is valid.
+        logManifestRefreshFailure(error);
+      }
     }
     return operation();
   });
