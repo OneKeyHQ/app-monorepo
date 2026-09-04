@@ -29,17 +29,23 @@ import type { IntlShape } from 'react-intl';
 function DeviceLabelFormField(props: {
   wallet: IDBWallet | undefined;
   asciiOnly?: boolean;
-  asciiAlphanumericWithSpacesOnly?: boolean;
+  maxLength?: number;
+  disabledMaxLengthLabel?: boolean;
+  description?: string;
 }) {
   const intl = useIntl();
-  const { wallet, asciiOnly, asciiAlphanumericWithSpacesOnly } = props;
-  const maxLength = MAX_LENGTH_HW_LABEL_NAME;
+  const {
+    wallet,
+    asciiOnly,
+    maxLength = MAX_LENGTH_HW_LABEL_NAME,
+    disabledMaxLengthLabel = true,
+    description,
+  } = props;
   const labelValue = useFormWatch<{ name: string }>({ name: 'name' }) ?? '';
   const validationError = getHardwareLabelValidationError({
     value: labelValue,
     maxLength,
     asciiOnly,
-    asciiAlphanumericWithSpacesOnly,
   });
   let validationErrorMessage: string | undefined;
   if (!labelValue.trim()) {
@@ -79,7 +85,6 @@ function DeviceLabelFormField(props: {
             value,
             maxLength,
             asciiOnly,
-            asciiAlphanumericWithSpacesOnly,
           });
           if (formValidationError === 'tooLong') {
             return intl.formatMessage({
@@ -106,11 +111,14 @@ function DeviceLabelFormField(props: {
         forceHasError={Boolean(validationErrorMessage)}
         validationErrorMessage={validationErrorMessage}
         validationErrorTestID={AccountManagerTestIDs.walletRenameError}
-        disabledMaxLengthLabel
+        disabledMaxLengthLabel={disabledMaxLengthLabel}
         maxLength={maxLength}
-        description={intl.formatMessage({
-          id: ETranslations.global_hardware_label_desc,
-        })}
+        description={
+          description ??
+          intl.formatMessage({
+            id: ETranslations.global_hardware_label_desc,
+          })
+        }
         nameHistoryInfo={{
           entityId: wallet?.id || '',
           entityType: EChangeHistoryEntityType.Wallet,
@@ -125,7 +133,9 @@ function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
   asciiOnly?: boolean;
-  asciiAlphanumericWithSpacesOnly?: boolean;
+  maxLength?: number;
+  disabledMaxLengthLabel?: boolean;
+  description?: string;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
@@ -135,7 +145,9 @@ function DeviceLabelDialogContent(props: {
     wallet,
     deviceLabel,
     asciiOnly,
-    asciiAlphanumericWithSpacesOnly,
+    maxLength,
+    disabledMaxLengthLabel,
+    description,
     onSubmit,
   } = props;
 
@@ -151,7 +163,9 @@ function DeviceLabelDialogContent(props: {
         <DeviceLabelFormField
           wallet={wallet}
           asciiOnly={asciiOnly}
-          asciiAlphanumericWithSpacesOnly={asciiAlphanumericWithSpacesOnly}
+          maxLength={maxLength}
+          disabledMaxLengthLabel={disabledMaxLengthLabel}
+          description={description}
         />
       </Dialog.Form>
       <Dialog.Footer
@@ -193,20 +207,22 @@ export const showLabelSetDialog = async (
     wallet,
     intl,
     asciiOnly,
-    asciiAlphanumericWithSpacesOnly,
   }: {
     wallet: IDBWallet | undefined;
     intl: IntlShape;
     asciiOnly?: boolean;
-    asciiAlphanumericWithSpacesOnly?: boolean;
   },
   {
     onSubmit,
+    maxLength,
+    disabledMaxLengthLabel,
+    description,
     ...dialogProps
   }: IDialogShowProps & {
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
     disabledMaxLengthLabel?: boolean;
+    description?: string;
   },
 ) => {
   try {
@@ -223,7 +239,9 @@ export const showLabelSetDialog = async (
           wallet={wallet}
           deviceLabel={deviceLabel}
           asciiOnly={asciiOnly}
-          asciiAlphanumericWithSpacesOnly={asciiAlphanumericWithSpacesOnly}
+          maxLength={maxLength}
+          disabledMaxLengthLabel={disabledMaxLengthLabel}
+          description={description}
           onSubmit={onSubmit}
         />
       ),

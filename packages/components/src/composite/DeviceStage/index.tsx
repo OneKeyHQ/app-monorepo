@@ -474,11 +474,8 @@ export function DeviceStage({
   errorMessage,
   authChecklist,
   authFailureReason,
-  authFailureMessage,
-  authFailureCode,
   onAuthSupport,
   onAuthRetry,
-  onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
   onSwitchPinInputToApp,
@@ -689,7 +686,6 @@ export function DeviceStage({
   const pinEpoch = panelEpochsRef.current.pinOnApp ?? 0;
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
   const passphraseEpoch = panelEpochsRef.current.passphraseOnApp ?? 0;
-  const authFailureEpoch = panelEpochsRef.current.authFailure ?? 0;
   const pairingEpoch = panelEpochsRef.current.pairingCode ?? 0;
 
   // Every seat reports its own words and tail blocks. The map is what
@@ -1666,19 +1662,14 @@ export function DeviceStage({
   const authFailurePanel = useMemo(
     () => (
       <YStack>
-        {/* The card fronts its icon above its own words, NOTE beat
-            included, so the whole column is the words block; the tail
-            stands empty. */}
+        {/* The card fronts its icon above its own words, so the whole
+            column is the words block; the tail stands empty. */}
         <View onLayout={panelMeasureHandlers.authFailure.words}>
           <AuthFailureCard
             reason={authFailureReason}
             checklist={authChecklist}
-            failureMessage={authFailureMessage}
-            failureCode={authFailureCode}
             onSupport={onAuthSupport}
             onRetry={onAuthRetry}
-            onContinueAnyway={onAuthContinueAnyway}
-            resetSignal={authFailureEpoch}
           />
         </View>
         <View onLayout={panelMeasureHandlers.authFailure.tail} />
@@ -1686,11 +1677,7 @@ export function DeviceStage({
     ),
     [
       authChecklist,
-      authFailureEpoch,
       authFailureReason,
-      authFailureMessage,
-      authFailureCode,
-      onAuthContinueAnyway,
       onAuthRetry,
       onAuthSupport,
       panelMeasureHandlers,

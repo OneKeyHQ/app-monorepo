@@ -38,6 +38,12 @@ type ICommonImageLogFn = (...args: string[]) => void;
 type ILocalImageUri = {
   base64Uri: string;
   nativeUri?: string; // only Native .file:/// path
+  mimeType?: string;
+};
+
+export type IPreparedImageForCrop = {
+  uri: string;
+  mimeType?: string;
 };
 
 const range = (length: number) => [...Array(length).keys()];
@@ -941,7 +947,9 @@ async function getBase64FromImageUriNative({
     // Detect actual MIME type from file content (magic bytes)
     const detectedMimeType = detectMimeTypeFromMagicBytes(base64);
     const finalMimeType =
-      downloadMimeType || detectedMimeType || formatInfo.mimeType;
+      detectedMimeType ||
+      downloadMimeType?.split(';')[0] ||
+      formatInfo.mimeType;
 
     // Check if it's a video format
     const blockMimetype = getBlacklistByMimetype(finalMimeType);
@@ -962,6 +970,7 @@ async function getBase64FromImageUriNative({
     return {
       base64Uri,
       nativeUri: platformEnv.isNative ? uri : undefined,
+      mimeType: finalMimeType,
     };
   } catch (error) {
     logFn?.(
@@ -993,8 +1002,9 @@ async function getBase64FromImageUriWeb(
           readerResult = await convertSvgToJpegBase64(readerResult);
         }
 
+        const mimeType = readerResult.match(/^data:([^;,]+)/u)?.[1];
         // readerResult is base64 string with mime prefix
-        resolve({ base64Uri: readerResult });
+        resolve({ base64Uri: readerResult, mimeType });
       };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
@@ -1018,7 +1028,14 @@ async function getBase64FromImageUri({
   }
 
   if (isBase64Uri(uri)) {
-    return { base64Uri: uri };
+    const declaredMimeType = uri.match(/^data:([^;,]+)/u)?.[1];
+    const detectedMimeType = detectMimeTypeFromMagicBytes(
+      stripBase64UriPrefix(uri),
+    );
+    return {
+      base64Uri: uri,
+      mimeType: detectedMimeType || declaredMimeType,
+    };
   }
 
   if (platformEnv.isNative) {
@@ -1166,10 +1183,10 @@ async function getBase64FromRequiredImageSource(
   return imageUri.base64Uri;
 }
 
-async function prepareImageForCrop(
+async function prepareImageForCropWithInfo(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
-): Promise<string | undefined> {
+): Promise<IPreparedImageForCrop> {
   // Get source URI first
   const uri = await getUriFromRequiredImageSource(source, logFn);
   logFn?.('prepareImageForCrop uri', uri || '');
@@ -1187,10 +1204,21 @@ async function prepareImageForCrop(
 
   // Validate platform-specific requirements
   if (platformEnv.isNative) {
-    return imageUri.nativeUri;
+    if (!imageUri.nativeUri) {
+      throw new OneKeyLocalError('Failed to prepare native image source');
+    }
+    return { uri: imageUri.nativeUri, mimeType: imageUri.mimeType };
   }
 
-  return imageUri.base64Uri;
+  return { uri: imageUri.base64Uri, mimeType: imageUri.mimeType };
+}
+
+async function prepareImageForCrop(
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
+): Promise<string | undefined> {
+  const preparedImage = await prepareImageForCropWithInfo(source, logFn);
+  return preparedImage.uri;
 }
 
 function canvasImageDataToBitmap({
@@ -1394,5 +1422,6 @@ export default {
   getBase64ImageFromUrl,
   applyRoundedCorners,
   prepareImageForCrop,
+  prepareImageForCropWithInfo,
   base64ImageToBlob,
 };

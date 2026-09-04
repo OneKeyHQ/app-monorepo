@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -15,7 +13,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import { AUTH_FAILURE_TEXT, AUTH_NOTE_TEXT } from './stepCopy';
+import { AUTH_FAILURE_TEXT } from './stepCopy';
 import { StepText } from './StepText';
 
 import type { IAuthChecklistItem, IAuthFailureReason } from './type';
@@ -27,11 +25,8 @@ import type { IAuthChecklistItem, IAuthFailureReason } from './type';
  * them: a row is pending (dim ring), in progress (spinner + label),
  * verified (green check, the result value — linked to its release page
  * when one exists), or failed (red cross + Failed). The failure card
- * fronts a critical icon where the staged steps front the replica, and
- * its recoverable shape gates Continue-anyway behind the NOTE beat: the
- * card's content swaps in place — per the ratified design, a
- * replacement, not the old in-place expansion — and Back returns
- * without leaving the step.
+ * fronts a critical icon where the staged steps front the replica. A
+ * failed authenticity check never permits bypassing verification.
  */
 
 function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
@@ -109,74 +104,18 @@ export function AuthChecklist({ items }: { items: IAuthChecklistItem[] }) {
 export function AuthFailureCard({
   reason = 'unknown',
   checklist,
-  failureMessage,
-  failureCode,
   onSupport,
   onRetry,
-  onContinueAnyway,
-  resetSignal,
 }: {
   reason?: IAuthFailureReason;
   /** The rows that ended in failure — the unofficial-firmware shape. */
   checklist?: IAuthChecklistItem[];
-  /** The fallback failure's real words (v6.5.0 dialog parity) — they
-   * stand in for the generic unknown title. Display-ready. */
-  failureMessage?: string;
-  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
-  failureCode?: string;
   onSupport?: () => void;
   onRetry?: () => void;
-  onContinueAnyway?: () => void;
-  /** Fresh-visit signal, the app inputs' own: parked presenters bump it
-   * per activation so a revisit opens on the failure, not a stale NOTE. */
-  resetSignal?: number;
 }) {
   const intl = useIntl();
   const copy = AUTH_FAILURE_TEXT[reason];
-  const baseTitle = failureMessage ?? intl.formatMessage({ id: copy.title });
-  const failureTitle = failureCode
-    ? `${baseTitle} (${failureCode})`
-    : baseTitle;
-  const [noteShown, setNoteShown] = useState(false);
-  useEffect(() => {
-    setNoteShown(false);
-  }, [resetSignal]);
-  const showNote = useCallback(() => setNoteShown(true), []);
-  const hideNote = useCallback(() => setNoteShown(false), []);
-
-  if (noteShown) {
-    return (
-      <YStack>
-        {/* The NOTE beat carries no icon; its warning line wears
-            critical on the words' own metrics. The words block's own
-            bottom padding is the gap to the buttons. */}
-        <StepText
-          title={intl.formatMessage({ id: AUTH_NOTE_TEXT.title })}
-          sub={intl.formatMessage({ id: AUTH_NOTE_TEXT.sub })}
-          subColor="$textCritical"
-          animated={false}
-        />
-        <YStack gap="$2">
-          <Button
-            testID="device-stage-auth-continue-anyway"
-            variant="secondary"
-            size="large"
-            onPress={onContinueAnyway}
-          >
-            {intl.formatMessage({ id: AUTH_NOTE_TEXT.confirm })}
-          </Button>
-          <Button
-            testID="device-stage-auth-note-back"
-            variant="secondary"
-            size="large"
-            onPress={hideNote}
-          >
-            {intl.formatMessage({ id: AUTH_NOTE_TEXT.back })}
-          </Button>
-        </YStack>
-      </YStack>
-    );
-  }
+  const failureTitle = intl.formatMessage({ id: copy.title });
 
   return (
     <YStack gap="$6">
@@ -213,16 +152,16 @@ export function AuthFailureCard({
               >
                 {intl.formatMessage({ id: ETranslations.global_retry })}
               </Button>
-              <Button
-                testID="device-stage-auth-note-open"
-                variant="secondary"
-                size="large"
-                onPress={showNote}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_continue_anyway,
-                })}
-              </Button>
+              {onSupport ? (
+                <Button
+                  testID="device-stage-auth-support"
+                  variant="secondary"
+                  size="large"
+                  onPress={onSupport}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_support })}
+                </Button>
+              ) : null}
             </YStack>
           ) : null}
         </YStack>

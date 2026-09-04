@@ -811,7 +811,7 @@ export default function HardwareHomeScreenModal({
           loading: isUploadLoading,
           testID: 'hardware-wallpaper-apply-button',
         }}
-        onConfirm={async (_close) => {
+        onConfirm={async (close) => {
           try {
             if (!device?.id || !selectedItem) {
               return;
@@ -896,7 +896,7 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            // setSelectedItem(undefined);
+            close();
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
@@ -907,8 +907,6 @@ export default function HardwareHomeScreenModal({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });
-            // Do not close the current page, let the user switch wallpapers and preview them on the device
-            // close();
           } catch (error) {
             errorToastUtils.toastIfError(error);
             throw error;

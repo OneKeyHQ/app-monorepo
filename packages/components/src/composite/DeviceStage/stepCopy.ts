@@ -68,8 +68,8 @@ export const ERROR_TEXT: Record<
 /**
  * The authenticity flow's failure copy, the live dialog's own keys (the
  * design drops the old error-code suffixes). `action` picks the card's
- * exits: 'support' is terminal — one Support button; 'retry' is
- * recoverable — Retry plus the Continue-anyway gate (see AUTH_NOTE_TEXT).
+ * exits: 'support' is terminal; 'retry' offers Retry and Support but never
+ * bypasses authenticity verification.
  * The icon fronts the card where the staged steps front the replica.
  */
 export const AUTH_FAILURE_TEXT: Record<
@@ -106,8 +106,8 @@ export const AUTH_FAILURE_TEXT: Record<
     action: 'retry',
   },
   unknown: {
-    title: ETranslations.global_unknown_error,
-    sub: ETranslations.global_unknown_error_retry_message,
+    title: ETranslations.send_verification_failure,
+    sub: ETranslations.device_auth_unofficial_device_detected_help_text,
     icon: 'ErrorSolid',
     action: 'retry',
   },
@@ -117,18 +117,6 @@ export const AUTH_FAILURE_TEXT: Record<
     icon: 'ServerSolid',
     action: 'retry',
   },
-};
-
-/**
- * The Continue-anyway gate, one card shared by every recoverable
- * failure: the content swaps to this NOTE in place, I-understand is the
- * real exit, Back returns to the failure.
- */
-export const AUTH_NOTE_TEXT = {
-  title: ETranslations.device_stage_auth_note__title,
-  sub: ETranslations.device_auth_continue_anyway_warning_message,
-  confirm: ETranslations.global_i_understand,
-  back: ETranslations.global_back,
 };
 
 /**

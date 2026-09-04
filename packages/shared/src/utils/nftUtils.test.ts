@@ -13,7 +13,28 @@ describe('NFT device collection compatibility', () => {
     expect(isCompatible?.(EDeviceType.Touch)).toBe(true);
     expect(isCompatible?.(EDeviceType.Pro)).toBe(true);
     expect(isCompatible?.(EDeviceType.Pro2)).toBe(true);
+    expect(isCompatible?.(EDeviceType.Neo)).toBe(true);
     expect(isCompatible?.(EDeviceType.Classic1s)).toBe(false);
+  });
+});
+
+describe('NFT collectible media compatibility', () => {
+  test.each(['image/jpeg', 'image/png', 'image/bmp; charset=binary'])(
+    'accepts a static image: %s',
+    (mimeType) => {
+      expect(nftUtils.isCollectibleNftImageMimeType(mimeType)).toBe(true);
+    },
+  );
+
+  test.each([
+    'image/gif',
+    'image/apng',
+    'image/webp',
+    'video/mp4',
+    'application/json',
+    undefined,
+  ])('rejects unsupported or dynamic media: %s', (mimeType) => {
+    expect(nftUtils.isCollectibleNftImageMimeType(mimeType)).toBe(false);
   });
 });
 

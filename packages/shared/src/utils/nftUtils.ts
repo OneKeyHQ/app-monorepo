@@ -14,6 +14,13 @@ export function isCollectNFTDeviceCompatible(deviceType?: IDeviceType) {
   return Boolean(deviceType && deviceUtils.isTouchDevice(deviceType));
 }
 
+export function isCollectibleNftImageMimeType(mimeType?: string) {
+  const normalizedMimeType = mimeType?.split(';')[0].trim().toLowerCase();
+  return ['image/jpeg', 'image/png', 'image/bmp'].includes(
+    normalizedMimeType ?? '',
+  );
+}
+
 function truncateUtf8(value: string, maxBytes: number): string {
   let result = '';
   let byteLength = 0;

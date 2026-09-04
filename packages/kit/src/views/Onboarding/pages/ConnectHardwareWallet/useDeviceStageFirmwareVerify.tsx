@@ -338,10 +338,8 @@ export function useDeviceStageFirmwareVerify() {
           }
         };
 
-        // The failure card's exits decide what happens next: Retry runs the
-        // whole check again (a fresh device confirmation included), Continue
-        // anyway proceeds unverified, Support opens the help channel and
-        // leaves the card standing.
+        // Retry runs the whole check again. Support opens the help channel
+        // and leaves the card standing; verification can never be bypassed.
         for (;;) {
           const outcome = await runOnce();
           if (outcome === 'verified') {
@@ -350,9 +348,7 @@ export function useDeviceStageFirmwareVerify() {
           if (outcome === 'aborted') {
             return { checked: false, closed: true };
           }
-          const action = await new Promise<
-            'retry' | 'support' | 'continueAnyway' | 'closed'
-          >((resolve) => {
+          const action = await new Promise<'retry' | 'closed'>((resolve) => {
             // Reassigned once both handlers exist — each exit path must
             // release BOTH listeners (the manual-close one used to leak).
             let cleanup = () => {};
@@ -363,6 +359,9 @@ export function useDeviceStageFirmwareVerify() {
             }) => {
               if (next === 'support') {
                 void showIntercom();
+                return;
+              }
+              if (next !== 'retry') {
                 return;
               }
               cleanup();
@@ -389,13 +388,6 @@ export function useDeviceStageFirmwareVerify() {
               onStageClosed,
             );
           });
-          if (action === 'continueAnyway') {
-            // The confirmation is the narrative's ending (Stage 4, 2a):
-            // retire it, or every later call-end close re-pins the failure
-            // card over whatever the flow does next.
-            await serviceHardwareUI.deviceStageNoteAuthResolved();
-            return { checked: false };
-          }
           if (action === 'closed') {
             return { checked: false, closed: true };
           }
