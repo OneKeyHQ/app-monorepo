@@ -432,6 +432,39 @@ describe('TradingViewNative chart layout', () => {
     });
   });
 
+  it('keeps a pinned price range when the visible data changes', () => {
+    const points = buildPoints({
+      count: 2,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    }).map((point) => ({
+      ...point,
+      c: 200,
+      h: 250,
+      l: 150,
+      o: 180,
+    }));
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      pinnedPriceRange: { maxPrice: 20, minPrice: 10 },
+      points,
+      priceAxisWidth: 44,
+      priceRangeScale: 2,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout).toMatchObject({
+      autoPriceRange: { maxPrice: 250, minPrice: 150 },
+      maxPrice: 25,
+      minPrice: 5,
+      priceRange: 20,
+    });
+  });
+
   it('maps logarithmic prices by equal percentage distance', () => {
     const points = buildPoints({
       count: 2,

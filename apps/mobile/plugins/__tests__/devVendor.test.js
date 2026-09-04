@@ -265,9 +265,8 @@ function createTemporaryRuntimeFixture() {
     }
   }
   const projectRoot = path.join(temporaryRepoRoot, 'apps/mobile');
-  const modules = [
-    { id: loadRegistry().modules[modulePath], path: modulePath },
-  ];
+  const moduleId = loadRegistry().modules[modulePath];
+  const modules = [{ id: moduleId, path: modulePath }];
 
   const writeArtifacts = (sourceCode) => {
     const artifactDirectory = getPlatformOutputDirectory(projectRoot, 'ios');
@@ -276,7 +275,10 @@ function createTemporaryRuntimeFixture() {
     const bytecode = Buffer.from(`hbc:${sourceCode}`);
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
-    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    fs.writeFileSync(
+      path.join(artifactDirectory, 'stubs', `${moduleId}.js`),
+      '',
+    );
     const fingerprintFields = {
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -659,7 +661,8 @@ describe('devVendor', () => {
           'apps/mobile/ios/Podfile.properties.json',
           'apps/mobile/ios/ServiceExtension/NotificationService.m',
           'apps/mobile/package.json',
-          'patches/react-native+0.86.2.patch',
+          'patches/react-native+0.86.2+001+initial.patch',
+          'patches/react-native+0.86.2+002+fix-hermes-podspec.patch',
           'yarn.lock',
         ]),
       );
@@ -670,7 +673,7 @@ describe('devVendor', () => {
           'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
           'apps/mobile/android/gradle.properties',
           'apps/mobile/package.json',
-          'patches/react-native+0.86.2.patch',
+          'patches/react-native+0.86.2+001+initial.patch',
           'yarn.lock',
         ]),
       );
@@ -1189,14 +1192,17 @@ describe('devVendor', () => {
     );
     const source = Buffer.from('common source');
     const bytecode = Buffer.from('common bytecode');
-    const modules = [{ id: 4, path: 'apps/mobile/index.ts' }];
+    const modulePath = 'apps/mobile/index.ts';
+    const moduleId = loadRegistry().modules[modulePath];
+    const modules = [{ id: moduleId, path: modulePath }];
     const prependModules = [
       { id: loadRegistry().modules.__prelude__, path: '__prelude__' },
     ];
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
     fs.mkdirSync(path.join(artifactDirectory, 'stubs'));
-    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    const stubPath = path.join(artifactDirectory, 'stubs', `${moduleId}.js`);
+    fs.writeFileSync(stubPath, '');
     const fingerprintFields = {
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -1245,7 +1251,7 @@ describe('devVendor', () => {
           projectRoot: '/unused',
         }),
       ).toThrow('Stable module ID mismatch for __prelude__');
-      fs.rmSync(path.join(artifactDirectory, 'stubs/4.js'));
+      fs.rmSync(stubPath);
       expect(() =>
         verifyManifest({
           artifactDirectory,
@@ -1253,7 +1259,7 @@ describe('devVendor', () => {
           platform: 'ios',
           projectRoot: '/unused',
         }),
-      ).toThrow('External stub is missing for module 4');
+      ).toThrow(`External stub is missing for module ${moduleId}`);
     } finally {
       fs.rmSync(artifactDirectory, { force: true, recursive: true });
     }

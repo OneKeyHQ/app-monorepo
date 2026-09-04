@@ -11,6 +11,7 @@ const {
   createSerializedModuleToSegmentMap,
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
+  removeCommonModulesFromSegmentAllocation,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   validateBundleCompleteness,
@@ -1038,6 +1039,70 @@ describe('unionBuildHelpers', () => {
     });
 
     expect(expanded.has('/b.js')).toBe(true);
+  });
+});
+
+describe('removeCommonModulesFromSegmentAllocation', () => {
+  it('moves only shared-equivalent common modules out of segments', () => {
+    const sharedPath = '/node_modules/@sentry/core/index.js';
+    const divergentPath = '/node_modules/example/platform.js';
+    const rootPath = '/packages/shared/sentry/index.native.ts';
+    const ids = new Map([
+      [sharedPath, 1],
+      [divergentPath, 2],
+      [rootPath, 3],
+    ]);
+    const allocation = {
+      eagerModuleIds: new Set(),
+      moduleToSegment: new Map([
+        [1, 'seg:sentry'],
+        [2, 'seg:sentry'],
+        [3, 'seg:sentry'],
+      ]),
+      segmentModules: new Map([['seg:sentry', new Set([1, 2, 3])]]),
+      segmentAbsPaths: new Set([sharedPath, divergentPath, rootPath]),
+      segmentAbsPathsByKey: new Map([
+        ['seg:sentry', new Set([sharedPath, divergentPath, rootPath])],
+      ]),
+    };
+
+    const removed = removeCommonModulesFromSegmentAllocation({
+      allocation,
+      commonEagerAbsPaths: new Set([sharedPath, divergentPath]),
+      sharedEquivalentAbsPaths: new Set([sharedPath]),
+      getGraphModuleId: (absolutePath) => ids.get(absolutePath),
+    });
+
+    expect([...removed]).toEqual([sharedPath]);
+    expect(allocation.eagerModuleIds.has(1)).toBe(true);
+    expect(allocation.moduleToSegment.has(1)).toBe(false);
+    expect(allocation.segmentAbsPaths.has(sharedPath)).toBe(false);
+    expect([...allocation.segmentModules.get('seg:sentry')]).toEqual([2, 3]);
+    expect([...allocation.segmentAbsPathsByKey.get('seg:sentry')]).toEqual([
+      divergentPath,
+      rootPath,
+    ]);
+  });
+
+  it('removes empty segment bookkeeping', () => {
+    const path = '/node_modules/@sentry/core/index.js';
+    const allocation = {
+      eagerModuleIds: new Set(),
+      moduleToSegment: new Map([[1, 'seg:sentry']]),
+      segmentModules: new Map([['seg:sentry', new Set([1])]]),
+      segmentAbsPaths: new Set([path]),
+      segmentAbsPathsByKey: new Map([['seg:sentry', new Set([path])]]),
+    };
+
+    removeCommonModulesFromSegmentAllocation({
+      allocation,
+      commonEagerAbsPaths: new Set([path]),
+      sharedEquivalentAbsPaths: new Set([path]),
+      getGraphModuleId: () => 1,
+    });
+
+    expect(allocation.segmentModules.has('seg:sentry')).toBe(false);
+    expect(allocation.segmentAbsPathsByKey.has('seg:sentry')).toBe(false);
   });
 });
 

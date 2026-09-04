@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
 import type { ITradingViewNativeChartRuntimeState } from '../utils/chartRuntime';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 interface IDrawTradingViewNativeCanvasChartOptions {
@@ -34,6 +35,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   currentPriceLabel: string;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisFontSize: number;
   priceAxisWidth: number;
   priceAxisTickCount?: number;
@@ -62,6 +64,7 @@ export function drawTradingViewNativeCanvasChart({
   currentPriceLabel,
   indicatorSeries,
   points,
+  pinnedPriceRange,
   priceAxisFontSize,
   priceAxisWidth,
   priceAxisTickCount,
@@ -116,6 +119,7 @@ export function drawTradingViewNativeCanvasChart({
     candleLabels,
     currentPriceLabel,
     points,
+    pinnedPriceRange,
     priceAxisFontSize,
     priceAxisWidth,
     priceAxisTickCount,

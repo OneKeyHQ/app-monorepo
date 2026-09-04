@@ -607,3 +607,12 @@ index e08a6c8..de078a2 100644
    if (_serverURL === undefined) {
      const sourceCodeScriptURL = getSourceCodeScriptURL();
      const match = sourceCodeScriptURL?.match(/^https?:\/\/.*?\//);
+diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+index 50af7e3..8a88b30 100644
+--- a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
++++ b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+@@ -6,0 +7 @@ require "json"
++require "pathname"
+@@ -93,0 +95,2 @@ Pod::Spec.new do |spec|
++      # OneKey patch: Keep the podspec checksum independent of the checkout path.
++      hermes_compiler_path = "$(PODS_ROOT)/#{Pathname.new(hermes_compiler_path).relative_path_from(Pathname.new(Pod::Config.instance.project_pods_root))}"

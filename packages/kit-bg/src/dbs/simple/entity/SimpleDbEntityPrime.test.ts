@@ -46,6 +46,35 @@ describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
     expect(legacyProbe).not.toHaveBeenCalled();
   });
 
+  test('unreadable prime record stays loud-fail so a leftover session cannot rebuild loggedIn', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const error = new Error('Failed to read large IndexedDB value');
+    error.name = 'UnknownError';
+    const getItem = jest.fn(async () => {
+      throw error;
+    });
+    const setItem = jest.fn();
+    const removeItem = jest.fn();
+    (entity as { appStorage: unknown }).appStorage = {
+      getItem,
+      setItem,
+      removeItem,
+    };
+    const setRawData = jest.spyOn(entity, 'setRawData');
+    const legacyProbe = jest
+      .spyOn(entity, 'getSupabaseAuthToken')
+      .mockResolvedValue('stale-legacy-token');
+
+    await expect(entity.getEffectiveAuthSessionSource()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    expect(setRawData).not.toHaveBeenCalled();
+    expect(legacyProbe).not.toHaveBeenCalled();
+  });
+
   test('returns the persisted source without probing tokens', async () => {
     const entity = new SimpleDbEntityPrime();
     jest

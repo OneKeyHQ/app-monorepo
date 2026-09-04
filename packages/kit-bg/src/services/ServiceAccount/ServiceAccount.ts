@@ -357,11 +357,31 @@ class ServiceAccount extends ServiceBase {
       swrCacheUtils.removeByPrefix(
         prefixOf(swrCacheNamespaces.accountSelectorList),
       );
+    // Bulk copy / bulk send snapshot wallet objects, account groups and the
+    // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
+    // same contract: a mutation drops the namespaces and the next mount
+    // repopulates, instead of painting (and exporting) a deleted or renamed
+    // wallet / account left over from the previous run.
+    const dropBulkAddressSwr = () => {
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesWallets),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesNetworkIds),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesAccounts),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkSendAddressesInputSeed),
+      );
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
@@ -369,30 +389,35 @@ class ServiceAccount extends ServiceBase {
       // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
       // sidebar doesn't show account names, only the right-panel sectionData does
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
@@ -405,6 +430,7 @@ class ServiceAccount extends ServiceBase {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory

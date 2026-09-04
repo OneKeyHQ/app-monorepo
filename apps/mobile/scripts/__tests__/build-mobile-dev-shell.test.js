@@ -8,6 +8,9 @@ jest.mock('child_process', () => ({
   spawnSync: jest.fn(),
 }));
 
+const {
+  INPUT_PATHS: webEmbedInputPaths,
+} = require('../../../web-embed/scripts/web-embed-prebundle');
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   assertIosProductionInfoPlistIsolated,
@@ -182,7 +185,32 @@ describe('build-mobile-dev-shell', () => {
       expect(source).toContain(
         `group: mobile-dev-shell-${platform}-${'$'}{{ github.ref }}`,
       );
+      expect(source).toContain('push:\n    branches:\n      - x\n    paths:');
+      expect(source).toContain("- 'apps/mobile/package.json'");
+      expect(source).toContain("- 'apps/mobile/dev-vendor.config.js'");
+      expect(source).toContain("- 'patches/**'");
+      expect(source).toContain("- 'yarn.lock'");
+      expect(source).not.toContain('workflow_run:');
+      for (const inputPath of webEmbedInputPaths) {
+        const triggerPath = fs
+          .statSync(path.join(repoRoot, inputPath))
+          .isDirectory()
+          ? `${inputPath}/**`
+          : inputPath;
+        expect(source).toContain(`- '${triggerPath}'`);
+      }
+      expect(source).toContain(
+        platform === 'android'
+          ? "- 'apps/mobile/android/**'"
+          : "- 'apps/mobile/ios/**'",
+      );
       expect(source).toContain("github.ref != 'refs/heads/x'");
+      if (platform === 'ios-simulator') {
+        expect(source).toContain("github.event_name != 'workflow_dispatch'");
+        expect(source).toContain(
+          `- name: Publish iOS Simulator dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
+        );
+      }
       expect(source).toContain(
         `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,
       );

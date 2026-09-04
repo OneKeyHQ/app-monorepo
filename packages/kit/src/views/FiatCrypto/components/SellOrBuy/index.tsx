@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
-import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useGetTokensListWithNetworks } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -15,8 +15,8 @@ import type {
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
-import { NetworkContainer } from '../NetworkContainer';
 import { useTokenDataContext } from '../TokenDataContainer';
+import { TokenListMetaContainer } from '../TokenListMeta';
 
 type ISellOrBuyContentProps = {
   type: IFiatCryptoType;
@@ -26,7 +26,10 @@ type ISellOrBuyContentProps = {
 
 export const SellOrBuyContent = memo(
   ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
-    const { result: tokens, isLoading } = useGetTokensList({
+    const {
+      result: { tokens, networksMap, mergeDeriveAssetsNetworkIds },
+      isLoading,
+    } = useGetTokensListWithNetworks({
       networkId,
       accountId,
       type,
@@ -103,20 +106,19 @@ export const SellOrBuyContent = memo(
       [type],
     );
 
-    const networkIds = useMemo(
-      () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
-      [fiatValueTokens],
-    );
-
     return (
-      <NetworkContainer networkIds={networkIds}>
+      <TokenListMetaContainer
+        networksMap={networksMap}
+        mergeDeriveAssetsNetworkIds={mergeDeriveAssetsNetworkIds}
+        account={account}
+      >
         <TokenList
           items={fiatValueTokens}
           type={type}
           isLoading={isLoading}
           onPress={onPress}
         />
-      </NetworkContainer>
+      </TokenListMetaContainer>
     );
   },
 );

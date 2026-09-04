@@ -5,6 +5,19 @@ on:
   push:
     branches:
       - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
   schedule:
     - cron: '30 18 * * 0'
   workflow_dispatch:
