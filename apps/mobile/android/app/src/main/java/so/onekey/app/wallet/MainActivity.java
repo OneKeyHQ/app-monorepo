@@ -5,14 +5,25 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Paint;
+import android.graphics.Typeface;
+import android.graphics.fonts.Font;
+import android.graphics.fonts.FontStyle;
+import android.graphics.text.PositionedGlyphs;
+import android.graphics.text.TextRunShaper;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
 import com.backgroundthread.BackgroundThreadManager;
+import com.facebook.react.common.assets.ReactFontManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativesplashscreen.SplashScreenBridge;
 import com.facebook.react.ReactActivity;
@@ -25,12 +36,21 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.io.File;
+import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
 
 public class MainActivity extends ReactActivity {
+  private static final String ANDROID_TEXT_CLIP_LOG_TAG = "AndroidTextClip";
+  private static final String[] ANDROID_TEXT_CLIP_PROBE_NAMES = {
+    "currency", "auto", "never", "currentLocale"
+  };
   private static boolean hasCreatedInstance;
 
   private static final class RecoveryReactActivityDelegate extends ReactActivityDelegate {
@@ -159,6 +179,7 @@ public class MainActivity extends ReactActivity {
     );
 
     setTheme(R.style.AppTheme);
+    logAndroidTextClippingDiagnostics();
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         SplashScreenBridge.show(this);
     }
@@ -179,6 +200,213 @@ public class MainActivity extends ReactActivity {
       "StartupTiming",
       "android.activity.on_create.done: " + (tActivityDone - tActivityStart) + "ms (+" + (tActivityDone - MainApplication.appLaunchMs) + "ms from launch)"
     );
+  }
+
+  private void logAndroidTextClippingDiagnostics() {
+    try {
+      Configuration configuration = getResources().getConfiguration();
+      DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+      Locale currentLocale = configuration.getLocales().isEmpty()
+        ? Locale.getDefault()
+        : configuration.getLocales().get(0);
+      int fontWeightAdjustment = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        ? configuration.fontWeightAdjustment
+        : Integer.MAX_VALUE;
+      float uiScale = configuration.screenWidthDp >= 400 ? 1.0f : 0.9f;
+      float textSizePx = 16.0f * displayMetrics.density * uiScale;
+      TextView defaultTextView = new TextView(this);
+
+      OneKeyLog.info(
+        ANDROID_TEXT_CLIP_LOG_TAG,
+        String.format(
+          Locale.US,
+          "environment sdk=%d manufacturer=%s model=%s resourceLocales=%s defaultLocale=%s textLocales=%s fontScale=%.3f fontWeightAdjustment=%d density=%.3f scaledDensity=%.3f densityDpi=%d screenWidthDp=%d screenHeightDp=%d uiScale=%.3f probeTextSizePx=%.3f fabric=%s",
+          Build.VERSION.SDK_INT,
+          Build.MANUFACTURER,
+          Build.MODEL,
+          configuration.getLocales().toLanguageTags(),
+          Locale.getDefault().toLanguageTag(),
+          defaultTextView.getTextLocales().toLanguageTags(),
+          configuration.fontScale,
+          fontWeightAdjustment,
+          displayMetrics.density,
+          displayMetrics.scaledDensity,
+          displayMetrics.densityDpi,
+          configuration.screenWidthDp,
+          configuration.screenHeightDp,
+          uiScale,
+          textSizePx,
+          Boolean.toString(BuildConfig.IS_NEW_ARCHITECTURE_ENABLED)
+        )
+      );
+
+      Map<String, Typeface> typefaces = new LinkedHashMap<>();
+      typefaces.put("typefaceDefault", Typeface.DEFAULT);
+      typefaces.put("textViewDefault", defaultTextView.getTypeface());
+      typefaces.put(
+        "roobertRegular",
+        ReactFontManager.getInstance().getTypeface(
+          "Roobert-Regular",
+          Typeface.NORMAL,
+          getAssets()
+        )
+      );
+      typefaces.put(
+        "roobertMedium",
+        ReactFontManager.getInstance().getTypeface(
+          "Roobert-Medium",
+          Typeface.NORMAL,
+          getAssets()
+        )
+      );
+
+      String[] probeTexts = {
+        "USD", "\u81ea\u52a8", "\u6c38\u4e0d", getCurrentLocaleProbe(currentLocale)
+      };
+      boolean currentLocaleIsRtl =
+        TextUtils.getLayoutDirectionFromLocale(currentLocale) == View.LAYOUT_DIRECTION_RTL;
+
+      for (Map.Entry<String, Typeface> entry : typefaces.entrySet()) {
+        Paint paint = new Paint(defaultTextView.getPaint());
+        paint.setTextSize(textSizePx);
+        paint.setTypeface(entry.getValue());
+        logTypeface(entry.getKey(), entry.getValue());
+
+        for (int index = 0; index < probeTexts.length; index += 1) {
+          boolean isRtl = index == probeTexts.length - 1 && currentLocaleIsRtl;
+          logTextMeasurement(
+            entry.getKey(),
+            ANDROID_TEXT_CLIP_PROBE_NAMES[index],
+            probeTexts[index],
+            isRtl,
+            paint,
+            displayMetrics.density
+          );
+        }
+      }
+    } catch (Exception error) {
+      OneKeyLog.warn(
+        ANDROID_TEXT_CLIP_LOG_TAG,
+        "diagnostic_failed error=" + error.getClass().getSimpleName() + " message=" + error.getMessage()
+      );
+    }
+  }
+
+  private static void logTypeface(String source, Typeface typeface) {
+    String systemFamilyName = "unavailable";
+    try {
+      Method method = Typeface.class.getMethod("getSystemFontFamilyName");
+      Object value = method.invoke(typeface);
+      systemFamilyName = value == null ? "null" : value.toString();
+    } catch (Exception ignored) {
+      // This API is only available on newer Android versions.
+    }
+
+    int weight = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+      ? typeface.getWeight()
+      : (typeface.isBold() ? 700 : 400);
+    OneKeyLog.info(
+      ANDROID_TEXT_CLIP_LOG_TAG,
+      "typeface source=" + source
+        + " systemFamily=" + systemFamilyName
+        + " style=" + typeface.getStyle()
+        + " weight=" + weight
+        + " bold=" + typeface.isBold()
+        + " italic=" + typeface.isItalic()
+        + " descriptor=" + typeface
+    );
+  }
+
+  private static void logTextMeasurement(
+    String source,
+    String probeName,
+    String text,
+    boolean isRtl,
+    Paint paint,
+    float density
+  ) {
+    Paint.FontMetrics fontMetrics = paint.getFontMetrics();
+    String glyphFonts = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+      ? getGlyphFonts(text, isRtl, paint)
+      : "unavailable_api_lt_31";
+
+    OneKeyLog.info(
+      ANDROID_TEXT_CLIP_LOG_TAG,
+      String.format(
+        Locale.US,
+        "measurement source=%s probe=%s text=%s codePoints=%d rtl=%s widthPx=%.3f widthDp=%.3f ascentPx=%.3f descentPx=%.3f topPx=%.3f bottomPx=%.3f glyphFonts=%s",
+        source,
+        probeName,
+        text,
+        text.codePointCount(0, text.length()),
+        Boolean.toString(isRtl),
+        paint.measureText(text),
+        paint.measureText(text) / density,
+        fontMetrics.ascent,
+        fontMetrics.descent,
+        fontMetrics.top,
+        fontMetrics.bottom,
+        glyphFonts
+      )
+    );
+  }
+
+  private static String getGlyphFonts(String text, boolean isRtl, Paint paint) {
+    PositionedGlyphs glyphs = TextRunShaper.shapeTextRun(
+      text,
+      0,
+      text.length(),
+      0,
+      text.length(),
+      0.0f,
+      0.0f,
+      isRtl,
+      paint
+    );
+    Map<String, Integer> fontCounts = new LinkedHashMap<>();
+    for (int index = 0; index < glyphs.glyphCount(); index += 1) {
+      String fontDescription = describeFont(glyphs.getFont(index));
+      fontCounts.put(fontDescription, fontCounts.getOrDefault(fontDescription, 0) + 1);
+    }
+    return fontCounts.toString()
+      + String.format(
+        Locale.US,
+        " advancePx=%.3f shapedAscentPx=%.3f shapedDescentPx=%.3f",
+        glyphs.getAdvance(),
+        glyphs.getAscent(),
+        glyphs.getDescent()
+      );
+  }
+
+  private static String describeFont(Font font) {
+    File file = font.getFile();
+    FontStyle style = font.getStyle();
+    return "file=" + (file == null ? "null" : file.getName())
+      + ",weight=" + style.getWeight()
+      + ",slant=" + style.getSlant()
+      + ",locales=" + font.getLocaleList().toLanguageTags()
+      + ",ttcIndex=" + font.getTtcIndex();
+  }
+
+  private static String getCurrentLocaleProbe(Locale locale) {
+    switch (locale.getLanguage()) {
+      case "zh":
+        return "\u81ea\u52a8";
+      case "ja":
+        return "\u81ea\u52d5";
+      case "ko":
+        return "\uc790\ub3d9";
+      case "ar":
+        return "\u062a\u0644\u0642\u0627\u0626\u064a";
+      case "he":
+        return "\u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9";
+      case "ru":
+        return "\u0410\u0432\u0442\u043e";
+      case "th":
+        return "\u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34";
+      default:
+        return "Automatic";
+    }
   }
 
   @Override
