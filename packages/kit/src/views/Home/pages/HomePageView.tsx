@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -207,6 +208,9 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isTravelModeRuntime =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { md: isSmallScreen } = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
@@ -1129,6 +1133,7 @@ export function HomePageView({
   const activeWalletUnavailable =
     accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
+    forceNoWalletContent: isTravelModeRuntime,
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
@@ -1139,7 +1144,7 @@ export function HomePageView({
   });
 
   const homePage = useMemo(() => {
-    if (!ready) {
+    if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
@@ -1194,6 +1199,7 @@ export function HomePageView({
     );
   }, [
     ready,
+    isTravelModeRuntime,
     hasNoUsableWallet,
     showNoWalletContent,
     tabPageHeight,

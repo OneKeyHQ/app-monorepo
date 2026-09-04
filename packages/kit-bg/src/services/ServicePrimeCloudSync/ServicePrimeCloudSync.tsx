@@ -2683,6 +2683,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         name: ELocalDBStoreNames.Device,
         id: fromDeviceId,
       });
+      if (!device) {
+        throw new OneKeyLocalError('Device not found');
+      }
       await localDb.withTransaction(
         EIndexedDBBucketNames.account,
         async (tx) => {

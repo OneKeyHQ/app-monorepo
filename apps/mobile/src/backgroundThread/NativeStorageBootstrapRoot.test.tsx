@@ -21,6 +21,7 @@ const mockCallNativeStorage = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
 const mockAppRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
+const mockForceDisableTravelModeForRecovery = jest.fn(async () => undefined);
 const mockJotaiInitResolvers: Array<() => void> = [];
 const mockJotaiInitRejectors: Array<(error: Error) => void> = [];
 const mockInitializeJotaiFromBackground = jest.fn(
@@ -43,6 +44,22 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
 jest.mock('@onekeyhq/shared/src/storage/nativeStorageBridge', () => ({
   callNativeStorage: (request: unknown) => mockCallNativeStorage(request),
 }));
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {},
+}));
+
+jest.mock('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch', () => ({
+  forceDisableTravelModeForRecovery: () =>
+    mockForceDisableTravelModeForRecovery(),
+}));
+
+jest.mock(
+  '@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement',
+  () => ({
+    completeTravelModeRuntimeLaunchAcknowledgement: jest.fn(async () => true),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -132,15 +149,32 @@ describe('NativeStorageBootstrapRoot', () => {
     ).toBeTruthy();
     expect(mockHideNativeStorageBootstrapSplash).toHaveBeenCalledTimes(1);
 
+    mockForceDisableTravelModeForRecovery.mockRejectedValueOnce(
+      new Error('Native recovery storage unavailable'),
+    );
     fireEvent.click(screen.getByTestId('native-storage-bootstrap-restart-app'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockForceDisableTravelModeForRecovery).toHaveBeenCalledTimes(1);
     expect(mockAppRestart).toHaveBeenCalledWith({
       mode: 'all',
       reason: 'storage.bootstrap.restart',
     });
+    expect(
+      mockForceDisableTravelModeForRecovery.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockAppRestart.mock.invocationCallOrder[0]);
 
+    mockForceDisableTravelModeForRecovery.mockRejectedValueOnce(
+      new Error('Native recovery storage unavailable'),
+    );
     fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
+    expect(mockForceDisableTravelModeForRecovery).toHaveBeenCalledTimes(2);
     expect(mockBootstrapNativeStorage.mock.calls).toEqual([
       [{ force: false }],
       [{ force: true }],
@@ -205,6 +239,9 @@ describe('NativeStorageBootstrapRoot', () => {
     ).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(mockBootstrapNativeStorage.mock.calls).toEqual([
       [{ force: false }],
       [{ force: true }],

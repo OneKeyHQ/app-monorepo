@@ -1,6 +1,7 @@
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
 import {
@@ -35,6 +36,10 @@ describe('password Never lock session semantics', () => {
     });
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('requires a fresh unlock on browser-class cold start', () => {
     expect(platformEnv.isNative).toBe(false);
     expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
@@ -55,5 +60,34 @@ describe('password Never lock session semantics', () => {
       manualLocking: true,
     });
     expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+  });
+
+  it('keeps manual lock authoritative while business persistence is masked', () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistManualLockStateAtom.atom(), {
+      manualLocking: true,
+    });
+
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+  });
+
+  it('keeps configured auto-lock state active while business persistence is masked', () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), (value) => ({
+      ...value,
+      appLockDuration: 15,
+    }));
+
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+
+    jotaiDefaultStore.set(passwordAtom.atom(), (value) => ({
+      ...value,
+      unLock: true,
+    }));
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
   });
 });

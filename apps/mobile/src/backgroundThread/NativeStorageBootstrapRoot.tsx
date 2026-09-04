@@ -10,6 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppRestartMode,
   appRestart,
@@ -28,7 +29,10 @@ let bootstrapErrorTitle = 'Storage initialization failed';
 let bootstrapRecoveryTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let bootstrapPromise: Promise<void> | undefined;
 let storageRepairPromise: Promise<void> | undefined;
+let recoveryRestartPromise: Promise<void> | undefined;
 let bootstrapGeneration = 0;
+type IBootstrapFailureStage = 'app' | 'jotai' | 'runtime-launch' | 'storage';
+let bootstrapFailureStage: IBootstrapFailureStage | undefined;
 const subscribers = new Set<() => void>();
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MS = 65_000;
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MESSAGE =
@@ -87,11 +91,27 @@ function startBootstrap(force = false) {
   }
   const generation = (bootstrapGeneration += 1);
   bootstrapError = undefined;
+  bootstrapFailureStage = undefined;
   bootstrapRecoveryTarget = undefined;
   notifySubscribers();
-  let stage: 'app' | 'jotai' | 'storage' = 'storage';
+  let stage: IBootstrapFailureStage = 'storage';
   const bootstrapWork = (async () => {
     await bootstrapNativeStorage({ force });
+    if (generation !== bootstrapGeneration) {
+      return false;
+    }
+    const { travelModeManager } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/travelMode') as typeof import('@onekeyhq/shared/src/travelMode');
+    const { completeTravelModeRuntimeLaunchAcknowledgement } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement') as typeof import('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement');
+    stage = 'runtime-launch';
+    const runtimeLaunchAcknowledged =
+      await completeTravelModeRuntimeLaunchAcknowledgement(travelModeManager);
+    if (!runtimeLaunchAcknowledged) {
+      throw new OneKeyLocalError('Unknown error');
+    }
     if (generation !== bootstrapGeneration) {
       return false;
     }
@@ -126,9 +146,12 @@ function startBootstrap(force = false) {
       }
       bootstrapError =
         error instanceof Error ? error : new Error(String(error));
+      bootstrapFailureStage = stage;
       bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
       if (stage === 'storage') {
         bootstrapErrorTitle = 'Storage initialization failed';
+      } else if (stage === 'runtime-launch') {
+        bootstrapErrorTitle = 'Runtime launch verification failed';
       } else if (stage === 'jotai') {
         bootstrapErrorTitle = 'State initialization failed';
       } else {
@@ -144,6 +167,59 @@ function startBootstrap(force = false) {
     });
   bootstrapPromise = nextPromise;
   return bootstrapPromise;
+}
+
+async function forceDisableTravelModeForRecoveryBestEffort() {
+  try {
+    const { forceDisableTravelModeForRecovery } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch') as typeof import('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch');
+    await forceDisableTravelModeForRecovery();
+  } catch {
+    // A storage recovery action must continue even if this safeguard fails.
+  }
+}
+
+async function retryBootstrapAfterFailure() {
+  await forceDisableTravelModeForRecoveryBestEffort();
+  return startBootstrap(true);
+}
+
+function restartAfterBootstrapFailure({
+  failureStage,
+  reason,
+}: {
+  failureStage: IBootstrapFailureStage;
+  reason: string;
+}) {
+  if (recoveryRestartPromise) {
+    return recoveryRestartPromise;
+  }
+  const nextPromise = (async () => {
+    await forceDisableTravelModeForRecoveryBestEffort();
+    await appRestart({
+      mode: EAppRestartMode.All,
+      reason,
+    });
+  })()
+    .catch((error: unknown) => {
+      bootstrapError =
+        error instanceof Error ? error : new Error(String(error));
+      bootstrapErrorTitle =
+        failureStage === 'runtime-launch'
+          ? 'Runtime restart failed'
+          : 'App restart recovery failed';
+      bootstrapFailureStage = failureStage;
+      hideNativeStorageBootstrapSplash();
+    })
+    .finally(() => {
+      if (recoveryRestartPromise === nextPromise) {
+        recoveryRestartPromise = undefined;
+      }
+      notifySubscribers();
+    });
+  recoveryRestartPromise = nextPromise;
+  return recoveryRestartPromise;
 }
 
 function startStorageRepair(target: INativeStorageMigrationRecoveryTarget) {
@@ -232,12 +308,28 @@ export function NativeStorageBootstrapRoot() {
     const recoveryTarget = bootstrapRecoveryTarget;
     const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
     let recoveryAction: ReactNode;
-    if (!recoveryTarget) {
+    if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
+      recoveryAction = (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            void restartAfterBootstrapFailure({
+              failureStage: 'runtime-launch',
+              reason: 'travel-mode.runtime-launch.restart',
+            })
+          }
+          style={styles.retryButton}
+          testID="travel-mode-runtime-launch-retry"
+        >
+          <Text style={styles.retryText}>Retry and restart</Text>
+        </Pressable>
+      );
+    } else if (!recoveryTarget) {
       recoveryAction = (
         <>
           <Pressable
             accessibilityRole="button"
-            onPress={() => void startBootstrap(true)}
+            onPress={() => void retryBootstrapAfterFailure()}
             style={styles.retryButton}
             testID="native-storage-migration-retry"
           >
@@ -246,8 +338,8 @@ export function NativeStorageBootstrapRoot() {
           <Pressable
             accessibilityRole="button"
             onPress={() =>
-              void appRestart({
-                mode: EAppRestartMode.All,
+              void restartAfterBootstrapFailure({
+                failureStage: bootstrapFailureStage ?? 'storage',
                 reason: 'storage.bootstrap.restart',
               })
             }

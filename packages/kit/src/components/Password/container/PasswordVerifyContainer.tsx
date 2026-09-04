@@ -61,6 +61,8 @@ const DB_OPEN_ERROR_FALLBACK_MESSAGE = 'DB open unknown error';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void | Promise<void>;
+  enforcePasswordErrorProtection?: boolean;
+  manualPasswordOnly?: boolean;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
   pageMode?: boolean;
@@ -70,6 +72,8 @@ interface IPasswordVerifyProps {
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
+  enforcePasswordErrorProtection,
+  manualPasswordOnly,
   name,
   pageMode,
   skipPostVerifyBackgroundTasks,
@@ -177,13 +181,16 @@ const PasswordVerifyContainer = ({
     setUnlockPeriodPasswordArray,
     alertText,
     setPasswordPersist,
+    isPasswordErrorProtectionEnabled,
     isProtectionTime,
-    enablePasswordErrorProtection,
-  } = usePasswordProtection(isLock);
+  } = usePasswordProtection(isLock, enforcePasswordErrorProtection);
 
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
     () => {
+      if (manualPasswordOnly) {
+        return false;
+      }
       if (isExtLockAndNoCachePassword) {
         return (
           isBiologyAuthSwitchOn &&
@@ -200,6 +207,7 @@ const PasswordVerifyContainer = ({
     },
     [
       isExtLockAndNoCachePassword,
+      manualPasswordOnly,
       isBiologyAuthSwitchOn,
       verifyPeriodBiologyEnable,
       isEnable,
@@ -242,7 +250,7 @@ const PasswordVerifyContainer = ({
   ]);
 
   const resetPasswordErrorAttempts = useCallback(() => {
-    if (isLock && enablePasswordErrorProtection) {
+    if (isPasswordErrorProtectionEnabled) {
       setPasswordPersist((v) => ({
         ...v,
         passwordErrorAttempts: 0,
@@ -254,8 +262,7 @@ const PasswordVerifyContainer = ({
     setPasswordErrorProtectionTimeMinutesSurplus(0);
   }, [
     setPasswordPersist,
-    isLock,
-    enablePasswordErrorProtection,
+    isPasswordErrorProtectionEnabled,
     setVerifyPeriodBiologyEnable,
     setVerifyPeriodBiologyAuthAttempts,
     setPasswordErrorProtectionTimeMinutesSurplus,
@@ -336,6 +343,7 @@ const PasswordVerifyContainer = ({
                 await backgroundApiProxy.servicePassword.verifyPassword({
                   password: securePassword,
                   passwordMode,
+                  enforcePasswordErrorProtection,
                   skipPostVerifyBackgroundTasks,
                   ...kdfParams,
                 });
@@ -371,6 +379,7 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
+                enforcePasswordErrorProtection,
                 skipPostVerifyBackgroundTasks,
                 ...kdfParams,
               });
@@ -482,6 +491,7 @@ const PasswordVerifyContainer = ({
     [
       biologyAuthAttempts,
       checkWebAuth,
+      enforcePasswordErrorProtection,
       intl,
       isBiologyAuthEnable,
       isEnable,
@@ -530,6 +540,7 @@ const PasswordVerifyContainer = ({
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
+            enforcePasswordErrorProtection,
             skipPostVerifyBackgroundTasks,
             ...kdfParams,
           });
@@ -618,7 +629,11 @@ const PasswordVerifyContainer = ({
           });
         }
         let skipProtection = false;
-        if (isGenuineWrongPassword && isLock && enablePasswordErrorProtection) {
+        if (
+          isGenuineWrongPassword &&
+          isPasswordErrorProtectionEnabled &&
+          !enforcePasswordErrorProtection
+        ) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({
@@ -631,10 +646,24 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
-            defaultLogger.setting.page.resetApp({
-              reason: 'WrongPasscodeMaxAttempts',
-            });
-            await resetApp();
+            if (isLock) {
+              defaultLogger.setting.page.resetApp({
+                reason: 'WrongPasscodeMaxAttempts',
+              });
+              await resetApp();
+            } else if (!skipProtection) {
+              const timeMinutes =
+                PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
+                  String(PASSCODE_PROTECTION_ATTEMPTS - 1)
+                ];
+              setPasswordPersist((v) => ({
+                ...v,
+                passwordErrorAttempts: nextAttempts,
+                passwordErrorProtectionTime:
+                  Date.now() + timeMinutes * 60 * 1000,
+              }));
+              setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            }
           } else if (
             nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
             !skipProtection
@@ -669,8 +698,9 @@ const PasswordVerifyContainer = ({
       }
     },
     [
-      enablePasswordErrorProtection,
       intl,
+      enforcePasswordErrorProtection,
+      isPasswordErrorProtectionEnabled,
       isLock,
       isProtectionTime,
       kdfParams,

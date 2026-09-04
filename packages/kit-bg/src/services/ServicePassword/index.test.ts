@@ -1,8 +1,9 @@
-import ServicePassword from '.';
+import ServicePassword, { shouldUseV4MigrationPasswordForPrompt } from '.';
 
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import { WrongPassword } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EPasswordMode,
@@ -11,6 +12,7 @@ import {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { runtimePersistenceAdapter } from '../../runtime/RuntimeEnvironmentAdapter';
 import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms/hardware';
 import {
   appIsLocked,
@@ -20,6 +22,7 @@ import {
   passwordPersistAtom,
   passwordPersistManualLockStateAtom,
 } from '../../states/jotai/atoms/passwordLock';
+import { settingsLastActivityAtom } from '../../states/jotai/atoms/settings';
 import { v4migrationAtom } from '../../states/jotai/atoms/v4migration';
 import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 
@@ -36,6 +39,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     setHyperLiquidAgentSecretSessionUnlocked: jest.fn(),
     setPassword: jest.fn(),
     unlockHyperLiquidAgentSecretSession: jest.fn(),
+    verifyPassword: jest.fn(),
   },
 }));
 
@@ -108,6 +112,66 @@ describe('ServicePassword', () => {
       });
   });
 
+  it('never substitutes a migration password for a manual prompt', () => {
+    expect(
+      shouldUseV4MigrationPasswordForPrompt({
+        isProcessing: true,
+        manualPasswordOnly: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseV4MigrationPasswordForPrompt({
+        isProcessing: true,
+        manualPasswordOnly: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('enforces persisted password cooldown in background while persistence is masked', async () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+      ...passwordAtomInitialValue,
+      isPasswordSet: true,
+      passwordErrorAttempts: 4,
+      passwordErrorProtectionTime: 0,
+    });
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    const validatePassword = jest
+      .spyOn(servicePassword, 'validatePassword')
+      .mockRejectedValue(new WrongPassword());
+    const password = await encodeSensitiveTextAsync({
+      text: 'wrong-passcode',
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    } as Parameters<typeof encodeSensitiveTextAsync>[0] & {
+      enablePbkdf2Cache: false;
+      kdfBackend: 'webcrypto';
+    });
+    const params = {
+      password,
+      passwordMode: EPasswordMode.PASSCODE,
+      skipPostVerifyBackgroundTasks: true,
+    };
+
+    await expect(servicePassword.verifyPassword(params)).rejects.toThrow(
+      'WrongPassword',
+    );
+    const protectedState = jotaiDefaultStore.get(passwordPersistAtom.atom());
+    expect(protectedState.passwordErrorAttempts).toBe(5);
+    expect(protectedState.passwordErrorProtectionTime).toBeGreaterThan(
+      Date.now(),
+    );
+
+    await expect(servicePassword.verifyPassword(params)).rejects.toThrow(
+      'Unknown error',
+    );
+    expect(validatePassword).toHaveBeenCalledTimes(1);
+  });
+
   it('uses caller-provided KDF parameters when validating password rules', async () => {
     if (!appCrypto.pbkdf2.isWebCryptoPbkdf2Supported()) {
       return;
@@ -146,6 +210,41 @@ describe('ServicePassword', () => {
         PASSWORD_VALIDATION_PROBE_ID,
       )?.backend,
     ).toBe('webcrypto');
+  });
+
+  it('defers legacy passcode-mode repair while persistence is masked', async () => {
+    const verifyPassword = jest.spyOn(localDb, 'verifyPassword');
+    const password = await encodeSensitiveTextAsync({
+      text: '123456',
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    } as Parameters<typeof encodeSensitiveTextAsync>[0] & {
+      enablePbkdf2Cache: false;
+      kdfBackend: 'webcrypto';
+    });
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    jest
+      .spyOn(servicePassword, 'validatePasswordValidRules')
+      .mockResolvedValue({ shouldFixPasscodeMode: true });
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    const setPasswordState = jest.spyOn(passwordPersistAtom, 'set');
+    setPasswordState.mockClear();
+
+    await servicePassword.validatePassword({
+      password,
+      passwordMode: EPasswordMode.PASSWORD,
+      skipLazyUpgrade: true,
+    });
+
+    expect(verifyPassword).toHaveBeenCalledWith({
+      password,
+      skipLazyUpgrade: true,
+    });
+    expect(setPasswordState).not.toHaveBeenCalled();
   });
 
   it('does not expose a locked state while setting the initial password', async () => {
@@ -425,5 +524,64 @@ describe('ServicePassword', () => {
         Reflect.deleteProperty(globalThis, 'desktopApiProxy');
       }
     }
+  });
+
+  it('keeps manual locking functional in Travel Mode', async () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+      ...passwordAtomInitialValue,
+      isPasswordSet: true,
+    });
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    servicePassword.backgroundApi = {
+      serviceV4Migration: {
+        isAtMigrationPage: jest.fn(async () => false),
+      },
+    } as unknown as ServicePassword['backgroundApi'];
+    jest.spyOn(servicePassword, 'clearCachedPassword').mockResolvedValue();
+    jest
+      .spyOn(servicePassword, 'refreshHyperLiquidAgentPasswordStatus')
+      .mockResolvedValue({
+        isPasswordSet: false,
+        requiresPasswordSetupOrVerify: false,
+      });
+    jest
+      .spyOn(firmwareUpdateWorkflowRunningAtom, 'get')
+      .mockResolvedValue(false);
+
+    await servicePassword.lockApp({ manual: true });
+
+    expect(
+      jotaiDefaultStore.get(passwordPersistManualLockStateAtom.atom()),
+    ).toEqual({ manualLocking: true });
+    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
+  });
+
+  it('applies the existing auto-lock duration in Travel Mode', async () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+      ...passwordAtomInitialValue,
+      appLockDuration: 5,
+      isPasswordSet: true,
+    });
+    jest.spyOn(settingsLastActivityAtom, 'get').mockResolvedValue({
+      time: Date.now() - 6 * 60 * 1000,
+    });
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    const lockApp = jest
+      .spyOn(servicePassword, 'lockApp')
+      .mockResolvedValue(undefined);
+
+    await servicePassword.checkLockStatus();
+
+    expect(lockApp).toHaveBeenCalledWith({ manual: false });
   });
 });

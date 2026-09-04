@@ -23,7 +23,13 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes, IModalParamList } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import { enterOnboardingOrTravelMode } from '../utils/onboardingEntryGate';
 
 const getModalRoute = () => {
   const state = rootNavigationRef.current?.getState();
@@ -328,6 +334,46 @@ function useAppNavigation<
       setTimeout(() => {
         pushModalLockRef.current = false;
       }, PUSH_MODAL_LOCK_DURATION_MS);
+
+      if (route === EModalRoutes.OnboardingModal) {
+        void enterOnboardingOrTravelMode({
+          enterOnboarding: () => {
+            if (isTabletMainView) {
+              appEventBus.emit(
+                EAppEventBusNames.PushModalPageInTabletDetailView,
+                {
+                  route,
+                  params,
+                },
+              );
+            } else {
+              pushModalPage(ERootRoutes.Modal, route, params as any);
+            }
+          },
+          openTravelModeSettings: ({ admissionId }) => {
+            const travelModeParams = {
+              screen: EModalSettingRoutes.SettingTravelModeModal,
+              params: { admissionId },
+            } as const;
+            if (isTabletMainView) {
+              appEventBus.emit(
+                EAppEventBusNames.PushModalPageInTabletDetailView,
+                {
+                  route: EModalRoutes.SettingModal,
+                  params: travelModeParams,
+                },
+              );
+            } else {
+              pushModalPage(
+                ERootRoutes.Modal,
+                EModalRoutes.SettingModal,
+                travelModeParams,
+              );
+            }
+          },
+        });
+        return;
+      }
 
       if (isTabletMainView) {
         appEventBus.emit(EAppEventBusNames.PushModalPageInTabletDetailView, {

@@ -1182,6 +1182,101 @@ describe('nativeStorageExecutor', () => {
     setSpy.mockRestore();
   });
 
+  it('masks native storage in bg without mutating physical stores', async () => {
+    mockAppMMKV.set('business-key', 'persisted');
+    mockSettingsMMKV.set('setting', true);
+    const { executeNativeStorageRequest } = loadExecutor();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { travelModeManager } =
+      require('../travelMode') as typeof import('../travelMode');
+    const beginSpy = jest
+      .spyOn(travelModeManager, 'beginProtectedOperation')
+      .mockResolvedValue(undefined);
+    const bootstrapSpy = jest
+      .spyOn(travelModeManager, 'getBootstrapControlValue')
+      .mockResolvedValue(
+        JSON.stringify({
+          enabled: true,
+          verifyString: '|VS|verifier',
+          version: 1,
+        }),
+      );
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'business-key',
+      }),
+    ).resolves.toBeNull();
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'setItem',
+      key: 'business-key',
+      value: 'changed',
+    });
+    const snapshot = (await executeNativeStorageRequest({
+      scope: 'bootstrap',
+    })) as { settings: Array<[string, IScalar]> };
+
+    expect(mockAppMMKV.getString('business-key')).toBe('persisted');
+    expect(mockSettingsMMKV.getBoolean('setting')).toBe(true);
+    expect(snapshot.settings).toEqual([
+      [
+        'onekey_travel_mode_control_v1',
+        JSON.stringify({
+          enabled: true,
+          verifyString: '|VS|verifier',
+          version: 1,
+        }),
+      ],
+    ]);
+
+    beginSpy.mockRestore();
+    bootstrapSpy.mockRestore();
+  });
+
+  it('holds the Travel Mode permit until async native work settles', async () => {
+    markAppStorageMigrated();
+    let releaseSync: (() => void) | undefined;
+    let signalSyncStarted: (() => void) | undefined;
+    const syncStarted = new Promise<void>((resolve) => {
+      signalSyncStarted = resolve;
+    });
+    mockSyncNativeStorageMMKV.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          signalSyncStarted?.();
+          releaseSync = () => resolve(undefined);
+        }),
+    );
+    const { executeNativeStorageRequest } = loadExecutor();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { travelModeManager } =
+      require('../travelMode') as typeof import('../travelMode');
+    const releasePermit = jest.fn();
+    const beginSpy = jest
+      .spyOn(travelModeManager, 'beginProtectedOperation')
+      .mockResolvedValue(releasePermit);
+
+    const request = executeNativeStorageRequest({
+      scope: 'syncStorage',
+      operation: 'set',
+      store: 'settings',
+      key: 'setting',
+      value: true,
+      sourceMutationId: 1,
+      sourceRuntimeId: 'main-runtime',
+    });
+    await syncStarted;
+
+    expect(releasePermit).not.toHaveBeenCalled();
+    releaseSync?.();
+    await request;
+    expect(releasePermit).toHaveBeenCalledTimes(1);
+    beginSpy.mockRestore();
+  });
+
   it('bounds replay acknowledgements retained across main runtime restarts', async () => {
     const setSpy = jest.spyOn(mockSettingsMMKV, 'set');
     const { executeNativeStorageRequest } = loadExecutor();

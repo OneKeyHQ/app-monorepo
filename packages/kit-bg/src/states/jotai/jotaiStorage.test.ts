@@ -566,6 +566,181 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(mmkvInstance.getString('g_states_v5:bAtom')).toBeUndefined();
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
   });
+
+  it('keeps generic reads empty and exposes only Travel Mode control state', async () => {
+    markJotaiStorageMigrated();
+    const businessKey = 'g_states_v5:addressBookPersistAtom';
+    const passwordKey = 'g_states_v5:passwordPersistAtom';
+    const manualLockKey = 'g_states_v5:passwordPersistManualLockStateAtom';
+    const settingsKey = 'g_states_v5:settingsPersistAtom';
+    const currencyKey = 'g_states_v5:currencyPersistAtom';
+    mmkvInstance.set(businessKey, JSON.stringify({ privateData: true }));
+    const persistedPasswordState = {
+      isPasswordSet: true,
+      webAuthCredentialId: 'real-web-auth-id',
+      appLockDuration: 15,
+      enableSystemIdleLock: false,
+      passwordMode: 'passcode',
+      isPasscodeModeFixed: true,
+      enablePasswordErrorProtection: true,
+      passwordErrorAttempts: 2,
+      passwordErrorProtectionTime: 100,
+    };
+    const initialPasswordState = {
+      isPasswordSet: false,
+      webAuthCredentialId: '',
+      appLockDuration: 0,
+      enableSystemIdleLock: true,
+      passwordMode: 'password',
+      isPasscodeModeFixed: undefined,
+      enablePasswordErrorProtection: false,
+      passwordErrorAttempts: 0,
+      passwordErrorProtectionTime: 0,
+    };
+    const persistedSettingsState = {
+      currencyInfo: { id: 'eur', symbol: '€' },
+      hapticFeedbackEnabled: false,
+      instanceId: 'private-instance-id',
+      locale: 'zh-CN',
+      sensitiveEncodeKey: 'private-encode-key',
+      theme: 'dark',
+    };
+    const initialSettingsState = {
+      currencyInfo: { id: 'usd', symbol: '$' },
+      hapticFeedbackEnabled: true,
+      instanceId: 'fresh-instance-id',
+      locale: 'system',
+      sensitiveEncodeKey: 'fresh-encode-key',
+      theme: 'system',
+    };
+    const currencyReferenceState = {
+      currencyMap: {
+        eur: { id: 'eur', name: 'Euro', type: ['fiat'], unit: '€' },
+      },
+    };
+    mmkvInstance.set(passwordKey, JSON.stringify(persistedPasswordState));
+    mmkvInstance.set(
+      manualLockKey,
+      JSON.stringify({ manualLocking: true, privateField: 'hidden' }),
+    );
+    mmkvInstance.set(settingsKey, JSON.stringify(persistedSettingsState));
+    mmkvInstance.set(currencyKey, JSON.stringify(currencyReferenceState));
+    const storage = createStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { travelModeManager } =
+      require('@onekeyhq/shared/src/travelMode') as typeof import('@onekeyhq/shared/src/travelMode');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { RuntimeEnvironment } =
+      require('@onekeyhq/shared/src/travelMode/runtimeEnvironment') as typeof import('@onekeyhq/shared/src/travelMode/runtimeEnvironment');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getTravelModeRuntimeProfile } =
+      require('@onekeyhq/shared/src/travelMode/runtimeProfile') as typeof import('@onekeyhq/shared/src/travelMode/runtimeProfile');
+    const maskedEnvironment = RuntimeEnvironment.create(
+      getTravelModeRuntimeProfile(true),
+      {
+        isBlockedSync: () => true,
+        runProtectedOperation: async ({ onBlocked }) => onBlocked(),
+      },
+    );
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockResolvedValue(maskedEnvironment);
+
+    await expect(
+      storage.getItem(businessKey, { privateData: false }),
+    ).resolves.toEqual({ privateData: false });
+    await storage.setItem(businessKey, { privateData: 'changed' });
+    const maskedPasswordState = {
+      isPasswordSet: true,
+      webAuthCredentialId: '',
+      appLockDuration: 15,
+      enableSystemIdleLock: false,
+      passwordMode: 'passcode',
+      isPasscodeModeFixed: true,
+      enablePasswordErrorProtection: false,
+      passwordErrorAttempts: 2,
+      passwordErrorProtectionTime: 100,
+    };
+    await expect(
+      storage.getItem(passwordKey, initialPasswordState),
+    ).resolves.toEqual(initialPasswordState);
+    await expect(
+      storage.getPasswordControlState(initialPasswordState),
+    ).resolves.toEqual(maskedPasswordState);
+    await expect(
+      storage.getItem(manualLockKey, { manualLocking: false }),
+    ).resolves.toEqual({ manualLocking: false });
+    await expect(
+      storage.getManualLockControlState({ manualLocking: false }),
+    ).resolves.toEqual({ manualLocking: true });
+    await expect(
+      storage.getSettingsControlState(initialSettingsState),
+    ).resolves.toEqual({
+      currencyInfo: { id: 'eur', symbol: '€' },
+      hapticFeedbackEnabled: false,
+      instanceId: 'fresh-instance-id',
+      locale: 'zh-CN',
+      sensitiveEncodeKey: 'fresh-encode-key',
+      theme: 'dark',
+    });
+    await expect(
+      storage.getCurrencyReferenceState({ currencyMap: {} }),
+    ).resolves.toEqual(currencyReferenceState);
+    await expect(storage.getAllEntries()).resolves.toEqual(new Map());
+    await storage.setItem(passwordKey, {
+      ...maskedPasswordState,
+      passwordErrorAttempts: 99,
+    });
+    await storage.setPasswordControlState({
+      ...maskedPasswordState,
+      webAuthCredentialId: 'replacement-web-auth-id',
+      appLockDuration: 30,
+      enableSystemIdleLock: true,
+      passwordMode: 'password',
+      isPasscodeModeFixed: false,
+      passwordErrorAttempts: 3,
+      passwordErrorProtectionTime: 200,
+    });
+    await storage.removePasswordControlState();
+    await storage.setManualLockControlState({
+      manualLocking: false,
+      privateField: 'replacement',
+    });
+    await storage.removeManualLockControlState();
+    await storage.setSettingsControlState({
+      currencyInfo: { id: 'jpy', symbol: '¥' },
+      hapticFeedbackEnabled: true,
+      instanceId: 'attacker-instance-id',
+      locale: 'ja-JP',
+      sensitiveEncodeKey: 'attacker-encode-key',
+      theme: 'light',
+    });
+    await storage.removeSettingsControlState();
+
+    expect(JSON.parse(mmkvInstance.getString(passwordKey) ?? '')).toEqual({
+      ...persistedPasswordState,
+      appLockDuration: 30,
+      enableSystemIdleLock: true,
+      passwordErrorAttempts: 3,
+      passwordErrorProtectionTime: 200,
+    });
+    expect(mmkvInstance.getString(businessKey)).toBe(
+      JSON.stringify({ privateData: true }),
+    );
+    expect(JSON.parse(mmkvInstance.getString(manualLockKey) ?? '')).toEqual({
+      manualLocking: false,
+    });
+    expect(JSON.parse(mmkvInstance.getString(settingsKey) ?? '')).toEqual({
+      currencyInfo: { id: 'jpy', symbol: '¥' },
+      hapticFeedbackEnabled: true,
+      instanceId: 'private-instance-id',
+      locale: 'ja-JP',
+      sensitiveEncodeKey: 'private-encode-key',
+      theme: 'light',
+    });
+
+    environmentSpy.mockRestore();
+  });
 });
 
 describe('mergeStoredValue', () => {

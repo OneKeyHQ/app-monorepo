@@ -13,6 +13,8 @@ require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
+const { OneKeyLocalError } =
+  require('@onekeyhq/shared/src/errors') as typeof import('@onekeyhq/shared/src/errors');
 
 // Lightweight logger for background runtime entry diagnostics.
 // Uses NativeLogger directly (no console) so output goes to app-latest.log.
@@ -101,12 +103,29 @@ async function initializeBackgroundRuntime() {
   bgEntryLog(
     `preparing native storage (+${storagePreparationStart - bgEntryStart}ms)`,
   );
-  const { prepareNativeStorageForBackgroundStartup } =
+  const {
+    executeNativeStorageRequest,
+    prepareNativeStorageForBackgroundStartup,
+  } =
     require('@onekeyhq/shared/src/storage/nativeStorageExecutor') as typeof import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
   await prepareNativeStorageForBackgroundStartup();
   bgEntryLog(
     `native storage prepared in ${Date.now() - storagePreparationStart}ms (+${Date.now() - bgEntryStart}ms)`,
   );
+
+  const { travelModeManager } =
+    require('@onekeyhq/shared/src/travelMode') as typeof import('@onekeyhq/shared/src/travelMode');
+  const { completeTravelModeRuntimeLaunchAcknowledgement } =
+    require('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement') as typeof import('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement');
+  const runtimeLaunchAcknowledgement =
+    completeTravelModeRuntimeLaunchAcknowledgement(travelModeManager);
+  const { installTravelModeRuntimeLaunchGate } =
+    require('@onekeyhq/shared/src/travelMode/runtimeLaunchGate') as typeof import('@onekeyhq/shared/src/travelMode/runtimeLaunchGate');
+  if (!installTravelModeRuntimeLaunchGate(runtimeLaunchAcknowledgement)) {
+    throw new OneKeyLocalError(
+      'Travel Mode runtime launch gate is already installed',
+    );
+  }
 
   // Install the split loader only after recovery has finished. Segment imports
   // may construct services that read process-shared native storage.
@@ -127,38 +146,83 @@ async function initializeBackgroundRuntime() {
     );
   }
 
-  const apiProxyStart = Date.now();
-  bgEntryLog(
-    `importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`,
-  );
-  const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-  const apiProxyEnd = Date.now();
+  const { travelModeCommandDispatcher } =
+    require('@onekeyhq/kit-bg/src/apis/TravelModeCommandDispatcher') as typeof import('@onekeyhq/kit-bg/src/apis/TravelModeCommandDispatcher');
 
-  bgEntryLog(
-    `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
-  );
+  let backgroundApiProxyPromise:
+    | Promise<
+        typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default
+      >
+    | undefined;
+  const getBackgroundApiProxy = () => {
+    backgroundApiProxyPromise ??= runtimeLaunchAcknowledgement.then(
+      (acknowledged) => {
+        if (!acknowledged) {
+          throw new OneKeyLocalError('Unknown error');
+        }
+        const apiProxyStart = Date.now();
+        bgEntryLog(
+          `importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`,
+        );
+        const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+          require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+        bgEntryLog(
+          `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
+        );
+        return backgroundApiProxy;
+      },
+    );
+    return backgroundApiProxyPromise;
+  };
 
-  bgEntryLog('registering request executor');
+  bgEntryLog('registering gated request executor');
   setBackgroundThreadRequestExecutor(async (request) => {
+    if (
+      request.type === 'service-call' &&
+      request.method === 'nativeStorage' &&
+      (request.params[0] as { scope?: unknown } | undefined)?.scope ===
+        'bootstrap'
+    ) {
+      return executeNativeStorageRequest(request.params[0]);
+    }
     if (request.type === 'service-call') {
-      return backgroundApiProxy.callBackgroundMethod(
-        request.sync,
-        request.method,
-        ...request.params,
-      );
+      return travelModeCommandDispatcher.runTransportServiceCall({
+        method: request.method,
+        operation: async () => {
+          const backgroundApiProxy = await getBackgroundApiProxy();
+          const result: unknown = await backgroundApiProxy.callBackgroundMethod(
+            request.sync,
+            request.method,
+            ...request.params,
+          );
+          return result;
+        },
+      });
     }
     if (request.type === 'bridge-call') {
+      const backgroundApiProxy = await getBackgroundApiProxy();
       return backgroundApiProxy.bridgeReceiveHandler(request.payload);
     }
 
     return undefined;
   });
 
+  // Main cannot publish its profile acknowledgement until its storage
+  // bootstrap has called this executor. The full BackgroundApi stays unloaded
+  // until both runtimes confirm the native epoch and target profile.
+  const runtimeLaunchAcknowledged = await runtimeLaunchAcknowledgement;
+  if (!runtimeLaunchAcknowledged) {
+    bgEntryLog(
+      'runtime launch acknowledgement failed; keeping bootstrap-only executor active',
+    );
+    return;
+  }
+  await getBackgroundApiProxy();
+
   const bgEntryEnd = Date.now();
   const entryElapsed = bgEntryEnd - bgEntryStart;
   bgEntryLog(
-    `entry JS initialized in ${entryElapsed}ms (polyfills→rpcHandler: ${rpcHandlerStart - bgEntryStart}ms, rpcHandler import: ${rpcHandlerEnd - rpcHandlerStart}ms, apiProxy import: ${apiProxyEnd - apiProxyStart}ms)`,
+    `entry JS initialized in ${entryElapsed}ms (polyfills→rpcHandler: ${rpcHandlerStart - bgEntryStart}ms, rpcHandler import: ${rpcHandlerEnd - rpcHandlerStart}ms)`,
   );
 }
 

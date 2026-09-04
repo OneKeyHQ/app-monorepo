@@ -26,14 +26,19 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -50,6 +55,9 @@ import {
   EPasswordPromptType,
   EPasswordVerifyStatus,
   PASSCODE_LENGTH,
+  PASSCODE_PROTECTION_ATTEMPTS,
+  PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
+  PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP,
   PASSCODE_REGEX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -58,6 +66,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { shouldUseHyperLiquidAgentPasswordEncryption } from '../../dbs/local/hyperLiquidAgentSecret';
 import localDb from '../../dbs/local/localDb';
+import { runtimePersistenceAdapter } from '../../runtime/RuntimeEnvironmentAdapter';
 import {
   firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
@@ -83,8 +92,27 @@ type IPasswordKdfParams = IPbkdf2KdfParams & {
   debugCryptoProbeId?: string;
 };
 
+type IVerifyPasswordParams = IPasswordKdfParams & {
+  enforcePasswordErrorProtection?: boolean;
+  isBiologyAuth?: boolean;
+  password: string;
+  passwordMode: EPasswordMode;
+  skipPostVerifyBackgroundTasks?: boolean;
+};
+
 // Keep LocalDB password existence and its persisted Jotai mirror in sync.
 const passwordExistenceMutex = new Semaphore(1);
+const passwordErrorProtectionMutex = new Semaphore(1);
+
+export function shouldUseV4MigrationPasswordForPrompt({
+  isProcessing,
+  manualPasswordOnly,
+}: {
+  isProcessing: boolean;
+  manualPasswordOnly: boolean;
+}): boolean {
+  return isProcessing && !manualPasswordOnly;
+}
 
 function unrefTimeout(
   timeout: ReturnType<typeof setTimeout> | null | undefined,
@@ -295,7 +323,13 @@ export default class ServicePassword extends ServiceBase {
     this.skipPrfCacheFlag = skip;
   }
 
-  async setCachedPassword({ password }: { password: string }): Promise<string> {
+  async setCachedPassword({
+    password,
+    skipBackgroundTasks,
+  }: {
+    password: string;
+    skipBackgroundTasks?: boolean;
+  }): Promise<string> {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -314,36 +348,38 @@ export default class ServicePassword extends ServiceBase {
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
 
-    if (password) {
+    if (password && !skipBackgroundTasks) {
       void this.backgroundApi.serviceKeylessWallet
         .tryMigrateLocalExistingKeylessBackendShareToV2()
         .catch(() => undefined);
     }
 
-    void (async () => {
-      const prevPasswordRaw = prevPassword
-        ? await this.decodeSensitiveText({
-            encodedText: prevPassword,
-          })
-        : '';
-      const newPasswordRaw = password
-        ? await this.decodeSensitiveText({
-            encodedText: password,
-          })
-        : '';
-      if (password && prevPasswordRaw !== newPasswordRaw) {
-        await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-        // forceSync re-applies items already marked localSceneUpdated, so bot
-        // wallet sync items that were skipped earlier (parent KW or password
-        // not yet ready) get reprocessed once the password is cached.
-        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
-          {
-            callerName: 'setCachedPassword',
-            forceSync: true,
-          },
-        );
-      }
-    })();
+    if (!skipBackgroundTasks) {
+      void (async () => {
+        const prevPasswordRaw = prevPassword
+          ? await this.decodeSensitiveText({
+              encodedText: prevPassword,
+            })
+          : '';
+        const newPasswordRaw = password
+          ? await this.decodeSensitiveText({
+              encodedText: password,
+            })
+          : '';
+        if (password && prevPasswordRaw !== newPasswordRaw) {
+          await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+          // forceSync re-applies items already marked localSceneUpdated, so bot
+          // wallet sync items that were skipped earlier (parent KW or password
+          // not yet ready) get reprocessed once the password is cached.
+          await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+            {
+              callerName: 'setCachedPassword',
+              forceSync: true,
+            },
+          );
+        }
+      })();
+    }
     return password;
   }
 
@@ -435,6 +471,9 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
     defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
       enable,
@@ -549,11 +588,13 @@ export default class ServicePassword extends ServiceBase {
     kdfBackend,
     enablePbkdf2Cache,
     debugCryptoProbeId,
+    skipLazyUpgrade,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
+    skipLazyUpgrade?: boolean;
   } & IPasswordKdfParams): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
@@ -584,8 +625,12 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     if (!skipDBVerify) {
-      await localDb.verifyPassword({ password });
-      if (!newPassword && validateResult?.shouldFixPasscodeMode) {
+      await localDb.verifyPassword({ password, skipLazyUpgrade });
+      if (
+        !newPassword &&
+        validateResult?.shouldFixPasscodeMode &&
+        !runtimePersistenceAdapter.isUnavailable()
+      ) {
         const { isPasscodeModeFixed } = await passwordPersistAtom.get();
         if (!isPasscodeModeFixed) {
           // Fix passwordMode to PASSCODE when detected password is actually a passcode
@@ -614,6 +659,9 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async checkPasswordSet(): Promise<boolean> {
     return passwordExistenceMutex.runExclusive(async () => {
+      if (runtimePersistenceAdapter.isUnavailable()) {
+        return (await passwordPersistAtom.get()).isPasswordSet;
+      }
       const checkPasswordSet = await localDb.isPasswordSet();
       await this.setPasswordSetStatus(checkPasswordSet);
       return checkPasswordSet;
@@ -738,6 +786,9 @@ export default class ServicePassword extends ServiceBase {
     password: string,
     passwordMode: EPasswordMode,
   ): Promise<string> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     ensureSensitiveTextEncoded(password);
     await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     return passwordExistenceMutex.runExclusive(async () => {
@@ -769,6 +820,9 @@ export default class ServicePassword extends ServiceBase {
     newPassword: string,
     passwordMode: EPasswordMode,
   ): Promise<string> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     ensureSensitiveTextEncoded(oldPassword);
     ensureSensitiveTextEncoded(newPassword);
 
@@ -853,20 +907,17 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async verifyPassword({
+  private async verifyPasswordInner({
     password,
     passwordMode,
     isBiologyAuth,
     skipPostVerifyBackgroundTasks,
     kdfBackend,
     enablePbkdf2Cache,
-  }: {
-    password: string;
-    passwordMode: EPasswordMode;
-    isBiologyAuth?: boolean;
-    skipPostVerifyBackgroundTasks?: boolean;
-  } & IPbkdf2KdfParams): Promise<string> {
+  }: IVerifyPasswordParams): Promise<string> {
+    const shouldSkipPostVerifyBackgroundTasks =
+      skipPostVerifyBackgroundTasks ||
+      runtimePersistenceAdapter.isUnavailable();
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
@@ -877,7 +928,15 @@ export default class ServicePassword extends ServiceBase {
       passwordMode,
       kdfBackend,
       enablePbkdf2Cache,
+      skipLazyUpgrade: shouldSkipPostVerifyBackgroundTasks,
     });
+    if (shouldSkipPostVerifyBackgroundTasks) {
+      await this.setCachedPassword({
+        password: verifyingPassword,
+        skipBackgroundTasks: true,
+      });
+      return verifyingPassword;
+    }
     await this.prepareHyperLiquidAgentSecretSession({
       password: verifyingPassword,
     });
@@ -894,6 +953,80 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     return verifyingPassword;
+  }
+
+  private async verifyPasswordWithErrorProtection(
+    params: IVerifyPasswordParams,
+  ): Promise<string> {
+    const passwordState = await passwordPersistAtom.get();
+    if (
+      passwordState.passwordErrorAttempts >=
+        PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
+      passwordState.passwordErrorProtectionTime > Date.now()
+    ) {
+      await rejectTravelModeUnknownError();
+    }
+
+    try {
+      const result = await this.verifyPasswordInner(params);
+      await passwordPersistAtom.set((previous) => ({
+        ...previous,
+        passwordErrorAttempts: 0,
+        passwordErrorProtectionTime: 0,
+      }));
+      return result;
+    } catch (error) {
+      const isWrongPassword =
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.WrongPassword,
+        }) ||
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.IncorrectPassword,
+        });
+      if (isWrongPassword) {
+        await passwordPersistAtom.set((previous) => {
+          const nextAttempts = Math.min(
+            previous.passwordErrorAttempts + 1,
+            PASSCODE_PROTECTION_ATTEMPTS,
+          );
+          const cooldownKey = String(
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS
+              ? PASSCODE_PROTECTION_ATTEMPTS - 1
+              : nextAttempts,
+          );
+          const cooldownMinutes =
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
+              ? PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[cooldownKey]
+              : undefined;
+          return {
+            ...previous,
+            passwordErrorAttempts: nextAttempts,
+            ...(cooldownMinutes
+              ? {
+                  passwordErrorProtectionTime:
+                    Date.now() + cooldownMinutes * 60 * 1000,
+                }
+              : undefined),
+          };
+        });
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async verifyPassword(params: IVerifyPasswordParams): Promise<string> {
+    const shouldEnforcePasswordErrorProtection =
+      Boolean(params.enforcePasswordErrorProtection) ||
+      runtimePersistenceAdapter.isUnavailable();
+    if (!shouldEnforcePasswordErrorProtection) {
+      return this.verifyPasswordInner(params);
+    }
+    return passwordErrorProtectionMutex.runExclusive(() =>
+      this.verifyPasswordWithErrorProtection(params),
+    );
   }
 
   private async prepareHyperLiquidAgentSecretSession({
@@ -992,6 +1125,8 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
+    enforcePasswordErrorProtection?: boolean;
+    manualPasswordOnly?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
     kdfParams?: IPbkdf2KdfParams;
   }): Promise<IPasswordRes> {
@@ -999,7 +1134,12 @@ export default class ServicePassword extends ServiceBase {
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
       // TODO mutex
       const v4migrationData = await v4migrationAtom.get();
-      if (v4migrationData?.isProcessing) {
+      if (
+        shouldUseV4MigrationPasswordForPrompt({
+          isProcessing: Boolean(v4migrationData?.isProcessing),
+          manualPasswordOnly: Boolean(options?.manualPasswordOnly),
+        })
+      ) {
         const v4migrationPassword =
           await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
         if (v4migrationPassword) {
@@ -1048,6 +1188,9 @@ export default class ServicePassword extends ServiceBase {
               ? EPasswordPromptType.PASSWORD_VERIFY
               : EPasswordPromptType.PASSWORD_SETUP,
             dialogProps: options?.dialogProps,
+            enforcePasswordErrorProtection:
+              options?.enforcePasswordErrorProtection,
+            manualPasswordOnly: options?.manualPasswordOnly,
             skipPostVerifyBackgroundTasks:
               options?.skipPostVerifyBackgroundTasks,
             kdfParams: options?.kdfParams,
@@ -1145,6 +1288,8 @@ export default class ServicePassword extends ServiceBase {
     idNumber: number;
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
+    enforcePasswordErrorProtection?: boolean;
+    manualPasswordOnly?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
     kdfParams?: IPbkdf2KdfParams;
   }) {
