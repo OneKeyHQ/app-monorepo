@@ -615,6 +615,7 @@ Offchain
 offscreen
 Offscreen
 offscreens
+OLED
 okx
 Okx
 OKX
@@ -705,6 +706,7 @@ pwkey
 qrcode
 Queueing
 Rabby
+rasterizes
 rbf
 rbtc
 rdns
@@ -981,6 +983,7 @@ wmin
 wns
 wordlist
 wordlists
+wordmark
 worklet
 xaid
 xbuf
@@ -1594,3 +1597,6 @@ otsu
 Otsu
 OTSU
 binarize
+
+# password manager brand referenced in Input suppression comment
+Dashlane
