@@ -99,7 +99,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId, openInfiniSubscription } = route.params || {};
+  const { fromFeature, networkId, fromDeepLink } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -151,7 +151,7 @@ export default function PrimeDashboard({
 
   const didOpenInfiniSubscriptionRef = useRef(false);
   useEffect(() => {
-    if (!openInfiniSubscription || didOpenInfiniSubscriptionRef.current) {
+    if (!fromDeepLink || didOpenInfiniSubscriptionRef.current) {
       return;
     }
     if (!isAuthReady || !isLoggedIn) {
@@ -161,7 +161,7 @@ export default function PrimeDashboard({
     navigation.push(EPrimePages.PrimeInfiniSubscription, {
       fromDeepLink: true,
     });
-  }, [isAuthReady, isLoggedIn, navigation, openInfiniSubscription]);
+  }, [fromDeepLink, isAuthReady, isLoggedIn, navigation]);
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {

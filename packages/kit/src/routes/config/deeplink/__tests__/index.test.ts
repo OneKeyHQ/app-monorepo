@@ -381,14 +381,14 @@ describe('prime_subscription deep link', () => {
 
   it('opens Prime dashboard when the OneKey ID session is missing', async () => {
     handleDeepLinkUrl({
-      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}?guest=1`,
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
     });
     await flushAsyncTasks();
     await flushAsyncTasks();
 
     expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeDashboard,
-      params: { openInfiniSubscription: true },
+      params: { fromDeepLink: true },
     });
   });
 
@@ -396,7 +396,7 @@ describe('prime_subscription deep link', () => {
     backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(true);
 
     handleDeepLinkUrl({
-      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}?loggedIn=1`,
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
     });
     await flushAsyncTasks();
     await flushAsyncTasks();

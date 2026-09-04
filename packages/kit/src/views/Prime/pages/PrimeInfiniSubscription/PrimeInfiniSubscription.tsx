@@ -289,7 +289,7 @@ export default function PrimeInfiniSubscription({
     if (result === undefined || !isResultForCurrentUser || result.hasError) {
       return;
     }
-    if (subscription) {
+    if (result.subscription) {
       return;
     }
     if (
@@ -315,7 +315,6 @@ export default function PrimeInfiniSubscription({
     primeUserInfo.primeSubscription,
     primeUserInfo.subscriptionManageUrl,
     result,
-    subscription,
   ]);
 
   const runRef = useRef(run);

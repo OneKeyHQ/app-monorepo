@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -33,6 +33,9 @@ import {
 
 const AUTO_OPEN_DELAY_MS = 300;
 const PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS = 3000;
+const PRIME_SUBSCRIPTION_DEEP_LINK = uriUtils.buildDeepLinkUrl({
+  path: EOneKeyDeepLinkPath.prime_subscription,
+});
 
 function Header() {
   return (
@@ -150,15 +153,6 @@ function FallbackContent({
 function PrimeSubscriptionLandingPage() {
   const [isFallbackVisible, setIsFallbackVisible] = useState(false);
   const fallbackCleanupRef = useRef<(() => void) | null>(null);
-  const lastAutoOpenedDeepLinkRef = useRef<string | null>(null);
-
-  const deepLink = useMemo(
-    () =>
-      uriUtils.buildDeepLinkUrl({
-        path: EOneKeyDeepLinkPath.prime_subscription,
-      }),
-    [],
-  );
 
   const clearFallbackTimer = useCallback(() => {
     fallbackCleanupRef.current?.();
@@ -172,12 +166,8 @@ function PrimeSubscriptionLandingPage() {
       delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
       onFallback: () => setIsFallbackVisible(true),
     });
-    openAppViaDeepLink(deepLink);
-  }, [clearFallbackTimer, deepLink]);
-
-  const handleDownload = useCallback(() => {
-    redirectToStore();
-  }, []);
+    openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
+  }, [clearFallbackTimer]);
 
   useEffect(
     () => () => {
@@ -187,15 +177,14 @@ function PrimeSubscriptionLandingPage() {
   );
 
   useEffect(() => {
-    if (!platformEnv.isWeb || lastAutoOpenedDeepLinkRef.current === deepLink) {
+    if (!platformEnv.isWeb) {
       return undefined;
     }
-    lastAutoOpenedDeepLinkRef.current = deepLink;
     const timerId = setTimeout(() => {
       handleOpenApp();
     }, AUTO_OPEN_DELAY_MS);
     return () => clearTimeout(timerId);
-  }, [deepLink, handleOpenApp]);
+  }, [handleOpenApp]);
 
   useFocusEffect(
     useCallback(() => {
@@ -227,7 +216,7 @@ function PrimeSubscriptionLandingPage() {
             {isFallbackVisible ? (
               <FallbackContent
                 onOpenApp={handleOpenApp}
-                onDownload={handleDownload}
+                onDownload={redirectToStore}
               />
             ) : (
               <OpeningContent />
