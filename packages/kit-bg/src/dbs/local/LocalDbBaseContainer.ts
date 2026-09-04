@@ -47,7 +47,7 @@ import type {
 } from './types';
 
 export abstract class LocalDbBaseContainer implements ILocalDBAgent {
-  abstract readyDb: Promise<ILocalDBAgent>;
+  abstract get readyDb(): Promise<ILocalDBAgent>;
 
   private transactionAgents = new WeakMap<object, ILocalDBAgent>();
 
