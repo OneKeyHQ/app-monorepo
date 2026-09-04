@@ -31,5 +31,22 @@
       "#13048"
     ],
     "notes": "feat: batch PSBT signing flow for BTC dapp signPsbts (#12835), fix: recover native notification permissions (#12910), fix: stabilize firmware updates and align hardware SDK (#12966), feat: add send address risk check (OK-61061) (#12988), fix: restore trusted Permit confirmation behavior (#12996), chore: release #1 (#13002), Defi banner ops & Risk Warning (#13014), fix: sync hardware firmware update state (#13024), fix: remove 0x token tax metadata(OK-61351) (#13046), fix: send app version for market seed request (#13048)"
+  },
+  {
+    "seq": 3,
+    "commit": "3166201d1d68cd42fe31a4ccbacdd30778318d77",
+    "date": "2026-09-04T12:47:46Z",
+    "prs": [
+      "#13090",
+      "#12999",
+      "#13029",
+      "#13126",
+      "#13135",
+      "#13128",
+      "#13119",
+      "#13112",
+      "#13124"
+    ],
+    "notes": "chore: release #2 (#13090), fix: recover Perps TWAP history and stalled order book subscriptions (OK-60985, OK-61108) (#12999), feat: register the Entropy hip-3 perps dex (OK-61073, OK-60689) (#13029), fix: refresh DeFi network config cache(OK-61713) (#13126), fix: DeFi share links, banner looping, risk gate coverage and in-app … (#13135), fix: Perps close-position price readiness, cold-start banner shift, favorites order sync and TWAP tab shadow flash(OK-61259 OK-61504 OK-61486 OK-61520) (#13128), feat: withdraw Perps USDC over Hyperliquid's CCTP rail(OK-61320) (#13119), fix: backport Receive token selector search optimizations to v6.5.2 (OK-61630 OK-61484 OK-61367 OK-61365) (#13112), fix: bound the All Networks header hold and split the 6.5.2 home refresh hotfix OK-61576 (#13124)"
   }
 ]
