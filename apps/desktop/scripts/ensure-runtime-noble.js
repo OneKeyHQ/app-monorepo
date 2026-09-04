@@ -13,12 +13,12 @@ const nobleRoot = path.join(runtimeAppDir, 'node_modules/@stoprocent/noble');
 const nativeSources = [
   [
     'lib/common/include/Emit.h',
-    'const std::string& errorDomain = "", int errorCode = 0',
+    'bool state, const std::string& error = "", const std::string& errorDomain',
   ],
   ['lib/common/src/Emit.cc', 'error.Set(_s("nativeErrorCode"), _n(code))'],
   [
     'lib/mac/src/ble_manager.mm',
-    'emit.Disconnected(uuid, errorMessage, errorDomain, errorCode)',
+    'characteristic.isNotifying, details.message, details.domain, details.code',
   ],
 ];
 const patchedSources = [

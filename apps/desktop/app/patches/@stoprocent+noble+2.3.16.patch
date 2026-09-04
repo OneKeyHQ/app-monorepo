@@ -1,5 +1,5 @@
 diff --git a/node_modules/@stoprocent/noble/lib/common/include/Emit.h b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
-index 1d25bb1..e01a1f4 100644
+index 1d25bb1..95a4988 100644
 --- a/node_modules/@stoprocent/noble/lib/common/include/Emit.h
 +++ b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
 @@ -16,8 +16,8 @@ public:
@@ -13,8 +13,17 @@ index 1d25bb1..e01a1f4 100644
      void MTU(const std::string& uuid, int mtu);
      void RSSI(const std::string& uuid, int rssi, const std::string& error = "");
      void ServicesDiscovered(const std::string& uuid, const std::vector<std::string>& serviceUuids, const std::string& error = "");
+@@ -25,7 +25,7 @@ public:
+     void CharacteristicsDiscovered(const std::string& uuid, const std::string& serviceUuid, const std::vector<std::pair<std::string, std::vector<std::string>>>& characteristics, const std::string& error = "");
+     void Read(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const Data& data, bool isNotification, const std::string& error = "");
+     void Write(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& error = "");
+-    void Notify(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, bool state, const std::string& error = "");
++    void Notify(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, bool state, const std::string& error = "", const std::string& errorDomain = "", int errorCode = 0);
+     void DescriptorsDiscovered(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::vector<std::string>& descriptorUuids, const std::string& error = "");
+     void ReadValue(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& descriptorUuid, const Data& data, const std::string& error = "");
+     void WriteValue(const std::string& uuid, const std::string& serviceUuid, const std::string& characteristicUuid, const std::string& descriptorUuid, const std::string& error = "");
 diff --git a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
-index a1caca6..254c6bc 100644
+index a1caca6..2ae0a39 100644
 --- a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
 +++ b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
 @@ -14,6 +14,18 @@ Napi::String toUuid(Napi::Env& env, const std::string& uuid)
@@ -69,58 +78,92 @@ index a1caca6..254c6bc 100644
      });
  }
  
+@@ -247,12 +265,13 @@ void Emit::Write(const std::string& uuid, const std::string& serviceUuid,
+ }
+ 
+ void Emit::Notify(const std::string& uuid, const std::string& serviceUuid,
+-                  const std::string& characteristicUuid, bool state, const std::string& error)
++                  const std::string& characteristicUuid, bool state, const std::string& error,
++                  const std::string& errorDomain, int errorCode)
+ {
+-    mCallback->call([uuid, serviceUuid, characteristicUuid, state, error](Napi::Env env,
++    mCallback->call([uuid, serviceUuid, characteristicUuid, state, error, errorDomain, errorCode](Napi::Env env,
+                                                                    std::vector<napi_value>& args) {
+         // emit('notify', deviceUuid, servicesUuid, characteristicsUuid, state)
+-        args = { _s("notify"), _u(uuid), _u(serviceUuid), _u(characteristicUuid), _b(state), error.empty() ? env.Null() : _e(error) };
++        args = { _s("notify"), _u(uuid), _u(serviceUuid), _u(characteristicUuid), _b(state), error.empty() ? env.Null() : toNativeError(env, error, errorDomain, errorCode) };
+     });
+ }
+ 
 diff --git a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
-index b82f1e9..4895787 100644
+index b82f1e9..da93805 100644
 --- a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
 +++ b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
-@@ -196,7 +196,22 @@
+@@ -4,6 +4,34 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
++namespace {
++struct NativeErrorDetails {
++    std::string message;
++    std::string domain;
++    int code = 0;
++};
++
++NativeErrorDetails getNativeErrorDetails(NSError *error, const std::string& fallbackMessage)
++{
++    NativeErrorDetails details = { fallbackMessage, "", 0 };
++    if (!error) {
++        return details;
++    }
++
++    NSString *message = [NSString stringWithFormat:@"%@:%ld %@", error.domain, (long)error.code, error.localizedDescription];
++    const char *utf8Message = [message UTF8String];
++    if (utf8Message) {
++        details.message = std::string(utf8Message);
++    }
++    const char *utf8Domain = [error.domain UTF8String];
++    if (utf8Domain) {
++        details.domain = std::string(utf8Domain);
++    }
++    details.code = static_cast<int>(error.code);
++    return details;
++}
++} // namespace
++
+ @interface BLEManager ()
+ - (void)updateMtuForPeripheral:(CBPeripheral*) peripheral;
+ @end
+@@ -196,7 +224,8 @@
  - (void) centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
      [self.peripherals removeObjectForKey:getNSUuid(peripheral)];
      std::string uuid = getUuid(peripheral);
 -    emit.Connected(uuid, "connection failed");
-+    std::string errorMessage = "connection failed";
-+    std::string errorDomain = "";
-+    int errorCode = 0;
-+    if (error) {
-+        NSString *message = [NSString stringWithFormat:@"%@:%ld %@", error.domain, (long)error.code, error.localizedDescription];
-+        const char *utf8Message = [message UTF8String];
-+        if (utf8Message) {
-+            errorMessage = std::string(utf8Message);
-+        }
-+        const char *utf8Domain = [error.domain UTF8String];
-+        if (utf8Domain) {
-+            errorDomain = std::string(utf8Domain);
-+        }
-+        errorCode = (int)error.code;
-+    }
-+    emit.Connected(uuid, errorMessage, errorDomain, errorCode);
++    const auto details = getNativeErrorDetails(error, "connection failed");
++    emit.Connected(uuid, details.message, details.domain, details.code);
  }
  
  - (BOOL)disconnect:(NSString*) uuid {
-@@ -210,7 +225,22 @@
+@@ -210,7 +239,8 @@
  -(void) centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
      std::string uuid = getUuid(peripheral);
      [self.peripherals removeObjectForKey:getNSUuid(peripheral)];
 -    emit.Disconnected(uuid);
-+    std::string errorMessage = "";
-+    std::string errorDomain = "";
-+    int errorCode = 0;
-+    if (error) {
-+        NSString *message = [NSString stringWithFormat:@"%@:%ld %@", error.domain, (long)error.code, error.localizedDescription];
-+        const char *utf8Message = [message UTF8String];
-+        if (utf8Message) {
-+            errorMessage = std::string(utf8Message);
-+        }
-+        const char *utf8Domain = [error.domain UTF8String];
-+        if (utf8Domain) {
-+            errorDomain = std::string(utf8Domain);
-+        }
-+        errorCode = (int)error.code;
-+    }
-+    emit.Disconnected(uuid, errorMessage, errorDomain, errorCode);
++    const auto details = getNativeErrorDetails(error, "");
++    emit.Disconnected(uuid, details.message, details.domain, details.code);
  }
  
  - (BOOL)updateRSSI:(NSString*) uuid {
+@@ -363,7 +393,8 @@
+     std::string uuid = getUuid(peripheral);
+     std::string serviceUuid = [characteristic.service.UUID.UUIDString UTF8String];
+     std::string characteristicUuid = [characteristic.UUID.UUIDString UTF8String];
+-    emit.Notify(uuid, serviceUuid, characteristicUuid, characteristic.isNotifying, error ? error.localizedDescription.UTF8String : "");
++    const auto details = getNativeErrorDetails(error, "");
++    emit.Notify(uuid, serviceUuid, characteristicUuid, characteristic.isNotifying, details.message, details.domain, details.code);
+ }
+ 
+ #pragma mark - Descriptors
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
 index 94b4dc7..80ce70e 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js
