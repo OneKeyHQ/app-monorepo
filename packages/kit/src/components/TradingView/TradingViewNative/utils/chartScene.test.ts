@@ -146,7 +146,7 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
-  it('positions the watermark at the bottom-left of the main chart', () => {
+  it('centers the watermark within a small main chart', () => {
     const height = 360;
     const timeAxisHeight = 20;
     const width = 320;
@@ -156,6 +156,7 @@ describe('TradingViewNative shared chart scene', () => {
       crosshair: { visible: false, x: 0, y: 0 },
       hasVolume: false,
       height,
+      isMobileLayout: true,
       measureTextWidth: (text) => text.length * 6,
       candleLabels: CANDLE_LABELS,
       points: POINTS,
@@ -181,10 +182,10 @@ describe('TradingViewNative shared chart scene', () => {
     expect(paneTopBorder).toBeDefined();
     expect(watermark).toMatchObject({
       kind: 'watermark',
-      rect: { width: 48, x: 8 },
+      rect: { width: 70.4, x: 124.8 },
     });
     if (watermark?.kind === 'watermark') {
-      expect(watermark.rect.y + watermark.rect.height).toBeCloseTo(276);
+      expect(watermark.rect.y + watermark.rect.height / 2).toBeCloseTo(142);
     }
   });
 

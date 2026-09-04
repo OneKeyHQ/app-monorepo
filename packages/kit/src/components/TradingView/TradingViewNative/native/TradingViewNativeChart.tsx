@@ -105,6 +105,7 @@ export const TradingViewNativeChart = memo(
     indicatorSeries,
     indicatorSeriesSettingsKey,
     initialRightOffset,
+    isMobileLayout = false,
     isSwitchingInterval,
     locale,
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -339,6 +340,7 @@ export const TradingViewNativeChart = memo(
         height: runtime.size.height,
         candleLabels,
         indicatorSeries: runtime.indicatorSeries,
+        isMobileLayout,
         pinnedPriceRange: runtime.pinnedPriceRange,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
@@ -358,6 +360,7 @@ export const TradingViewNativeChart = memo(
     }, [
       candleLabels,
       extendTimeAxisBorderToCanvasEdge,
+      isMobileLayout,
       priceAxisFontSize,
       priceAxisTickCount,
       priceAxisWidth,
