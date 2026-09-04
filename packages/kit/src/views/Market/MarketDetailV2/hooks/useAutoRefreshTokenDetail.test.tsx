@@ -263,4 +263,34 @@ describe('useAutoRefreshTokenDetail', () => {
 
     expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
   });
+
+  it('drops an in-flight Asset result when market fetching becomes skipped', async () => {
+    const assetDetail = { asset: { assetId: 'doge' } };
+    let resolveRequest: ((value: typeof assetDetail) => void) | undefined;
+    mockFetchAssetTokenDetail.mockReturnValueOnce(
+      new Promise<typeof assetDetail>((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    const { rerender } = renderHook(
+      ({ skipMarketDataFetch }: { skipMarketDataFetch: boolean }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: 'doge--0',
+          isNative: true,
+          marketTokenId: 'doge',
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+          skipMarketDataFetch,
+        }),
+      { initialProps: { skipMarketDataFetch: false } },
+    );
+    const pendingResult = promiseFactory?.();
+
+    rerender({ skipMarketDataFetch: true });
+    resolveRequest?.(assetDetail);
+
+    await expect(pendingResult).resolves.toBeUndefined();
+    expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
+  });
 });

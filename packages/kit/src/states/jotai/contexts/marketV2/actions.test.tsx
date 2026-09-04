@@ -394,6 +394,49 @@ describe('marketV2 asset token detail actions', () => {
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 
+  it('drops a token response after the current request is canceled', async () => {
+    const tokenDetailDeferred = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      tokenDetailDeferred.promise,
+    );
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.setTokenAddress('0xabc');
+      result.current.setNetworkId('evm--1');
+    });
+    let tokenRequest: Promise<unknown> | undefined;
+    await act(async () => {
+      tokenRequest = result.current.fetchTokenDetail('0xabc', 'evm--1');
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.setTokenDetailLoading(false);
+    });
+    await act(async () => {
+      tokenDetailDeferred.resolve({
+        data: {
+          token: {
+            address: '0xabc',
+            decimals: 18,
+            logoUrl: '',
+            name: 'Canceled token',
+            price: '1',
+            symbol: 'CANCEL',
+          },
+        },
+      });
+      await tokenRequest;
+    });
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
   it('does not reuse a fresh chart price from another network', async () => {
     const { store, Wrapper } = createWrapper();
     mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({

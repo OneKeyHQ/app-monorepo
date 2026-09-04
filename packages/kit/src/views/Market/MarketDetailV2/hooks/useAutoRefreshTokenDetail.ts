@@ -48,8 +48,10 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]
     .map(encodeURIComponent)
     .join(':');
-  const currentTokenDetailRequestKeyRef = useRef(tokenDetailRequestKey);
-  currentTokenDetailRequestKeyRef.current = tokenDetailRequestKey;
+  const currentTokenDetailRequestKeyRef = useRef<string | undefined>(undefined);
+  currentTokenDetailRequestKeyRef.current = data.skipMarketDataFetch
+    ? undefined
+    : tokenDetailRequestKey;
   const successfulMarketAssetDetailRef = useRef<
     | {
         requestKey: string;
@@ -204,6 +206,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
           successfulMarketAssetDetailRef.current = requestResult;
           return requestResult;
         } catch (_error) {
+          if (
+            currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
+          ) {
+            return;
+          }
           return successfulMarketAssetDetailRef.current?.requestKey ===
             tokenDetailRequestKey
             ? successfulMarketAssetDetailRef.current
@@ -242,7 +249,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   );
 
   const marketAssetDetail =
-    result?.requestKey === tokenDetailRequestKey
+    !data.skipMarketDataFetch && result?.requestKey === tokenDetailRequestKey
       ? result.assetDetail
       : undefined;
 

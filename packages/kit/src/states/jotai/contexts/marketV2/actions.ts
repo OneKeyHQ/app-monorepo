@@ -86,7 +86,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  setTokenDetailLoading = contextAtomMethod((_, set, payload: boolean) => {
+  setTokenDetailLoading = contextAtomMethod((get, set, payload: boolean) => {
+    if (!payload) {
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+    }
     set(tokenDetailLoadingAtom(), payload);
   });
 
