@@ -806,14 +806,14 @@ export function appendTradingViewNativeSubIndicatorLegendCommands({
     priceAxisX,
   });
   for (const legendLayout of legendLayouts) {
-    commands.push(
-      { kind: 'clip', rect: legendLayout.clipRect },
-      {
+    commands.push({ kind: 'clip', rect: legendLayout.clipRect });
+    if (legendLayout.paneLayout.pane.indicator !== 'MACD') {
+      commands.push({
         ...legendLayout.backgroundRect,
         kind: 'rect',
         paint: 'legendBackground',
-      },
-    );
+      });
+    }
     for (const { segment, series } of legendLayout.textEntries) {
       const textBaselineY = segment.textBaselineY ?? legendLayout.textBaselineY;
       if (!series) {
