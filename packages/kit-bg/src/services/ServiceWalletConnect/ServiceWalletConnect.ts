@@ -257,13 +257,16 @@ class ServiceWalletConnect extends ServiceBase {
         continue;
       }
       // getWcChainInfo throws on a chain string without a CAIP-2 colon
-      // instead of returning undefined. A malformed `chains` entry -- the
-      // dApp's proposal payload, not validated before this point -- must
-      // still resolve to "not supported" rather than take down the handler
-      // this runs in before it reaches its own try/catch.
+      // instead of returning undefined, and `chains` is only TS-typed as
+      // string[] -- the wire payload from the dApp's proposal isn't
+      // validated before this point, so an entry can be a non-string too.
+      // Either case must resolve to "not supported" rather than take down
+      // the handler this runs in before it reaches its own try/catch.
       const chainInfos = await Promise.all(
         entryChains.map((chain) =>
-          chain.includes(':') ? this.getWcChainInfo(chain) : undefined,
+          typeof chain === 'string' && chain.includes(':')
+            ? this.getWcChainInfo(chain)
+            : undefined,
         ),
       );
       if (chainInfos.every((info) => !info)) {
