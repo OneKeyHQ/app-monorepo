@@ -339,3 +339,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Native three-bundle allocation requires every module path in the graph to have a stable ID. Adding a new file under `packages/kit` without `module-id:update` breaks unionBuild.
 **Fix**: Run `yarn workspace @onekeyhq/mobile module-id:update --map` for the new path and commit the registry row (`7931`).
 **Catchable by**: NEW — new files that enter the native graph must be added to `apps/mobile/bundle-registry/module-id-registry.json` before push
+
+## Case: localTokens/localHistory IndexedDB blob self-heal
+**Date**: 2026-09-03 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
+**Symptom**: Desktop users hit permanent SimpleDB read failures on `simple_db_v5:localTokens` / `localHistory` with `UnknownError: Failed to read large IndexedDB value` (OK-61648), blocking builder-based writes the same way as OK-59997 perp.
+**Root Cause**: Large Chromium IndexedDB values are external blobs; corruption leaves the record forever unreadable. Self-heal was opt-in and only enabled for `perp`.
+**Fix**: Default-on self-heal for the exact Chromium unreadable-blob signature (`UnknownError` + message `includes`); backoff retries (50/500/1000ms) + write-overlap veto before delete; `defaultLogger.app.storage.simpleDbUnreadableSelfHeal` local trail for export. The dead record is already unrecoverable — leaving it blocks builder writes and the app.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — durable unreadable storage errors need a default recovery path, not per-entity opt-in
+
+## Case: Prime logout tombstone is not equivalent to a missing SimpleDB record
+**Date**: 2026-09-03 | **Platforms**: desktop / web / extension (IndexedDB self-heal path)
+**Symptom**: Default-on SimpleDB self-heal would delete an unreadable `simple_db_v5:prime` record; a leftover Supabase session then rebuilt `oneKeyIdAuthState: loggedIn` (silent re-login after logout).
+**Root Cause**: `markOneKeyIdLoggedOutPreservingSessions` writes a tombstone in SimpleDB while keeping credentials in `supabaseStorageInstance`. After delete, `getRawData()` is `null`, so `persistMigratedLegacyAuthSessionSourceIfUnset` treats "empty" as "never logged out" and commits LegacyEmailSupabase + `loggedIn`. Unreadable ≠ empty.
+**Fix**: `SimpleDbEntityPrime` opts out of unreadable-record self-heal so the Chromium blob error stays loud-fail; other SimpleDB entities remain default-on.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — tombstone / monotonic-epoch records must not treat self-heal `null` as "never written"
