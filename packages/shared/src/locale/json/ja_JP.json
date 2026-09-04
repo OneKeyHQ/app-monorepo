@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "注目市場",
   "perp_insufficient_margin__title": "証拠金が不足しています",
   "perp_invalid_scale_order__msg": "無効なスケール注文",
+  "perp_io_market__desc": "io は、Pre-IPO 段階の AI 企業や上場テクノロジー株を含む、Hyperliquid 上の Entropy HIP-3 DEX の市場を示します。",
   "perp_ip_restriction__title": "契約取引は一時的にご利用いただけません",
   "perp_ip_restriction_perp__desc": "現在のネットワークまたは地域では、契約取引をご利用いただけません。サポート対象の地域またはネットワーク環境で再度お試しください。",
   "perp_ip_restriction_spot__desc": "お住まいの地域では新規のスポット注文は利用できません。引き続き、マーケットの閲覧、注文のキャンセル、資金の出金は可能です。",

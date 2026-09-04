@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "Beliebte Märkte",
   "perp_insufficient_margin__title": "Unzureichende Marge",
   "perp_invalid_scale_order__msg": "Ungültige Scale-Order",
+  "perp_io_market__desc": "io kennzeichnet Märkte des Entropy HIP-3 DEX auf Hyperliquid, darunter Pre-IPO-KI-Unternehmen und börsennotierte Technologieaktien.",
   "perp_ip_restriction__title": "Handel vorübergehend nicht verfügbar",
   "perp_ip_restriction_perp__desc": "Der Kontrakthandel ist in Ihrem aktuellen Netzwerk oder Ihrer Region derzeit nicht verfügbar. Bitte versuchen Sie es in einer unterstützten Region oder Netzwerkumgebung erneut.",
   "perp_ip_restriction_spot__desc": "Neue Spot-Orders sind in deiner Region nicht verfügbar. Du kannst weiterhin Märkte ansehen, Orders stornieren und Gelder auszahlen.",

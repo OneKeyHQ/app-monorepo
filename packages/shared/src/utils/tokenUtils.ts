@@ -13,6 +13,10 @@ import { OneKeyInternalError } from '../errors';
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import {
+  getTokenNetworkAliasMap,
+  tokenizeTokenSearchKeywords,
+} from './tokenSelectorCrossNetworkUtils';
+import {
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
 } from './tokenValueUtils';
@@ -22,6 +26,7 @@ import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   IToken,
   ITokenData,
   ITokenFiat,
@@ -131,6 +136,9 @@ function networkFieldsContainKeyword(
     network.code?.toLowerCase().includes(kw) ||
     network.shortname?.toLowerCase().includes(kw) ||
     network.shortcode?.toLowerCase().includes(kw) ||
+    // Curated aliases ("trc20", "波场") are exact-equality only, so a partial
+    // word like "trc" can never scope a search through them.
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
     false
   );
 }
@@ -163,6 +171,49 @@ export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
   return Array.from(queries);
 }
 
+/**
+ * Normalize raw token search hits before they are deduped:
+ * - A hit that omits `info.networkId` belongs to the request's scoped network,
+ *   so stamp it there. Under an all-networks request it cannot be resolved to
+ *   a concrete network (it could never open a receive address), so drop it.
+ * - Defense-in-depth (OK-60860): the backend index may still return tokens on
+ *   delisted networks (dropped from the catalog via status TRASH) or on
+ *   networks this app version does not know at all; drop those too. The
+ *   catalog is optional so a transient lookup failure fails open.
+ */
+export function normalizeTokenSearchResults({
+  items,
+  requestNetworkId,
+  availableNetworkIds,
+}: {
+  items: IFetchTokenDetailItem[];
+  requestNetworkId: string;
+  availableNetworkIds?: Set<string>;
+}): IFetchTokenDetailItem[] {
+  const isAllNetworkRequest = networkUtils.isAllNetwork({
+    networkId: requestNetworkId,
+  });
+  const result: IFetchTokenDetailItem[] = [];
+  items.forEach((item) => {
+    let { networkId } = item.info;
+    if (!networkId) {
+      if (isAllNetworkRequest) {
+        return;
+      }
+      networkId = requestNetworkId;
+    }
+    if (availableNetworkIds && !availableNetworkIds.has(networkId)) {
+      return;
+    }
+    result.push(
+      networkId === item.info.networkId
+        ? item
+        : { ...item, info: { ...item.info, networkId } },
+    );
+  });
+  return result;
+}
+
 enum ESearchStrength {
   BOTH = 1,
   NETWORK_ONLY = 2,
@@ -173,6 +224,12 @@ function computeSearchStrength(
   token: IAccountToken,
   keywords: string[],
   network: IServerNetwork | undefined,
+  // Original trimmed search string, set ONLY when the tokenizer split a
+  // whitespace-free input (e.g. "usdt.tether-token.near"). Contract addresses
+  // legitimately contain separator chars (TON base64url, NEAR dots, Move ::),
+  // and per-word AND matching would never reassemble them — so an exact
+  // full-string address hit short-circuits as matched.
+  fullSearchKey?: string,
 ): {
   matched: boolean;
   strength: ESearchStrength;
@@ -182,6 +239,14 @@ function computeSearchStrength(
   // qualifier: it is a symbol search that merely collides with a chain name.
   hasPureNetworkKeyword: boolean;
 } {
+  if (fullSearchKey && token.address?.toLowerCase() === fullSearchKey) {
+    return {
+      matched: true,
+      strength: ESearchStrength.TOKEN_ONLY,
+      hasPureNetworkKeyword: false,
+    };
+  }
+
   let anyTokenHit = false;
   let anyNetworkHit = false;
   let hasPureNetworkKeyword = false;
@@ -222,6 +287,7 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch,
   tokenFiatMap,
   localAggregateTokenListMap,
+  flattenAggregateTokens,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -234,6 +300,10 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch?: boolean;
   tokenFiatMap?: Record<string, ITokenFiat>;
   localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  // Search-mode aggregate flatten (Receive): output every matched sub row
+  // instead of the grouped aggregate row. Off by default — all other callers
+  // keep the grouped behavior.
+  flattenAggregateTokens?: boolean;
 }) {
   let mergedTokens = tokens;
 
@@ -280,13 +350,28 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  const keywords = tokenizeTokenSearchKeywords(trimmedSearchKey);
   if (keywords.length === 0) return [];
+
+  // A1 fallback: only a whitespace-free input can be a contract address the
+  // tokenizer tore apart, so only then is the full-string check armed.
+  const fullSearchKey =
+    keywords.length > 1 && !/\s/.test(trimmedSearchKey)
+      ? trimmedSearchKey
+      : undefined;
 
   const results: Array<{
     token: IAccountToken;
     strength: ESearchStrength;
+    exactSymbolHit: boolean;
   }> = [];
+
+  const hasExactSymbolKeywordHit = (token: IAccountToken): boolean =>
+    keywords.some(
+      (kw) =>
+        kw === token.symbol?.toLowerCase() ||
+        kw === token.commonSymbol?.toLowerCase(),
+    );
 
   for (const token of mergedTokens) {
     if (token.isAggregateToken) {
@@ -295,12 +380,13 @@ export function getFilteredTokenBySearchKey({
       const matchedSubs: Array<{
         token: IAccountToken;
         strength: ESearchStrength;
+        exactSymbolHit: boolean;
         hasPureNetworkKeyword: boolean;
       }> = [];
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
         const { matched, strength, hasPureNetworkKeyword } =
-          computeSearchStrength(sub, keywords, network);
+          computeSearchStrength(sub, keywords, network, fullSearchKey);
         if (matched) {
           const localSub = localAggregateTokenListMap?.[
             token.$key
@@ -308,38 +394,53 @@ export function getFilteredTokenBySearchKey({
           matchedSubs.push({
             token: localSub ?? sub,
             strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(localSub ?? sub),
             hasPureNetworkKeyword,
           });
         }
       }
 
       if (matchedSubs.length > 0) {
-        // Split into network-specific sub rows ONLY on an EXPLICIT network
-        // qualifier ('usdc eth'). A single word hitting a sub's token AND
-        // network at once ('eth' = ETH symbol + Ethereum chain — same for
-        // sol/trx/bnb/pol) is a symbol search: keep the aggregate row grouped.
-        const networkQualifiedMatches = matchedSubs.filter(
-          (s) => s.hasPureNetworkKeyword,
-        );
-        if (networkQualifiedMatches.length > 0) {
-          results.push(...networkQualifiedMatches);
+        if (flattenAggregateTokens) {
+          // Search-mode flatten: every matched sub becomes its own
+          // per-network row, whether or not the query carried an explicit
+          // network qualifier. Owned copies were already substituted above.
+          results.push(...matchedSubs);
         } else {
-          results.push({
-            token,
-            // Rank the grouped row by its best sub match so a token+network
-            // double-hit ('eth') is not buried at TOKEN_ONLY below every
-            // network-qualified plain row.
-            strength: Math.min(...matchedSubs.map((s) => s.strength)),
-          });
+          // Split into network-specific sub rows ONLY on an EXPLICIT network
+          // qualifier ('usdc eth'). A single word hitting a sub's token AND
+          // network at once ('eth' = ETH symbol + Ethereum chain — same for
+          // sol/trx/bnb/pol) is a symbol search: keep the aggregate row
+          // grouped.
+          const networkQualifiedMatches = matchedSubs.filter(
+            (s) => s.hasPureNetworkKeyword,
+          );
+          if (networkQualifiedMatches.length > 0) {
+            results.push(...networkQualifiedMatches);
+          } else {
+            results.push({
+              token,
+              // Rank the grouped row by its best sub match so a token+network
+              // double-hit ('eth') is not buried at TOKEN_ONLY below every
+              // network-qualified plain row.
+              strength: Math.min(...matchedSubs.map((s) => s.strength)),
+              exactSymbolHit: hasExactSymbolKeywordHit(token),
+            });
+          }
         }
       } else {
         const { matched, strength } = computeSearchStrength(
           token,
           keywords,
           undefined,
+          fullSearchKey,
         );
         if (matched) {
-          results.push({ token, strength });
+          results.push({
+            token,
+            strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(token),
+          });
         }
       }
     } else {
@@ -348,9 +449,14 @@ export function getFilteredTokenBySearchKey({
         token,
         keywords,
         network,
+        fullSearchKey,
       );
       if (matched) {
-        results.push({ token, strength });
+        results.push({
+          token,
+          strength,
+          exactSymbolHit: hasExactSymbolKeywordHit(token),
+        });
       }
     }
   }
@@ -358,6 +464,11 @@ export function getFilteredTokenBySearchKey({
   if (tokenFiatMap) {
     results.sort((a, b) => {
       if (a.strength !== b.strength) return a.strength - b.strength;
+      // Exact symbol hits ("usdt" → USDT) outrank includes hits (aUSDT) even
+      // when the includes hit carries more fiat value.
+      if (a.exactSymbolHit !== b.exactSymbolHit) {
+        return a.exactSymbolHit ? -1 : 1;
+      }
       const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
       const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
       return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
@@ -366,7 +477,12 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  return results.map((r) => r.token);
+  // Two server aggregate configs may share one sub token; emitting it twice
+  // would collide FlashList keys. First occurrence wins, preserving sort.
+  return uniqBy(
+    results.map((r) => r.token),
+    (token) => token.$key,
+  );
 }
 
 export function sortTokensByFiatValue({

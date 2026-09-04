@@ -3160,6 +3160,7 @@ export enum ETranslations {
   perp_home_hot_markets__title = 'perp_home_hot_markets__title',
   perp_insufficient_margin__title = 'perp_insufficient_margin__title',
   perp_invalid_scale_order__msg = 'perp_invalid_scale_order__msg',
+  perp_io_market__desc = 'perp_io_market__desc',
   perp_ip_restriction__title = 'perp_ip_restriction__title',
   perp_ip_restriction_perp__desc = 'perp_ip_restriction_perp__desc',
   perp_ip_restriction_spot__desc = 'perp_ip_restriction_spot__desc',

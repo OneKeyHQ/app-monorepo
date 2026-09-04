@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => {
   const actualReactIntl =
     jest.requireActual<typeof import('react-intl')>('react-intl');

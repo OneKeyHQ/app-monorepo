@@ -10,6 +10,7 @@ import {
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
@@ -125,6 +126,9 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           stock={item.stock}
           maxLeverage={item.maxLeverage}
           perpsSubtitle={item.perpsSubtitle}
+          perpsDexLabel={
+            item.perpsCoin ? parseDexCoin(item.perpsCoin).dexLabel : undefined
+          }
         />
       </XStack>
 
