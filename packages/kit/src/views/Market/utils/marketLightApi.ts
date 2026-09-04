@@ -322,8 +322,11 @@ const fetchMarketTokenListBatchLight = async (
   const unmatchedTokenKeys = new Set(
     missingTokenEntries.map(({ cacheKey }) => cacheKey),
   );
+  const missingTokenEntryByKey = new Map(
+    missingTokenEntries.map((entry) => [entry.cacheKey, entry]),
+  );
   const responseTimestamp = Date.now();
-  data?.list?.forEach((item) => {
+  data?.list?.forEach((item, apiIndex) => {
     const itemAddress = item?.address ?? '';
     const itemNetworkId = String(item?.networkId || item?.chainId || '');
     const itemIsNative =
@@ -337,6 +340,18 @@ const fetchMarketTokenListBatchLight = async (
     let cacheKey = unmatchedTokenKeys.has(responseCacheKey)
       ? responseCacheKey
       : undefined;
+
+    if (!cacheKey) {
+      const addressCandidates = missingTokenEntries.filter(
+        ({ token, cacheKey: key }) =>
+          unmatchedTokenKeys.has(key) &&
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          token.contractAddress.toLowerCase() === itemAddress.toLowerCase(),
+      );
+      if (addressCandidates.length === 1) {
+        cacheKey = addressCandidates[0].cacheKey;
+      }
+    }
 
     if (!cacheKey) {
       const normalizedItemAddress = normalizeMarketTokenBatchAddress({
@@ -357,6 +372,21 @@ const fetchMarketTokenListBatchLight = async (
       }
     }
 
+    if (!cacheKey && !itemNetworkId) {
+      const positionalEntry = missingTokenEntries[apiIndex];
+      const normalizedItemAddress = normalizeMarketTokenBatchAddress({
+        contractAddress: itemAddress,
+        isNative: itemIsNative,
+      });
+      if (
+        normalizedItemAddress === '' &&
+        positionalEntry?.token.isNative &&
+        unmatchedTokenKeys.has(positionalEntry.cacheKey)
+      ) {
+        cacheKey = positionalEntry.cacheKey;
+      }
+    }
+
     if (!cacheKey) {
       if (process.env.NODE_ENV !== 'production') {
         console.error(
@@ -370,6 +400,13 @@ const fetchMarketTokenListBatchLight = async (
     }
 
     unmatchedTokenKeys.delete(cacheKey);
+    const matchedToken = missingTokenEntryByKey.get(cacheKey)?.token;
+    if (!matchedToken) return;
+    const normalizedItem: IMarketTokenListItem = {
+      ...item,
+      networkId: itemNetworkId || matchedToken.chainId,
+      isNative: itemIsNative ?? matchedToken.isNative,
+    };
     const originalIndex = tokenIndexMap.get(cacheKey);
     const cached = marketTokenBatchCache.get(cacheKey);
     if (cached && cached.requestSequence > requestSequence) {
@@ -380,12 +417,12 @@ const fetchMarketTokenListBatchLight = async (
     }
 
     marketTokenBatchCache.set(cacheKey, {
-      data: item,
+      data: normalizedItem,
       requestSequence,
       timestamp: responseTimestamp,
     });
     if (originalIndex !== undefined) {
-      cachedResults[originalIndex] = item;
+      cachedResults[originalIndex] = normalizedItem;
     }
   });
 

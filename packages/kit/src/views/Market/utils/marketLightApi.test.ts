@@ -204,10 +204,65 @@ describe('marketLightApi', () => {
 
     await expect(
       fetchMarketTokenListBatchLight({ tokenAddressList: [token] }),
-    ).resolves.toEqual({ list: [item] });
+    ).resolves.toEqual({
+      list: [{ ...item, isNative: true, networkId: token.chainId }],
+    });
     await expect(
       fetchMarketTokenListBatchLight({ tokenAddressList: [token] }),
-    ).resolves.toEqual({ list: [item] });
+    ).resolves.toEqual({
+      list: [{ ...item, isNative: true, networkId: token.chainId }],
+    });
+
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('pairs multiple anonymous native rows by preserved API order', async () => {
+    const firstToken = {
+      chainId: 'evm--first-native-cache-test',
+      contractAddress: '',
+      isNative: true,
+    };
+    const secondToken = {
+      chainId: 'sol--second-native-cache-test',
+      contractAddress: '',
+      isNative: true,
+    };
+    const firstItem = {
+      address: '',
+      name: 'First Native Token',
+      symbol: 'FIRST',
+      decimals: 18,
+    };
+    const secondItem = {
+      address: '',
+      name: 'Second Native Token',
+      symbol: 'SECOND',
+      decimals: 9,
+    };
+    mockPost.mockResolvedValueOnce({
+      data: { data: { list: [firstItem, secondItem] } },
+    });
+
+    const firstNormalizedItem = {
+      ...firstItem,
+      isNative: true,
+      networkId: firstToken.chainId,
+    };
+    const secondNormalizedItem = {
+      ...secondItem,
+      isNative: true,
+      networkId: secondToken.chainId,
+    };
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [firstToken, secondToken],
+      }),
+    ).resolves.toEqual({ list: [firstNormalizedItem, secondNormalizedItem] });
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [secondToken, firstToken],
+      }),
+    ).resolves.toEqual({ list: [secondNormalizedItem, firstNormalizedItem] });
 
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
