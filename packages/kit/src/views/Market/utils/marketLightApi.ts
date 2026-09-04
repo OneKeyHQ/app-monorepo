@@ -229,9 +229,22 @@ const fetchMarketTokenListBatchFromApi = async ({
 
 const marketTokenBatchCache = new Map<
   string,
-  { data: IMarketTokenListItem; timestamp: number }
+  { data: IMarketTokenListItem; requestSequence: number; timestamp: number }
 >();
 const marketTokenBatchCacheTTL = timerUtils.getTimeDurationMs({ seconds: 30 });
+let marketTokenBatchRequestSequence = 0;
+
+const normalizeMarketTokenBatchAddress = ({
+  contractAddress,
+  isNative,
+}: {
+  contractAddress: string;
+  isNative: boolean | undefined;
+}) => {
+  const normalizedIsNative =
+    isNative !== undefined ? isNative : contractAddress.length < 30;
+  return normalizedIsNative ? '' : contractAddress.toLowerCase();
+};
 
 const getMarketTokenBatchCacheKey = ({
   chainId,
@@ -241,10 +254,13 @@ const getMarketTokenBatchCacheKey = ({
 }: {
   chainId: string;
   contractAddress: string;
-  isNative: boolean;
+  isNative: boolean | undefined;
   requestLocale: string;
 }) =>
-  `${requestLocale}:${chainId}:${isNative ? '' : contractAddress.toLowerCase()}`;
+  `${requestLocale}:${chainId}:${normalizeMarketTokenBatchAddress({
+    contractAddress,
+    isNative,
+  })}`;
 
 const fetchMarketTokenListBatchLight = async (
   params: IMarketTokenBatchRequestParams,
@@ -288,33 +304,86 @@ const fetchMarketTokenListBatchLight = async (
     return { list: cachedResults };
   }
 
+  marketTokenBatchRequestSequence += 1;
+  const requestSequence = marketTokenBatchRequestSequence;
   const data = await fetchMarketTokenListBatchFromApi({
     tokenAddressList: missingTokens,
     requestLocale,
   });
-  const missingTokenKeys = new Set(
-    missingTokens.map((token) =>
-      getMarketTokenBatchCacheKey({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-        requestLocale,
-      }),
-    ),
+  const missingTokenEntries = missingTokens.map((token) => ({
+    token,
+    cacheKey: getMarketTokenBatchCacheKey({
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      isNative: token.isNative,
+      requestLocale,
+    }),
+  }));
+  const unmatchedTokenKeys = new Set(
+    missingTokenEntries.map(({ cacheKey }) => cacheKey),
   );
+  const responseTimestamp = Date.now();
   data?.list?.forEach((item) => {
     const itemAddress = item?.address ?? '';
-    const isNative =
-      item?.isNative !== undefined ? item.isNative : itemAddress.length < 30;
-    const cacheKey = getMarketTokenBatchCacheKey({
-      chainId: item?.networkId || item?.chainId || '',
+    const itemNetworkId = String(item?.networkId || item?.chainId || '');
+    const itemIsNative =
+      typeof item?.isNative === 'boolean' ? item.isNative : undefined;
+    const responseCacheKey = getMarketTokenBatchCacheKey({
+      chainId: itemNetworkId,
       contractAddress: itemAddress,
-      isNative,
+      isNative: itemIsNative,
       requestLocale,
     });
-    if (!missingTokenKeys.has(cacheKey)) return;
-    marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+    let cacheKey = unmatchedTokenKeys.has(responseCacheKey)
+      ? responseCacheKey
+      : undefined;
+
+    if (!cacheKey) {
+      const normalizedItemAddress = normalizeMarketTokenBatchAddress({
+        contractAddress: itemAddress,
+        isNative: itemIsNative,
+      });
+      const candidates = missingTokenEntries.filter(
+        ({ token, cacheKey: key }) =>
+          unmatchedTokenKeys.has(key) &&
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          normalizeMarketTokenBatchAddress({
+            contractAddress: token.contractAddress,
+            isNative: token.isNative,
+          }) === normalizedItemAddress,
+      );
+      if (candidates.length === 1) {
+        cacheKey = candidates[0].cacheKey;
+      }
+    }
+
+    if (!cacheKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          '[marketLightApi] fetchMarketTokenListBatchLight: unmatched response row',
+          {
+            responseId: `${itemNetworkId}:${itemAddress}`,
+          },
+        );
+      }
+      return;
+    }
+
+    unmatchedTokenKeys.delete(cacheKey);
     const originalIndex = tokenIndexMap.get(cacheKey);
+    const cached = marketTokenBatchCache.get(cacheKey);
+    if (cached && cached.requestSequence > requestSequence) {
+      if (originalIndex !== undefined) {
+        cachedResults[originalIndex] = cached.data;
+      }
+      return;
+    }
+
+    marketTokenBatchCache.set(cacheKey, {
+      data: item,
+      requestSequence,
+      timestamp: responseTimestamp,
+    });
     if (originalIndex !== undefined) {
       cachedResults[originalIndex] = item;
     }

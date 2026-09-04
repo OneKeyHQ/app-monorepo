@@ -2,6 +2,8 @@
 
 import { render } from '@testing-library/react';
 
+import type { IMarketTokenBatchRequestParams } from '@onekeyhq/shared/types/marketV2';
+
 import { useMarketWatchlistTokenList } from './useMarketWatchlistTokenList';
 
 import type { IMarketToken } from '../MarketTokenData';
@@ -29,10 +31,14 @@ const mockWatchlistApiResult = {
   ],
 };
 const mockRun = jest.fn(async () => undefined);
+const mockFetchMarketTokenListBatchForPlatform = jest.fn(
+  async (_params: IMarketTokenBatchRequestParams) => ({ list: [] }),
+);
 let mockSpotResult: typeof mockWatchlistApiResult | { list: [] } =
   mockWatchlistApiResult;
 let mockSpotLoading = false;
 let mockPerpsLoading = false;
+let mockSpotMethod: (() => Promise<unknown>) | undefined;
 
 jest.mock('@onekeyhq/components', () => ({
   useCarouselIndex: () => 0,
@@ -48,25 +54,34 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
-    _method: unknown,
+    method: () => Promise<unknown>,
     _deps: unknown[],
     options?: { revalidateOnFocus?: boolean },
-  ) =>
-    options?.revalidateOnFocus
-      ? {
-          result: mockSpotResult,
-          isLoading: mockSpotLoading,
-          run: mockRun,
-        }
-      : {
-          result: null,
-          isLoading: mockPerpsLoading,
-          run: mockRun,
-        },
+  ) => {
+    if (options?.revalidateOnFocus) {
+      mockSpotMethod = method;
+      return {
+        result: mockSpotResult,
+        isLoading: mockSpotLoading,
+        run: mockRun,
+      };
+    }
+    return {
+      result: null,
+      isLoading: mockPerpsLoading,
+      run: mockRun,
+    };
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({ networkList: mockNetworkList }),
+}));
+
+jest.mock('./marketTokenBatchPlatformApi', () => ({
+  fetchMarketTokenListBatchForPlatform: (
+    params: Parameters<typeof mockFetchMarketTokenListBatchForPlatform>[0],
+  ) => mockFetchMarketTokenListBatchForPlatform(params),
 }));
 
 describe('useMarketWatchlistTokenList network logos', () => {
@@ -74,6 +89,8 @@ describe('useMarketWatchlistTokenList network logos', () => {
     mockSpotResult = mockWatchlistApiResult;
     mockSpotLoading = false;
     mockPerpsLoading = false;
+    mockSpotMethod = undefined;
+    mockFetchMarketTokenListBatchForPlatform.mockClear();
   });
 
   it('builds watchlist rows synchronously with dynamic Market config logos', () => {
@@ -125,5 +142,34 @@ describe('useMarketWatchlistTokenList network logos', () => {
     render(<Probe />);
 
     expect(latestIsLoading).toBe(true);
+  });
+
+  it('normalizes legacy native watchlist entries before requesting them', async () => {
+    function Probe() {
+      useMarketWatchlistTokenList({
+        watchlist: [
+          {
+            chainId: 'evm--native-test',
+            contractAddress: '0xnative',
+            isNative: undefined,
+          },
+        ],
+        pollingInterval: 0,
+      });
+      return null;
+    }
+
+    render(<Probe />);
+    await mockSpotMethod?.();
+
+    expect(mockFetchMarketTokenListBatchForPlatform).toHaveBeenCalledWith({
+      tokenAddressList: [
+        {
+          chainId: 'evm--native-test',
+          contractAddress: '0xnative',
+          isNative: true,
+        },
+      ],
+    });
   });
 });

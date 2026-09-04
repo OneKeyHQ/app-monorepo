@@ -104,11 +104,17 @@ export function useMarketWatchlistTokenList({
       if (spotItems.length === 0) {
         return { list: [] } as const;
       }
-      const tokenAddressList = spotItems.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        isNative: item.isNative ?? false,
-      }));
+      const tokenAddressList = spotItems.map((item) => {
+        const { isNative } = getNativeTokenInfo(
+          item.isNative,
+          item.contractAddress,
+        );
+        return {
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          isNative,
+        };
+      });
       const response = await fetchMarketTokenListBatchForPlatform({
         tokenAddressList,
       });

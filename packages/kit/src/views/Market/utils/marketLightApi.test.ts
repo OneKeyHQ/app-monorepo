@@ -187,4 +187,75 @@ describe('marketLightApi', () => {
       },
     });
   });
+
+  it('matches a native response without network identity to its unique request', async () => {
+    const token = {
+      chainId: 'evm--native-cache-test',
+      contractAddress: '0xnative',
+      isNative: true,
+    };
+    const item = {
+      address: token.contractAddress,
+      name: 'Native Token',
+      symbol: 'NATIVE',
+      decimals: 18,
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [item] } } });
+
+    await expect(
+      fetchMarketTokenListBatchLight({ tokenAddressList: [token] }),
+    ).resolves.toEqual({ list: [item] });
+    await expect(
+      fetchMarketTokenListBatchLight({ tokenAddressList: [token] }),
+    ).resolves.toEqual({ list: [item] });
+
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let an older response overwrite a newer batch cache entry', async () => {
+    const token = {
+      chainId: 'evm--concurrent-cache-test',
+      contractAddress: '0xconcurrent-cache-test',
+      isNative: false,
+    };
+    const olderItem = {
+      address: token.contractAddress,
+      networkId: token.chainId,
+      isNative: false,
+      symbol: 'OLDER',
+    };
+    const newerItem = {
+      ...olderItem,
+      symbol: 'NEWER',
+    };
+    let resolveOlderRequest:
+      | ((value: { data: { data: { list: (typeof olderItem)[] } } }) => void)
+      | undefined;
+    const olderRequest = new Promise<{
+      data: { data: { list: (typeof olderItem)[] } };
+    }>((resolve) => {
+      resolveOlderRequest = resolve;
+    });
+    mockPost
+      .mockImplementationOnce(() => olderRequest)
+      .mockResolvedValueOnce({ data: { data: { list: [newerItem] } } });
+
+    const olderResultPromise = fetchMarketTokenListBatchLight({
+      tokenAddressList: [token],
+      skipCache: true,
+    });
+    const newerResultPromise = fetchMarketTokenListBatchLight({
+      tokenAddressList: [token],
+      skipCache: true,
+    });
+
+    await expect(newerResultPromise).resolves.toEqual({ list: [newerItem] });
+    resolveOlderRequest?.({ data: { data: { list: [olderItem] } } });
+    await expect(olderResultPromise).resolves.toEqual({ list: [newerItem] });
+    await expect(
+      fetchMarketTokenListBatchLight({ tokenAddressList: [token] }),
+    ).resolves.toEqual({ list: [newerItem] });
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+  });
 });
