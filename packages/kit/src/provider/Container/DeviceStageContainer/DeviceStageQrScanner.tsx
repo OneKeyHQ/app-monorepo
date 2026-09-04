@@ -72,10 +72,18 @@ export function DeviceStageQrScanner({
       return { progress: outcome.progress };
     }
     submittedRef.current = true;
-    void backgroundApiProxy.serviceQrWallet.submitStageAirGapScanResult({
-      result: outcome.result,
-      sessionId: sessionIdRef.current,
-    });
+    void backgroundApiProxy.serviceQrWallet
+      .submitStageAirGapScanResult({
+        result: outcome.result,
+        sessionId: sessionIdRef.current,
+      })
+      .catch(() => {
+        // A rejected submit (a bridge hiccup) must not end the visit: the
+        // bg decoder is complete, so the next frame re-delivers the same
+        // result and gets to submit again. Left set, every later frame was
+        // discarded and the pending call waited for the callback expiry.
+        submittedRef.current = false;
+      });
     return {};
   }, []);
   return (
