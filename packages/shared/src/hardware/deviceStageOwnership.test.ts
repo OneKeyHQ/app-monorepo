@@ -1,4 +1,5 @@
 import {
+  attachDeviceStageEscapeOwner,
   resolveDeviceStageBackPress,
   setDeviceStageBurstActive,
   shouldEmitDeviceNotFoundDialogEvent,
@@ -64,5 +65,102 @@ describe('resolveDeviceStageBackPress', () => {
     expect(
       resolveDeviceStageBackPress({ stageIsOn: true, closable: true }),
     ).toBe('close');
+  });
+});
+
+describe('attachDeviceStageEscapeOwner', () => {
+  type IListener = (event: {
+    type: string;
+    key: string;
+    preventDefault(): void;
+    stopImmediatePropagation(): void;
+  }) => void;
+
+  /** A window stand-in that records capture-phase listeners and lets a test
+   * dispatch a key to them. */
+  const createTarget = () => {
+    const listeners = new Map<string, Set<IListener>>();
+    const target = {
+      addEventListener: jest.fn(
+        (type: 'keydown' | 'keyup', listener: IListener, capture: boolean) => {
+          expect(capture).toBe(true);
+          if (!listeners.has(type)) listeners.set(type, new Set());
+          listeners.get(type)?.add(listener);
+        },
+      ),
+      removeEventListener: jest.fn(
+        (type: 'keydown' | 'keyup', listener: IListener) => {
+          listeners.get(type)?.delete(listener);
+        },
+      ),
+    };
+    const dispatch = (type: 'keydown' | 'keyup', key: string) => {
+      const event = {
+        type,
+        key,
+        preventDefault: jest.fn(),
+        stopImmediatePropagation: jest.fn(),
+      };
+      listeners.get(type)?.forEach((listener) => listener(event));
+      return event;
+    };
+    return {
+      target,
+      dispatch,
+      listenerCount: () =>
+        [...listeners.values()].reduce((n, set) => n + set.size, 0),
+    };
+  };
+
+  it('stops Escape on both key phases while the stage is on, and closes on keydown only', () => {
+    const { target, dispatch } = createTarget();
+    const onEscape = jest.fn();
+    attachDeviceStageEscapeOwner({ target, isStageOn: () => true, onEscape });
+
+    const down = dispatch('keydown', 'Escape');
+    expect(down.preventDefault).toHaveBeenCalledTimes(1);
+    expect(down.stopImmediatePropagation).toHaveBeenCalledTimes(1);
+    expect(onEscape).toHaveBeenCalledTimes(1);
+
+    // The modal navigator underneath listens on keyup: that half of the
+    // press must not reach it either — and must not close twice.
+    const up = dispatch('keyup', 'Escape');
+    expect(up.preventDefault).toHaveBeenCalledTimes(1);
+    expect(up.stopImmediatePropagation).toHaveBeenCalledTimes(1);
+    expect(onEscape).toHaveBeenCalledTimes(1);
+  });
+
+  it('touches nothing while the stage is off, and ignores other keys', () => {
+    const { target, dispatch } = createTarget();
+    const onEscape = jest.fn();
+    attachDeviceStageEscapeOwner({ target, isStageOn: () => false, onEscape });
+
+    const off = dispatch('keydown', 'Escape');
+    expect(off.preventDefault).not.toHaveBeenCalled();
+    expect(off.stopImmediatePropagation).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
+
+    const { target: onTarget, dispatch: dispatchOn } = createTarget();
+    attachDeviceStageEscapeOwner({
+      target: onTarget,
+      isStageOn: () => true,
+      onEscape,
+    });
+    const enter = dispatchOn('keydown', 'Enter');
+    expect(enter.preventDefault).not.toHaveBeenCalled();
+    expect(onEscape).not.toHaveBeenCalled();
+  });
+
+  it('detaches both listeners', () => {
+    const { target, listenerCount } = createTarget();
+    const detach = attachDeviceStageEscapeOwner({
+      target,
+      isStageOn: () => true,
+      onEscape: jest.fn(),
+    });
+    expect(listenerCount()).toBe(2);
+    detach();
+    expect(listenerCount()).toBe(0);
+    expect(target.removeEventListener).toHaveBeenCalledTimes(2);
   });
 });
