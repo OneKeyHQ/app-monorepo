@@ -10,6 +10,7 @@ import type {
   IDeviceStageVendor,
 } from '@onekeyhq/components/src/composite/DeviceStage/type';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
+import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useDeviceStageAtom,
@@ -22,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { resolveDeviceStageBackPress } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -204,6 +206,25 @@ function DeviceStageContainerCmp() {
         current?.step === 'deviceNotFound',
     });
   }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  // Android back while the stage is up (Escape on web, same hook): the
+  // close button once the grant is armed, swallowed before that — never
+  // the screen underneath, which the stage's wall already hides. See
+  // resolveDeviceStageBackPress.
+  const handleBackPress = useCallback(() => {
+    const outcome = resolveDeviceStageBackPress({
+      stageIsOn: step !== 'off',
+      closable,
+    });
+    if (outcome === 'pass') {
+      return false;
+    }
+    if (outcome === 'close') {
+      handleClose();
+    }
+    return true;
+  }, [step, closable, handleClose]);
+  useBackHandler(handleBackPress, step !== 'off');
 
   const handlePinSubmit = useCallback(
     (pin: string) => {
