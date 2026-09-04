@@ -79,6 +79,7 @@ import {
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
 import {
+  createHardwareErrorDialogEventHandler,
   isTrezorHardwareErrorDialogPayload,
   shouldReplaceHardwareErrorDialog,
 } from './hardwareErrorDialogUtils';
@@ -794,6 +795,7 @@ function HardwareUiStateContainerCmpControlled() {
   // Handle hardware error dialog
   useEffect(() => {
     let isDisposed = false;
+    let isReplacingWithBleBondError = false;
     const showBleBondErrorDialog = () => {
       hardwareErrorDialogTypeRef.current =
         HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
@@ -801,7 +803,7 @@ function HardwareUiStateContainerCmpControlled() {
         buildBleBondError(intl),
       );
     };
-    const callback = throttle(
+    const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
         const isDeviceNotFound =
@@ -809,6 +811,9 @@ function HardwareUiStateContainerCmpControlled() {
         const isBleDeviceBondError =
           errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
         if (!isDeviceNotFound && !isBleDeviceBondError) {
+          return;
+        }
+        if (isDeviceNotFound && isReplacingWithBleBondError) {
           return;
         }
         const existingDialog = hardwareErrorDialogInstanceRef.current;
@@ -822,6 +827,7 @@ function HardwareUiStateContainerCmpControlled() {
             void serviceHardwareUI.cleanHardwareUiState();
             hardwareErrorDialogTypeRef.current =
               HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+            isReplacingWithBleBondError = true;
             void (async () => {
               try {
                 await existingDialog.close();
@@ -831,6 +837,7 @@ function HardwareUiStateContainerCmpControlled() {
               if (!isDisposed) {
                 showBleBondErrorDialog();
               }
+              isReplacingWithBleBondError = false;
             })();
           }
           return;
@@ -867,13 +874,14 @@ function HardwareUiStateContainerCmpControlled() {
           ),
         });
       },
-      2500, // Same throttle duration as other hardware dialog instances
+      2500,
     );
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
       isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+      callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
       hardwareErrorDialogTypeRef.current = null;
     };

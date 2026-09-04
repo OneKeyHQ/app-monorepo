@@ -2,6 +2,7 @@ import { HARDWARE_ERROR_DIALOG_TYPES } from '@onekeyhq/shared/src/eventBus/appEv
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
+  createHardwareErrorDialogEventHandler,
   isTrezorHardwareErrorDialogPayload,
   shouldReplaceHardwareErrorDialog,
 } from './hardwareErrorDialogUtils';
@@ -52,5 +53,43 @@ describe('hardwareErrorDialogUtils', () => {
         nextErrorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
       }),
     ).toBe(false);
+  });
+
+  it('delivers a bond error immediately between throttled device-not-found events', () => {
+    jest.useFakeTimers();
+    const deliveredErrors: string[] = [];
+    const eventHandler = createHardwareErrorDialogEventHandler(
+      ({ errorType }) => {
+        deliveredErrors.push(errorType);
+      },
+      2500,
+    );
+    try {
+      eventHandler({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+      });
+      eventHandler({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+      });
+      eventHandler({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+      });
+
+      expect(deliveredErrors).toEqual([
+        HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+      ]);
+
+      jest.advanceTimersByTime(2500);
+
+      expect(deliveredErrors).toEqual([
+        HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+      ]);
+    } finally {
+      eventHandler.cancel();
+      jest.useRealTimers();
+    }
   });
 });
