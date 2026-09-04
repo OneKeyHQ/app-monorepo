@@ -3169,6 +3169,27 @@ PODS:
   - RealmJS (20.2.0):
     - React
   - RevenueCat (5.80.3)
+  - RNCMaskedView (0.3.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNDateTimePicker (9.1.0):
     - hermes-engine
     - RCTRequired
@@ -3933,6 +3954,7 @@ DEPENDENCIES:
   - ReactNativeVideo (from `../../../node_modules/react-native-video`)
   - ReactNativeZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - RealmJS (from `../../../node_modules/realm`)
+  - "RNCMaskedView (from `../../../node_modules/@react-native-masked-view/masked-view`)"
   - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../../../node_modules/@react-native-google-signin/google-signin`)"
@@ -4326,6 +4348,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-zip-archive"
   RealmJS:
     :path: "../../../node_modules/realm"
+  RNCMaskedView:
+    :path: "../../../node_modules/@react-native-masked-view/masked-view"
   RNDateTimePicker:
     :path: "../../../node_modules/@react-native-community/datetimepicker"
   RNGestureHandler:
@@ -4432,7 +4456,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: 757a3dc81ddd82a7035f9a5dbb3640b5b97b0518
+  hermes-engine: efd64fa18d0ad583cd32c693f2bca975e61f1245
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
@@ -4562,6 +4586,7 @@ SPEC CHECKSUMS:
   ReactNativeZipArchive: 1746dd03ef62feaad4d8cb5a414e11a2f48ad884
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 72d1e14966339bf38c41d9b2841ef64c8fd79646
+  RNCMaskedView: a543b7a36c195a519d1bd7ef0291f1cbc6a84a0d
   RNDateTimePicker: 52a5decb243f39119be9e0d62f137e9349f38bfb
   RNGestureHandler: 7c19098a5a4638cdafcff20dab20ef1ef306b688
   RNGoogleSignin: 2a655880c85f8cafd2e49ff83c056915a49b01c7
