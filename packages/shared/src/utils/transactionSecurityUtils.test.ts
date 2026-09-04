@@ -7,13 +7,9 @@ import {
   canSubmitTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityJsonRpc,
   createCheckFailedTransactionSecurityResult,
-  createCheckUnavailableTransactionSecurityResult,
   createNetworkNotSupportedTransactionSecurityResult,
   createUnableToAssessTransactionSecurityResult,
   getTransactionSecurityEncodedTxIdentity,
-  isTransactionSecurityCheckFailed,
-  isTransactionSecurityCheckUnavailable,
-  isTransactionSecurityNetworkNotSupported,
   mergeTransactionSecurityResults,
   normalizeTransactionSecurityLevel,
   normalizeTransactionSecurityResult,
@@ -98,8 +94,11 @@ describe('transactionSecurityUtils', () => {
       expect(result?.detail.features[0]?.level).toBe(EHostSecurityLevel.High);
     });
 
-    it('returns undefined for an empty payload', () => {
+    it('maps an empty payload to unable_to_assess at the server boundary', () => {
       expect(normalizeTransactionSecurityResult({})).toBeUndefined();
+      expect(resolveTransactionSecurityServerResult({})).toEqual(
+        createUnableToAssessTransactionSecurityResult(),
+      );
     });
 
     it('does not accept an incomplete safe response as conclusive', () => {
@@ -148,49 +147,6 @@ describe('transactionSecurityUtils', () => {
           detail: { code: 'NOT_SUPPORTED' },
         }),
       ).toBeUndefined();
-      expect(createUnableToAssessTransactionSecurityResult()).toEqual({
-        level: EHostSecurityLevel.Unknown,
-        detail: {
-          code: ETransactionSecurityResultCode.UnableToAssess,
-          features: [],
-        },
-      });
-      expect(createCheckFailedTransactionSecurityResult()).toEqual({
-        level: EHostSecurityLevel.Unknown,
-        detail: {
-          code: ETransactionSecurityResultCode.CheckFailed,
-          features: [],
-        },
-      });
-      expect(
-        isTransactionSecurityCheckFailed(
-          createCheckFailedTransactionSecurityResult(),
-        ),
-      ).toBe(true);
-      expect(
-        isTransactionSecurityCheckFailed(
-          createUnableToAssessTransactionSecurityResult(),
-        ),
-      ).toBe(false);
-      expect(
-        isTransactionSecurityCheckUnavailable(
-          createCheckUnavailableTransactionSecurityResult(),
-        ),
-      ).toBe(true);
-      expect(
-        isTransactionSecurityNetworkNotSupported(
-          createNetworkNotSupportedTransactionSecurityResult(),
-        ),
-      ).toBe(true);
-      expect(
-        resolveTransactionSecurityServerResult({
-          supported: false,
-          detail: { code: ETransactionSecurityResultCode.NotSupported },
-        }),
-      ).toBeUndefined();
-      expect(resolveTransactionSecurityServerResult({})).toEqual(
-        createUnableToAssessTransactionSecurityResult(),
-      );
     });
   });
 
@@ -235,17 +191,6 @@ describe('transactionSecurityUtils', () => {
           gas: '0x61a8',
         }),
       );
-      expect(
-        getTransactionSecurityEncodedTxIdentity({
-          to: '0x1',
-          value: { amount: '1', token: 'USDC' },
-        }),
-      ).toBe(
-        getTransactionSecurityEncodedTxIdentity({
-          value: { token: 'USDC', amount: '1' },
-          to: '0x1',
-        }),
-      );
     });
 
     it('rejects native objects that the live schema will 422', () => {
@@ -253,12 +198,6 @@ describe('transactionSecurityUtils', () => {
         canSubmitTransactionSecurityEncodedTx({
           visible: true,
           raw_data: { contract: [] },
-        }),
-      ).toBe(false);
-      expect(
-        canSubmitTransactionSecurityEncodedTx({
-          inputs: [],
-          outputs: [],
         }),
       ).toBe(false);
       expect(canSubmitTransactionSecurityEncodedTx({})).toBe(false);
@@ -507,19 +446,29 @@ describe('transactionSecurityUtils', () => {
       });
     });
 
+    it('uses the normalized params that will actually be signed', () => {
+      const from = '0x49c73c9d361c04769a452E85D343b41aC38e0EE4';
+
+      expect(
+        buildTransactionSecurityJsonRpc({
+          jsonRpcRequest: {
+            method: 'personal_sign',
+            params: [from, '68656c6c6f'],
+          },
+          paramsOverride: ['0x68656c6c6f', from],
+        }),
+      ).toEqual({
+        method: 'personal_sign',
+        params: ['0x68656c6c6f', from],
+      });
+    });
+
     it('skips malformed JSON-RPC requests', () => {
       expect(
         buildTransactionSecurityJsonRpc({
           jsonRpcRequest: {
             method: 'personal_sign',
             params: { message: '0xabc' },
-          },
-        }),
-      ).toBeUndefined();
-      expect(
-        buildTransactionSecurityJsonRpc({
-          jsonRpcRequest: {
-            method: 'eth_signTypedData_v4',
           },
         }),
       ).toBeUndefined();

@@ -44,6 +44,7 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { NetworkAvatar } from '../../../../../../components/NetworkAvatar';
 import { Token } from '../../../../../../components/Token';
+import { useAccountData } from '../../../../../../hooks/useAccountData';
 import {
   DAppSiteMark,
   shouldHideDAppSiteRiskStyle,
@@ -268,12 +269,15 @@ function SignatureNetworkDetailItem({
   label: string;
   networkId: string;
 } & ISignatureDetailItemType) {
+  const { network } = useAccountData({ networkId });
   return (
     <SignatureDetailItem {...rest}>
       <SignatureDetailItem.Label>{label}</SignatureDetailItem.Label>
       <XStack gap="$2">
         <NetworkAvatar size="$5" networkId={networkId} />
-        <SignatureDetailItem.Value>Ethereum</SignatureDetailItem.Value>
+        <SignatureDetailItem.Value>
+          {network?.name ?? networkId}
+        </SignatureDetailItem.Value>
       </XStack>
     </SignatureDetailItem>
   );
@@ -522,11 +526,12 @@ function YourComponentDemo() {
       <DAppSiteMark origin="https://uniswap.org" />
 
       {/* map items */}
-      {MOCK_DATA.items.map((item) => {
+      {MOCK_DATA.items.map((item, index) => {
+        const itemKey = `${item.type}-${item.label}-${index}`;
         if (item.type === 'address') {
           return (
             <SignatureAddressDetailItem
-              key={item.label}
+              key={itemKey}
               label={item.label}
               address={item.address ?? ''}
               tags={item.tags?.map((tag) => ({
@@ -540,7 +545,7 @@ function YourComponentDemo() {
         if (item.type === 'network') {
           return (
             <SignatureNetworkDetailItem
-              key={item.label}
+              key={itemKey}
               label={item.label}
               networkId={item.networkId ?? ''}
             />
@@ -550,7 +555,7 @@ function YourComponentDemo() {
         if (item.type === 'token' || item.type === 'nft') {
           return (
             <SignatureAssetDetailItem
-              key={item.label}
+              key={itemKey}
               type={item.type}
               label={item.label}
               tokenProps={{
@@ -576,7 +581,7 @@ function YourComponentDemo() {
         }
 
         return (
-          <SignatureDetailItem key={item.label}>
+          <SignatureDetailItem key={itemKey}>
             <SignatureDetailItem.Label>{item.label}</SignatureDetailItem.Label>
             <SignatureDetailItem.Value>
               {/* @ts-expect-error - fallback case */}
@@ -643,6 +648,11 @@ const GALLERY_HOST_VERIFIED = {
   projectName: 'Uniswap',
   createdAt: '',
 } as IHostSecurity;
+const GALLERY_HOST_SAFE_DEMO = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'swap-demo.example',
+  projectName: 'Example Swap',
+} as IHostSecurity;
 const GALLERY_HOST_UNVERIFIED = {
   ...GALLERY_HOST_VERIFIED,
   host: 'permit-dapp.example',
@@ -699,6 +709,22 @@ const GALLERY_SCAN_NETWORK_NOT_SUPPORTED: ITransactionSecurityCheckResult = {
   detail: {
     code: ETransactionSecurityResultCode.NetworkNotSupported,
     features: [],
+  },
+};
+const GALLERY_SCAN_WARNING: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Medium,
+  detail: {
+    code: 'new_spender',
+    title: 'The spender has not been seen before.',
+    content: 'Review the spender before approving this request.',
+    features: [
+      {
+        level: EHostSecurityLevel.Medium,
+        code: 'new_spender',
+        title: 'Spender not seen before',
+        content: 'This address has little transaction history.',
+      },
+    ],
   },
 };
 const GALLERY_SCAN_DRAIN: ITransactionSecurityCheckResult = {
@@ -823,13 +849,17 @@ function SignatureCase({
   children,
   showSimulation = true,
   urlSecurityInfo = GALLERY_HOST_VERIFIED,
+  networkId = 'evm--1',
+  testID,
 }: {
   children: ReactNode;
   showSimulation?: boolean;
   urlSecurityInfo?: IHostSecurity;
+  networkId?: string;
+  testID?: string;
 }) {
   return (
-    <FakeWrapper gap="$5">
+    <FakeWrapper gap="$5" testID={testID}>
       <DAppSiteMark
         origin={`https://${urlSecurityInfo.host}`}
         urlSecurityInfo={urlSecurityInfo}
@@ -839,7 +869,7 @@ function SignatureCase({
       {showSimulation ? (
         <TransactionPreview simulationComponents={GALLERY_SIMULATION} />
       ) : null}
-      <SignatureNetworkDetailItem label="Network" networkId="evm--1" />
+      <SignatureNetworkDetailItem label="Network" networkId={networkId} />
       <SignatureAddressDetailItem
         label="Account address"
         address="0x13b30304dAa2129a21e42df663e8f49C49b276e8"
@@ -851,7 +881,10 @@ function SignatureCase({
 
 function ApprovalCriticalDemo() {
   return (
-    <SignatureCase urlSecurityInfo={GALLERY_HOST_PHISHING}>
+    <SignatureCase
+      testID="signature-gallery-critical-combined"
+      urlSecurityInfo={GALLERY_HOST_PHISHING}
+    >
       <GallerySecurityCheckCard
         urlSecurityInfo={GALLERY_HOST_PHISHING}
         transactionSecurityInfo={GALLERY_SCAN_DRAIN}
@@ -861,10 +894,44 @@ function ApprovalCriticalDemo() {
   );
 }
 
+function ApprovalPrimeCriticalDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-critical-prime"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_DRAIN}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalPrimeWarningDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-warning-prime"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_WARNING}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
 function ApprovalWarningDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase
+      testID="signature-gallery-warning-parser"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         decodedTxs={[
           galleryDecodedTx(['The spender has not been seen before.']),
         ]}
@@ -877,8 +944,12 @@ function ApprovalWarningDemo() {
 
 function ApprovalWarningCheckingDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase
+      testID="signature-gallery-loading-warning"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         decodedTxs={[
           galleryDecodedTx(['The spender is an EOA and may be a scam address']),
         ]}
@@ -891,8 +962,12 @@ function ApprovalWarningCheckingDemo() {
 
 function ApprovalUnknownDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase
+      testID="signature-gallery-unable-assess"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         transactionSecurityInfo={GALLERY_SCAN_UNKNOWN}
         isPrimeUser
       />
@@ -902,7 +977,7 @@ function ApprovalUnknownDemo() {
 
 function ApprovalSuccessDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase testID="signature-gallery-safe-prime">
       <GallerySecurityCheckCard
         transactionSecurityInfo={GALLERY_SCAN_SECURITY}
         isPrimeUser
@@ -913,7 +988,7 @@ function ApprovalSuccessDemo() {
 
 function ApprovalSuccessFreeDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase testID="signature-gallery-safe-free">
       <GallerySecurityCheckCard
         isPrimeUser={false}
         isTransactionSecurityApplicable
@@ -924,7 +999,7 @@ function ApprovalSuccessFreeDemo() {
 
 function ApprovalLoadingDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase testID="signature-gallery-loading">
       <GallerySecurityCheckCard isTransactionSecurityPending isPrimeUser />
     </SignatureCase>
   );
@@ -932,7 +1007,10 @@ function ApprovalLoadingDemo() {
 
 function ApprovalViewAllDemo() {
   return (
-    <SignatureCase urlSecurityInfo={GALLERY_HOST_WARNING}>
+    <SignatureCase
+      testID="signature-gallery-view-all"
+      urlSecurityInfo={GALLERY_HOST_WARNING}
+    >
       <GallerySecurityCheckCard
         urlSecurityInfo={GALLERY_HOST_WARNING}
         decodedTxs={[
@@ -954,6 +1032,7 @@ function UnverifiedPermitDemo() {
   return (
     <SignatureCase
       showSimulation={false}
+      testID="signature-gallery-permit-unverified"
       urlSecurityInfo={GALLERY_HOST_UNVERIFIED}
     >
       <SecurityCheckCard
@@ -981,10 +1060,45 @@ function UnverifiedPermitDemo() {
   );
 }
 
+function TrustedPermitDemo() {
+  const intl = useIntl();
+  return (
+    <SignatureCase
+      showSimulation={false}
+      testID="signature-gallery-permit-trusted"
+    >
+      <SecurityCheckCard
+        model={buildSecurityCheckModel({
+          kind: 'message',
+          origin: `https://${GALLERY_HOST_VERIFIED.host}`,
+          urlSecurityInfo: GALLERY_HOST_VERIFIED,
+          messageDisplay: {
+            title: 'Permit',
+            components: [],
+            alerts: [
+              intl.formatMessage({
+                id: ETranslations.dapp_connect_permit_sign_alert,
+              }),
+            ],
+          },
+          unsignedMessage: GALLERY_PERMIT_MESSAGE,
+          isConfirmationRequired: true,
+          isTransactionSecurityApplicable: true,
+          isPrimeUser: false,
+          intl,
+        })}
+      />
+    </SignatureCase>
+  );
+}
+
 function MessageParseFallbackDemo() {
   const intl = useIntl();
   return (
-    <SignatureCase showSimulation={false}>
+    <SignatureCase
+      showSimulation={false}
+      testID="signature-gallery-message-fallback"
+    >
       <SecurityCheckCard
         model={buildSecurityCheckModel({
           kind: 'message',
@@ -1008,8 +1122,12 @@ function MessageParseFallbackDemo() {
 function ApprovalCheckFailedDemo() {
   const [isRetrying, setIsRetrying] = useState(false);
   return (
-    <SignatureCase>
+    <SignatureCase
+      testID="signature-gallery-check-failed"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         transactionSecurityInfo={isRetrying ? undefined : GALLERY_SCAN_FAILED}
         isTransactionSecurityPending={isRetrying}
         isPrimeUser
@@ -1021,8 +1139,12 @@ function ApprovalCheckFailedDemo() {
 
 function ApprovalUnavailableDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase
+      testID="signature-gallery-prime-unavailable"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         transactionSecurityInfo={GALLERY_SCAN_UNAVAILABLE}
         isPrimeUser
       />
@@ -1032,8 +1154,14 @@ function ApprovalUnavailableDemo() {
 
 function ApprovalNetworkNotSupportedDemo() {
   return (
-    <SignatureCase>
+    <SignatureCase
+      showSimulation={false}
+      networkId="evm--61"
+      testID="signature-gallery-network-unsupported"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
       <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         transactionSecurityInfo={GALLERY_SCAN_NETWORK_NOT_SUPPORTED}
         isPrimeUser
       />
@@ -1045,97 +1173,73 @@ const SignatureConfirmationGallery = () => (
   <Layout
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="SignatureConfirmation"
-    description="安全检查案例由当前 buildSecurityCheckModel 生成，并渲染真实 SecurityCheckCard、Popover 和 Dialog；标题和说明可直接用于任务截图"
-    suggestions={[
-      '任务主图优先截 Critical、Safe / Free、View all 和 Permit',
-      '点击标题旁的信息图标查看检查覆盖，点击风险行查看详情，点击 View all 查看全部风险',
-    ]}
-    boundaryConditions={[
-      '站点、账户、地址和资产是演示数据，安全卡片及其状态计算使用生产代码',
-      'Gallery 不复制生产确认页 Footer；复选框和确认按钮门控应在真实确认页或自动化测试中验证',
-    ]}
     elements={[
       {
         title: 'Loading · Prime scan pending',
-        description:
-          'Prime 交易安全检查尚未返回；卡片标题显示 Checking… / 检查中…，覆盖列表中的交易安全检查也为 Checking',
         element: <ApprovalLoadingDemo />,
       },
       {
         title: 'Loading · Existing warning stays visible',
-        description:
-          '已有解析器风险继续显示；标题左侧保持 Checking，右侧显示 Warning',
         element: <ApprovalWarningCheckingDemo />,
       },
       {
         title: 'Safe · Free user',
-        description:
-          '站点与解析已完成，网络支持交易安全检查但用户不是 Prime；显示 Prime 入口，交易安全检查为 Get Prime',
         element: <ApprovalSuccessFreeDemo />,
       },
       {
         title: 'Safe · Prime checked',
-        description:
-          '站点、解析和 Prime 交易安全检查均已完成且未发现风险；不显示 Prime 入口，覆盖列表全部为 Checked',
         element: <ApprovalSuccessDemo />,
       },
       {
+        title: 'Warning · Prime transaction security',
+        element: <ApprovalPrimeWarningDemo />,
+      },
+      {
         title: 'Warning · Parser finding',
-        description:
-          '可信站点上的解析器风险；卡片显示 Warning 并保留解析器文案',
         element: <ApprovalWarningDemo />,
       },
       {
+        title: 'Permit · Trusted site',
+        element: <TrustedPermitDemo />,
+      },
+      {
         title: 'Permit · Unverified site',
-        description:
-          '未验证站点上的 Permit 保留授权风险提示；站点状态和 Permit 风险同时显示',
         element: <UnverifiedPermitDemo />,
       },
       {
+        title: 'Critical · Prime transaction security',
+        element: <ApprovalPrimeCriticalDemo />,
+      },
+      {
         title: 'Critical · Site and transaction security',
-        description:
-          '恶意站点与 Prime 交易安全检查同时命中；展示最高风险，两个风险行可分别打开详情',
         element: <ApprovalCriticalDemo />,
       },
       {
         title: 'Unverified · Unable to assess',
-        description:
-          'Prime 无法完整评估当前请求；风险行显示 Unable to assess this request，覆盖状态显示 Unverified',
         element: <ApprovalUnknownDemo />,
       },
       {
         title: 'Unverified · Message parsing fallback',
-        description:
-          '消息无法结构化解析；卡片提示用户检查原始消息，解析覆盖显示 Unverified',
         element: <MessageParseFallbackDemo />,
       },
       {
         title: 'Incomplete · Retry',
-        description:
-          'Prime 交易安全检查失败；卡片状态显示 Unverified，失败行展示 Transaction security check incomplete 与 Retry，点击后切换到 Loading',
         element: <ApprovalCheckFailedDemo />,
       },
       {
         title: 'Coverage · Prime unavailable',
-        description:
-          'Prime 权益校验失败；外层仍展示已完成基础检查的结果，仅在覆盖列表显示 Unavailable',
         element: <ApprovalUnavailableDemo />,
       },
       {
         title: 'Coverage · Network not supported',
-        description:
-          '当前网络不支持 Prime 交易安全检查；外层仍展示已完成基础检查的结果，仅在覆盖列表显示 Network not supported',
         element: <ApprovalNetworkNotSupportedDemo />,
       },
       {
         title: 'View all · Four findings',
-        description:
-          '共有四条影响决策的风险；卡片以统一图标行展示前三条，View all (4) Dialog 展示全部四条',
         element: <ApprovalViewAllDemo />,
       },
       {
         title: 'Legacy · Signature detail primitives',
-        description: '保留上游已有的签名详情原语，不用于安全状态验收',
         element: <YourComponentDemo />,
       },
     ]}

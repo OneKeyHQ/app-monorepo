@@ -706,7 +706,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
       await primePersistAtom.get();
     if (!isLoggedIn || !isLoggedInOnServer || !primeSubscription?.isActive) {
-      return undefined;
+      return createCheckUnavailableTransactionSecurityResult();
     }
 
     if (

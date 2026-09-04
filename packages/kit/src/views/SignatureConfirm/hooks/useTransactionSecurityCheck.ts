@@ -151,10 +151,7 @@ export function useTransactionSecurityCheck({
   } = usePromiseResult(
     async () => {
       if (!shouldCheck || !accountId || !networkId) {
-        return {
-          requestKey: scanRequestKey,
-          result: undefined,
-        };
+        return undefined;
       }
       return {
         requestKey: scanRequestKey,

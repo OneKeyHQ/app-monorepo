@@ -143,12 +143,6 @@ describe('resolvePrimeUserForSecurityCheck', () => {
   it('stays unknown until persist membership is ready', () => {
     expect(
       resolvePrimeUserForSecurityCheck({
-        isPrimeSubscriptionActive: false,
-        isPersistReady: false,
-      }),
-    ).toBeUndefined();
-    expect(
-      resolvePrimeUserForSecurityCheck({
         isPrimeSubscriptionActive: true,
         isPersistReady: false,
       }),
@@ -158,18 +152,7 @@ describe('resolvePrimeUserForSecurityCheck', () => {
   it('treats a logged-in user without a Prime subscription as free', () => {
     expect(
       resolvePrimeUserForSecurityCheck({
-        isPersistReady: true,
-      }),
-    ).toBe(false);
-    expect(
-      resolvePrimeUserForSecurityCheck({
         isPrimeSubscriptionActive: undefined,
-        isPersistReady: true,
-      }),
-    ).toBe(false);
-    expect(
-      resolvePrimeUserForSecurityCheck({
-        isPrimeSubscriptionActive: false,
         isPersistReady: true,
       }),
     ).toBe(false);

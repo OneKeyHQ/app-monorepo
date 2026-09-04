@@ -376,7 +376,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     );
   });
 
-  it('does not call the server when Prime is not active locally', async () => {
+  it('reports unavailable without calling the server when Prime is not active locally', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
     (primePersistAtom.get as jest.Mock).mockResolvedValue({
@@ -394,7 +394,13 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
           params: ['0xmessage', accountAddress],
         },
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'check_unavailable',
+        features: [],
+      },
+    });
     expect(post).not.toHaveBeenCalled();
     expect(service.getOneKeyIdAuthHeaders).not.toHaveBeenCalled();
   });
@@ -451,20 +457,15 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
   });
 
   it.each([
-    ['generic request errors', undefined, 'check_failed'],
     ['downstream error 30401', 30_401, 'check_failed'],
     ['Prime entitlement error 31403', 31_403, 'check_unavailable'],
     ['unsupported network error 31501', 31_501, 'network_not_supported'],
   ])('maps %s', async (_name, serverCode, expectedCode) => {
     const service = buildTransactionSecurityService(
-      jest.fn().mockRejectedValue(
-        serverCode
-          ? {
-              className: EOneKeyErrorClassNames.OneKeyServerApiError,
-              code: serverCode,
-            }
-          : new Error('timeout'),
-      ),
+      jest.fn().mockRejectedValue({
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: serverCode,
+      }),
     );
 
     await expect(

@@ -19,13 +19,13 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildTransactionSecurityJsonRpc } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
   type IParseMessageResp,
@@ -226,32 +226,16 @@ function MessageConfirm() {
     [sourceInfo?.origin, walletInternalSign],
   );
 
-  const securityCheckRequestKey = useMemo(
-    () =>
-      stableStringify({
-        requestId: sourceInfo?.id ?? '',
-        accountId,
-        networkId,
-        origin: sourceInfo?.origin ?? '',
-        type: unsignedMessage.type,
-        message: unsignedMessage.message,
-      }),
-    [
-      accountId,
-      networkId,
-      sourceInfo?.id,
-      sourceInfo?.origin,
-      unsignedMessage.message,
-      unsignedMessage.type,
-    ],
-  );
-
   const transactionSecurityJsonRpc = useMemo(
     () =>
       buildTransactionSecurityJsonRpc({
         jsonRpcRequest: sourceInfo?.data,
+        paramsOverride:
+          unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
+            ? unsignedMessage.payload
+            : undefined,
       }),
-    [sourceInfo?.data],
+    [sourceInfo?.data, unsignedMessage.payload, unsignedMessage.type],
   );
   const {
     result: transactionSecurityInfo,
@@ -261,7 +245,7 @@ function MessageConfirm() {
     requestKey: transactionSecurityRequestKey,
     retry: retryTransactionSecurityCheck,
   } = useTransactionSecurityCheck({
-    requestKey: securityCheckRequestKey,
+    requestKey: String(sourceInfo?.id ?? ''),
     origin: sourceInfo?.origin,
     accountId,
     networkId,

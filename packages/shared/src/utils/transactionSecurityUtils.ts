@@ -12,24 +12,27 @@ import { stableStringify } from './stringUtils';
 
 export function buildTransactionSecurityJsonRpc({
   jsonRpcRequest,
+  paramsOverride,
 }: {
   jsonRpcRequest?: {
     method?: unknown;
     params?: unknown;
   };
+  paramsOverride?: unknown;
 }): ITransactionSecurityJsonRpc | undefined {
+  const params = paramsOverride ?? jsonRpcRequest?.params;
   if (
     typeof jsonRpcRequest?.method !== 'string' ||
     !jsonRpcRequest.method ||
-    !Array.isArray(jsonRpcRequest.params) ||
-    !jsonRpcRequest.params.length
+    !Array.isArray(params) ||
+    !params.length
   ) {
     return undefined;
   }
 
   return {
     method: jsonRpcRequest.method,
-    params: jsonRpcRequest.params,
+    params,
   };
 }
 

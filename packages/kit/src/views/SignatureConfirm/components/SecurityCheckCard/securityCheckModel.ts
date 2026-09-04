@@ -335,6 +335,21 @@ function omitCeremonialDescription(
   return text;
 }
 
+function getCheckFailedFinding(
+  intl: IIntl,
+  description?: string,
+): ISecurityCheckFinding {
+  return {
+    id: CHECK_FAILED_FINDING_ID,
+    category: 'operation',
+    status: 'unknown',
+    title: intl.formatMessage({
+      id: ETranslations.transaction_security_check_incomplete__title,
+    }),
+    ...(description ? { description } : {}),
+  };
+}
+
 const SITE_RISK_FINDING_CONFIG: Partial<
   Record<
     EHostSecurityLevel,
@@ -414,18 +429,13 @@ function getTransactionSecurityFinding({
   const ceremonial = getCeremonialFindingDescriptions(intl);
 
   if (isTransactionSecurityCheckFailed(transactionSecurityInfo)) {
-    return {
-      id: CHECK_FAILED_FINDING_ID,
-      category: 'operation',
-      status: 'unknown',
-      title: intl.formatMessage({
-        id: ETranslations.transaction_security_check_incomplete__title,
-      }),
-      description: omitCeremonialDescription(
+    return getCheckFailedFinding(
+      intl,
+      omitCeremonialDescription(
         transactionSecurityInfo.detail.content,
         ceremonial,
       ),
-    };
+    );
   }
 
   let fallbackTitleId =
@@ -483,14 +493,7 @@ function getTransactionSecurityCoverageFinding({
     return undefined;
   }
   if (requestScanCoverage === 'failed') {
-    return {
-      id: CHECK_FAILED_FINDING_ID,
-      category: 'operation',
-      status: 'unknown',
-      title: intl.formatMessage({
-        id: ETranslations.transaction_security_check_incomplete__title,
-      }),
-    };
+    return getCheckFailedFinding(intl);
   }
   if (requestScanCoverage === 'unknown') {
     return {

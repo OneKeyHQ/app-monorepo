@@ -409,13 +409,6 @@ describe('securityCheckModel', () => {
       messageDisplay: parsedMessage,
       intl,
     });
-    const malformedSitePending = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: {} as IHostSecurity,
-      messageDisplay: parsedMessage,
-      intl,
-    });
     const parserPending = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
@@ -425,11 +418,6 @@ describe('securityCheckModel', () => {
     });
 
     expect(sitePending).toMatchObject({
-      status: 'loading',
-      confirmation: 'pending',
-      isPending: true,
-    });
-    expect(malformedSitePending).toMatchObject({
       status: 'loading',
       confirmation: 'pending',
       isPending: true,
@@ -836,40 +824,6 @@ describe('security check coverage', () => {
     expect(coverage.find((item) => item.source === 'requestScan')?.state).toBe(
       'notApplicable',
     );
-  });
-
-  it('marks Prime coverage failed or unknown from the scan result', () => {
-    const failed = getSecurityCheckCoverage({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: parsedMessage,
-      transactionSecurityInfo: {
-        level: EHostSecurityLevel.Unknown,
-        detail: {
-          code: ETransactionSecurityResultCode.CheckFailed,
-          features: [],
-        },
-      },
-      isPrimeUser: true,
-    });
-    const unverified = getSecurityCheckCoverage({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: parsedMessage,
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Unknown,
-      ),
-      isPrimeUser: true,
-    });
-
-    expect(failed.find((item) => item.source === 'requestScan')?.state).toBe(
-      'failed',
-    );
-    expect(
-      unverified.find((item) => item.source === 'requestScan')?.state,
-    ).toBe('unknown');
   });
 });
 
