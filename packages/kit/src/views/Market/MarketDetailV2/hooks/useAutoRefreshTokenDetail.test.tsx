@@ -199,6 +199,56 @@ describe('useAutoRefreshTokenDetail', () => {
     });
   });
 
+  it('does not let a stale Asset response replace the current overview cache', async () => {
+    const dogeAssetDetail = { asset: { assetId: 'doge' } };
+    const btcAssetDetail = { asset: { assetId: 'btc' } };
+    let resolveDogeRequest:
+      | ((assetDetail: typeof dogeAssetDetail) => void)
+      | undefined;
+    const dogeRequest = new Promise<typeof dogeAssetDetail>((resolve) => {
+      resolveDogeRequest = resolve;
+    });
+    mockFetchAssetTokenDetail
+      .mockReturnValueOnce(dogeRequest)
+      .mockResolvedValueOnce(btcAssetDetail)
+      .mockRejectedValueOnce(new Error('btc poll failed'));
+
+    const { rerender } = renderHook(
+      ({ assetId, networkId }: { assetId: string; networkId: string }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId,
+          isNative: true,
+          marketTokenId: assetId,
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        }),
+      {
+        initialProps: {
+          assetId: 'doge',
+          networkId: 'doge--0',
+        },
+      },
+    );
+    const fetchDoge = promiseFactory;
+    const pendingDogeResult = fetchDoge?.();
+
+    rerender({ assetId: 'btc', networkId: 'btc--0' });
+    const fetchBtc = promiseFactory;
+
+    await expect(fetchBtc?.()).resolves.toEqual({
+      requestKey: 'asset:btc::btc--0:',
+      assetDetail: btcAssetDetail,
+    });
+
+    resolveDogeRequest?.(dogeAssetDetail);
+    await expect(pendingDogeResult).resolves.toBeUndefined();
+
+    await expect(fetchBtc?.()).resolves.toEqual({
+      requestKey: 'asset:btc::btc--0:',
+      assetDetail: btcAssetDetail,
+    });
+  });
+
   it('clears loading when market fetching is skipped', () => {
     renderHook(() =>
       useAutoRefreshTokenDetail({

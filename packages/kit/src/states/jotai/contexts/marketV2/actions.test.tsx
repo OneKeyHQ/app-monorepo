@@ -382,7 +382,9 @@ describe('marketV2 asset token detail actions', () => {
     });
     await act(async () => {
       assetDetailDeferred.resolve(dogeAssetDetail);
-      await assetRequest;
+      await expect(assetRequest).rejects.toThrow(
+        'Stale market asset detail request',
+      );
     });
 
     expect(store.get(tokenDetailAtom())).toMatchObject({

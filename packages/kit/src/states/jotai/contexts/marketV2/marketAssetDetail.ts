@@ -128,7 +128,7 @@ async function fetchMarketAssetTokenDetail(
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const { selectedVariant } = assetDetail;
@@ -199,7 +199,7 @@ async function fetchMarketAssetTokenDetail(
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const lastUpdated = Date.now();
@@ -235,11 +235,13 @@ async function fetchMarketAssetTokenDetail(
 
     return assetDetail;
   } catch (error) {
-    defaultLogger.app.error.log(
-      `Failed to fetch market asset detail: ${String(error)}`,
-    );
     if (!isCurrentIdentity()) {
       isStale = true;
+    }
+    if (!isStale) {
+      defaultLogger.app.error.log(
+        `Failed to fetch market asset detail: ${String(error)}`,
+      );
     }
     throw error;
   } finally {

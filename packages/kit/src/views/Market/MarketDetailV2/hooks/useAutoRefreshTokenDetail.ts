@@ -48,6 +48,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]
     .map(encodeURIComponent)
     .join(':');
+  const currentTokenDetailRequestKeyRef = useRef(tokenDetailRequestKey);
+  currentTokenDetailRequestKeyRef.current = tokenDetailRequestKey;
   const successfulMarketAssetDetailRef = useRef<
     | {
         requestKey: string;
@@ -190,6 +192,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
             tokenAddress: data.tokenAddress,
             networkId: data.networkId,
           });
+          if (
+            currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
+          ) {
+            return;
+          }
           const requestResult = {
             requestKey: tokenDetailRequestKey,
             assetDetail,
