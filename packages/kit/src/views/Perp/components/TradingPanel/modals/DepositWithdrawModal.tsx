@@ -131,9 +131,6 @@ const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
 
-// No estimate marker on the CCTP fee: a chain read that fails falls back to the
-// same number, and submission re-reads it and refuses on drift, so the marker
-// only ever blinks in and out without telling the user anything new.
 function formatWithdrawFeeComponent(
   component: IUsdcWithdrawFeeQuote['components'][number],
 ) {
@@ -141,7 +138,7 @@ function formatWithdrawFeeComponent(
   if (component.kind === 'hyperEvmGas') {
     return `< $${amount}`;
   }
-  return `$${amount}`;
+  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
 }
 
 // A destination's fee is known before its quote returns, so the row can skip the
@@ -176,7 +173,9 @@ function buildWithdrawFeePreviewQuote({
           amount: destination.fallbackFee.toString(),
           token: 'USDC',
           debitedFrom: 'withdrawAmount',
-          isEstimate: false,
+          // A static constant until the chain read lands, and the service marks
+          // the same value as an estimate when that read fails.
+          isEstimate: true,
         },
       ],
       quotedAt: 0,
@@ -464,11 +463,11 @@ function DepositWithdrawContent({
   const shouldReserveWithdrawGas =
     selectedWithdrawDestination.transferType === 'hyperEvm' ||
     withdrawRoute === 'cctp';
-  // Gated on the preview too, or the button greys out for the frame between two
-  // destinations. handleConfirm resolves the confirmed fee before submitting.
+  // Gated on the confirmed quote, never the preview: submitting against a fee the
+  // row never showed would take the difference out of the principal.
   const isWithdrawFeeQuoteComplete =
-    Boolean(withdrawFeeDisplayQuote) &&
-    withdrawFeeDisplayQuote?.components.every((component) =>
+    Boolean(withdrawFeeQuote) &&
+    withdrawFeeQuote?.components.every((component) =>
       Boolean(component.amount),
     );
   const isWithdrawDestinationReady =
@@ -1610,24 +1609,6 @@ function DepositWithdrawContent({
           onClose?.();
         }
       } else {
-        // Submission stays bound to a confirmed fee; only the wait for it moved
-        // here from the button's disabled state.
-        let expectedCctpFee: string | undefined;
-        if (
-          selectedWithdrawDestination.transferType === 'cctp' &&
-          withdrawRoute === 'cctp'
-        ) {
-          expectedCctpFee = cctpFeeComponent?.amount;
-          if (!expectedCctpFee) {
-            const feeQuote =
-              await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawFee(
-                { destinationId: withdrawDestinationId },
-              );
-            expectedCctpFee = feeQuote.components.find(
-              (component) => component.kind === 'cctpForwarding',
-            )?.amount;
-          }
-        }
         await withdraw({
           userAccountId: selectedAccount.accountId || '',
           amount,
@@ -1636,7 +1617,8 @@ function DepositWithdrawContent({
             selectedWithdrawDestination.transferType === 'cctp'
               ? withdrawRoute
               : undefined,
-          expectedCctpFee,
+          expectedCctpFee:
+            withdrawRoute === 'cctp' ? cctpFeeComponent?.amount : undefined,
         });
         void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         onClose?.();
