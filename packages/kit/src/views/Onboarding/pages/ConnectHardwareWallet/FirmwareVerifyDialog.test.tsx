@@ -1,6 +1,8 @@
 /** @jest-environment jsdom */
 /* eslint-disable import/first */
 
+import type { ReactNode } from 'react';
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -11,19 +13,31 @@ jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
 }));
 
-jest.mock('@onekeyhq/components', () => ({
-  Anchor: 'Anchor',
-  Button: 'Button',
-  Dialog: { show: jest.fn() },
-  HeightTransition: 'HeightTransition',
-  Icon: 'Icon',
-  SizableText: 'SizableText',
-  Spinner: 'Spinner',
-  Stack: 'Stack',
-  XStack: 'XStack',
-  YStack: 'YStack',
-  useDialogInstance: jest.fn(),
-}));
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const Div = ({ children }: { children?: ReactNode }) =>
+    React.createElement('div', undefined, children);
+
+  return {
+    Anchor: Div,
+    Button: Div,
+    Dialog: {
+      show: jest.fn(),
+      Description: Div,
+      Header: Div,
+      Icon: Div,
+      Title: Div,
+    },
+    HeightTransition: Div,
+    Icon: Div,
+    SizableText: Div,
+    Spinner: Div,
+    Stack: Div,
+    XStack: Div,
+    YStack: Div,
+    useDialogInstance: jest.fn(),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: 'HyperlinkText',
@@ -81,14 +95,54 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   },
 }));
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  EnumBasicDialogContentContainer,
+  EFirmwareAuthenticationDialogContentType,
   type IFirmwareVerifyDialogHost,
   useFirmwareVerifyDialog,
 } from './FirmwareVerifyDialog';
+
+describe('EnumBasicDialogContentContainer', () => {
+  it('reserves unofficial copy for explicit authenticity failures', () => {
+    const { rerender } = render(
+      <EnumBasicDialogContentContainer
+        contentType={
+          EFirmwareAuthenticationDialogContentType.unofficial_device_detected
+        }
+        errorObj={{ code: 0 }}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        ETranslations.device_auth_unofficial_device_detected_help_text,
+      ),
+    ).toBeTruthy();
+
+    rerender(
+      <EnumBasicDialogContentContainer
+        contentType={
+          EFirmwareAuthenticationDialogContentType.error_fallback
+        }
+        errorObj={{ code: 0 }}
+      />,
+    );
+
+    expect(
+      screen.getByText(ETranslations.global_unknown_error_retry_message),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        ETranslations.device_auth_unofficial_device_detected_help_text,
+      ),
+    ).toBeNull();
+  });
+});
 
 describe('useFirmwareVerifyDialog', () => {
   beforeEach(() => {

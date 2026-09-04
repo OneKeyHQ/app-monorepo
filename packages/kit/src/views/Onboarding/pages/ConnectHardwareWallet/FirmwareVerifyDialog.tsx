@@ -663,7 +663,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
+                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
                 })}
               </Dialog.Description>
             </Dialog.Header>
@@ -803,7 +803,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                  id: ETranslations.global_unknown_error_retry_message,
                 })}
               </Dialog.Description>
             </Dialog.Header>
