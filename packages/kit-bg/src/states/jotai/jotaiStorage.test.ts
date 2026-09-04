@@ -223,6 +223,23 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(mockLegacyRetryWait.mock.calls).toEqual([[50]]);
   });
 
+  it('removes orphaned target values before rebuilding the Jotai store', async () => {
+    legacyData.set('g_states_v5:aAtom', '"fresh"');
+    mmkvInstance.set('g_states_v5:orphanedAtom', '"stale"');
+    const storage = createStorage();
+
+    await storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY);
+
+    expect(await storage.getItem('g_states_v5:aAtom', null)).toBe('fresh');
+    expect(
+      await storage.getItem('g_states_v5:orphanedAtom', 'fallback'),
+    ).toBe('fallback');
+    expect(mmkvInstance.getString('g_states_v5:orphanedAtom')).toBeUndefined();
+    expect(JSON.stringify(mockNativeLoggerWrite.mock.calls)).toContain(
+      'target cleanup result=cleared staleKeyCount=1',
+    );
+  });
+
   it('uses the AppStorage MMKV snapshot when legacy Jotai reads fail', async () => {
     const key = 'g_states_v5:historicalAtom';
     appStorageMMKVInstance.set(`app:${key}`, '"from-app-storage"');

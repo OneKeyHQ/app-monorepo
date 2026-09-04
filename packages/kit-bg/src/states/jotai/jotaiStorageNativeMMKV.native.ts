@@ -513,10 +513,16 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         );
       }
 
-      // A killed process may leave only part of a previous copy behind.
-      candidateKeys.forEach((key) => {
+      // A killed process may leave target keys that are no longer discoverable
+      // from the current source. Rebuild the dedicated Jotai namespace from
+      // scratch so partial or orphaned values cannot enter background state.
+      const staleTargetKeys = this.getBusinessKeys();
+      staleTargetKeys.forEach((key) => {
         void this.store.delete(key as any);
       });
+      this.log(
+        `target cleanup result=cleared staleKeyCount=${staleTargetKeys.length}`,
+      );
 
       const failures: IJotaiMigrationFailure[] = [];
       let migratedCount = 0;
