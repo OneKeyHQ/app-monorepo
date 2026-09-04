@@ -23,6 +23,7 @@ import {
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  resolveMarketPresetEnabled,
   resolveMarketQuoteSlippageMode,
   shouldShowMarketPresetPriorityFeeTooltip,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
@@ -56,6 +57,27 @@ function buildSpeedConfigWithPreset(
 }
 
 describe('marketPresetSettings', () => {
+  it('keeps presets out of the desktop Stock panel without changing other layouts', () => {
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: true,
+        stockDetailDesktopLayout: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: true,
+        stockDetailDesktopLayout: false,
+      }),
+    ).toBe(true);
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: false,
+        stockDetailDesktopLayout: false,
+      }),
+    ).toBe(false);
+  });
+
   it.each([EMarketPresetKey.P1, EMarketPresetKey.P2, EMarketPresetKey.P3])(
     'quotes the %s preset with custom slippage semantics',
     (presetKey) => {

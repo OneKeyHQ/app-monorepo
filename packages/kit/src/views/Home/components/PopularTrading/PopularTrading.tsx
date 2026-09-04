@@ -838,6 +838,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           network: shortCode || record.chainId,
           isNative: record.isNative,
           marketTokenId: record.marketTokenId,
+          marketVariantId: record.marketVariantId,
           marketTokenCategory: selectedMarketCategoryId,
         });
         return;
@@ -853,6 +854,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               network: shortCode || record.chainId,
               isNative: record.isNative,
               marketTokenId: record.marketTokenId,
+              marketVariantId: record.marketVariantId,
               marketTokenCategory: selectedMarketCategoryId,
             },
           },
@@ -902,6 +904,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             marketCap: token.marketCap ?? 0,
             volume24h: token.turnover ?? 0,
             marketTokenId: token.marketTokenId,
+            marketVariantId: token.marketVariantId,
           });
         });
         return;

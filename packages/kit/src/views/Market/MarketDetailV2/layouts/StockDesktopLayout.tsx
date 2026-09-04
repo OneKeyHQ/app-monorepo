@@ -71,6 +71,7 @@ import {
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
 
+import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
@@ -84,7 +85,6 @@ type IStockDetailTab = 'overview' | 'position';
 
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
-const STOCK_CHART_HEIGHT = 360;
 const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 // Pro drops the toolbar row and lays the Simple/Pro switch over the trailing
 // edge of the TradingView widget's own interval row instead. Both that row and
@@ -552,8 +552,8 @@ export function StockChart({
   return (
     <YStack
       width="100%"
-      height={isChartFullscreen ? undefined : STOCK_CHART_HEIGHT}
-      flex={isChartFullscreen ? 1 : undefined}
+      flex={1}
+      minHeight={0}
       gap={isSimpleMode ? '$4' : '$0'}
       position="relative"
     >
@@ -1191,7 +1191,7 @@ export function StockDesktopLayout({
           <YStack
             testID="stock-token-detail-chart"
             width="100%"
-            height={504}
+            minHeight={504}
             px={STOCK_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
@@ -1202,24 +1202,17 @@ export function StockDesktopLayout({
               onPriceModeChange={handlePriceModeChange}
               hoverPoint={chartHoverPoint}
             />
-            <Stack
+            <MarketDesktopChartContainer
               testID="stock-token-detail-tradingview"
-              width="100%"
-              height={isChartFullscreen ? undefined : STOCK_CHART_HEIGHT}
-              overflow="hidden"
-              bg="$bgApp"
-              zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
-              style={
-                isChartFullscreen
-                  ? {
-                      position: 'fixed',
-                      left: 0,
-                      top: 0,
-                      right: 0,
-                      bottom: platformEnv.isWeb ? 40 : 0,
-                    }
-                  : undefined
-              }
+              isFullscreen={isChartFullscreen}
+              fullscreenZIndex={chartFullscreenZIndex}
+              fullscreenStyle={{
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: platformEnv.isWeb ? 40 : 0,
+              }}
             >
               {/* Desktop keeps the draggable title bar clear of the
                   fullscreen chart. */}
@@ -1236,7 +1229,7 @@ export function StockDesktopLayout({
                 isChartFullscreen={isChartFullscreen}
                 onEnterChartFullscreen={onEnterChartFullscreen}
               />
-            </Stack>
+            </MarketDesktopChartContainer>
           </YStack>
           <StockOverview
             portfolioData={stockPortfolioData}

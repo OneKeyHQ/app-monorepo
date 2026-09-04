@@ -269,10 +269,11 @@ export const TradingViewNativeChart = memo(
         measuredPriceAxisFont.measureText(widestPriceLabel);
       const widestChartComponentPriceLabelBounds =
         measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
+      const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
       const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
-        autoPriceRange
+        priceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
-              autoPriceRange,
+              autoPriceRange: priceRange,
               baseLabel: widestPriceLabel,
               priceRangeScale: chartRuntime.value.priceRangeScale,
               priceScaleMode: chartRuntime.value.priceScaleMode,
@@ -338,6 +339,7 @@ export const TradingViewNativeChart = memo(
         height: runtime.size.height,
         candleLabels,
         indicatorSeries: runtime.indicatorSeries,
+        pinnedPriceRange: runtime.pinnedPriceRange,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
         priceAxisTickCount,

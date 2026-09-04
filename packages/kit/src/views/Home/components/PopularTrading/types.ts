@@ -18,6 +18,7 @@ interface IFavoriteTokenDisplay {
   perpsSubtitle?: string;
   communityRecognized?: boolean;
   marketTokenId?: string;
+  marketVariantId?: string;
   stock?: IMarketStockInfo;
   marketAsset?: IMarketAssetListItem;
 }

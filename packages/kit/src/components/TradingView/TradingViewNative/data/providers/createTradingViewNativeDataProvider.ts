@@ -1,5 +1,6 @@
 import { getTradingViewNativeMarketTokenKey } from '../getTradingViewNativeSource';
 
+import { createTradingViewNativeAssetDataProvider } from './asset/assetDataProvider';
 import {
   clearTradingViewNativeCoinGeckoDataProviderCache,
   createTradingViewNativeCoinGeckoDataProvider,
@@ -22,6 +23,9 @@ export function clearTradingViewNativeDataProviderCache() {
 export function createTradingViewNativeDataProvider(
   source: ITradingViewNativeSource,
 ): ITradingViewNativeDataProvider {
+  if (source.kind === 'asset') {
+    return createTradingViewNativeAssetDataProvider(source);
+  }
   if (source.kind === 'hyperliquid') {
     return createTradingViewNativeHyperliquidDataProvider(source);
   }

@@ -371,6 +371,7 @@ export function DesktopLayout({
               enableWebSocket={activeTabName === item.tabName}
               centerDesktopPortalContent
               desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
+              useApiDefaultSort={isTrendingCategory && platformEnv.isDesktop}
               toolbar={
                 isTrendingCategory ? (
                   <TrendingDesktopToolbar

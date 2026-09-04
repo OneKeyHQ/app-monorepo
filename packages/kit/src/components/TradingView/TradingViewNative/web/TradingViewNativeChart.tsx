@@ -308,6 +308,7 @@ export const TradingViewNativeChart = memo(
           candleLabels,
           currentPriceLabel,
           indicatorSeries,
+          pinnedPriceRange: priceScaleModelRef.current.pinnedPriceRange,
           points,
           priceAxisFontSize,
           priceAxisWidth,
@@ -325,6 +326,8 @@ export const TradingViewNativeChart = memo(
         });
         subIndicatorLegendHitRegionsRef.current =
           scene?.subIndicatorLegendHitRegions ?? [];
+        priceScaleModelRef.current.autoPriceRange =
+          scene?.autoPriceRange ?? null;
         const nextChartWidth = getTradingViewNativeChartWidth(
           canvas.getBoundingClientRect().width,
           priceAxisWidth,

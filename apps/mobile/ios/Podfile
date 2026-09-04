@@ -35,7 +35,7 @@ add_git_config_env(
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 # React Native is patched in node_modules; prebuilt RN Core would bypass the
-# iOS TextInput and Fabric fixes carried by patches/react-native+0.86.2.patch.
+# iOS TextInput and Fabric fixes carried by patches/react-native+0.86.2+*.patch.
 ENV['RCT_USE_PREBUILT_RNCORE'] = '0'
 
 platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'
@@ -121,6 +121,10 @@ target 'OneKeyWallet' do
     use_expo_modules!
   end
   config = use_native_modules!
+
+  pod 'SDWebImage', '5.21.7', :modular_headers => true
+  pod 'SDWebImageWebPCoder', '0.14.6', :modular_headers => true
+  pod 'SDWebImageSVGCoder', '1.7.0', :modular_headers => true
 
   # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
   # use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']

@@ -1,28 +1,82 @@
+import { useMemo } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  mevSwapNetworks,
+  swapDefaultSetTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISpeedSwapConfig } from '@onekeyhq/shared/types/swap/types';
 
 import type { IToken } from '../types';
 
-const defaultSpeedSwapConfig: ISpeedSwapConfig = {
-  provider: '',
-  speedConfig: {
-    spenderAddress: '',
-    slippage: 0.5,
-    defaultTokens: [],
-    defaultLimitTokens: [],
-    swapMevNetConfig: mevSwapNetworks,
-  },
-  supportSpeedSwap: undefined,
-  onlySupportCrossChain: false,
-  onlySupportSingleChain: false,
-  speedDefaultSelectToken: undefined,
-};
+function buildSwapPairFallbackConfig(networkId: string): ISpeedSwapConfig {
+  const defaultTokenSet = swapDefaultSetTokens[networkId];
+  const defaultTokens = [
+    defaultTokenSet?.fromToken,
+    defaultTokenSet?.toToken,
+  ].flatMap((token) =>
+    token
+      ? [
+          {
+            ...token,
+            speedSwapDefaultAmount: [],
+          },
+        ]
+      : [],
+  );
+  return {
+    provider: '',
+    speedConfig: {
+      spenderAddress: '',
+      slippage: 0.5,
+      defaultTokens,
+      defaultLimitTokens: [],
+      swapMevNetConfig: mevSwapNetworks,
+    },
+    supportSpeedSwap: false,
+    onlySupportCrossChain: false,
+    onlySupportSingleChain: false,
+    speedDefaultSelectToken:
+      defaultTokenSet?.toToken ?? defaultTokenSet?.fromToken,
+    unavailable: true,
+  };
+}
+
+function applySwapPairFallback({
+  config,
+  fallbackConfig,
+}: {
+  config: ISpeedSwapConfig;
+  fallbackConfig: ISpeedSwapConfig;
+}): ISpeedSwapConfig {
+  const shouldUseDefaultTokensFallback =
+    config.speedConfig.defaultTokens.length === 0;
+  if (
+    !shouldUseDefaultTokensFallback &&
+    config.supportSpeedSwap !== undefined
+  ) {
+    return config;
+  }
+  return {
+    ...config,
+    speedConfig: {
+      ...config.speedConfig,
+      defaultTokens: shouldUseDefaultTokensFallback
+        ? fallbackConfig.speedConfig.defaultTokens
+        : config.speedConfig.defaultTokens,
+    },
+    supportSpeedSwap:
+      config.supportSpeedSwap ?? fallbackConfig.supportSpeedSwap,
+    speedDefaultSelectToken: shouldUseDefaultTokensFallback
+      ? fallbackConfig.speedDefaultSelectToken
+      : config.speedDefaultSelectToken,
+  };
+}
 
 type ISpeedSwapConfigState = {
   config: ISpeedSwapConfig;
@@ -34,6 +88,10 @@ export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
 ) {
+  const fallbackConfig = useMemo(
+    () => buildSwapPairFallbackConfig(networkId),
+    [networkId],
+  );
   const speedSwapConfigScope = networkId;
   const swrKey = speedSwapConfigScope
     ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
@@ -43,7 +101,7 @@ export function useSpeedSwapInit(
       async () => {
         if (enableNoNetworkCheck && !networkId) {
           return {
-            config: defaultSpeedSwapConfig,
+            config: fallbackConfig,
             scope: speedSwapConfigScope,
           };
         }
@@ -52,7 +110,7 @@ export function useSpeedSwapInit(
           .catch(() => undefined);
         if (config && !config.unavailable) {
           return {
-            config,
+            config: applySwapPairFallback({ config, fallbackConfig }),
             scope: speedSwapConfigScope,
           };
         }
@@ -60,18 +118,27 @@ export function useSpeedSwapInit(
           ? swrCacheUtils.get<ISpeedSwapConfigState>(swrKey)
           : undefined;
         return {
-          config:
-            cachedConfig?.scope === speedSwapConfigScope
-              ? cachedConfig.config
-              : defaultSpeedSwapConfig,
+          config: applySwapPairFallback({
+            config:
+              cachedConfig?.scope === speedSwapConfigScope
+                ? cachedConfig.config
+                : (config ?? fallbackConfig),
+            fallbackConfig,
+          }),
           scope: speedSwapConfigScope,
           fromCache: true,
         };
       },
-      [enableNoNetworkCheck, networkId, speedSwapConfigScope, swrKey],
+      [
+        enableNoNetworkCheck,
+        fallbackConfig,
+        networkId,
+        speedSwapConfigScope,
+        swrKey,
+      ],
       {
         initResult: {
-          config: defaultSpeedSwapConfig,
+          config: fallbackConfig,
           scope: undefined,
         },
         watchLoading: true,
@@ -83,7 +150,7 @@ export function useSpeedSwapInit(
     speedSwapConfigState.scope === speedSwapConfigScope;
   const speedSwapConfig = speedSwapConfigReady
     ? speedSwapConfigState.config
-    : defaultSpeedSwapConfig;
+    : fallbackConfig;
 
   return {
     defaultTokens: speedSwapConfig?.speedConfig.defaultTokens as IToken[],

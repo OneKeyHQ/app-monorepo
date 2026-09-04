@@ -13,7 +13,6 @@ import {
   Dialog,
   EVideoResizeMode,
   Empty,
-  HeightTransition,
   type IPageScreenProps,
   type IVideoSource,
   IconButton,
@@ -37,6 +36,7 @@ import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -66,10 +66,9 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
-import { ListItem } from '../../../components/ListItem';
-import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
+import { FoundDevicesFooter } from '../components/FoundDevicesFooter';
 import { OnboardingPage } from '../components/Layout';
 import { getDeviceLabel } from '../deviceLabel';
 import {
@@ -81,7 +80,7 @@ import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
-import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
@@ -687,8 +686,6 @@ function USBOrBLEConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
-  console.log('connectStatus', connectStatus);
-  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <ConnectionIndicator>
@@ -735,38 +732,11 @@ function USBOrBLEConnectionIndicator({
         )}
 
         <ConnectionIndicator.Footer>
-          <YStack px="$5">
-            <XStack alignItems="center" justifyContent="space-between">
-              <SizableText color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.onboarding_bluetooth_connect_help_text,
-                })}
-                ...
-              </SizableText>
-            </XStack>
-          </YStack>
-          <HeightTransition initialHeight={0}>
-            {sortedDevicesData.length > 0 ? (
-              <>
-                {sortedDevicesData.map((data) => (
-                  <ListItem
-                    key={data.device?.deviceId}
-                    drillIn
-                    onPress={async () => {
-                      await handleDeviceSelect(data);
-                    }}
-                    userSelect="none"
-                  >
-                    <WalletAvatar
-                      wallet={undefined}
-                      img={data.device?.deviceType as IDeviceType}
-                    />
-                    <ListItem.Text primary={data.device?.name} flex={1} />
-                  </ListItem>
-                ))}
-              </>
-            ) : null}
-          </HeightTransition>
+          <FoundDevicesFooter
+            devices={sortedDevicesData}
+            isScanning={connectStatus === EConnectionStatus.listing}
+            onConnect={handleDeviceSelect}
+          />
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
       <TroubleShootingButton type="usb" />
@@ -848,6 +818,22 @@ function BluetoothConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
+  // Pause bluetooth status polling while a connection attempt is in flight.
+  const handleConnectFoundDevice = useCallback(
+    async (device: IConnectYourDeviceItem) => {
+      if (!device.device) {
+        return;
+      }
+      setBluetoothConnecting(true);
+      try {
+        await handleDeviceSelect(device);
+      } finally {
+        setBluetoothConnecting(false);
+      }
+    },
+    [handleDeviceSelect, setBluetoothConnecting],
+  );
+
   if (bluetoothStatus === EBluetoothStatus.disabledInApp) {
     return (
       <Empty
@@ -912,46 +898,11 @@ function BluetoothConnectionIndicator({
           connectStatus={connectStatus}
         />
         <ConnectionIndicator.Footer>
-          <YStack px="$5">
-            <XStack alignItems="center" justifyContent="space-between">
-              <SizableText color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.onboarding_bluetooth_connect_help_text,
-                })}
-                ...
-              </SizableText>
-            </XStack>
-          </YStack>
-          <HeightTransition initialHeight={0}>
-            {sortedDevicesData.length > 0 ? (
-              <>
-                {sortedDevicesData.map((device) => (
-                  <ListItem
-                    key={device.device?.connectId}
-                    drillIn
-                    onPress={async () => {
-                      if (!device.device) {
-                        return;
-                      }
-                      setBluetoothConnecting(true);
-                      try {
-                        await handleDeviceSelect(device);
-                      } finally {
-                        setBluetoothConnecting(false);
-                      }
-                    }}
-                    userSelect="none"
-                  >
-                    <WalletAvatar
-                      wallet={undefined}
-                      img={device.device?.deviceType as IDeviceType}
-                    />
-                    <ListItem.Text primary={device.device?.name} flex={1} />
-                  </ListItem>
-                ))}
-              </>
-            ) : null}
-          </HeightTransition>
+          <FoundDevicesFooter
+            devices={sortedDevicesData}
+            isScanning={connectStatus === EConnectionStatus.listing}
+            onConnect={handleConnectFoundDevice}
+          />
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
       <TroubleShootingButton type="bluetooth" />
@@ -1020,7 +971,6 @@ function ConnectYourDevicePage({
   EOnboardingPagesV2.ConnectYourDevice
 >) {
   const { deviceType: deviceTypeItems, vendor } = routeParams?.params || {};
-  console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const intl = useIntl();
@@ -1051,6 +1001,21 @@ function ConnectYourDevicePage({
   }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
+  // Page-entry event: report once per mount, carrying the initial channel, so
+  // USB/Bluetooth tab switches do not inflate the funnel denominator.
+  const pageReportedRef = useRef(false);
+  useEffect(() => {
+    if (!tabValue || pageReportedRef.current) {
+      return;
+    }
+    pageReportedRef.current = true;
+    const deviceTypeLabel =
+      deviceTypeItems.length > 0
+        ? deviceTypeItems.join(',')
+        : (vendor ?? 'others');
+    defaultLogger.onboarding.page.connectYourDevice(deviceTypeLabel, tabValue);
+  }, [deviceTypeItems, tabValue, vendor]);
+
   useEffect(() => {
     const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
       // Clean up forceTransportType when leaving this page
@@ -1068,6 +1033,10 @@ function ConnectYourDevicePage({
       if (!item.device) {
         return;
       }
+      defaultLogger.onboarding.page.connectFoundDevice(
+        item.device.deviceType ?? '',
+        innerTabValue,
+      );
       const connectId = item.device.connectId ?? '';
       let detectedConnectProtocol: HardwareConnectProtocol | undefined;
       let connectedDevice = item.device;

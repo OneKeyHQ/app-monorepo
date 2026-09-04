@@ -24,6 +24,7 @@ type IMarketNormalTokenListProps = {
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   onItemPress?: (item: IMarketToken) => void;
   toolbar?: ReactNode;
   tabIntegrated?: boolean;
@@ -49,6 +50,7 @@ function MarketNormalTokenList({
   timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
+  useApiDefaultSort,
   onItemPress,
   toolbar,
   tabIntegrated,
@@ -73,6 +75,7 @@ function MarketNormalTokenList({
     networkId,
     initialSortBy,
     initialSortType,
+    useApiDefaultSort,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,

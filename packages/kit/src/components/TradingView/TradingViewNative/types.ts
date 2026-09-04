@@ -22,6 +22,10 @@ export interface ITradingViewNativeCandleLabels {
 
 export type ITradingViewNativeSource =
   | {
+      kind: 'asset';
+      assetId: string;
+    }
+  | {
       kind: 'hyperliquid';
       coin: string;
       environment: ITradingViewNativeHyperliquidEnvironment;

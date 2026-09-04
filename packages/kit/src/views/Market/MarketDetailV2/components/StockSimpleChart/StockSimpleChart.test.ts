@@ -11,6 +11,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceMarket: {
+      fetchMarketAssetKline: jest.fn(),
       fetchTokenChart: jest.fn(),
     },
     serviceMarketV2: {
@@ -27,6 +28,9 @@ describe('fetchStockSimpleChartPoints', () => {
   const serviceMarket = backgroundApiProxy.serviceMarket as jest.Mocked<
     typeof backgroundApiProxy.serviceMarket
   >;
+  const serviceMarketAsset = backgroundApiProxy.serviceMarket as unknown as {
+    fetchMarketAssetKline: jest.Mock;
+  };
   const serviceMarketV2 = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
     typeof backgroundApiProxy.serviceMarketV2
   >;
@@ -124,6 +128,72 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toHaveLength(0);
     expect(result).toEqual([[nowSeconds - 60, 100]]);
+  });
+
+  it('loads Top Coins from the self-maintained Asset K-line API', async () => {
+    serviceMarketAsset.fetchMarketAssetKline.mockResolvedValue({
+      pointType: 'single',
+      total: 1,
+      points: [
+        {
+          t: nowSeconds - 60,
+          o: 0.08,
+          h: 0.08,
+          l: 0.08,
+          c: 0.08,
+          v: 0,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: true,
+      marketAssetId: 'doge',
+      networkId: 'doge--0',
+      priceMode: 'token',
+      range: '1D',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
+      assetId: 'doge',
+      interval: '15m',
+      timeFrom: nowSeconds - 24 * 60 * 60,
+      timeTo: nowSeconds,
+      currency: 'usd',
+      autoHandleError: false,
+    });
+    expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
+    expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
+    expect(result).toEqual([[nowSeconds - 60, 0.08]]);
+  });
+
+  it('requests complete Top Coins history without a CoinGecko lookup', async () => {
+    serviceMarketAsset.fetchMarketAssetKline.mockResolvedValue({
+      pointType: 'single',
+      total: 0,
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: true,
+      marketAssetId: 'doge',
+      networkId: 'doge--0',
+      priceMode: 'token',
+      range: 'All',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
+      assetId: 'doge',
+      interval: '1W',
+      timeFrom: undefined,
+      timeTo: undefined,
+      currency: 'usd',
+      autoHandleError: false,
+    });
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+    expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
   });
 
   it('loads the complete native-token history by its CoinGecko ID', async () => {
@@ -239,6 +309,7 @@ describe('stock simple chart request identity', () => {
     const firstVariant = resolveStockSimpleChartRequestScope({
       coinGeckoId: 'first',
       isNative: false,
+      marketAssetId: 'aapl',
       networkId: 'evm--1',
       priceMode: 'share',
       range: '1D',
@@ -248,6 +319,7 @@ describe('stock simple chart request identity', () => {
     const secondVariant = resolveStockSimpleChartRequestScope({
       coinGeckoId: 'second',
       isNative: false,
+      marketAssetId: 'aapl',
       networkId: 'evm--8453',
       priceMode: 'share',
       range: '1D',

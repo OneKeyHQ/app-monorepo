@@ -92,6 +92,8 @@ export function LightweightChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const heightRef = useRef(height);
+  heightRef.current = height;
   // Pixel position of the last data point (relative to the chart container's
   // top-left), kept in sync so the pulse-dot overlay tracks the chart tail.
   const [lastPointPosition, setLastPointPosition] = useState<{
@@ -202,7 +204,7 @@ export function LightweightChart({
           ...baseOptions,
           grid: gridOptions,
           width: container.clientWidth,
-          height,
+          height: container.clientHeight || heightRef.current,
         });
 
         const isBaseline = currentChartConfig.seriesType === 'baseline';
@@ -383,8 +385,8 @@ export function LightweightChart({
         // Handle resize
         resizeObserver = new ResizeObserver((entries) => {
           if (entries.length === 0 || entries[0].target !== container) return;
-          const { width: newWidth } = entries[0].contentRect;
-          chart?.applyOptions({ width: newWidth });
+          const { height: newHeight, width: newWidth } = entries[0].contentRect;
+          chart?.applyOptions({ height: newHeight, width: newWidth });
           // applyOptions relays out the chart (bar spacing / right-edge anchor)
           // on the next paint frame; reading coordinates synchronously here
           // returns the pre-resize layout, so the pulse dot would freeze at its
@@ -455,7 +457,6 @@ export function LightweightChart({
     chartConfig.locale,
     chartDataCreateDependency,
     hasSecondaryLineData,
-    height,
     onHover,
     preserveChartInstanceOnDataChange,
     priceScaleMinimumWidth,

@@ -11,6 +11,8 @@ export function MarketDetailResponsiveLayout({
   isNative,
   networkId,
   tokenAddress,
+  marketTokenId,
+  marketTokenCategory,
 }: IMarketDetailResponsiveLayoutProps) {
   return (
     <MobileLayout
@@ -22,6 +24,8 @@ export function MarketDetailResponsiveLayout({
       isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
+      marketTokenId={marketTokenId}
+      marketTokenCategory={marketTokenCategory}
     />
   );
 }

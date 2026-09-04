@@ -24,11 +24,11 @@ const getLogFilePath = () => Promise.resolve('');
 
 const flushPendingRepeat = () => {};
 
-const desktopPlatform = globalThis.desktopApi.platform;
-const desktopSystemVersion = globalThis.desktopApi.systemVersion;
 const getDeviceInfo = () =>
   [
-    `System: ${desktopPlatform} ${desktopSystemVersion}`,
+    `System: ${globalThis.desktopApi?.platform ?? ''} ${
+      globalThis.desktopApi?.systemVersion ?? ''
+    }`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,

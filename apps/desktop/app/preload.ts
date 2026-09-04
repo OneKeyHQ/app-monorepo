@@ -98,6 +98,8 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   arch: string;
   platform: string;
   systemVersion: string;
+  logicalProcessorCount: number;
+  totalMemoryBytes: number;
   isMas: boolean;
   channel?: string;
   deskChannel: string;
@@ -133,6 +135,8 @@ const desktopApi = {
   logDirectory: ipcRenderer.sendSync(ipcMessageKeys.LOG_DIRECTORY),
   deskChannel: platformInfo.deskChannel,
   systemVersion: platformInfo.systemVersion,
+  logicalProcessorCount: platformInfo.logicalProcessorCount,
+  totalMemoryBytes: platformInfo.totalMemoryBytes,
   isMas: platformInfo.isMas,
   processStartAt: platformInfo.processStartAt,
   supportsShareImageFile: platformInfo.supportsShareImageFile,

@@ -35,7 +35,8 @@ export function ShareView({
     <Stack
       width={displaySize}
       height={displaySize}
-      borderRadius="$3"
+      borderRadius="$6"
+      borderCurve={platformEnv.isNativeIOS ? 'continuous' : undefined}
       borderWidth={1}
       borderColor="$borderSubdued"
       overflow="hidden"

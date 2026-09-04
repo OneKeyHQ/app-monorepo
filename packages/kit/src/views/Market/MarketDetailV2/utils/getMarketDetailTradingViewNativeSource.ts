@@ -5,10 +5,14 @@ type IGetTradingViewNativeSourceParams = Parameters<
 >[0];
 
 export function getMarketDetailTradingViewNativeSource(
-  params: IGetTradingViewNativeSourceParams,
+  params: IGetTradingViewNativeSourceParams & { marketAssetId?: string },
 ) {
+  const { marketAssetId, ...sourceParams } = params;
+  if (marketAssetId) {
+    return { kind: 'asset' as const, assetId: marketAssetId };
+  }
   return getTradingViewNativeSource({
-    ...params,
+    ...sourceParams,
     hyperliquidWhitelistBranch: 'market',
   });
 }

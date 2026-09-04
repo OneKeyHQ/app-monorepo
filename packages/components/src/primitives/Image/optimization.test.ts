@@ -1,10 +1,10 @@
 import { buildOptimizedImageSource } from './optimization';
 
-import type { ImageSource } from 'expo-image';
+import type { ImageURISource } from 'react-native';
 
 describe('Image optimization', () => {
   test('builds an optimized source from static numeric dimensions', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'https://uni.onekey-asset.com/icons/token.png',
     };
 
@@ -24,7 +24,7 @@ describe('Image optimization', () => {
   });
 
   test('builds an optimized source from static token dimensions', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'https://uni.onekey-asset.com/icons/token.png',
     };
 
@@ -43,7 +43,7 @@ describe('Image optimization', () => {
   });
 
   test('builds an optimized source from a display resize width hint', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'https://uni.onekey-asset.com/icons/token.png',
     };
 
@@ -63,7 +63,7 @@ describe('Image optimization', () => {
   });
 
   test('skips a web bundle asset relative URI', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'static/media/avatar-fallback.c296a09f8e5ec6d58b36.png',
     };
 
@@ -79,7 +79,7 @@ describe('Image optimization', () => {
   });
 
   test('builds an optimized source from a web relative URI when allowed', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'static/media/avatar-fallback.c296a09f8e5ec6d58b36.png',
     };
 
@@ -99,7 +99,7 @@ describe('Image optimization', () => {
   });
 
   test('uses the larger static dimension when building a resize source', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'https://uni.onekey-asset.com/icons/poster.png',
     };
 
@@ -118,7 +118,7 @@ describe('Image optimization', () => {
   });
 
   test('skips auto or percentage dimensions', () => {
-    const resolvedSource: ImageSource = {
+    const resolvedSource: ImageURISource = {
       uri: 'https://uni.onekey-asset.com/icons/token.png',
     };
 
@@ -133,9 +133,9 @@ describe('Image optimization', () => {
     expect(result.source).toBe(resolvedSource);
   });
 
-  test('skips sources with custom headers or cache keys', () => {
-    const resolvedSource: ImageSource = {
-      cacheKey: 'stable-cache-key',
+  test('skips sources with custom headers', () => {
+    const resolvedSource: ImageURISource = {
+      headers: { Authorization: 'Bearer token' },
       uri: 'https://uni.onekey-asset.com/icons/token.png',
     };
 

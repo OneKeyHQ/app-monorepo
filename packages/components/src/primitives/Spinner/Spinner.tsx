@@ -27,7 +27,7 @@ export const Spinner: React.ForwardRefExoticComponent<
     // eslint-disable-next-line react/prop-types
     const { size, color: colorProp, ...stackProps } = props;
     const theme = useTheme();
-    let color = colorProp as string;
+    let color = (colorProp === undefined ? '$icon' : colorProp) as string;
     if (color && color[0] === '$') {
       color = variableToString(theme[color]);
     }

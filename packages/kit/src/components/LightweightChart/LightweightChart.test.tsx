@@ -116,10 +116,14 @@ describe('LightweightChart', () => {
 
   let animationFrameCallbacks: Map<number, FrameRequestCallback>;
   let nextAnimationFrameId: number;
+  let resizeObserverCallback: ResizeObserverCallback | undefined;
+  let resizeObserverTarget: Element | undefined;
 
   beforeEach(() => {
     animationFrameCallbacks = new Map();
     nextAnimationFrameId = 1;
+    resizeObserverCallback = undefined;
+    resizeObserverTarget = undefined;
     globalThis.requestAnimationFrame = jest.fn((callback) => {
       const id = nextAnimationFrameId;
       nextAnimationFrameId += 1;
@@ -132,7 +136,13 @@ describe('LightweightChart', () => {
       }
     });
     globalThis.ResizeObserver = class ResizeObserverMock {
-      observe() {}
+      constructor(callback: ResizeObserverCallback) {
+        resizeObserverCallback = callback;
+      }
+
+      observe(target: Element) {
+        resizeObserverTarget = target;
+      }
 
       unobserve() {}
 
@@ -193,6 +203,59 @@ describe('LightweightChart', () => {
       'BaselineSeries',
       expect.objectContaining({ lineType: 1, priceScaleId: 'left' }),
     );
+  });
+
+  it('resizes the chart height without recreating the chart instance', async () => {
+    const series = {
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn(),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn(),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+
+    const data = [
+      [1, 10],
+      [2, 20],
+    ] as IMarketTokenChart;
+    const { rerender } = render(<LightweightChart data={data} height={240} />);
+
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    rerender(<LightweightChart data={data} height={360} />);
+    expect(resizeObserverCallback).toBeDefined();
+    expect(resizeObserverTarget).toBeDefined();
+
+    act(() => {
+      resizeObserverCallback?.(
+        [
+          {
+            contentRect: { height: 360, width: 600 },
+            target: resizeObserverTarget,
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+    });
+
+    expect(createChart).toHaveBeenCalledTimes(1);
+    expect(chart.remove).not.toHaveBeenCalled();
+    expect(chart.applyOptions).toHaveBeenCalledWith({
+      height: 360,
+      width: 600,
+    });
   });
 
   it('keeps the pulse dot hidden until updated data finishes layout', async () => {

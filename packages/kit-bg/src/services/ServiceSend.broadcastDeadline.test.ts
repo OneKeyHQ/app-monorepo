@@ -103,6 +103,8 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 // eslint-disable-next-line import-js/order, import/first
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+// eslint-disable-next-line import-js/order, import/first
 import { getPrimeInfiniPaymentWarningsFingerprint } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 // eslint-disable-next-line import-js/order, import/first
 import type { IGasAccountUiState } from '@onekeyhq/shared/types/fee';
@@ -466,6 +468,134 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
 
+  test('rejects and logs when dev sign-only would skip a Prime broadcast', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'blocked',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: 'alwaysSignOnlySendTx',
+        hasBeforeBroadcastAction: true,
+        isDevModeEnabled: true,
+        isAlwaysSignOnlySendTxConfigured: true,
+        isSignOnlyRequested: false,
+        isExternalAccount: false,
+        hasCompletedBeforeBroadcastAction: false,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.signTransaction.mock.invocationCallOrder[0]).toBeLessThan(
+      backgroundApi.serviceDevSetting.getDevSetting.mock.invocationCallOrder[0],
+    );
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('ignores a stale sign-only flag when Dev mode is disabled', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: false,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'started',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        isDevModeEnabled: false,
+        isAlwaysSignOnlySendTxConfigured: true,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects a Prime external account before it can send while signing', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId: 'external--60--injected--wallet',
+        networkId,
+        unsignedTx,
+        signOnly: false,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'blocked',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: 'externalAccount',
+        isExternalAccount: true,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(
+      backgroundApi.serviceDevSetting.getDevSetting,
+    ).not.toHaveBeenCalled();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('logs when a broadcast succeeds on a network without txid results', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValueOnce({
+      maxRetryBroadcastTxCount: 1,
+      minRetryBroadcastTxInterval: 0,
+      withoutBroadcastTxId: true,
+    });
+    vault.broadcastTransaction.mockResolvedValueOnce({ txid: '' });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).resolves.toMatchObject({ txid: '' });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'succeeded',
+        reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+        hasAttemptedBroadcast: true,
+        hasBroadcastTxId: false,
+        isWithoutBroadcastTxIdAllowed: true,
+      }),
+    );
+  });
+
   test('rejects at the exact deadline after signing but before broadcast', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1000);
     const { service, vault } = makeService();
@@ -485,6 +615,41 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       signAndSend(service, { broadcastDeadline: 1000 }),
     ).resolves.toMatchObject({ txid: '0xtxid' });
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('logs a deadline block before the vault broadcast as not attempted', async () => {
+    let now = 999;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => {
+        if (
+          params.reason ===
+          'primeBroadcastDiagV1:beforeBroadcastActionCompleted'
+        ) {
+          now = 1000;
+        }
+        return params;
+      });
+    const { service, vault } = makeService();
+
+    await expect(
+      signAndSend(service, {
+        broadcastDeadline: 1000,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toBeInstanceOf(InvoiceExpiredError);
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'failed',
+        reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+        failureReason: 'broadcastNotAttempted',
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 
   test('durably marks the Infini session after signing and before broadcast', async () => {
@@ -1413,6 +1578,26 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
         beforeBroadcastAction,
       }),
     ).rejects.toThrow('exactly one transaction');
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('rejects an Infini sign-only batch through the shared broadcast guard', async () => {
+    const { service, vault, backgroundApi } = makeService();
+
+    await expect(
+      service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+        signOnly: true,
+        transferPayload: undefined,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
     expect(vault.signTransaction).not.toHaveBeenCalled();
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });

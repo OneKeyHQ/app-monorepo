@@ -17,6 +17,7 @@ export type IMarketTokenDetailRouteParams = {
   tokenAddress: string;
   network: string;
   marketTokenId?: string;
+  marketVariantId?: string;
   marketTokenCategory?: string;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
@@ -47,6 +48,7 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.MarketNativeDetail]: {
     network: string;
     marketTokenId?: string;
+    marketVariantId?: string;
     marketTokenCategory?: string;
     skipMarketDataFetch?: boolean;
     isNative?: boolean;

@@ -410,6 +410,43 @@ class ServiceSend extends ServiceBase {
         networkId,
       });
 
+    const isExternalAccount = accountUtils.isExternalAccount({ accountId });
+    let staticBroadcastSkipReason: string | undefined;
+    if (signOnly) {
+      staticBroadcastSkipReason = 'requestedSignOnly';
+    } else if (isExternalAccount) {
+      staticBroadcastSkipReason = 'externalAccount';
+    }
+    const primeBroadcastDiagnosticBase =
+      beforeBroadcastAction?.type === 'primeInfiniPayment'
+        ? {
+            ...beforeBroadcastAction.flowContext,
+            networkId,
+            hasBeforeBroadcastAction: true,
+            isSignOnlyRequested: Boolean(signOnly),
+            isExternalAccount,
+          }
+        : undefined;
+
+    if (primeBroadcastDiagnosticBase && staticBroadcastSkipReason) {
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...primeBroadcastDiagnosticBase,
+        stage: 'broadcast',
+        status: 'blocked',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: staticBroadcastSkipReason,
+        hasCompletedBeforeBroadcastAction: false,
+        hasAttemptedBroadcast: false,
+      });
+      throw new OneKeyLocalError({
+        message: 'Prime Infini payment requires a real broadcast',
+        autoToast: false,
+        data: {
+          primeInfiniBroadcastSkipReason: staticBroadcastSkipReason,
+        },
+      });
+    }
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
@@ -419,19 +456,49 @@ class ServiceSend extends ServiceBase {
 
     const devSetting =
       await this.backgroundApi.serviceDevSetting.getDevSetting();
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const isDevModeEnabled = Boolean(devSetting?.enabled);
+    const isAlwaysSignOnlySendTxConfigured = Boolean(
+      devSetting?.settings?.alwaysSignOnlySendTx,
+    );
     const alwaysSignOnlySendTxInDev =
-      devSetting?.settings?.alwaysSignOnlySendTx;
+      isDevModeEnabled && isAlwaysSignOnlySendTxConfigured;
+    const broadcastSkipReason = alwaysSignOnlySendTxInDev
+      ? 'alwaysSignOnlySendTx'
+      : staticBroadcastSkipReason;
+    const primeBroadcastDiagnosticContext = primeBroadcastDiagnosticBase
+      ? {
+          ...primeBroadcastDiagnosticBase,
+          isDevModeEnabled,
+          isAlwaysSignOnlySendTxConfigured,
+        }
+      : undefined;
+
+    if (primeBroadcastDiagnosticContext) {
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...primeBroadcastDiagnosticContext,
+        stage: 'broadcast',
+        status: broadcastSkipReason ? 'blocked' : 'started',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: broadcastSkipReason,
+        hasCompletedBeforeBroadcastAction: false,
+        hasAttemptedBroadcast: false,
+      });
+    }
+
+    if (primeBroadcastDiagnosticContext && broadcastSkipReason) {
+      throw new OneKeyLocalError({
+        message: 'Prime Infini payment requires a real broadcast',
+        autoToast: false,
+        data: {
+          primeInfiniBroadcastSkipReason: broadcastSkipReason,
+        },
+      });
+    }
 
     // skip external account send, as rawTx is empty
-    if (
-      !alwaysSignOnlySendTxInDev &&
-      !signOnly &&
-      !accountUtils.isExternalAccount({
-        accountId,
-      })
-    ) {
+    if (!broadcastSkipReason) {
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
       const vault = await vaultFactory.getVault({
         networkId,
         accountId,
@@ -658,10 +725,32 @@ class ServiceSend extends ServiceBase {
         );
         await ensurePrimePaymentUserIsCurrent();
         ensureBroadcastDeadline();
+        defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+          ...primeBroadcastDiagnosticContext,
+          stage: 'sessionPersistence',
+          status: 'succeeded',
+          reason: 'primeBroadcastDiagV1:beforeBroadcastActionCompleted',
+          sendStarted: markedSession.sendStarted,
+          hasCompletedBeforeBroadcastAction: true,
+          hasAttemptedBroadcast: false,
+        });
       }
 
+      let hasAttemptedBroadcast = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
+        if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
+          defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+            ...primeBroadcastDiagnosticContext,
+            stage: 'broadcast',
+            status: 'started',
+            reason: 'primeBroadcastDiagV1:vaultBroadcast',
+            sendStarted: true,
+            hasCompletedBeforeBroadcastAction: true,
+            hasAttemptedBroadcast: true,
+          });
+        }
+        hasAttemptedBroadcast = true;
         return vault.broadcastTransaction({
           accountId,
           networkId,
@@ -796,7 +885,47 @@ class ServiceSend extends ServiceBase {
         });
       };
 
-      const { txid } = await runBroadcast();
+      const { txid } = await runBroadcast().catch((error) => {
+        if (primeBroadcastDiagnosticContext) {
+          defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+            ...primeBroadcastDiagnosticContext,
+            stage: 'broadcast',
+            status: 'failed',
+            reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+            failureReason: hasAttemptedBroadcast
+              ? 'broadcastRejected'
+              : 'broadcastNotAttempted',
+            sendStarted: true,
+            hasCompletedBeforeBroadcastAction: true,
+            hasAttemptedBroadcast,
+            hasBroadcastTxId: false,
+            isWithoutBroadcastTxIdAllowed: Boolean(
+              vaultSettings.withoutBroadcastTxId,
+            ),
+          });
+        }
+        throw error;
+      });
+      const isBroadcastResultAccepted =
+        Boolean(txid) || Boolean(vaultSettings.withoutBroadcastTxId);
+      if (primeBroadcastDiagnosticContext) {
+        defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+          ...primeBroadcastDiagnosticContext,
+          stage: 'broadcast',
+          status: isBroadcastResultAccepted ? 'succeeded' : 'failed',
+          reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+          failureReason: isBroadcastResultAccepted
+            ? undefined
+            : 'broadcastMissingTxId',
+          sendStarted: true,
+          hasCompletedBeforeBroadcastAction: true,
+          hasAttemptedBroadcast,
+          hasBroadcastTxId: Boolean(txid),
+          isWithoutBroadcastTxIdAllowed: Boolean(
+            vaultSettings.withoutBroadcastTxId,
+          ),
+        });
+      }
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
           return signedTx;
@@ -936,7 +1065,7 @@ class ServiceSend extends ServiceBase {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
         const buildSignedTx = () =>
-          signOnly
+          signOnly && !beforeBroadcastAction
             ? this.signTransaction({
                 unsignedTx,
                 accountId,
@@ -947,7 +1076,7 @@ class ServiceSend extends ServiceBase {
                 unsignedTx,
                 networkId,
                 accountId,
-                signOnly: false,
+                signOnly: Boolean(signOnly),
                 tronResourceRentalInfo,
                 gasAccountUiState: effectiveGasAccountUiState,
                 gasAccountSubmitId: effectiveGasAccountSubmitId,

@@ -2,7 +2,6 @@ import { Notification, app, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import { isNil } from 'lodash';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type {
   INotificationPermissionDetail,
   INotificationSetBadgeParams,
@@ -10,17 +9,9 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
-import type { IDesktopApi } from './instance/IDesktopApi';
+import WindowsTaskbarBadge from './WindowsTaskbarBadge';
 
-// The package's ESM entry incorrectly resolves BadgeGenerator under Rspack.
-// Use the CommonJS entry, whose export shape is compatible with Electron's main process.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const TaskBarBadgeWindows = require('electron-taskbar-badge') as new (
-  win: object,
-  options: object,
-) => {
-  update(badgeNumber: number): void;
-};
+import type { IDesktopApi } from './instance/IDesktopApi';
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -307,9 +298,7 @@ class DesktopApiNotification {
 
   desktopApi: IDesktopApi;
 
-  private win32TaskBarBadge?: {
-    update(badgeNumber: number): void;
-  };
+  private win32TaskBarBadge?: WindowsTaskbarBadge;
 
   private initWin32TaskBarBadge(APP_NAME: string) {
     if (process.platform === 'win32') {
@@ -318,24 +307,8 @@ class DesktopApiNotification {
         globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
 
       if (safelyMainWindow) {
-        // TODO not working on Windows 11 (UTM)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        this.win32TaskBarBadge = new TaskBarBadgeWindows(safelyMainWindow, {
-          fontColor: '#000000',
-          font: '62px Microsoft Yahei',
-          color: '#000000',
-          radius: 48,
-          updateBadgeEvent: ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-          badgeDescription: '',
-          invokeType: 'handle', // handle -> ipcRenderer.invoke,  send -> ipcRenderer.sendSync
-          max: 99,
-          fit: false,
-          useSystemAccentTheme: true,
-          additionalFunc: (count: number) => {
-            console.log(`Received ${count} new notifications!`);
-          },
-        });
-        console.log('TaskBarBadgeWindows init');
+        this.win32TaskBarBadge = new WindowsTaskbarBadge(safelyMainWindow);
+        logger.info('Windows taskbar badge initialized');
       }
     }
   }
@@ -376,8 +349,9 @@ class DesktopApiNotification {
     if (isWin) {
       const win = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
       if (win) {
-        if (!isNil(count) && count > 0) {
-          this.win32TaskBarBadge?.update(count);
+        const badgeCount = !isNil(count) && count > 0 ? count : 0;
+        if (this.win32TaskBarBadge) {
+          await this.win32TaskBarBadge.update(badgeCount);
         } else {
           win.setOverlayIcon(null, '');
         }

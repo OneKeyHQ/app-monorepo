@@ -4,6 +4,8 @@ import { Spinner, Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
+
 import type { IMarketTradingViewProps } from './MarketTradingView';
 
 const SLOW_CHART_LOADING_DELAY_MS = 1500;
@@ -32,7 +34,7 @@ const LazyDesktopMarketTradingViewModule = LazyLoad<IMarketTradingViewProps>(
       default: MarketTradingView,
     })),
   undefined,
-  <ChartLoadingFallback minHeight={550} />,
+  <ChartLoadingFallback minHeight={MARKET_DESKTOP_CHART_MIN_HEIGHT} />,
 );
 
 const LazyMobileMarketTradingViewModule = LazyLoad<IMarketTradingViewProps>(
@@ -125,7 +127,7 @@ function createLazyMarketTradingView(
 
 export const LazyDesktopMarketTradingView = createLazyMarketTradingView(
   LazyDesktopMarketTradingViewModule,
-  550,
+  MARKET_DESKTOP_CHART_MIN_HEIGHT,
 );
 
 export const LazyMobileMarketTradingView = createLazyMarketTradingView(

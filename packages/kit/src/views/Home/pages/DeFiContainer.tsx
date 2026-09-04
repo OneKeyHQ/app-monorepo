@@ -152,7 +152,7 @@ function DeFiContainer() {
 
   // Warm the image cache for every protocol logo + every position
   // asset/debt/reward icon the expanded cards will eventually render.
-  // expo-image dedupes by URL internally, but we also track what we've
+  // The native image cache dedupes by URL internally, but we also track what we've
   // already requested so we don't rebuild the URL list when
   // protocols/protocolMap re-reference identically. Without the preload
   // pass, the first time a protocol card mounts (initial open, or after
@@ -173,7 +173,7 @@ function DeFiContainer() {
     );
     void Image.preloadImages(fresh);
   }, [protocols, protocolMap]);
-  // Reset the dedup memo on account/network change. expo-image's own
+  // Reset the dedup memo on account/network change. The native cache's own
   // cache survives the reset (we're only clearing our "already asked"
   // bookkeeping), so visited-but-now-irrelevant URLs don't accumulate
   // across long sessions of account/network switching.

@@ -63,6 +63,12 @@ describe('TradingViewNative active interval storage', () => {
         stockId: 'AAPL',
       }),
     ).toBe('stock');
+    expect(
+      getTradingViewNativeIntervalStorageNamespace({
+        kind: 'asset',
+        assetId: 'doge',
+      }),
+    ).toBe('asset');
   });
 
   it('restores only supported saved intervals', () => {

@@ -45,35 +45,148 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
-// Below this spread there's no real split to find — a near-solid color with
-// JPEG block noise — so Otsu would binarize the noise into a checkerboard.
-const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
+// Dither images whose Otsu split falls below this confidence threshold.
+const MIN_SEPARABILITY = 0.85;
 
-// Cutting a near-solid image at any threshold would only binarize its noise, and a spread
-// that straddles the cut point is where it shows up as a checkerboard. Such an image goes
-// out solid black: polarity cannot survive here anyway, because a solid white field is
-// inverted straight back by shouldInvertForMajorityWhite.
-export function hasSplittableLuminanceRange(
-  luminanceMin: number,
-  luminanceMax: number,
+// Noisy luminance can make color outliers look perfectly separable.
+const FLAT_LUMINANCE_VARIANCE = 4;
+
+type IProjection = (red: number, green: number, blue: number) => number;
+
+const CHROMA_AXES: IProjection[] = [
+  (red) => red,
+  (_red, green) => green,
+  (_red, _green, blue) => blue,
+  (red, green) => Math.round((red - green + 255) / 2),
+  (red, green, blue) => Math.round((blue - (red + green) / 2 + 255) / 2),
+];
+
+function projectPixels(data: Uint8ClampedArray, project: IProjection) {
+  const pixelCount = data.length / 4;
+  const values = new Uint8ClampedArray(pixelCount);
+  const histogram = new Array<number>(256).fill(0);
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    values[p] = project(data[i], data[i + 1], data[i + 2]);
+    histogram[values[p]] += 1;
+  }
+  return { values, histogram, pixelCount };
+}
+
+// Returns the threshold axis, polarity, and whether the split is reliable.
+export function pickThresholdAxis(data: Uint8ClampedArray) {
+  const {
+    values: luminance,
+    histogram,
+    pixelCount,
+  } = projectPixels(data, toGrayScale);
+  const brightness = otsuFromHistogram(histogram, pixelCount);
+  const cut = (values: Uint8ClampedArray, threshold: number) => ({
+    values,
+    luminance,
+    threshold,
+    canSplit: true,
+    aboveIsBrighter: isAboveThresholdBrighter(values, luminance, threshold),
+  });
+
+  if (brightness.separability >= MIN_SEPARABILITY) {
+    return cut(luminance, brightness.threshold);
+  }
+
+  // Chroma can rescue equal-luminance colors only when luminance is flat.
+  if (brightness.variance < FLAT_LUMINANCE_VARIANCE) {
+    for (const project of CHROMA_AXES) {
+      const projected = projectPixels(data, project);
+      const chroma = otsuFromHistogram(projected.histogram, pixelCount);
+      if (chroma.separability >= MIN_SEPARABILITY) {
+        return cut(projected.values, chroma.threshold);
+      }
+    }
+  }
+
+  return {
+    values: luminance,
+    luminance,
+    threshold: 128,
+    canSplit: false,
+    aboveIsBrighter: true,
+  };
+}
+
+// Atkinson's 6/8 error diffusion preserves contrast on small screens.
+export function atkinsonDither(
+  luminance: Uint8ClampedArray,
+  width: number,
+): Uint8Array {
+  const height = Math.floor(luminance.length / width);
+  const error = new Float32Array(luminance.length);
+  const out = new Uint8Array(luminance.length);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = y * width + x;
+      const value = luminance[i] + error[i];
+      const black = value < 128;
+      out[i] = black ? 0 : 255;
+      const diffused = (value - (black ? 0 : 255)) / 8;
+
+      const spread = (dx: number, dy: number) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= width || ny >= height) {
+          return;
+        }
+        error[ny * width + nx] += diffused;
+      };
+      spread(1, 0);
+      spread(2, 0);
+      spread(-1, 1);
+      spread(0, 1);
+      spread(1, 1);
+      spread(0, 2);
+    }
+  }
+  return out;
+}
+
+// Derive polarity from cluster means because projection direction may differ.
+function isAboveThresholdBrighter(
+  values: Uint8ClampedArray,
+  luminance: Uint8ClampedArray,
+  threshold: number,
 ): boolean {
-  return luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU;
+  let sumAbove = 0;
+  let sumBelow = 0;
+  let countAbove = 0;
+  for (let p = 0; p < values.length; p += 1) {
+    if (values[p] > threshold) {
+      sumAbove += luminance[p];
+      countAbove += 1;
+    } else {
+      sumBelow += luminance[p];
+    }
+  }
+  const countBelow = values.length - countAbove;
+  if (countAbove === 0 || countBelow === 0) {
+    return true;
+  }
+  return sumAbove / countAbove >= sumBelow / countBelow;
 }
 
 // Only invert when white is unambiguously the majority; near 50% the Otsu
 // threshold tracks the image's own median, so the ratio is noise-sensitive.
 const INVERT_DEAD_ZONE = 0.05;
 
-// Threshold that maximizes between-class variance, separating an image's own bright/dark clusters.
-export function otsuThreshold(luminance: Uint8ClampedArray): number {
-  const histogram = new Array<number>(256).fill(0);
-  for (let p = 0; p < luminance.length; p += 1) {
-    histogram[luminance[p]] += 1;
-  }
-
-  const total = luminance.length;
+// Finds Otsu's threshold and its share of total variance.
+export function otsuFromHistogram(histogram: number[], total: number) {
   let sum = 0;
   for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
+
+  const mean = total === 0 ? 0 : sum / total;
+  let totalVariance = 0;
+  for (let t = 0; t < 256; t += 1) {
+    totalVariance += histogram[t] * (t - mean) * (t - mean);
+  }
+  totalVariance = total === 0 ? 0 : totalVariance / total;
 
   let sumBackground = 0;
   let weightBackground = 0;
@@ -89,8 +202,8 @@ export function otsuThreshold(luminance: Uint8ClampedArray): number {
       const meanBackground = sumBackground / weightBackground;
       const meanForeground = (sum - sumBackground) / weightForeground;
       const betweenClassVariance =
-        weightBackground *
-        weightForeground *
+        (weightBackground / total) *
+        (weightForeground / total) *
         (meanBackground - meanForeground) *
         (meanBackground - meanForeground);
       if (betweenClassVariance > maxVariance) {
@@ -99,7 +212,12 @@ export function otsuThreshold(luminance: Uint8ClampedArray): number {
       }
     }
   }
-  return threshold;
+
+  return {
+    threshold,
+    separability: totalVariance === 0 ? 0 : maxVariance / totalVariance,
+    variance: totalVariance,
+  };
 }
 
 // Reverse only when white is unambiguously the majority. Near 50% the Otsu
@@ -175,34 +293,28 @@ function convertToBlackAndWhiteImageBase64(
       const data = imageData.data;
       const pixelCount = data.length / 4;
 
-      // Perceptual luminance instead of a plain RGB average, which under-weights green.
-      const luminance = new Uint8ClampedArray(pixelCount);
-      let luminanceMin = 255;
-      let luminanceMax = 0;
-      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const value = toGrayScale(data[i], data[i + 1], data[i + 2]);
-        luminance[p] = value;
-        if (value < luminanceMin) luminanceMin = value;
-        if (value > luminanceMax) luminanceMax = value;
-      }
+      // Prefer luminance, using chroma only for equal-luminance colors.
+      const { values, luminance, threshold, canSplit, aboveIsBrighter } =
+        pickThresholdAxis(data);
 
-      // Otsu threshold instead of a fixed 128 — adapts per image, unless there is nothing to split.
-      const canSplit = hasSplittableLuminanceRange(luminanceMin, luminanceMax);
-      let threshold = 128;
-      if (canSplit) {
-        try {
-          threshold = otsuThreshold(luminance);
-        } catch (error) {
-          console.error(
-            'otsuThreshold failed, falling back to threshold 128',
-            error,
-          );
+      // Dither continuous tones instead of producing a blank bitmap.
+      if (!canSplit) {
+        const dithered = atkinsonDither(luminance, canvas.width);
+        for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+          data[i] = dithered[p];
+          data[i + 1] = dithered[p];
+          data[i + 2] = dithered[p];
         }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL(mime || 'image/jpeg'));
+        return;
       }
 
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const bw = canSplit && luminance[p] > threshold ? 255 : 0;
+        const isAbove = values[p] > threshold;
+        const isWhite = isAbove === aboveIsBrighter;
+        const bw = isWhite ? 255 : 0;
         if (bw === 255) {
           whiteCount += 1;
         }
