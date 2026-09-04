@@ -10,27 +10,18 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Stack } from '@onekeyhq/components';
+import { LinearGradient, Stack } from '@onekeyhq/components';
 
-import SignGuardIcon, {
-  SIGN_GUARD_ICON_HEIGHT,
-  SIGN_GUARD_ICON_WIDTH,
-} from '../SimilarAddressDialog/SignGuardIcon';
-const SHEEN_OPACITY = 0.45;
-const SHEEN_TILT_DEG = -18;
+import SignGuardIcon from '../SimilarAddressDialog/SignGuardIcon';
 
-function ShimmerSignGuard({
-  width = SIGN_GUARD_ICON_WIDTH,
-  height = SIGN_GUARD_ICON_HEIGHT,
-}: {
-  width?: number;
-  height?: number;
-}) {
+const ICON_WIDTH = 80;
+const SHIMMER_BAND = 24;
+
+function ShimmerSignGuard() {
   const reducedMotion = useReducedMotion();
-  const band = Math.max(16, Math.round(width * 0.3));
-  const translate = useSharedValue(-band);
-  const end = width + band;
-  const start = -band;
+  const translate = useSharedValue(-SHIMMER_BAND);
+  const END = ICON_WIDTH + SHIMMER_BAND;
+  const START = -SHIMMER_BAND;
   const FAST = 350;
   const SLOW = 1500;
 
@@ -45,68 +36,41 @@ function ShimmerSignGuard({
     translate.value = withDelay(
       1200,
       withSequence(
-        sweep(end, FAST),
-        reset(start),
-        sweep(end, FAST),
-        reset(start),
-        withDelay(200, sweep(end, SLOW)),
+        sweep(END, FAST),
+        reset(START),
+        sweep(END, FAST),
+        reset(START),
+        withDelay(200, sweep(END, SLOW)),
       ),
     );
-  }, [translate, end, start, FAST, SLOW, reducedMotion]);
+  }, [translate, END, START, FAST, SLOW, reducedMotion]);
 
-  const clipStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translate.value },
-      { rotate: `${SHEEN_TILT_DEG}deg` },
-    ],
-  }));
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: -translate.value },
-      { rotate: `${-SHEEN_TILT_DEG}deg` },
-    ],
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translate.value }],
   }));
 
   return (
-    <Stack
-      accessibilityRole="image"
-      accessibilityLabel="SignGuard"
-      style={{ width, height, overflow: 'hidden' }}
-    >
-      <SignGuardIcon
-        width={width}
-        height={height}
-        accessibilityRole={undefined}
-      />
+    <Stack style={{ width: ICON_WIDTH, height: 14, overflow: 'hidden' }}>
+      <SignGuardIcon width={ICON_WIDTH} height={14} />
       {reducedMotion ? null : (
         <Animated.View
-          pointerEvents="none"
           style={[
             {
               position: 'absolute',
-              top: -height,
-              left: 0,
-              width: band,
-              height: height * 3,
-              overflow: 'hidden',
-              opacity: SHEEN_OPACITY,
+              top: 0,
+              bottom: 0,
+              width: SHIMMER_BAND,
             },
-            clipStyle,
+            shimmerStyle,
           ]}
+          pointerEvents="none"
         >
-          <Animated.View
-            style={[
-              { position: 'absolute', top: height, left: 0, width },
-              contentStyle,
-            ]}
-          >
-            <SignGuardIcon
-              sheen
-              width={width}
-              height={height}
-              accessibilityRole={undefined}
-            />
-          </Animated.View>
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.25)', 'transparent']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={{ flex: 1 }}
+          />
         </Animated.View>
       )}
     </Stack>
