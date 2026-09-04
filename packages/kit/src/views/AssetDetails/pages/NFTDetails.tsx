@@ -37,7 +37,7 @@ import {
   generatePro2NftMetadata,
   generateUploadNFTParams,
   isCollectNFTDeviceCompatible,
-  isCollectibleNftImageMimeType,
+  isCollectibleNftMediaSupportedOnDevice,
 } from '@onekeyhq/shared/src/utils/nftUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -111,33 +111,50 @@ export default function NFTDetails() {
   );
 
   const { network, nft, device } = result ?? {};
+  const collectibleImageSource = nft?.metadata?.image;
+  const canCollectCurrentNFT = Boolean(canCollectNFT(nft, device));
+  const isProtocolV2Product = isProtocolV2ProductType(device?.deviceType);
   const collectibleImageUri =
     preparedCollectibleImage &&
-    preparedCollectibleImage.source === nft?.metadata?.image
+    preparedCollectibleImage.source === collectibleImageSource
       ? preparedCollectibleImage.uri
       : undefined;
+  const canShowCollectNFTAction =
+    canCollectCurrentNFT &&
+    (!isProtocolV2Product || Boolean(collectibleImageUri));
 
   useEffect(() => {
     let isCurrent = true;
+    let preparedImageCleanup: (() => Promise<void>) | undefined;
     setPreparedCollectibleImage(undefined);
 
-    if (!canCollectNFT(nft, device)) {
+    if (
+      !canCollectCurrentNFT ||
+      !isProtocolV2Product ||
+      !collectibleImageSource
+    ) {
       return () => {
         isCurrent = false;
       };
     }
 
     void imageUtils
-      .prepareImageForCropWithInfo(nft?.metadata?.image)
+      .prepareImageForCropWithInfo(collectibleImageSource)
       .then((preparedImage) => {
+        preparedImageCleanup = preparedImage.cleanup;
         if (
           isCurrent &&
-          isCollectibleNftImageMimeType(preparedImage.mimeType)
+          isCollectibleNftMediaSupportedOnDevice(
+            device?.deviceType,
+            preparedImage.mimeType,
+          )
         ) {
           setPreparedCollectibleImage({
-            source: nft?.metadata?.image ?? '',
+            source: collectibleImageSource,
             uri: preparedImage.uri,
           });
+        } else {
+          void preparedImage.cleanup?.();
         }
       })
       .catch(() => {
@@ -146,18 +163,23 @@ export default function NFTDetails() {
 
     return () => {
       isCurrent = false;
+      void preparedImageCleanup?.();
     };
-  }, [device, nft]);
+  }, [
+    canCollectCurrentNFT,
+    collectibleImageSource,
+    device?.deviceType,
+    isProtocolV2Product,
+  ]);
 
   const handleCollectNFTToDevice = useCallback(
     async (close: () => void) => {
       close();
-      if (!nft || !collectibleImageUri || !device) return;
+      if (!nft || !collectibleImageSource || !device) return;
 
       setIsCollecting(true);
       let uploadResParams: DeviceUploadResourceParams | undefined;
       let pro2UploadParams: IPro2NftUploadParams | undefined;
-      const isProtocolV2Product = isProtocolV2ProductType(device.deviceType);
 
       let config: Awaited<
         ReturnType<typeof backgroundApiProxy.serviceHardware.getDeviceNftConfig>
@@ -187,9 +209,25 @@ export default function NFTDetails() {
       }
 
       let croppedImage: IPickerImage | undefined;
+      let actionPreparedImageCleanup: (() => Promise<void>) | undefined;
       try {
+        let imageUri = collectibleImageUri;
+        if (!isProtocolV2Product) {
+          const preparedImage = await imageUtils.prepareImageForCropWithInfo(
+            collectibleImageSource,
+          );
+          imageUri = preparedImage.uri;
+          actionPreparedImageCleanup = preparedImage.cleanup;
+        }
+        if (!imageUri) {
+          throw new OneKeyAppError({
+            message: intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            }),
+          });
+        }
         croppedImage = await ImageCrop.openCropImage(
-          collectibleImageUri,
+          imageUri,
           config.size?.width,
           config.size?.height,
         );
@@ -211,6 +249,8 @@ export default function NFTDetails() {
           return;
         }
         // ignore error
+      } finally {
+        await actionPreparedImageCleanup?.();
       }
 
       if (!croppedImage || !croppedImage?.data) {
@@ -332,9 +372,11 @@ export default function NFTDetails() {
     },
     [
       accountId,
+      collectibleImageSource,
       collectibleImageUri,
       device,
       intl,
+      isProtocolV2Product,
       network?.name,
       networkId,
       nft,
@@ -343,7 +385,7 @@ export default function NFTDetails() {
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
-    if (device && collectibleImageUri) {
+    if (device && canShowCollectNFTAction) {
       actions.push({
         label: intl.formatMessage(
           {
@@ -374,7 +416,7 @@ export default function NFTDetails() {
       />
     );
   }, [
-    collectibleImageUri,
+    canShowCollectNFTAction,
     device,
     handleCollectNFTToDevice,
     intl,

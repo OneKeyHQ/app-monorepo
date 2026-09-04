@@ -19,12 +19,14 @@ describe('NFT device collection compatibility', () => {
 });
 
 describe('NFT collectible media compatibility', () => {
-  test.each(['image/jpeg', 'image/png', 'image/bmp; charset=binary'])(
-    'accepts a static image: %s',
-    (mimeType) => {
-      expect(nftUtils.isCollectibleNftImageMimeType(mimeType)).toBe(true);
-    },
-  );
+  test.each([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/bmp; charset=binary',
+  ])('accepts a static image: %s', (mimeType) => {
+    expect(nftUtils.isCollectibleNftImageMimeType(mimeType)).toBe(true);
+  });
 
   test.each([
     'image/gif',
@@ -35,6 +37,39 @@ describe('NFT collectible media compatibility', () => {
     undefined,
   ])('rejects unsupported or dynamic media: %s', (mimeType) => {
     expect(nftUtils.isCollectibleNftImageMimeType(mimeType)).toBe(false);
+  });
+
+  it('limits dynamic media only on Protocol V2 devices', () => {
+    expect(
+      nftUtils.isCollectibleNftMediaSupportedOnDevice(
+        EDeviceType.Touch,
+        'image/gif',
+      ),
+    ).toBe(true);
+    expect(
+      nftUtils.isCollectibleNftMediaSupportedOnDevice(
+        EDeviceType.Pro,
+        'image/apng',
+      ),
+    ).toBe(true);
+    expect(
+      nftUtils.isCollectibleNftMediaSupportedOnDevice(
+        EDeviceType.Pro2,
+        'image/gif',
+      ),
+    ).toBe(false);
+    expect(
+      nftUtils.isCollectibleNftMediaSupportedOnDevice(
+        EDeviceType.Neo,
+        'image/apng',
+      ),
+    ).toBe(false);
+    expect(
+      nftUtils.isCollectibleNftMediaSupportedOnDevice(
+        EDeviceType.Pro2,
+        'image/png',
+      ),
+    ).toBe(true);
   });
 });
 

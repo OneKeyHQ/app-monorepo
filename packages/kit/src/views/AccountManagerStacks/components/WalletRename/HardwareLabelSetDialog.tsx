@@ -22,7 +22,10 @@ import {
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
-import { getHardwareLabelValidationError } from './hardwareLabelValidation';
+import {
+  getHardwareLabelValidationError,
+  normalizeHardwareLabelValue,
+} from './hardwareLabelValidation';
 
 import type { IntlShape } from 'react-intl';
 
@@ -32,6 +35,7 @@ function DeviceLabelFormField(props: {
   maxLength?: number;
   disabledMaxLengthLabel?: boolean;
   description?: string;
+  trimOuterWhitespace?: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -40,15 +44,21 @@ function DeviceLabelFormField(props: {
     maxLength = MAX_LENGTH_HW_LABEL_NAME,
     disabledMaxLengthLabel = true,
     description,
+    trimOuterWhitespace,
   } = props;
   const labelValue = useFormWatch<{ name: string }>({ name: 'name' }) ?? '';
+  const normalizedLabelValue = normalizeHardwareLabelValue(
+    labelValue,
+    trimOuterWhitespace,
+  );
   const validationError = getHardwareLabelValidationError({
     value: labelValue,
     maxLength,
     asciiOnly,
+    trimOuterWhitespace,
   });
   let validationErrorMessage: string | undefined;
-  if (!labelValue.trim()) {
+  if (!normalizedLabelValue) {
     validationErrorMessage = intl.formatMessage({
       id: ETranslations.form_rename_error_empty,
     });
@@ -71,12 +81,20 @@ function DeviceLabelFormField(props: {
         id: ETranslations.global_hardware_label_title,
       })}
       rules={{
-        maxLength: {
-          value: maxLength,
-          message: 'Label is too long',
-        },
+        ...(trimOuterWhitespace
+          ? {}
+          : {
+              maxLength: {
+                value: maxLength,
+                message: 'Label is too long',
+              },
+            }),
         validate: (value: string) => {
-          if (!value.trim()) {
+          const normalizedValue = normalizeHardwareLabelValue(
+            value,
+            trimOuterWhitespace,
+          );
+          if (!normalizedValue) {
             return intl.formatMessage({
               id: ETranslations.form_rename_error_empty,
             });
@@ -85,6 +103,7 @@ function DeviceLabelFormField(props: {
             value,
             maxLength,
             asciiOnly,
+            trimOuterWhitespace,
           });
           if (formValidationError === 'tooLong') {
             return intl.formatMessage({
@@ -113,6 +132,7 @@ function DeviceLabelFormField(props: {
         validationErrorTestID={AccountManagerTestIDs.walletRenameError}
         disabledMaxLengthLabel={disabledMaxLengthLabel}
         maxLength={maxLength}
+        trimOuterWhitespace={trimOuterWhitespace}
         description={
           description ??
           intl.formatMessage({
@@ -136,6 +156,7 @@ function DeviceLabelDialogContent(props: {
   maxLength?: number;
   disabledMaxLengthLabel?: boolean;
   description?: string;
+  trimOuterWhitespace?: boolean;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
@@ -148,6 +169,7 @@ function DeviceLabelDialogContent(props: {
     maxLength,
     disabledMaxLengthLabel,
     description,
+    trimOuterWhitespace,
     onSubmit,
   } = props;
 
@@ -166,6 +188,7 @@ function DeviceLabelDialogContent(props: {
           maxLength={maxLength}
           disabledMaxLengthLabel={disabledMaxLengthLabel}
           description={description}
+          trimOuterWhitespace={trimOuterWhitespace}
         />
       </Dialog.Form>
       <Dialog.Footer
@@ -185,7 +208,12 @@ function DeviceLabelDialogContent(props: {
             if (!form) {
               return;
             }
-            await onSubmit(form?.getValues().name);
+            await onSubmit(
+              normalizeHardwareLabelValue(
+                form?.getValues().name,
+                trimOuterWhitespace,
+              ),
+            );
             // fix toast dropped frames
             await close();
             Toast.success({
@@ -217,12 +245,14 @@ export const showLabelSetDialog = async (
     maxLength,
     disabledMaxLengthLabel,
     description,
+    trimOuterWhitespace,
     ...dialogProps
   }: IDialogShowProps & {
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
     disabledMaxLengthLabel?: boolean;
     description?: string;
+    trimOuterWhitespace?: boolean;
   },
 ) => {
   try {
@@ -242,6 +272,7 @@ export const showLabelSetDialog = async (
           maxLength={maxLength}
           disabledMaxLengthLabel={disabledMaxLengthLabel}
           description={description}
+          trimOuterWhitespace={trimOuterWhitespace}
           onSubmit={onSubmit}
         />
       ),

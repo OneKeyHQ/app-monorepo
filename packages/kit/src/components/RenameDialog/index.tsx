@@ -111,6 +111,7 @@ export function RenameInputWithNameSelector({
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
   inputTestID,
+  trimOuterWhitespace = false,
 }: {
   maxLength?: number;
   value?: string;
@@ -128,8 +129,12 @@ export function RenameInputWithNameSelector({
     contentType: EChangeHistoryContentType.Name;
   };
   inputTestID?: string;
+  trimOuterWhitespace?: boolean;
 }) {
   const intl = useIntl();
+  const valueLength = trimOuterWhitespace
+    ? value?.trim().length || 0
+    : value?.length || 0;
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
       if (indexedAccount) {
@@ -150,7 +155,7 @@ export function RenameInputWithNameSelector({
           error={forceHasError ?? hasError}
           size="large"
           $gtMd={{ size: 'medium' }}
-          maxLength={maxLength}
+          maxLength={trimOuterWhitespace ? undefined : maxLength}
           autoFocus
           value={value}
           onChangeText={onChange}
@@ -187,7 +192,7 @@ export function RenameInputWithNameSelector({
         })}
       </Form.FieldDescription>
       {disabledMaxLengthLabel ? null : (
-        <Form.FieldDescription textAlign="right">{`${value?.length || 0}/${
+        <Form.FieldDescription textAlign="right">{`${valueLength}/${
           maxLength ?? ''
         }`}</Form.FieldDescription>
       )}

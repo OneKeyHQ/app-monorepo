@@ -1,10 +1,14 @@
-import { getHardwareLabelValidationError } from './hardwareLabelValidation';
+import {
+  getHardwareLabelValidationError,
+  normalizeHardwareLabelValue,
+} from './hardwareLabelValidation';
 
 const validatePro2Label = (value: string) =>
   getHardwareLabelValidationError({
     value,
     maxLength: 14,
     asciiOnly: true,
+    trimOuterWhitespace: true,
   });
 
 describe('getHardwareLabelValidationError', () => {
@@ -30,6 +34,12 @@ describe('getHardwareLabelValidationError', () => {
     expect(validatePro2Label('A'.repeat(15))).toBe('tooLong');
   });
 
+  it('ignores removable outer spaces for the Pro2 byte limit', () => {
+    const value = '  12345678901234  ';
+    expect(validatePro2Label(value)).toBeUndefined();
+    expect(normalizeHardwareLabelValue(value, true)).toBe('12345678901234');
+  });
+
   it('keeps printable punctuation available for Trezor labels', () => {
     expect(
       getHardwareLabelValidationError({
@@ -38,5 +48,15 @@ describe('getHardwareLabelValidationError', () => {
         asciiOnly: true,
       }),
     ).toBeUndefined();
+  });
+
+  it('does not trim labels unless the device opts into normalization', () => {
+    expect(
+      getHardwareLabelValidationError({
+        value: ' 12345678901234 ',
+        maxLength: 14,
+        asciiOnly: true,
+      }),
+    ).toBe('tooLong');
   });
 });

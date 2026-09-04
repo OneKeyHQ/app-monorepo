@@ -99,6 +99,7 @@ export function WalletRenameButton({
                     ? PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH
                     : undefined,
                   disabledMaxLengthLabel: !isProtocolV2Product,
+                  trimOuterWhitespace: isProtocolV2Product,
                   description: isProtocolV2Product
                     ? `${intl.formatMessage(
                         {

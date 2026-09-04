@@ -39,11 +39,13 @@ type ILocalImageUri = {
   base64Uri: string;
   nativeUri?: string; // only Native .file:/// path
   mimeType?: string;
+  cleanup?: () => Promise<void>;
 };
 
 export type IPreparedImageForCrop = {
   uri: string;
   mimeType?: string;
+  cleanup?: () => Promise<void>;
 };
 
 const range = (length: number) => [...Array(length).keys()];
@@ -268,7 +270,7 @@ function prefixBase64Uri(base64: string, mime: string): string {
 }
 
 function stripBase64UriPrefix(base64Uri: string): string {
-  return base64Uri.replace(/^data:image\/\w+;base64,/, '');
+  return base64Uri.replace(/^data:[^,]*;base64,/, '');
 }
 
 function convertToBlackAndWhiteImageBase64(
@@ -665,10 +667,45 @@ async function resizeImage(params: {
   return { ...imageResult, hex };
 }
 
-/**
- * Detect MIME type from file magic bytes (file signature)
- */
-function detectMimeTypeFromMagicBytes(base64: string): string | null {
+function readBase64Bytes(base64: string, offset: number, length: number) {
+  const base64Start = Math.floor(offset / 3) * 4;
+  const byteOffset = offset - Math.floor(offset / 3) * 3;
+  const base64Length = Math.ceil((byteOffset + length) / 3) * 4;
+  return Buffer.from(
+    base64.substring(base64Start, base64Start + base64Length),
+    'base64',
+  ).subarray(byteOffset, byteOffset + length);
+}
+
+function isAnimatedPng(base64: string): boolean {
+  let paddingLength = 0;
+  if (base64.endsWith('==')) {
+    paddingLength = 2;
+  } else if (base64.endsWith('=')) {
+    paddingLength = 1;
+  }
+  const byteLength = Math.floor((base64.length * 3) / 4) - paddingLength;
+  let offset = 8;
+
+  while (offset + 12 <= byteLength) {
+    const chunkHeader = readBase64Bytes(base64, offset, 8);
+    if (chunkHeader.length < 8) return false;
+
+    const dataLength = chunkHeader.readUInt32BE(0);
+    const chunkType = chunkHeader.toString('ascii', 4, 8);
+    if (chunkType === 'acTL') return true;
+    if (chunkType === 'IDAT' || chunkType === 'IEND') return false;
+
+    const nextOffset = offset + 12 + dataLength;
+    if (nextOffset <= offset || nextOffset > byteLength) return false;
+    offset = nextOffset;
+  }
+
+  return false;
+}
+
+/** Detect MIME type from file magic bytes and PNG chunk metadata. */
+export function detectMimeTypeFromMagicBytes(base64: string): string | null {
   if (!base64) return null;
 
   // Get first few bytes from base64
@@ -679,7 +716,9 @@ function detectMimeTypeFromMagicBytes(base64: string): string | null {
   // JPEG: FF D8 FF
   if (bytes.startsWith('/9j/')) return 'image/jpeg';
   // PNG: 89 50 4E 47
-  if (bytes.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (bytes.startsWith('iVBORw0KGgo')) {
+    return isAnimatedPng(base64) ? 'image/apng' : 'image/png';
+  }
   // GIF: 47 49 46 38
   if (bytes.startsWith('R0lGOD')) return 'image/gif';
   // WebP: RIFF....WEBP
@@ -704,6 +743,14 @@ function detectMimeTypeFromMagicBytes(base64: string): string | null {
   if (bytes.startsWith('GkXfo')) return 'video/webm';
 
   return null;
+}
+
+export function getImageMimeTypeFromBase64Uri(base64Uri: string) {
+  const declaredMimeType = base64Uri.match(/^data:([^;,]+)/u)?.[1];
+  const detectedMimeType = detectMimeTypeFromMagicBytes(
+    stripBase64UriPrefix(base64Uri),
+  );
+  return detectedMimeType || declaredMimeType;
 }
 
 function getBlacklistByMimetype(mimetype: string) {
@@ -888,6 +935,7 @@ async function nativeSaveBaseUriToCache({
 }): Promise<{
   uri: string;
   mimetype?: string;
+  cleanup?: () => Promise<void>;
 }> {
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 10_000);
@@ -898,19 +946,45 @@ async function nativeSaveBaseUriToCache({
 
   let newUri = uri;
   let mimetype;
+  let cleanup: (() => Promise<void>) | undefined;
   if (isHttpUri(uri)) {
     logFn?.('(native) download remote image', savedPath, uri);
 
-    // eslint-disable-next-line no-param-reassign
-    const result = await ExpoFSDownloadAsync(uri, savedPath);
-    mimetype = result.headers?.['content-type'];
-    newUri = result.uri;
+    cleanup = createNativeCacheCleanup(savedPath);
+    try {
+      // eslint-disable-next-line no-param-reassign
+      const result = await ExpoFSDownloadAsync(uri, savedPath);
+      mimetype = result.headers?.['content-type'];
+      newUri = result.uri;
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
     logFn?.('(native) download to local uri', uri);
   } else if (isBase64Uri(uri)) {
-    newUri = await nativeSaveBase64ToCache({ uri, savedPath, logFn });
+    cleanup = createNativeCacheCleanup(savedPath);
+    try {
+      newUri = await nativeSaveBase64ToCache({ uri, savedPath, logFn });
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
   }
 
-  return { uri: newUri, mimetype };
+  return { uri: newUri, mimetype, cleanup };
+}
+
+function createNativeCacheCleanup(uri: string) {
+  let cleaned = false;
+  return async () => {
+    if (cleaned) return;
+    cleaned = true;
+    try {
+      await ExpoFSDeleteAsync(uri, { idempotent: true });
+    } catch {
+      // Cleanup is best-effort and must not replace the original result.
+    }
+  };
 }
 
 async function getBase64FromImageUriNative({
@@ -922,6 +996,7 @@ async function getBase64FromImageUriNative({
   uri: string;
   logFn?: ICommonImageLogFn;
 }): Promise<ILocalImageUri | undefined> {
+  let cleanup: (() => Promise<void>) | undefined;
   try {
     // Try to detect format from URI first
     const formatInfo = detectFileFormatFromUri(uri);
@@ -935,6 +1010,7 @@ async function getBase64FromImageUriNative({
       // eslint-disable-next-line no-param-reassign
       uri = res.uri;
       downloadMimeType = res.mimetype;
+      cleanup = res.cleanup;
     }
 
     const base64 = await getRNLocalImageBase64({
@@ -971,8 +1047,10 @@ async function getBase64FromImageUriNative({
       base64Uri,
       nativeUri: platformEnv.isNative ? uri : undefined,
       mimeType: finalMimeType,
+      cleanup,
     };
   } catch (error) {
+    await cleanup?.();
     logFn?.(
       '(native) local uri to base64 ERROR',
       uri,
@@ -1002,7 +1080,7 @@ async function getBase64FromImageUriWeb(
           readerResult = await convertSvgToJpegBase64(readerResult);
         }
 
-        const mimeType = readerResult.match(/^data:([^;,]+)/u)?.[1];
+        const mimeType = getImageMimeTypeFromBase64Uri(readerResult);
         // readerResult is base64 string with mime prefix
         resolve({ base64Uri: readerResult, mimeType });
       };
@@ -1028,13 +1106,9 @@ async function getBase64FromImageUri({
   }
 
   if (isBase64Uri(uri)) {
-    const declaredMimeType = uri.match(/^data:([^;,]+)/u)?.[1];
-    const detectedMimeType = detectMimeTypeFromMagicBytes(
-      stripBase64UriPrefix(uri),
-    );
     return {
       base64Uri: uri,
-      mimeType: detectedMimeType || declaredMimeType,
+      mimeType: getImageMimeTypeFromBase64Uri(uri),
     };
   }
 
@@ -1177,10 +1251,14 @@ async function getBase64FromRequiredImageSource(
     logFn,
   });
 
-  if (!imageUri?.base64Uri) {
-    return undefined;
+  try {
+    if (!imageUri?.base64Uri) {
+      return undefined;
+    }
+    return imageUri.base64Uri;
+  } finally {
+    await imageUri?.cleanup?.();
   }
-  return imageUri.base64Uri;
 }
 
 async function prepareImageForCropWithInfo(
@@ -1207,7 +1285,11 @@ async function prepareImageForCropWithInfo(
     if (!imageUri.nativeUri) {
       throw new OneKeyLocalError('Failed to prepare native image source');
     }
-    return { uri: imageUri.nativeUri, mimeType: imageUri.mimeType };
+    return {
+      uri: imageUri.nativeUri,
+      mimeType: imageUri.mimeType,
+      cleanup: imageUri.cleanup,
+    };
   }
 
   return { uri: imageUri.base64Uri, mimeType: imageUri.mimeType };

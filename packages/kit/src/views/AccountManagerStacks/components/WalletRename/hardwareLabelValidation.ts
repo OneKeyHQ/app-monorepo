@@ -4,29 +4,43 @@ import { isPrintableASCIIString } from '@onekeyhq/shared/src/utils/stringUtils';
 
 export type IHardwareLabelValidationError = 'invalid' | 'tooLong';
 
+export function normalizeHardwareLabelValue(
+  value: string,
+  trimOuterWhitespace?: boolean,
+) {
+  return trimOuterWhitespace ? value.trim() : value;
+}
+
 export function getHardwareLabelValidationError({
   value,
   maxLength,
   asciiOnly,
+  trimOuterWhitespace,
 }: {
   value: string;
   maxLength: number;
   asciiOnly?: boolean;
+  trimOuterWhitespace?: boolean;
 }): IHardwareLabelValidationError | undefined {
-  if (!value.length) {
+  const normalizedValue = normalizeHardwareLabelValue(
+    value,
+    trimOuterWhitespace,
+  );
+
+  if (!normalizedValue.length) {
     return undefined;
   }
 
-  if (emojiRegex().test(value)) {
+  if (emojiRegex().test(normalizedValue)) {
     return 'invalid';
   }
 
   // Printable-ASCII hardware labels support punctuation.
-  if (asciiOnly && !isPrintableASCIIString(value)) {
+  if (asciiOnly && !isPrintableASCIIString(normalizedValue)) {
     return 'invalid';
   }
 
-  if (Buffer.from(value, 'utf-8').length > maxLength) {
+  if (Buffer.from(normalizedValue, 'utf-8').length > maxLength) {
     return 'tooLong';
   }
 

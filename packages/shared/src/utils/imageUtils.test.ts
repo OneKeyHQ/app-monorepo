@@ -2,16 +2,148 @@
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
 import {
+  deleteAsync as ExpoFSDeleteAsync,
+  downloadAsync as ExpoFSDownloadAsync,
+} from 'expo-file-system/legacy';
+
+import imageUtils, {
   atkinsonDither,
+  detectMimeTypeFromMagicBytes,
+  getImageMimeTypeFromBase64Uri,
   otsuFromHistogram,
   pickThresholdAxis,
   shouldInvertForMajorityWhite,
   toGrayScale,
 } from './imageUtils';
 
-jest.mock('expo-file-system/legacy', () => ({}));
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  deleteAsync: jest.fn(async () => undefined),
+  downloadAsync: jest.fn(async (_uri: string, savedPath: string) => ({
+    headers: { 'content-type': 'application/octet-stream' },
+    uri: savedPath,
+  })),
+  getInfoAsync: jest.fn(async (uri: string) => ({ exists: true, uri })),
+  makeDirectoryAsync: jest.fn(async () => undefined),
+  readAsStringAsync: jest.fn(async () =>
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64'),
+  ),
+  writeAsStringAsync: jest.fn(async () => undefined),
+}));
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('stackblur-canvas', () => ({ canvasRGBA: () => {} }));
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isNative: true,
+    isNativeAndroid: false,
+  },
+}));
+
+// Test-only structural fixture: the MIME parser reads chunk boundaries/types,
+// while image decoding and CRC validation remain outside this unit's scope.
+function createPngChunkFixtureBase64(chunkTypes: string[]) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const chunks = chunkTypes.map((type) => {
+    let data = Buffer.alloc(0);
+    if (type === 'IHDR') {
+      data = Buffer.alloc(13);
+      data.writeUInt32BE(1, 0);
+      data.writeUInt32BE(1, 4);
+      data[8] = 8;
+      data[9] = 6;
+    } else if (type === 'acTL') {
+      data = Buffer.alloc(8);
+      data.writeUInt32BE(1, 0);
+    }
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    return Buffer.concat([
+      length,
+      Buffer.from(type, 'ascii'),
+      data,
+      Buffer.alloc(4),
+    ]);
+  });
+  return Buffer.concat([signature, ...chunks]).toString('base64');
+}
+
+describe('detectMimeTypeFromMagicBytes', () => {
+  it('distinguishes APNG from a static PNG by the acTL chunk', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'acTL', 'IDAT', 'IEND']),
+      ),
+    ).toBe('image/apng');
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'IDAT', 'IEND']),
+      ),
+    ).toBe('image/png');
+  });
+
+  it('does not accept an acTL chunk placed after image data', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'IDAT', 'acTL', 'IEND']),
+      ),
+    ).toBe('image/png');
+  });
+
+  it('prefers JPEG file content independently of the response MIME type', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64'),
+      ),
+    ).toBe('image/jpeg');
+  });
+
+  it('overrides a generic data URL MIME type with detected JPEG content', () => {
+    const jpegBase64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64');
+    expect(
+      getImageMimeTypeFromBase64Uri(
+        `data:application/octet-stream;base64,${jpegBase64}`,
+      ),
+    ).toBe('image/jpeg');
+  });
+});
+
+describe('prepareImageForCropWithInfo cleanup', () => {
+  const deleteAsyncMock = jest.mocked(ExpoFSDeleteAsync);
+  const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+
+  beforeEach(() => {
+    deleteAsyncMock.mockClear();
+    downloadAsyncMock.mockClear();
+  });
+
+  it('keeps a downloaded crop file until its owner releases it', async () => {
+    const preparedImage = await imageUtils.prepareImageForCropWithInfo(
+      'https://example.com/nft',
+    );
+
+    expect(preparedImage.mimeType).toBe('image/jpeg');
+    expect(deleteAsyncMock).not.toHaveBeenCalled();
+
+    await preparedImage.cleanup?.();
+    await preparedImage.cleanup?.();
+
+    expect(deleteAsyncMock).toHaveBeenCalledTimes(1);
+    expect(deleteAsyncMock).toHaveBeenCalledWith(
+      expect.stringContaining('temp-image-crop-'),
+      { idempotent: true },
+    );
+  });
+
+  it('removes a partial crop file when its download fails', async () => {
+    downloadAsyncMock.mockRejectedValueOnce(new Error('download failed'));
+
+    await expect(
+      imageUtils.prepareImageForCropWithInfo('https://example.com/nft'),
+    ).rejects.toThrow('Failed to process image source');
+    expect(deleteAsyncMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('toGrayScale', () => {
   it('weights green highest and blue lowest, matching ITU-R BT.601 luma', () => {

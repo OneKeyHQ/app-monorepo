@@ -3,6 +3,7 @@ import { CoreSDKLoader } from '../hardware/instance';
 
 import bufferUtils from './bufferUtils';
 import deviceUtils from './deviceUtils';
+import { isProtocolV2ProductType } from './hardwareDeviceTypes';
 
 import type { IAccountNFT, INFTMetaData } from '../../types/nft';
 import type {
@@ -16,8 +17,19 @@ export function isCollectNFTDeviceCompatible(deviceType?: IDeviceType) {
 
 export function isCollectibleNftImageMimeType(mimeType?: string) {
   const normalizedMimeType = mimeType?.split(';')[0].trim().toLowerCase();
-  return ['image/jpeg', 'image/png', 'image/bmp'].includes(
+  return ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp'].includes(
     normalizedMimeType ?? '',
+  );
+}
+
+export function isCollectibleNftMediaSupportedOnDevice(
+  deviceType: IDeviceType | undefined,
+  mimeType?: string,
+) {
+  if (!deviceType) return false;
+  return (
+    !isProtocolV2ProductType(deviceType) ||
+    isCollectibleNftImageMimeType(mimeType)
   );
 }
 
