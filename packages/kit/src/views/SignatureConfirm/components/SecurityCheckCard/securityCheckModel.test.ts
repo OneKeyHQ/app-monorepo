@@ -141,6 +141,45 @@ describe('securityCheckModel', () => {
     ).not.toBe(warning.acknowledgementKey);
   });
 
+  it('invalidates acknowledgement when the effective address risk escalates', () => {
+    const buildModel = (
+      displayType: 'warning' | 'critical',
+      transactionSecurityInfo?: ITransactionSecurityCheckResult,
+    ) =>
+      buildSecurityCheckModel({
+        kind: 'message',
+        requestKey: 'same-request',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: {
+          ...parsedMessage,
+          components: [
+            {
+              type: EParseTxComponentType.Address,
+              label: 'Spender',
+              address: '0xrisk',
+              tags: [{ value: 'Risky address', displayType }],
+            },
+          ],
+        },
+        transactionSecurityInfo,
+        intl,
+      });
+
+    const warning = buildModel('warning');
+    const critical = buildModel('critical');
+    expect(warning.confirmation).toBe('risk');
+    expect(critical.confirmation).toBe('risk');
+    expect(critical.acknowledgementKey).not.toBe(warning.acknowledgementKey);
+
+    const conclusiveScan = buildTransactionSecurityResult(
+      EHostSecurityLevel.Medium,
+    );
+    expect(buildModel('critical', conclusiveScan).acknowledgementKey).toBe(
+      buildModel('warning', conclusiveScan).acknowledgementKey,
+    );
+  });
+
   it('keeps Prime features off the card and behind the finding action', () => {
     const transactionSecurityInfo: ITransactionSecurityCheckResult = {
       level: EHostSecurityLevel.High,

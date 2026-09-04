@@ -2,6 +2,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EHostSecurityLevel,
@@ -9,6 +10,19 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 
 import { useRiskDetection } from './useRiskDetection';
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
+}));
+jest.mock('@onekeyhq/components', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => undefined,
+  useDeferredPromise: jest.requireActual<
+    typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+  >('../../../../../components/src/hooks/useDeferredPromise')
+    .useDeferredPromise,
+  useNetInfo: () => ({ isInternetReachable: true }),
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
@@ -192,4 +206,45 @@ describe('useRiskDetection', () => {
     );
     expect(result.current.continueOperate).toBe(true);
   });
+});
+
+describe('site security lookup deadline', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockUsePromiseResult.mockImplementation(
+      jest.requireActual<
+        typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+      >('../../../hooks/usePromiseResult').usePromiseResult,
+    );
+    jest
+      .mocked(backgroundApiProxy.serviceDiscovery)
+      .checkUrlSecurity.mockReturnValue(new Promise(() => undefined));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each([false, true])(
+    'settles a stalled lookup without erasing WalletConnect risk (%s)',
+    async (isScam) => {
+      const { result } = renderHook(() =>
+        useRiskDetection({
+          origin: 'https://app.example',
+          walletConnectVerifyContext: {
+            verified: { validation: 'UNKNOWN', isScam },
+          } as Parameters<
+            typeof useRiskDetection
+          >[0]['walletConnectVerifyContext'],
+        }),
+      );
+
+      await act(async () => jest.advanceTimersByTimeAsync(10_000));
+
+      expect(result.current.urlSecurityInfo?.level).toBe(
+        isScam ? EHostSecurityLevel.High : EHostSecurityLevel.Unknown,
+      );
+      expect(result.current.continueOperate).toBe(!isScam);
+    },
+  );
 });

@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimeInitAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   canAttemptTransactionSecurityEncodedTx,
   createCheckFailedTransactionSecurityResult,
@@ -17,7 +18,6 @@ import {
   getTransactionSecurityEncodedTxs,
   getTransactionSecurityRequestKey,
   hasScannableTransactionSecurityRequest,
-  resolvePrimeUserForSecurityCheck,
   resolveTransactionSecurityApplicability,
   resolveTransactionSecurityCheckState,
   runTransactionSecurityChecks,
@@ -27,6 +27,20 @@ import type {
   ITransactionSecurityCheckParams,
   ITransactionSecurityEncodedTxInput,
 } from './transactionSecurityCheck';
+
+// Include auth refresh and IPC in the limit, not only the service's HTTP call.
+const checkTransactionSecurity = makeTimeoutPromise({
+  asyncFunc: async (
+    params: Parameters<
+      typeof backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity
+    >[0],
+  ) =>
+    backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(params),
+  timeout: 10_000,
+  timeoutRejectError: new OneKeyLocalError(
+    'Transaction security check timed out',
+  ),
+});
 
 async function fetchTransactionSecurityCheck({
   accountId,
@@ -46,28 +60,24 @@ async function fetchTransactionSecurityCheck({
           if (!canAttemptTransactionSecurityEncodedTx(encodedTx.encodedTx)) {
             return Promise.resolve(undefined);
           }
-          return backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
-            {
-              accountId: encodedTx.accountId ?? accountId,
-              networkId: encodedTx.networkId ?? networkId,
-              encodedTx: encodedTx.encodedTx,
-            },
-          );
+          return checkTransactionSecurity({
+            accountId: encodedTx.accountId ?? accountId,
+            networkId: encodedTx.networkId ?? networkId,
+            encodedTx: encodedTx.encodedTx,
+          });
         }),
       );
     }
     if (jsonRpc) {
-      return await backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
-        {
-          accountId,
-          networkId,
-          jsonRpc,
-        },
-      );
+      return await checkTransactionSecurity({
+        accountId,
+        networkId,
+        jsonRpc,
+      });
     }
     return undefined;
   } catch {
-    // The service already maps scan POST failures. This is leftover IPC.
+    // The service maps POST failures; this also covers IPC and the deadline.
     return createCheckFailedTransactionSecurityResult();
   }
 }
@@ -80,12 +90,40 @@ export function useTransactionSecurityCheck({
   unsignedTxs,
   jsonRpc,
 }: ITransactionSecurityCheckParams) {
-  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
-  const [{ isReady: isPrimePersistReady }] = usePrimeInitAtom();
-  const isPrimeUser = resolvePrimeUserForSecurityCheck({
-    isPrimeSubscriptionActive,
-    isPersistReady: isPrimePersistReady,
-  });
+  const [user] = usePrimePersistAtom();
+  const { result: eligibility, run: resolveEligibility } = usePromiseResult(
+    async () => {
+      try {
+        const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+          await makeTimeoutPromise({
+            asyncFunc: async () =>
+              backgroundApiProxy.servicePrime.getLocalUserInfo(),
+            timeout: 10_000,
+            timeoutRejectError: new OneKeyLocalError(
+              'Transaction security eligibility timed out',
+            ),
+          })(undefined);
+        return {
+          user,
+          isPrimeUser: Boolean(
+            isLoggedIn && isLoggedInOnServer && primeSubscription?.isActive,
+          ),
+        };
+      } catch {
+        return { user, isPrimeUser: undefined };
+      }
+    },
+    [user],
+    { undefinedResultIfReRun: true, checkIsFocused: false },
+  );
+  // Eligibility depends on bg-owned auth state, not the lazy Prime UI effect.
+  // A previous user's result must not unlock this request while revalidating.
+  const currentEligibility =
+    eligibility?.user === user ? eligibility : undefined;
+  const isPrimeUser = currentEligibility?.isPrimeUser;
+  const isEligibilityFailed = Boolean(
+    currentEligibility && isPrimeUser === undefined,
+  );
   const encodedTxs = useMemo(
     () => getTransactionSecurityEncodedTxs(unsignedTxs),
     [unsignedTxs],
@@ -143,7 +181,7 @@ export function useTransactionSecurityCheck({
           isCustomNetwork: networkApplicability?.isCustomNetwork,
         })
       : undefined;
-  const shouldCheck = isPrimeSubscriptionActive === true && hasScannableRequest;
+  const shouldCheck = isPrimeUser === true && hasScannableRequest;
   const {
     result: resolved,
     isLoading,
@@ -174,29 +212,38 @@ export function useTransactionSecurityCheck({
     },
   );
   const retry = useCallback(() => {
-    if (!shouldCheck) {
-      return;
+    if (isEligibilityFailed) {
+      void resolveEligibility();
+    } else if (shouldCheck) {
+      void run();
     }
-    void run();
-  }, [run, shouldCheck]);
+  }, [isEligibilityFailed, resolveEligibility, run, shouldCheck]);
 
   return useMemo(
     () => ({
       ...resolveTransactionSecurityCheckState({
         shouldCheck,
-        isEligibilityPending: isPrimeUser === undefined && hasScannableRequest,
+        isEligibilityPending: !currentEligibility && hasScannableRequest,
         requestKey: scanRequestKey,
         resolvedRequestKey: resolved?.requestKey,
         result: resolved?.result,
         isLoading,
       }),
+      ...(isEligibilityFailed && hasScannableRequest
+        ? { result: createCheckFailedTransactionSecurityResult() }
+        : {}),
       requestKey: scanRequestKey,
       isApplicable,
       isPrimeUser,
-      retry: shouldCheck ? retry : undefined,
+      retry:
+        shouldCheck || (isEligibilityFailed && hasScannableRequest)
+          ? retry
+          : undefined,
     }),
     [
       hasScannableRequest,
+      currentEligibility,
+      isEligibilityFailed,
       isLoading,
       isApplicable,
       isPrimeUser,

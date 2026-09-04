@@ -25,7 +25,6 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
   type IParseMessageResp,
@@ -230,12 +229,9 @@ function MessageConfirm() {
     () =>
       buildTransactionSecurityJsonRpc({
         jsonRpcRequest: sourceInfo?.data,
-        paramsOverride:
-          unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
-            ? unsignedMessage.payload
-            : undefined,
+        unsignedMessage,
       }),
-    [sourceInfo?.data, unsignedMessage.payload, unsignedMessage.type],
+    [sourceInfo?.data, unsignedMessage],
   );
   const {
     result: transactionSecurityInfo,

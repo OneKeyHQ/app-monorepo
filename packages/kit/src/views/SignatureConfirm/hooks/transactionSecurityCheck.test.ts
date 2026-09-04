@@ -5,7 +5,6 @@ import {
   getTransactionSecurityEncodedTxs,
   getTransactionSecurityRequestKey,
   hasScannableTransactionSecurityRequest,
-  resolvePrimeUserForSecurityCheck,
   resolveTransactionSecurityApplicability,
   resolveTransactionSecurityCheckState,
   runTransactionSecurityChecks,
@@ -136,26 +135,6 @@ describe('resolveTransactionSecurityApplicability', () => {
         isCustomNetwork: false,
       }),
     ).toBe(true);
-  });
-});
-
-describe('resolvePrimeUserForSecurityCheck', () => {
-  it('stays unknown until persist membership is ready', () => {
-    expect(
-      resolvePrimeUserForSecurityCheck({
-        isPrimeSubscriptionActive: true,
-        isPersistReady: false,
-      }),
-    ).toBeUndefined();
-  });
-
-  it('treats a logged-in user without a Prime subscription as free', () => {
-    expect(
-      resolvePrimeUserForSecurityCheck({
-        isPrimeSubscriptionActive: undefined,
-        isPersistReady: true,
-      }),
-    ).toBe(false);
   });
 });
 

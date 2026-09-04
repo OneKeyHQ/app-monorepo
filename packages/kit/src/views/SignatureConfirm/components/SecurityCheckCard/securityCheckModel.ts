@@ -866,6 +866,7 @@ export function buildSecurityCheckModel(
     requestKey: params.requestKey ?? '',
     kind,
     confirmation,
+    effectiveAddressRiskStatus,
     findings: findings.filter(isDecisionSecurityFinding),
   });
 

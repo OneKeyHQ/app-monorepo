@@ -1,4 +1,5 @@
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ETransactionSecurityResultCode } from '@onekeyhq/shared/types/transactionSecurity';
 
 import {
@@ -455,12 +456,65 @@ describe('transactionSecurityUtils', () => {
             method: 'personal_sign',
             params: [from, '68656c6c6f'],
           },
-          paramsOverride: ['0x68656c6c6f', from],
+          unsignedMessage: {
+            type: EMessageTypesEth.PERSONAL_SIGN,
+            message: '0x68656c6c6f',
+            payload: ['0x68656c6c6f', from],
+          },
         }),
       ).toEqual({
         method: 'personal_sign',
         params: ['0x68656c6c6f', from],
       });
+    });
+
+    it.each(['eth_signTypedData', 'eth_signTypedData_v1'])(
+      'scans %s with the typed-data version and payload actually signed',
+      (method) => {
+        const from = '0x49c73c9d361c04769a452E85D343b41aC38e0EE4';
+        const data = {
+          domain: { chainId: 1 },
+          primaryType: 'Permit',
+          message: {},
+        };
+        const message = JSON.stringify(data);
+        for (const params of [
+          [data, from],
+          [from, message],
+        ]) {
+          expect(
+            buildTransactionSecurityJsonRpc({
+              jsonRpcRequest: { method, params },
+              unsignedMessage: {
+                type: EMessageTypesEth.TYPED_DATA_V4,
+                message,
+                payload: params,
+              },
+            }),
+          ).toEqual({
+            method: 'eth_signTypedData_v4',
+            params: [from, message],
+          });
+        }
+      },
+    );
+
+    it('keeps the actual V3 version and replaces stale request data', () => {
+      const from = '0x49c73c9d361c04769a452E85D343b41aC38e0EE4';
+      const message = '{"primaryType":"Login","message":{"nonce":2}}';
+      expect(
+        buildTransactionSecurityJsonRpc({
+          jsonRpcRequest: {
+            method: 'eth_signTypedData_v3',
+            params: [from, 'stale'],
+          },
+          unsignedMessage: {
+            type: EMessageTypesEth.TYPED_DATA_V3,
+            message,
+            payload: [from, message],
+          },
+        }),
+      ).toEqual({ method: 'eth_signTypedData_v3', params: [from, message] });
     });
 
     it('skips malformed JSON-RPC requests', () => {

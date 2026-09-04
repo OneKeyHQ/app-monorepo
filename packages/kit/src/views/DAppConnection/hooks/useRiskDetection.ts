@@ -6,6 +6,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { buildPrimeAnalyticsProfileSnapshot } from '@onekeyhq/kit-bg/src/services/ServicePrime/primeAnalyticsProfile';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
@@ -64,18 +66,23 @@ function useRiskDetection({
     async () => ({
       origin,
       info: origin
-        ? await backgroundApiProxy.serviceDiscovery
-            .checkUrlSecurity({
-              url: origin,
-              from: 'app',
-            })
-            .catch(() =>
-              overrideSecurityLevel(
-                undefined,
-                EHostSecurityLevel.Unknown,
-                origin,
-              ),
-            )
+        ? await makeTimeoutPromise({
+            asyncFunc: async () =>
+              backgroundApiProxy.serviceDiscovery.checkUrlSecurity({
+                url: origin,
+                from: 'app',
+              }),
+            timeout: 10_000,
+            timeoutRejectError: new OneKeyLocalError(
+              'Site security check timed out',
+            ),
+          })(undefined).catch(() =>
+            overrideSecurityLevel(
+              undefined,
+              EHostSecurityLevel.Unknown,
+              origin,
+            ),
+          )
         : ({} as IHostSecurity),
     }),
     [origin],

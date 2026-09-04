@@ -156,23 +156,6 @@ export function hasScannableTransactionSecurityRequest({
   );
 }
 
-// Persist writes `primeSubscription: undefined` for logged-in free users, so
-// `isLoggedIn && isLoggedInOnServer && subscription?.isActive` is undefined.
-// That is "known free", not "membership unknown". Only persist-not-ready
-// stays undefined so the card does not flash Get Prime.
-export function resolvePrimeUserForSecurityCheck({
-  isPrimeSubscriptionActive,
-  isPersistReady,
-}: {
-  isPrimeSubscriptionActive?: boolean;
-  isPersistReady: boolean;
-}): boolean | undefined {
-  if (!isPersistReady) {
-    return undefined;
-  }
-  return isPrimeSubscriptionActive === true;
-}
-
 export function resolveTransactionSecurityCheckState({
   shouldCheck,
   isEligibilityPending,

@@ -1,4 +1,5 @@
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   ETransactionSecurityResultCode,
   type ITransactionSecurityCheckResult,
@@ -12,15 +13,22 @@ import { stableStringify } from './stringUtils';
 
 export function buildTransactionSecurityJsonRpc({
   jsonRpcRequest,
-  paramsOverride,
+  unsignedMessage,
 }: {
   jsonRpcRequest?: {
     method?: unknown;
     params?: unknown;
   };
-  paramsOverride?: unknown;
+  unsignedMessage?: {
+    type: string;
+    message: string;
+    payload?: unknown;
+  };
 }): ITransactionSecurityJsonRpc | undefined {
-  const params = paramsOverride ?? jsonRpcRequest?.params;
+  const params =
+    unsignedMessage?.type === EMessageTypesEth.PERSONAL_SIGN
+      ? (unsignedMessage.payload ?? jsonRpcRequest?.params)
+      : jsonRpcRequest?.params;
   if (
     typeof jsonRpcRequest?.method !== 'string' ||
     !jsonRpcRequest.method ||
@@ -28,6 +36,32 @@ export function buildTransactionSecurityJsonRpc({
     !params.length
   ) {
     return undefined;
+  }
+
+  if (
+    /^eth_signTypedData(?:_v[134])?$/i.test(jsonRpcRequest.method) &&
+    (unsignedMessage?.type === EMessageTypesEth.TYPED_DATA_V3 ||
+      unsignedMessage?.type === EMessageTypesEth.TYPED_DATA_V4)
+  ) {
+    // Legacy typed-data methods accept either parameter order and may be
+    // promoted to V4 by the provider. Scan the final signing representation.
+    const signingParams = Array.isArray(unsignedMessage.payload)
+      ? unsignedMessage.payload
+      : params;
+    const address = signingParams.find(
+      (value): value is string =>
+        typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value),
+    );
+    if (!address) {
+      return undefined;
+    }
+    return {
+      method:
+        unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3
+          ? 'eth_signTypedData_v3'
+          : 'eth_signTypedData_v4',
+      params: [address, unsignedMessage.message],
+    };
   }
 
   return {
