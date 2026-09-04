@@ -15,8 +15,6 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -134,45 +132,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const shouldResolveMarketAsset = Boolean(
         options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
       );
-
-      if (
-        shouldResolveMarketAsset &&
-        !platformEnv.isExtensionUiPopup &&
-        !platformEnv.isExtensionUiSidePanel
-      ) {
-        preparePreviewTokenDetail(item);
-      }
-
-      const marketAssetIdentity = shouldResolveMarketAsset
-        ? await resolveMarketAssetRouteIdentity({
-            networkId: item.networkId,
-            tokenAddress: item.tokenAddress,
-            symbol: item.symbol,
-            isNative: item.isNative,
-          })
-        : undefined;
-      if (navigationGenerationRef.current !== navigationGeneration) {
-        return;
-      }
-      const resolvedItem = marketAssetIdentity
-        ? {
-            ...item,
-            ...marketAssetIdentity,
-            ...(item.tokenDetailPreview
-              ? {
-                  tokenDetailPreview: {
-                    ...item.tokenDetailPreview,
-                    address: marketAssetIdentity.tokenAddress,
-                    networkId: marketAssetIdentity.networkId,
-                    isNative: marketAssetIdentity.isNative,
-                  },
-                }
-              : undefined),
-          }
-        : item;
-      const marketTokenCategory = marketAssetIdentity
-        ? MARKET_TOP_COINS_CATEGORY_ID
-        : options?.marketTokenCategory;
+      const resolvedItem = item;
+      const marketTokenCategory = options?.marketTokenCategory;
       const stockId = resolveMarketStockId(resolvedItem);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
@@ -198,6 +159,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
+          : undefined),
+        ...(shouldResolveMarketAsset
+          ? {
+              resolveMarketAsset: true,
+              marketTokenSymbol: resolvedItem.symbol,
+            }
           : undefined),
         ...(resolvedItem.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
@@ -225,7 +192,14 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               : undefined),
           }
         : undefined;
-      const params = stockParams ?? tokenParams;
+      const params =
+        stockParams ??
+        (resolvedItem.tokenDetailPreview
+          ? {
+              ...tokenParams,
+              legacyTokenPreview: resolvedItem.tokenDetailPreview,
+            }
+          : tokenParams);
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;

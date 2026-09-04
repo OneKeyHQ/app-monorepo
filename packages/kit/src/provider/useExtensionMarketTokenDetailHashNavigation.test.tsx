@@ -103,7 +103,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins&resolveMarketAsset=true&marketTokenSymbol=BTC',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -113,6 +113,8 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         marketTokenId: 'bitcoin',
         marketVariantId: 'bitcoin-evm--56-0xabc',
         marketTokenCategory: 'top_coins',
+        marketTokenSymbol: 'BTC',
+        resolveMarketAsset: true,
         skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
@@ -366,6 +368,16 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       query: 'marketTokenCategory=top_coins',
       currentParams: {},
       expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+    {
+      query: 'resolveMarketAsset=true',
+      currentParams: {},
+      expectedParams: { resolveMarketAsset: true },
+    },
+    {
+      query: 'marketTokenSymbol=BTC',
+      currentParams: {},
+      expectedParams: { marketTokenSymbol: 'BTC' },
     },
   ])(
     'refreshes the same token route when $query changes',

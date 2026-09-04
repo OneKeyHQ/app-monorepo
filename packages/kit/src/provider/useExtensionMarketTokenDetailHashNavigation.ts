@@ -104,10 +104,15 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const skipMarketDataFetch = parseOptionalRouteBooleanParam(
       searchParams.get('skipMarketDataFetch'),
     );
+    const resolveMarketAsset = parseOptionalRouteBooleanParam(
+      searchParams.get('resolveMarketAsset'),
+    );
     const marketTokenId = searchParams.get('marketTokenId') || undefined;
     const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const marketTokenSymbol =
+      searchParams.get('marketTokenSymbol') || undefined;
     const legacyTokenPreview = parseTokenDetailPreviewParam(
       searchParams.get('legacyTokenPreview'),
     );
@@ -148,6 +153,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+          ...(resolveMarketAsset === undefined
+            ? undefined
+            : { resolveMarketAsset }),
           ...(skipMarketDataFetch === undefined
             ? undefined
             : { skipMarketDataFetch }),
@@ -169,6 +178,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         ...(marketTokenId ? { marketTokenId } : undefined),
         ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+        ...(resolveMarketAsset === undefined
+          ? undefined
+          : { resolveMarketAsset }),
         ...(skipMarketDataFetch === undefined
           ? undefined
           : { skipMarketDataFetch }),
@@ -241,6 +254,9 @@ function isCurrentMarketTokenDetailTarget(
     params.marketTokenId !== target.params.marketTokenId ||
     params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
+    params.marketTokenSymbol !== target.params.marketTokenSymbol ||
+    normalizeRouteBooleanParam(params.resolveMarketAsset, false) !==
+      normalizeRouteBooleanParam(target.params.resolveMarketAsset, false) ||
     params.legacyTokenPreview?.selectedAt !==
       target.params.legacyTokenPreview?.selectedAt ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
