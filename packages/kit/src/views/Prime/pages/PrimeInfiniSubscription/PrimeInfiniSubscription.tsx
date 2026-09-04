@@ -41,7 +41,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
-import { shouldToastUnsupportedPrimeSubscriptionManagement } from '../PrimeDashboard/primeSubscriptionManagementUtils';
+import { shouldToastUnsupportedManagementAfterUserInfoRefresh } from '../PrimeDashboard/primeSubscriptionManagementUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
@@ -281,41 +281,46 @@ export default function PrimeInfiniSubscription({
     ? result?.subscription
     : undefined;
   const unsupportedToastShownRef = useRef(false);
+  const shouldCheckUnsupportedToast =
+    fromDeepLink &&
+    result !== undefined &&
+    isResultForCurrentUser &&
+    !result.hasError &&
+    !result.subscription;
 
   useEffect(() => {
-    if (!fromDeepLink || unsupportedToastShownRef.current) {
+    if (!shouldCheckUnsupportedToast || unsupportedToastShownRef.current) {
       return;
     }
-    if (result === undefined || !isResultForCurrentUser || result.hasError) {
-      return;
-    }
-    if (result.subscription) {
-      return;
-    }
-    if (
-      !shouldToastUnsupportedPrimeSubscriptionManagement({
-        userInfo: {
-          primeSubscription: primeUserInfo.primeSubscription,
-          subscriptionManageUrl: primeUserInfo.subscriptionManageUrl,
-        },
-      })
-    ) {
-      return;
-    }
-    unsupportedToastShownRef.current = true;
-    Toast.message({
-      title: intl.formatMessage({
-        id: ETranslations.prime_subscription_management_unsupported__msg,
-      }),
-    });
-  }, [
-    fromDeepLink,
-    intl,
-    isResultForCurrentUser,
-    primeUserInfo.primeSubscription,
-    primeUserInfo.subscriptionManageUrl,
-    result,
-  ]);
+    let cancelled = false;
+    const toastUnsupportedManagementIfNeeded = async () => {
+      // Persist can still show IAP while the Infini webhook is pending.
+      // Refresh first; toast only on confirmed IAP / Stripe / redemption.
+      // Fetch errors and empty userInfo stay silent (webhook-safe).
+      const shouldToast =
+        await shouldToastUnsupportedManagementAfterUserInfoRefresh({
+          fetchUserInfo: async () =>
+            (
+              await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+                forceRefresh: true,
+              })
+            ).userInfo,
+        });
+      if (cancelled || !shouldToast) {
+        return;
+      }
+      unsupportedToastShownRef.current = true;
+      Toast.message({
+        title: intl.formatMessage({
+          id: ETranslations.prime_subscription_management_unsupported__msg,
+        }),
+      });
+    };
+    void toastUnsupportedManagementIfNeeded();
+    return () => {
+      cancelled = true;
+    };
+  }, [intl, shouldCheckUnsupportedToast]);
 
   const runRef = useRef(run);
   runRef.current = run;

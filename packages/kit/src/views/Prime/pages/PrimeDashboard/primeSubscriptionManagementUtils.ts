@@ -130,3 +130,43 @@ export function shouldToastUnsupportedPrimeSubscriptionManagement({
       target.reason === 'channel-without-management-url')
   );
 }
+
+export function shouldOpenInfiniSubscriptionAfterDashboardLogin({
+  fromDeepLink,
+  didOpen,
+  isAuthReady,
+  persistLoggedIn,
+  isServiceLoggedIn,
+}: {
+  fromDeepLink: boolean;
+  didOpen: boolean;
+  isAuthReady: boolean;
+  persistLoggedIn: boolean;
+  isServiceLoggedIn: boolean;
+}) {
+  return (
+    fromDeepLink &&
+    !didOpen &&
+    isAuthReady &&
+    persistLoggedIn &&
+    isServiceLoggedIn
+  );
+}
+
+export async function shouldToastUnsupportedManagementAfterUserInfoRefresh({
+  fetchUserInfo,
+}: {
+  fetchUserInfo: () => Promise<
+    IPrimeSubscriptionManagementUserInfo | undefined
+  >;
+}): Promise<boolean> {
+  try {
+    const userInfo = await fetchUserInfo();
+    if (!userInfo) {
+      return false;
+    }
+    return shouldToastUnsupportedPrimeSubscriptionManagement({ userInfo });
+  } catch {
+    return false;
+  }
+}

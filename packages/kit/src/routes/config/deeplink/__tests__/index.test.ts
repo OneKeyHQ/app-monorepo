@@ -392,6 +392,20 @@ describe('prime_subscription deep link', () => {
     });
   });
 
+  it.each([
+    'https://app.onekey.so/prime/subscription',
+    'https://app.onekeytest.com/prime/subscription',
+  ])(
+    'does not treat the web landing URL as an app deep link: %s',
+    async (url) => {
+      handleDeepLinkUrl({ url });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(pushModal).not.toHaveBeenCalled();
+    },
+  );
+
   it('opens the Infini subscription page when already logged in', async () => {
     backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(true);
 

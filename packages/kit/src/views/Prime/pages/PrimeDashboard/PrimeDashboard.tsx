@@ -41,6 +41,7 @@ import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
+import { shouldOpenInfiniSubscriptionAfterDashboardLogin } from './primeSubscriptionManagementUtils';
 import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 import { usePrimeSubscribeResume } from './usePrimeSubscribeResume';
@@ -157,10 +158,35 @@ export default function PrimeDashboard({
     if (!isAuthReady || !isLoggedIn) {
       return;
     }
-    didOpenInfiniSubscriptionRef.current = true;
-    navigation.push(EPrimePages.PrimeInfiniSubscription, {
-      fromDeepLink: true,
-    });
+    let cancelled = false;
+    const openInfiniSubscriptionFromDeepLink = async () => {
+      // Persist flags can be true while the Prime auth token is missing;
+      // Infini would then mount and immediately pop. Wait for the service.
+      const isServiceLoggedIn =
+        await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (
+        cancelled ||
+        !shouldOpenInfiniSubscriptionAfterDashboardLogin({
+          fromDeepLink: Boolean(fromDeepLink),
+          didOpen: didOpenInfiniSubscriptionRef.current,
+          isAuthReady,
+          persistLoggedIn: isLoggedIn,
+          isServiceLoggedIn,
+        })
+      ) {
+        return;
+      }
+      didOpenInfiniSubscriptionRef.current = true;
+      // Clear the route flag so a remount / pop-back cannot push Infini again.
+      navigation.setParams({ fromDeepLink: undefined });
+      navigation.push(EPrimePages.PrimeInfiniSubscription, {
+        fromDeepLink: true,
+      });
+    };
+    void openInfiniSubscriptionFromDeepLink();
+    return () => {
+      cancelled = true;
+    };
   }, [fromDeepLink, isAuthReady, isLoggedIn, navigation]);
 
   const dashboardShownRef = useRef(false);

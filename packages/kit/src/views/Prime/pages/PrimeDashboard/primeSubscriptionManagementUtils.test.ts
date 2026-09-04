@@ -1,8 +1,12 @@
 /* cspell:ignore Infini infini */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
   hasRevenueCatSubscriptionChannel,
+  shouldOpenInfiniSubscriptionAfterDashboardLogin,
+  shouldToastUnsupportedManagementAfterUserInfoRefresh,
   shouldToastUnsupportedPrimeSubscriptionManagement,
 } from './primeSubscriptionManagementUtils';
 
@@ -197,6 +201,105 @@ describe('primeSubscriptionManagementUtils', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it('opens Infini after dashboard login only when persist and service agree', () => {
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: true,
+        didOpen: false,
+        isAuthReady: true,
+        persistLoggedIn: true,
+        isServiceLoggedIn: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: true,
+        didOpen: false,
+        isAuthReady: true,
+        persistLoggedIn: true,
+        isServiceLoggedIn: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: true,
+        didOpen: true,
+        isAuthReady: true,
+        persistLoggedIn: true,
+        isServiceLoggedIn: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: false,
+        didOpen: false,
+        isAuthReady: true,
+        persistLoggedIn: true,
+        isServiceLoggedIn: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: true,
+        didOpen: false,
+        isAuthReady: false,
+        persistLoggedIn: true,
+        isServiceLoggedIn: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOpenInfiniSubscriptionAfterDashboardLogin({
+        fromDeepLink: true,
+        didOpen: false,
+        isAuthReady: true,
+        persistLoggedIn: false,
+        isServiceLoggedIn: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('toasts unsupported management only after a confirmed userInfo refresh', async () => {
+    await expect(
+      shouldToastUnsupportedManagementAfterUserInfoRefresh({
+        fetchUserInfo: async () => ({
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [
+              {
+                channel: 'app-store',
+                managementUrl: 'https://example.com/manage',
+              },
+            ],
+          },
+        }),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      shouldToastUnsupportedManagementAfterUserInfoRefresh({
+        fetchUserInfo: async () => ({
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'infini' }],
+          },
+        }),
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      shouldToastUnsupportedManagementAfterUserInfoRefresh({
+        fetchUserInfo: async () => undefined,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      shouldToastUnsupportedManagementAfterUserInfoRefresh({
+        fetchUserInfo: async () => {
+          throw new OneKeyLocalError('network');
+        },
+      }),
+    ).resolves.toBe(false);
   });
 
   it('keeps the refresh key stable when the server only adds subscription ids', () => {
