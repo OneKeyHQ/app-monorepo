@@ -48,10 +48,13 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]
     .map(encodeURIComponent)
     .join(':');
-  const successfulMarketAssetDetailRef = useRef<{
-    requestKey: string;
-    assetDetail: IMarketAssetDetailData;
-  }>();
+  const successfulMarketAssetDetailRef = useRef<
+    | {
+        requestKey: string;
+        assetDetail: IMarketAssetDetailData;
+      }
+    | undefined
+  >(undefined);
 
   // Sync tokenDetail to global atom so mobile modal can read it
   useEffect(() => {
