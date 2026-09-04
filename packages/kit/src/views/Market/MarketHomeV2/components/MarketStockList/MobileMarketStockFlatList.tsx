@@ -101,9 +101,14 @@ function MobileMarketStockFlatListImpl({
                 </SizableText>
               </YStack>
             </XStack>
-            <YStack alignItems="flex-end" gap="$1">
+            <XStack alignItems="center" gap="$2">
               {price === undefined ? (
-                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={1}
+                >
                   --
                 </SizableText>
               ) : (
@@ -111,12 +116,14 @@ function MobileMarketStockFlatListImpl({
                   size="$bodyLgMedium"
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
+                  flexShrink={1}
+                  numberOfLines={1}
                 >
                   {price}
                 </NumberSizeableText>
               )}
               <PriceChangeBadge change={priceChange ?? '--'} />
-            </YStack>
+            </XStack>
           </XStack>
         );
       },
