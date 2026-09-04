@@ -169,11 +169,18 @@ function EntryCounter({
 }
 
 /* ------------------------- connecting ------------------------- *
- * The wallpaper the device idles on while the app reaches for it — the
- * same asset the Pro 2 shows, by design call (one file, owned there along
- * with its decoded-size budget note), laid flat on the same 288x484. */
+ * The wallpaper the device idles on while the app reaches for it — abstract
+ * glass art, an exact 288x484 render laid flat with no cropping. The model
+ * suffix keeps the filename unique: webpack/rspack dev emits assets as bare
+ * [name].[ext], where same-named files overwrite each other.
+ *
+ * Decoded-size budget for this asset: iOS only keeps decoded bitmaps of
+ * up to 2 MiB in its image cache (RCTImageCache), i.e. width x height must
+ * stay under 524,288 px at 4 bytes per pixel. Past that every entrance
+ * re-decodes the file and the pixels land mid-ramp. Current export is
+ * 540x908 (~1.87 MiB) - keep any replacement under the line. */
 
-const WALLPAPER_SOURCE = require('../Pro2Device/screen-connecting.png');
+const WALLPAPER_SOURCE = require('./screen-connecting-pro.png');
 
 function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
   return (

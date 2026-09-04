@@ -1,20 +1,18 @@
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
-import { Pro2Device } from '../Pro2Device';
 import { ProDevice } from '../ProDevice';
 import { TouchDevice } from '../TouchDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
-import type { IPro2DeviceScene } from '../Pro2Device';
 import type { IProDeviceScene } from '../ProDevice';
 import type { ITouchDeviceScene } from '../TouchDevice';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
- * per-model drawings behind it, not a second way in. Call sites hold the
- * model at runtime and fix the scenario at build time:
+ * ../MiniDevice, ../ProDevice and ../TouchDevice are the per-model drawings
+ * behind it, not a second way in. Call sites hold the model at runtime and
+ * fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -28,11 +26,9 @@ import type { ITouchDeviceScene } from '../TouchDevice';
  * four engraved membrane keys (its screens are the Classic's, re-laid);
  * the Pro has none of that and a 288x484 touchscreen; the Touch is a
  * slab with a wide bezel whose screen window runs the Pro's screens,
- * scaled; the
- * Pro 2 is an edge-to-edge glass slab in a blurred-stroke metal frame -
- * and what they genuinely have in common already lives in ../deviceScene.
- * Live screen content, when something needs it, attaches per model at
- * that layer, where the canvas and the key presses are known.
+ * scaled - and what they genuinely have in common already lives in
+ * ../deviceScene. Live screen content, when something needs it, attaches
+ * per model at that layer, where the canvas and the key presses are known.
  */
 
 /**
@@ -62,8 +58,7 @@ export type IHardwareDeviceType =
 export type IHardwareDeviceScene = IClassicDeviceScene &
   IMiniDeviceScene &
   IProDeviceScene &
-  ITouchDeviceScene &
-  IPro2DeviceScene;
+  ITouchDeviceScene;
 
 export interface IHardwareDeviceProps {
   /**
@@ -99,7 +94,7 @@ export interface IHardwareDeviceProps {
 
 /**
  * The routing table: which models draw which replica. The Classic family
- * collapses onto one; a model missing here (unknown, neo) has no replica
+ * collapses onto one; a model missing here (unknown) has no replica
  * and renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
@@ -109,7 +104,6 @@ const REPLICAS: Partial<
     | typeof MiniDevice
     | typeof ProDevice
     | typeof TouchDevice
-    | typeof Pro2Device
   >
 > = {
   classic: ClassicDevice,
@@ -118,10 +112,11 @@ const REPLICAS: Partial<
   mini: MiniDevice,
   pro: ProDevice,
   touch: TouchDevice,
-  pro2: Pro2Device,
-  // Neo has no replica of its own yet; the Pro 2 stands in until the
-  // design lands one (OK-59934, handover doc §07).
-  neo: Pro2Device,
+  // The Pro 2 and the Neo stand on the Pro replica until their own shells
+  // and screens ship; those live on claude/pro2-neo-device-assets and land
+  // with the hardware release (OK-59934).
+  pro2: ProDevice,
+  neo: ProDevice,
 };
 
 export function HardwareDevice({
