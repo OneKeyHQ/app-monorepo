@@ -745,8 +745,6 @@ function ScrollableTabBarContent({
   );
 }
 
-// Prevent pager scroll event callbacks from modifying tabbar selected state
-let tabClickCount = 0;
 export function TabBar({
   onTabPress,
   tabNames,
@@ -794,7 +792,7 @@ export function TabBar({
   const directTabPressSettleTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const didAlignInitialFocusedTabRef = useRef(false);
+  const lastAlignedTabNamesRef = useRef<string[] | null>(null);
   const directTabPressResyncCountRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
@@ -814,6 +812,7 @@ export function TabBar({
   const directTabPressTargetIndex = useSharedValue(-1);
   const directTabPressStartedAt = useSharedValue(0);
   const directTabPressReachedAt = useSharedValue(0);
+  const lastTabClickAt = useSharedValue(0);
   const animatedDefaultIndexDecimal = useDerivedValue(() => {
     if (
       useDirectTabPressIndicatorAnimation &&
@@ -903,18 +902,21 @@ export function TabBar({
   );
 
   const handleScrollableTabBarReady = useCallback(() => {
-    if (
-      !scrollable ||
-      !keepFocusedTabVisible ||
-      didAlignInitialFocusedTabRef.current
-    ) {
+    if (!scrollable || !keepFocusedTabVisible) {
       return;
     }
     const tabName = currentTab || focusedTab.value;
     if (!tabName || !tabNames.includes(tabName)) {
       return;
     }
-    didAlignInitialFocusedTabRef.current = true;
+    const lastAlignedTabNames = lastAlignedTabNamesRef.current;
+    if (
+      lastAlignedTabNames?.length === tabNames.length &&
+      lastAlignedTabNames.every((name, index) => name === tabNames[index])
+    ) {
+      return;
+    }
+    lastAlignedTabNamesRef.current = [...tabNames];
     scrollToTab(tabName);
   }, [
     currentTab,
@@ -1072,7 +1074,7 @@ export function TabBar({
     } else if (useDirectTabPressHandling) {
       resetDirectTabPressState();
     }
-    tabClickCount = now;
+    lastTabClickAt.value = now;
     setCurrentTab(name);
     scrollToTab(name);
     onTabPress(name);
@@ -1098,7 +1100,7 @@ export function TabBar({
         return;
       }
 
-      const tabClickElapsedMs = Date.now() - tabClickCount;
+      const tabClickElapsedMs = Date.now() - lastTabClickAt.value;
       if (tabClickElapsedMs < 300) {
         return;
       }
@@ -1113,6 +1115,7 @@ export function TabBar({
       directTabPressStartedAt,
       directTabPressReachedAt,
       directTabPressTargetIndex,
+      lastTabClickAt,
       scrollable,
       tabNames,
       useDirectTabPressHandling,

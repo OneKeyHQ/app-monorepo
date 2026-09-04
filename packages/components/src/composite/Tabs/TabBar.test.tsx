@@ -22,8 +22,12 @@ const mockAnimatedReactions: IAnimatedReaction[] = [];
 let mockListOnContentSizeChange: (() => void) | undefined;
 let mockListOnLayout: (() => void) | undefined;
 const mockTabNames = ['Watchlist', 'Trending', 'Stocks', 'Perps'];
+const mockTabNamesBeforeInsert = ['Watchlist', 'Stocks', 'Perps'];
 const mockInitialFocusedTab = { value: 'Perps' } as SharedValue<string>;
 const mockInteractiveFocusedTab = {
+  value: 'Watchlist',
+} as SharedValue<string>;
+const mockSecondaryFocusedTab = {
   value: 'Watchlist',
 } as SharedValue<string>;
 const mockIndexDecimal = { value: 0 } as SharedValue<number>;
@@ -31,6 +35,7 @@ const mockInitialTabPress = jest.fn();
 const mockInteractiveTabPress = jest.fn((name: string) => {
   mockInteractiveFocusedTab.value = name;
 });
+const mockSecondaryTabPress = jest.fn();
 
 function runAnimatedReactions() {
   mockAnimatedReactions.forEach((reaction) => {
@@ -221,9 +226,11 @@ describe('TabBar scrollable focus handling', () => {
     mockListOnLayout = undefined;
     mockInitialFocusedTab.value = 'Perps';
     mockInteractiveFocusedTab.value = 'Watchlist';
+    mockSecondaryFocusedTab.value = 'Watchlist';
     mockIndexDecimal.value = 0;
     mockInitialTabPress.mockReset();
     mockInteractiveTabPress.mockClear();
+    mockSecondaryTabPress.mockReset();
   });
 
   afterEach(() => {
@@ -298,6 +305,45 @@ describe('TabBar scrollable focus handling', () => {
     });
   });
 
+  it('realigns the focused tab when the tab structure changes', () => {
+    const { rerender } = render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNamesBeforeInsert}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
+      index: 2,
+      viewPosition: 1,
+    });
+
+    rerender(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockScrollToIndex).toHaveBeenCalledTimes(2);
+    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
+      index: 3,
+      viewPosition: 1,
+    });
+  });
+
   it('keeps the pressed tab focused while the pager reports intermediate tabs', () => {
     render(
       <TabBar
@@ -363,5 +409,36 @@ describe('TabBar scrollable focus handling', () => {
       '$textSubdued',
     );
     expect(screen.getByText('Stocks').getAttribute('data-color')).toBe('$text');
+  });
+
+  it('keeps tab press suppression isolated between tab bars', () => {
+    render(
+      <>
+        <TabBar
+          focusedTab={mockInteractiveFocusedTab}
+          tabNames={mockTabNames}
+          onTabPress={mockInteractiveTabPress}
+          scrollable
+        />
+        <TabBar
+          focusedTab={mockSecondaryFocusedTab}
+          tabNames={mockTabNames}
+          onTabPress={mockSecondaryTabPress}
+          scrollable
+        />
+      </>,
+    );
+
+    fireEvent.click(
+      screen.getAllByText('Perps')[0].parentElement as HTMLElement,
+    );
+    act(() => {
+      mockSecondaryFocusedTab.value = 'Stocks';
+      runAnimatedReactions();
+    });
+
+    expect(screen.getAllByText('Stocks')[1].getAttribute('data-color')).toBe(
+      '$text',
+    );
   });
 });
