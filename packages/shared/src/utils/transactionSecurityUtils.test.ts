@@ -10,7 +10,6 @@ import {
   createUnableToAssessTransactionSecurityResult,
   getTransactionSecurityEncodedTxIdentity,
   isTransactionSecurityCheckFailed,
-  isTransactionSecurityNotApplicable,
   mergeTransactionSecurityResults,
   normalizeTransactionSecurityLevel,
   normalizeTransactionSecurityResult,
@@ -118,15 +117,10 @@ describe('transactionSecurityUtils', () => {
         }),
       ).toBeUndefined();
       expect(
-        isTransactionSecurityNotApplicable({
+        normalizeTransactionSecurityResult({
           detail: { code: 'NOT_SUPPORTED' },
         }),
-      ).toBe(true);
-      expect(
-        isTransactionSecurityNotApplicable({
-          detail: { code: ETransactionSecurityResultCode.UnableToAssess },
-        }),
-      ).toBe(false);
+      ).toBeUndefined();
       expect(createUnableToAssessTransactionSecurityResult()).toEqual({
         level: EHostSecurityLevel.Unknown,
         detail: {
@@ -334,10 +328,22 @@ describe('transactionSecurityUtils', () => {
       });
       const failed = createCheckFailedTransactionSecurityResult();
       expect(
-        mergeTransactionSecurityResults([undefined, highRisk])?.level,
-      ).toBe(EHostSecurityLevel.High);
-      expect(mergeTransactionSecurityResults([failed, highRisk])?.level).toBe(
-        EHostSecurityLevel.High,
+        mergeTransactionSecurityResults([undefined, highRisk]),
+      ).toMatchObject({
+        level: EHostSecurityLevel.High,
+        coverage: {
+          hasUncoveredRequests: true,
+          hasFailedRequests: false,
+        },
+      });
+      expect(mergeTransactionSecurityResults([failed, highRisk])).toMatchObject(
+        {
+          level: EHostSecurityLevel.High,
+          coverage: {
+            hasUncoveredRequests: false,
+            hasFailedRequests: true,
+          },
+        },
       );
       expect(mergeTransactionSecurityResults([failed, safe])).toEqual(failed);
       expect(mergeTransactionSecurityResults([failed, unknown])).toEqual(

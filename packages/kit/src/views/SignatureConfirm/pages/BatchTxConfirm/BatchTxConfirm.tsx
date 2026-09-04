@@ -57,7 +57,6 @@ import {
   SecurityCheckCard,
   buildSecurityCheckModel,
 } from '../../components/SecurityCheckCard';
-import { useSecurityCheckPrimeUser } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import { BatchSigningProgress, SummaryRow, TransactionRow } from './components';
@@ -115,17 +114,16 @@ function BatchTxConfirm() {
     showContinueOperate,
     continueOperate,
   });
-  const { isPrimeUser } = useSecurityCheckPrimeUser();
   const securityCheckModel = useMemo(
     () =>
       buildSecurityCheckModel({
         kind: 'transaction',
         origin: sourceInfo?.origin,
         urlSecurityInfo,
-        isPrimeUser,
+        isTransactionSecurityApplicable: false,
         intl,
       }),
-    [intl, isPrimeUser, sourceInfo?.origin, urlSecurityInfo],
+    [intl, sourceInfo?.origin, urlSecurityInfo],
   );
   // Execution-time recheck for every signing exit: portal Dialogs (the
   // Sign-all confirmation) capture their onConfirm closure at open time and

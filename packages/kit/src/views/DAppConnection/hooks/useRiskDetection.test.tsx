@@ -107,6 +107,32 @@ describe('useRiskDetection', () => {
     expect(result.current.continueOperate).toBe(false);
   });
 
+  it('lets a user acknowledge a conclusive WalletConnect risk before the backend settles', () => {
+    const walletConnectVerifyContext = {
+      verified: {
+        validation: 'INVALID',
+        isScam: false,
+      },
+    } as Parameters<typeof useRiskDetection>[0]['walletConnectVerifyContext'];
+    const { result, rerender } = renderHook(() =>
+      useRiskDetection({
+        origin: 'https://invalid.example',
+        walletConnectVerifyContext,
+      }),
+    );
+
+    expect(result.current.riskLevel).toBe(EHostSecurityLevel.High);
+    act(() => result.current.setContinueOperate(true));
+    expect(result.current.continueOperate).toBe(true);
+
+    backendSecurityResult = {
+      origin: 'https://invalid.example',
+      info: securityInfo(EHostSecurityLevel.Security),
+    };
+    rerender();
+    expect(result.current.continueOperate).toBe(true);
+  });
+
   it('does not reuse an acknowledgement for a new origin or verdict', () => {
     backendSecurityResult = {
       origin: 'https://risky.example',
@@ -121,6 +147,13 @@ describe('useRiskDetection', () => {
     expect(result.current.continueOperate).toBe(true);
 
     rerender({ origin: 'https://other.example' });
+    expect(result.current.continueOperate).toBe(false);
+
+    backendSecurityResult = {
+      origin: 'https://risky.example',
+      info: securityInfo(EHostSecurityLevel.Medium),
+    };
+    rerender({ origin: 'https://risky.example' });
     expect(result.current.continueOperate).toBe(false);
 
     backendSecurityResult = {

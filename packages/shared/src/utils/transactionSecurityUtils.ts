@@ -64,7 +64,7 @@ export function normalizeTransactionSecurityLevel(
   return EHostSecurityLevel.Unknown;
 }
 
-export function getTransactionSecurityResultCode(
+function getTransactionSecurityResultCode(
   result?: ITransactionSecurityCheckResultRaw,
 ) {
   return result?.detail?.code?.trim() || result?.detail?.summaryCode?.trim();
@@ -77,7 +77,7 @@ function isTransactionSecurityResultCode(
   return getTransactionSecurityResultCode(result)?.toLowerCase() === code;
 }
 
-export function isTransactionSecurityNotApplicable(
+function isTransactionSecurityNotApplicable(
   result?: ITransactionSecurityCheckResultRaw,
 ) {
   return (
@@ -304,9 +304,13 @@ export function hasTransactionSecurityFeatures(
 export function mergeTransactionSecurityResults(
   results: Array<ITransactionSecurityCheckResult | undefined>,
 ): ITransactionSecurityCheckResult | undefined {
-  const hasUncoveredCheck = results.some((result) => !result);
-  const hasFailedCheck = results.some((result) =>
-    isTransactionSecurityCheckFailed(result),
+  const hasUncoveredCheck = results.some(
+    (result) => !result || result.coverage?.hasUncoveredRequests,
+  );
+  const hasFailedCheck = results.some(
+    (result) =>
+      isTransactionSecurityCheckFailed(result) ||
+      result?.coverage?.hasFailedRequests,
   );
   const validResults = results.filter(
     (result): result is ITransactionSecurityCheckResult =>
@@ -390,5 +394,13 @@ export function mergeTransactionSecurityResults(
       ...primary.detail,
       features,
     },
+    ...(hasUncoveredCheck || hasFailedCheck
+      ? {
+          coverage: {
+            hasUncoveredRequests: hasUncoveredCheck,
+            hasFailedRequests: hasFailedCheck,
+          },
+        }
+      : {}),
   };
 }

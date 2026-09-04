@@ -15,6 +15,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -36,10 +37,8 @@ type IProps = {
   accountId: string;
   networkId: string;
   unsignedMessage: IUnsignedMessage;
-  continueOperate: boolean;
-  setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
   securityCheckConfirmation: ISecurityCheckConfirmation;
-  securityCheckRequestKey: string;
+  securityCheckAcknowledgementKey: string;
   sourceInfo?: IDappSourceInfo;
   walletInternalSign?: boolean;
   skipBackupCheck?: boolean;
@@ -53,10 +52,8 @@ function MessageConfirmActions(props: IProps) {
     accountId,
     networkId,
     unsignedMessage,
-    continueOperate: continueOperateLocal,
-    setContinueOperate: setContinueOperateLocal,
     securityCheckConfirmation,
-    securityCheckRequestKey,
+    securityCheckAcknowledgementKey,
     sourceInfo,
     walletInternalSign,
     skipBackupCheck,
@@ -75,31 +72,8 @@ function MessageConfirmActions(props: IProps) {
 
   const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [securityCheckAcknowledgement, setSecurityCheckAcknowledgement] =
-    useState<{
-      requestKey: string;
-      confirmation: ISecurityCheckConfirmation;
-      accepted: boolean;
-    }>({
-      requestKey: securityCheckRequestKey,
-      confirmation: securityCheckConfirmation,
-      accepted: false,
-    });
-  if (
-    securityCheckAcknowledgement.requestKey !== securityCheckRequestKey ||
-    securityCheckAcknowledgement.confirmation !== securityCheckConfirmation
-  ) {
-    setSecurityCheckAcknowledgement({
-      requestKey: securityCheckRequestKey,
-      confirmation: securityCheckConfirmation,
-      accepted: false,
-    });
-  }
-  const continueOperate = Boolean(
-    securityCheckAcknowledgement.accepted &&
-    securityCheckAcknowledgement.requestKey === securityCheckRequestKey &&
-    securityCheckAcknowledgement.confirmation === securityCheckConfirmation,
-  );
+  const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
+    useScopedAcknowledgement(securityCheckAcknowledgementKey);
 
   // Get user address for referral promotion check
   const { result: accountAddress } = usePromiseResult(
@@ -344,8 +318,7 @@ function MessageConfirmActions(props: IProps) {
           loading: isLoading,
           disabled:
             isSecurityCheckPending ||
-            (showConfirmationAlert &&
-              (!continueOperate || !continueOperateLocal)),
+            (showConfirmationAlert && !continueOperate),
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
@@ -361,12 +334,7 @@ function MessageConfirmActions(props: IProps) {
               value={continueOperate}
               onChange={(checked) => {
                 const isChecked = !!checked;
-                setSecurityCheckAcknowledgement({
-                  requestKey: securityCheckRequestKey,
-                  confirmation: securityCheckConfirmation,
-                  accepted: isChecked,
-                });
-                setContinueOperateLocal(isChecked);
+                setSecurityCheckAccepted(isChecked);
               }}
             />
           ) : null}

@@ -21,6 +21,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
   useCustomRpcStatusAtom,
@@ -121,6 +122,7 @@ type IProps = {
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
   securityCheckConfirmation: ISecurityCheckConfirmation;
+  securityCheckAcknowledgementKey: string;
 };
 
 type IGasAccountActionDetails = Omit<
@@ -150,6 +152,7 @@ function TxConfirmActions(props: IProps) {
     unsignedTxQueue,
     gasAccountScenario,
     securityCheckConfirmation,
+    securityCheckAcknowledgementKey,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -163,28 +166,8 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  const [securityCheckAcknowledgement, setSecurityCheckAcknowledgement] =
-    useState({
-      unsignedTxs,
-      confirmation: securityCheckConfirmation,
-      accepted: false,
-    });
-  if (
-    securityCheckAcknowledgement.unsignedTxs !== unsignedTxs ||
-    securityCheckAcknowledgement.confirmation !== securityCheckConfirmation
-  ) {
-    setSecurityCheckAcknowledgement({
-      unsignedTxs,
-      confirmation: securityCheckConfirmation,
-      accepted: false,
-    });
-  }
-  // Acknowledgement belongs to this transaction revision and verdict. Editing
-  // the payload or receiving a new verdict requires explicit review again.
-  const continueOperate =
-    securityCheckAcknowledgement.accepted &&
-    securityCheckAcknowledgement.unsignedTxs === unsignedTxs &&
-    securityCheckAcknowledgement.confirmation === securityCheckConfirmation;
+  const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
+    useScopedAcknowledgement(securityCheckAcknowledgementKey);
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
@@ -1253,11 +1236,7 @@ function TxConfirmActions(props: IProps) {
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setSecurityCheckAcknowledgement({
-                  unsignedTxs,
-                  confirmation: securityCheckConfirmation,
-                  accepted: Boolean(checked),
-                });
+                setSecurityCheckAccepted(Boolean(checked));
               }}
             />
           ) : null}

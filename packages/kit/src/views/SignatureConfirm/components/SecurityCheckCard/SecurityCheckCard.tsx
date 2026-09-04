@@ -29,7 +29,6 @@ import { ConfirmCardFrame } from './ConfirmCardFrame';
 import {
   canRetryTransactionSecurityCheck,
   getCardSecurityFindings,
-  shouldShowPrimeInvite,
 } from './securityCheckModel';
 import { showSecurityFindingDetails } from './SecurityFindingDetails';
 
@@ -690,12 +689,6 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
     model.kind,
     model.orderedCategories,
   ]);
-  const showPrime = shouldShowPrimeInvite({
-    status: model.status,
-    isPrimeUser: model.isPrimeUser,
-    hasTransactionSecurityCheck: model.hasTransactionSecurityCheck,
-  });
-
   if (!model.status) {
     return null;
   }
@@ -716,7 +709,7 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
             statusLabel={statusLabel}
             onRetry={onRetry}
           />
-          {showPrime ? <PrimeInviteRow /> : null}
+          {model.showPrimeInvite ? <PrimeInviteRow /> : null}
         </YStack>
         {cardFindings.featured ? (
           <YStack gap="$4">

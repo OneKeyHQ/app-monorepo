@@ -395,7 +395,9 @@ function TxConfirm() {
   const {
     result: transactionSecurityInfo,
     isPending: isTransactionSecurityPending,
+    isApplicable: isTransactionSecurityApplicable,
     isPrimeUser,
+    requestKey: transactionSecurityRequestKey,
     retry: retryTransactionSecurityCheck,
   } = useTransactionSecurityCheck({
     requestKey: securityCheckRequestKey,
@@ -409,12 +411,14 @@ function TxConfirm() {
     () =>
       buildSecurityCheckModel({
         kind: 'transaction',
+        requestKey: transactionSecurityRequestKey,
         origin: sourceInfo?.origin,
         urlSecurityInfo,
         decodedTxs,
         isParserPending: !decodedTxsInit || isBuildingDecodedTxs,
         transactionSecurityInfo,
         isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
         isPrimeUser,
         intl,
       }),
@@ -424,8 +428,10 @@ function TxConfirm() {
       intl,
       isBuildingDecodedTxs,
       isPrimeUser,
+      isTransactionSecurityApplicable,
       isTransactionSecurityPending,
       sourceInfo?.origin,
+      transactionSecurityRequestKey,
       transactionSecurityInfo,
       urlSecurityInfo,
     ],
@@ -526,6 +532,7 @@ function TxConfirm() {
         />
         {visibleSimulationComponents.length ? (
           <TransactionPreview
+            key={securityCheckRequestKey}
             simulationComponents={visibleSimulationComponents}
           />
         ) : null}
@@ -555,6 +562,7 @@ function TxConfirm() {
     sourceInfo?.origin,
     urlSecurityInfo,
     visibleSimulationComponents,
+    securityCheckRequestKey,
     securityCheckModel,
     retryTransactionSecurityCheck,
     shouldHideSimulationInDetails,
@@ -626,6 +634,7 @@ function TxConfirm() {
         accountId={accountId}
         networkId={networkId}
         securityCheckConfirmation={securityCheckModel.confirmation}
+        securityCheckAcknowledgementKey={securityCheckModel.acknowledgementKey}
       />
     </Page>
   );

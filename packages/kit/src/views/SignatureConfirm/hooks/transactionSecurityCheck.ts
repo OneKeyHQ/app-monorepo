@@ -1,8 +1,15 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
   canAttemptTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityJsonRpc,
+  createCheckFailedTransactionSecurityResult,
   getTransactionSecurityEncodedTxIdentity,
+  mergeTransactionSecurityResults,
 } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import type {
   ITransactionSecurityCheckResult,
@@ -33,16 +40,81 @@ const EMPTY_ENCODED_TXS: ITransactionSecurityEncodedTxInput[] = [];
 function getEncodedTxInputIdentity(
   encodedTx: ITransactionSecurityEncodedTxInput,
 ) {
-  return [
-    encodedTx.accountId ?? '',
-    encodedTx.networkId ?? '',
-    getTransactionSecurityEncodedTxIdentity(encodedTx.encodedTx),
-  ].join(':');
+  return stableStringify({
+    accountId: encodedTx.accountId ?? '',
+    networkId: encodedTx.networkId ?? '',
+    encodedTx: getTransactionSecurityEncodedTxIdentity(encodedTx.encodedTx),
+  });
+}
+
+export function getTransactionSecurityRequestKey({
+  requestKey,
+  origin,
+  accountId,
+  networkId,
+  encodedTxs,
+  jsonRpc,
+}: {
+  requestKey: string;
+  origin?: string;
+  accountId?: string;
+  networkId?: string;
+  encodedTxs?: ITransactionSecurityEncodedTxInput[];
+  jsonRpc?: ITransactionSecurityJsonRpc;
+}) {
+  return stableStringify({
+    requestKey,
+    origin: origin ?? '',
+    accountId: accountId ?? '',
+    networkId: networkId ?? '',
+    encodedTxs: encodedTxs?.map(getEncodedTxInputIdentity) ?? [],
+    jsonRpc: jsonRpc ?? null,
+  });
+}
+
+export async function runTransactionSecurityChecks(
+  checks: Array<() => Promise<ITransactionSecurityCheckResult | undefined>>,
+) {
+  try {
+    const results = await promiseAllSettledEnhanced(
+      checks.map((check) => async () => check()),
+      {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      },
+    );
+    return mergeTransactionSecurityResults(
+      results.map((result) =>
+        result === null ? createCheckFailedTransactionSecurityResult() : result,
+      ),
+    );
+  } catch {
+    return createCheckFailedTransactionSecurityResult();
+  }
+}
+
+export function resolveTransactionSecurityApplicability({
+  hasScannableRequest,
+  networkId,
+  resolvedNetworkId,
+  isCustomNetwork,
+}: {
+  hasScannableRequest: boolean;
+  networkId?: string;
+  resolvedNetworkId?: string;
+  isCustomNetwork?: boolean;
+}): boolean | undefined {
+  if (!hasScannableRequest) {
+    return false;
+  }
+  if (!networkId || resolvedNetworkId !== networkId) {
+    return undefined;
+  }
+  return !isCustomNetwork;
 }
 
 export function getTransactionSecurityEncodedTxs(
   unsignedTxs?: ITransactionSecurityCheckParams['unsignedTxs'],
-  previous: ITransactionSecurityEncodedTxInput[] = EMPTY_ENCODED_TXS,
 ): ITransactionSecurityEncodedTxInput[] {
   if (!unsignedTxs?.length) {
     return EMPTY_ENCODED_TXS;
@@ -58,22 +130,10 @@ export function getTransactionSecurityEncodedTxs(
         ]
       : [],
   );
-  const next = encodedTxs.length ? encodedTxs : EMPTY_ENCODED_TXS;
-  if (
-    next.length === previous.length &&
-    next.every(
-      (item, index) =>
-        getEncodedTxInputIdentity(item) ===
-        getEncodedTxInputIdentity(previous[index]),
-    )
-  ) {
-    return previous;
-  }
-  return next;
+  return encodedTxs.length ? encodedTxs : EMPTY_ENCODED_TXS;
 }
 
-export function shouldRunTransactionSecurityCheck({
-  isPrimeSubscriptionActive,
+export function hasScannableTransactionSecurityRequest({
   origin,
   accountId,
   networkId,
@@ -83,11 +143,9 @@ export function shouldRunTransactionSecurityCheck({
   ITransactionSecurityCheckParams,
   'origin' | 'accountId' | 'networkId' | 'jsonRpc'
 > & {
-  isPrimeSubscriptionActive: boolean;
   encodedTxs?: ITransactionSecurityEncodedTxInput[];
 }) {
   return Boolean(
-    isPrimeSubscriptionActive &&
     origin &&
     accountId &&
     networkId &&

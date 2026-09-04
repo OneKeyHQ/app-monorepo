@@ -3,9 +3,12 @@ import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import {
   getTransactionSecurityEncodedTxs,
+  getTransactionSecurityRequestKey,
+  hasScannableTransactionSecurityRequest,
   resolvePrimeUserForSecurityCheck,
+  resolveTransactionSecurityApplicability,
   resolveTransactionSecurityCheckState,
-  shouldRunTransactionSecurityCheck,
+  runTransactionSecurityChecks,
 } from './transactionSecurityCheck';
 
 const encodedTxs = getTransactionSecurityEncodedTxs([
@@ -25,46 +28,114 @@ describe('getTransactionSecurityEncodedTxs', () => {
     expect(encodedTxs).toHaveLength(1);
     expect(getTransactionSecurityEncodedTxs()).toEqual([]);
   });
+});
 
-  it('reuses the previous array when only gas identity changes', () => {
-    const first = getTransactionSecurityEncodedTxs([
-      {
-        encodedTx: {
-          to: '0x1',
-          data: '0x',
-          value: '0x0',
-          gas: '0x5208',
-        } as IEncodedTx,
-      },
-    ]);
-    const second = getTransactionSecurityEncodedTxs(
-      [
-        {
-          encodedTx: {
-            to: '0x1',
-            data: '0x',
-            value: '0x0',
-            gas: '0x61a8',
-          } as IEncodedTx,
-        },
-      ],
-      first,
+describe('getTransactionSecurityRequestKey', () => {
+  it('changes when the transaction payload changes but ignores fee-only changes', () => {
+    const getRequestKey = (data: string, gas: string) =>
+      getTransactionSecurityRequestKey({
+        requestKey: 'tx-uuid',
+        encodedTxs: getTransactionSecurityEncodedTxs([
+          {
+            encodedTx: {
+              to: '0x1',
+              data,
+              value: '0x0',
+              gas,
+            } as IEncodedTx,
+          },
+        ]),
+      });
+
+    expect(getRequestKey('0xaaa', '0x5208')).not.toBe(
+      getRequestKey('0xbbb', '0x5208'),
     );
-
-    expect(second).toBe(first);
+    expect(getRequestKey('0xaaa', '0x5208')).toBe(
+      getRequestKey('0xaaa', '0x61a8'),
+    );
+    expect(
+      getTransactionSecurityRequestKey({
+        requestKey: 'tx-uuid',
+        origin: 'https://first.example',
+        encodedTxs,
+      }),
+    ).not.toBe(
+      getTransactionSecurityRequestKey({
+        requestKey: 'tx-uuid',
+        origin: 'https://second.example',
+        encodedTxs,
+      }),
+    );
   });
 
-  it('does not reuse a string payload when the hex itself changes', () => {
-    const first = getTransactionSecurityEncodedTxs([
-      { encodedTx: '0xaaa' as IEncodedTx },
-    ]);
-    const second = getTransactionSecurityEncodedTxs(
-      [{ encodedTx: '0xbbb' as IEncodedTx }],
-      first,
-    );
+  it('changes when the JSON-RPC payload changes', () => {
+    const getRequestKey = (message: string) =>
+      getTransactionSecurityRequestKey({
+        requestKey: 'message-id',
+        jsonRpc: {
+          method: 'personal_sign',
+          params: [message],
+        },
+      });
 
-    expect(second).not.toBe(first);
-    expect(second[0]?.encodedTx).toBe('0xbbb');
+    expect(getRequestKey('0xaaa')).not.toBe(getRequestKey('0xbbb'));
+  });
+});
+
+describe('runTransactionSecurityChecks', () => {
+  it('keeps a sibling risk result when another check rejects', async () => {
+    const result = await runTransactionSecurityChecks([
+      async () => ({
+        level: EHostSecurityLevel.High,
+        detail: {
+          code: 'known_malicious_interaction',
+          features: [],
+        },
+      }),
+      async () => Promise.reject(new Error('IPC unavailable')),
+    ]);
+
+    expect(result).toMatchObject({
+      level: EHostSecurityLevel.High,
+      coverage: {
+        hasUncoveredRequests: false,
+        hasFailedRequests: true,
+      },
+    });
+  });
+});
+
+describe('resolveTransactionSecurityApplicability', () => {
+  it('requires a current supported network for a scannable request', () => {
+    expect(
+      resolveTransactionSecurityApplicability({
+        hasScannableRequest: false,
+        networkId: 'evm--1',
+      }),
+    ).toBe(false);
+    expect(
+      resolveTransactionSecurityApplicability({
+        hasScannableRequest: true,
+        networkId: 'evm--1',
+        resolvedNetworkId: 'evm--137',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveTransactionSecurityApplicability({
+        hasScannableRequest: true,
+        networkId: 'evm--1',
+        resolvedNetworkId: 'evm--1',
+        isCustomNetwork: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveTransactionSecurityApplicability({
+        hasScannableRequest: true,
+        networkId: 'evm--1',
+        resolvedNetworkId: 'evm--1',
+        isCustomNetwork: false,
+      }),
+    ).toBe(true);
   });
 });
 
@@ -103,49 +174,33 @@ describe('resolvePrimeUserForSecurityCheck', () => {
       }),
     ).toBe(false);
   });
-
-  it('treats an active Prime subscription as a Prime user', () => {
-    expect(
-      resolvePrimeUserForSecurityCheck({
-        isPrimeSubscriptionActive: true,
-        isPersistReady: true,
-      }),
-    ).toBe(true);
-  });
 });
 
-describe('shouldRunTransactionSecurityCheck', () => {
+describe('hasScannableTransactionSecurityRequest', () => {
   const ready = {
-    isPrimeSubscriptionActive: true,
     origin: 'https://app.example.com',
     accountId: 'account-id',
     networkId: 'evm--1',
     encodedTxs,
   };
 
-  it('runs only when Prime, origin, and a payload are all present', () => {
-    expect(shouldRunTransactionSecurityCheck(ready)).toBe(true);
+  it('requires origin, account, network, and a supported payload', () => {
+    expect(hasScannableTransactionSecurityRequest(ready)).toBe(true);
     expect(
-      shouldRunTransactionSecurityCheck({
-        ...ready,
-        isPrimeSubscriptionActive: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRunTransactionSecurityCheck({
+      hasScannableTransactionSecurityRequest({
         ...ready,
         origin: undefined,
       }),
     ).toBe(false);
     expect(
-      shouldRunTransactionSecurityCheck({
+      hasScannableTransactionSecurityRequest({
         ...ready,
         encodedTxs: [],
         jsonRpc: undefined,
       }),
     ).toBe(false);
     expect(
-      shouldRunTransactionSecurityCheck({
+      hasScannableTransactionSecurityRequest({
         ...ready,
         encodedTxs: [],
         jsonRpc: {
@@ -155,7 +210,7 @@ describe('shouldRunTransactionSecurityCheck', () => {
       }),
     ).toBe(false);
     expect(
-      shouldRunTransactionSecurityCheck({
+      hasScannableTransactionSecurityRequest({
         ...ready,
         encodedTxs: [],
         jsonRpc: {
@@ -165,7 +220,7 @@ describe('shouldRunTransactionSecurityCheck', () => {
       }),
     ).toBe(true);
     expect(
-      shouldRunTransactionSecurityCheck({
+      hasScannableTransactionSecurityRequest({
         ...ready,
         encodedTxs: [
           {

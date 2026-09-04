@@ -121,12 +121,7 @@ function MessageConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const {
-    continueOperate,
-    setContinueOperate,
-    urlSecurityInfo,
-    isRiskSignMethod,
-  } = useRiskDetection({
+  const { urlSecurityInfo, isRiskSignMethod } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     unsignedMessage,
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
@@ -261,7 +256,9 @@ function MessageConfirm() {
   const {
     result: transactionSecurityInfo,
     isPending: isTransactionSecurityPending,
+    isApplicable: isTransactionSecurityApplicable,
     isPrimeUser,
+    requestKey: transactionSecurityRequestKey,
     retry: retryTransactionSecurityCheck,
   } = useTransactionSecurityCheck({
     requestKey: securityCheckRequestKey,
@@ -275,6 +272,7 @@ function MessageConfirm() {
     () =>
       buildSecurityCheckModel({
         kind: 'message',
+        requestKey: transactionSecurityRequestKey,
         origin: sourceInfo?.origin,
         urlSecurityInfo,
         messageDisplay: parsedMessage,
@@ -285,6 +283,7 @@ function MessageConfirm() {
         isParserPending: isMessageParserPending,
         transactionSecurityInfo,
         isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
         isPrimeUser,
         intl,
       }),
@@ -294,10 +293,12 @@ function MessageConfirm() {
       isMessageParseFallback,
       isMessageParserPending,
       isPrimeUser,
+      isTransactionSecurityApplicable,
       isRiskSignMethod,
       isTransactionSecurityPending,
       parsedMessage,
       sourceInfo?.origin,
+      transactionSecurityRequestKey,
       transactionSecurityInfo,
       unsignedMessage,
       urlSecurityInfo,
@@ -422,10 +423,8 @@ function MessageConfirm() {
         accountId={accountId}
         networkId={networkId}
         unsignedMessage={unsignedMessage}
-        continueOperate={continueOperate}
-        setContinueOperate={setContinueOperate}
         securityCheckConfirmation={securityCheckModel.confirmation}
-        securityCheckRequestKey={securityCheckRequestKey}
+        securityCheckAcknowledgementKey={securityCheckModel.acknowledgementKey}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
         skipBackupCheck={skipBackupCheck}

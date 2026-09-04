@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { buildPrimeAnalyticsProfileSnapshot } from '@onekeyhq/kit-bg/src/services/ServicePrime/primeAnalyticsProfile';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -88,7 +89,16 @@ function useRiskDetection({
       ? backendSecurityResult.info
       : overrideSecurityLevel(undefined, EHostSecurityLevel.Unknown, origin);
   }
-  const isRiskCheckPending = Boolean(origin && !isBackendSecurityResultCurrent);
+  const hasConclusiveWalletConnectRisk = Boolean(
+    walletConnectVerifyContext &&
+    (walletConnectVerifyContext.verified.isScam ||
+      walletConnectVerifyContext.verified.validation === 'INVALID'),
+  );
+  const isRiskCheckPending = Boolean(
+    origin &&
+    !isBackendSecurityResultCurrent &&
+    !hasConclusiveWalletConnectRisk,
+  );
 
   const urlSecurityInfo = useMemo<IHostSecurity | undefined>(() => {
     if (!walletConnectVerifyContext) return backendSecurityInfo;
@@ -177,24 +187,10 @@ function useRiskDetection({
       unsignedMessage?.message,
     ],
   );
-  const canContinueWithoutAcknowledgement =
-    !isRiskCheckPending && !showContinueOperate;
-  const [continueOperate, setContinueOperate] = useState(
-    canContinueWithoutAcknowledgement,
-  );
-  const [previousRiskAcknowledgementKey, setPreviousRiskAcknowledgementKey] =
-    useState(riskAcknowledgementKey);
-  const didRiskAcknowledgementChange =
-    previousRiskAcknowledgementKey !== riskAcknowledgementKey;
-  if (didRiskAcknowledgementChange) {
-    setPreviousRiskAcknowledgementKey(riskAcknowledgementKey);
-    setContinueOperate(canContinueWithoutAcknowledgement);
-  }
+  const { isAccepted: isRiskAcknowledged, setAccepted: setContinueOperate } =
+    useScopedAcknowledgement(riskAcknowledgementKey);
   const currentContinueOperate = Boolean(
-    !isRiskCheckPending &&
-    (didRiskAcknowledgementChange
-      ? canContinueWithoutAcknowledgement
-      : continueOperate),
+    !isRiskCheckPending && (!showContinueOperate || isRiskAcknowledged),
   );
 
   // Log risk detection info

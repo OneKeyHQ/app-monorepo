@@ -24,6 +24,10 @@ export type ITransactionSecurityDetail = {
 export type ITransactionSecurityCheckResult = {
   level: EHostSecurityLevel;
   detail: ITransactionSecurityDetail;
+  coverage?: {
+    hasUncoveredRequests: boolean;
+    hasFailedRequests: boolean;
+  };
 };
 
 export type ITransactionSecurityFeatureRaw = {
