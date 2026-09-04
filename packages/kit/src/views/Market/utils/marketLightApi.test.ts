@@ -267,6 +267,88 @@ describe('marketLightApi', () => {
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
 
+  it('does not cache incomplete anonymous native rows by response index', async () => {
+    const firstNativeToken = {
+      chainId: 'evm--first-incomplete-native-test',
+      contractAddress: '',
+      isNative: true,
+    };
+    const spotToken = {
+      chainId: 'evm--incomplete-native-test',
+      contractAddress: '0xspot-incomplete-native-test',
+      isNative: false,
+    };
+    const secondNativeToken = {
+      chainId: 'sol--second-incomplete-native-test',
+      contractAddress: '',
+      isNative: true,
+    };
+    const spotItem = {
+      address: spotToken.contractAddress,
+      networkId: spotToken.chainId,
+      isNative: false,
+      symbol: 'SPOT',
+    };
+    const firstNativeItem = {
+      address: '',
+      symbol: 'FIRST_NATIVE',
+    };
+    const secondNativeItem = {
+      address: '',
+      symbol: 'SECOND_NATIVE',
+    };
+    mockPost
+      .mockResolvedValueOnce({
+        data: { data: { list: [spotItem, secondNativeItem] } },
+      })
+      .mockResolvedValueOnce({
+        data: { data: { list: [firstNativeItem, secondNativeItem] } },
+      });
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const partialResult = await fetchMarketTokenListBatchLight({
+      tokenAddressList: [firstNativeToken, spotToken, secondNativeToken],
+    });
+    expect(partialResult.list).toHaveLength(2);
+    expect(partialResult.list[0]).toBeUndefined();
+    expect(partialResult.list[1]).toEqual(spotItem);
+    expect(partialResult.list[2]).toBeUndefined();
+
+    const firstNormalizedItem = {
+      ...firstNativeItem,
+      isNative: true,
+      networkId: firstNativeToken.chainId,
+    };
+    const secondNormalizedItem = {
+      ...secondNativeItem,
+      isNative: true,
+      networkId: secondNativeToken.chainId,
+    };
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [firstNativeToken, secondNativeToken],
+      }),
+    ).resolves.toEqual({ list: [firstNormalizedItem, secondNormalizedItem] });
+    await expect(
+      fetchMarketTokenListBatchLight({
+        tokenAddressList: [secondNativeToken, firstNativeToken],
+      }),
+    ).resolves.toEqual({ list: [secondNormalizedItem, firstNormalizedItem] });
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockPost.mock.calls[1]?.[1]).toEqual({
+      tokenAddressList: [firstNativeToken, secondNativeToken],
+      currency: 'usd',
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[marketLightApi] fetchMarketTokenListBatchLight: ambiguous anonymous native response rows',
+      { requestCount: 2, responseCount: 1 },
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
   it('does not let an older response overwrite a newer batch cache entry', async () => {
     const token = {
       chainId: 'evm--concurrent-cache-test',

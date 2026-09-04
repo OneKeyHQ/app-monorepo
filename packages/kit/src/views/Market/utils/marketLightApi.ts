@@ -326,7 +326,45 @@ const fetchMarketTokenListBatchLight = async (
     missingTokenEntries.map((entry) => [entry.cacheKey, entry]),
   );
   const responseTimestamp = Date.now();
-  data?.list?.forEach((item, apiIndex) => {
+  const cacheMatchedItem = ({
+    cacheKey,
+    item,
+    itemNetworkId,
+    itemIsNative,
+  }: {
+    cacheKey: string;
+    item: IMarketTokenListItem;
+    itemNetworkId: string;
+    itemIsNative: boolean | undefined;
+  }) => {
+    unmatchedTokenKeys.delete(cacheKey);
+    const matchedToken = missingTokenEntryByKey.get(cacheKey)?.token;
+    if (!matchedToken) return;
+    const normalizedItem: IMarketTokenListItem = {
+      ...item,
+      networkId: itemNetworkId || matchedToken.chainId,
+      isNative: itemIsNative ?? matchedToken.isNative,
+    };
+    const originalIndex = tokenIndexMap.get(cacheKey);
+    const cached = marketTokenBatchCache.get(cacheKey);
+    if (cached && cached.requestSequence > requestSequence) {
+      if (originalIndex !== undefined) {
+        cachedResults[originalIndex] = cached.data;
+      }
+      return;
+    }
+
+    marketTokenBatchCache.set(cacheKey, {
+      data: normalizedItem,
+      requestSequence,
+      timestamp: responseTimestamp,
+    });
+    if (originalIndex !== undefined) {
+      cachedResults[originalIndex] = normalizedItem;
+    }
+  };
+  const anonymousNativeItems: IMarketTokenListItem[] = [];
+  data?.list?.forEach((item) => {
     const itemAddress = item?.address ?? '';
     const itemNetworkId = String(item?.networkId || item?.chainId || '');
     const itemIsNative =
@@ -372,18 +410,18 @@ const fetchMarketTokenListBatchLight = async (
       }
     }
 
-    if (!cacheKey && !itemNetworkId) {
-      const positionalEntry = missingTokenEntries[apiIndex];
+    if (!cacheKey) {
       const normalizedItemAddress = normalizeMarketTokenBatchAddress({
         contractAddress: itemAddress,
         isNative: itemIsNative,
       });
       if (
-        normalizedItemAddress === '' &&
-        positionalEntry?.token.isNative &&
-        unmatchedTokenKeys.has(positionalEntry.cacheKey)
+        !itemNetworkId &&
+        itemIsNative !== false &&
+        normalizedItemAddress === ''
       ) {
-        cacheKey = positionalEntry.cacheKey;
+        anonymousNativeItems.push(item);
+        return;
       }
     }
 
@@ -399,32 +437,37 @@ const fetchMarketTokenListBatchLight = async (
       return;
     }
 
-    unmatchedTokenKeys.delete(cacheKey);
-    const matchedToken = missingTokenEntryByKey.get(cacheKey)?.token;
-    if (!matchedToken) return;
-    const normalizedItem: IMarketTokenListItem = {
-      ...item,
-      networkId: itemNetworkId || matchedToken.chainId,
-      isNative: itemIsNative ?? matchedToken.isNative,
-    };
-    const originalIndex = tokenIndexMap.get(cacheKey);
-    const cached = marketTokenBatchCache.get(cacheKey);
-    if (cached && cached.requestSequence > requestSequence) {
-      if (originalIndex !== undefined) {
-        cachedResults[originalIndex] = cached.data;
-      }
-      return;
-    }
-
-    marketTokenBatchCache.set(cacheKey, {
-      data: normalizedItem,
-      requestSequence,
-      timestamp: responseTimestamp,
-    });
-    if (originalIndex !== undefined) {
-      cachedResults[originalIndex] = normalizedItem;
-    }
+    cacheMatchedItem({ cacheKey, item, itemNetworkId, itemIsNative });
   });
+
+  const unmatchedNativeEntries = missingTokenEntries.filter(
+    ({ token, cacheKey }) => token.isNative && unmatchedTokenKeys.has(cacheKey),
+  );
+  if (anonymousNativeItems.length === unmatchedNativeEntries.length) {
+    anonymousNativeItems.forEach((item, index) => {
+      const entry = unmatchedNativeEntries[index];
+      if (!entry) return;
+      const itemIsNative =
+        typeof item?.isNative === 'boolean' ? item.isNative : undefined;
+      cacheMatchedItem({
+        cacheKey: entry.cacheKey,
+        item,
+        itemNetworkId: '',
+        itemIsNative,
+      });
+    });
+  } else if (
+    anonymousNativeItems.length > 0 &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    console.error(
+      '[marketLightApi] fetchMarketTokenListBatchLight: ambiguous anonymous native response rows',
+      {
+        requestCount: unmatchedNativeEntries.length,
+        responseCount: anonymousNativeItems.length,
+      },
+    );
+  }
 
   return { list: cachedResults };
 };
