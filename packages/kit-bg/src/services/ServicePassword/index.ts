@@ -915,8 +915,7 @@ export default class ServicePassword extends ServiceBase {
     kdfBackend,
     enablePbkdf2Cache,
   }: IVerifyPasswordParams): Promise<string> {
-    const shouldSkipPostVerifyBackgroundTasks =
-      skipPostVerifyBackgroundTasks ||
+    const isTravelModePersistenceUnavailable =
       runtimePersistenceAdapter.isUnavailable();
     let verifyingPassword = password;
     if (isBiologyAuth) {
@@ -928,9 +927,9 @@ export default class ServicePassword extends ServiceBase {
       passwordMode,
       kdfBackend,
       enablePbkdf2Cache,
-      skipLazyUpgrade: shouldSkipPostVerifyBackgroundTasks,
+      skipLazyUpgrade: isTravelModePersistenceUnavailable,
     });
-    if (shouldSkipPostVerifyBackgroundTasks) {
+    if (isTravelModePersistenceUnavailable) {
       await this.setCachedPassword({
         password: verifyingPassword,
         skipBackgroundTasks: true,

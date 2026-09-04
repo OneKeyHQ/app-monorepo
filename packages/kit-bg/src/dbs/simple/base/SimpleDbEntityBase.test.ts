@@ -86,13 +86,12 @@ describe('SimpleDbEntityBase Travel Mode masking', () => {
     environmentSpy.mockRestore();
   });
 
-  test('keeps an admitted builder write inside the activation drain', async () => {
+  test('keeps the boot profile active while persisting the next profile', async () => {
     let controlValue = JSON.stringify({
       enabled: false,
       verifyString: '|VS|verifier',
       version: 1,
     });
-    let runtimeMasking = false;
     const manager = new TravelModeManager(
       {
         async getItem() {
@@ -100,12 +99,6 @@ describe('SimpleDbEntityBase Travel Mode masking', () => {
         },
         async removeItem() {
           controlValue = '';
-        },
-        getRuntimeMaskingSync() {
-          return runtimeMasking;
-        },
-        setRuntimeMaskingSync(masking) {
-          runtimeMasking = masking;
         },
         async setItem(value) {
           controlValue = value;
@@ -142,16 +135,14 @@ describe('SimpleDbEntityBase Travel Mode masking', () => {
     });
     await builderStarted;
     const transitionPromise = manager.transition({ enabled: true });
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(JSON.parse(controlValue)).toMatchObject({ enabled: false });
-    releaseBuilder();
-    await writePromise;
     await transitionPromise;
 
-    expect(store.has(entity.entityKey)).toBe(true);
     expect(JSON.parse(controlValue)).toMatchObject({ enabled: true });
+    expect(store.has(entity.entityKey)).toBe(false);
+    releaseBuilder();
+    await writePromise;
+
+    expect(store.has(entity.entityKey)).toBe(true);
     environmentSpy.mockRestore();
   });
 });

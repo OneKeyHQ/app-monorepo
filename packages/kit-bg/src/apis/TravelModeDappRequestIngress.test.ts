@@ -24,7 +24,7 @@ describe('TravelModeDappRequestIngress', () => {
     jest.clearAllMocks();
   });
 
-  it('routes standard requests through the shared transition barrier', async () => {
+  it('routes requests through the immutable runtime environment', async () => {
     const ingress = new TravelModeDappRequestIngress();
     const operation = jest.fn(async () => 'result');
 

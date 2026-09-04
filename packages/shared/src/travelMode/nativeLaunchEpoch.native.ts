@@ -28,7 +28,7 @@ interface ITravelModeLaunchEpochNativeModule {
     profile: ITravelModeLaunchProfile,
   ): Promise<ITravelModeLaunchStatus>;
   getLaunchStatus(epoch: number): Promise<ITravelModeLaunchStatus>;
-  forceDisableForRecovery(): Promise<void>;
+  forceDisableForRecovery(): Promise<boolean>;
   prepareRestart(profile: ITravelModeLaunchProfile): Promise<number>;
 }
 
@@ -38,6 +38,10 @@ export type ITravelModeLaunchAcknowledgement = {
 };
 
 const ACKNOWLEDGEMENT_POLL_INTERVAL_MS = 50;
+
+export function isTravelModeRuntimeLaunchNativeModuleAvailable(): boolean {
+  return Boolean(NativeModules.OneKeyTravelModeLaunchEpoch);
+}
 
 function getNativeModule(): ITravelModeLaunchEpochNativeModule {
   const nativeModule = NativeModules.OneKeyTravelModeLaunchEpoch as
@@ -129,8 +133,8 @@ export async function prepareTravelModeRuntimeRestart(
   return epoch;
 }
 
-export async function forceDisableTravelModeForRecovery(): Promise<void> {
-  await getNativeModule().forceDisableForRecovery();
+export async function forceDisableTravelModeForRecovery(): Promise<boolean> {
+  return getNativeModule().forceDisableForRecovery();
 }
 
 export async function acknowledgeTravelModeRuntimeLaunch({

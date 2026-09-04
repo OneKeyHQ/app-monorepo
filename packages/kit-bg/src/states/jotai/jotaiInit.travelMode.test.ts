@@ -150,10 +150,6 @@ describe('Travel Mode Jotai startup', () => {
       require('@onekeyhq/shared/src/travelMode') as typeof import('@onekeyhq/shared/src/travelMode');
     const maskedEnvironment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      {
-        isBlockedSync: () => true,
-        runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-      },
     );
     jest
       .spyOn(travelModeManager, 'getRuntimeProfile')

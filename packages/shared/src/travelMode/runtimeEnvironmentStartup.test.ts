@@ -13,10 +13,6 @@ const mockCreateMMKV = jest.fn(() => {
 
 const maskedEnvironment = RuntimeEnvironment.create(
   getTravelModeRuntimeProfile(true),
-  {
-    isBlockedSync: () => true,
-    runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-  },
 );
 
 jest.mock('../platformEnv', () => ({

@@ -677,8 +677,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @backgroundMethod()
   async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
-    const release = await travelModeManager.beginProtectedOperation();
-    if (!release) {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'masked') {
       return;
     }
     const startedAt = Date.now();
@@ -744,8 +744,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         errorMessage: (error as Error)?.message || 'unknown',
       });
       throw error;
-    } finally {
-      release();
     }
   }
 

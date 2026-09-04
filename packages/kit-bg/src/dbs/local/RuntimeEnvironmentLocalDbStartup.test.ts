@@ -17,10 +17,6 @@ const mockV4IndexedDBDelete = jest.fn();
 
 const maskedEnvironment = RuntimeEnvironment.create(
   getTravelModeRuntimeProfile(true),
-  {
-    isBlockedSync: () => true,
-    runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-  },
 );
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => {

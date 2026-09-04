@@ -4,10 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  setTravelModePushSuppressed,
-  travelModeManager,
-} from '@onekeyhq/shared/src/travelMode';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { prepareTravelModeRuntimeRestart } from '@onekeyhq/shared/src/travelMode/nativeLaunchEpoch';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -33,7 +30,6 @@ export default class ServiceTravelMode extends ServiceBase {
         manualPasswordOnly: true,
         skipPostVerifyBackgroundTasks: true,
       }),
-    clearSensitiveCaches: () => localDb.clearStoreCachedData(),
     getPersistedEnabled: () => travelModeManager.getPersistedEnabled(),
     getPortableVerifyString: async () => {
       const context = await localDb.getContext();
@@ -48,7 +44,6 @@ export default class ServiceTravelMode extends ServiceBase {
         mode: EAppRestartMode.All,
         reason,
       }),
-    setPushSuppressed: (suppressed) => setTravelModePushSuppressed(suppressed),
     verifyPassword: (password) =>
       localDb.verifyPassword({ password, skipLazyUpgrade: true }),
     waitBeforeRestart: async () => {

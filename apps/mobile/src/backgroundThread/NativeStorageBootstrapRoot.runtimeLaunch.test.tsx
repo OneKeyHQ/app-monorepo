@@ -11,7 +11,9 @@ const mockBootstrapNativeStorage = jest.fn(async () => undefined);
 const mockCompleteRuntimeLaunchAcknowledgement = jest.fn(async () => false);
 const mockHideNativeStorageBootstrapSplash = jest.fn();
 const mockInitializeJotaiFromBackground = jest.fn(async () => undefined);
-const mockForceDisableTravelModeForRecovery = jest.fn(async () => undefined);
+const mockForceDisableTravelModeForRecovery = jest.fn<Promise<boolean>, []>(
+  async () => false,
+);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),

@@ -1189,9 +1189,17 @@ describe('nativeStorageExecutor', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { travelModeManager } =
       require('../travelMode') as typeof import('../travelMode');
-    const beginSpy = jest
-      .spyOn(travelModeManager, 'beginProtectedOperation')
-      .mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { RuntimeEnvironment } =
+      require('../travelMode/runtimeEnvironment') as typeof import('../travelMode/runtimeEnvironment');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getTravelModeRuntimeProfile } =
+      require('../travelMode/runtimeProfile') as typeof import('../travelMode/runtimeProfile');
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockResolvedValue(
+        RuntimeEnvironment.create(getTravelModeRuntimeProfile(true)),
+      );
     const bootstrapSpy = jest
       .spyOn(travelModeManager, 'getBootstrapControlValue')
       .mockResolvedValue(
@@ -1232,11 +1240,11 @@ describe('nativeStorageExecutor', () => {
       ],
     ]);
 
-    beginSpy.mockRestore();
+    environmentSpy.mockRestore();
     bootstrapSpy.mockRestore();
   });
 
-  it('holds the Travel Mode permit until async native work settles', async () => {
+  it('waits for async native work to settle before resolving', async () => {
     markAppStorageMigrated();
     let releaseSync: (() => void) | undefined;
     let signalSyncStarted: (() => void) | undefined;
@@ -1251,14 +1259,7 @@ describe('nativeStorageExecutor', () => {
         }),
     );
     const { executeNativeStorageRequest } = loadExecutor();
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { travelModeManager } =
-      require('../travelMode') as typeof import('../travelMode');
-    const releasePermit = jest.fn();
-    const beginSpy = jest
-      .spyOn(travelModeManager, 'beginProtectedOperation')
-      .mockResolvedValue(releasePermit);
-
+    let settled = false;
     const request = executeNativeStorageRequest({
       scope: 'syncStorage',
       operation: 'set',
@@ -1267,14 +1268,15 @@ describe('nativeStorageExecutor', () => {
       value: true,
       sourceMutationId: 1,
       sourceRuntimeId: 'main-runtime',
+    }).finally(() => {
+      settled = true;
     });
     await syncStarted;
 
-    expect(releasePermit).not.toHaveBeenCalled();
+    expect(settled).toBe(false);
     releaseSync?.();
     await request;
-    expect(releasePermit).toHaveBeenCalledTimes(1);
-    beginSpy.mockRestore();
+    expect(settled).toBe(true);
   });
 
   it('bounds replay acknowledgements retained across main runtime restarts', async () => {

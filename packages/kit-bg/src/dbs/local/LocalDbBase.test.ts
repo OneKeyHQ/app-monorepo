@@ -794,10 +794,6 @@ describe('LocalDbBase local secret envelope credentials', () => {
     const verifyString = await encryptVerifyString({ password });
     const maskedEnvironment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      {
-        isBlockedSync: () => true,
-        runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-      },
     );
     const environmentSpy = jest
       .spyOn(travelModeManager, 'getRuntimeEnvironment')

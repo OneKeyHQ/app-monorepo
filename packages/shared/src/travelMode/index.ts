@@ -20,13 +20,11 @@ export { setTravelModePushSuppressed } from './pushControl';
 export type {
   ITravelModeControlRecord,
   ITravelModeControlStorage,
-  ITravelModeProtectedOperationPermit,
   ITravelModeRuntimeProfile,
   ITravelModeRuntimeState,
   IRuntimeCommandCapability,
   IRuntimeEffectCapability,
   IRuntimeEnvironment,
-  IRuntimeEnvironmentBarrier,
   IRuntimePersistenceCapability,
 } from './types';
 export {

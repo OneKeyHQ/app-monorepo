@@ -8,7 +8,6 @@ const TRAVEL_MODE_RESTART_TIMEOUT_MS = 10_000;
 
 export type ITravelModeTransitionControllerDependencies = {
   authenticateToggle: () => Promise<{ password: string }>;
-  clearSensitiveCaches: () => void;
   getPersistedEnabled: () => Promise<boolean>;
   getPortableVerifyString: () => Promise<string>;
   getRuntimeState: () => Promise<ITravelModeRuntimeState>;
@@ -20,7 +19,6 @@ export type ITravelModeTransitionControllerDependencies = {
   prepareRestart: (profile: 'standard' | 'travel-mode') => Promise<number>;
   restart: (reason: string) => Promise<void>;
   restartTimeoutMs?: number;
-  setPushSuppressed: (suppressed: boolean) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   waitBeforeRestart: () => Promise<void>;
 };
@@ -78,27 +76,10 @@ export class TravelModeTransitionController {
       await this.dependencies.verifyPassword(password);
 
       let verifyString: string | undefined;
-      try {
-        if (enabled) {
-          verifyString = await this.dependencies.getPortableVerifyString();
-          this.dependencies.clearSensitiveCaches();
-          await this.dependencies.setPushSuppressed(true);
-        }
-        await this.dependencies.persistTransition({ enabled, verifyString });
-      } catch (error) {
-        if (
-          enabled &&
-          (await this.dependencies.getRuntimeState()) === 'inactive'
-        ) {
-          try {
-            await this.dependencies.setPushSuppressed(false);
-          } catch {
-            this.dependencies.markRestartFailed();
-            throw new OneKeyLocalError('Unknown error');
-          }
-        }
-        throw error;
+      if (enabled) {
+        verifyString = await this.dependencies.getPortableVerifyString();
       }
+      await this.dependencies.persistTransition({ enabled, verifyString });
 
       await this.restartOrEnterRecovery({
         profile: enabled ? 'travel-mode' : 'standard',

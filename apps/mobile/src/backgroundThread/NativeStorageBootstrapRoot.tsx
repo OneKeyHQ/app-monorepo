@@ -174,29 +174,42 @@ async function forceDisableTravelModeForRecoveryBestEffort() {
     const { forceDisableTravelModeForRecovery } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch') as typeof import('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch');
-    await forceDisableTravelModeForRecovery();
+    return await forceDisableTravelModeForRecovery();
   } catch {
     // A storage recovery action must continue even if this safeguard fails.
+    return false;
   }
 }
 
 async function retryBootstrapAfterFailure() {
-  await forceDisableTravelModeForRecoveryBestEffort();
+  const didDisableTravelMode =
+    await forceDisableTravelModeForRecoveryBestEffort();
+  if (didDisableTravelMode) {
+    return restartAfterBootstrapFailure({
+      failureStage: bootstrapFailureStage ?? 'storage',
+      reason: 'storage.bootstrap.retry.travel-mode-disabled',
+      travelModeRecoveryCompleted: true,
+    });
+  }
   return startBootstrap(true);
 }
 
 function restartAfterBootstrapFailure({
   failureStage,
   reason,
+  travelModeRecoveryCompleted = false,
 }: {
   failureStage: IBootstrapFailureStage;
   reason: string;
+  travelModeRecoveryCompleted?: boolean;
 }) {
   if (recoveryRestartPromise) {
     return recoveryRestartPromise;
   }
   const nextPromise = (async () => {
-    await forceDisableTravelModeForRecoveryBestEffort();
+    if (!travelModeRecoveryCompleted) {
+      await forceDisableTravelModeForRecoveryBestEffort();
+    }
     await appRestart({
       mode: EAppRestartMode.All,
       reason,

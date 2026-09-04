@@ -52,8 +52,11 @@ static BOOL OneKeyTravelModeControlRecordIsValid(NSDictionary *record)
          [record[@"version"] isEqual:@1];
 }
 
-static BOOL OneKeyForceDisableTravelModeControl(void)
+static BOOL OneKeyForceDisableTravelModeControl(BOOL *didChange)
 {
+  if (didChange != NULL) {
+    *didChange = NO;
+  }
   [MMKV initializeMMKV:nil];
   MMKV *mmkv = [MMKV mmkvWithID:OneKeyTravelModeMMKVID];
   if (mmkv == nil) {
@@ -68,21 +71,29 @@ static BOOL OneKeyForceDisableTravelModeControl(void)
         : [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     if ([record isKindOfClass:NSDictionary.class] &&
         OneKeyTravelModeControlRecordIsValid(record)) {
-      NSMutableDictionary *disabledRecord = [record mutableCopy];
-      disabledRecord[@"enabled"] = @NO;
-      NSError *serializationError = nil;
-      NSData *disabledData = [NSJSONSerialization dataWithJSONObject:disabledRecord
-                                                              options:0
-                                                                error:&serializationError];
-      NSString *disabledValue = disabledData == nil
-          ? nil
-          : [[NSString alloc] initWithData:disabledData encoding:NSUTF8StringEncoding];
-      if (serializationError != nil || disabledValue.length == 0 ||
-          ![mmkv setString:disabledValue forKey:OneKeyTravelModeControlKey]) {
-        return NO;
+      if ([record[@"enabled"] boolValue]) {
+        NSMutableDictionary *disabledRecord = [record mutableCopy];
+        disabledRecord[@"enabled"] = @NO;
+        NSError *serializationError = nil;
+        NSData *disabledData = [NSJSONSerialization dataWithJSONObject:disabledRecord
+                                                                options:0
+                                                                  error:&serializationError];
+        NSString *disabledValue = disabledData == nil
+            ? nil
+            : [[NSString alloc] initWithData:disabledData encoding:NSUTF8StringEncoding];
+        if (serializationError != nil || disabledValue.length == 0 ||
+            ![mmkv setString:disabledValue forKey:OneKeyTravelModeControlKey]) {
+          return NO;
+        }
+        if (didChange != NULL) {
+          *didChange = YES;
+        }
       }
     } else {
       [mmkv removeValueForKey:OneKeyTravelModeControlKey];
+      if (didChange != NULL) {
+        *didChange = YES;
+      }
     }
   }
   [mmkv sync];
@@ -104,11 +115,15 @@ static BOOL OneKeyForceDisableTravelModeControl(void)
 @property(nonatomic, strong) dispatch_queue_t launchEpochQueue;
 @end
 
-BOOL OneKeyForceDisableTravelModeForRecovery(void)
+static BOOL OneKeyForceDisableTravelModeForRecoveryWithChange(BOOL *didChange)
 {
+  if (didChange != NULL) {
+    *didChange = NO;
+  }
   @try {
     @synchronized (OneKeyTravelModeLaunchEpoch.class) {
-      if (!OneKeyForceDisableTravelModeControl()) {
+      BOOL controlChanged = NO;
+      if (!OneKeyForceDisableTravelModeControl(&controlChanged)) {
         return NO;
       }
       NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
@@ -120,12 +135,23 @@ BOOL OneKeyForceDisableTravelModeForRecovery(void)
       if (![defaults synchronize]) {
         return NO;
       }
-      return [defaults objectForKey:OneKeyTravelModePendingEpochKey] == nil;
+      if ([defaults objectForKey:OneKeyTravelModePendingEpochKey] != nil) {
+        return NO;
+      }
+      if (didChange != NULL) {
+        *didChange = controlChanged;
+      }
+      return YES;
     }
   } @catch (NSException *exception) {
     (void)exception;
     return NO;
   }
+}
+
+BOOL OneKeyForceDisableTravelModeForRecovery(void)
+{
+  return OneKeyForceDisableTravelModeForRecoveryWithChange(NULL);
 }
 
 @implementation OneKeyTravelModeLaunchEpoch
@@ -168,7 +194,8 @@ RCT_EXPORT_MODULE(OneKeyTravelModeLaunchEpoch)
   }
   NSTimeInterval deadlineAt =
       [[defaults objectForKey:OneKeyTravelModePendingDeadlineKey] doubleValue];
-  if ([[NSDate date] timeIntervalSince1970] * 1000.0 >= deadlineAt) {
+  if (deadlineAt > 0 &&
+      [[NSDate date] timeIntervalSince1970] * 1000.0 >= deadlineAt) {
     return OneKeyTravelModeLaunchStatus(@"timed-out", requestedEpoch, deadlineAt);
   }
   BOOL mainAcknowledged =
@@ -202,13 +229,10 @@ RCT_REMAP_METHOD(prepareRestart,
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     unsigned long long epoch =
         [[defaults objectForKey:OneKeyTravelModeEpochKey] unsignedLongLongValue] + 1;
-    NSTimeInterval deadlineAt =
-        [[NSDate date] timeIntervalSince1970] * 1000.0 +
-        OneKeyTravelModeAcknowledgementTimeoutMs;
     [defaults setObject:@(epoch) forKey:OneKeyTravelModeEpochKey];
     [defaults setObject:@(epoch) forKey:OneKeyTravelModePendingEpochKey];
     [defaults setObject:profile forKey:OneKeyTravelModePendingProfileKey];
-    [defaults setObject:@(deadlineAt) forKey:OneKeyTravelModePendingDeadlineKey];
+    [defaults removeObjectForKey:OneKeyTravelModePendingDeadlineKey];
     [defaults removeObjectForKey:OneKeyTravelModeMainAckEpochKey];
     [defaults removeObjectForKey:OneKeyTravelModeBackgroundAckEpochKey];
     [defaults synchronize];
@@ -224,11 +248,12 @@ RCT_REMAP_METHOD(forceDisableForRecovery,
                  forceDisableForRecoveryWithResolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
 {
-  if (!OneKeyForceDisableTravelModeForRecovery()) {
+  BOOL didChange = NO;
+  if (!OneKeyForceDisableTravelModeForRecoveryWithChange(&didChange)) {
     reject(@"TRAVEL_MODE_RECOVERY_FAILED", @"Travel Mode recovery commit failed", nil);
     return;
   }
-  resolve(nil);
+  resolve(@(didChange));
 }
 
 RCT_REMAP_METHOD(acknowledgeRuntimeLaunch,
@@ -252,24 +277,30 @@ RCT_REMAP_METHOD(acknowledgeRuntimeLaunch,
       resolve(OneKeyTravelModeLaunchStatus(@"idle", completedEpoch, 0));
       return;
     }
-    NSTimeInterval deadlineAt =
-        [[defaults objectForKey:OneKeyTravelModePendingDeadlineKey] doubleValue];
-    if ([[NSDate date] timeIntervalSince1970] * 1000.0 >= deadlineAt) {
-      resolve(OneKeyTravelModeLaunchStatus(@"timed-out", pendingEpoch, deadlineAt));
-      return;
-    }
     NSString *expectedProfile =
         [defaults stringForKey:OneKeyTravelModePendingProfileKey] ?: @"";
     if (![profile isEqualToString:expectedProfile]) {
-      resolve(OneKeyTravelModeLaunchStatus(@"mismatch", pendingEpoch, deadlineAt));
+      resolve(OneKeyTravelModeLaunchStatus(@"mismatch", pendingEpoch, 0));
+      return;
+    }
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970] * 1000.0;
+    NSTimeInterval deadlineAt =
+        [[defaults objectForKey:OneKeyTravelModePendingDeadlineKey] doubleValue];
+    if (deadlineAt > 0 && now >= deadlineAt) {
+      resolve(OneKeyTravelModeLaunchStatus(@"timed-out", pendingEpoch, deadlineAt));
       return;
     }
     NSString *acknowledgementKey = [runtime isEqualToString:@"main"]
         ? OneKeyTravelModeMainAckEpochKey
         : OneKeyTravelModeBackgroundAckEpochKey;
+    if (deadlineAt <= 0) {
+      deadlineAt = now + OneKeyTravelModeAcknowledgementTimeoutMs;
+      [defaults setObject:@(deadlineAt) forKey:OneKeyTravelModePendingDeadlineKey];
+    }
     [defaults setObject:@(pendingEpoch) forKey:acknowledgementKey];
     [defaults synchronize];
-    if ([[defaults objectForKey:acknowledgementKey] unsignedLongLongValue] != pendingEpoch) {
+    if ([[defaults objectForKey:acknowledgementKey] unsignedLongLongValue] != pendingEpoch ||
+        [[defaults objectForKey:OneKeyTravelModePendingDeadlineKey] doubleValue] <= 0) {
       reject(@"TRAVEL_MODE_LAUNCH_ACK_FAILED", @"Runtime acknowledgement commit failed", nil);
       return;
     }

@@ -3,15 +3,6 @@ import { OneKeyLocalError } from '../errors';
 import { RuntimeEnvironment } from './runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from './runtimeProfile';
 
-import type { IRuntimeEnvironmentBarrier } from './runtimeEnvironment';
-
-function createBarrier(): IRuntimeEnvironmentBarrier {
-  return {
-    isBlockedSync: () => false,
-    runProtectedOperation: async ({ operation }) => operation(),
-  };
-}
-
 type IStringPersistence = {
   get(): Promise<string | undefined>;
   set(value: string): Promise<void>;
@@ -40,8 +31,8 @@ function createMaskedPersistence(): IStringPersistence {
 describe('RuntimeEnvironment', () => {
   it('creates immutable and independent main/bg environments', () => {
     const profile = getTravelModeRuntimeProfile(true);
-    const main = RuntimeEnvironment.create(profile, createBarrier());
-    const background = RuntimeEnvironment.create(profile, createBarrier());
+    const main = RuntimeEnvironment.create(profile);
+    const background = RuntimeEnvironment.create(profile);
 
     expect(main).not.toBe(background);
     expect(main.profile).toBe(background.profile);
@@ -64,7 +55,6 @@ describe('RuntimeEnvironment', () => {
   ])('does not construct the real %s backend in a masked runtime', (name) => {
     const environment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      createBarrier(),
     );
     const createReal = jest.fn(() => {
       throw new OneKeyLocalError(`poison backend opened: ${name}`);
@@ -89,7 +79,6 @@ describe('RuntimeEnvironment', () => {
       const state = { value: 'persisted' };
       const environment = RuntimeEnvironment.create(
         getTravelModeRuntimeProfile(masked),
-        createBarrier(),
       );
       const persistence = environment.persistence.createAdapter({
         real: () => createRealPersistence(state),
@@ -105,7 +94,6 @@ describe('RuntimeEnvironment', () => {
   it('suppresses effects and default-denies commands without starting work', async () => {
     const environment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      createBarrier(),
     );
     const effect = jest.fn(async () => 'visible');
     const command = jest.fn(async () => 'visible');
@@ -126,14 +114,9 @@ describe('RuntimeEnvironment', () => {
     expect(command).not.toHaveBeenCalled();
   });
 
-  it('keeps standard capabilities behind the transition barrier', async () => {
-    const barrier: IRuntimeEnvironmentBarrier = {
-      isBlockedSync: () => true,
-      runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-    };
+  it('runs standard capabilities directly from the immutable boot profile', async () => {
     const environment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(false),
-      barrier,
     );
     const operation = jest.fn(async () => 'visible');
     const createRealAdapter = jest.fn(() => ({ kind: 'real' }));
@@ -144,25 +127,22 @@ describe('RuntimeEnvironment', () => {
         real: createRealAdapter,
         masked: () => maskedAdapter,
       }),
-    ).toBe(maskedAdapter);
+    ).toEqual({ kind: 'real' });
 
     await expect(
       environment.persistence.run({
         operation,
         onBlocked: () => 'empty',
       }),
-    ).resolves.toBe('empty');
-    await expect(environment.commands.run(operation)).rejects.toThrow(
-      'Unknown error',
-    );
-    expect(operation).not.toHaveBeenCalled();
-    expect(createRealAdapter).not.toHaveBeenCalled();
+    ).resolves.toBe('visible');
+    await expect(environment.commands.run(operation)).resolves.toBe('visible');
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(createRealAdapter).toHaveBeenCalledTimes(1);
   });
 
   it('uses one blocked callback for protocol-level command rejection', async () => {
     const environment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      createBarrier(),
     );
     const operation = jest.fn(async () => ({ result: 'visible' }));
 
@@ -182,7 +162,6 @@ describe('RuntimeEnvironment', () => {
     try {
       const environment = RuntimeEnvironment.create(
         getTravelModeRuntimeProfile(true),
-        createBarrier(),
       );
       const operation = jest.fn(async () => 'visible');
       const onRejected = jest.fn();

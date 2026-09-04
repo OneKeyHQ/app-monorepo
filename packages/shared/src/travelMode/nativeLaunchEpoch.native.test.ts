@@ -3,12 +3,13 @@ import { NativeModules } from 'react-native';
 import {
   acknowledgeTravelModeRuntimeLaunch,
   forceDisableTravelModeForRecovery,
+  isTravelModeRuntimeLaunchNativeModuleAvailable,
   prepareTravelModeRuntimeRestart,
 } from './nativeLaunchEpoch.native';
 
 type ILaunchState = {
   acknowledged: Set<'background' | 'main'>;
-  deadlineAt: number;
+  deadlineAt?: number;
   epoch: number;
   profile: 'standard' | 'travel-mode';
   status: 'complete' | 'pending' | 'timed-out';
@@ -23,7 +24,6 @@ function installNativeModule() {
         nextEpoch += 1;
         launchState = {
           acknowledged: new Set(),
-          deadlineAt: Date.now() + 100,
           epoch: nextEpoch,
           profile,
           status: 'pending',
@@ -39,9 +39,21 @@ function installNativeModule() {
         if (!launchState) {
           return { epoch: 0, status: 'idle' as const };
         }
+        if (
+          launchState.deadlineAt !== undefined &&
+          Date.now() >= launchState.deadlineAt
+        ) {
+          launchState.status = 'timed-out';
+          return {
+            deadlineAt: launchState.deadlineAt,
+            epoch: launchState.epoch,
+            status: launchState.status,
+          };
+        }
         if (profile !== launchState.profile) {
           return { epoch: launchState.epoch, status: 'mismatch' as const };
         }
+        launchState.deadlineAt ??= Date.now() + 100;
         launchState.acknowledged.add(runtime);
         if (launchState.acknowledged.size === 2) {
           launchState.status = 'complete';
@@ -59,6 +71,7 @@ function installNativeModule() {
       }
       if (
         launchState.status === 'pending' &&
+        launchState.deadlineAt !== undefined &&
         Date.now() >= launchState.deadlineAt
       ) {
         launchState.status = 'timed-out';
@@ -69,7 +82,7 @@ function installNativeModule() {
         status: launchState.status,
       };
     }),
-    forceDisableForRecovery: jest.fn(async () => undefined),
+    forceDisableForRecovery: jest.fn(async () => true),
   };
   NativeModules.OneKeyTravelModeLaunchEpoch = nativeModule;
   return {
@@ -90,6 +103,14 @@ describe('native Travel Mode launch epoch acknowledgement', () => {
   afterEach(() => {
     jest.useRealTimers();
     delete NativeModules.OneKeyTravelModeLaunchEpoch;
+  });
+
+  it('reports whether the native launch module is installed', () => {
+    expect(isTravelModeRuntimeLaunchNativeModuleAvailable()).toBe(false);
+
+    installNativeModule();
+
+    expect(isTravelModeRuntimeLaunchNativeModuleAvailable()).toBe(true);
   });
 
   it('completes one native-owned epoch only after main and background acknowledge the target profile', async () => {
@@ -120,6 +141,32 @@ describe('native Travel Mode launch epoch acknowledgement', () => {
       ['main', 'travel-mode'],
       ['background', 'travel-mode'],
     ]);
+  });
+
+  it('starts the acknowledgement deadline when the first replacement runtime acknowledges', async () => {
+    installNativeModule();
+
+    await prepareTravelModeRuntimeRestart('travel-mode');
+    await jest.advanceTimersByTimeAsync(1000);
+
+    const mainAcknowledgement = acknowledgeTravelModeRuntimeLaunch({
+      profile: 'travel-mode',
+      runtime: 'main',
+    });
+    const backgroundAcknowledgement = acknowledgeTravelModeRuntimeLaunch({
+      profile: 'travel-mode',
+      runtime: 'background',
+    });
+    await jest.advanceTimersByTimeAsync(50);
+
+    await expect(mainAcknowledgement).resolves.toMatchObject({
+      epoch: 1,
+      status: 'complete',
+    });
+    await expect(backgroundAcknowledgement).resolves.toMatchObject({
+      epoch: 1,
+      status: 'complete',
+    });
   });
 
   it('fails closed when the companion runtime does not acknowledge before the native deadline', async () => {
@@ -194,7 +241,7 @@ describe('native Travel Mode launch epoch acknowledgement', () => {
   it('forces the persisted profile to standard before a recovery restart', async () => {
     const { nativeModule } = installNativeModule();
 
-    await expect(forceDisableTravelModeForRecovery()).resolves.toBeUndefined();
+    await expect(forceDisableTravelModeForRecovery()).resolves.toBe(true);
     expect(nativeModule.forceDisableForRecovery).toHaveBeenCalledTimes(1);
   });
 });

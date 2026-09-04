@@ -1,10 +1,7 @@
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
-import {
-  type IRuntimeEnvironmentBarrier,
-  RuntimeEnvironment,
-} from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -50,19 +47,11 @@ const mockRequestPageAdmission = jest.spyOn(
   backgroundApiProxy.serviceTravelMode,
   'requestPageAdmission',
 );
-const runProtectedOperation: IRuntimeEnvironmentBarrier['runProtectedOperation'] =
-  async ({ operation }) => operation();
-const runtimeBarrier: IRuntimeEnvironmentBarrier = {
-  isBlockedSync: () => false,
-  runProtectedOperation,
-};
 const standardRuntimeEnvironment = RuntimeEnvironment.create(
   getTravelModeRuntimeProfile(false),
-  runtimeBarrier,
 );
 const travelModeRuntimeEnvironment = RuntimeEnvironment.create(
   getTravelModeRuntimeProfile(true),
-  runtimeBarrier,
 );
 
 describe('onboardingEntryGate', () => {

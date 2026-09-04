@@ -255,13 +255,12 @@ class AppDelegate: ExpoAppDelegate {
     store?.setValue(launchOptions, forKey: "launchOptions")
 
     let tBeforeJPush = CFAbsoluteTimeGetCurrent()
+    let entity = JPUSHRegisterEntity()
+    entity.types = 0
+    JPUSHService.setDebugMode()
+    JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
     if OneKeyIsTravelModeMaskingData() {
       application.unregisterForRemoteNotifications()
-    } else {
-      let entity = JPUSHRegisterEntity()
-      entity.types = 0
-      JPUSHService.setDebugMode()
-      JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
     }
     let tAfterJPush = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo(

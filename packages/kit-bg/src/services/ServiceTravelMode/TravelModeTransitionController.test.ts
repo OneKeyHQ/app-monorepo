@@ -12,7 +12,6 @@ function buildDependencies() {
       calls.push('authenticate');
       return { password: 'encoded-password' };
     }),
-    clearSensitiveCaches: jest.fn(() => calls.push('clear-caches')),
     getPersistedEnabled: jest.fn(async () => false),
     getPortableVerifyString: jest.fn(async () => {
       calls.push('get-verifier');
@@ -35,9 +34,6 @@ function buildDependencies() {
       calls.push(`restart-${reason}`);
     }),
     restartTimeoutMs: 50,
-    setPushSuppressed: jest.fn(async (suppressed) => {
-      calls.push(`push-${suppressed ? 'suppressed' : 'enabled'}`);
-    }),
     verifyPassword: jest.fn(async () => {
       calls.push('verify');
     }),
@@ -75,8 +71,6 @@ describe('TravelModeTransitionController', () => {
       'authenticate',
       'verify',
       'get-verifier',
-      'clear-caches',
-      'push-suppressed',
       'persist-enabled',
       'wait-before-restart',
       'prepare-restart-travel-mode',
@@ -144,36 +138,17 @@ describe('TravelModeTransitionController', () => {
     expect(dependencies.authenticateToggle).toHaveBeenCalledTimes(2);
   });
 
-  it('restores push delivery after an activation fails before commit', async () => {
-    const { dependencies, setRuntimeState } = buildDependencies();
+  it('does not apply the next profile when persistence fails', async () => {
+    const { dependencies } = buildDependencies();
     jest
       .mocked(dependencies.persistTransition)
       .mockRejectedValueOnce(new Error('persist failed'));
-    setRuntimeState('inactive');
     const controller = new TravelModeTransitionController(dependencies);
 
     await expect(controller.setEnabled(true)).rejects.toThrow('persist failed');
 
-    expect(dependencies.setPushSuppressed).toHaveBeenNthCalledWith(1, true);
-    expect(dependencies.setPushSuppressed).toHaveBeenNthCalledWith(2, false);
+    expect(dependencies.prepareRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
-  });
-
-  it('restores push delivery when the suppression request itself fails', async () => {
-    const { dependencies, setRuntimeState } = buildDependencies();
-    jest
-      .mocked(dependencies.setPushSuppressed)
-      .mockRejectedValueOnce(new Error('push suppression failed'));
-    setRuntimeState('inactive');
-    const controller = new TravelModeTransitionController(dependencies);
-
-    await expect(controller.setEnabled(true)).rejects.toThrow(
-      'push suppression failed',
-    );
-
-    expect(dependencies.setPushSuppressed).toHaveBeenNthCalledWith(1, true);
-    expect(dependencies.setPushSuppressed).toHaveBeenNthCalledWith(2, false);
-    expect(dependencies.persistTransition).not.toHaveBeenCalled();
   });
 
   it('marks recovery when restart rejects', async () => {

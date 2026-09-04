@@ -10,13 +10,17 @@ export type ITravelModeLaunchAcknowledgement = {
   status: 'complete' | 'idle';
 };
 
+export function isTravelModeRuntimeLaunchNativeModuleAvailable(): boolean {
+  return false;
+}
+
 export async function prepareTravelModeRuntimeRestart(
   _profile: ITravelModeLaunchProfile,
 ): Promise<number> {
   throw new OneKeyLocalError('Unknown error');
 }
 
-export async function forceDisableTravelModeForRecovery(): Promise<void> {
+export async function forceDisableTravelModeForRecovery(): Promise<boolean> {
   throw new OneKeyLocalError('Unknown error');
 }
 

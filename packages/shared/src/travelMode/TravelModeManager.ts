@@ -7,12 +7,10 @@ import type {
   IRuntimeEnvironment,
   ITravelModeControlRecord,
   ITravelModeControlStorage,
-  ITravelModeProtectedOperationPermit,
   ITravelModeRuntimeProfile,
   ITravelModeRuntimeState,
 } from './types';
 
-const TRAVEL_MODE_TRANSITION_DRAIN_TIMEOUT_MS = 5000;
 const VERIFY_STRING_PREFIX = '|VS|';
 
 function isValidVerifyString(value: unknown): value is string {
@@ -49,15 +47,9 @@ function parseControlRecord(
 }
 
 export class TravelModeManager {
-  private activeOperationPermits = new WeakSet<object>();
-
   private controlRecord: ITravelModeControlRecord | null = null;
 
-  private drainWaiters = new Set<() => void>();
-
   private initializationError: unknown;
-
-  private inFlightProtectedOperations = 0;
 
   private runtimeState: ITravelModeRuntimeState = 'initializing';
 
@@ -89,7 +81,7 @@ export class TravelModeManager {
         this.initializationError = error;
         this.runtimeState = 'active';
       }
-      this.ready = this.publishInitialRuntimeMaskingState();
+      this.ready = Promise.resolve();
       return;
     }
     this.ready = Promise.resolve().then(() => this.initialize());
@@ -101,8 +93,6 @@ export class TravelModeManager {
     } catch (error) {
       this.initializationError = error;
       this.runtimeState = 'active';
-    } finally {
-      this.publishRuntimeMaskingState();
     }
   }
 
@@ -121,19 +111,12 @@ export class TravelModeManager {
   }
 
   isMaskingDataSync(): boolean {
-    if (!this.supported || this.runtimeState !== 'inactive') {
-      return this.supported;
-    }
-    try {
-      return this.storage.getRuntimeMaskingSync?.() ?? false;
-    } catch {
-      return true;
-    }
+    return this.supported && this.runtimeProfile.persistence === 'masked';
   }
 
   async isActive(): Promise<boolean> {
     await this.ready;
-    return this.runtimeState !== 'inactive';
+    return this.runtimeProfile.kind === 'travel-mode';
   }
 
   async getRuntimeState(): Promise<ITravelModeRuntimeState> {
@@ -185,76 +168,6 @@ export class TravelModeManager {
     return verifyString;
   }
 
-  async beginProtectedOperation(): Promise<(() => void) | undefined> {
-    const permit = await this.acquireProtectedOperation();
-    return permit ? () => permit.release() : undefined;
-  }
-
-  async acquireProtectedOperation(): Promise<
-    ITravelModeProtectedOperationPermit | undefined
-  > {
-    if (!this.supported) {
-      return this.createProtectedOperationPermit(false);
-    }
-    await this.ready;
-    if (this.runtimeState !== 'inactive' || this.isMaskingDataSync()) {
-      return undefined;
-    }
-    this.inFlightProtectedOperations += 1;
-    return this.createProtectedOperationPermit(true);
-  }
-
-  isProtectedOperationPermitActive(
-    permit: ITravelModeProtectedOperationPermit,
-  ): boolean {
-    return this.activeOperationPermits.has(permit);
-  }
-
-  private createProtectedOperationPermit(
-    tracked: boolean,
-  ): ITravelModeProtectedOperationPermit {
-    let released = false;
-    const permit: ITravelModeProtectedOperationPermit = {
-      id: Symbol('travel-mode-protected-operation'),
-      release: () => {
-        if (released) {
-          return;
-        }
-        released = true;
-        this.activeOperationPermits.delete(permit);
-        if (!tracked) {
-          return;
-        }
-        this.inFlightProtectedOperations -= 1;
-        if (this.inFlightProtectedOperations === 0) {
-          const waiters = [...this.drainWaiters];
-          this.drainWaiters.clear();
-          waiters.forEach((resolve) => resolve());
-        }
-      },
-    };
-    this.activeOperationPermits.add(permit);
-    return permit;
-  }
-
-  async runProtectedOperation<T>({
-    operation,
-    onBlocked,
-  }: {
-    operation: () => Promise<T>;
-    onBlocked: () => T | Promise<T>;
-  }): Promise<T> {
-    const release = await this.beginProtectedOperation();
-    if (!release) {
-      return onBlocked();
-    }
-    try {
-      return await operation();
-    } finally {
-      release();
-    }
-  }
-
   async transition({
     enabled,
     verifyString,
@@ -278,17 +191,8 @@ export class TravelModeManager {
       }
 
       const priorRecord = this.controlRecord;
-      let stateCommitted = false;
       this.runtimeState = enabled ? 'activating' : 'deactivating';
       try {
-        if (!this.publishRuntimeMaskingState()) {
-          throw new OneKeyLocalError(
-            'Travel Mode runtime masking fence update failed',
-          );
-        }
-        if (enabled) {
-          await this.waitForProtectedOperationsToDrain();
-        }
         const nextVerifyString = verifyString ?? priorRecord?.verifyString;
         if (!isValidVerifyString(nextVerifyString)) {
           throw new OneKeyLocalError(
@@ -301,30 +205,17 @@ export class TravelModeManager {
           version: 1,
         };
         await this.persistAndVerify(nextRecord);
-        stateCommitted = true;
         this.controlRecord = nextRecord;
-        // The boot profile is immutable. A committed transition stays blocked
-        // in this runtime until the replacement main/bg runtimes initialize
-        // from the newly persisted profile.
+        // The boot profile stays active until replacement main/bg runtimes
+        // initialize from the newly persisted profile.
         this.runtimeState = 'transition-recovery';
-        if (!this.publishRuntimeMaskingState()) {
-          throw new OneKeyLocalError(
-            'Travel Mode runtime masking fence update failed',
-          );
-        }
       } catch (error) {
-        if (stateCommitted) {
-          this.runtimeState = 'transition-recovery';
-          this.publishRuntimeMaskingState();
-          throw error;
-        }
         const restored = await this.tryRestoreRecord(priorRecord);
         if (!restored) {
           this.runtimeState = 'transition-recovery';
         } else {
           this.runtimeState = wasActive ? 'active' : 'inactive';
         }
-        this.publishRuntimeMaskingState();
         throw error;
       }
     });
@@ -333,28 +224,6 @@ export class TravelModeManager {
   markRestartFailed() {
     if (this.supported) {
       this.runtimeState = 'transition-recovery';
-      this.publishRuntimeMaskingState();
-    }
-  }
-
-  private publishInitialRuntimeMaskingState(): Promise<void> {
-    return new Promise((resolve) => {
-      // iOS evaluates the complete background bundle before its native host
-      // installs SharedStore. A task boundary lets that installation finish.
-      setTimeout(() => {
-        this.publishRuntimeMaskingState();
-        resolve();
-      }, 0);
-    });
-  }
-
-  private publishRuntimeMaskingState(): boolean {
-    try {
-      this.storage.setRuntimeMaskingSync?.(this.runtimeState !== 'inactive');
-      return true;
-    } catch {
-      this.runtimeState = 'transition-recovery';
-      return false;
     }
   }
 
@@ -407,40 +276,11 @@ export class TravelModeManager {
     }
   }
 
-  private async waitForProtectedOperationsToDrain() {
-    if (this.inFlightProtectedOperations === 0) {
-      return;
-    }
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          this.drainWaiters.add(resolve);
-        }),
-        new Promise<void>((_resolve, reject) => {
-          timeout = setTimeout(() => {
-            reject(
-              new OneKeyLocalError('Travel Mode transition drain timed out'),
-            );
-          }, TRAVEL_MODE_TRANSITION_DRAIN_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-    }
-  }
-
   getInitializationErrorForDiagnostics(): unknown {
     return this.initializationError;
   }
 
   private buildRuntimeEnvironment(): IRuntimeEnvironment {
-    return RuntimeEnvironment.create(this.runtimeProfile, {
-      isBlockedSync: () => this.isMaskingDataSync(),
-      runProtectedOperation: (operation) =>
-        this.runProtectedOperation(operation),
-    });
+    return RuntimeEnvironment.create(this.runtimeProfile);
   }
 }

@@ -4,6 +4,8 @@
 
 import { createMMKV } from 'react-native-mmkv';
 
+import { RuntimeEnvironment } from '../../travelMode/runtimeEnvironment';
+import { getTravelModeRuntimeProfile } from '../../travelMode/runtimeProfile';
 import { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // Mock platformEnv before importing module.
@@ -46,6 +48,9 @@ const { createMMKVSyncStorage, syncStorage, coldStartCacheStorage } =
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { travelModeManager } =
   require('../../travelMode') as typeof import('../../travelMode');
+const maskedEnvironment = RuntimeEnvironment.create(
+  getTravelModeRuntimeProfile(true),
+);
 
 function resetAll() {
   testMMKV.clearAll();
@@ -186,7 +191,9 @@ describe('coldStartCacheStorage export', () => {
 describe('Travel Mode masking', () => {
   it('hides settings and skips settings writes', () => {
     testMMKV.set(EAppSyncStorageKeys.perf_switch, 'persisted');
-    jest.spyOn(travelModeManager, 'isMaskingDataSync').mockReturnValue(true);
+    jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+      .mockReturnValue(maskedEnvironment);
 
     expect(
       syncStorage.getString(EAppSyncStorageKeys.perf_switch),
@@ -201,7 +208,9 @@ describe('Travel Mode masking', () => {
 
   it('hides cold-start values and skips cold-start writes', () => {
     coldStartMMKV.set(EAppSyncStorageKeys.perf_switch, 'persisted');
-    jest.spyOn(travelModeManager, 'isMaskingDataSync').mockReturnValue(true);
+    jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+      .mockReturnValue(maskedEnvironment);
 
     expect(
       coldStartCacheStorage.getString(EAppSyncStorageKeys.perf_switch),

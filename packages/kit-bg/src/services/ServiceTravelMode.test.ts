@@ -17,7 +17,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
-  setTravelModePushSuppressed: jest.fn(async () => undefined),
   travelModeManager: {
     getRuntimeEnvironment: jest.fn(async () => ({
       persistence: {
@@ -47,7 +46,6 @@ jest.mock('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch', () => ({
 jest.mock('../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
-    clearStoreCachedData: jest.fn(),
     getContext: jest.fn(),
     getContextVerifyStringInner: jest.fn(),
     verifyPassword: async (params: unknown) => {

@@ -1,6 +1,9 @@
 import platformEnv from '../platformEnv';
 
-import { acknowledgeTravelModeRuntimeLaunch } from './nativeLaunchEpoch';
+import {
+  acknowledgeTravelModeRuntimeLaunch,
+  isTravelModeRuntimeLaunchNativeModuleAvailable,
+} from './nativeLaunchEpoch';
 
 import type { TravelModeManager } from './TravelModeManager';
 
@@ -12,6 +15,13 @@ export async function completeTravelModeRuntimeLaunchAcknowledgement(
   }
   try {
     const profile = await manager.getRuntimeProfile();
+    if (!isTravelModeRuntimeLaunchNativeModuleAvailable()) {
+      if (profile.kind === 'standard') {
+        return true;
+      }
+      manager.markRestartFailed();
+      return false;
+    }
     await acknowledgeTravelModeRuntimeLaunch({
       profile: profile.kind,
       runtime: platformEnv.nativeRuntimeKind,

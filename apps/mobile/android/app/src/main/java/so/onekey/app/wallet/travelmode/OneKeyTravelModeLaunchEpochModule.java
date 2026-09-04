@@ -61,12 +61,11 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 requireSupported(VALID_PROFILES.contains(profile), "Unsupported profile");
                 SharedPreferences preferences = getPreferences();
                 long epoch = preferences.getLong(EPOCH_KEY, 0L) + 1L;
-                long deadlineAt = System.currentTimeMillis() + ACKNOWLEDGEMENT_TIMEOUT_MS;
                 boolean committed = preferences.edit()
                     .putLong(EPOCH_KEY, epoch)
                     .putLong(PENDING_EPOCH_KEY, epoch)
                     .putString(PENDING_PROFILE_KEY, profile)
-                    .putLong(PENDING_DEADLINE_KEY, deadlineAt)
+                    .remove(PENDING_DEADLINE_KEY)
                     .remove(MAIN_ACK_EPOCH_KEY)
                     .remove(BACKGROUND_ACK_EPOCH_KEY)
                     .commit();
@@ -83,14 +82,14 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
     @ReactMethod
     public void forceDisableForRecovery(Promise promise) {
         try {
-            forceDisableTravelModeForRecovery(getReactApplicationContext());
-            promise.resolve(null);
+            boolean didChange = forceDisableTravelModeForRecovery(getReactApplicationContext());
+            promise.resolve(didChange);
         } catch (Exception error) {
             promise.reject("TRAVEL_MODE_RECOVERY_FAILED", error.getMessage(), error);
         }
     }
 
-    public static void forceDisableTravelModeForRecovery(Context context) {
+    public static boolean forceDisableTravelModeForRecovery(Context context) {
         synchronized (LOCK) {
             MMKV.initialize(context);
             MMKV mmkv = MMKV.mmkvWithID(TRAVEL_MODE_MMKV_ID);
@@ -98,6 +97,7 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 throw new IllegalStateException("Travel Mode MMKV is unavailable");
             }
             String rawValue = mmkv.decodeString(TRAVEL_MODE_CONTROL_KEY);
+            boolean didChange = false;
             if (rawValue != null && !rawValue.isEmpty()) {
                 JSONObject record = null;
                 try {
@@ -107,16 +107,20 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                     // but the explicit recovery path resets it to the standard profile.
                 }
                 if (record != null && isValidControlRecord(record)) {
-                    try {
-                        record.put("enabled", false);
-                    } catch (Exception error) {
-                        throw new IllegalStateException("Travel Mode control update failed", error);
-                    }
-                    if (!mmkv.encode(TRAVEL_MODE_CONTROL_KEY, record.toString())) {
-                        throw new IllegalStateException("Travel Mode control commit failed");
+                    if (record.optBoolean("enabled")) {
+                        try {
+                            record.put("enabled", false);
+                        } catch (Exception error) {
+                            throw new IllegalStateException("Travel Mode control update failed", error);
+                        }
+                        if (!mmkv.encode(TRAVEL_MODE_CONTROL_KEY, record.toString())) {
+                            throw new IllegalStateException("Travel Mode control commit failed");
+                        }
+                        didChange = true;
                     }
                 } else {
                     mmkv.removeValueForKey(TRAVEL_MODE_CONTROL_KEY);
+                    didChange = true;
                 }
             }
             mmkv.sync();
@@ -149,6 +153,7 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
             if (!committed || preferences.contains(PENDING_EPOCH_KEY)) {
                 throw new IllegalStateException("Launch recovery commit failed");
             }
+            return didChange;
         }
     }
 
@@ -168,21 +173,28 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                     ));
                     return;
                 }
-                long deadlineAt = preferences.getLong(PENDING_DEADLINE_KEY, 0L);
-                if (System.currentTimeMillis() >= deadlineAt) {
-                    promise.resolve(buildStatus("timed-out", pendingEpoch, deadlineAt));
-                    return;
-                }
                 String expectedProfile = preferences.getString(PENDING_PROFILE_KEY, "");
                 if (!profile.equals(expectedProfile)) {
-                    promise.resolve(buildStatus("mismatch", pendingEpoch, deadlineAt));
+                    promise.resolve(buildStatus("mismatch", pendingEpoch, 0L));
                     return;
                 }
 
+                long now = System.currentTimeMillis();
+                long deadlineAt = preferences.getLong(PENDING_DEADLINE_KEY, 0L);
+                if (deadlineAt > 0L && now >= deadlineAt) {
+                    promise.resolve(buildStatus("timed-out", pendingEpoch, deadlineAt));
+                    return;
+                }
                 String acknowledgementKey = "main".equals(runtime)
                     ? MAIN_ACK_EPOCH_KEY
                     : BACKGROUND_ACK_EPOCH_KEY;
-                if (!preferences.edit().putLong(acknowledgementKey, pendingEpoch).commit()) {
+                SharedPreferences.Editor editor = preferences.edit()
+                    .putLong(acknowledgementKey, pendingEpoch);
+                if (deadlineAt <= 0L) {
+                    deadlineAt = now + ACKNOWLEDGEMENT_TIMEOUT_MS;
+                    editor.putLong(PENDING_DEADLINE_KEY, deadlineAt);
+                }
+                if (!editor.commit()) {
                     throw new IllegalStateException("Runtime acknowledgement commit failed");
                 }
                 promise.resolve(readStatus(preferences, pendingEpoch));
@@ -214,7 +226,7 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
             return buildStatus("superseded", requestedEpoch, 0L);
         }
         long deadlineAt = preferences.getLong(PENDING_DEADLINE_KEY, 0L);
-        if (System.currentTimeMillis() >= deadlineAt) {
+        if (deadlineAt > 0L && System.currentTimeMillis() >= deadlineAt) {
             return buildStatus("timed-out", requestedEpoch, deadlineAt);
         }
         boolean mainAcknowledged =

@@ -7,16 +7,9 @@ export type ITravelModeControlRecord = {
 export interface ITravelModeControlStorage {
   getItem(): Promise<string | null | undefined>;
   getItemSync?(): string | null | undefined;
-  getRuntimeMaskingSync?(): boolean | undefined;
   removeItem(): Promise<void>;
-  setRuntimeMaskingSync?(masking: boolean): void;
   setItem(value: string): Promise<void>;
 }
-
-export type ITravelModeProtectedOperationPermit = {
-  readonly id: symbol;
-  release(): void;
-};
 
 export type ITravelModeRuntimeState =
   | 'initializing'
@@ -31,6 +24,5 @@ export type {
   IRuntimeCommandCapability,
   IRuntimeEffectCapability,
   IRuntimeEnvironment,
-  IRuntimeEnvironmentBarrier,
   IRuntimePersistenceCapability,
 } from './runtimeEnvironment';

@@ -19,11 +19,6 @@ type IRuntimeSyncOperation<T> = Readonly<{
   operation: () => T;
 }>;
 
-export type IRuntimeEnvironmentBarrier = Readonly<{
-  isBlockedSync: () => boolean;
-  runProtectedOperation: <T>(operation: IRuntimeOperation<T>) => Promise<T>;
-}>;
-
 export interface IRuntimePersistenceCapability {
   readonly kind: 'masked' | 'real';
   createAdapter<T>(factories: IRuntimeAdapterFactories<T>): T;
@@ -73,28 +68,23 @@ export async function rejectTravelModeUnknownError(): Promise<never> {
 class RuntimePersistenceCapability implements IRuntimePersistenceCapability {
   readonly kind: 'masked' | 'real';
 
-  constructor(
-    kind: 'masked' | 'real',
-    private readonly barrier: IRuntimeEnvironmentBarrier,
-  ) {
+  constructor(kind: 'masked' | 'real') {
     this.kind = kind;
   }
 
   createAdapter<T>({ masked, real }: IRuntimeAdapterFactories<T>): T {
-    return this.kind === 'real' && !this.barrier.isBlockedSync()
-      ? real()
-      : masked();
+    return this.kind === 'real' ? real() : masked();
   }
 
   run<T>({ operation, onBlocked }: IRuntimeOperation<T>): Promise<T> {
     if (this.kind === 'masked') {
       return Promise.resolve(onBlocked());
     }
-    return this.barrier.runProtectedOperation({ operation, onBlocked });
+    return operation();
   }
 
   runSync<T>({ operation, onBlocked }: IRuntimeSyncOperation<T>): T {
-    if (this.kind === 'masked' || this.barrier.isBlockedSync()) {
+    if (this.kind === 'masked') {
       return onBlocked();
     }
     return operation();
@@ -104,22 +94,19 @@ class RuntimePersistenceCapability implements IRuntimePersistenceCapability {
 class RuntimeEffectCapability implements IRuntimeEffectCapability {
   readonly kind: 'enabled' | 'suppressed';
 
-  constructor(
-    kind: 'enabled' | 'suppressed',
-    private readonly barrier: IRuntimeEnvironmentBarrier,
-  ) {
+  constructor(kind: 'enabled' | 'suppressed') {
     this.kind = kind;
   }
 
   get isSuppressed(): boolean {
-    return this.kind === 'suppressed' || this.barrier.isBlockedSync();
+    return this.kind === 'suppressed';
   }
 
   run<T>({ operation, onBlocked }: IRuntimeOperation<T>): Promise<T> {
     if (this.isSuppressed) {
       return Promise.resolve(onBlocked());
     }
-    return this.barrier.runProtectedOperation({ operation, onBlocked });
+    return operation();
   }
 
   runOrReject<T>(operation: () => Promise<T>): Promise<T> {
@@ -137,15 +124,12 @@ class RuntimeEffectCapability implements IRuntimeEffectCapability {
 class RuntimeCommandCapability implements IRuntimeCommandCapability {
   readonly kind: 'allowed' | 'control-plane-only';
 
-  constructor(
-    kind: 'allowed' | 'control-plane-only',
-    private readonly barrier: IRuntimeEnvironmentBarrier,
-  ) {
+  constructor(kind: 'allowed' | 'control-plane-only') {
     this.kind = kind;
   }
 
   get isBlocked(): boolean {
-    return this.kind === 'control-plane-only' || this.barrier.isBlockedSync();
+    return this.kind === 'control-plane-only';
   }
 
   async run<T>(operation: () => Promise<T>): Promise<T> {
@@ -162,37 +146,24 @@ class RuntimeCommandCapability implements IRuntimeCommandCapability {
     if (this.isBlocked) {
       return onBlocked();
     }
-    return this.barrier.runProtectedOperation({
-      operation,
-      onBlocked,
-    });
+    return operation();
   }
 }
 
 export class RuntimeEnvironment {
-  static create(
-    profile: ITravelModeRuntimeProfile,
-    barrier: IRuntimeEnvironmentBarrier,
-  ): IRuntimeEnvironment {
-    const persistence = new RuntimePersistenceCapability(
-      profile.persistence,
-      barrier,
-    );
+  static create(profile: ITravelModeRuntimeProfile): IRuntimeEnvironment {
+    const persistence = new RuntimePersistenceCapability(profile.persistence);
     const walletEffects = new RuntimeEffectCapability(
       profile.walletEffects === 'enabled' ? 'enabled' : 'suppressed',
-      barrier,
     );
     const notifications = new RuntimeEffectCapability(
       profile.walletEffects === 'enabled' ? 'enabled' : 'suppressed',
-      barrier,
     );
     const commands = new RuntimeCommandCapability(
       profile.kind === 'standard' ? 'allowed' : 'control-plane-only',
-      barrier,
     );
     const dappRequests = new RuntimeCommandCapability(
       profile.dappRequests === 'allowed' ? 'allowed' : 'control-plane-only',
-      barrier,
     );
 
     Object.freeze(persistence);

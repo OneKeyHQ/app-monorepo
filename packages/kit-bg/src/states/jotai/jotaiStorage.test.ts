@@ -637,10 +637,6 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       require('@onekeyhq/shared/src/travelMode/runtimeProfile') as typeof import('@onekeyhq/shared/src/travelMode/runtimeProfile');
     const maskedEnvironment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(true),
-      {
-        isBlockedSync: () => true,
-        runProtectedOperation: async ({ onBlocked }) => onBlocked(),
-      },
     );
     const environmentSpy = jest
       .spyOn(travelModeManager, 'getRuntimeEnvironment')

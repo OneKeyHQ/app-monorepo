@@ -247,6 +247,130 @@ describe('ServicePassword', () => {
     expect(setPasswordState).not.toHaveBeenCalled();
   });
 
+  it('preserves normal password verification work when only post-verify tasks are skipped', async () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(false);
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    const updateClientBasicAppInfoDebounced = jest.fn();
+    servicePassword.backgroundApi = {
+      serviceNotification: { updateClientBasicAppInfoDebounced },
+    } as unknown as ServicePassword['backgroundApi'];
+    const validatePassword = jest
+      .spyOn(servicePassword, 'validatePassword')
+      .mockResolvedValue(undefined);
+    const unlockHyperLiquidAgentSecretSession = jest
+      .spyOn(localDb, 'unlockHyperLiquidAgentSecretSession')
+      .mockResolvedValue(undefined);
+    const setCachedPassword = jest
+      .spyOn(servicePassword, 'setCachedPassword')
+      .mockImplementation(async ({ password }) => password);
+    const refreshHyperLiquidAgentPasswordStatus = jest
+      .spyOn(servicePassword, 'refreshHyperLiquidAgentPasswordStatus')
+      .mockResolvedValue({
+        isPasswordSet: true,
+        requiresPasswordSetupOrVerify: false,
+      });
+    const runPostPasswordVerifyBackgroundTasks = jest
+      .spyOn(servicePassword, 'runPostPasswordVerifyBackgroundTasks')
+      .mockResolvedValue(undefined);
+    const password = await encodeSensitiveTextAsync({
+      text: 'test-password',
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    } as Parameters<typeof encodeSensitiveTextAsync>[0] & {
+      enablePbkdf2Cache: false;
+      kdfBackend: 'webcrypto';
+    });
+
+    await expect(
+      servicePassword.verifyPassword({
+        password,
+        passwordMode: EPasswordMode.PASSCODE,
+        skipPostVerifyBackgroundTasks: true,
+      }),
+    ).resolves.toBe(password);
+
+    expect(validatePassword).toHaveBeenCalledWith({
+      password,
+      passwordMode: EPasswordMode.PASSCODE,
+      kdfBackend: undefined,
+      enablePbkdf2Cache: undefined,
+      skipLazyUpgrade: false,
+    });
+    expect(unlockHyperLiquidAgentSecretSession).toHaveBeenCalledTimes(1);
+    expect(setCachedPassword).toHaveBeenCalledWith({
+      password,
+    });
+    expect(refreshHyperLiquidAgentPasswordStatus).toHaveBeenCalledTimes(1);
+    expect(updateClientBasicAppInfoDebounced).toHaveBeenCalledTimes(1);
+    expect(runPostPasswordVerifyBackgroundTasks).not.toHaveBeenCalled();
+  });
+
+  it('skips persistence-dependent password work while Travel Mode is active', async () => {
+    jest
+      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+      .mockReturnValue(true);
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    const updateClientBasicAppInfoDebounced = jest.fn();
+    servicePassword.backgroundApi = {
+      serviceNotification: { updateClientBasicAppInfoDebounced },
+    } as unknown as ServicePassword['backgroundApi'];
+    const validatePassword = jest
+      .spyOn(servicePassword, 'validatePassword')
+      .mockResolvedValue(undefined);
+    const unlockHyperLiquidAgentSecretSession = jest.spyOn(
+      localDb,
+      'unlockHyperLiquidAgentSecretSession',
+    );
+    const setCachedPassword = jest
+      .spyOn(servicePassword, 'setCachedPassword')
+      .mockImplementation(async ({ password }) => password);
+    const refreshHyperLiquidAgentPasswordStatus = jest.spyOn(
+      servicePassword,
+      'refreshHyperLiquidAgentPasswordStatus',
+    );
+    const runPostPasswordVerifyBackgroundTasks = jest.spyOn(
+      servicePassword,
+      'runPostPasswordVerifyBackgroundTasks',
+    );
+    const password = await encodeSensitiveTextAsync({
+      text: 'test-password',
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    } as Parameters<typeof encodeSensitiveTextAsync>[0] & {
+      enablePbkdf2Cache: false;
+      kdfBackend: 'webcrypto';
+    });
+
+    await expect(
+      servicePassword.verifyPassword({
+        password,
+        passwordMode: EPasswordMode.PASSCODE,
+      }),
+    ).resolves.toBe(password);
+
+    expect(validatePassword).toHaveBeenCalledWith({
+      password,
+      passwordMode: EPasswordMode.PASSCODE,
+      kdfBackend: undefined,
+      enablePbkdf2Cache: undefined,
+      skipLazyUpgrade: true,
+    });
+    expect(unlockHyperLiquidAgentSecretSession).not.toHaveBeenCalled();
+    expect(setCachedPassword).toHaveBeenCalledWith({
+      password,
+      skipBackgroundTasks: true,
+    });
+    expect(refreshHyperLiquidAgentPasswordStatus).not.toHaveBeenCalled();
+    expect(updateClientBasicAppInfoDebounced).not.toHaveBeenCalled();
+    expect(runPostPasswordVerifyBackgroundTasks).not.toHaveBeenCalled();
+  });
+
   it('does not expose a locked state while setting the initial password', async () => {
     expect(platformEnv.isNative).toBe(false);
 
