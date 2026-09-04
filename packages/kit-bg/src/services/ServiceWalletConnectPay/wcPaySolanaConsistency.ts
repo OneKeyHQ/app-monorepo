@@ -94,6 +94,33 @@ const MEMO_PROGRAM_IDS = new Set([
 const COMPUTE_BUDGET_PROGRAM_ID = ComputeBudgetProgram.programId.toBase58();
 const SYSTEM_PROGRAM_ID = SystemProgram.programId.toBase58();
 const ASSOCIATED_TOKEN_PROGRAM_ID_STR = ASSOCIATED_TOKEN_PROGRAM_ID.toBase58();
+
+// The associated token account is a PDA of (owner, token program, mint)
+// under the ATA program — derivable offline, which is what lets the spl
+// leg's SOURCE be tied to the option account without an RPC lookup.
+function deriveAssociatedTokenAddress({
+  owner,
+  mint,
+  programId,
+}: {
+  owner: string;
+  mint: string;
+  programId: string;
+}): string | undefined {
+  try {
+    const [address] = PublicKey.findProgramAddressSync(
+      [
+        new PublicKey(owner).toBuffer(),
+        new PublicKey(programId).toBuffer(),
+        new PublicKey(mint).toBuffer(),
+      ],
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+    return address.toBase58();
+  } catch {
+    return undefined;
+  }
+}
 const TOKEN_PROGRAM_ID_STR = TOKEN_PROGRAM_ID.toBase58();
 const TOKEN_2022_PROGRAM_ID_STR = TOKEN_2022_PROGRAM_ID.toBase58();
 
@@ -107,6 +134,7 @@ const SYSTEM_TRANSFER_DATA_LEN = 12;
 const SPL_TRANSFER = 3;
 const SPL_TRANSFER_CHECKED = 12;
 const TRANSFER_CHECKED_KEY_COUNT = 4;
+const TRANSFER_CHECKED_SOURCE_INDEX = 0;
 const TRANSFER_CHECKED_MINT_INDEX = 1;
 const TRANSFER_CHECKED_DESTINATION_INDEX = 2;
 const TRANSFER_CHECKED_AUTHORITY_INDEX = 3;
@@ -187,6 +215,7 @@ type IPaymentLeg =
       kind: 'spl';
       amount: BigNumber;
       sender: string;
+      source: string;
       mint: string;
       decimals: number;
       destination: string;
@@ -274,6 +303,7 @@ function classifyTokenInstruction(
       kind: 'spl',
       amount,
       sender: ix.keys[TRANSFER_CHECKED_AUTHORITY_INDEX].pubkey.toBase58(),
+      source: ix.keys[TRANSFER_CHECKED_SOURCE_INDEX].pubkey.toBase58(),
       mint: ix.keys[TRANSFER_CHECKED_MINT_INDEX].pubkey.toBase58(),
       decimals: data[TRANSFER_CHECKED_DECIMALS_OFFSET],
       destination:
@@ -591,6 +621,27 @@ export function checkWcPaySolanaTxMatchesOrder({
   const [leg] = legs;
   if (leg.sender !== optionAddress) {
     return { ok: false, reason: 'sender mismatch' };
+  }
+  if (leg.kind === 'spl') {
+    // `sender` is the transfer AUTHORITY, which the token program also
+    // honours for a delegate: were the option account a delegate of someone
+    // else's token account, these bytes would move THAT owner's balance to
+    // the merchant while the user's own balance stays untouched. The
+    // offline provenance check is the source account itself: it must be the
+    // option account's own associated token account. Anything else — a
+    // delegated account, or even the user's own auxiliary account for the
+    // same mint — degrades to the confirm page, which resolves the source
+    // account through RPC.
+    if (
+      leg.source !==
+      deriveAssociatedTokenAddress({
+        owner: optionAddress,
+        mint: leg.mint,
+        programId: leg.programId,
+      })
+    ) {
+      return { ok: false, reason: 'source account mismatch' };
+    }
   }
 
   const displaySymbol = option.amount.display?.assetSymbol;

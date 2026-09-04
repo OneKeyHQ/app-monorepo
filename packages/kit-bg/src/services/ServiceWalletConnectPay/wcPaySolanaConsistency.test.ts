@@ -74,12 +74,22 @@ function toBase64(instructions: TransactionInstruction[]): string {
   );
 }
 
+// The option account's associated token account for `mint` under the given
+// token program — the only source the validator accepts for an spl leg.
+function deriveAta(owner: PublicKey, programId: PublicKey = TOKEN_PROGRAM_ID) {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), programId.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )[0];
+}
+
 function splTransferChecked(
   amount: bigint,
   authority: PublicKey,
   decimals = 6,
   programId: PublicKey = TOKEN_PROGRAM_ID,
   destination: PublicKey = Keypair.generate().publicKey,
+  source: PublicKey = deriveAta(authority, programId),
 ) {
   const data = Buffer.alloc(10);
   data.writeUInt8(12, 0); // TransferChecked
@@ -88,11 +98,7 @@ function splTransferChecked(
   return new TransactionInstruction({
     programId,
     keys: [
-      {
-        pubkey: Keypair.generate().publicKey,
-        isSigner: false,
-        isWritable: true,
-      },
+      { pubkey: source, isSigner: false, isWritable: true },
       { pubkey: mint, isSigner: false, isWritable: false },
       { pubkey: destination, isSigner: false, isWritable: true },
       { pubkey: authority, isSigner: true, isWritable: false },
@@ -273,6 +279,56 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         fundsRecipientAta: false,
       },
     });
+  });
+
+  it('refuses a transferChecked whose source is not the option account ATA (delegated transfer)', () => {
+    // the option account is the AUTHORITY (a delegate of someone else's
+    // token account): the token program would accept it, moving the other
+    // owner's balance to the merchant
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        undefined,
+        Keypair.generate().publicKey,
+      ),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({ ok: false, reason: 'source account mismatch' });
+  });
+
+  it('refuses a transferChecked whose source is the ATA under the other token program', () => {
+    // right owner and mint, but the account is the Token-2022 ATA while the
+    // instruction targets the classic program (and vice versa)
+    for (const [programId, otherProgramId] of [
+      [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID],
+      [TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID],
+    ]) {
+      const tx = toBase64([
+        splTransferChecked(
+          100_000n,
+          payer.publicKey,
+          6,
+          programId,
+          undefined,
+          deriveAta(payer.publicKey, otherProgramId),
+        ),
+      ]);
+      expect(
+        checkWcPaySolanaTxMatchesOrder({
+          txBase64: tx,
+          caip2ChainId: CHAIN,
+          option: buildOption('100000', 6, 'USDC'),
+        }),
+      ).toEqual({ ok: false, reason: 'source account mismatch' });
+    }
   });
 
   it('refuses a plain SPL transfer as an unverifiable mint', () => {
