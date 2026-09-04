@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Camera } from 'expo-camera';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
@@ -21,6 +20,13 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { ScanCamera } from './ScanCamera';
+
+type IExpoCameraModule = typeof import('expo-camera');
+
+const Camera: IExpoCameraModule['Camera'] | undefined =
+  platformEnv.isNativeIOSMacCatalyst
+    ? undefined
+    : (require('expo-camera') as IExpoCameraModule).Camera;
 
 export type IScanQrCodeProps = {
   handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
@@ -76,6 +82,10 @@ export function ScanQrCode({
   );
 
   const handlePermission = useCallback(async () => {
+    if (!Camera) {
+      setCurrentPermission(PermissionStatus.GRANTED);
+      return;
+    }
     const readSilentStatus =
       platformEnv.isDesktopMac || platformEnv.isDesktopWin
         ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(

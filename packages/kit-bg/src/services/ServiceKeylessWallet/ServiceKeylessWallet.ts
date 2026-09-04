@@ -58,6 +58,7 @@ import type {
   IKeylessRealmOperation,
   IKeylessRealmTokenDiagnosticContext,
 } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -322,6 +323,11 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string,
     operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
+    if (platformEnv.isNativeIOSMacCatalyst) {
+      throw new OneKeyLocalError(
+        'Keyless wallets are unavailable on Mac Catalyst',
+      );
+    }
     const diagnosticContext =
       await this.buildKeylessRealmTokenDiagnosticContext({
         operation,

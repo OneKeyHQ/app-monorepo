@@ -11,6 +11,7 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
+mac_catalyst_enabled = ENV['ONEKEY_MAC_CATALYST'] == '1'
 
 # JuiceboxSdk 0.3.2 points its artifacts submodule at an SSH URL. CocoaPods
 # invokes `git submodule update` directly, so pass a scoped Git config through
@@ -114,7 +115,11 @@ setup_permissions([
 ])
 
 target 'OneKeyWallet' do
-  use_expo_modules!
+  if mac_catalyst_enabled
+    use_expo_modules!({ exclude: ['expo-camera'] })
+  else
+    use_expo_modules!
+  end
   config = use_native_modules!
 
   pod 'SDWebImage', '5.21.7', :modular_headers => true
@@ -165,6 +170,10 @@ target 'OneKeyWallet' do
     main_group = user_project.main_group.find_subpath('OneKeyWallet', false)
     fonts_group = main_group.find_subpath('Fonts', false) || main_group.new_group('Fonts', 'OneKeyWallet/Fonts')
 
+    main_target.build_configurations.each do |build_configuration|
+      build_configuration.build_settings['SUPPORTS_MACCATALYST'] = mac_catalyst_enabled ? 'YES' : 'NO'
+    end
+
     font_files.each do |f|
       next if fonts_group.files.any? { |ref| ref.path == f }
       file_ref = fonts_group.new_file(f)
@@ -172,11 +181,135 @@ target 'OneKeyWallet' do
     end
     user_project.save
     puts "[Fonts] Added fonts to Xcode project Resources"
-    react_native_post_install(
-      installer,
-      config[:reactNativePath],
-      :mac_catalyst_enabled => false
-    )
+    if mac_catalyst_enabled
+      react_native_post_install(
+        installer,
+        config[:reactNativePath],
+        :mac_catalyst_enabled => true
+      )
+    else
+      react_native_post_install(installer, config[:reactNativePath])
+    end
+
+    if mac_catalyst_enabled
+      framework_pattern = File.join(
+        installer.sandbox.root.to_s,
+        'ReactNativeDependencies',
+        '**',
+        'ReactNativeDependencies.xcframework',
+        'ios-arm64_x86_64-maccatalyst',
+        'ReactNativeDependencies.framework'
+      )
+      react_native_dependencies_framework = Dir.glob(framework_pattern).first
+      interrupted_repair_backup = Dir.glob("#{framework_pattern}.orig").first
+
+      if !react_native_dependencies_framework && interrupted_repair_backup
+        react_native_dependencies_framework = interrupted_repair_backup.delete_suffix('.orig')
+        File.rename(interrupted_repair_backup, react_native_dependencies_framework)
+        puts '[Mac Catalyst] Recovered interrupted ReactNativeDependencies framework repair'
+      elsif react_native_dependencies_framework && interrupted_repair_backup
+        FileUtils.rm_rf(interrupted_repair_backup)
+      end
+
+      unless react_native_dependencies_framework
+        raise '[Mac Catalyst] ReactNativeDependencies framework was not found'
+      end
+
+      framework_binary = File.join(react_native_dependencies_framework, 'ReactNativeDependencies')
+      framework_resources = File.join(react_native_dependencies_framework, 'Resources')
+      framework_current_version = File.join(react_native_dependencies_framework, 'Versions', 'Current')
+
+      unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version)
+        binary_source = [
+          framework_binary,
+          File.join(react_native_dependencies_framework, 'Versions', 'A', 'ReactNativeDependencies')
+        ].find { |path| File.file?(path) }
+        info_plist_source = [
+          File.join(react_native_dependencies_framework, 'Info.plist'),
+          File.join(framework_resources, 'Info.plist'),
+          File.join(react_native_dependencies_framework, 'Versions', 'A', 'Resources', 'Info.plist')
+        ].find { |path| File.file?(path) }
+
+        unless binary_source && info_plist_source
+          raise '[Mac Catalyst] ReactNativeDependencies framework is missing its binary or Info.plist'
+        end
+
+        repaired_framework = "#{react_native_dependencies_framework}.repaired"
+        backup_framework = "#{react_native_dependencies_framework}.orig"
+        repaired_version = File.join(repaired_framework, 'Versions', 'A')
+        repaired_resources = File.join(repaired_version, 'Resources')
+
+        FileUtils.rm_rf([repaired_framework, backup_framework])
+        FileUtils.mkdir_p(File.join(repaired_framework, 'Versions'))
+        FileUtils.cp_r(
+          react_native_dependencies_framework,
+          repaired_version,
+          preserve: true
+        )
+        FileUtils.mkdir_p(repaired_resources)
+        FileUtils.cp(binary_source, File.join(repaired_version, 'ReactNativeDependencies'), preserve: true)
+        FileUtils.cp(info_plist_source, File.join(repaired_resources, 'Info.plist'), preserve: true)
+
+        %w[Headers Modules PrivateHeaders _CodeSignature].each do |entry|
+          entry_source = [
+            File.join(react_native_dependencies_framework, entry),
+            File.join(react_native_dependencies_framework, 'Versions', 'A', entry)
+          ].find { |path| File.exist?(path) }
+          next unless entry_source
+
+          entry_destination = File.join(repaired_version, entry)
+          FileUtils.rm_rf(entry_destination)
+          FileUtils.cp_r(entry_source, entry_destination, preserve: true)
+        end
+
+        Dir.glob(File.join(react_native_dependencies_framework, '*.bundle')).each do |bundle|
+          FileUtils.cp_r(bundle, repaired_resources, preserve: true)
+        end
+
+        FileUtils.ln_s('A', File.join(repaired_framework, 'Versions', 'Current'))
+        %w[ReactNativeDependencies Resources Headers Modules PrivateHeaders].each do |entry|
+          next unless File.exist?(File.join(repaired_version, entry))
+
+          FileUtils.ln_s("Versions/Current/#{entry}", File.join(repaired_framework, entry))
+        end
+
+        File.rename(react_native_dependencies_framework, backup_framework)
+        begin
+          File.rename(repaired_framework, react_native_dependencies_framework)
+        rescue StandardError
+          File.rename(backup_framework, react_native_dependencies_framework)
+          raise
+        end
+        FileUtils.rm_rf(backup_framework)
+        puts '[Mac Catalyst] Repaired ReactNativeDependencies framework layout'
+      end
+
+      installer.pods_project.targets.each do |target|
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['SUPPORTS_MACCATALYST'] = 'YES'
+        end
+      end
+
+      installer.aggregate_targets.each do |aggregate_target|
+        aggregate_target.user_project.native_targets.each do |target|
+          target.build_configurations.each do |build_config|
+            build_config.build_settings.delete('DEAD_CODE_STRIPPING')
+            build_config.build_settings.delete('PRESERVE_DEAD_CODE_INITS_AND_TERMS')
+            build_config.build_settings.delete('LIBRARY_SEARCH_PATHS')
+
+            next unless target.name == 'OneKeyWallet'
+
+            build_config.build_settings['DEAD_CODE_STRIPPING[sdk=macosx*]'] = 'YES'
+            build_config.build_settings['PRESERVE_DEAD_CODE_INITS_AND_TERMS[sdk=macosx*]'] = 'YES'
+            build_config.build_settings['LIBRARY_SEARCH_PATHS[sdk=macosx*]'] = [
+              '$(SDKROOT)/usr/lib/swift',
+              '$(SDKROOT)/System/iOSSupport/usr/lib/swift',
+              '$(inherited)'
+            ]
+          end
+        end
+      end
+    end
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
@@ -233,6 +366,8 @@ target 'OneKeyWallet' do
     rescue => e
       Pod::UI.warn e
     end
+
+    next if mac_catalyst_enabled
 
     # Fix JuiceboxSdkFfi linking - directly modify xcconfig files after integration
     pods_dir = File.join(__dir__, 'Pods')

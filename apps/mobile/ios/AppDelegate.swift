@@ -248,6 +248,7 @@ class AppDelegate: ExpoAppDelegate {
 
     store?.setValue(launchOptions, forKey: "launchOptions")
 
+    #if !targetEnvironment(macCatalyst)
     // JPUSHService Register
     let tBeforeJPush = CFAbsoluteTimeGetCurrent()
     let entity = JPUSHRegisterEntity()
@@ -259,6 +260,7 @@ class AppDelegate: ExpoAppDelegate {
       "StartupTiming",
       "ios.app.jpush_register: \(String(format: "%.0f", (tAfterJPush - tBeforeJPush) * 1000))ms"
     )
+    #endif
 
     let tBeforeSuper = CFAbsoluteTimeGetCurrent()
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -327,7 +329,9 @@ class AppDelegate: ExpoAppDelegate {
   // Register APNS & Upload DeviceToken
   override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.registerDeviceToken(deviceToken)
+    #endif
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
 
@@ -340,8 +344,10 @@ class AppDelegate: ExpoAppDelegate {
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+    #endif
     completionHandler(.newData)
   }
 }
@@ -989,6 +995,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 }
 
+#if !targetEnvironment(macCatalyst)
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
@@ -1040,3 +1047,4 @@ extension AppDelegate:JPUSHRegisterDelegate {
     NotificationCenter.default.post(name: NSNotification.Name(J_CUSTOM_NOTIFICATION_EVENT), object: userInfo)
   }
 }
+#endif

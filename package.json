@@ -41,6 +41,7 @@
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
     "app:build-bundle:ios": "yarn workspace @onekeyhq/mobile build-bundle:ios",
     "app:build-bundle:android": "yarn workspace @onekeyhq/mobile build-bundle:android",
+    "app:mac_catalyst": "yarn workspace @onekeyhq/mobile dev-vendor:prepare && cross-env ONEKEY_MAC_CATALYST=1 ONEKEY_DEV_VENDOR=true ONEKEY_DEV_BG_HMR=true ENABLE_NATIVE_BACKGROUND_THREAD=true SENTRY_DISABLE_AUTO_UPLOAD=true NODE_OPTIONS=\"--max-old-space-size=8192\" concurrently --kill-others-on-fail \"yarn workspace @onekeyhq/mobile native-bundle\" \"yarn workspace @onekeyhq/mobile mac_catalyst\"",
     "app:ios": "yarn workspace @onekeyhq/mobile dev-shell --platform ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",

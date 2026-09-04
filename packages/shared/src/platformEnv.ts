@@ -136,6 +136,7 @@ export type IPlatformEnv = {
 
   /** ios, both tablet & iPhone */
   isNativeIOS?: boolean;
+  isNativeIOSMacCatalyst?: boolean;
   isNativeIOSStore?: boolean;
   /** ios, phone only */
   isNativeIOSPhone?: boolean;
@@ -229,6 +230,8 @@ const isDesktopWithCustomTitleBar =
   isDesktopMac || isDesktopWin || isDesktopLinux;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
+const isNativeIOSMacCatalyst =
+  isNativeIOS && Platform.OS === 'ios' && Boolean(Platform.isMacCatalyst);
 const isNativeIOSStore = isNativeIOS && isProduction;
 const isNativeIOSPhone =
   isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
@@ -602,6 +605,7 @@ const platformEnv: IPlatformEnv = {
   isExtChrome,
 
   isNativeIOS,
+  isNativeIOSMacCatalyst,
   isNativeIOSStore,
   isNativeIOSPhone,
   isNativeIOSPad,

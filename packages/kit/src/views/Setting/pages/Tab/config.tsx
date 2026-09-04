@@ -329,7 +329,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
-                platformEnv.isNative
+                platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
                   ? {
                       id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',

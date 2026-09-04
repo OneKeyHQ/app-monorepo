@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 import { useIntl } from 'react-intl';
 import { Alert } from 'react-native';
 
@@ -15,6 +14,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
+
+type ILiteCardModule = typeof import('@onekeyfe/react-native-lite-card');
+
+const liteCardModule: ILiteCardModule | undefined =
+  platformEnv.isNativeIOSMacCatalyst
+    ? undefined
+    : (require('@onekeyfe/react-native-lite-card') as ILiteCardModule);
+
+export const LiteCard = liteCardModule?.default as ILiteCardModule['default'];
+export const CardErrors =
+  liteCardModule?.CardErrors as ILiteCardModule['CardErrors'];
 
 enum ENFCEventCode {
   CONNECTED = 1,
@@ -64,6 +74,10 @@ export default function useNFC() {
   const checkNFCEnabledPermission = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
+        if (!liteCardModule) {
+          reject(new Error('OneKey Lite is unavailable on Mac Catalyst'));
+          return;
+        }
         void LiteCard.checkNFCPermission().then(({ error }) => {
           if (!error) {
             resolve();

@@ -74,7 +74,8 @@ export function WalletBackupActions({
           onClose,
         },
         !hideLiteCard &&
-          platformEnv.isNative && {
+          platformEnv.isNative &&
+          !platformEnv.isNativeIOSMacCatalyst && {
             label: intl.formatMessage({
               id: ETranslations.global_onekey_lite,
             }),
