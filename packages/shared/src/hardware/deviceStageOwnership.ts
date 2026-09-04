@@ -130,3 +130,61 @@ export function resolveDeviceStageBackPress({
   }
   return closable ? 'close' : 'consume';
 }
+
+export interface IDeviceStageKeyEventLike {
+  type: string;
+  key: string;
+  preventDefault(): void;
+  stopImmediatePropagation(): void;
+}
+
+export interface IDeviceStageKeyEventTargetLike {
+  addEventListener(
+    type: 'keydown' | 'keyup',
+    listener: (event: IDeviceStageKeyEventLike) => void,
+    capture: boolean,
+  ): void;
+  removeEventListener(
+    type: 'keydown' | 'keyup',
+    listener: (event: IDeviceStageKeyEventLike) => void,
+    capture: boolean,
+  ): void;
+}
+
+/**
+ * Web / desktop Escape while the stage is up. The shared back-handler hook
+ * only calls back on Escape — it neither reads the callback's answer nor
+ * consumes the event — so a Dialog's keydown handler and the modal
+ * navigator's keyup handler underneath would still receive the same press
+ * and close what the stage covers. This owner sits in the capture phase on
+ * the window and stops the press outright, keydown and keyup alike, while
+ * the stage is on; only the keydown drives the close decision (`onEscape`
+ * decides close-or-swallow, see resolveDeviceStageBackPress). Off stage it
+ * touches nothing. Returns the detach.
+ */
+export function attachDeviceStageEscapeOwner({
+  target,
+  isStageOn,
+  onEscape,
+}: {
+  target: IDeviceStageKeyEventTargetLike;
+  isStageOn: () => boolean;
+  onEscape: () => void;
+}): () => void {
+  const listener = (event: IDeviceStageKeyEventLike) => {
+    if (event.key !== 'Escape' || !isStageOn()) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type === 'keydown') {
+      onEscape();
+    }
+  };
+  target.addEventListener('keydown', listener, true);
+  target.addEventListener('keyup', listener, true);
+  return () => {
+    target.removeEventListener('keydown', listener, true);
+    target.removeEventListener('keyup', listener, true);
+  };
+}
