@@ -266,6 +266,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomePrimeSubscription}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
     // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {

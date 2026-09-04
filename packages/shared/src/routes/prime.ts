@@ -49,6 +49,7 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeDashboard]: {
     networkId?: string;
     fromFeature?: EPrimeFeatures;
+    openInfiniSubscription?: boolean;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;
@@ -85,5 +86,9 @@ export type IPrimeParamList = {
     createNewPayment?: boolean;
     networkId?: string;
   };
-  [EPrimePages.PrimeInfiniSubscription]: undefined;
+  [EPrimePages.PrimeInfiniSubscription]:
+    | {
+        fromDeepLink?: boolean;
+      }
+    | undefined;
 };

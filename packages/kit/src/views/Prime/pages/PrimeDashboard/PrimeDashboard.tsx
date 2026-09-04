@@ -27,9 +27,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EPrimePages,
-  IPrimeParamList,
+  type IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -99,7 +99,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId } = route.params || {};
+  const { fromFeature, networkId, openInfiniSubscription } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -148,6 +148,20 @@ export default function PrimeDashboard({
     pendingSubscribeRef,
     subscribeInFlightRef,
   });
+
+  const didOpenInfiniSubscriptionRef = useRef(false);
+  useEffect(() => {
+    if (!openInfiniSubscription || didOpenInfiniSubscriptionRef.current) {
+      return;
+    }
+    if (!isAuthReady || !isLoggedIn) {
+      return;
+    }
+    didOpenInfiniSubscriptionRef.current = true;
+    navigation.push(EPrimePages.PrimeInfiniSubscription, {
+      fromDeepLink: true,
+    });
+  }, [isAuthReady, isLoggedIn, navigation, openInfiniSubscription]);
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {

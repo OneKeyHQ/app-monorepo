@@ -33,6 +33,12 @@ const RedeemBitcoinVoucherLanding = LazyLoadPage(async () => {
   return { default: RedeemBitcoinVoucherLandingPage };
 });
 
+const PrimeSubscriptionLanding = LazyLoadPage(async () => {
+  const { PrimeSubscriptionLandingPage } =
+    await import('../pages/primeSubscription/PrimeSubscriptionLandingPage');
+  return { default: PrimeSubscriptionLandingPage };
+});
+
 const BulkSendAddressesInput = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
@@ -63,6 +69,7 @@ export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
+export const primeSubscriptionLandingRewrite = '/prime/subscription';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -115,6 +122,13 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeRedeemBitcoinVoucher,
     component: RedeemBitcoinVoucherLanding,
     rewrite: redeemBitcoinVoucherLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomePrimeSubscription,
+    component: PrimeSubscriptionLanding,
+    rewrite: primeSubscriptionLandingRewrite,
     exact: true,
     headerShown: false,
   },

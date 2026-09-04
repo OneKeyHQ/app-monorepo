@@ -29,6 +29,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EPrimePages,
+  IPrimeParamList,
+} from '@onekeyhq/shared/src/routes/prime';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
@@ -37,12 +41,14 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
+import { shouldToastUnsupportedPrimeSubscriptionManagement } from '../PrimeDashboard/primeSubscriptionManagementUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
   normalizeInfiniSubscriptionPlan,
 } from './infiniSubscriptionUtils';
 
+import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
 
 // Fixed USD prices of the Infini crypto plans (integration plan §5.3(c)),
@@ -196,10 +202,15 @@ function CancelRenewalDialogContent({
   );
 }
 
-export default function PrimeInfiniSubscription() {
+export default function PrimeInfiniSubscription({
+  route,
+}: {
+  route: RouteProp<IPrimeParamList, EPrimePages.PrimeInfiniSubscription>;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeUserInfo] = usePrimePersistAtom();
+  const fromDeepLink = route.params?.fromDeepLink === true;
 
   useFocusEffect(
     useCallback(() => {
@@ -269,6 +280,43 @@ export default function PrimeInfiniSubscription() {
   const subscription = isResultForCurrentUser
     ? result?.subscription
     : undefined;
+  const unsupportedToastShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!fromDeepLink || unsupportedToastShownRef.current) {
+      return;
+    }
+    if (result === undefined || !isResultForCurrentUser || result.hasError) {
+      return;
+    }
+    if (subscription) {
+      return;
+    }
+    if (
+      !shouldToastUnsupportedPrimeSubscriptionManagement({
+        userInfo: {
+          primeSubscription: primeUserInfo.primeSubscription,
+          subscriptionManageUrl: primeUserInfo.subscriptionManageUrl,
+        },
+      })
+    ) {
+      return;
+    }
+    unsupportedToastShownRef.current = true;
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.prime_subscription_management_unsupported__msg,
+      }),
+    });
+  }, [
+    fromDeepLink,
+    intl,
+    isResultForCurrentUser,
+    primeUserInfo.primeSubscription,
+    primeUserInfo.subscriptionManageUrl,
+    result,
+    subscription,
+  ]);
 
   const runRef = useRef(run);
   runRef.current = run;
