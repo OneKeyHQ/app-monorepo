@@ -22,6 +22,7 @@ export function useProtocolDetailData({
   symbol,
   provider,
   vault,
+  includeAccountContext = false,
 }: {
   accountId: string;
   networkId: string;
@@ -29,6 +30,11 @@ export function useProtocolDetailData({
   symbol: string;
   provider: string;
   vault: string | undefined;
+  // Sends the account address with the detail request, which makes the server
+  // return this account's portfolio/rewards/balance and enqueue a position
+  // refresh. Only the phone layout needs it; desktop/web read positions from
+  // /earn/v1/manage-page and must keep their current request shape.
+  includeAccountContext?: boolean;
 }) {
   const { locale } = useIntl();
   const { id: currencyId } = useCurrency();
@@ -43,6 +49,13 @@ export function useProtocolDetailData({
     btcOnlyTaproot: true,
   });
 
+  // Identifies whose balances a response describes. Kept out of the request
+  // itself so an account switch produces a different cache entry instead of
+  // reusing the previous account's numbers.
+  const accountScopeKey = includeAccountContext
+    ? `${accountId || ''}|${indexedAccountId || ''}`
+    : undefined;
+
   const {
     result: detailInfo,
     isLoading: isDetailLoading,
@@ -54,11 +67,21 @@ export function useProtocolDetailData({
         symbol,
         provider,
         vault,
+        ...(includeAccountContext ? { accountId, indexedAccountId } : {}),
       }),
     // Locale and currency invalidate interceptor-owned request headers even
     // though getProtocolDetailsV2 does not receive them as explicit params.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [networkId, symbol, provider, vault, locale, currencyId],
+    [
+      networkId,
+      symbol,
+      provider,
+      vault,
+      locale,
+      currencyId,
+      includeAccountContext,
+      accountScopeKey,
+    ],
     {
       watchLoading: true,
       swrKey: swrKeys.earnProtocolDetail({
@@ -68,8 +91,13 @@ export function useProtocolDetailData({
         vault,
         locale,
         currencyId,
+        accountScopeKey,
       }),
+      // Account-scoped responses carry balances and rewards; keep them in
+      // memory only rather than persisting them alongside the shared protocol
+      // response.
       swrShouldPersist: (result) =>
+        !includeAccountContext &&
         Boolean(result.protocol || result.subscriptionValue?.token),
     },
   );

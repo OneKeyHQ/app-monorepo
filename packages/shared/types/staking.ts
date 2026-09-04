@@ -820,6 +820,14 @@ export interface IEarnPopupActionIcon {
       title: IEarnText;
       description: IEarnText;
     }[];
+    /**
+     * Mobile Yield sheet header. Labels come from the server so this surface
+     * needs no new generated i18n keys on the client.
+     */
+    yieldSummary?: {
+      totalApy: { title: IEarnText; description: IEarnText };
+      campaignEnd?: { title: IEarnText; endTime: number };
+    };
     items?: {
       icon?: IEarnIcon;
       token?: {
@@ -828,6 +836,20 @@ export interface IEarnPopupActionIcon {
       };
       title: IEarnText;
       value: string;
+      /**
+       * Mobile Yield sheet only. `rate` is a percentage number string ('3.52'),
+       * matching the unit `value` is rendered in — not a ratio. `yieldToken` is
+       * deliberately separate from `token`: the wide-screen popup renders
+       * `token`, so writing into it would change that surface too.
+       */
+      kind?: 'base' | 'reward' | 'campaign' | 'fee';
+      rate?: string;
+      color?: string;
+      yieldToken?: {
+        info: IEarnToken;
+        price: string;
+      };
+      yieldTitle?: IEarnText;
     }[];
     platformBonusInfos?: {
       title: IEarnText;
@@ -1468,7 +1490,24 @@ export interface IEarnRiskNoticeDialog {
   checkboxes: IEarnText[];
 }
 
+/** Promo banner above the vault detail page. Configured in the back office
+ * (Earn -> Banner, placement "detail") and matched per provider/network/vault. */
+export interface IEarnDetailPageBanner {
+  bannerId: string;
+  /** the banner's own light/dark preference; the app follows its own theme and
+   * ignores this, kept so the field is not silently dropped */
+  theme?: string;
+  icon: string;
+  title: string;
+  description?: string;
+  /** campaign end, ms. The countdown next to the title is computed client-side */
+  endTime: number;
+  href: string;
+  hrefType: 'external' | 'internal';
+}
+
 export interface IStakeEarnDetail {
+  activityBanner?: IEarnDetailPageBanner;
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
@@ -1498,6 +1537,38 @@ export interface IStakeEarnDetail {
   protocol?: IProtocolInfo;
   withdrawApprove?: IEarnWithdrawApproveInfo;
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
+  /**
+   * Phone-only Portfolio tab read model. Grouped by whether the user has to
+   * claim, not by where the reward came from.
+   */
+  mobilePortfolio?: {
+    asOf: number;
+    capabilities: {
+      portfolio: boolean;
+      rewardBreakdown: boolean;
+      claim: boolean;
+      redeem: boolean;
+    };
+    hasPosition: boolean;
+    summary?: { items: IEarnGridItem[] };
+    groups: {
+      key: 'balance' | 'claimable' | 'pending' | 'distributed';
+      title: IEarnText;
+      items: (NonNullable<IStakeEarnDetail['portfolios']>['items'][0] & {
+        txHash?: string;
+        distributedAt?: number;
+        availableAt?: number;
+      })[];
+    }[];
+  };
+  /**
+   * Phone-only Info tab blocks. `intro` stays untouched because desktop, web
+   * and iPad all render it; this is a separate additive copy.
+   */
+  mobileInfo?: {
+    productInfo?: { title: IEarnText; items: IEarnGridItem[] };
+    tokenInfo?: { title: IEarnText; items: IEarnGridItem[] };
+  };
   countDownAlert?: {
     title?: IEarnText;
     description: IEarnText;
@@ -2325,9 +2396,16 @@ export type IStakeBlockRegionResponse =
       countryCode: string;
     };
 
+/** Second chart line color: a protocol-owned reward is blue, anything that
+ * includes a platform campaign is orange. Resolved by the server. */
+export type IExtraApyKind = 'campaign' | 'reward';
+
 export interface IApyHistoryItem {
   apy: string;
   timestamp: number;
+  /** campaign boost + protocol reward APYs, summed; absent when there is none */
+  extraApy?: string;
+  extraApyKind?: IExtraApyKind;
 }
 
 export type IBorrowApyHistoryItem = IApyHistoryItem;
