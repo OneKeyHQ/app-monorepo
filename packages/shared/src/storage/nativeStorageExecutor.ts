@@ -72,7 +72,6 @@ const APP_STORAGE_MIGRATION_REPORT_KEY =
 const APP_STORAGE_JOURNAL_TRIM_THRESHOLD_CHARS = 1024 * 1024;
 const APP_STORAGE_MIGRATION_DISK_RESERVE_BYTES = 32 * 1024 * 1024;
 const APP_STORAGE_MIGRATION_SIZE_OVERHEAD_RATIO = 1.15;
-const JOTAI_STORAGE_KEY_PREFIX = 'g_states_v5:';
 const LEGACY_READ_CHUNK_SIZE = 100;
 const MAX_MMKV_KEY_BYTE_LENGTH = 60_000;
 const SWR_CACHE_KEY = 'onekey_swr_cache';
@@ -113,7 +112,6 @@ type ILegacyAppStorageMigrationReport = {
   duplicateSourceKeyCount: number;
   enumerationAttemptCount: number;
   enumerationStatus: 'complete' | 'failed';
-  excludedJotaiKeyCount: number;
   failures: ILegacyAppStorageMigrationFailure[];
   invalidSourceKeyCount: number;
   migratedKeyCount: number;
@@ -130,7 +128,6 @@ type ILegacyAppStorageEnumeration = {
   duplicateSourceKeyCount: number;
   enumeratedKeys: Set<string>;
   enumerationStatus: 'complete' | 'failed';
-  excludedJotaiKeyCount: number;
   invalidSourceKeyCount: number;
   keys: string[];
   sourceKeyCount: number;
@@ -286,10 +283,6 @@ function decodeAppStorageKey(key: string) {
   return key.slice(APP_STORAGE_KEY_PREFIX.length);
 }
 
-function getMigratableLegacyKeys(keys: readonly string[]) {
-  return keys.filter((key) => !key.startsWith(JOTAI_STORAGE_KEY_PREFIX));
-}
-
 function getLegacyKeyDiagnosticFingerprint(key: string) {
   let hash = 2_166_136_261;
   for (let index = 0; index < key.length; index += 1) {
@@ -348,7 +341,6 @@ async function enumerateLegacyAppStorageKeys(
       duplicateSourceKeyCount: 0,
       enumeratedKeys: new Set(),
       enumerationStatus: 'failed',
-      excludedJotaiKeyCount: 0,
       invalidSourceKeyCount: 0,
       keys: [...CRITICAL_LEGACY_APP_STORAGE_KEYS],
       sourceKeyCount: 0,
@@ -359,31 +351,27 @@ async function enumerateLegacyAppStorageKeys(
     (key): key is string => typeof key === 'string',
   );
   const invalidSourceKeyCount = result.value.length - stringKeys.length;
-  const migratableKeys = getMigratableLegacyKeys(stringKeys);
-  const excludedJotaiKeyCount = stringKeys.length - migratableKeys.length;
-  const uniqueMigratableKeys = [...new Set(migratableKeys)].toSorted();
-  const duplicateSourceKeyCount =
-    migratableKeys.length - uniqueMigratableKeys.length;
-  const enumeratedKeys = new Set(uniqueMigratableKeys);
+  const uniqueSourceKeys = [...new Set(stringKeys)].toSorted();
+  const duplicateSourceKeyCount = stringKeys.length - uniqueSourceKeys.length;
+  const enumeratedKeys = new Set(uniqueSourceKeys);
   const keys = [
-    ...uniqueMigratableKeys,
+    ...uniqueSourceKeys,
     ...CRITICAL_LEGACY_APP_STORAGE_KEYS.filter(
       (key) => !enumeratedKeys.has(key),
     ),
   ];
 
   logMigration(
-    `source enumeration result=complete attempts=${result.attemptCount} rawKeyCount=${result.value.length} sourceKeyCount=${uniqueMigratableKeys.length} candidateKeyCount=${keys.length} duplicateKeyCount=${duplicateSourceKeyCount} invalidKeyCount=${invalidSourceKeyCount} excludedJotaiKeyCount=${excludedJotaiKeyCount}`,
+    `source enumeration result=complete attempts=${result.attemptCount} rawKeyCount=${result.value.length} sourceKeyCount=${uniqueSourceKeys.length} candidateKeyCount=${keys.length} duplicateKeyCount=${duplicateSourceKeyCount} invalidKeyCount=${invalidSourceKeyCount}`,
   );
   return {
     attemptCount: result.attemptCount,
     duplicateSourceKeyCount,
     enumeratedKeys,
     enumerationStatus: 'complete',
-    excludedJotaiKeyCount,
     invalidSourceKeyCount,
     keys,
-    sourceKeyCount: uniqueMigratableKeys.length,
+    sourceKeyCount: uniqueSourceKeys.length,
   };
 }
 
@@ -878,7 +866,6 @@ async function migrateAppStorageFromLegacy() {
         duplicateSourceKeyCount: 0,
         enumeratedKeys: new Set<string>(),
         enumerationStatus: 'failed' as const,
-        excludedJotaiKeyCount: 0,
         invalidSourceKeyCount: 0,
         keys: [...CRITICAL_LEGACY_APP_STORAGE_KEYS],
         sourceKeyCount: 0,
@@ -915,7 +902,6 @@ async function migrateAppStorageFromLegacy() {
     duplicateSourceKeyCount: enumeration.duplicateSourceKeyCount,
     enumerationAttemptCount: enumeration.attemptCount,
     enumerationStatus: enumeration.enumerationStatus,
-    excludedJotaiKeyCount: enumeration.excludedJotaiKeyCount,
     failures: copyResult.failures,
     invalidSourceKeyCount: enumeration.invalidSourceKeyCount,
     migratedKeyCount: copyResult.migratedKeyCount,
@@ -1144,7 +1130,7 @@ async function applyAppStorageChanges(
 
 async function clearLegacyAppStorageData() {
   const legacy = getLegacyAsyncStorageForMigration();
-  const legacyKeys = getMigratableLegacyKeys(await legacy.getAllKeys());
+  const legacyKeys = await legacy.getAllKeys();
   for (
     let offset = 0;
     offset < legacyKeys.length;
@@ -1154,9 +1140,7 @@ async function clearLegacyAppStorageData() {
       legacyKeys.slice(offset, offset + LEGACY_READ_CHUNK_SIZE),
     );
   }
-  const remainingLegacyKeys = getMigratableLegacyKeys(
-    await legacy.getAllKeys(),
-  );
+  const remainingLegacyKeys = await legacy.getAllKeys();
   if (remainingLegacyKeys.length > 0) {
     throw new OneKeyLocalError('Legacy AppStorage cleanup verification failed');
   }

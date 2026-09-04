@@ -272,9 +272,31 @@ describe('nativeStorageExecutor', () => {
       mockSetMigrationLedgerComplete.mock.invocationCallOrder[0],
     );
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
-    expect(
-      mockAppMMKV.getString('app:g_states_v5:settingsPersistAtom'),
-    ).toBeUndefined();
+    expect(mockAppMMKV.getString('app:g_states_v5:settingsPersistAtom')).toBe(
+      'jotai-value',
+    );
+  });
+
+  it('migrates every third-party and Jotai key into AppStorage MMKV', async () => {
+    const thirdPartyKey = '@third-party/sdk:persisted-session';
+    const jotaiKey = 'g_states_v5:removedHistoricalAtom';
+    mockLegacyData.set(thirdPartyKey, 'third-party-value');
+    mockLegacyData.set(jotaiKey, 'jotai-value');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getAllKeys',
+      }),
+    ).resolves.toEqual(expect.arrayContaining([thirdPartyKey, jotaiKey]));
+
+    expect(mockAppMMKV.getString(`app:${thirdPartyKey}`)).toBe(
+      'third-party-value',
+    );
+    expect(mockAppMMKV.getString(`app:${jotaiKey}`)).toBe('jotai-value');
+    expect(mockLegacyData.get(thirdPartyKey)).toBe('third-party-value');
+    expect(mockLegacyData.get(jotaiKey)).toBe('jotai-value');
   });
 
   it('retries a transient key failure before publishing MMKV', async () => {
