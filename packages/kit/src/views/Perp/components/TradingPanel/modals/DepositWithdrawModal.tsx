@@ -141,6 +141,16 @@ function formatWithdrawFeeComponent(
   return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
 }
 
+function getWithdrawFeeKey(
+  destination: IUsdcWithdrawDestinationConfig,
+  route: 'bridge' | 'cctp' | undefined,
+) {
+  if (destination.transferType === 'hyperEvm') {
+    return destination.id;
+  }
+  return route ? `${destination.id}:${route}` : undefined;
+}
+
 // A destination's fee is known before its quote returns, so the row can skip the
 // placeholder frame between two values that reads as a flicker.
 function buildWithdrawFeePreviewQuote({
@@ -418,10 +428,12 @@ function DepositWithdrawContent({
   const [withdrawRoute, setWithdrawRoute] = useState<
     'bridge' | 'cctp' | undefined
   >(undefined);
-  const [withdrawFeeState, setWithdrawFeeState] = useState<{
-    key: string;
-    quote: IUsdcWithdrawFeeQuote;
-  }>();
+  // Keyed by destination rather than a single slot, so switching to one already
+  // quoted has no gap to fill. That gap is what made the row swap between the
+  // estimate and the confirmed number.
+  const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
+    Record<string, IUsdcWithdrawFeeQuote>
+  >({});
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
     'usd',
   );
@@ -437,16 +449,24 @@ function DepositWithdrawContent({
       USDC_WITHDRAW_DESTINATIONS[3],
     [withdrawDestinationId],
   );
-  let withdrawFeeKey: string | undefined;
-  if (selectedWithdrawDestination.transferType === 'hyperEvm') {
-    withdrawFeeKey = selectedWithdrawDestination.id;
-  } else if (withdrawRoute) {
-    withdrawFeeKey = `${selectedWithdrawDestination.id}:${withdrawRoute}`;
-  }
-  const withdrawFeeQuote =
-    withdrawFeeState && withdrawFeeState.key === withdrawFeeKey
-      ? withdrawFeeState.quote
-      : undefined;
+  const requestedWithdrawFeeKeysRef = useRef<Set<string>>(new Set());
+  const storeWithdrawFeeQuote = useCallback(
+    (key: string, quote: IUsdcWithdrawFeeQuote) => {
+      setWithdrawFeeQuotes((current) =>
+        isSameWithdrawFeeQuote(current[key], quote)
+          ? current
+          : { ...current, [key]: quote },
+      );
+    },
+    [],
+  );
+  const withdrawFeeKey = getWithdrawFeeKey(
+    selectedWithdrawDestination,
+    withdrawRoute,
+  );
+  const withdrawFeeQuote = withdrawFeeKey
+    ? withdrawFeeQuotes[withdrawFeeKey]
+    : undefined;
   // Display only; submission still binds to the confirmed quote below.
   const withdrawFeeDisplayQuote = useMemo(
     () =>
@@ -2246,6 +2266,41 @@ function DepositWithdrawContent({
     };
   }, [selectedAction]);
 
+  // Quote every destination up front. The rail only changes server-side, so this
+  // runs once per form open and lets a switch land on a confirmed number instead
+  // of the estimate that used to blink in and out of the row.
+  useEffect(() => {
+    if (selectedAction !== 'withdraw' || !withdrawRoute) {
+      return;
+    }
+    let cancelled = false;
+    USDC_WITHDRAW_DESTINATIONS.forEach((destination) => {
+      const key = getWithdrawFeeKey(destination, withdrawRoute);
+      if (!key || requestedWithdrawFeeKeysRef.current.has(key)) {
+        return;
+      }
+      // The legacy bridge quote is local and only Arbitrum can use it, so the
+      // main effect handles that pairing rather than an RPC round trip.
+      if (destination.transferType === 'cctp' && withdrawRoute === 'bridge') {
+        return;
+      }
+      requestedWithdrawFeeKeysRef.current.add(key);
+      void backgroundApiProxy.serviceHyperliquidExchange
+        .getUsdcWithdrawFee({ destinationId: destination.id })
+        .then((quote) => {
+          if (!cancelled) {
+            storeWithdrawFeeQuote(key, quote);
+          }
+        })
+        .catch(() => {
+          requestedWithdrawFeeKeysRef.current.delete(key);
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAction, withdrawRoute, storeWithdrawFeeQuote]);
+
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
       return;
@@ -2260,7 +2315,7 @@ function DepositWithdrawContent({
         withdrawRoute === 'bridge'
       ) {
         if (selectedWithdrawDestination.supportsLegacyBridge) {
-          const bridgeQuote: IUsdcWithdrawFeeQuote = {
+          storeWithdrawFeeQuote(withdrawFeeKey, {
             components: [
               {
                 kind: 'legacyBridge',
@@ -2271,13 +2326,7 @@ function DepositWithdrawContent({
               },
             ],
             quotedAt: Date.now(),
-          };
-          setWithdrawFeeState((current) =>
-            current?.key === withdrawFeeKey &&
-            isSameWithdrawFeeQuote(current.quote, bridgeQuote)
-              ? current
-              : { key: withdrawFeeKey, quote: bridgeQuote },
-          );
+          });
         }
         return;
       }
@@ -2285,21 +2334,10 @@ function DepositWithdrawContent({
         .getUsdcWithdrawFee({ destinationId: withdrawDestinationId })
         .then((feeQuote) => {
           if (!cancelled) {
-            // Reusing the object keeps an unchanged refresh from re-rendering.
-            setWithdrawFeeState((current) =>
-              current?.key === withdrawFeeKey &&
-              isSameWithdrawFeeQuote(current.quote, feeQuote)
-                ? current
-                : { key: withdrawFeeKey, quote: feeQuote },
-            );
+            storeWithdrawFeeQuote(withdrawFeeKey, feeQuote);
           }
         })
         .catch((error) => {
-          if (!cancelled) {
-            setWithdrawFeeState((current) =>
-              current?.key === withdrawFeeKey ? undefined : current,
-            );
-          }
           console.error(
             '[DepositWithdrawModal] Failed to resolve withdraw fee:',
             error,
@@ -2318,6 +2356,7 @@ function DepositWithdrawContent({
   }, [
     selectedAction,
     selectedWithdrawDestination,
+    storeWithdrawFeeQuote,
     withdrawDestinationId,
     withdrawFeeKey,
     withdrawRoute,
