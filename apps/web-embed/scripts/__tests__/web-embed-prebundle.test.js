@@ -196,6 +196,33 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 
+  it('ignores generated postinstall inputs', () => {
+    const sourcePath = path.join(
+      temporaryDirectory,
+      'packages/kit/src/source.ts',
+    );
+    const generatedPath = path.join(
+      temporaryDirectory,
+      'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+    );
+    const options = {
+      inputPaths: ['packages/kit'],
+      root: temporaryDirectory,
+    };
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
+    fs.writeFileSync(sourcePath, 'stable source');
+    const inputKey = getInputKey(options);
+
+    fs.writeFileSync(generatedPath, 'first generated output');
+    expect(getInputKey(options)).toBe(inputKey);
+    fs.writeFileSync(generatedPath, 'second generated output');
+    expect(getInputKey(options)).toBe(inputKey);
+
+    fs.writeFileSync(sourcePath, 'changed source');
+    expect(getInputKey(options)).not.toBe(inputKey);
+  });
+
   it('uses one canonical environment for every prebundle build', async () => {
     const inputKey = 'c'.repeat(64);
     const webBuildDirectory = path.join(

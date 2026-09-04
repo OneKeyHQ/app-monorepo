@@ -39,6 +39,7 @@ const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
 const ANDROID_APP_STARTUP_TIMEOUT_MS = 10_000;
 const ANDROID_APP_STARTUP_POLL_INTERVAL_MS = 500;
 const NATIVE_APP_STARTUP_GRACE_MS = 1500;
+const NATIVE_RUNTIME_PREWARM_TIMEOUT_MS = 10 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
@@ -100,6 +101,87 @@ function parseMetroBaseUrl(value) {
     );
   }
   return metroUrl.toString().replace(/\/$/u, '');
+}
+
+function getNativeRuntimeBundleUrl({
+  fingerprint,
+  metroPort,
+  platform,
+  runtimeTarget,
+  sessionId,
+}) {
+  const targetPlatform = assertPlatform(platform);
+  if (!['main', 'background'].includes(runtimeTarget)) {
+    throw new Error('[nativeDevShell] Invalid runtime prewarm target.');
+  }
+  if (!/^[0-9a-f]{64}$/u.test(fingerprint || '')) {
+    throw new Error('[nativeDevShell] Invalid dev-vendor fingerprint.');
+  }
+  const url = new URL(
+    runtimeTarget === 'background'
+      ? `http://127.0.0.1:${String(metroPort)}/background.bundle`
+      : `http://127.0.0.1:${String(metroPort)}/.expo/.virtual-metro-entry.bundle`,
+  );
+  const values = {
+    platform: targetPlatform,
+    dev: 'true',
+    lazy: 'false',
+    minify: 'false',
+    inlineSourceMap: 'false',
+    modulesOnly: 'true',
+    runModule: 'true',
+    'resolver.devVendor': 'true',
+    'resolver.devVendorNative': 'true',
+    'resolver.devVendorFingerprint': fingerprint,
+    'resolver.devSessionId': sessionId,
+    'resolver.runtimeTarget': runtimeTarget,
+    unstable_transformProfile: 'hermes-stable',
+  };
+  for (const [name, value] of Object.entries(values)) {
+    url.searchParams.set(name, value);
+  }
+  return url;
+}
+
+async function prewarmNativeRuntimeBundles({
+  fetchImpl = globalThis.fetch,
+  fingerprint,
+  metroPort,
+  platform,
+  sessionId,
+  timeoutMs = NATIVE_RUNTIME_PREWARM_TIMEOUT_MS,
+}) {
+  for (const runtimeTarget of ['main', 'background']) {
+    const url = getNativeRuntimeBundleUrl({
+      fingerprint,
+      metroPort,
+      platform,
+      runtimeTarget,
+      sessionId,
+    });
+    let receivedBytes = 0;
+    try {
+      const response = await fetchImpl(url, {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${String(response.status)}`);
+      }
+      if (response.body) {
+        for await (const chunk of response.body) {
+          receivedBytes += Buffer.byteLength(chunk);
+        }
+      }
+    } catch (error) {
+      throw new Error(
+        `[nativeDevShell] Failed to prewarm the ${runtimeTarget} runtime bundle.`,
+        { cause: error },
+      );
+    }
+    console.log(
+      `[nativeDevShell] prewarmed runtime=${runtimeTarget} bytes=${String(receivedBytes)}`,
+    );
+  }
 }
 
 function getContractManifest(platform) {
@@ -832,6 +914,105 @@ function runForOutput(command, args, options = {}) {
     );
   }
   return result.stdout.trim();
+}
+
+function getJavaMajorVersion(result) {
+  if (result.status !== 0 || result.error) return undefined;
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  const match = output.match(/\bversion\s+"(?:1\.)?(\d+)/u);
+  return match ? Number(match[1]) : undefined;
+}
+
+function getAndroidSdkRoot({ env, hostPlatform, spawnCommand }) {
+  const candidates = [env.ANDROID_HOME, env.ANDROID_SDK_ROOT].filter(Boolean);
+  const findAdb = spawnCommand(
+    hostPlatform === 'win32' ? 'where' : 'which',
+    ['adb'],
+    {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  if (findAdb.status === 0 && !findAdb.error) {
+    for (const adbPath of findAdb.stdout.split(/\r?\n/u).filter(Boolean)) {
+      const platformToolsDirectory = path.dirname(adbPath);
+      if (path.basename(platformToolsDirectory) === 'platform-tools') {
+        candidates.push(path.dirname(platformToolsDirectory));
+      }
+    }
+  }
+  candidates.push(
+    hostPlatform === 'darwin'
+      ? path.join(os.homedir(), 'Library/Android/sdk')
+      : path.join(os.homedir(), 'Android/Sdk'),
+  );
+  for (const candidate of new Set(candidates)) {
+    if (fs.existsSync(path.join(candidate, 'platform-tools'))) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    '[nativeDevShell] Android local shell builds require an Android SDK. Set ANDROID_HOME or make the SDK adb available on PATH.',
+  );
+}
+
+function getAndroidLocalBuildEnvironment({
+  env = process.env,
+  hostPlatform = process.platform,
+  spawnCommand = spawnSync,
+} = {}) {
+  const javaHomes = [env.JAVA_HOME, env.JAVA_HOME_17_X64].filter(Boolean);
+  let buildEnv;
+  if (hostPlatform === 'darwin') {
+    const javaHome = spawnCommand('/usr/libexec/java_home', ['-v', '17'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (javaHome.status === 0 && !javaHome.error && javaHome.stdout.trim()) {
+      javaHomes.push(javaHome.stdout.trim());
+    }
+  }
+  for (const javaHome of new Set(javaHomes)) {
+    const result = spawnCommand(path.join(javaHome, 'bin/java'), ['-version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (getJavaMajorVersion(result) === 17) {
+      buildEnv = {
+        ...env,
+        JAVA_HOME: javaHome,
+        PATH: `${path.join(javaHome, 'bin')}${path.delimiter}${env.PATH || ''}`,
+      };
+      break;
+    }
+  }
+  if (!buildEnv) {
+    const pathJava = spawnCommand('java', ['-version'], {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (getJavaMajorVersion(pathJava) === 17) {
+      buildEnv = { ...env };
+      delete buildEnv.JAVA_HOME;
+    }
+  }
+  if (!buildEnv) {
+    throw new Error(
+      '[nativeDevShell] Android local shell builds require Java 17. Install a Java 17 JDK or set JAVA_HOME_17_X64.',
+    );
+  }
+  const androidSdkRoot = getAndroidSdkRoot({
+    env: buildEnv,
+    hostPlatform,
+    spawnCommand,
+  });
+  return {
+    ...buildEnv,
+    ANDROID_HOME: androidSdkRoot,
+    ANDROID_SDK_ROOT: androidSdkRoot,
+  };
 }
 
 function parseAndroidDevices(output) {
@@ -1885,6 +2066,8 @@ async function prepareWebEmbedForLocalShell(report) {
 }
 
 async function buildLocalShell({ platform, report }) {
+  const buildEnv =
+    platform === 'android' ? getAndroidLocalBuildEnvironment() : process.env;
   await prepareWebEmbedForLocalShell(report);
   const resultPath = path.join(
     REPO_ROOT,
@@ -1892,14 +2075,18 @@ async function buildLocalShell({ platform, report }) {
   );
   await fs.promises.mkdir(path.dirname(resultPath), { recursive: true });
   try {
-    runChecked('node', [
-      path.join(MOBILE_ROOT, 'scripts/build-mobile-dev-shell.js'),
-      'build',
-      '--platform',
-      platform,
-      '--result',
-      resultPath,
-    ]);
+    runChecked(
+      'node',
+      [
+        path.join(MOBILE_ROOT, 'scripts/build-mobile-dev-shell.js'),
+        'build',
+        '--platform',
+        platform,
+        '--result',
+        resultPath,
+      ],
+      { env: buildEnv },
+    );
     const result = JSON.parse(await fs.promises.readFile(resultPath, 'utf8'));
     if (
       typeof result.artifactPath !== 'string' ||
@@ -2090,6 +2277,7 @@ async function launchDevShell({
       shell,
     });
     await prepareVendor({ platform, report, vendor });
+    const vendorManifest = loadVendorManifest(platform);
     let session = await stagePrivateSession({
       deviceId: selectedDevice.id,
       metroUrl: deviceMetroUrl,
@@ -2133,6 +2321,12 @@ async function launchDevShell({
       child.once('exit', (code, signal) => resolve({ code, signal }));
     });
     await waitForMetro(metroPort, child, () => metroSpawnError);
+    await prewarmNativeRuntimeBundles({
+      fingerprint: vendorManifest.fingerprint,
+      metroPort,
+      platform,
+      sessionId,
+    });
     preparationLock.release();
     preparationLock = undefined;
     const nativeLaunch = launchNativeApp(platform, selectedDevice.id);
@@ -2249,7 +2443,9 @@ module.exports = {
   createRunReport,
   getAndroidPrivateSessionInstallArgs,
   getAndroidPrivateSessionRenewalArgs,
+  getAndroidLocalBuildEnvironment,
   getContractManifest,
+  getNativeRuntimeBundleUrl,
   getPlatformArtifact,
   getShellArtifactTag,
   getShellCompatibility,
@@ -2260,6 +2456,7 @@ module.exports = {
   parseIosSimulators,
   parseMetroBaseUrl,
   parseMetroPort,
+  prewarmNativeRuntimeBundles,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,

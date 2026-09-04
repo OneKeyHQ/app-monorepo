@@ -57,6 +57,15 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   'out-dir-bundle',
   'web-build',
 ]);
+const EXCLUDED_GENERATED_INPUT_PATHS = new Set([
+  'packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
+  'packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+  'packages/kit/src/components/WebView/injectedNative.js.txt',
+  'packages/kit/src/components/WebView/translateInject.text-js',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+  'packages/shared/src/web/index.html',
+]);
 const CANONICAL_EMPTY_ENV_KEYS = [
   'BUILD_APP_VERSION',
   'CI_BUILD_APP_VERSION',
@@ -94,6 +103,9 @@ function toRepoPath(absolutePath, root = REPO_ROOT) {
 function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   const files = [];
   const visit = (absolutePath) => {
+    if (EXCLUDED_GENERATED_INPUT_PATHS.has(toRepoPath(absolutePath, root))) {
+      return;
+    }
     const stat = fs.lstatSync(absolutePath);
     if (stat.isSymbolicLink() || stat.isFile()) {
       files.push(absolutePath);
