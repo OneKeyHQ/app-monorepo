@@ -271,6 +271,62 @@ function createTestAttestationVerifier() {
 }
 
 describe('metro-dev-prebundle release transport', () => {
+  it('filters x pushes to declared vendor inputs', () => {
+    const workflow = fs.readFileSync(
+      path.join(REPO_ROOT, '.github/workflows/metro-dev-prebundle.yml'),
+      'utf8',
+    );
+
+    expect(workflow).toContain('push:\n    branches:\n      - x\n    paths:');
+    for (const inputPath of [
+      ...devVendorConfig.fingerprintFiles,
+      ...devVendorConfig.releaseFingerprintFiles,
+      ...devVendorConfig.nativeContractFiles.shared,
+      ...devVendorConfig.nativeContractFiles.android,
+      ...devVendorConfig.nativeContractFiles.ios,
+    ]) {
+      expect(workflow).toContain(`- '${inputPath}'`);
+    }
+    for (const inputDirectory of [
+      ...devVendorConfig.fingerprintDirectories,
+      ...devVendorConfig.nativeContractDirectories.shared,
+      ...devVendorConfig.nativeContractDirectories.android,
+      ...devVendorConfig.nativeContractDirectories.ios,
+    ]) {
+      expect(workflow).toContain(`- '${inputDirectory}/**'`);
+    }
+    expect(workflow).toContain(
+      "- 'apps/mobile/bundle-registry/module-id-registry.json'",
+    );
+    expect(workflow.indexOf('- name: Install dependencies')).toBeLessThan(
+      workflow.indexOf('- name: Resolve immutable OCI tag'),
+    );
+  });
+
+  it('does not create repository Git tags for CI artifacts', () => {
+    for (const workflowName of [
+      'metro-dev-prebundle.yml',
+      'daily-build.yml',
+      'daily-build-dev.yml',
+      'release-desktop-all.yml',
+    ]) {
+      const workflow = fs.readFileSync(
+        path.join(REPO_ROOT, '.github/workflows', workflowName),
+        'utf8',
+      );
+      expect(workflow).not.toContain('gh release create');
+      expect(workflow).not.toContain('/git/refs/tags');
+    }
+
+    for (const workflowName of ['daily-build.yml', 'daily-build-dev.yml']) {
+      const workflow = fs.readFileSync(
+        path.join(REPO_ROOT, '.github/workflows', workflowName),
+        'utf8',
+      );
+      expect(workflow).toContain(`-f "ref=${'$'}{SOURCE_REF_NAME}"`);
+    }
+  });
+
   it('rejects protected release output directories', () => {
     const repoRoot = path.resolve('/tmp/example-repo');
     const projectRoot = path.join(repoRoot, 'apps/mobile');

@@ -21,6 +21,7 @@ import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -414,6 +415,10 @@ class BackgroundApiProxy
 
   get serviceContextMenu(): ServiceContextMenu {
     return this.getProxyService<ServiceContextMenu>('serviceContextMenu');
+  }
+
+  get serviceBulkSend(): ServiceBulkSend {
+    return this.getProxyService<ServiceBulkSend>('serviceBulkSend');
   }
 
   get serviceFiatCrypto(): ServiceFiatCrypto {

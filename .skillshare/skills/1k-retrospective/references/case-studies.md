@@ -304,3 +304,66 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Two retained Market detail screens share `marketSwap`. Each `useSwapStockSelectedBalanceSync` instance wrote the same atom and listed `storedBalance` as an effect dep, so write → rerender → write ping-ponged. Removing that dep stopped the loop, but the retained stock instance no longer republished on return, and an unfocused stock instance could still overwrite the current screen when its fetch completed.
 **Fix**: Keep the functional atom update (skip unchanged values) and publish only while `useRouteIsFocused()` is true, so blur stops overwrites and focus restores the current screen's balance.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: "Not loaded" vs later async updates on a retained screen; NEW — shared context atoms plus retained navigation screens need an active-owner or focus write lock, not only a skip-if-equal setter
+
+## Case: Desktop More menu always scrolled
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Default zh/en More popover needed vertical scroll even though content almost fit (OK-61457).
+**Root Cause**: Popover used a fixed `height: 600`. Content was slightly over 600, so it always scrolled.
+**Fix**: Use `maxHeight: 680` and hug content. Desktop skips the inner flex `ScrollView` (it collapsed height); outer `overflow: scroll` scrolls only when over the cap.
+**Catchable by**: Section 1: a fixed height that almost matches content will always overflow; express as maxHeight so short locales hug.
+
+## Case: Desktop More menu dark tiles used `$theme-dark` which never matched
+**Date**: 2026-09-01 | **Platforms**: desktop, web
+**Symptom**: Grid icon tiles and Prime badges looked like the popover background in dark mode. Pink debug color also did not show.
+**Root Cause**: Tamagui 2.7 compiles `$theme-dark` to `:root.t_dark` (`<html>`), but `t_dark` is stamped on `<body>`. Pinning the class to html re-enabled overrides app-wide and washed out Home.
+**Fix**: Set rest/hover/press colors from `useThemeVariant()` instead of `$theme-dark`. Do not change `addThemeClassName`.
+**Catchable by**: NEW — web `$theme-*` CSS must match where Tamagui puts the theme class; a global class move is not a local widget fix.
+
+## Case: Notifications row leaked into More → Preferences
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Opening Preferences from the More menu showed a Notifications row even though Notifications is its own settings tab.
+**Root Cause**: Promoted `desktopTab` items were hidden only when `insideTabNavigator` was true. `SettingListSubModal` has no sidebar, so the source item stayed visible.
+**Fix**: Hide any item with `desktopTab` on every category host. Mobile home still shows it via `mobileHome`.
+**Catchable by**: Section 4: a hide rule gated on "has sidebar" will re-show the item on standalone hosts.
+
+## Case: Desktop More overflow scrolled Menu header and About
+**Date**: 2026-09-01 | **Platforms**: desktop, wide web
+**Symptom**: When the popover exceeded `maxHeight`, Menu title and About scrolled away with the body.
+**Root Cause**: `overflow: scroll` was on the outer stack that also owns header and the pinned footer. Inner `ScrollView` + `flex={1}` had collapsed, so the whole panel became the scroller.
+**Fix**: Clip the outer stack. Scroll only the body with `flexGrow` / `flexShrink` / `flexBasis: auto` so short menus still hug and chrome stays pinned when content overflows.
+**Catchable by**: Section 3: header/footer that look pinned must live outside the scrollport, not just sit at the ends of an overflowing column
+
+## Case: Hiding every desktopTab item removed extension Notifications
+**Date**: 2026-09-01 | **Platforms**: extension, narrow web
+**Symptom**: Preferences / Security category pages lost Notifications and Connections. Search could still open them; the list could not.
+**Root Cause**: `desktopTab` means "also a sidebar tab", but the sidebar only exists when `useIsTabNavigator()` is true. Always hiding the source row deleted the only entry on extension popup and narrow web.
+**Fix**: Hide `desktopTab` items only on tab-navigator hosts. Phone still hides them via `mobileHome`.
+**Catchable by**: Section 4: a hide rule must keep the host that still needs the list entry; Section 6: layout-visibility helpers need a host-matrix test
+
+## Case: More menu source growth failed web startup graph budget
+**Date**: 2026-09-01 | **Platforms**: web (startup graph)
+**Symptom**: CI `Web startup graph budget` failed: `sourceSizeBytes` 13173627 / 13172736 (+891 B).
+**Root Cause**: `HeaderRight`, `MDHeader`, and `BottomMenu` statically imported `MoreActionButton/index.tsx` (~56 KiB). Layout and theme work in that file entered the first-visit graph.
+**Fix**: Load the trigger through `LazyMoreActionButton` so the popover module is a separate chunk. Desktop body uses `overflow-y: auto`.
+**Catchable by**: Section 3: header-mounted widgets that grow must stay behind a lazy import; NEW — do not add first-screen source to a file already in the web startup graph
+
+## Case: New lazy native module missing module-id registry
+**Date**: 2026-09-01 | **Platforms**: iOS/Android (native union build)
+**Symptom**: Native startup graph CI failed: `LazyMoreActionButton.tsx` is not registered in `module-id-registry.json`.
+**Root Cause**: Native three-bundle allocation requires every module path in the graph to have a stable ID. Adding a new file under `packages/kit` without `module-id:update` breaks unionBuild.
+**Fix**: Run `yarn workspace @onekeyhq/mobile module-id:update --map` for the new path and commit the registry row (`7931`).
+**Catchable by**: NEW — new files that enter the native graph must be added to `apps/mobile/bundle-registry/module-id-registry.json` before push
+
+## Case: localTokens/localHistory IndexedDB blob self-heal
+**Date**: 2026-09-03 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
+**Symptom**: Desktop users hit permanent SimpleDB read failures on `simple_db_v5:localTokens` / `localHistory` with `UnknownError: Failed to read large IndexedDB value` (OK-61648), blocking builder-based writes the same way as OK-59997 perp.
+**Root Cause**: Large Chromium IndexedDB values are external blobs; corruption leaves the record forever unreadable. Self-heal was opt-in and only enabled for `perp`.
+**Fix**: Default-on self-heal for the exact Chromium unreadable-blob signature (`UnknownError` + message `includes`); backoff retries (50/500/1000ms) + write-overlap veto before delete; `defaultLogger.app.storage.simpleDbUnreadableSelfHeal` local trail for export. The dead record is already unrecoverable — leaving it blocks builder writes and the app.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — durable unreadable storage errors need a default recovery path, not per-entity opt-in
+
+## Case: Prime logout tombstone is not equivalent to a missing SimpleDB record
+**Date**: 2026-09-03 | **Platforms**: desktop / web / extension (IndexedDB self-heal path)
+**Symptom**: Default-on SimpleDB self-heal would delete an unreadable `simple_db_v5:prime` record; a leftover Supabase session then rebuilt `oneKeyIdAuthState: loggedIn` (silent re-login after logout).
+**Root Cause**: `markOneKeyIdLoggedOutPreservingSessions` writes a tombstone in SimpleDB while keeping credentials in `supabaseStorageInstance`. After delete, `getRawData()` is `null`, so `persistMigratedLegacyAuthSessionSourceIfUnset` treats "empty" as "never logged out" and commits LegacyEmailSupabase + `loggedIn`. Unreadable ≠ empty.
+**Fix**: `SimpleDbEntityPrime` opts out of unreadable-record self-heal so the Chromium blob error stays loud-fail; other SimpleDB entities remain default-on.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — tombstone / monotonic-epoch records must not treat self-heal `null` as "never written"

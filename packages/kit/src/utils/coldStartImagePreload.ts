@@ -1,16 +1,9 @@
-import { PixelRatio } from 'react-native';
-
-import {
-  primeCachedImagePaths,
-  primeCachedImageRefs,
-} from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import {
   type ITokenSize,
@@ -26,10 +19,6 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
 type IImagePreloadOptions = {
   limit?: number;
   awaitPreload?: boolean;
-  decode?: boolean;
-  decodeTimeoutMs?: number;
-  primeTimeoutMs?: number;
-  preload?: boolean;
   pixelRatio?: number;
   resizeWidth?: number;
 };
@@ -112,29 +101,6 @@ function addImageUri(uris: Set<string>, uri?: unknown) {
 
 function getImagePreloadItem(input: IImagePreloadInput): IImagePreloadItem {
   return typeof input === 'string' ? { uri: input } : input;
-}
-
-function buildPrewarmImageUri({
-  uri,
-  pixelRatio,
-  resizeWidth,
-}: {
-  uri: string;
-  pixelRatio?: number;
-  resizeWidth?: number;
-}): string | undefined {
-  if (!resizeWidth) {
-    return uri;
-  }
-  const result = buildTosImageResizeUrl({
-    uri,
-    pixelRatio:
-      pixelRatio ??
-      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
-      1,
-    resizeWidth,
-  });
-  return result.uri;
 }
 
 function getPerpsTokenSelectorPreloadSizes(
@@ -416,54 +382,36 @@ export async function prewarmImageUris(
   {
     limit = COLD_START_IMAGE_PRELOAD_LIMIT,
     awaitPreload = false,
-    decode = false,
-    decodeTimeoutMs,
-    primeTimeoutMs,
-    preload = true,
     pixelRatio,
     resizeWidth = COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH,
   }: IImagePreloadOptions = {},
 ) {
-  const uris = [
-    ...new Set(
+  const sources = [
+    ...new Map(
       imageUris
         .slice(0, limit)
         .map(getImagePreloadItem)
-        .map((item) =>
-          buildPrewarmImageUri({
+        .filter((item) => Boolean(item.uri))
+        .map((item) => {
+          const source = {
             uri: item.uri,
-            pixelRatio,
             resizeWidth: item.resizeWidth ?? resizeWidth,
-          }),
-        )
-        .filter((uri): uri is string => Boolean(uri)),
-    ),
+            pixelRatio,
+          };
+          return [`${source.uri}|${source.resizeWidth}`, source] as const;
+        }),
+    ).values(),
   ];
-  if (!uris.length) {
+  if (!sources.length) {
     return 0;
   }
-  await primeCachedImagePaths({ uris, timeoutMs: primeTimeoutMs });
-  const tasks: Array<Promise<unknown>> = [];
-  // The decoded ImageRef cache is iOS-only (see Image/cache.ts). On Android,
-  // fall back to Image.prefetch so Glide's native cache is still warmed for
-  // decode-only callers (e.g. Perps token-selector critical logos that pass
-  // preload:false), without decoding unconsumed — and crash-prone — SharedRefs.
-  const shouldPreload = preload || (platformEnv.isNativeAndroid && decode);
-  const shouldDecode = decode && !platformEnv.isNativeAndroid;
-  if (shouldPreload) {
-    tasks.push(preloadImages(uris.map((uri) => ({ uri, optimize: false }))));
-  }
-  if (shouldDecode) {
-    tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
-  }
+  const task = preloadImages(sources);
   if (awaitPreload) {
-    await Promise.allSettled(tasks);
+    await task.catch(() => false);
   } else {
-    tasks.forEach((task) => {
-      void task.catch(() => undefined);
-    });
+    void task.catch(() => undefined);
   }
-  return uris.length;
+  return sources.length;
 }
 
 export async function prewarmColdStartImagesFromSnapshot(
@@ -495,18 +443,11 @@ export function prewarmPerpsTokenSelectorImages(
   });
   if (remainingItems.length) {
     void prewarmImageUris(remainingItems, {
-      decode: true,
       limit: remainingItems.length,
-      preload: true,
-      primeTimeoutMs: 250,
     });
   }
   return prewarmImageUris(criticalItems, {
     awaitPreload: true,
-    decode: true,
-    decodeTimeoutMs: 1500,
     limit: criticalItems.length,
-    preload: false,
-    primeTimeoutMs: 250,
   });
 }

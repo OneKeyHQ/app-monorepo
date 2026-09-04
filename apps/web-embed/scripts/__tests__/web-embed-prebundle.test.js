@@ -64,6 +64,28 @@ describe('web-embed-prebundle', () => {
     expect(getReleaseTag()).toBe(`web-embed-prebundle-v1-${inputKey}`);
   });
 
+  it('filters x pushes to declared build inputs', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+
+    expect(workflow).toContain('push:\n    branches:\n      - x\n    paths:');
+    for (const inputPath of INPUT_PATHS) {
+      const triggerPath = fs
+        .statSync(path.join(repoRoot, inputPath))
+        .isDirectory()
+        ? `${inputPath}/**`
+        : inputPath;
+      expect(workflow).toContain(`- '${triggerPath}'`);
+    }
+    expect(workflow).toContain("cron: '30 18 * * 0'");
+    expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain(
+      "github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'",
+    );
+  });
+
   it('fails closed when the publish tag lookup has a registry error', () => {
     const workflow = fs.readFileSync(
       path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
@@ -93,6 +115,61 @@ describe('web-embed-prebundle', () => {
     expect(workflow).not.toContain(
       'if ! oras manifest fetch --descriptor "$reference"',
     );
+  });
+
+  it('publishes for anonymous access and lets native shells build when absent', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+    const action = fs.readFileSync(
+      path.join(repoRoot, '.github/actions/restore-web-embed/action.yml'),
+      'utf8',
+    );
+    const nativeShellWorkflows = [
+      'mobile-dev-shell-android.yml',
+      'mobile-dev-shell-ios-simulator.yml',
+    ].map((fileName) =>
+      fs.readFileSync(
+        path.join(repoRoot, '.github/workflows', fileName),
+        'utf8',
+      ),
+    );
+    const bootstrapLoginIndex = workflow.indexOf(
+      '- name: Log in to GHCR for bootstrap lookup',
+    );
+    const resolveIndex = workflow.indexOf(
+      '- name: Resolve immutable OCI tag',
+      bootstrapLoginIndex,
+    );
+    const anonymousVerifyIndex = workflow.indexOf(
+      '- name: Verify public anonymous access',
+    );
+    const restoreIndex = action.indexOf('prebundle:restore');
+    const unavailableIndex = action.indexOf(
+      `manifest unknown|not found|denied: requested access to the resource is denied`,
+    );
+    const localBuildIndex = action.indexOf('prebundle:build', unavailableIndex);
+
+    expect(bootstrapLoginIndex).toBeGreaterThan(-1);
+    expect(resolveIndex).toBeGreaterThan(bootstrapLoginIndex);
+    expect(workflow.slice(resolveIndex)).toContain(
+      'oras logout "$OCI_REGISTRY"',
+    );
+    expect(anonymousVerifyIndex).toBeGreaterThan(resolveIndex);
+    expect(workflow.slice(anonymousVerifyIndex)).toContain(
+      'not publicly readable',
+    );
+    expect(action).not.toContain('oras login');
+    expect(restoreIndex).toBeGreaterThan(-1);
+    expect(unavailableIndex).toBeGreaterThan(restoreIndex);
+    expect(localBuildIndex).toBeGreaterThan(unavailableIndex);
+    expect(action).toContain('web-embed-prebundle-build.json');
+    for (const nativeShellWorkflow of nativeShellWorkflows) {
+      expect(nativeShellWorkflow).toContain(
+        'uses: ./.github/actions/restore-web-embed',
+      );
+    }
   });
 
   it('ignores dynamic .env.expo values but hashes real build inputs', () => {

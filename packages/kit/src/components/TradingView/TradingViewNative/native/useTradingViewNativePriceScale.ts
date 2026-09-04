@@ -5,7 +5,10 @@ import { cancelAnimation } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING } from '../chartConstants';
+import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
+import { getTradingViewNativeVisiblePointRange } from '../utils/chartViewport';
+import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
 import {
   getTradingViewNativeMainPriceAxisLayout,
   getTradingViewNativePriceRangeScaleAfterDrag,
@@ -59,6 +62,30 @@ function getRuntimeWithCrosshairHidden(
       type: 'crosshairHidden',
     }),
   };
+}
+
+function getTradingViewNativeRuntimeAutoPriceRange({
+  chartWidth,
+  runtime,
+}: {
+  chartWidth: number;
+  runtime: ITradingViewNativeChartRuntime;
+}) {
+  'worklet';
+
+  const visiblePointRange = getTradingViewNativeVisiblePointRange({
+    chartWidth,
+    initialRightOffset: runtime.viewport.initialRightOffset,
+    offset: runtime.viewport.offset,
+    pointCount: runtime.points.length,
+    zoomScale: runtime.viewport.zoomScale,
+  });
+  return getTradingViewNativeMainPriceRange({
+    chartType: runtime.chartType,
+    indicatorSeries: runtime.indicatorSeries,
+    points: runtime.points,
+    ...visiblePointRange,
+  });
 }
 
 export function useTradingViewNativePriceScale({
@@ -142,18 +169,46 @@ export function useTradingViewNativePriceScale({
     if (isTouchVisible) {
       showForTouch();
     }
-    setIsAutoScale(true);
+    const nextIsAutoScale = !isAutoScale;
     scheduleOnUI(() => {
       'worklet';
 
       cancelAnimation(decayOffset);
       const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
+      if (nextIsAutoScale) {
+        chartRuntime.value = {
+          ...runtime,
+          pinnedPriceRange: null,
+          priceRangeScale: 1,
+        };
+        scheduleOnRN(handleAutoScaleStateChange, true);
+        return;
+      }
+      const pinnedPriceRange = getTradingViewNativeRuntimeAutoPriceRange({
+        chartWidth: getTradingViewNativeChartWidth(
+          runtime.size.width,
+          priceAxisWidth.value,
+        ),
+        runtime,
+      });
+      if (!pinnedPriceRange) {
+        return;
+      }
       chartRuntime.value = {
         ...runtime,
-        priceRangeScale: 1,
+        pinnedPriceRange,
       };
+      scheduleOnRN(handleAutoScaleStateChange, false);
     });
-  }, [chartRuntime, decayOffset, isTouchVisible, showForTouch]);
+  }, [
+    chartRuntime,
+    decayOffset,
+    handleAutoScaleStateChange,
+    isAutoScale,
+    isTouchVisible,
+    priceAxisWidth,
+    showForTouch,
+  ]);
 
   const handleLogScalePress = useCallback(() => {
     if (!isLogScaleAvailable) {
@@ -224,6 +279,7 @@ export function useTradingViewNativePriceScale({
         const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
         chartRuntime.value = {
           ...runtime,
+          pinnedPriceRange: null,
           priceRangeScale: 1,
         };
         scheduleOnRN(handleAutoScaleStateChange, true);
@@ -245,10 +301,23 @@ export function useTradingViewNativePriceScale({
         'worklet';
 
         cancelAnimation(decayOffset);
-        scheduleOnRN(handleAutoScaleStateChange, false);
         const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
+        const pinnedPriceRange =
+          runtime.pinnedPriceRange ??
+          getTradingViewNativeRuntimeAutoPriceRange({
+            chartWidth: getTradingViewNativeChartWidth(
+              runtime.size.width,
+              priceAxisWidth.value,
+            ),
+            runtime,
+          });
+        if (!pinnedPriceRange) {
+          return;
+        }
+        scheduleOnRN(handleAutoScaleStateChange, false);
         chartRuntime.value = {
           ...runtime,
+          pinnedPriceRange,
           priceAxisScaleGesture: {
             chartHeight: getTradingViewNativeMainPriceAxisLayoutForPanes({
               height: runtime.size.height,
@@ -264,6 +333,9 @@ export function useTradingViewNativePriceScale({
         'worklet';
 
         const runtime = chartRuntime.value;
+        if (!runtime.pinnedPriceRange) {
+          return;
+        }
         chartRuntime.value = {
           ...runtime,
           priceRangeScale: getTradingViewNativePriceRangeScaleAfterDrag({

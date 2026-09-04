@@ -5,6 +5,7 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,6 +38,7 @@ import {
   type IBackgroundThreadJotaiStateBroadcastBatchPayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
+  type IBackgroundThreadResponseErrorPayload,
   type IBackgroundThreadResponsePayload,
   type IBackgroundThreadServiceCallRequest,
   WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
@@ -233,67 +235,27 @@ let handleWebEmbedBridgeResponse: (
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
-  const runtimeError = error as Error & {
-    autoToast?: unknown;
-    className?: unknown;
-    $isHardwareError?: unknown;
-    code?: unknown;
-    key?: unknown;
-    requestId?: unknown;
-    httpStatusCode?: unknown;
-    data?: unknown;
-    payload?: unknown;
+  const runtimeError = error as
+    | { $isHardwareError?: unknown }
+    | null
+    | undefined;
+  const {
+    constructorName: _constructorName,
+    data,
+    stack: _stack,
+    ...plainError
+  } = toPlainErrorObject(error);
+  const errorPayload: IBackgroundThreadResponseErrorPayload = {
+    ...plainError,
+    name: plainError.name || 'BackgroundThreadError',
+    message: plainError.message || 'Unknown background thread error',
   };
-  const errorPayload: {
-    name: string;
-    message: string;
-    stack?: string;
-    autoToast?: boolean;
-    className?: string;
-    $isHardwareError?: boolean;
-    code?: string | number;
-    key?: string;
-    requestId?: string;
-    httpStatusCode?: number;
-    data?: unknown;
-    payload?: unknown;
-  } = {
-    name: runtimeError?.name || 'BackgroundThreadError',
-    message: runtimeError?.message || 'Unknown background thread error',
-  };
-  if (typeof runtimeError?.stack === 'string') {
-    errorPayload.stack = runtimeError.stack;
-  }
-  if (typeof runtimeError?.autoToast === 'boolean') {
-    errorPayload.autoToast = runtimeError.autoToast;
-  }
-  if (typeof runtimeError?.className === 'string') {
-    errorPayload.className = runtimeError.className;
-  }
   if (runtimeError?.$isHardwareError === true) {
     errorPayload.$isHardwareError = true;
   }
-  if (
-    typeof runtimeError?.code === 'string' ||
-    typeof runtimeError?.code === 'number'
-  ) {
-    errorPayload.code = runtimeError.code;
-  }
-  if (typeof runtimeError?.key === 'string') {
-    errorPayload.key = runtimeError.key;
-  }
-  if (typeof runtimeError?.requestId === 'string') {
-    errorPayload.requestId = runtimeError.requestId;
-  }
-  if (typeof runtimeError?.httpStatusCode === 'number') {
-    errorPayload.httpStatusCode = runtimeError.httpStatusCode;
-  }
-  const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
+  const safeData = buildSafeBackgroundThreadErrorData(data);
   if (safeData) {
     errorPayload.data = safeData;
-  }
-  if (runtimeError?.payload !== undefined) {
-    errorPayload.payload = runtimeError.payload;
   }
   return {
     ok: false,

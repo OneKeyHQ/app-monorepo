@@ -123,8 +123,11 @@ config.resolver.sourceExts = [
 ];
 
 // Configure SVG transformer for .svgx files (used by react-native-bottom-tabs)
-config.resolver.assetExts = (config.resolver.assetExts || []).filter(
-  (ext) => ext !== 'svgx',
+config.resolver.assetExts = Array.from(
+  new Set([
+    ...(config.resolver.assetExts || []).filter((ext) => ext !== 'svgx'),
+    'txt',
+  ]),
 );
 config.transformer = config.transformer || {};
 config.transformer.babelTransformerPath =
@@ -187,6 +190,12 @@ const revenueCatBrowserMappingsStub = path.resolve(
   projectRoot,
   'shims/revenueCatBrowserMappings.js',
 );
+// Aptos SDK 1.39 statically imports an unused script composer whose generated
+// WASM byte array expands to more than 11 MB in Hermes bytecode.
+const aptosScriptComposerNativeStub = path.resolve(
+  monorepoRoot,
+  'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -230,6 +239,15 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     } catch {
       // Fall through to the default resolver.
     }
+  }
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@aptos-labs/script-composer-pack'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: aptosScriptComposerNativeStub,
+    };
   }
   if (
     (platform === 'ios' || platform === 'android') &&

@@ -436,6 +436,22 @@ describe('mobile-dev-shell-resource', () => {
           manifest,
         }),
       ).resolves.toBe(manifest);
+      const localWebEmbedManifest = {
+        ...manifest,
+        webEmbed: {
+          inputKey: compatibility.webEmbedInputKey,
+          outputTreeDigest: '7'.repeat(64),
+          source: 'local-build',
+        },
+      };
+      await expect(
+        verifyArtifactManifest({
+          artifactPath,
+          compatibility,
+          locator: 'exact',
+          manifest: localWebEmbedManifest,
+        }),
+      ).resolves.toBe(localWebEmbedManifest);
       await expect(
         verifyArtifactManifest({
           artifactPath,

@@ -1809,6 +1809,35 @@ describe('native-dev-shell', () => {
     expect(JSON.parse(fs.readFileSync(outputPath, 'utf8'))).toEqual(manifest);
   });
 
+  it('records a canonical local web-embed fallback in the shell manifest', async () => {
+    const artifactPath = path.join(temporaryDirectory, 'OneKeyWallet.apk');
+    const receiptPath = path.join(temporaryDirectory, 'receipt.json');
+    const outputPath = path.join(temporaryDirectory, 'artifact.json');
+    fs.writeFileSync(artifactPath, 'android-shell');
+    fs.writeFileSync(
+      receiptPath,
+      JSON.stringify({
+        inputKey: '1'.repeat(64),
+        outputTreeDigest: '3'.repeat(64),
+        schemaVersion: 1,
+      }),
+    );
+
+    const manifest = await writeArtifactManifest({
+      artifact: artifactPath,
+      expectedWebEmbedInputKey: '1'.repeat(64),
+      output: outputPath,
+      platform: 'android',
+      webEmbedReceipt: receiptPath,
+    });
+
+    expect(manifest.webEmbed).toEqual({
+      inputKey: '1'.repeat(64),
+      outputTreeDigest: '3'.repeat(64),
+      source: 'local-build',
+    });
+  });
+
   it('derives a discoverable compatibility tag before building the shell', () => {
     const compatibility = getShellCompatibility({
       nativeContractKey: '4'.repeat(64),
