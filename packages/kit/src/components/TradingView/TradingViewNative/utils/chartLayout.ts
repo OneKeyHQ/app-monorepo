@@ -5,6 +5,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH,
+  TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
@@ -573,9 +575,11 @@ export function getTradingViewNativePriceExtremumHorizontalLayout({
 
 export function getTradingViewNativeWatermarkLayout({
   canvasWidth,
+  isMobileLayout = false,
   mainChartBottom,
 }: {
   canvasWidth: number;
+  isMobileLayout?: boolean;
   mainChartBottom: number;
 }): ITradingViewNativeWatermarkLayout | null {
   'worklet';
@@ -589,30 +593,39 @@ export function getTradingViewNativeWatermarkLayout({
     return null;
   }
 
+  const watermarkWidthRatio = isMobileLayout
+    ? TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO
+    : TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO;
   const watermarkWidth = Math.min(
-    canvasWidth * TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
+    canvasWidth * watermarkWidthRatio,
     TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
     mainChartBottom * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   );
   const watermarkHeight =
     watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
+  const shouldCenterWatermark =
+    isMobileLayout || canvasWidth < TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH;
 
   return {
     height: watermarkHeight,
     width: watermarkWidth,
-    x: Math.max(
-      Math.min(
-        TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
-        canvasWidth - watermarkWidth,
-      ),
-      0,
-    ),
-    y: Math.max(
-      mainChartBottom -
-        watermarkHeight -
-        TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
-      0,
-    ),
+    x: shouldCenterWatermark
+      ? (canvasWidth - watermarkWidth) / 2
+      : Math.max(
+          Math.min(
+            TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
+            canvasWidth - watermarkWidth,
+          ),
+          0,
+        ),
+    y: shouldCenterWatermark
+      ? (mainChartBottom - watermarkHeight) / 2
+      : Math.max(
+          mainChartBottom -
+            watermarkHeight -
+            TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
+          0,
+        ),
   };
 }
 

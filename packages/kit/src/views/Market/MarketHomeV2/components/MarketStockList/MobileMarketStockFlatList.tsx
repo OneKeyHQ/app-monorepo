@@ -76,7 +76,7 @@ function MobileMarketStockFlatListImpl({
             pressStyle={{ bg: '$bgActive' }}
             onPress={() => {
               if (!shouldSuppressItemPress?.()) {
-                void toMarketStockDetailPage(item.stockId);
+                void toMarketStockDetailPage(item);
               }
             }}
           >

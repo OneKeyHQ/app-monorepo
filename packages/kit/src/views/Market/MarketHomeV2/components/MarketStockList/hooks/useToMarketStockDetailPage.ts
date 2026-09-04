@@ -20,6 +20,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 export function useToMarketStockDetailPage() {
   const tokenDetailActions = useTokenDetailActions();
@@ -29,7 +30,9 @@ export function useToMarketStockDetailPage() {
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stockId: string) => {
+    async (stock: string | IMarketStockDetailPreview) => {
+      const stockId = typeof stock === 'string' ? stock : stock.stockId;
+      const stockPreview = typeof stock === 'string' ? undefined : stock;
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
@@ -57,6 +60,13 @@ export function useToMarketStockDetailPage() {
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
           stockId,
+          ...(stockPreview
+            ? {
+                stockPreviewSymbol: stockPreview.symbol,
+                stockPreviewName: stockPreview.name,
+                stockPreviewLogoUrl: stockPreview.logoUrl,
+              }
+            : undefined),
           from: platformEnv.isExtensionUiPopup
             ? EEnterWay.ExtensionPopup
             : EEnterWay.ExtensionSidePanel,
@@ -69,7 +79,16 @@ export function useToMarketStockDetailPage() {
         screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
-          params: { stockId },
+          params: {
+            stockId,
+            ...(stockPreview
+              ? {
+                  stockPreviewSymbol: stockPreview.symbol,
+                  stockPreviewName: stockPreview.name,
+                  stockPreviewLogoUrl: stockPreview.logoUrl,
+                }
+              : undefined),
+          },
         },
       });
     },

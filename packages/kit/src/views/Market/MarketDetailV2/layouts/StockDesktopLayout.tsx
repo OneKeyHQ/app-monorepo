@@ -110,7 +110,7 @@ function StockPageHeader({
   showFavoriteButton: boolean;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const { stockDetail, stockId } = useStockDetail();
+  const { stockDetail, stockId, stockPreview } = useStockDetail();
   const stock = tokenDetail?.stock;
   const tokenActionIdentity =
     networkId && tokenDetail?.address && tokenDetail.symbol
@@ -160,6 +160,7 @@ function StockPageHeader({
               size="xl"
               tokenImageUri={
                 stockDetail?.logoUrl ||
+                stockPreview?.logoUrl ||
                 tokenDetail?.logoUrl ||
                 stock?.sourceLogoUri
               }
@@ -168,6 +169,7 @@ function StockPageHeader({
             <YStack minWidth={0} justifyContent="center">
               <SizableText size="$headingXl" numberOfLines={1}>
                 {stockDetail?.symbol ||
+                  stockPreview?.symbol ||
                   stock?.underlyingAssetTicker ||
                   stock?.title ||
                   tokenDetail?.symbol ||
@@ -180,6 +182,7 @@ function StockPageHeader({
                 numberOfLines={1}
               >
                 {stockDetail?.name ||
+                  stockPreview?.name ||
                   stock?.subtitle ||
                   tokenDetail?.name ||
                   ''}

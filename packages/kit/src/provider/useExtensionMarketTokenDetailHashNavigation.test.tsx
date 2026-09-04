@@ -203,6 +203,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('parses the stock preview from an extension detail hash', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Faapl.png',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/aapl.png',
+      },
+    });
+  });
+
   it('preserves native token address when the hash includes one', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
@@ -337,6 +353,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
             network: 'eth',
             tokenAddress: '0xabc',
             showFavoriteButton: false,
+          },
+        },
+      },
+    );
+  });
+
+  it('refreshes the same stock route when preview metadata changes', () => {
+    setHash(
+      '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Fnew.png',
+    );
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/old.png',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
+            stockPreviewSymbol: 'AAPL',
+            stockPreviewName: 'Apple Inc.',
+            stockPreviewLogoUrl: 'https://example.com/new.png',
           },
         },
       },
