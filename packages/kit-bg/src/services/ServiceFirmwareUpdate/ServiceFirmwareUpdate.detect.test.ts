@@ -2208,6 +2208,54 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
+  it('drops the guard again when silencing the stage fails during a retry', async () => {
+    // The guard also blocks automatic wallet locking. A retry whose
+    // silence rejects (the stage bridge not ready) used to leave it up for
+    // the rest of the session; the run never reached anything that would
+    // drop it.
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          deviceStageBurst: {
+            silenceForFirmwareWorkflow: jest
+              .fn()
+              .mockRejectedValue(new Error('stage bridge not ready')),
+          },
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+    service.updateTasks[1] = {
+      workflowId,
+      fn: jest.fn(),
+    };
+    const waitDeviceRestart = jest
+      .spyOn(service, 'waitDeviceRestart')
+      .mockResolvedValue(undefined);
+    const runUpdateTask = jest
+      .spyOn(service, 'runUpdateTask')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.retryUpdateTask({
+        id: 1,
+        connectId: undefined,
+        releaseResult: undefined,
+      }),
+    ).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(waitDeviceRestart).not.toHaveBeenCalled();
+    expect(runUpdateTask).not.toHaveBeenCalled();
+  });
+
   it('records a task failure before exposing retry state', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
