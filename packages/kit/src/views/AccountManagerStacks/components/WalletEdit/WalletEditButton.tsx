@@ -75,10 +75,7 @@ function WalletEditButtonView({
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
-
-  const isPrimeUser = useMemo(() => {
-    return isPrimeActive && user?.onekeyUserId;
-  }, [isPrimeActive, user?.onekeyUserId]);
+  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device
@@ -147,21 +144,13 @@ function WalletEditButtonView({
     });
   }, [wallet, isKeyless]);
 
-  const showBulkCopyAddressesButton = useMemo(() => {
-    // if (isKeyless) return false;
-    if (!isPrimeAvailable) {
-      return false;
-    }
-
-    if (wallet?.deprecated || !wallet?.backuped) {
-      return false;
-    }
-
-    return (
-      accountUtils.isHdWallet({ walletId: wallet?.id }) ||
-      accountUtils.isHwWallet({ walletId: wallet?.id })
-    );
-  }, [wallet, isPrimeAvailable]);
+  const showMockedWalletBulkCopyAddressesButton = Boolean(
+    wallet?.isMocked &&
+    isPrimeAvailable &&
+    !wallet.deprecated &&
+    wallet.backuped &&
+    accountUtils.isHwWallet({ walletId: wallet.id }),
+  );
 
   const isBotWalletFeatureEnabled = useMemo(
     () =>
@@ -287,13 +276,14 @@ function WalletEditButtonView({
             </>
           ) : null}
 
-          {showBulkCopyAddressesButton ? (
+          {showMockedWalletBulkCopyAddressesButton ? (
             <BulkCopyAddressesButton
               wallet={wallet}
               networkId={network?.id || ''}
               isPrimeActive={isPrimeActive}
-              isPrimeUser={!!isPrimeUser}
+              isPrimeUser={isPrimeUser}
               onClose={handleActionListClose}
+              entryPoint="walletEdit"
             />
           ) : null}
 
@@ -335,7 +325,7 @@ function WalletEditButtonView({
           {isKeyless ||
           showDeviceManagementButton ||
           showAddHiddenWalletButton ||
-          showBulkCopyAddressesButton ? (
+          showMockedWalletBulkCopyAddressesButton ? (
             <Divider mx="$2" my="$1" />
           ) : null}
 
@@ -366,7 +356,7 @@ function WalletEditButtonView({
       devSettings.enabled,
       showBackupButton,
       showDeviceManagementButton,
-      showBulkCopyAddressesButton,
+      showMockedWalletBulkCopyAddressesButton,
       showBotWalletManagerButton,
       network?.id,
       isPrimeActive,

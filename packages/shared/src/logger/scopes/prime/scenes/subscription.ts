@@ -169,6 +169,7 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
+      | 'accountSelectorAddMenu'
       | 'browserTranslate'
       | 'historySettings'
       | 'sendAddressInput';

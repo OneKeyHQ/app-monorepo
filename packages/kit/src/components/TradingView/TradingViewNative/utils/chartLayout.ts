@@ -87,6 +87,7 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  autoPriceRange: ITradingViewNativePriceRange;
   mainChartBottom: number;
   maxPrice: number;
   maxVolume: number;
@@ -929,6 +930,7 @@ export function getTradingViewNativeChartLayout({
   height,
   minimumTimeTickIndexSpacing,
   points,
+  pinnedPriceRange,
   priceAxisWidth,
   priceAxisTickCount,
   timeAxisHeight,
@@ -948,6 +950,7 @@ export function getTradingViewNativeChartLayout({
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   priceAxisWidth: number;
   priceAxisTickCount?: number;
   timeAxisHeight?: number;
@@ -1001,7 +1004,7 @@ export function getTradingViewNativeChartLayout({
     minPrice,
     mode: resolvedPriceScaleMode,
   } = resolveTradingViewNativePriceRange({
-    autoPriceRange,
+    autoPriceRange: pinnedPriceRange ?? autoPriceRange,
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
@@ -1089,6 +1092,7 @@ export function getTradingViewNativeChartLayout({
   }).ticks;
 
   return {
+    autoPriceRange,
     mainChartBottom,
     maxPrice,
     maxVolume,
