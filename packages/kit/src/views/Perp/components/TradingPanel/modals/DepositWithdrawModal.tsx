@@ -151,62 +151,9 @@ function getWithdrawFeeKey(
   return route ? `${destination.id}:${route}` : undefined;
 }
 
-// A destination's fee is known before its quote returns, so the row can skip the
-// placeholder frame between two values that reads as a flicker.
-function buildWithdrawFeePreviewQuote({
-  destination,
-  route,
-}: {
-  destination: IUsdcWithdrawDestinationConfig;
-  route: 'bridge' | 'cctp' | undefined;
-}): IUsdcWithdrawFeeQuote | undefined {
-  if (destination.transferType === 'hyperEvm') {
-    return {
-      components: [
-        {
-          kind: 'hyperEvmGas',
-          amount: USDC_WITHDRAW_GAS_RESERVE.toString(),
-          token: 'USDC',
-          debitedFrom: 'spotHypeOrSourceUsdc',
-          isEstimate: true,
-          displayAsLessThan: true,
-        },
-      ],
-      quotedAt: 0,
-    };
-  }
-  if (route === 'cctp') {
-    return {
-      components: [
-        {
-          kind: 'cctpForwarding',
-          amount: destination.fallbackFee.toString(),
-          token: 'USDC',
-          debitedFrom: 'withdrawAmount',
-          // A static constant until the chain read lands, and the service marks
-          // the same value as an estimate when that read fails.
-          isEstimate: true,
-        },
-      ],
-      quotedAt: 0,
-    };
-  }
-  if (route === 'bridge' && destination.supportsLegacyBridge) {
-    return {
-      components: [
-        {
-          kind: 'legacyBridge',
-          amount: WITHDRAW_FEE.toString(),
-          token: 'USDC',
-          debitedFrom: 'withdrawAmount',
-          isEstimate: false,
-        },
-      ],
-      quotedAt: 0,
-    };
-  }
-  return undefined;
-}
+// Quotes survive the modal unmounting: the fee of a destination does not depend
+// on anything in the form, and refetching it on every open blanks the row.
+const withdrawFeeQuoteCache: Record<string, IUsdcWithdrawFeeQuote> = {};
 
 function isSameWithdrawFeeQuote(
   a: IUsdcWithdrawFeeQuote | undefined,
@@ -428,12 +375,11 @@ function DepositWithdrawContent({
   const [withdrawRoute, setWithdrawRoute] = useState<
     'bridge' | 'cctp' | undefined
   >(undefined);
-  // Keyed by destination rather than a single slot, so switching to one already
-  // quoted has no gap to fill. That gap is what made the row swap between the
-  // estimate and the confirmed number.
+  // Seeded from the module cache so reopening the form does not blank the row
+  // again; the effects below refresh it on every open.
   const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
     Record<string, IUsdcWithdrawFeeQuote>
-  >({});
+  >(() => ({ ...withdrawFeeQuoteCache }));
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
     'usd',
   );
@@ -452,6 +398,7 @@ function DepositWithdrawContent({
   const requestedWithdrawFeeKeysRef = useRef<Set<string>>(new Set());
   const storeWithdrawFeeQuote = useCallback(
     (key: string, quote: IUsdcWithdrawFeeQuote) => {
+      withdrawFeeQuoteCache[key] = quote;
       setWithdrawFeeQuotes((current) =>
         isSameWithdrawFeeQuote(current[key], quote)
           ? current
@@ -467,16 +414,6 @@ function DepositWithdrawContent({
   const withdrawFeeQuote = withdrawFeeKey
     ? withdrawFeeQuotes[withdrawFeeKey]
     : undefined;
-  // Display only; submission still binds to the confirmed quote below.
-  const withdrawFeeDisplayQuote = useMemo(
-    () =>
-      withdrawFeeQuote ??
-      buildWithdrawFeePreviewQuote({
-        destination: selectedWithdrawDestination,
-        route: withdrawRoute,
-      }),
-    [withdrawFeeQuote, selectedWithdrawDestination, withdrawRoute],
-  );
   const cctpFeeComponent = withdrawFeeQuote?.components.find(
     (component) => component.kind === 'cctpForwarding',
   );
@@ -2362,14 +2299,11 @@ function DepositWithdrawContent({
     withdrawRoute,
   ]);
 
-  const withdrawFeeText = useMemo(() => {
-    if (!withdrawFeeDisplayQuote) {
-      return '--';
-    }
-    return withdrawFeeDisplayQuote.components
-      .map(formatWithdrawFeeComponent)
-      .join(' + ');
-  }, [withdrawFeeDisplayQuote]);
+  const withdrawFeeText = useMemo(
+    () =>
+      withdrawFeeQuote?.components.map(formatWithdrawFeeComponent).join(' + '),
+    [withdrawFeeQuote],
+  );
 
   const withdrawSubmitDisabled =
     !isValidAmount ||
@@ -2618,15 +2552,19 @@ function DepositWithdrawContent({
             gap="$2.5"
           >
             {withdrawFeeHint}
-            <SizableText
-              size="$bodyLgMedium"
-              color="$text"
-              textAlign="right"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {withdrawFeeText}
-            </SizableText>
+            {withdrawFeeQuote ? (
+              <SizableText
+                size="$bodyLgMedium"
+                color="$text"
+                textAlign="right"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {withdrawFeeText}
+              </SizableText>
+            ) : (
+              <Skeleton h="$4" w="$16" borderRadius="$1" />
+            )}
           </XStack>
         </YStack>
 
