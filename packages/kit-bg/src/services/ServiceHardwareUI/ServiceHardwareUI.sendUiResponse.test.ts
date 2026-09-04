@@ -11,7 +11,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
+import {
+  deviceStageAtom,
+  firmwareUpdateWorkflowRunningAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
@@ -56,22 +59,44 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isDesktop: false, isJest: true, isNative: false },
 }));
 
-jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
-  firmwareUpdateWorkflowRunningAtom: {
-    get: jest.fn(),
-  },
-  hardwareUiStateAtom: {
-    get: jest.fn(),
-    set: jest.fn(),
-  },
-  thirdPartyAppInstallAtom: {
-    set: jest.fn(),
-  },
-  thirdPartyHardwareUiStateAtom: {
-    set: jest.fn(),
-  },
-}));
+jest.mock('../../states/jotai/atoms', () => {
+  // Real enum objects: the burst scope builds its action-to-step maps at
+  // module scope, so stubbed members would collapse every key into a
+  // single "undefined" — or throw outright, which is what a missing enum
+  // did here.
+  const { EHardwareUiStateAction, EThirdPartyHardwareUiAction } =
+    jest.requireActual('../../states/jotai/atoms');
+  return {
+    EHardwareUiStateAction,
+    EThirdPartyHardwareUiAction,
+    firmwareUpdateWorkflowRunningAtom: {
+      get: jest.fn(),
+    },
+    hardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    deviceStageAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    thirdPartyAppInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyBatchInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyHardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+  };
+});
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
@@ -848,5 +873,98 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     ).rejects.toThrow('outer failed');
 
     expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI.deviceStageUserClose', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    jest.spyOn(service.deviceStageBurst, 'userClose').mockResolvedValue();
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+    return { service, close };
+  };
+
+  beforeEach(() => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 1 } as never);
+  });
+
+  it('skips the device half of the close when the stage never learned its device', async () => {
+    // A connectId-less sdk.cancel is the GLOBAL cancel: it cold-boots the
+    // SDK and interrupts every queued call on every connected device. A
+    // stage closed before the search resolved has nothing to cancel by.
+    const { service, close } = createService();
+
+    await service.deviceStageUserClose({ connectId: undefined });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: undefined,
+      skipDeviceCancel: true,
+    });
+  });
+
+  it('still cancels on the device the stage names', async () => {
+    const { service, close } = createService();
+
+    await service.deviceStageUserClose({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: false,
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: false,
+      immediateDeviceCancel: true,
+    });
+  });
+});
+
+describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    const silence = jest
+      .spyOn(service.deviceStageBurst, 'silenceForFirmwareWorkflow')
+      .mockResolvedValue();
+    return { service, silence, cancelStageAirGapScan };
+  };
+
+  it('rejects the air-gap scan the stage was hosting, naming the step it was on', async () => {
+    // The stage is that scan's only surface: silenced without this, the
+    // signing request waited invisibly for its 30-minute expiry while the
+    // update page ran.
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'scanQr', burstId: 1 } as never);
+    const { service, silence, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(silence).toHaveBeenCalledTimes(1);
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: true });
+  });
+
+  it('speaks the code-display cancel when the person was still on the code', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'showQr', burstId: 1 } as never);
+    const { service, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: false });
   });
 });

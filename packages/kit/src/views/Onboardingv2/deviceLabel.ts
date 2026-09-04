@@ -6,11 +6,13 @@ export const getDeviceLabel = (
 ) => {
   const labels = deviceTypeItems.map((deviceType) => {
     switch (deviceType) {
-      // Pro 2 / Neo are not public yet; keep the shared OneKey Pro USB copy.
+      // Pro 2 ships under the merged "OneKey Pro series" entry; keep the
+      // shared OneKey Pro copy.
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
-      case EDeviceType.Neo:
         return 'OneKey Pro';
+      case EDeviceType.Neo:
+        return 'OneKey Neo';
       case EDeviceType.Classic:
         return 'OneKey Classic';
       case EDeviceType.Classic1s:
