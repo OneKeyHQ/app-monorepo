@@ -301,6 +301,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   // an action has broadcast, the executor stops aborting on it. See
   // PaymentOptionsModal for the full rationale.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
+  // Synchronous re-entry latch. `isPaying` is React state and only lands on
+  // the next render; this ref closes the same-task window a second caller
+  // could otherwise use before that render commits.
+  const payInFlightRef = useRef(false);
   // The host sheet is a system presentation (SwiftUI sheet on iOS). Presenting
   // it again while the RN-layer confirm modal is still animating out attaches
   // the sheet to a controller that is being torn down: it stays visible but
@@ -498,6 +502,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
 
   const handlePay = useCallback(async () => {
     if (
+      payInFlightRef.current ||
       !payResult ||
       !selectedOption ||
       isPaying ||
@@ -518,6 +523,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     ) {
       return;
     }
+    payInFlightRef.current = true;
     setIsPaying(true);
     // a new attempt supersedes whatever the previous one left on screen
     setInlineFailure(undefined);
@@ -797,6 +803,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         }
       }
     } finally {
+      payInFlightRef.current = false;
       if (payCancelControllerRef.current === cancelController) {
         payCancelControllerRef.current = undefined;
       }

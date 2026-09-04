@@ -24679,6 +24679,7 @@
     "packages/shared/src/walletConnect/constant.ts": 2465,
     "packages/shared/src/walletConnect/payBroadcastUtils.ts": 15488,
     "packages/shared/src/walletConnect/payConstant.ts": 23603,
+    "packages/shared/src/walletConnect/payErrors.ts": 5403,
     "packages/shared/src/walletConnect/payExpiryUtils.ts": 9929,
     "packages/shared/src/walletConnect/payTypes.ts": 2584,
     "packages/shared/src/walletConnect/types.ts": 22394,

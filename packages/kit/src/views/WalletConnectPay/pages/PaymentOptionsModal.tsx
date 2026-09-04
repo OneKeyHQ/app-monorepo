@@ -286,6 +286,10 @@ function PaymentOptionsPage() {
   // broadcast txid is durably recorded for resume), and no context-free
   // confirm modal is pushed at the user from a dismissed flow.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
+  // Synchronous re-entry latch. `isPaying` is React state and only lands on
+  // the next render; this ref closes the same-task window a second caller
+  // could otherwise use before that render commits.
+  const payInFlightRef = useRef(false);
   useEffect(
     () => () => {
       payCancelControllerRef.current?.abort();
@@ -489,6 +493,7 @@ function PaymentOptionsPage() {
 
   const handlePay = useCallback(async () => {
     if (
+      payInFlightRef.current ||
       !payResult ||
       !selectedOption ||
       isPaying ||
@@ -515,6 +520,7 @@ function PaymentOptionsPage() {
     ) {
       return;
     }
+    payInFlightRef.current = true;
     setIsPaying(true);
     // a new attempt supersedes whatever the previous one left on screen
     setInlineFailure(undefined);
@@ -828,6 +834,7 @@ function PaymentOptionsPage() {
         });
       }
     } finally {
+      payInFlightRef.current = false;
       if (payCancelControllerRef.current === cancelController) {
         payCancelControllerRef.current = undefined;
       }

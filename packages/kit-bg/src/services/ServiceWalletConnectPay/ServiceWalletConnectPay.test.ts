@@ -1,3 +1,12 @@
+import {
+  Keypair,
+  SystemProgram,
+  Transaction,
+  TransactionMessage,
+  VersionedTransaction,
+} from '@solana/web3.js';
+
+import { EWcPayErrorCode } from '@onekeyhq/shared/src/walletConnect/payErrors';
 import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
@@ -322,6 +331,34 @@ describe('isPaymentLink', () => {
   });
 });
 
+// Real serialized transactions for the Solana preflight: it now runs the
+// same structural decode as the sol vault, so a fixture has to be a
+// transaction, not just decodable bytes.
+const solanaPayer = Keypair.generate();
+const solanaTransferIx = SystemProgram.transfer({
+  fromPubkey: solanaPayer.publicKey,
+  toPubkey: Keypair.generate().publicKey,
+  lamports: 1,
+});
+const solanaBlockhash = Keypair.generate().publicKey.toBase58();
+const SOLANA_LEGACY_TX_BASE64 = Buffer.from(
+  new Transaction({
+    recentBlockhash: solanaBlockhash,
+    feePayer: solanaPayer.publicKey,
+  })
+    .add(solanaTransferIx)
+    .serialize({ requireAllSignatures: false, verifySignatures: false }),
+).toString('base64');
+const SOLANA_V0_TX_BASE64 = Buffer.from(
+  new VersionedTransaction(
+    new TransactionMessage({
+      payerKey: solanaPayer.publicKey,
+      recentBlockhash: solanaBlockhash,
+      instructions: [solanaTransferIx],
+    }).compileToV0Message(),
+  ).serialize(),
+).toString('base64');
+
 describe('validateWcPayActions solana', () => {
   const SOLANA_CHAIN_ID = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
@@ -335,16 +372,56 @@ describe('validateWcPayActions solana', () => {
     };
   }
 
+  function buildEvmSendAction() {
+    return {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: EWcPayActionMethod.EthSendTransaction,
+        params: JSON.stringify([{ from: '0x1', to: '0x2', value: '0x0' }]),
+      },
+    };
+  }
+
+  const invalidSolanaPayload = {
+    info: { wcPayCode: EWcPayErrorCode.InvalidSolanaPayload },
+  };
+
   it('rejects a payload the executor could not encode — same pair of functions', async () => {
     // '!!!!' base64-decodes to zero bytes: extractWcPaySolanaTransaction
     // alone accepts it, wcPaySolanaTxToEncodedTx throws
-    expect(() => validateWcPayActions([buildSolanaAction('!!!!')])).toThrow();
+    await expect(
+      validateWcPayActions([buildSolanaAction('!!!!')]),
+    ).rejects.toMatchObject(invalidSolanaPayload);
   });
 
-  it('accepts a decodable size-sane payload', async () => {
-    expect(() =>
+  it('rejects decodable bytes that are not a Solana transaction', async () => {
+    // three bytes: decodable and size-sane, but the sol vault's parser
+    // would throw at execution time — at this action's own index, after
+    // any earlier action in the list had already broadcast
+    await expect(
       validateWcPayActions([buildSolanaAction('AQID')]),
-    ).not.toThrow();
+    ).rejects.toMatchObject(invalidSolanaPayload);
+  });
+
+  it('accepts legacy and v0 transactions', async () => {
+    await expect(
+      validateWcPayActions([buildSolanaAction(SOLANA_LEGACY_TX_BASE64)]),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateWcPayActions([buildSolanaAction(SOLANA_V0_TX_BASE64)]),
+    ).resolves.toBeUndefined();
+  });
+
+  it('fails the whole list when a malformed Solana action follows a transfer', async () => {
+    await expect(
+      validateWcPayActions([buildEvmSendAction(), buildSolanaAction('AQID')]),
+    ).rejects.toMatchObject(invalidSolanaPayload);
+    await expect(
+      validateWcPayActions([
+        buildSolanaAction(SOLANA_V0_TX_BASE64),
+        buildEvmSendAction(),
+      ]),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -366,8 +443,8 @@ describe('validateWcPayActions method/chain pairing', () => {
     };
   }
 
-  it('rejects an EVM method on a Solana chain', () => {
-    expect(() =>
+  it('rejects an EVM method on a Solana chain', async () => {
+    await expect(
       validateWcPayActions([
         buildAction({
           chainId: SOLANA_CHAIN_ID,
@@ -375,11 +452,11 @@ describe('validateWcPayActions method/chain pairing', () => {
           params: [{ from: '0x1', to: '0x2', value: '0x0' }],
         }),
       ]),
-    ).toThrow('does not match chain');
+    ).rejects.toThrow('does not match chain');
   });
 
-  it('rejects the Solana method on an EVM chain', () => {
-    expect(() =>
+  it('rejects the Solana method on an EVM chain', async () => {
+    await expect(
       validateWcPayActions([
         buildAction({
           chainId: EVM_CHAIN_ID,
@@ -387,11 +464,11 @@ describe('validateWcPayActions method/chain pairing', () => {
           params: [{ transaction: 'AQID' }],
         }),
       ]),
-    ).toThrow('does not match chain');
+    ).rejects.toThrow('does not match chain');
   });
 
-  it('rejects personal_sign on a Solana chain', () => {
-    expect(() =>
+  it('rejects personal_sign on a Solana chain', async () => {
+    await expect(
       validateWcPayActions([
         buildAction({
           chainId: SOLANA_CHAIN_ID,
@@ -399,11 +476,11 @@ describe('validateWcPayActions method/chain pairing', () => {
           params: ['0xdeadbeef'],
         }),
       ]),
-    ).toThrow('does not match chain');
+    ).rejects.toThrow('does not match chain');
   });
 
-  it('accepts correctly paired EVM and Solana actions', () => {
-    expect(() =>
+  it('accepts correctly paired EVM and Solana actions', async () => {
+    await expect(
       validateWcPayActions([
         buildAction({
           chainId: EVM_CHAIN_ID,
@@ -413,10 +490,10 @@ describe('validateWcPayActions method/chain pairing', () => {
         buildAction({
           chainId: SOLANA_CHAIN_ID,
           method: EWcPayActionMethod.SolanaSignTransaction,
-          params: [{ transaction: 'AQID' }],
+          params: [{ transaction: SOLANA_V0_TX_BASE64 }],
         }),
       ]),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 });
 

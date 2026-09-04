@@ -10,11 +10,14 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
+import bs58 from 'bs58';
 
+import { EWcPayErrorCode } from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import {
   WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS,
+  assertWcPaySolanaEncodedTxParses,
   checkWcPaySolanaTxMatchesOrder,
   isWcPaySolanaMessageUnchanged,
 } from './wcPaySolanaConsistency';
@@ -1888,5 +1891,37 @@ describe('isWcPaySolanaMessageUnchanged', () => {
     const signedB64 = withComputeBudget.serialize().toString('base64');
 
     expect(isWcPaySolanaMessageUnchanged(unsignedB64, signedB64)).toBe(false);
+  });
+});
+
+describe('assertWcPaySolanaEncodedTxParses', () => {
+  const invalidSolanaPayload = {
+    info: { wcPayCode: EWcPayErrorCode.InvalidSolanaPayload },
+  };
+
+  it('throws the InvalidSolanaPayload verdict for bytes that are not a transaction', () => {
+    // decodable, size-sane, and exactly what the sol vault's parser would
+    // reject at execution time
+    expect(() =>
+      assertWcPaySolanaEncodedTxParses(bs58.encode(Buffer.from([1, 2, 3]))),
+    ).toThrow(expect.objectContaining(invalidSolanaPayload));
+    expect(() => assertWcPaySolanaEncodedTxParses('')).toThrow(
+      expect.objectContaining(invalidSolanaPayload),
+    );
+  });
+
+  it('accepts a serialized transaction', () => {
+    const txBase64 = toBase64([
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1,
+      }),
+    ]);
+    expect(() =>
+      assertWcPaySolanaEncodedTxParses(
+        bs58.encode(Buffer.from(txBase64, 'base64')),
+      ),
+    ).not.toThrow();
   });
 });

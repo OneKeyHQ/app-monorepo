@@ -73,7 +73,9 @@ const WC_PAY_METHOD_NAMESPACES: Partial<Record<EWcPayActionMethod, string>> = {
   [EWcPayActionMethod.SolanaSignTransaction]: 'solana',
 };
 
-export function validateWcPayActions(actions: IWcPayAction[]) {
+export async function validateWcPayActions(
+  actions: IWcPayAction[],
+): Promise<void> {
   for (const action of actions) {
     const { chainId, method, params } = action.walletRpc;
     const targetNetworkId = wcPayChainIdToNetworkId(chainId);
@@ -127,9 +129,19 @@ export function validateWcPayActions(actions: IWcPayAction[]) {
       case EWcPayActionMethod.SolanaSignTransaction: {
         // throws when no transaction payload can be extracted, or when it
         // is not decodable / size-sane base64 — the executor calls this
-        // exact pair before pushing the confirm modal, so passing here
-        // guarantees the executor resolves the same payload later
-        wcPaySolanaTxToEncodedTx(extractWcPaySolanaTransaction(parsed));
+        // exact pair before pushing the confirm modal
+        const encodedTx = wcPaySolanaTxToEncodedTx(
+          extractWcPaySolanaTransaction(parsed),
+        );
+        // The pair above never deserializes the bytes; the executor's first
+        // structural parse happens inside the sol vault at this action's own
+        // index, i.e. after an earlier eth_sendTransaction in the same list
+        // has already broadcast. Decode here with the same parser so a
+        // malformed blob fails the whole list up front. Lazy: keeps
+        // @solana/web3.js out of the background startup graph.
+        const { assertWcPaySolanaEncodedTxParses } =
+          await import('./wcPaySolanaConsistency');
+        assertWcPaySolanaEncodedTxParses(encodedTx);
         break;
       }
       default:
@@ -328,7 +340,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       paymentId,
       optionId,
     });
-    validateWcPayActions(actions);
+    await validateWcPayActions(actions);
     // Final backstop: the options page also runs this check before the
     // compliance form (so KYC is never collected for a payment that cannot
     // finish here). option.actions can be empty or diverge from this list,

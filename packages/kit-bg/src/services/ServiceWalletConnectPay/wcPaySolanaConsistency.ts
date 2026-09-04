@@ -8,7 +8,12 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import type { TransactionInstruction } from '@solana/web3.js';
@@ -35,6 +40,29 @@ export type IWcPaySolanaSummary = {
 export type IWcPaySolanaConsistencyResult =
   | { ok: true; summary: IWcPaySolanaSummary }
   | { ok: false; reason: string };
+
+/**
+ * Preflight twin of the executor's first decode of a Solana action (sol
+ * Vault `_extractATADetailsFromEncodedTx` -> `parseToNativeTx`): throws for
+ * exactly the bs58 blobs that would fail there, so a malformed later action
+ * is refused before any earlier action in the list can broadcast. Lives in
+ * this lazily imported module so @solana/web3.js stays out of the background
+ * startup graph.
+ */
+export function assertWcPaySolanaEncodedTxParses(encodedTx: string): void {
+  let parsed: unknown;
+  try {
+    parsed = parseToNativeTx(encodedTx);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed) {
+    throw new WcPayError({
+      code: EWcPayErrorCode.InvalidSolanaPayload,
+      message: 'Invalid Solana transaction payload',
+    });
+  }
+}
 
 // 0.01 SOL. This path signs the server's bytes verbatim — unlike the EVM
 // validator (which the inline pipeline re-estimates fees for before

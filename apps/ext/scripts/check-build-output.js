@@ -261,9 +261,14 @@ function main() {
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
+    // Raised from 38 MiB (39845888) for the same reason as totalBytes above:
+    // x had grown to 39.63 MB (c45e14cece, 0.5% headroom) and the WalletKit
+    // 1.5.6 upgrade (bundled @walletconnect/pay stack, ~0.47 MB in the
+    // single-file MV3 background bundle) tipped the merged output to
+    // 40.10 MB. 40 MiB restores ~4.6% headroom over that build.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      38 * 1024 * 1024,
+      40 * 1024 * 1024,
     ),
   };
 
