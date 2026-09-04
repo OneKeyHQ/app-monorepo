@@ -3828,6 +3828,13 @@ export function useTradingViewNativeKLine({
 
   useInterval(
     () => {
+      if (initialHistoryAbortControllerRef.current) {
+        emitTradingViewNativeDebugEvent({
+          details: { providerKey: seriesKey },
+          name: 'history.poll.skipped.in-flight',
+        });
+        return;
+      }
       emitTradingViewNativeDebugEvent({
         details: { providerKey: seriesKey },
         name: 'history.poll.requested',
