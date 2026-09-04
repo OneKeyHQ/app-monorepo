@@ -22,6 +22,7 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
@@ -161,6 +162,8 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
+  // Kept for the callers that still pass it; the name column no longer
+  // branches on it now that every spot list shares one width.
   hasStock?: boolean,
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
@@ -231,9 +234,10 @@ export const useColumnsDesktop = (
           : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
+          // The watchlist keeps its own responsive width; every other spot
+          // list shares the first-column frame with Trending and Stocks.
           if (isWatchlistMode) return watchlistNameWidth;
-          if (hasStock && showStockSubtitle) return 240;
-          return 216;
+          return MARKET_LIST_NAME_COLUMN_WIDTH;
         })(),
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
@@ -563,7 +567,6 @@ export const useColumnsDesktop = (
     deferRichRowAfterIndex,
     gtLg,
     gtXl,
-    hasStock,
     hiddenDesktopColumns,
     hideTokenAge,
     intl,
