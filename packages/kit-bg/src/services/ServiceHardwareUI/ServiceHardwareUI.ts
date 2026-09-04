@@ -581,6 +581,13 @@ class ServiceHardwareUI extends ServiceBase {
 
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
 
+  /** The stage's half of a connect abandoned before any burst began (a
+   * bootloader hand-off, a failed connect): see DeviceStageBurst.dismissUnowned. */
+  @backgroundMethod()
+  async deviceStageDismissUnowned() {
+    await this.deviceStageBurst.dismissUnowned();
+  }
+
   @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
     await this.deviceStageBurst.noteInputSubmitted();

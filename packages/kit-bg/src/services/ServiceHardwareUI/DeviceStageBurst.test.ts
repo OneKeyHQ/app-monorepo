@@ -287,6 +287,55 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('opens the burst when a hold minted while silenced is presented again', async () => {
+    // Onboarding holds across the firmware page: the token minted while
+    // the workflow silenced the stage held nothing, and presenting it
+    // again after the update used to only merge identity — the resumed
+    // flow ran without its stage.
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage).toBeUndefined();
+
+    firmwareWorkflowAtom.get.mockResolvedValue(false);
+    await expect(
+      scope.beginExplicit({ connectId: CONNECT_ID, reuseToken: token }),
+    ).resolves.toBe(token);
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+
+    // Presented once more, the open hold only refreshes identity.
+    await scope.beginExplicit({ connectId: CONNECT_ID, reuseToken: token });
+    await scope.endExplicit({ token });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('takes down a checking beat no burst ever claimed, and nothing else', async () => {
+    // A connect painted its checking beat, then handed off to the
+    // bootloader dialog: no burst began, so no end() would ever land the
+    // exit and the stage stood over the dialog until its close grant armed.
+    const scope = new DeviceStageBurstScope();
+    await scope.noteStep('connecting', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('connecting');
+    await scope.dismissUnowned();
+    expect(stage?.step).toBe('off');
+
+    // A stage a burst owns is left to that burst's own end.
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.dismissUnowned();
+    expect(stage?.step).toBe('connecting');
+    await scope.end();
+    await letTheExitRun();
+
+    // An outcome owns its own exit, burst or not.
+    await scope.noteStep('error', { connectId: CONNECT_ID });
+    await scope.dismissUnowned();
+    expect(stage?.step).toBe('error');
+  });
+
   it('answers whether the stage is behind the caller', async () => {
     // The air-gap flow paints its beats past the gate and must decide on this
     // answer, not on a gate read taken before begin(): the flag can flip in
