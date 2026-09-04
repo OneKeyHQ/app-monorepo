@@ -66,8 +66,8 @@ async function preloadAtomStorageValues() {
 
 /**
  * Proactive one-time migration: AsyncStorage → MMKV per-key.
- * Reads all EAtomNames keys — non-persist ones return null from
- * AsyncStorage and are simply skipped (not written to MMKV).
+ * Native storage enumerates the complete legacy Jotai namespace and uses all
+ * current EAtomNames as fallback candidates if enumeration is unavailable.
  */
 async function migrateToMMKVIfNeeded() {
   if (!platformEnv.isNative) return;

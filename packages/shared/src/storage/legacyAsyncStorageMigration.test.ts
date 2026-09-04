@@ -3,6 +3,7 @@
 const mockPlatformEnv = {
   isNativeAndroid: true,
   isNativeBackgroundThread: true,
+  isNativeIOS: false,
 };
 const mockRawModule = {
   getAllKeys: jest.fn(async () => [] as string[]),
@@ -12,6 +13,7 @@ const mockRawModule = {
   ),
   multiRemove: jest.fn(async () => undefined),
   multiSet: jest.fn(async () => undefined),
+  reloadManifest: jest.fn(async () => undefined),
 };
 const mockChunkedRead = jest.fn(
   async (key: string): Promise<string | null> => `chunked:${key}`,
@@ -42,6 +44,7 @@ describe('legacyAsyncStorageMigration Android oversized rows', () => {
   beforeEach(() => {
     mockPlatformEnv.isNativeAndroid = true;
     mockPlatformEnv.isNativeBackgroundThread = true;
+    mockPlatformEnv.isNativeIOS = false;
     mockRawModule.multiGet.mockImplementation(
       async (keys: string[]): Promise<Array<[string, string | null]>> =>
         keys.map((key) => [key, `raw:${key}`]),
@@ -97,5 +100,30 @@ describe('legacyAsyncStorageMigration Android oversized rows', () => {
 
     await expect(adapter.multiGet(['a'])).rejects.toThrow('Row too big');
     expect(mockChunkedRead).not.toHaveBeenCalled();
+  });
+
+  it('reloads the iOS manifest before every raw storage operation', async () => {
+    mockPlatformEnv.isNativeAndroid = false;
+    mockPlatformEnv.isNativeIOS = true;
+    const adapter = createLegacyAdapter();
+
+    await adapter.getAllKeys();
+    await adapter.multiGet(['a']);
+    await adapter.multiSet([['a', 'value']]);
+    await adapter.multiRemove(['a']);
+
+    expect(mockRawModule.reloadManifest).toHaveBeenCalledTimes(4);
+    expect(
+      mockRawModule.reloadManifest.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockRawModule.getAllKeys.mock.invocationCallOrder[0]);
+    expect(
+      mockRawModule.reloadManifest.mock.invocationCallOrder[1],
+    ).toBeLessThan(mockRawModule.multiGet.mock.invocationCallOrder[0]);
+    expect(
+      mockRawModule.reloadManifest.mock.invocationCallOrder[2],
+    ).toBeLessThan(mockRawModule.multiSet.mock.invocationCallOrder[0]);
+    expect(
+      mockRawModule.reloadManifest.mock.invocationCallOrder[3],
+    ).toBeLessThan(mockRawModule.multiRemove.mock.invocationCallOrder[0]);
   });
 });
