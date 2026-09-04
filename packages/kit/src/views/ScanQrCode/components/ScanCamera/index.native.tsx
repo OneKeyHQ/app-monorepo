@@ -9,12 +9,19 @@ import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
 
-export function ScanCamera({
-  children,
-  handleScanResult,
-  ...rest
-}: IScanCameraProps) {
-  const [isFocus, setIsFocus] = useState(true);
+/**
+ * The screen-bound half of the native camera: unmount the Camera first,
+ * dispatch the blocked navigation action a beat later — tearing the
+ * camera down mid-transition wedges react-native-camera-kit. Both hooks
+ * in here require a screen's navigation context, so hosts outside any
+ * screen (the DeviceStage overlay) must opt out via
+ * `disableNavigationGuard` — mounting this there throws at useRoute.
+ */
+function ScanCameraNavigationGuard({
+  onPreventRemove,
+}: {
+  onPreventRemove: (dispatchBlockedAction: () => void) => void;
+}) {
   const navigation = useNavigation();
   const onUsePreventRemove = useCallback(
     ({
@@ -29,17 +36,33 @@ export function ScanCamera({
         }>;
       };
     }) => {
-      setIsFocus(false);
-      setTimeout(() => {
+      onPreventRemove(() => {
         navigation.dispatch(data.action);
-      }, 80);
+      });
     },
-    [navigation],
+    [navigation, onPreventRemove],
   );
   usePreventRemove(true, onUsePreventRemove);
+  return null;
+}
+
+export function ScanCamera({
+  children,
+  handleScanResult,
+  disableNavigationGuard,
+  ...rest
+}: IScanCameraProps) {
+  const [isFocus, setIsFocus] = useState(true);
+  const onPreventRemove = useCallback((dispatchBlockedAction: () => void) => {
+    setIsFocus(false);
+    setTimeout(dispatchBlockedAction, 80);
+  }, []);
 
   return (
     <>
+      {disableNavigationGuard ? null : (
+        <ScanCameraNavigationGuard onPreventRemove={onPreventRemove} />
+      )}
       {isFocus ? (
         <Camera
           style={{ flex: 1 }}

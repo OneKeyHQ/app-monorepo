@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const {
   ALLOCATION_VERSION,
+  MODULE_ID_COLLISION_RESOLUTION_COMMAND,
   MODULE_ID_RANGES,
   REGISTRY_EPOCH,
   SCHEMA_VERSION,
@@ -60,6 +61,9 @@ describe('module ID lint', () => {
 
     expect(() => checkModuleIdRegistry(registryPath)).toThrow(
       'Module ID 1 is assigned to both modules.packages/a.ts and modules.packages/b.ts',
+    );
+    expect(() => checkModuleIdRegistry(registryPath)).toThrow(
+      MODULE_ID_COLLISION_RESOLUTION_COMMAND,
     );
   });
 });
