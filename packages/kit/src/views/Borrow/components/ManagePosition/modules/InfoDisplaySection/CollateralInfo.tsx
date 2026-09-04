@@ -6,23 +6,58 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowInfoItem } from '../../../BorrowInfoItem';
 
-export function CollateralInfo() {
+export function CollateralInfo({
+  canBeCollateral,
+  usageAsCollateral,
+}: {
+  canBeCollateral: boolean;
+  usageAsCollateral?: boolean;
+}) {
   const intl = useIntl();
+  const status = (() => {
+    if (!canBeCollateral) {
+      return {
+        icon: 'CrossedSmallOutline' as const,
+        iconColor: '$iconCritical' as const,
+        text: intl.formatMessage({
+          id: ETranslations.global_not_available,
+        }),
+        textColor: '$textCritical' as const,
+      };
+    }
+    if (usageAsCollateral === true) {
+      return {
+        icon: 'Checkmark2SmallOutline' as const,
+        iconColor: '$iconSuccess' as const,
+        text: intl.formatMessage({
+          id: ETranslations.global_enabled,
+        }),
+        textColor: '$textSuccess' as const,
+      };
+    }
+    return {
+      icon: 'CrossedSmallOutline' as const,
+      iconColor: '$iconCaution' as const,
+      text: intl.formatMessage({
+        id: ETranslations.global_disabled,
+      }),
+      textColor: '$textCaution' as const,
+    };
+  })();
 
   return (
     <BorrowInfoItem
+      testID="borrow-collateral-status"
       gap="$1"
       title={intl.formatMessage({
         id: ETranslations.defi_use_as_collateral,
       })}
     >
-      <Icon name="Checkmark2SmallOutline" size="$5" color="$textSuccess" />
+      <Icon name={status.icon} size="$5" color={status.iconColor} />
       <EarnText
         text={{
-          text: intl.formatMessage({
-            id: ETranslations.global_enabled,
-          }),
-          color: '$textSuccess',
+          text: status.text,
+          color: status.textColor,
           size: '$bodyMdMedium',
         }}
       />
