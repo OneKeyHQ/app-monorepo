@@ -31,6 +31,7 @@ import {
 type IUserFundingHistoryResult = {
   accountAddress: string | undefined;
   records: IUserFunding[];
+  isError?: boolean;
 };
 
 export function usePerpTradesHistory() {
@@ -137,14 +138,23 @@ export function usePerpUserFundingHistory({
       }
 
       const normalizedRequestAddress = accountAddress.toLowerCase();
-      const records =
-        await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
-          accountAddress,
-        });
-      return {
-        accountAddress: normalizedRequestAddress,
-        records,
-      };
+      try {
+        const records =
+          await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
+            accountAddress,
+          });
+        return {
+          accountAddress: normalizedRequestAddress,
+          records,
+          isError: false,
+        };
+      } catch {
+        return {
+          accountAddress: normalizedRequestAddress,
+          records: [],
+          isError: true,
+        };
+      }
     },
     [accountAddress],
     {
@@ -166,13 +176,19 @@ export function usePerpUserFundingHistory({
     dataAccountAddress: query.result?.accountAddress,
     data: query.result?.records ?? [],
   });
+  const isError = Boolean(
+    isCurrentAccountResult && query.result?.isError === true,
+  );
   const isLoading = Boolean(
-    accountAddress && (query.isLoading === true || !isCurrentAccountResult),
+    accountAddress &&
+    !isError &&
+    (query.isLoading === true || !isCurrentAccountResult),
   );
 
   return {
     accountAddress: normalizedAccountAddress,
     records,
+    isError,
     isLoading,
     refresh: query.run,
   };

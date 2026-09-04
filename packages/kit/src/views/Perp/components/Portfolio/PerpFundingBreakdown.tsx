@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import Svg, { Circle } from 'react-native-svg';
 
 import {
+  Button,
   SizableText,
   Skeleton,
   Stack,
@@ -508,11 +509,15 @@ export function PerpFundingBreakdown({
   records,
   timePeriod,
   isLoading,
+  isError,
+  onRetry,
   isMobile,
 }: {
   records: IUserFunding[];
   timePeriod: IPortfolioTimePeriod;
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   isMobile: boolean;
 }) {
   const intl = useIntl();
@@ -524,6 +529,32 @@ export function PerpFundingBreakdown({
       }),
     [records, timePeriod],
   );
+
+  if (isError) {
+    return (
+      <YStack
+        flex={isMobile ? undefined : 1}
+        minHeight={
+          isMobile ? MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined
+        }
+        alignItems="center"
+        justifyContent="center"
+        gap="$3"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_failed })}
+        </SizableText>
+        <Button
+          testID="perp-funding-breakdown-retry"
+          size="small"
+          variant="secondary"
+          onPress={onRetry}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      </YStack>
+    );
+  }
 
   return (
     <YStack flex={isMobile ? undefined : 1} gap="$3">

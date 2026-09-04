@@ -430,7 +430,7 @@ function PerpFundingHistoryList({
   onMarketOptionsChange,
 }: IPerpFundingHistoryListProps) {
   const intl = useIntl();
-  const { accountAddress, records, isLoading, refresh } =
+  const { accountAddress, records, isError, isLoading, refresh } =
     usePerpUserFundingHistory({ isActive });
   const [currentListPage, setCurrentListPage] = useState(1);
 
@@ -541,6 +541,21 @@ function PerpFundingHistoryList({
     ),
     [columnsConfig, isMobile, totalMinWidth],
   );
+  const errorState = isError ? (
+    <YStack flex={1} alignItems="center" justifyContent="center" gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_failed })}
+      </SizableText>
+      <Button
+        testID="perp-funding-history-retry"
+        size="small"
+        variant="secondary"
+        onPress={refresh}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  ) : undefined;
 
   return (
     <CommonTableListView
@@ -567,6 +582,7 @@ function PerpFundingHistoryList({
         `${record.hash}-${record.time}-${record.delta.coin}`
       }
       listLoading={isLoading}
+      ListEmptyComponent={errorState}
       paginationAction={
         !isMobile ? (
           <FundingHistoryExportAction

@@ -51,6 +51,7 @@ type IPositionFundingDetailsProps = {
   signedSize: string;
   fundingHistory?: IUserFunding[];
   isFundingHistoryLoading?: boolean;
+  isFundingHistoryError?: boolean;
   useOwnFundingHistory?: boolean;
   isMobile?: boolean;
 };
@@ -154,6 +155,7 @@ export function PositionFundingDetails({
   signedSize,
   fundingHistory,
   isFundingHistoryLoading,
+  isFundingHistoryError,
   useOwnFundingHistory = false,
   isMobile = false,
 }: IPositionFundingDetailsProps) {
@@ -174,6 +176,9 @@ export function PositionFundingDetails({
   const resolvedFundingHistoryLoading = useOwnFundingHistory
     ? ownFundingHistory.isLoading
     : Boolean(isFundingHistoryLoading);
+  const resolvedFundingHistoryError = useOwnFundingHistory
+    ? ownFundingHistory.isError
+    : Boolean(isFundingHistoryError);
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const dexIndex = getDexIndexByCoin(coin);
@@ -407,7 +412,23 @@ export function PositionFundingDetails({
         {resolvedFundingHistoryLoading ? (
           <Skeleton height={chartHeight} borderRadius="$2" />
         ) : null}
-        {!resolvedFundingHistoryLoading && chartData.length === 0 ? (
+        {!resolvedFundingHistoryLoading && resolvedFundingHistoryError ? (
+          <YStack
+            height={emptyChartHeight}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText
+              size={isMobile ? '$bodySm' : '$bodyXs'}
+              color="$textSubdued"
+            >
+              {intl.formatMessage({ id: ETranslations.global_failed })}
+            </SizableText>
+          </YStack>
+        ) : null}
+        {!resolvedFundingHistoryLoading &&
+        !resolvedFundingHistoryError &&
+        chartData.length === 0 ? (
           <YStack
             height={emptyChartHeight}
             alignItems="center"
@@ -423,7 +444,9 @@ export function PositionFundingDetails({
             </SizableText>
           </YStack>
         ) : null}
-        {!resolvedFundingHistoryLoading && chartData.length > 0 ? (
+        {!resolvedFundingHistoryLoading &&
+        !resolvedFundingHistoryError &&
+        chartData.length > 0 ? (
           <MemoizedLightweightChart
             data={chartData}
             height={chartHeight}

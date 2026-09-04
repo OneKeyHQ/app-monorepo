@@ -12,6 +12,7 @@ const mockGetUserFundingHistory = jest.fn<
 type IMockFundingHistoryResult = {
   accountAddress: string | undefined;
   records: IUserFunding[];
+  isError?: boolean;
 };
 type IMockPromiseResultReturn = {
   result: IMockFundingHistoryResult;
@@ -138,15 +139,17 @@ describe('usePerpUserFundingHistory', () => {
     await expect(queryFn?.()).resolves.toEqual({
       accountAddress: '0xabc',
       records: [fundingRecord],
+      isError: false,
     });
     expect(mockGetUserFundingHistory).toHaveBeenCalledWith({
       accountAddress: '0xAbC',
     });
   });
 
-  it('preserves request failures for the query error path', async () => {
-    const error = new Error('funding history unavailable');
-    mockGetUserFundingHistory.mockRejectedValue(error);
+  it('exposes request failures separately from empty history', async () => {
+    mockGetUserFundingHistory.mockRejectedValue(
+      new Error('funding history unavailable'),
+    );
 
     renderHook(() => usePerpUserFundingHistory());
 
@@ -154,7 +157,21 @@ describe('usePerpUserFundingHistory', () => {
       | (() => Promise<IMockFundingHistoryResult>)
       | undefined;
 
-    await expect(queryFn?.()).rejects.toBe(error);
+    await expect(queryFn?.()).resolves.toEqual({
+      accountAddress: '0xabc',
+      records: [],
+      isError: true,
+    });
+
+    mockQueryResult = {
+      accountAddress: '0xabc',
+      records: [],
+      isError: true,
+    };
+    const { result } = renderHook(() => usePerpUserFundingHistory());
+
+    expect(result.current.isError).toBe(true);
+    expect(result.current.isLoading).toBe(false);
   });
 
   it('hides the previous account result when the account changes while inactive', () => {

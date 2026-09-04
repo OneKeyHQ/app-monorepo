@@ -477,8 +477,15 @@ function PerpPortfolioContentComponent({
     pnlTotals,
     isLoading: isPortfolioLoading,
   } = usePerpPortfolioData(timePeriod, activityType);
-  const { records: fundingHistory, isLoading: isFundingHistoryLoading } =
-    usePerpUserFundingHistory({ isActive: isFunding });
+  const {
+    records: fundingHistory,
+    isError: isFundingHistoryError,
+    isLoading: isFundingHistoryLoading,
+    refresh: refreshFundingHistory,
+  } = usePerpUserFundingHistory({ isActive: isFunding });
+  const handleRetryFundingHistory = useCallback(() => {
+    void refreshFundingHistory();
+  }, [refreshFundingHistory]);
   const fundingHistogram = useMemo(
     () =>
       buildFundingHistogramChartData({
@@ -506,7 +513,12 @@ function PerpPortfolioContentComponent({
     return chartData.pnlHistory;
   }, [chartData, chartType, fundingHistogram, isFunding, pnlType]);
   const showFundingEmptyState =
-    !isChartLoading && isFunding && chartSeriesData.length === 0;
+    !isChartLoading &&
+    !isFundingHistoryError &&
+    isFunding &&
+    chartSeriesData.length === 0;
+  const showFundingErrorState =
+    !isChartLoading && isFunding && isFundingHistoryError;
 
   const accountValue = formatPerpsUsd(
     parseFloat(computedValue?.accountValue ?? '0'),
@@ -534,14 +546,24 @@ function PerpPortfolioContentComponent({
   const totalPnlVal = selectedPnlVal ?? fallbackPnlVal;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
-  const allTimeNetFunding = formatPerpsUsd(fundingNetSummary.netAllTime, true);
-  const allTimeNetFundingColor = getPerpsValueColor(
-    fundingNetSummary.netAllTime,
-  );
-  const netFunding24h = formatPerpsUsd(fundingNetSummary.net24h, true);
-  const netFunding24hColor = getPerpsValueColor(fundingNetSummary.net24h);
-  const netFunding7d = formatPerpsUsd(fundingNetSummary.net7d, true);
-  const netFunding7dColor = getPerpsValueColor(fundingNetSummary.net7d);
+  const allTimeNetFunding = isFundingHistoryError
+    ? '--'
+    : formatPerpsUsd(fundingNetSummary.netAllTime, true);
+  const allTimeNetFundingColor = isFundingHistoryError
+    ? ('$textSubdued' as const)
+    : getPerpsValueColor(fundingNetSummary.netAllTime);
+  const netFunding24h = isFundingHistoryError
+    ? '--'
+    : formatPerpsUsd(fundingNetSummary.net24h, true);
+  const netFunding24hColor = isFundingHistoryError
+    ? ('$textSubdued' as const)
+    : getPerpsValueColor(fundingNetSummary.net24h);
+  const netFunding7d = isFundingHistoryError
+    ? '--'
+    : formatPerpsUsd(fundingNetSummary.net7d, true);
+  const netFunding7dColor = isFundingHistoryError
+    ? ('$textSubdued' as const)
+    : getPerpsValueColor(fundingNetSummary.net7d);
   const totalPnlTooltip = intl.formatMessage({
     id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
   });
@@ -923,7 +945,29 @@ function PerpPortfolioContentComponent({
           </SizableText>
         </YStack>
       ) : null}
-      {!isChartLoading && !showFundingEmptyState ? (
+      {showFundingErrorState ? (
+        <YStack
+          flex={isMobile ? undefined : 1}
+          height={isMobile ? chartHeight : undefined}
+          alignItems="center"
+          justifyContent="center"
+          gap="$3"
+          px="$6"
+        >
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            {intl.formatMessage({ id: ETranslations.global_failed })}
+          </SizableText>
+          <Button
+            testID="perp-portfolio-funding-retry"
+            size="small"
+            variant="secondary"
+            onPress={handleRetryFundingHistory}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </YStack>
+      ) : null}
+      {!isChartLoading && !showFundingEmptyState && !showFundingErrorState ? (
         <YStack
           position="relative"
           flex={1}
@@ -1487,6 +1531,8 @@ function PerpPortfolioContentComponent({
       records={fundingHistory}
       timePeriod={timePeriod}
       isLoading={isFundingHistoryLoading}
+      isError={isFundingHistoryError}
+      onRetry={handleRetryFundingHistory}
       isMobile={isMobile}
     />
   ) : (

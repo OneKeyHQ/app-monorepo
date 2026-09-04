@@ -1685,6 +1685,16 @@ export default class ServiceHyperliquid extends ServiceBase {
       startTime: 0,
       endTime,
       fetchPage: (page) => infoClient.userFunding({ user, ...page }),
+      getRecordKey: (record) =>
+        [
+          record.time,
+          record.hash,
+          record.delta.coin,
+          record.delta.szi,
+          record.delta.usdc,
+          record.delta.fundingRate,
+          record.delta.nSamples ?? '',
+        ].join(':'),
     });
   }
 

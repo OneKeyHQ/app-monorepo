@@ -73,8 +73,11 @@ function PerpPositionsList({
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
-  const { records: fundingHistory, isLoading: isFundingHistoryLoading } =
-    usePerpUserFundingHistory();
+  const {
+    records: fundingHistory,
+    isError: isFundingHistoryError,
+    isLoading: isFundingHistoryLoading,
+  } = usePerpUserFundingHistory();
   const [currentListPage, setCurrentListPage] = useState(1);
   const canMutateScopedPositions = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
@@ -343,6 +346,7 @@ function PerpPositionsList({
       onHoverChange={onHoverChange}
       fundingHistory={fundingHistory}
       isFundingHistoryLoading={isFundingHistoryLoading}
+      isFundingHistoryError={isFundingHistoryError}
     />
   );
   const keyExtractor = useCallback((item: IPositionRowItem) => {

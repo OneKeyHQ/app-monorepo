@@ -76,6 +76,7 @@ interface IPositionRowProps {
   onHoverChange?: (index: number | null) => void;
   fundingHistory: IUserFunding[];
   isFundingHistoryLoading: boolean;
+  isFundingHistoryError: boolean;
 }
 
 interface IAssetInfo {
@@ -408,6 +409,7 @@ const PositionRowDesktopFunding = memo(
     signedSize,
     fundingHistory,
     isFundingHistoryLoading,
+    isFundingHistoryError,
   }: {
     columnConfig: IColumnConfig;
     otherInfo: IOtherInfo;
@@ -416,6 +418,7 @@ const PositionRowDesktopFunding = memo(
     signedSize: string;
     fundingHistory: IUserFunding[];
     isFundingHistoryLoading: boolean;
+    isFundingHistoryError: boolean;
   }) => {
     return (
       <DebugRenderTracker
@@ -447,6 +450,7 @@ const PositionRowDesktopFunding = memo(
                 signedSize={signedSize}
                 fundingHistory={fundingHistory}
                 isFundingHistoryLoading={isFundingHistoryLoading}
+                isFundingHistoryError={isFundingHistoryError}
               />
             }
           />
@@ -651,6 +655,7 @@ interface IPositionRowDesktopProps {
   onHoverChange?: (index: number | null) => void;
   fundingHistory: IUserFunding[];
   isFundingHistoryLoading: boolean;
+  isFundingHistoryError: boolean;
 }
 
 const PositionRowDesktop = memo(
@@ -676,6 +681,7 @@ const PositionRowDesktop = memo(
     onHoverChange,
     fundingHistory,
     isFundingHistoryLoading,
+    isFundingHistoryError,
   }: IPositionRowDesktopProps) => {
     const isOddRow = mockedPosition.index % 2 === 1;
     const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
@@ -744,6 +750,7 @@ const PositionRowDesktop = memo(
                 signedSize={mockedPosition.activePosition.position.szi}
                 fundingHistory={fundingHistory}
                 isFundingHistoryLoading={isFundingHistoryLoading}
+                isFundingHistoryError={isFundingHistoryError}
               />
               <PositionRowDesktopTPSL
                 columnConfig={columnConfigs[8]}
@@ -1426,6 +1433,7 @@ const PositionRow = memo(
     onHoverChange,
     fundingHistory,
     isFundingHistoryLoading,
+    isFundingHistoryError,
   }: IPositionRowProps) => {
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
@@ -1719,6 +1727,7 @@ const PositionRow = memo(
         onHoverChange={onHoverChange}
         fundingHistory={fundingHistory}
         isFundingHistoryLoading={isFundingHistoryLoading}
+        isFundingHistoryError={isFundingHistoryError}
       />
     );
   },
