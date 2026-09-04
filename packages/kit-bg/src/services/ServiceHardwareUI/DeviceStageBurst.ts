@@ -461,9 +461,16 @@ export class DeviceStageBurstScope {
     this.scheduleOff();
   }
 
-  async begin(params: IDeviceStageBurstBeginParams = {}) {
+  /**
+   * Opens (or joins) a burst. Returns whether the stage is now behind the
+   * caller: false while the firmware workflow silences it, and a caller
+   * that paints beats past the gate (the air-gap pair) must take that answer,
+   * not a gate read taken a moment earlier — a card painted with no burst
+   * behind it has no exit, because end() finds nothing to close.
+   */
+  async begin(params: IDeviceStageBurstBeginParams = {}): Promise<boolean> {
     if (!(await this.isEnabled())) {
-      return;
+      return false;
     }
     this.clearOffTimer();
     this.depth += 1;
@@ -507,7 +514,7 @@ export class DeviceStageBurstScope {
           resetOutcome: true,
         });
       }, OPENING_BEAT_DEFER_MS);
-      return;
+      return true;
     }
     // Joined a burst already on stage (typically a UI-held one): the flow
     // is mid-step, so only the device identity refreshes — the caller
@@ -516,6 +523,7 @@ export class DeviceStageBurstScope {
       this.activeVendor = params.vendor;
     }
     await this.mergeDeviceIdentity(params);
+    return true;
   }
 
   /**
