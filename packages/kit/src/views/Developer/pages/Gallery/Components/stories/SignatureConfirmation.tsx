@@ -894,21 +894,6 @@ function ApprovalCriticalDemo() {
   );
 }
 
-function ApprovalPrimeCriticalDemo() {
-  return (
-    <SignatureCase
-      testID="signature-gallery-critical-prime"
-      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
-    >
-      <GallerySecurityCheckCard
-        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
-        transactionSecurityInfo={GALLERY_SCAN_DRAIN}
-        isPrimeUser
-      />
-    </SignatureCase>
-  );
-}
-
 function ApprovalPrimeWarningDemo() {
   return (
     <SignatureCase
@@ -919,24 +904,6 @@ function ApprovalPrimeWarningDemo() {
         urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
         transactionSecurityInfo={GALLERY_SCAN_WARNING}
         isPrimeUser
-      />
-    </SignatureCase>
-  );
-}
-
-function ApprovalWarningDemo() {
-  return (
-    <SignatureCase
-      testID="signature-gallery-warning-parser"
-      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
-    >
-      <GallerySecurityCheckCard
-        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
-        decodedTxs={[
-          galleryDecodedTx(['The spender has not been seen before.']),
-        ]}
-        isPrimeUser={false}
-        isTransactionSecurityApplicable
       />
     </SignatureCase>
   );
@@ -1027,51 +994,25 @@ function ApprovalViewAllDemo() {
   );
 }
 
-function UnverifiedPermitDemo() {
+function PermitDemo({
+  testID,
+  urlSecurityInfo,
+}: {
+  testID: string;
+  urlSecurityInfo: IHostSecurity;
+}) {
   const intl = useIntl();
   return (
     <SignatureCase
       showSimulation={false}
-      testID="signature-gallery-permit-unverified"
-      urlSecurityInfo={GALLERY_HOST_UNVERIFIED}
+      testID={testID}
+      urlSecurityInfo={urlSecurityInfo}
     >
       <SecurityCheckCard
         model={buildSecurityCheckModel({
           kind: 'message',
-          origin: `https://${GALLERY_HOST_UNVERIFIED.host}`,
-          urlSecurityInfo: GALLERY_HOST_UNVERIFIED,
-          messageDisplay: {
-            title: 'Permit',
-            components: [],
-            alerts: [
-              intl.formatMessage({
-                id: ETranslations.dapp_connect_permit_sign_alert,
-              }),
-            ],
-          },
-          unsignedMessage: GALLERY_PERMIT_MESSAGE,
-          isConfirmationRequired: true,
-          isTransactionSecurityApplicable: true,
-          isPrimeUser: false,
-          intl,
-        })}
-      />
-    </SignatureCase>
-  );
-}
-
-function TrustedPermitDemo() {
-  const intl = useIntl();
-  return (
-    <SignatureCase
-      showSimulation={false}
-      testID="signature-gallery-permit-trusted"
-    >
-      <SecurityCheckCard
-        model={buildSecurityCheckModel({
-          kind: 'message',
-          origin: `https://${GALLERY_HOST_VERIFIED.host}`,
-          urlSecurityInfo: GALLERY_HOST_VERIFIED,
+          origin: `https://${urlSecurityInfo.host}`,
+          urlSecurityInfo,
           messageDisplay: {
             title: 'Permit',
             components: [],
@@ -1195,20 +1136,22 @@ const SignatureConfirmationGallery = () => (
         element: <ApprovalPrimeWarningDemo />,
       },
       {
-        title: 'Warning · Parser finding',
-        element: <ApprovalWarningDemo />,
-      },
-      {
         title: 'Permit · Trusted site',
-        element: <TrustedPermitDemo />,
+        element: (
+          <PermitDemo
+            testID="signature-gallery-permit-trusted"
+            urlSecurityInfo={GALLERY_HOST_VERIFIED}
+          />
+        ),
       },
       {
         title: 'Permit · Unverified site',
-        element: <UnverifiedPermitDemo />,
-      },
-      {
-        title: 'Critical · Prime transaction security',
-        element: <ApprovalPrimeCriticalDemo />,
+        element: (
+          <PermitDemo
+            testID="signature-gallery-permit-unverified"
+            urlSecurityInfo={GALLERY_HOST_UNVERIFIED}
+          />
+        ),
       },
       {
         title: 'Critical · Site and transaction security',
