@@ -1621,6 +1621,10 @@ export function ConnectYourDevicePage() {
         // Clear force transport type on device connection error
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
         void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        // The checking beat above painted the stage with no burst behind
+        // it; a bootloader hand-off or a failed connect leaves nothing to
+        // land its exit, so it would stand over the update dialog.
+        void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
         throw error;
       }
