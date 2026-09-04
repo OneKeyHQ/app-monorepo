@@ -16,6 +16,7 @@ import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import { convertDeviceError, isOneKeyHardwareError } from './deviceErrorUtils';
+import errorToastUtils from './errorToastUtils';
 
 describe('isOneKeyHardwareError', () => {
   it('recognizes hardware error metadata rehydrated across runtimes', () => {
@@ -109,6 +110,52 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
         code: HardwareErrorCode.BleDeviceBondedCanceled,
       },
     });
+  });
+
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
+  ])(
+    'does not show a raw error toast when the repair dialog handles code %s',
+    (code) => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      const error = {
+        autoToast: true,
+        code,
+        message: 'Raw Bluetooth pairing error',
+      };
+
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowToast,
+        expect.anything(),
+      );
+      emitSpy.mockRestore();
+    },
+  );
+
+  it('also suppresses a raw pairing error code carried in the SDK payload', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+    const error = {
+      autoToast: true,
+      code: -1,
+      message: 'Raw Bluetooth pairing error',
+      payload: {
+        code: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      },
+    };
+
+    errorToastUtils.toastIfError(error);
+    errorToastUtils.showToastOfError(error);
+
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.anything(),
+    );
+    emitSpy.mockRestore();
   });
 
   it.each([
