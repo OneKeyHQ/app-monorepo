@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -18,6 +19,7 @@ import {
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -44,7 +46,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -106,8 +108,11 @@ async function fetchMarketAssetTokenDetail(
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
   const { assetId, variantId, tokenAddress, networkId } = payload;
+  const requestId = get(tokenDetailRequestIdAtom()) + 1;
+  set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
   const isCurrentIdentity = () =>
+    get(tokenDetailRequestIdAtom()) === requestId &&
     get(tokenAddressAtom()) === tokenAddress &&
     get(networkIdAtom()) === networkId;
 
@@ -123,7 +128,7 @@ async function fetchMarketAssetTokenDetail(
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const { selectedVariant } = assetDetail;
@@ -173,21 +178,28 @@ async function fetchMarketAssetTokenDetail(
       : currentDecimals;
 
     if (!isValidTokenDecimals(decimals)) {
-      try {
-        const tokenInfo =
-          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-          });
-        decimals = tokenInfo?.info?.decimals;
-      } catch {
-        decimals = undefined;
+      if (selectedVariant.isNative) {
+        decimals = networkUtils.getLocalNetworkInfo(
+          selectedVariant.networkId,
+        )?.decimals;
+      }
+      if (!isValidTokenDecimals(decimals)) {
+        try {
+          const tokenInfo =
+            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+              networkId: selectedVariant.networkId,
+              tokenAddress: selectedVariant.tokenAddress,
+            });
+          decimals = tokenInfo?.info?.decimals;
+        } catch {
+          decimals = undefined;
+        }
       }
     }
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const lastUpdated = Date.now();
@@ -223,16 +235,13 @@ async function fetchMarketAssetTokenDetail(
 
     return assetDetail;
   } catch (error) {
-    defaultLogger.app.error.log(
-      `Failed to fetch market asset detail: ${String(error)}`,
-    );
-    if (isCurrentIdentity()) {
-      set(tokenDetailAtom(), undefined);
-      set(tokenDetailPreviewAtom(), undefined);
-      set(tokenDetailWebsocketAtom(), undefined);
-      set(perpsInfoAtom(), undefined);
-    } else {
+    if (!isCurrentIdentity()) {
       isStale = true;
+    }
+    if (!isStale) {
+      defaultLogger.app.error.log(
+        `Failed to fetch market asset detail: ${String(error)}`,
+      );
     }
     throw error;
   } finally {
