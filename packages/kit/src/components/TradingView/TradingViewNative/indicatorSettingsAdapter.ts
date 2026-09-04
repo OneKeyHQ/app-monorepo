@@ -47,6 +47,9 @@ const MAIN_INDICATOR_LINE_COLORS = [
 const MAIN_INDICATOR_PERIODS = [5, 10, 20] as const;
 const DEFAULT_UP_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.positive;
 const DEFAULT_DOWN_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.negative;
+const LEGACY_INDICATOR_SETTINGS_SCHEMA_VERSION = 2;
+const LEGACY_OBV_MOVING_AVERAGE_PERIOD = 9;
+const OBV_MOVING_AVERAGE_PERIOD = 30;
 const LEGACY_INDICATOR_THEME_COLOR_MAP: Readonly<Record<string, string>> = {
   '#2196F3': TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
   '#219D46': TRADING_VIEW_NATIVE_THEME_COLORS.positive,
@@ -266,6 +269,79 @@ function migrateLegacyIndicatorThemeColors(
   };
 }
 
+function migrateLegacyIndicatorDefaults(
+  indicator: ITradingViewNativeIndicatorSettingsItem,
+): ITradingViewNativeIndicatorSettingsItem {
+  if (indicator.id === 'BOLL') {
+    const upper = indicator.lines.upper;
+    const lower = indicator.lines.lower;
+    const shouldMigrateUpper =
+      upper?.color === TRADING_VIEW_NATIVE_THEME_COLORS.quinary;
+    const shouldMigrateLower =
+      lower?.color === TRADING_VIEW_NATIVE_THEME_COLORS.quaternary;
+    if (!shouldMigrateUpper && !shouldMigrateLower) {
+      return indicator;
+    }
+    return {
+      ...indicator,
+      lines: {
+        ...indicator.lines,
+        ...(shouldMigrateUpper && upper
+          ? {
+              upper: {
+                ...upper,
+                color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+              },
+            }
+          : {}),
+        ...(shouldMigrateLower && lower
+          ? {
+              lower: {
+                ...lower,
+                color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+              },
+            }
+          : {}),
+      },
+    };
+  }
+
+  if (indicator.id === 'OBV') {
+    const movingAverage = indicator.lines['plot:movingAverage'];
+    const isLegacyDefault =
+      indicator.parameters.movingAveragePeriod ===
+        LEGACY_OBV_MOVING_AVERAGE_PERIOD &&
+      (!movingAverage ||
+        (!movingAverage.enabled &&
+          movingAverage.color ===
+            TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary &&
+          movingAverage.period === 0 &&
+          movingAverage.style === 'solid'));
+    if (!isLegacyDefault) {
+      return indicator;
+    }
+    return {
+      ...indicator,
+      lines: movingAverage
+        ? {
+            ...indicator.lines,
+            'plot:movingAverage': {
+              ...movingAverage,
+              color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+              enabled: true,
+            },
+          }
+        : indicator.lines,
+      parameters: {
+        ...indicator.parameters,
+        movingAveragePeriod: OBV_MOVING_AVERAGE_PERIOD,
+      },
+    };
+  }
+
+  return indicator;
+}
+
 export function normalizeTradingViewNativeIndicatorSettings(
   value: unknown,
 ): ITradingViewNativeIndicatorSettings {
@@ -313,15 +389,25 @@ export function normalizeTradingViewNativeIndicatorSettings(
   const shouldMigrateThemeColors =
     value.schemaVersion !==
     TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_SCHEMA_VERSION;
-  const mainIndicators = shouldMigrateThemeColors
+  const themeMigratedMainIndicators = shouldMigrateThemeColors
     ? normalizedMainIndicators.map(migrateLegacyIndicatorThemeColors)
     : normalizedMainIndicators;
-  const subIndicators = shouldMigrateThemeColors
+  const themeMigratedSubIndicators = shouldMigrateThemeColors
     ? normalizedSubIndicators.map(migrateLegacyIndicatorThemeColors)
     : normalizedSubIndicators;
+  const shouldMigrateIndicatorDefaults =
+    typeof value.schemaVersion !== 'number' ||
+    value.schemaVersion <= LEGACY_INDICATOR_SETTINGS_SCHEMA_VERSION;
+  const mainIndicators = shouldMigrateIndicatorDefaults
+    ? themeMigratedMainIndicators.map(migrateLegacyIndicatorDefaults)
+    : themeMigratedMainIndicators;
+  const subIndicators = shouldMigrateIndicatorDefaults
+    ? themeMigratedSubIndicators.map(migrateLegacyIndicatorDefaults)
+    : themeMigratedSubIndicators;
 
   if (
     !shouldMigrateThemeColors &&
+    !shouldMigrateIndicatorDefaults &&
     rawMainIndicators === value.mainIndicators &&
     rawSubIndicators === value.subIndicators &&
     mainIndicators === rawMainIndicators &&

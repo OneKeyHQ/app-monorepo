@@ -527,6 +527,78 @@ describe('TradingViewNative shared chart scene', () => {
     ).toBe(true);
   });
 
+  it('renders the BOLL fill without hidden boundary strokes', () => {
+    const points = buildLinearPoints(25);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['BOLL']),
+      indicatorSettings: {
+        BOLL: {
+          active: true,
+          id: 'BOLL',
+          lines: {
+            background: {
+              color: '#FFAA00',
+              enabled: true,
+              period: 0,
+              style: 'solid',
+            },
+            lower: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            middle: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            upper: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+          },
+          parameters: { deviation: 2, period: 20 },
+          transparency: 0,
+        },
+      },
+      points,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polygon' &&
+          command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+      ),
+    ).toBe(true);
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polyline' &&
+          (command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper' ||
+            command.customPaintId === 'chart.mainIndicator.BOLL.boll-lower'),
+      ),
+    ).toBe(false);
+  });
+
   it('uses the previous close for the selected bar change', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,

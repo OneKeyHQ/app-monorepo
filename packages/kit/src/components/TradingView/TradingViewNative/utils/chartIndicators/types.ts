@@ -42,6 +42,7 @@ export interface ITradingViewNativeIndicatorSeries {
     opacity: number;
   };
   values: Array<number | null>;
+  visible?: boolean;
 }
 
 export interface ITradingViewNativeIndicatorPriceRange {

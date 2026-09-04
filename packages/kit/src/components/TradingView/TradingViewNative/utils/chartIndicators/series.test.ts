@@ -112,6 +112,69 @@ describe('TradingViewNative indicator series', () => {
     });
   });
 
+  it('keeps BOLL fill boundaries when their strokes are hidden', () => {
+    const points = buildPoints(Array.from({ length: 25 }, (_, index) => index));
+
+    for (const hiddenBoundaryIds of [
+      new Set(['upper']),
+      new Set(['upper', 'lower']),
+    ]) {
+      const series = buildTradingViewNativeIndicatorSeries({
+        activeIndicatorValues: new Set(['BOLL']),
+        indicatorSettings: {
+          BOLL: {
+            active: true,
+            id: 'BOLL',
+            lines: {
+              background: {
+                color: '#FFAA00',
+                enabled: true,
+                period: 0,
+                style: 'solid',
+              },
+              lower: {
+                color: '#FFAA00',
+                enabled: !hiddenBoundaryIds.has('lower'),
+                period: 0,
+                style: 'solid',
+              },
+              middle: {
+                color: '#FFAA00',
+                enabled: false,
+                period: 0,
+                style: 'solid',
+              },
+              upper: {
+                color: '#FFAA00',
+                enabled: !hiddenBoundaryIds.has('upper'),
+                period: 0,
+                style: 'solid',
+              },
+            },
+            parameters: { deviation: 2, period: 20 },
+            transparency: 0,
+          },
+        },
+        points,
+      });
+
+      expect(series.map(({ key }) => key)).toEqual([
+        'boll-upper',
+        'boll-lower',
+      ]);
+      expect(series.find(({ key }) => key === 'boll-upper')?.fill).toEqual({
+        color: '#FFAA00',
+        opacity: 0.1,
+        toSeriesKey: 'boll-lower',
+      });
+      expect(
+        series
+          .filter(({ key }) => hiddenBoundaryIds.has(key.replace('boll-', '')))
+          .every(({ visible }) => visible === false),
+      ).toBe(true);
+    }
+  });
+
   it('keeps configured main-indicator width and line pattern independent', () => {
     const series = buildTradingViewNativeIndicatorSeries({
       activeIndicatorValues: new Set(['MA']),

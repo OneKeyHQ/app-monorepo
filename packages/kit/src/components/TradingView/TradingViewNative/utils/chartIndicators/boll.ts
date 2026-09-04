@@ -89,6 +89,12 @@ export function buildTradingViewNativeBollSeries(
     period,
     deviation,
   );
+  const background = getTradingViewNativeIndicatorLine(settings, 'background', {
+    color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+    enabled: true,
+    period: 0,
+    style: 'solid',
+  });
   const definitions = [
     {
       color: TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR,
@@ -117,7 +123,9 @@ export function buildTradingViewNativeBollSeries(
         period: 0,
         style: 'solid',
       });
-      return line.enabled
+      const isFillBoundary =
+        definition.id === 'upper' || definition.id === 'lower';
+      return line.enabled || (background.enabled && isFillBoundary)
         ? [
             {
               indicator: 'BOLL' as const,
@@ -126,6 +134,7 @@ export function buildTradingViewNativeBollSeries(
               paint: definition.paint,
               style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
               values: definition.values,
+              visible: line.enabled,
             },
           ]
         : [];
@@ -133,12 +142,6 @@ export function buildTradingViewNativeBollSeries(
   );
   const upperSeries = series.find(({ key }) => key === 'boll-upper');
   const lowerSeries = series.find(({ key }) => key === 'boll-lower');
-  const background = getTradingViewNativeIndicatorLine(settings, 'background', {
-    color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
-    enabled: true,
-    period: 0,
-    style: 'solid',
-  });
   if (background.enabled && upperSeries && lowerSeries) {
     const backgroundStyle = getTradingViewNativeIndicatorSeriesStyle(
       background,

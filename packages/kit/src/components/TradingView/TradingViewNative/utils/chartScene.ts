@@ -428,7 +428,10 @@ function appendIndicatorCommands({
 }) {
   'worklet';
 
-  for (const series of indicatorSeries) {
+  const visibleSeries = indicatorSeries.filter(
+    (series) => series.visible !== false,
+  );
+  for (const series of visibleSeries) {
     const customPaintId = series.style
       ? getMainIndicatorPaintId(series)
       : undefined;
