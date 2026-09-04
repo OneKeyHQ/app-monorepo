@@ -138,7 +138,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
                   {label}
                 </SizableText>
                 <Icon
-                  name="ChevronDownSmallOutline"
+                  name="ChevronTriangleDownSmallSolid"
                   color="$iconSubdued"
                   size="$4"
                 />

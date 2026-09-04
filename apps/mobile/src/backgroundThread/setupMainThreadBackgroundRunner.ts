@@ -49,6 +49,7 @@ import {
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
   type IBackgroundThreadRequest,
+  type IBackgroundThreadResponseErrorPayload,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
@@ -261,6 +262,78 @@ function isNativeBackgroundThreadTransportEnabled() {
 
 function createTransportError(message: string) {
   return new OneKeyLocalError(message);
+}
+
+type IBackgroundThreadTransportError = Error &
+  Partial<IBackgroundThreadResponseErrorPayload>;
+type IRehydratableBackgroundThreadErrorKey = Exclude<
+  keyof IBackgroundThreadResponseErrorPayload,
+  'message'
+>;
+
+const backgroundThreadErrorMetadataValidators: {
+  [Key in IRehydratableBackgroundThreadErrorKey]: (value: unknown) => boolean;
+} = {
+  name: (value) => typeof value === 'string' && Boolean(value),
+  stack: (value) => typeof value === 'string' && Boolean(value),
+  autoToast: (value) => typeof value === 'boolean',
+  className: (value) => typeof value === 'string',
+  $isHardwareError: (value) => value === true,
+  code: (value) => typeof value === 'string' || typeof value === 'number',
+  key: (value) => typeof value === 'string',
+  requestId: (value) => typeof value === 'string',
+  httpStatusCode: (value) => typeof value === 'number',
+  data: (value) => value !== undefined,
+  info: (value) => value !== undefined,
+  payload: (value) => value !== undefined,
+  reconnect: (value) => typeof value === 'boolean',
+};
+
+function rehydrateTransportError({
+  errorMessage,
+  errorInfo,
+  callId,
+}: {
+  errorMessage: string;
+  errorInfo: IBackgroundThreadResponseErrorPayload | undefined;
+  callId: string;
+}): IBackgroundThreadTransportError {
+  let error = new Error(errorMessage) as IBackgroundThreadTransportError;
+  try {
+    error = createTransportError(
+      errorMessage,
+    ) as IBackgroundThreadTransportError;
+  } catch (metadataError) {
+    transportLog(
+      `handleResponse: failed to create transport error. callId=${callId}, error=${
+        (metadataError as Error)?.message || String(metadataError)
+      }`,
+    );
+    return error;
+  }
+
+  if (!errorInfo) {
+    return error;
+  }
+
+  const metadataKeys = Object.keys(
+    backgroundThreadErrorMetadataValidators,
+  ) as IRehydratableBackgroundThreadErrorKey[];
+  for (const metadataKey of metadataKeys) {
+    const metadataValue = errorInfo[metadataKey];
+    if (backgroundThreadErrorMetadataValidators[metadataKey](metadataValue)) {
+      try {
+        Object.assign(error, { [metadataKey]: metadataValue });
+      } catch (metadataError) {
+        transportLog(
+          `handleResponse: failed to rehydrate error metadata. callId=${callId}, field=${metadataKey}, error=${
+            (metadataError as Error)?.message || String(metadataError)
+          }`,
+        );
+      }
+    }
+  }
+  return error;
 }
 
 function isAsyncStorageWriteForwardingEnabled() {
@@ -1089,7 +1162,9 @@ function handleBackgroundThreadResponse(
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
-    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
+    `handleResponse: callId=${callId}, ok=${response?.ok}, errorName=${
+      response?.error?.name || 'none'
+    }, errorCode=${response?.error?.code ?? 'none'}`,
   );
   if (!response) {
     switchToRemoteBroken(
@@ -1109,68 +1184,15 @@ function handleBackgroundThreadResponse(
   const errorMessage =
     errorInfo?.message ||
     `Background request failed without error payload. callId=${callId}`;
-  let error = new Error(errorMessage) as Error & {
-    name?: string;
-    stack?: string;
-    autoToast?: boolean;
-    className?: string;
-    $isHardwareError?: boolean;
-    code?: string | number;
-    key?: string;
-    requestId?: string;
-    httpStatusCode?: number;
-    data?: unknown;
-    payload?: unknown;
-  };
-  try {
-    error = createTransportError(errorMessage);
-    if (errorInfo?.name) {
-      error.name = errorInfo.name;
-    }
-    if (errorInfo?.stack) {
-      error.stack = errorInfo.stack;
-    }
-    // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
-    // toast / i18n / dedup logic behaves the same as non-split thread mode.
-    if (typeof errorInfo?.autoToast === 'boolean') {
-      error.autoToast = errorInfo.autoToast;
-    }
-    if (typeof errorInfo?.className === 'string') {
-      error.className = errorInfo.className;
-    }
-    if (errorInfo?.$isHardwareError === true) {
-      error.$isHardwareError = true;
-    }
-    if (
-      typeof errorInfo?.code === 'string' ||
-      typeof errorInfo?.code === 'number'
-    ) {
-      error.code = errorInfo.code;
-    }
-    if (typeof errorInfo?.key === 'string') {
-      error.key = errorInfo.key;
-    }
-    if (typeof errorInfo?.requestId === 'string') {
-      error.requestId = errorInfo.requestId;
-    }
-    if (typeof errorInfo?.httpStatusCode === 'number') {
-      error.httpStatusCode = errorInfo.httpStatusCode;
-    }
-    if (errorInfo?.data !== undefined) {
-      error.data = errorInfo.data;
-    }
-    if (errorInfo?.payload !== undefined) {
-      error.payload = errorInfo.payload;
-    }
-  } catch (metadataError) {
-    transportLog(
-      `handleResponse: failed to rehydrate error metadata. callId=${callId}, error=${
-        (metadataError as Error)?.message || String(metadataError)
-      }`,
-    );
-  } finally {
-    pendingCall.reject(error);
-  }
+  // Restore only fields declared by the transport contract. The exhaustive
+  // validator map makes protocol additions fail type-checking until this
+  // rehydration path is updated as well.
+  const error = rehydrateTransportError({
+    errorMessage,
+    errorInfo,
+    callId,
+  });
+  pendingCall.reject(error);
 }
 
 function handleBackgroundThreadJotaiStateUpdate(

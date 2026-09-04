@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { EPageType, IPageNavigationProp } from '@onekeyhq/components';
+import type { EPageType } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -29,10 +29,6 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -83,7 +79,6 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import {
   swrCacheUtils,
@@ -112,10 +107,7 @@ import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGrou
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import {
-  useShouldShowSwapLocalData,
-  useSwapLimitOrdersLocalDataVisibility,
-} from '../../hooks/useSwapLocalDataVisibility';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelAsyncStatus,
@@ -131,10 +123,7 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
-  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryKey,
-  getSwapMarketPendingHistoryList,
-  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 import {
   getStockQuoteTradeControl,
@@ -146,7 +135,7 @@ import {
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
-import { SwapSettingsHeaderButton } from './SwapHeaderRightActionContainer';
+import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
 import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
@@ -2323,37 +2312,10 @@ function SwapStockDesktopContent({
   alerts,
 }: ISwapStockDesktopContainerProps) {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [
-    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
-  ] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
-    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
-  const historyBadgeCount = useMemo(() => {
-    if (!shouldShowSwapLocalData) {
-      return 0;
-    }
-    const stockPendingHistoryCount = getSwapMarketPendingHistoryList(
-      swapHistoryPendingList,
-      EProtocolOfExchange.SWAP,
-    ).filter(isStockSwapHistoryItem).length;
-    return (
-      stockPendingHistoryCount +
-      (shouldShowSwapLimitOrders
-        ? getSwapLimitOpenOrderCount(swapLimitOrders)
-        : 0)
-    );
-  }, [
-    shouldShowSwapLimitOrders,
-    shouldShowSwapLocalData,
-    swapHistoryPendingList,
-    swapLimitOrders,
-  ]);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2367,16 +2329,6 @@ function SwapStockDesktopContent({
     [setFromTokenAmount, setToTokenAmount, stockChannel],
   );
 
-  const onOpenHistoryListModal = useCallback(() => {
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapHistoryList,
-      params: {
-        type: EProtocolOfExchange.STOCK,
-        storeName,
-      },
-    });
-  }, [navigation, storeName]);
   const handleSelectRecentStockTokenPairs = useCallback(
     ({ fromToken, toToken }: ISwapRecentTokenPair) => {
       void stockChannel.selectRecentTokenPair({ fromToken, toToken });
@@ -2426,52 +2378,7 @@ function SwapStockDesktopContent({
                       id: ETranslations.perps_token_selector_stocks,
                     })}
                   </SizableText>
-                  <HeaderButtonGroup gap="$4" flexShrink={0}>
-                    <SwapSettingsHeaderButton
-                      iconSize="$5"
-                      iconColor="$iconStrong"
-                      showCustomSlippageValue
-                    />
-                    {historyBadgeCount > 0 ? (
-                      <Stack
-                        testID="swap-stock-history-button"
-                        m="$0.5"
-                        w="$5"
-                        h="$5"
-                        userSelect="none"
-                        borderRadius="$full"
-                        borderColor="$icon"
-                        borderWidth={1.2}
-                        alignItems="center"
-                        justifyContent="center"
-                        hoverStyle={{
-                          bg: '$bgHover',
-                        }}
-                        pressStyle={{
-                          bg: '$bgActive',
-                        }}
-                        focusVisibleStyle={{
-                          outlineColor: '$focusRing',
-                          outlineWidth: 2,
-                          outlineStyle: 'solid',
-                          outlineOffset: 0,
-                        }}
-                        onPress={onOpenHistoryListModal}
-                      >
-                        <SizableText color="$text" size="$bodySm">
-                          {`${historyBadgeCount}`}
-                        </SizableText>
-                      </Stack>
-                    ) : (
-                      <HeaderIconButton
-                        testID="swap-stock-history-button"
-                        icon="ClockTimeHistoryOutline"
-                        size="medium"
-                        iconProps={{ size: '$5', color: '$iconStrong' }}
-                        onPress={onOpenHistoryListModal}
-                      />
-                    )}
-                  </HeaderButtonGroup>
+                  <SwapStockHeaderRightActionContainer storeName={storeName} />
                 </XStack>
                 <StockTradeTicket
                   onSelectToken={onSelectToken}

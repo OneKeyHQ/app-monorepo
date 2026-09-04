@@ -112,15 +112,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      const stockId = resolveMarketStockId(item);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        isStockRoute: Boolean(stockId),
         layout: preloadLayout,
       });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
-      const stockId = resolveMarketStockId(item);
       const showFavoriteButton =
         typeof item.showFavoriteButton === 'boolean'
           ? item.showFavoriteButton

@@ -100,7 +100,7 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const { selectedTokenVariant } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant } = useStockDetail();
   const network =
     selectedTokenVariant?.networkId ??
     ('network' in params ? params.network : '') ??
@@ -188,8 +188,9 @@ function MarketDetail({
     preloadMarketDetailV2BodyModules({
       layout: isDesktopLayout ? 'desktop' : 'mobile',
       includeHeavyModules: true,
+      isStockRoute,
     });
-  }, [isDesktopLayout]);
+  }, [isDesktopLayout, isStockRoute]);
 
   return (
     <BtcMetadataProvider>

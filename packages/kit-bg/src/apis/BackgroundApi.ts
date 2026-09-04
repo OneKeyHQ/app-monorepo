@@ -682,6 +682,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceBulkSend() {
+    const ServiceBulkSend =
+      require('../services/ServiceBulkSend') as typeof import('../services/ServiceBulkSend');
+    const value = new ServiceBulkSend.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceBulkSend', { value });
+    return value;
+  }
+
   get serviceFiatCrypto() {
     const ServiceFiatCrypto =
       require('../services/ServiceFiatCrypto') as typeof import('../services/ServiceFiatCrypto');

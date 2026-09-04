@@ -44,7 +44,9 @@ import type {
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import imageUtils, {
+  type IResizeImageResult,
+} from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 
@@ -468,22 +470,37 @@ function WallpaperCustomCategorySection({
 
     const imgBase64: string = data.data;
 
-    const img = await imageUtils.resizeImage({
-      uri: imgBase64,
+    let img: IResizeImageResult | undefined;
+    try {
+      img = await imageUtils.resizeImage({
+        uri: imgBase64,
 
-      width: config.size?.width,
-      height: config.size?.height,
+        width: config.size?.width,
+        height: config.size?.height,
 
-      originW,
-      originH,
-      isMonochrome,
-    });
+        originW,
+        originH,
+        isMonochrome,
+      });
+    } catch {
+      img = undefined;
+    }
+
+    // Reject failed conversions before they create empty cache entries.
+    if (!img?.base64) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.hardware_wallpaper_crop_failed__msg,
+        }),
+      });
+      return;
+    }
 
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
 
     UploadedHomeScreenCache.saveCache(device.id, {
       deviceId: device.id,
-      imgBase64: img?.base64 ?? '',
+      imgBase64: img.base64,
       name,
     });
 

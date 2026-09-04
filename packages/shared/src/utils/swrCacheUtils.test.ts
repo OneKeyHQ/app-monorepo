@@ -152,6 +152,19 @@ describe('SWR cache keys', () => {
     expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
   });
 
+  it('scopes the buy crypto token list by network, direction and account', () => {
+    expect(
+      swrKeys.fiatCryptoTokenList({
+        networkId: 'onekeyall--0',
+        type: 'buy',
+        accountId: 'hd-1--m/44h/0h/0h/0/0',
+      }),
+    ).toBe('fiatCryptoTokenList:v1:onekeyall--0:buy:hd-1--m/44h/0h/0h/0/0');
+    expect(
+      swrKeys.fiatCryptoTokenList({ networkId: 'evm--1', type: 'buy' }),
+    ).toBe('fiatCryptoTokenList:v1:evm--1:buy:');
+  });
+
   it('uses stable keys for cached market bootstrap requests', () => {
     expect(
       swrKeys.marketHomeTokenList({

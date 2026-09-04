@@ -1,0 +1,198 @@
+name: Mobile Dev Shell Android
+
+on:
+  push:
+    branches:
+      - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/mobile-dev-shell-android.yml'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/mobile/android/**'
+      - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/package.json'
+      - 'apps/mobile/plugins/devVendor.js'
+      - 'apps/mobile/react-native.config.js'
+      - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
+  workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+
+concurrency:
+  group: mobile-dev-shell-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-android-dev-shell:
+    name: Build Android arm64 dev shell
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - name: Require x branch
+        if: >-
+          ${{ github.ref != 'refs/heads/x' &&
+          github.event_name != 'workflow_dispatch' }}
+        run: |
+          echo "::error::Mobile dev shells may only be published from refs/heads/x."
+          exit 1
+
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Checkout Source Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env.expo'
+          sentry_project: ''
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: Setup Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Restore web-embed prebundle
+        uses: ./.github/actions/restore-web-embed
+
+      - name: Build arm64 APK
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          node apps/mobile/scripts/build-mobile-dev-shell.js build \
+            --platform android
+
+      - name: Create arm64 APK manifest
+        id: artifact
+        run: |
+          set -euo pipefail
+          artifact="apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk"
+          manifest="apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json"
+          shell_artifact_key="$(node apps/mobile/scripts/native-dev-shell.js artifact-manifest \
+            --platform android \
+            --artifact "$artifact" \
+            --web-embed-receipt apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json \
+            --output "$manifest")"
+          shell_compatibility_key="$(jq -er '.shellCompatibilityKey' "$manifest")"
+          shell_input_key="$(jq -er '.shellInputKey' "$manifest")"
+          native_contract_key="$(jq -er '.nativeContractKey' "$manifest")"
+          {
+            echo "artifact_tag=mobile-dev-shell-artifact-v3-android-arm64-v8a-$shell_artifact_key"
+            echo "compatibility_key=$shell_compatibility_key"
+            echo "compatibility_tag=mobile-dev-shell-contract-v3-android-arm64-v8a-$shell_compatibility_key"
+            echo "exact_tag=mobile-dev-shell-input-v3-android-arm64-v8a-$shell_input_key"
+            echo "input_key=$shell_input_key"
+            echo "native_contract_key=$native_contract_key"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish Android dev shell to GHCR
+        if: ${{ github.ref == 'refs/heads/x' }}
+        uses: ./.github/actions/publish-mobile-dev-shell
+        with:
+          architecture: arm64-v8a
+          artifact: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk
+          artifact_tag: ${{ steps.artifact.outputs.artifact_tag }}
+          compatibility_key: ${{ steps.artifact.outputs.compatibility_key }}
+          compatibility_tag: ${{ steps.artifact.outputs.compatibility_tag }}
+          exact_tag: ${{ steps.artifact.outputs.exact_tag }}
+          input_key: ${{ steps.artifact.outputs.input_key }}
+          manifest: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
+          native_contract_key: ${{ steps.artifact.outputs.native_contract_key }}
+          platform: android
+          signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml
+
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Upload Android dev shell
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mobile-dev-shell-android-arm64-${{ github.sha }}
+          path: |
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
+            apps/mobile/out-dir-bundle/dev-shell/mobile-dev-shell-attestations.jsonl
+          if-no-files-found: error
+
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # pin to SHA
+        with:
+          tool-cache: false
+          android: true
+          dotnet: false
+          haskell: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false

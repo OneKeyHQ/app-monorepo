@@ -1,0 +1,289 @@
+# cspell:words prebundle
+name: Web Embed Prebundle
+
+on:
+  push:
+    branches:
+      - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
+  schedule:
+    - cron: '30 18 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: web-embed-prebundle-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  OCI_ARTIFACT_TYPE: application/vnd.onekey.web-embed-prebundle.v1
+  OCI_REGISTRY: ghcr.io
+  OCI_REPOSITORY: onekeyhq/web-embed-prebundle
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  resolve:
+    name: Resolve public OCI prebundle
+    if: >-
+      github.repository == 'OneKeyHQ/app-monorepo' &&
+      (github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      exists: ${{ steps.artifact.outputs.exists }}
+      tag: ${{ steps.artifact.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          check-latest: true
+
+      - name: Verify OCI configuration
+        run: |
+          node <<'NODE'
+          const config = require('./apps/web-embed/scripts/web-embed-prebundle');
+          for (const name of ['OCI_ARTIFACT_TYPE', 'OCI_REGISTRY', 'OCI_REPOSITORY']) {
+            if (process.env[name] !== config[name]) {
+              throw new Error(`${name} does not match web-embed-prebundle.js.`);
+            }
+          }
+          NODE
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+        with:
+          version: 1.3.1
+
+      - name: Log in to GHCR for bootstrap lookup
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$GHCR_TOKEN" |
+          oras login "$OCI_REGISTRY"
+          --username "$GITHUB_ACTOR"
+          --password-stdin
+
+      - name: Resolve immutable OCI tag
+        id: artifact
+        run: |
+          set -euo pipefail
+          tag="$(node apps/web-embed/scripts/web-embed-prebundle.js tag)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$tag"
+          if descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+            oras logout "$OCI_REGISTRY" >/dev/null
+            if ! public_descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+              printf '%s\n' "$public_descriptor" >&2
+              echo "::error::The web-embed prebundle exists but is not publicly readable. Set the GHCR package visibility to public."
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -Eiq 'manifest unknown|not found' <<< "$descriptor"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$descriptor" >&2
+            exit 1
+          fi
+
+  build:
+    name: Build web-embed prebundle
+    needs: resolve
+    if: needs.resolve.outputs.exists != 'true'
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn install --immutable
+
+      - name: Build canonical web-embed prebundle
+        run: yarn workspace @onekeyhq/web-embed prebundle:build
+
+      - name: Package release assets
+        run: >-
+          yarn workspace @onekeyhq/web-embed prebundle:package
+          --source-commit "$GITHUB_SHA"
+
+      - name: Verify resolved release tag
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync(
+            'apps/web-embed/out-dir-bundle/web-embed-prebundle-release/web-embed-prebundle-release.json',
+            'utf8',
+          ));
+          if (release.tagName !== process.env.RELEASE_TAG) {
+            throw new Error(`Packaged tag ${release.tagName} does not match resolved tag ${process.env.RELEASE_TAG}.`);
+          }
+          NODE
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: web-embed-prebundle-release
+          path: apps/web-embed/out-dir-bundle/web-embed-prebundle-release/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Publish web-embed OCI prebundle
+    needs:
+      - resolve
+      - build
+    if: >-
+      github.ref == 'refs/heads/x' &&
+      needs.build.result == 'success' &&
+      needs.resolve.outputs.exists != 'true'
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+        with:
+          version: 1.3.1
+
+      - name: Download release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: web-embed-prebundle-release
+          path: apps/web-embed/out-dir-bundle/web-embed-prebundle-release
+
+      - name: Generate build provenance attestations
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: apps/web-embed/out-dir-bundle/web-embed-prebundle-release/*
+
+      - name: Verify generated provenance offline
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/web-embed/out-dir-bundle/web-embed-prebundle-release"
+          trusted_root="apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl"
+          for asset in "$release_dir"/*; do
+            gh attestation verify "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --bundle "$ATTESTATION_BUNDLE" \
+              --custom-trusted-root "$trusted_root" \
+              --signer-workflow "OneKeyHQ/app-monorepo/.github/workflows/web-embed-prebundle.yml" \
+              --source-ref "refs/heads/x" \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners
+          done
+          cp "$ATTESTATION_BUNDLE" "$release_dir/web-embed-prebundle-attestations.jsonl"
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$GHCR_TOKEN" |
+          oras login "$OCI_REGISTRY"
+          --username "$GITHUB_ACTOR"
+          --password-stdin
+
+      - name: Publish immutable OCI artifact
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/web-embed/out-dir-bundle/web-embed-prebundle-release"
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG"
+          descriptor_error="$RUNNER_TEMP/web-embed-prebundle-descriptor-error.txt"
+          if oras manifest fetch --descriptor "$reference" >/dev/null 2>"$descriptor_error"; then
+            echo "Web-embed prebundle was published by another run: $reference"
+          elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
+            (
+              cd "$release_dir"
+              oras push \
+                --artifact-type "$OCI_ARTIFACT_TYPE" \
+                --annotation "org.opencontainers.image.description=OneKey web-embed prebundle" \
+                --annotation "org.opencontainers.image.revision=$GITHUB_SHA" \
+                --annotation "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+                --annotation "org.opencontainers.image.version=$RELEASE_TAG" \
+                "$reference" \
+                "web-embed.tar.gz:application/vnd.onekey.web-embed-prebundle.layer.v1+gzip" \
+                "web-embed-prebundle-release.json:application/vnd.onekey.web-embed-prebundle.metadata.v1+json" \
+                "web-embed-prebundle-attestations.jsonl:application/vnd.onekey.web-embed-prebundle.attestation.v1+jsonl"
+            )
+          else
+            cat "$descriptor_error" >&2
+            exit 1
+          fi
+          oras manifest fetch "$reference" | jq -e \
+            --arg artifact_type "$OCI_ARTIFACT_TYPE" \
+            --arg revision "$GITHUB_SHA" \
+            '.artifactType == $artifact_type and .annotations["org.opencontainers.image.revision"] == $revision'
+
+      - name: Verify public anonymous access
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG"
+          oras logout "$OCI_REGISTRY" >/dev/null
+          if ! descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+            printf '%s\n' "$descriptor" >&2
+            echo "::error::The published web-embed prebundle is not publicly readable. Set the GHCR package visibility to public."
+            exit 1
+          fi
+
+      - name: Write summary
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          {
+            echo "### Web-embed prebundle"
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- OCI reference: \`$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"

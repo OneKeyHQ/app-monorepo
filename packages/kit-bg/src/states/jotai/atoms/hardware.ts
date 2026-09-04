@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   EFirmwareUpdateTipMessages,
@@ -11,6 +12,14 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceStageAuthChecklistItem,
+  IDeviceStageAuthFailureReasonValue,
+  IDeviceStageConfirmContent,
+  IDeviceStageConfirmDetail,
+  IDeviceStageErrorReasonValue,
+  IDeviceStageStepValue,
+} from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { EAtomNames } from '../atomNames';
@@ -70,6 +79,11 @@ export type IHardwareUiPayload = {
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';
+  // The stage's enterPin card may offer "Prefer to enter PIN in app?"
+  // (OK-61489). Set only on the button-device on-device-entry route when
+  // the opt-in would actually take: a stored device record to write, app
+  // entry supported by firmware, and a plain (non attach-PIN) request.
+  pinSwitchToAppAvailable?: boolean;
   // service promise for waiting user interaction
   promiseId?: string;
 };
@@ -169,6 +183,82 @@ export const {
 } = globalAtom<IHardwareUiState | undefined>({
   initialValue: undefined,
   name: EAtomNames.hardwareUiStateCompletedAtom,
+});
+
+// device stage (OK-59934) ----------------------------------------
+
+/**
+ * The DeviceStage driver's single source of truth. One burst = one stage
+ * entrance/exit: the burst scope in ServiceHardwareUI owns every write, and
+ * the DeviceStageContainer renders purely from it. `step: 'off'` is the only
+ * state that plays the exit animation.
+ */
+export type IDeviceStageState = {
+  /** Monotonic id; a new burst resets the container's close-grant policy. */
+  burstId: number;
+  step: IDeviceStageStepValue;
+  connectId?: string;
+  deviceType?: IDeviceType;
+  deviceName?: string;
+  /** Third-party track: dresses the stage for Trezor / Ledger. */
+  vendor?: EHardwareVendor;
+  /** SDK model code (T3W1 / nanoX …) → the capsule's real product shot. */
+  vendorModel?: string;
+  vendorModelName?: string;
+  /** The original third-party action — the container builds UI responses
+   * from it without reverse-mapping steps. */
+  thirdPartyAction?: EThirdPartyHardwareUiAction;
+  /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
+  appName?: string;
+  installProgress?: number;
+  installQueue?: string[];
+  installActiveIndex?: number;
+  btcHighIndexPath?: string;
+  btcHighIndexAccountIndex?: number;
+  /** Authenticity flow: the per-component checklist and what ended it. */
+  authChecklist?: IDeviceStageAuthChecklistItem[];
+  authFailureReason?: IDeviceStageAuthFailureReasonValue;
+  /** Fallback failure detail (v6.5.0 dialog parity): the real error
+   * message stands in for the generic unknown title and the code rides
+   * as a suffix. Display-ready strings — the runner resolves ids. */
+  authFailureMessage?: string;
+  authFailureCode?: string;
+  errorReason?: IDeviceStageErrorReasonValue;
+  /**
+   * The failure's own words, for the outcomes no reason claims. The
+   * legacy toast spoke them and the stage suppresses that toast, so
+   * without this the specific message is lost and the card falls back
+   * to "Something went wrong". Display-ready: the error layer has
+   * already localized it.
+   */
+  errorMessage?: string;
+  /** Inline retry line for the active input panel (wrong PIN etc.). */
+  inputError?: string;
+  passphraseMode?: 'create' | 'verify';
+  /** Air-gap track (doc §4.6): the request UR the showQr card presents,
+   * animated by the panel itself. Carried across showQr ⇄ scanQr — the
+   * way back re-presents the same code — and cleared everywhere else. */
+  qrValueUr?: IAirGapUrJson;
+  /** The air-gap session's tag: the viewfinder echoes it back with the
+   * completed scan, and a submit whose tag no longer matches the live
+   * session is dropped — a stale frame must never answer a newer
+   * request. The servicePromise id itself never leaves bg. */
+  qrSessionId?: number;
+  confirmDetails?: IDeviceStageConfirmDetail[];
+  confirmMessage?: string;
+  confirmDescription?: string;
+  confirmDescriptionDanger?: boolean;
+  confirmCount?: IDeviceStageConfirmContent['count'];
+  /** The originating hardware UI payload — carries uiResponseCorrelation
+   * the container needs when answering PIN/passphrase requests. */
+  payload?: IHardwareUiPayload;
+};
+
+export const { target: deviceStageAtom, use: useDeviceStageAtom } = globalAtom<
+  IDeviceStageState | undefined
+>({
+  initialValue: undefined,
+  name: EAtomNames.deviceStageAtom,
 });
 
 // third-party hardware ui state -----------------------------------

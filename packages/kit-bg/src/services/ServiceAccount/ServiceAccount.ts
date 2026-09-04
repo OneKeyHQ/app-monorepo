@@ -357,11 +357,31 @@ class ServiceAccount extends ServiceBase {
       swrCacheUtils.removeByPrefix(
         prefixOf(swrCacheNamespaces.accountSelectorList),
       );
+    // Bulk copy / bulk send snapshot wallet objects, account groups and the
+    // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
+    // same contract: a mutation drops the namespaces and the next mount
+    // repopulates, instead of painting (and exporting) a deleted or renamed
+    // wallet / account left over from the previous run.
+    const dropBulkAddressSwr = () => {
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesWallets),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesNetworkIds),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesAccounts),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkSendAddressesInputSeed),
+      );
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
@@ -369,30 +389,35 @@ class ServiceAccount extends ServiceBase {
       // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
       // sidebar doesn't show account names, only the right-panel sectionData does
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
@@ -405,6 +430,7 @@ class ServiceAccount extends ServiceBase {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
@@ -6067,6 +6093,9 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
+    /** DeviceStage confirm channel: the address the person expects, shown
+     * on the confirm card to check against the device screen. */
+    expectedAddress?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -6133,6 +6162,21 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
+        stageConfirmContent: params.expectedAddress
+          ? {
+              details: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: params.expectedAddress,
+                  highlightEnds: true,
+                },
+              ],
+            }
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
@@ -7276,6 +7320,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }

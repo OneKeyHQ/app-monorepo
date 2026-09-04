@@ -28,6 +28,7 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -108,6 +109,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
@@ -319,6 +321,12 @@ function CheckAndUpdatePage({
         if (connectId) {
           void backgroundApiProxy.serviceHardware.cancel({ connectId });
         }
+        // The hung call may never reach its own finally, so release the hold
+        // here — the staleness check above already proved this watchdog owns
+        // the live round. No error is passed: the row below is a Retry
+        // invitation, and end({ error }) would stack a second failure notice
+        // on the stage on top of it.
+        void endBurst();
         setSteps((prev) => {
           if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
             return prev;
@@ -336,7 +344,7 @@ function CheckAndUpdatePage({
       }, timeoutMs);
       return () => clearTimeout(timeout);
     },
-    [intl],
+    [endBurst, intl],
   );
 
   // Firmware check is done — hand off to the dedicated DeviceSetup page, which
@@ -607,10 +615,18 @@ function CheckAndUpdatePage({
         });
       } finally {
         cancelTimeout();
+        // The last hardware word of this page's run — but only while this
+        // round is still the live one. The holder keeps a single token ref,
+        // so a superseded round settling late would otherwise close the hold
+        // its successor (or the watchdog that retired it) now owns.
+        if (!isStale()) {
+          void endBurst();
+        }
       }
     },
     [
       createStepTimeout,
+      endBurst,
       ensureTransportType,
       getActiveDevice,
       currentDevice,
@@ -736,6 +752,17 @@ function CheckAndUpdatePage({
       // Double-check: ensure device scanning is fully stopped before starting verification
       await ensureStopScan();
       await ensureTransportType();
+      // One stage for the whole check: the genuine run and the firmware
+      // check that follows are one conversation with the device, and the
+      // seam between them must not show.
+      const burstDevice = (getActiveDevice() ??
+        currentDevice ??
+        deviceData.device) as SearchDevice | undefined;
+      await ensureBurst({
+        connectId: burstDevice?.connectId ?? undefined,
+        deviceType: burstDevice?.deviceType,
+        deviceName: burstDevice?.name ?? undefined,
+      });
 
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -800,9 +827,15 @@ function CheckAndUpdatePage({
           setTimeout(() => {
             void checkFirmwareUpdate();
           }, 150);
+        } else {
+          // Nothing follows — the conversation is over, so the stage may go.
+          void endBurst();
         }
         isFirmwareVerifiedRef.current = !!result.verified;
       } catch (_error) {
+        // The run is over with no follow-up: release the hold, or the
+        // stage stands there forever after a cancelled check.
+        void endBurst();
         setSteps((prev) => {
           const newSteps = [...prev];
           newSteps[0] = {
@@ -816,6 +849,8 @@ function CheckAndUpdatePage({
     [
       ensureStopScan,
       ensureTransportType,
+      ensureBurst,
+      endBurst,
       verifyHardware,
       deviceData.device,
       tabValue,

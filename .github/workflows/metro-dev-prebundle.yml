@@ -5,6 +5,50 @@ on:
   push:
     branches:
       - x
+    paths:
+      - '.env.expo'
+      - '.env.version'
+      - '.github/workflows/metro-dev-prebundle.yml'
+      - 'apps/mobile/babel-plugin-jest-compat.js'
+      - 'apps/mobile/babel.config.js'
+      - 'apps/mobile/android/app-update-noop/src/main/**'
+      - 'apps/mobile/android/app/src/debug/**'
+      - 'apps/mobile/android/app/src/main/**'
+      - 'apps/mobile/android/app/src/prod/**'
+      - 'apps/mobile/android/gradle.properties'
+      - 'apps/mobile/bundle-registry/module-id-registry.json'
+      - 'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl'
+      - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/ios/AppDelegate.swift'
+      - 'apps/mobile/ios/OneKeyWallet/**'
+      - 'apps/mobile/ios/Podfile.lock'
+      - 'apps/mobile/ios/Podfile.properties.json'
+      - 'apps/mobile/ios/ServiceExtension/**'
+      - 'apps/mobile/metro.config.js'
+      - 'apps/mobile/package.json'
+      - 'apps/mobile/plugins/devVendor.js'
+      - 'apps/mobile/plugins/index.js'
+      - 'apps/mobile/plugins/map.js'
+      - 'apps/mobile/plugins/moduleIdRegistry.js'
+      - 'apps/mobile/plugins/startupProfilePrologue.js'
+      - 'apps/mobile/scripts/build-dev-vendor.js'
+      - 'apps/mobile/scripts/metro-dev-prebundle.js'
+      - 'apps/mobile/scripts/native-dev-shell.js'
+      - 'apps/mobile/svgx-transformer.js'
+      - 'development/babelTools.js'
+      - 'development/developmentConsts.js'
+      - 'development/env.js'
+      - 'development/envExposedToClient.js'
+      - 'development/platformEnvDefine.js'
+      - 'package.json'
+      - 'packages/components/colors/**'
+      - 'packages/components/src/utils/scale.ts'
+      - 'packages/components/src/utils/webFontFamily.ts'
+      - 'packages/components/tamagui.animations.ts'
+      - 'packages/components/tamagui.config.ts'
+      - 'packages/shared/src/buildTimeEnv.js'
+      - 'patches/**'
+      - 'yarn.lock'
   schedule:
     - cron: '0 18 * * 0'
   workflow_dispatch:
@@ -37,7 +81,7 @@ jobs:
       contents: read
       packages: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
     outputs:
       exists: ${{ steps.artifact.outputs.exists }}
       tag: ${{ steps.artifact.outputs.tag }}
@@ -49,7 +93,16 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
           check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn install --immutable
 
       - name: Verify OCI configuration
         run: |
