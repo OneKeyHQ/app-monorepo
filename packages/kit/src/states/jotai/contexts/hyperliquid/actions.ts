@@ -3646,20 +3646,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               coins: filteredPositions.map((p) => p.position.coin),
             });
 
-          // Get current mid prices for all positions
+          // The main-runtime atom carries no age marker, so every coin is
+          // priced by the background owner (fresh snapshot or per-dex REST),
+          // matching the single close submit path.
           const midPrices = await Promise.all(
             filteredPositions.map(async (p) => {
+              const { coin } = p.position;
               try {
-                const midPriceInfo = await this.getMidPrice.call(set, {
-                  coin: p.position.coin,
-                });
-                return { coin: p.position.coin, midPrice: midPriceInfo.mid };
+                return {
+                  coin,
+                  midPrice:
+                    await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+                      coin,
+                    ),
+                };
               } catch (error) {
-                console.warn(
-                  `Failed to get mid price for ${p.position.coin}:`,
-                  error,
-                );
-                return { coin: p.position.coin, midPrice: null };
+                console.warn(`Failed to get mid price for ${coin}:`, error);
+                return { coin, midPrice: null };
               }
             }),
           );
@@ -3667,6 +3670,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const midPriceMap = Object.fromEntries(
             midPrices.map((item) => [item.coin, item.midPrice]),
           );
+
+          // Never close a subset silently: a position without a price would
+          // be dropped while the rest reports success.
+          const unpricedCoins = filteredPositions
+            .map((p) => p.position.coin)
+            .filter((coin) => !symbolsMetaMap[coin] || !midPriceMap[coin]);
+          if (unpricedCoins.length > 0) {
+            // TODO(i18n): same pre-existing literal as ClosePositionModal.
+            const message = 'Unable to get current market price';
+            Toast.error({ title: message });
+            throw new OneKeyLocalError(
+              `${message}: ${unpricedCoins.join(', ')}`,
+            );
+          }
 
           // Prepare close orders for all positions
           const positionsToClose = filteredPositions

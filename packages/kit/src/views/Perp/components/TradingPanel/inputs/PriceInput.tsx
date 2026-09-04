@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,8 @@ interface IPriceInputProps {
   midPrice?: string;
   error?: string;
   disabled?: boolean;
+  onUseMidPrice?: () => void;
+  midPriceDisabled?: boolean;
   szDecimals?: number;
   label?: string;
   placeholder?: string;
@@ -30,6 +32,8 @@ export const PriceInput = memo(
     onChange,
     error,
     disabled = false,
+    onUseMidPrice,
+    midPriceDisabled = false,
     szDecimals,
     label,
     placeholder,
@@ -56,6 +60,21 @@ export const PriceInput = memo(
       [isSpot, szDecimals],
     );
 
+    const actions = useMemo(
+      () =>
+        onUseMidPrice
+          ? [
+              {
+                label: 'Mid',
+                labelColor: '$green11',
+                onPress: onUseMidPrice,
+                disabled: midPriceDisabled,
+              },
+            ]
+          : undefined,
+      [onUseMidPrice, midPriceDisabled],
+    );
+
     return (
       <TradingFormInput
         placeholder={
@@ -75,6 +94,7 @@ export const PriceInput = memo(
         disabled={disabled}
         error={error}
         validator={validator}
+        actions={actions}
         keyboardType="decimal-pad"
         ifOnDialog={ifOnDialog}
         isMobile={isMobile}
