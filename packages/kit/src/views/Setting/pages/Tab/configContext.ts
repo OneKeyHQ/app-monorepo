@@ -5,10 +5,8 @@ import type { ISettingsConfig } from './config';
 export const ConfigContext = createContext<{
   settingsConfig: ISettingsConfig;
   /**
-   * True only under the settings tab navigator's provider. Pane hosts read
-   * this to decide whether items promoted to sidebar tabs should hide from
-   * their origin pane; standalone hosts (pushed SettingListSubModal pages)
-   * stay on the default and keep those items visible.
+   * True only under the settings tab navigator's provider. Used for
+   * analytics source (sidebar vs category page).
    */
   insideTabNavigator: boolean;
 }>({

@@ -1,6 +1,29 @@
 name: Mobile Dev Shell Android
 
 on:
+  push:
+    branches:
+      - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/mobile-dev-shell-android.yml'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/mobile/android/**'
+      - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/package.json'
+      - 'apps/mobile/plugins/devVendor.js'
+      - 'apps/mobile/react-native.config.js'
+      - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
   workflow_dispatch:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
