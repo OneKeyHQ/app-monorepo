@@ -236,7 +236,30 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     );
     expect(mmkvInstance.getString('g_states_v5:orphanedAtom')).toBeUndefined();
     expect(JSON.stringify(mockNativeLoggerWrite.mock.calls)).toContain(
-      'target cleanup result=cleared staleKeyCount=1',
+      'target cleanup result=cleared targetKeyCount=1 sourceEnumeration=complete',
+    );
+  });
+
+  it('preserves recovered target values when source enumeration fails', async () => {
+    mmkvInstance.set('g_states_v5:recoveredAtom', '"recovered"');
+    legacyStorage.getAllKeys.mockRejectedValue(
+      new OneKeyLocalError('legacy manifest unavailable'),
+    );
+    const storage = createStorage();
+
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+
+    expect(await storage.getItem('g_states_v5:recoveredAtom', null)).toBe(
+      'recovered',
+    );
+    expect(
+      JSON.parse(mmkvInstance.getString(MIGRATION_REPORT_KEY) || '{}'),
+    ).toMatchObject({
+      enumerationStatus: 'failed',
+      status: 'degraded',
+    });
+    expect(JSON.stringify(mockNativeLoggerWrite.mock.calls)).toContain(
+      'target cleanup result=preserved targetKeyCount=1 sourceEnumeration=failed',
     );
   });
 

@@ -513,16 +513,24 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         );
       }
 
-      // A killed process may leave target keys that are no longer discoverable
-      // from the current source. Rebuild the dedicated Jotai namespace from
-      // scratch so partial or orphaned values cannot enter background state.
-      const staleTargetKeys = this.getBusinessKeys();
-      staleTargetKeys.forEach((key) => {
-        void this.store.delete(key as any);
-      });
-      this.log(
-        `target cleanup result=cleared staleKeyCount=${staleTargetKeys.length}`,
-      );
+      const existingTargetKeys = this.getBusinessKeys();
+      if (enumeration.enumerationStatus === 'complete') {
+        // A killed process may leave target keys that are no longer discoverable
+        // from the current source. Only a complete enumeration can prove that
+        // these values are orphaned and safe to remove before rebuilding.
+        existingTargetKeys.forEach((key) => {
+          void this.store.delete(key as any);
+        });
+        this.log(
+          `target cleanup result=cleared targetKeyCount=${existingTargetKeys.length} sourceEnumeration=complete`,
+        );
+      } else {
+        // Preserve the last recoverable MMKV state when the source key set is
+        // unknown. Known candidates can still overwrite it during this pass.
+        this.log(
+          `target cleanup result=preserved targetKeyCount=${existingTargetKeys.length} sourceEnumeration=failed`,
+        );
+      }
 
       const failures: IJotaiMigrationFailure[] = [];
       let migratedCount = 0;
