@@ -24,6 +24,7 @@ import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -244,6 +245,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;
+  serviceBulkSend: ServiceBulkSend;
   serviceFiatCrypto: ServiceFiatCrypto;
   serviceSignature: ServiceSignature;
   serviceNostr: ServiceNostr;

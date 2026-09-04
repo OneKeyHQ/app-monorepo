@@ -35,7 +35,10 @@ import type {
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSlippageSegmentKey,
+  SwapPercentageInputStage,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { StockTokenInfoPopover } from '../StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '../TokenSelector/StockTokenVariantSelector';
@@ -60,6 +63,12 @@ import { ESwapDirection } from './hooks/useTradeType';
 import { calculateMarketStockEstimatedShares } from './utils/marketStockQuoteDisplayUtils';
 
 import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings';
+
+const stockPercentageAmountEnterSources = [
+  'preset1',
+  'preset2',
+  'preset3',
+] as const;
 
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
@@ -305,6 +314,50 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     intl,
   ]);
 
+  const handlePercentageSelect = useCallback(
+    (stage: number) => {
+      const percentageStageIndex = SwapPercentageInputStage.indexOf(stage);
+      const amountEnterSource =
+        stockPercentageAmountEnterSources[percentageStageIndex];
+      if (!balance || !balanceToken || !amountEnterSource) {
+        return;
+      }
+
+      const reserveGas = swapNativeTokenReserveGas.find(
+        (item) => item.networkId === balanceToken.networkId,
+      )?.reserveGas;
+      let amount = balance.multipliedBy(new BigNumber(stage).dividedBy(100));
+      if (balanceToken.isNative && reserveGas) {
+        amount = BigNumber.max(0, amount.minus(new BigNumber(reserveGas)));
+      }
+      if (balanceToken.decimals !== undefined) {
+        amount = amount.decimalPlaces(
+          balanceToken.decimals,
+          BigNumber.ROUND_DOWN,
+        );
+      }
+
+      if (tradeType === ESwapDirection.BUY) {
+        setPaymentAmount(amount);
+        tokenBuyInputRef.current?.setValue(amount.toFixed());
+      } else {
+        setSellAmount(amount);
+        tokenSellInputRef.current?.setValue(amount.toFixed());
+      }
+
+      setAmountEnterType(amountEnterSource);
+    },
+    [
+      balance,
+      balanceToken,
+      setAmountEnterType,
+      setPaymentAmount,
+      setSellAmount,
+      swapNativeTokenReserveGas,
+      tradeType,
+    ],
+  );
+
   useEffect(() => {
     if (
       (new BigNumber(paymentAmountRef.current?.toFixed()).gt(0) &&
@@ -537,6 +590,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           balanceLoading={balanceLoading}
           fiatValue={stockInputFiatValue}
           onMaxPress={handleBalanceClick}
+          onSelectPercentageStage={handlePercentageSelect}
           onAmountEnterTypeChange={setAmountEnterType}
           disableNativeToken={disableNativeToken}
         />
@@ -554,6 +608,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           balanceLoading={balanceLoading}
           fiatValue={stockInputFiatValue}
           onMaxPress={handleBalanceClick}
+          onSelectPercentageStage={handlePercentageSelect}
           onAmountEnterTypeChange={setAmountEnterType}
         />
 
