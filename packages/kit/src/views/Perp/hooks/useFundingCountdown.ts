@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// Count down to the provided funding settlement, or the next full hour.
+// Count down to the provided funding settlement, or the next full UTC hour.
 export function useFundingCountdown(nextFundingTime?: number | null) {
   const [countdown, setCountdown] = useState('00:00');
 
@@ -8,7 +8,7 @@ export function useFundingCountdown(nextFundingTime?: number | null) {
     const updateCountdown = () => {
       const now = new Date();
       const nextHour = new Date(now);
-      nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+      nextHour.setUTCHours(nextHour.getUTCHours() + 1, 0, 0, 0);
       const resolvedNextFundingTime =
         nextFundingTime && nextFundingTime > now.getTime()
           ? nextFundingTime
