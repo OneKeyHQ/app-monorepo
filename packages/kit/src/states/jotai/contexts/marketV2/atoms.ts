@@ -46,6 +46,8 @@ export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
 
+export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
+
 export const {
   atom: tokenDetailWebsocketAtom,
   use: useTokenDetailWebsocketAtom,
