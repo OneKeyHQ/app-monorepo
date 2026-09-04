@@ -207,6 +207,7 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBUpdateDeviceSettingsInPlaceParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
   IDBUtxoAccount,
@@ -7072,7 +7073,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           supportsSoftwarePin: profile.supportsSoftwarePin,
         })
       : {
-          inputPinOnSoftware: profile.supportsSoftwarePin,
+          // No stored PIN-entry preference at creation: the REQUEST_PIN
+          // gate defaults to on-device, and `true` is reserved for an
+          // explicit opt-in back to app entry (OK-61489).
           vendor: resolvedVendor,
         };
 
@@ -7234,9 +7237,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   supportsSoftwarePin: profile.supportsSoftwarePin,
                 });
               } else {
-                existingSettings.inputPinOnSoftware =
-                  existingSettings.inputPinOnSoftware ??
-                  profile.supportsSoftwarePin;
+                // Never backfill inputPinOnSoftware: unset means the
+                // on-device default, `true` is an explicit opt-in.
                 existingSettings.vendor = resolvedVendor;
               }
               item.settingsRaw = JSON.stringify(existingSettings);
@@ -9691,6 +9693,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ids: [dbDeviceId],
         updater: (item) => {
           item.settingsRaw = JSON.stringify(settings);
+          return item;
+        },
+      });
+    });
+  }
+
+  /** Rewrites the settings from what the record holds at write time, not
+   * from a snapshot the caller took earlier: a settings write that landed
+   * in between (the stage's PIN-entry switch during the startup migration)
+   * survives instead of being written back over. The updater returning
+   * undefined leaves the record alone. */
+  async updateDeviceDbSettingsInPlace({
+    dbDeviceId,
+    updater,
+  }: IDBUpdateDeviceSettingsInPlaceParams): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          const next = updater(parseDeviceSettingsRaw(item.settingsRaw));
+          if (next) {
+            item.settingsRaw = JSON.stringify(next);
+          }
           return item;
         },
       });
