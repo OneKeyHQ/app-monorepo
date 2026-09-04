@@ -760,6 +760,8 @@ export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'
   | 'priceChange24hPercent'
+  | 'marketCap'
+  | 'volume24h'
   | 'symbol';
 
 export interface IMarketStockPublicListRequest {

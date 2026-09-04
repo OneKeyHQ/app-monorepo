@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import type {
   IMarketStockPublicItem,
   IMarketStockPublicListResponse,
@@ -26,8 +30,12 @@ type IMarketStockListResult = {
 };
 
 export function useMarketStockList({ category }: { category?: string }) {
-  const [sortBy, setSortBy] = useState<IMarketStockPublicListSortBy>('default');
-  const [sortType, setSortType] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<IMarketStockPublicListSortBy>(
+    DEFAULT_MARKET_STOCK_SORT_BY,
+  );
+  const [sortType, setSortType] = useState<'asc' | 'desc'>(
+    DEFAULT_MARKET_STOCK_SORT_TYPE,
+  );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadMoreError, setIsLoadMoreError] = useState(false);
   const queryKey = useMemo(
@@ -131,8 +139,8 @@ export function useMarketStockList({ category }: { category?: string }) {
       nextSortType: 'asc' | 'desc' | undefined,
     ) => {
       if (!nextSortType) {
-        setSortBy('default');
-        setSortType('asc');
+        setSortBy(DEFAULT_MARKET_STOCK_SORT_BY);
+        setSortType(DEFAULT_MARKET_STOCK_SORT_TYPE);
         return;
       }
       setSortBy(nextSortBy);

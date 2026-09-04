@@ -23,10 +23,7 @@ import {
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IMarketStockPublicItem,
-  IMarketStockPublicListSortBy,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
@@ -37,6 +34,7 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
 import { useMarketStockColumns } from './useMarketStockColumns';
+import { getMarketStockSortByColumn } from './utils';
 
 import type { IMarketCategoryItem } from '../../types';
 
@@ -98,14 +96,7 @@ function MarketStockListImpl({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketStockPublicItem>) => {
-      let serverSortBy:
-        | Exclude<IMarketStockPublicListSortBy, 'default'>
-        | undefined;
-      if (column.dataIndex === 'price') {
-        serverSortBy = 'price';
-      } else if (column.dataIndex === 'priceChange24hPercent') {
-        serverSortBy = 'priceChange24hPercent';
-      }
+      const serverSortBy = getMarketStockSortByColumn(column.dataIndex);
       if (!serverSortBy) {
         return undefined;
       }
