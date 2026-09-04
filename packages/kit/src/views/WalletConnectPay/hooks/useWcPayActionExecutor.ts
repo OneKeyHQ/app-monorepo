@@ -25,6 +25,10 @@ import {
   WALLET_CONNECT_PAY_TRUSTED_HOST,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import { isWcPayExpired } from '@onekeyhq/shared/src/walletConnect/payExpiryUtils';
 import {
   EWcPayActionMethod,
@@ -313,7 +317,10 @@ export function useWcPayActionExecutor() {
         // A legitimate payment never approaches this; a hostile sequence
         // must fail outright rather than get one confirm page per action
         // as a "fallback" griefing surface (Phase 3 §7).
-        throw new OneKeyLocalError('Too many payment actions');
+        throw new WcPayError({
+          code: EWcPayErrorCode.TooManyActions,
+          message: 'Too many payment actions',
+        });
       }
       const startIndex = Math.min(
         completedResults?.length ?? 0,
@@ -545,7 +552,10 @@ export function useWcPayActionExecutor() {
                 // instead of waiting on a dead transaction until the TTL
                 // expires
                 await onActionInvalidated?.({ index: prevIndex });
-                throw new OneKeyLocalError('Transaction reverted on chain');
+                throw new WcPayError({
+                  code: EWcPayErrorCode.TxReverted,
+                  message: 'Transaction reverted on chain',
+                });
               }
             }
           }
@@ -635,15 +645,18 @@ export function useWcPayActionExecutor() {
         // progress persisted via onActionComplete keeps already-broadcast
         // transactions safe for the (server-driven) expired/failed settling
         if (isWcPayExpired(expiryMs)) {
-          // copy pending product i18n keys
-          throw new OneKeyLocalError('This payment has expired');
+          throw new WcPayError({
+            code: EWcPayErrorCode.PaymentExpired,
+            message: 'This payment has expired',
+          });
         }
         const { chainId, method, params } = actions[i].walletRpc;
         const networkId = wcPayChainIdToNetworkId(chainId);
         if (!networkId) {
-          throw new OneKeyLocalError(
-            `Unsupported WalletConnect Pay chain: ${chainId}`,
-          );
+          throw new WcPayError({
+            code: EWcPayErrorCode.UnsupportedChain,
+            message: `Unsupported WalletConnect Pay chain: ${chainId}`,
+          });
         }
         // honour the user's global derive type so the signing account matches
         // the address offered in buildPayAccounts
@@ -903,10 +916,10 @@ export function useWcPayActionExecutor() {
                       // happened when it throws
                       onBeforeSend: () => {
                         if (isWcPayExpired(expiryMs)) {
-                          // copy pending product i18n keys
-                          const expiredError = new OneKeyLocalError(
-                            'This payment has expired',
-                          );
+                          const expiredError = new WcPayError({
+                            code: EWcPayErrorCode.PaymentExpired,
+                            message: 'This payment has expired',
+                          });
                           (expiredError as unknown as Record<string, boolean>)[
                             deadlineBeforeSendFlag
                           ] = true;
@@ -941,7 +954,10 @@ export function useWcPayActionExecutor() {
                           resolve(id);
                         } else {
                           reject(
-                            new OneKeyLocalError('Missing transaction id'),
+                            new WcPayError({
+                              code: EWcPayErrorCode.MissingTxid,
+                              message: 'Missing transaction id',
+                            }),
                           );
                         }
                       },
@@ -1010,7 +1026,10 @@ export function useWcPayActionExecutor() {
                 // uncertainty (thrown above) keeps the txid so a retry never
                 // re-broadcasts a possibly-mined payment.
                 await onActionInvalidated?.({ index: i });
-                throw new OneKeyLocalError('Transaction reverted on chain');
+                throw new WcPayError({
+                  code: EWcPayErrorCode.TxReverted,
+                  message: 'Transaction reverted on chain',
+                });
               }
             }
             break;
@@ -1421,7 +1440,10 @@ export function useWcPayActionExecutor() {
                         resolve(raw);
                       } else {
                         reject(
-                          new OneKeyLocalError('Missing signed transaction'),
+                          new WcPayError({
+                            code: EWcPayErrorCode.MissingSignedTx,
+                            message: 'Missing signed transaction',
+                          }),
                         );
                       }
                     },
@@ -1446,9 +1468,10 @@ export function useWcPayActionExecutor() {
           }
           default:
             // never skip unknown actions: results must match actions exactly
-            throw new OneKeyLocalError(
-              `Unsupported WalletConnect Pay method: ${method}`,
-            );
+            throw new WcPayError({
+              code: EWcPayErrorCode.UnsupportedMethod,
+              message: `Unsupported WalletConnect Pay method: ${method}`,
+            });
         }
       }
 

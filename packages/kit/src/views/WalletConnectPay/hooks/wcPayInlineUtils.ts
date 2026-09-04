@@ -810,7 +810,7 @@ function extractWcPayInlineFailureMessage(error: unknown): string {
   if (message) {
     return message;
   }
-  // copy pending product i18n keys
+  // diagnostic only: failure.message is logged, never rendered
   return 'Something went wrong';
 }
 

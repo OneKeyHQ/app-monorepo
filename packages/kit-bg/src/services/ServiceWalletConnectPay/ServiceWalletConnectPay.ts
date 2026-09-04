@@ -5,14 +5,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
   WC_PAY_PROGRESS_CORRUPT_ERROR,
-  WC_PAY_PROGRESS_DAMAGED_MESSAGE,
   WC_PAY_PROGRESS_UNREADABLE_ERROR,
   shouldRefuseWcPayWithoutDurableProgress,
 } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
@@ -23,6 +20,10 @@ import {
   validateWcPayLinkDomain,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
   IWcPayAction,
@@ -77,29 +78,37 @@ export function validateWcPayActions(actions: IWcPayAction[]) {
     const { chainId, method, params } = action.walletRpc;
     const targetNetworkId = wcPayChainIdToNetworkId(chainId);
     if (!targetNetworkId) {
-      throw new OneKeyError(`Unsupported WalletConnect Pay chain: ${chainId}`);
+      throw new WcPayError({
+        code: EWcPayErrorCode.UnsupportedChain,
+        message: `Unsupported WalletConnect Pay chain: ${chainId}`,
+      });
     }
     const expectedNamespace =
       WC_PAY_METHOD_NAMESPACES[method as EWcPayActionMethod];
     if (expectedNamespace && !chainId.startsWith(`${expectedNamespace}:`)) {
-      throw new OneKeyError(
-        `WalletConnect Pay method ${method} does not match chain ${chainId}`,
-      );
+      throw new WcPayError({
+        code: EWcPayErrorCode.MethodChainMismatch,
+        message: `WalletConnect Pay method ${method} does not match chain ${chainId}`,
+      });
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(params);
     } catch {
-      throw new OneKeyError(
-        `Invalid WalletConnect Pay action params: ${method}`,
-      );
+      throw new WcPayError({
+        code: EWcPayErrorCode.InvalidActionParams,
+        message: `Invalid WalletConnect Pay action params: ${method}`,
+      });
     }
     // minimal per-method shape checks mirroring what the executor extracts
     switch (method) {
       case EWcPayActionMethod.EthSendTransaction: {
         const tx = Array.isArray(parsed) ? parsed[0] : parsed;
         if (typeof tx !== 'object' || tx === null || Array.isArray(tx)) {
-          throw new OneKeyError('Invalid eth_sendTransaction params');
+          throw new WcPayError({
+            code: EWcPayErrorCode.InvalidActionParams,
+            message: 'Invalid eth_sendTransaction params',
+          });
         }
         break;
       }
@@ -124,9 +133,10 @@ export function validateWcPayActions(actions: IWcPayAction[]) {
         break;
       }
       default:
-        throw new OneKeyError(
-          `Unsupported WalletConnect Pay method: ${method}`,
-        );
+        throw new WcPayError({
+          code: EWcPayErrorCode.UnsupportedMethod,
+          message: `Unsupported WalletConnect Pay method: ${method}`,
+        });
     }
   }
 }
@@ -140,7 +150,10 @@ class ServiceWalletConnectPay extends ServiceBase {
   private async getPayClient() {
     const client = await walletConnectClients.getWalletSideClient();
     if (!client.pay) {
-      throw new OneKeyError('WalletConnect Pay is not available');
+      throw new WcPayError({
+        code: EWcPayErrorCode.NotAvailable,
+        message: 'WalletConnect Pay is not available',
+      });
     }
     return client.pay;
   }
@@ -201,9 +214,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         accountUtils.isExternalAccount({ accountId }) ||
         accountUtils.isWatchingAccount({ accountId })
       ) {
-        throw new OneKeyError(
-          'WalletConnect Pay does not support this account type',
-        );
+        throw new WcPayError({
+          code: EWcPayErrorCode.AccountTypeUnsupported,
+          message: 'WalletConnect Pay does not support this account type',
+        });
       }
     }
 
@@ -259,7 +273,10 @@ class ServiceWalletConnectPay extends ServiceBase {
     }
 
     if (accounts.length === 0) {
-      throw new OneKeyError('No supported networks for WalletConnect Pay');
+      throw new WcPayError({
+        code: EWcPayErrorCode.NoSupportedNetworks,
+        message: 'No supported networks for WalletConnect Pay',
+      });
     }
     return accounts;
   }
@@ -280,7 +297,10 @@ class ServiceWalletConnectPay extends ServiceBase {
     // so an attacker-controlled link can never reach the Pay SDK by
     // bypassing the UI entry
     if (!(await this.isPaymentLink({ uri: paymentLink }))) {
-      throw new OneKeyError('Invalid WalletConnect Pay payment link');
+      throw new WcPayError({
+        code: EWcPayErrorCode.InvalidPaymentLink,
+        message: 'Invalid WalletConnect Pay payment link',
+      });
     }
     const pay = await this.getPayClient();
     const accounts = await this.buildPayAccounts({
@@ -319,7 +339,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         supportsDurableProgress: await this.supportsDurableProgress(),
       })
     ) {
-      throw new OneKeyError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+      throw new WcPayError({
+        code: EWcPayErrorCode.BroadcastUnsupported,
+        message: 'On-chain payments are not supported on this platform',
+      });
     }
     return actions;
   }
@@ -378,10 +401,14 @@ class ServiceWalletConnectPay extends ServiceBase {
       const message = (error as Error | undefined)?.message;
       if (message === WC_PAY_PROGRESS_CORRUPT_ERROR) {
         // deterministic corruption: re-reading can never heal it, so the
-        // refusal carries the distinct message the UI maps to an explicit
+        // refusal carries the distinct code the UI maps to an explicit
         // user-confirmed discard (discardActionResultsFrom fromIndex 0) —
         // the only deletion path open to an undecodable record
-        throw new OneKeyError(WC_PAY_PROGRESS_DAMAGED_MESSAGE);
+        throw new WcPayError({
+          code: EWcPayErrorCode.ProgressDamaged,
+          message:
+            'Saved progress for this payment is damaged and cannot be resumed',
+        });
       }
       if (message === WC_PAY_PROGRESS_UNREADABLE_ERROR) {
         // transient read failure (locked keychain, platform hiccup): the
@@ -389,10 +416,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         // could pay twice. Refuse this attempt and keep the record — same
         // policy as the broadcast-beyond-hole case below; a later attempt,
         // the server-side final state, or the TTL resolves it.
-        // copy pending product i18n keys
-        throw new OneKeyError(
-          'This payment cannot be resumed safely on this device',
-        );
+        throw new WcPayError({
+          code: EWcPayErrorCode.CannotResumeOnDevice,
+          message: 'This payment cannot be resumed safely on this device',
+        });
       }
       // anything else (e.g. an index-cleanup write failing inside
       // getProgress) is not a resume-safety verdict; surface it as-is
@@ -424,10 +451,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         // second on-chain payment. Refuse the attempt instead of deleting
         // the txid-bearing record; the server-side final state (or the TTL)
         // still cleans it up.
-        // copy pending product i18n keys
-        throw new OneKeyError(
-          'This payment cannot be resumed safely on this device',
-        );
+        throw new WcPayError({
+          code: EWcPayErrorCode.CannotResumeOnDevice,
+          message: 'This payment cannot be resumed safely on this device',
+        });
       }
     }
     const entries = record.entries.slice(0, prefixLength);
@@ -448,10 +475,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         // deletion enables could pay twice. Same policy as the
         // broadcast-beyond-hole case above — refuse this attempt and keep
         // the record; the server-side final state or the TTL resolves it.
-        // copy pending product i18n keys
-        throw new OneKeyError(
-          'This payment cannot be resumed safely on this device',
-        );
+        throw new WcPayError({
+          code: EWcPayErrorCode.CannotResumeOnDevice,
+          message: 'This payment cannot be resumed safely on this device',
+        });
       }
       // fingerprint divergence means the server recomputed the action list;
       // replaying results by position would submit wrong data silently
@@ -492,7 +519,10 @@ class ServiceWalletConnectPay extends ServiceBase {
     if (fingerprint === null) {
       // validateWcPayActions guarantees parseable params before any action
       // executes, so this only fires when the API is misused
-      throw new OneKeyError('Invalid WalletConnect Pay action params');
+      throw new WcPayError({
+        code: EWcPayErrorCode.InvalidActionParams,
+        message: 'Invalid WalletConnect Pay action params',
+      });
     }
     await this.backgroundApi.simpleDb.walletConnectPay.saveActionResult({
       paymentId,
@@ -525,12 +555,18 @@ class ServiceWalletConnectPay extends ServiceBase {
     broadcastMeta?: IWcPayBroadcastMeta;
   }): Promise<void> {
     if (!txid) {
-      throw new OneKeyError('Missing WalletConnect Pay transaction id');
+      throw new WcPayError({
+        code: EWcPayErrorCode.MissingTxid,
+        message: 'Missing WalletConnect Pay transaction id',
+      });
     }
     if (!(await this.supportsDurableProgress())) {
       // broadcast-capable flows are refused upfront on such platforms;
       // reaching this means a gate was bypassed — never broadcast unrecorded
-      throw new OneKeyError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+      throw new WcPayError({
+        code: EWcPayErrorCode.BroadcastUnsupported,
+        message: 'On-chain payments are not supported on this platform',
+      });
     }
     await this.recordActionResult({
       paymentId: record.paymentId,
@@ -650,7 +686,10 @@ class ServiceWalletConnectPay extends ServiceBase {
         return { isReverted: !!receipt.status && receipt.status !== '0x1' };
       }
       if (Date.now() > deadline) {
-        throw new OneKeyError('Timed out waiting for transaction confirmation');
+        throw new WcPayError({
+          code: EWcPayErrorCode.TxConfirmationTimeout,
+          message: 'Timed out waiting for transaction confirmation',
+        });
       }
       await timerUtils.wait(3000);
     }
@@ -704,7 +743,10 @@ class ServiceWalletConnectPay extends ServiceBase {
       if (!items.length) {
         // an empty response envelope is transport-level noise, never a
         // "not found" answer
-        throw new OneKeyError('Empty RPC response');
+        throw new WcPayError({
+          code: EWcPayErrorCode.EmptyRpcResponse,
+          message: 'Empty RPC response',
+        });
       }
       // on preset networks proxyRPCCall returns the parseRPCResponse
       // promises unresolved inside the array, so each element must be

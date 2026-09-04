@@ -1,4 +1,7 @@
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 
 /**
  * EVM message-param extractors shared by the up-front action-list validator
@@ -61,7 +64,10 @@ export function extractWcPayTypedDataMessage(parsed: unknown): string {
       return JSON.stringify(item);
     }
   }
-  throw new OneKeyError('Invalid eth_signTypedData_v4 params');
+  throw new WcPayError({
+    code: EWcPayErrorCode.InvalidActionParams,
+    message: 'Invalid eth_signTypedData_v4 params',
+  });
 }
 
 /**
@@ -95,5 +101,8 @@ export function extractWcPayPersonalSignMessage({
   if (typeof parsed === 'string') {
     return parsed;
   }
-  throw new OneKeyError('Invalid personal_sign params');
+  throw new WcPayError({
+    code: EWcPayErrorCode.InvalidActionParams,
+    message: 'Invalid personal_sign params',
+  });
 }

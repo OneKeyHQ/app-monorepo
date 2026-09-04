@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { DialogV2 } from '@onekeyhq/components/src/composite/DialogV2';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -12,15 +14,16 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
-  WC_PAY_PROGRESS_DAMAGED_MESSAGE,
-  shouldRefuseWcPayOptionUpfront,
-} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import { shouldRefuseWcPayOptionUpfront } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+  isWcPayErrorCode,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import {
   getWcPayEffectiveExpiryMs,
   isWcPayExpired,
@@ -81,6 +84,7 @@ import type {
   IWcPayInlineFailure,
   IWcPayInlineSigningSummary,
 } from '../hooks/wcPayInlineUtils';
+import type { IntlShape } from 'react-intl';
 
 // Longest standard modal dismissal on iOS/Android (~350ms) plus slack.
 const WC_PAY_MODAL_TRANSITION_MS = 500;
@@ -137,24 +141,53 @@ interface IWcPayInlineFailureRecord {
  * Kind-derived banner copy — the ONLY failure text rendered;
  * `failure.message` is a diagnostic, never shown (see PaymentOptionsModal).
  */
-function getWcPayInlineFailureCopy(failure: IWcPayInlineFailure): {
+function getWcPayInlineFailureCopy(
+  failure: IWcPayInlineFailure,
+  intl: IntlShape,
+): {
   guidance: string;
   offersPageRetry: boolean;
 } {
   if (failure.kind === EWcPayInlineFailureKind.InsufficientBalance) {
     return {
-      // copy pending product i18n keys
-      guidance:
-        'Not enough balance on this network. Pick another asset below, or top up and try again.',
+      guidance: intl.formatMessage({
+        id: ETranslations.wc_pay_insufficient_balance_pick_another__msg,
+      }),
       offersPageRetry: false,
     };
   }
   return {
-    // copy pending product i18n keys
-    guidance:
-      'Something went wrong while sending. Retry to resume this payment safely.',
+    guidance: intl.formatMessage({
+      id: ETranslations.wc_pay_send_failed_retry_resume__msg,
+    }),
     offersPageRetry: true,
   };
+}
+
+// The default `key` every OneKeyError carries before a real one is assigned.
+const ONEKEY_ERROR_DEFAULT_KEY = 'onekey_error';
+
+/**
+ * Banner text for a failure that ended an attempt. A coded WalletConnect Pay
+ * verdict (or any OneKeyError carrying a real i18n key) renders its
+ * localized copy; an error without one keeps its own message, as the routed
+ * page's toast did; and the generic line covers an error with neither.
+ */
+function resolveWcPayFailureText(error: unknown, intl: IntlShape): string {
+  const { key, info, message } =
+    (error as
+      | { key?: string; info?: Record<string, unknown>; message?: string }
+      | undefined) ?? {};
+  if (key && key !== ONEKEY_ERROR_DEFAULT_KEY) {
+    return intl.formatMessage(
+      { id: key as ETranslations },
+      info as Record<string, string> | undefined,
+    );
+  }
+  return (
+    message ||
+    intl.formatMessage({ id: ETranslations.wc_pay_generic_failure__msg })
+  );
 }
 
 // option.account is CAIP-10 ("namespace:reference:address"); its chain part
@@ -183,10 +216,21 @@ function isWcPayUnsupportedAccountType({
   );
 }
 
+function formatPayAmountParts(amount: IWcPayAmount): {
+  amount: string;
+  token: string;
+} {
+  return {
+    amount: new BigNumber(amount.value)
+      .shiftedBy(-amount.display.decimals)
+      .toFixed(),
+    token: amount.display.assetSymbol,
+  };
+}
+
 function formatPayAmount(amount: IWcPayAmount): string {
-  return `${new BigNumber(amount.value)
-    .shiftedBy(-amount.display.decimals)
-    .toFixed()} ${amount.display.assetSymbol}`;
+  const { amount: value, token } = formatPayAmountParts(amount);
+  return `${value} ${token}`;
 }
 
 // Q6: the countdown is not displayed anymore; only the local expiry signal
@@ -216,6 +260,7 @@ interface IWcPayDamagedContext {
 
 function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const navigation = useAppNavigation();
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { executeActions } = useWcPayActionExecutor();
   const dialogState = useWcPayDialogState();
@@ -494,23 +539,28 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
             await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress(),
         })
       ) {
-        throw new OneKeyLocalError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+        throw new WcPayError({
+          code: EWcPayErrorCode.BroadcastUnsupported,
+          message: 'On-chain payments are not supported on this platform',
+        });
       }
 
       // 1. compliance data collection must complete BEFORE fetching actions.
       const collectData = selectedOption.collectData ?? payResult.collectData;
       if (collectData) {
         if (!collectData.url) {
-          throw new OneKeyLocalError(
-            'WalletConnect Pay data collection form is unavailable',
-          );
+          throw new WcPayError({
+            code: EWcPayErrorCode.DataCollectionUnavailable,
+            message: 'WalletConnect Pay data collection form is unavailable',
+          });
         }
         // the form URL comes from the server response; never load an
         // untrusted host into the webview/iframe presented as WC Pay
         if (!isWcPayTrustedUrl(collectData.url)) {
-          throw new OneKeyLocalError(
-            'Untrusted WalletConnect Pay data collection URL',
-          );
+          throw new WcPayError({
+            code: EWcPayErrorCode.DataCollectionUntrusted,
+            message: 'Untrusted WalletConnect Pay data collection URL',
+          });
         }
         // The form is a full-screen route (Q10): the dialog parks while the
         // form owns the screen and returns when it settles either way.
@@ -539,7 +589,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       // payment deadline; never fetch/execute actions for an expired payment
       if (isWcPayExpired(effectiveExpiryMs)) {
         // surfaced through the expired terminal via isExpiredLocally
-        throw new OneKeyLocalError('This payment has expired');
+        throw new WcPayError({
+          code: EWcPayErrorCode.PaymentExpired,
+          message: 'This payment has expired',
+        });
       }
 
       // 2. fetch the ordered signing actions
@@ -719,10 +772,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
           optionId: selectedOption.id,
           accountKey: indexedAccountId ?? accountId ?? '',
         });
-      } else if (
-        (error as Error | undefined)?.message ===
-        WC_PAY_PROGRESS_DAMAGED_MESSAGE
-      ) {
+      } else if (isWcPayErrorCode(error, EWcPayErrorCode.ProgressDamaged)) {
         // Deterministically corrupt stored progress: surfaced as a dedicated
         // in-dialog step with a user-confirmed discard (see
         // PaymentOptionsModal for the content-verdict-only contract).
@@ -741,14 +791,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // rendered by the expired terminal (isExpiredLocally), everything
         // else lands in the generic banner — a toast would be invisible
         // under the iOS system sheet
-        const message = (error as Error | undefined)?.message;
-        if (message !== 'This payment has expired') {
+        if (!isWcPayErrorCode(error, EWcPayErrorCode.PaymentExpired)) {
           console.error('wcPay flow failure', error);
-          // parity with the page's toast: show the message when there is
-          // one, a generic line otherwise
-          setGenericFailure(
-            message || 'Something went wrong. Please try again.',
-          );
+          setGenericFailure(resolveWcPayFailureText(error, intl));
         }
       }
     } finally {
@@ -785,6 +830,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     executeActions,
     accountId,
     indexedAccountId,
+    intl,
   ]);
 
   const handleDamagedDiscard = useCallback(async () => {
@@ -814,7 +860,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   }, [damagedContext, damagedDiscardLoading]);
 
   const inlineFailureCopy = inlineFailure
-    ? getWcPayInlineFailureCopy(inlineFailure.failure)
+    ? getWcPayInlineFailureCopy(inlineFailure.failure, intl)
     : undefined;
   // With the selection pinned, the only drift left is the signing account —
   // plus a pinned option missing from the current account's list (see
@@ -917,8 +963,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     banner = {
       guidance: inlineFailureCopy.guidance,
       mismatchHint: isSendFailedTargetMismatch
-        ? // copy pending product i18n keys
-          'Switch back to the account you paid with to retry this payment.'
+        ? intl.formatMessage({
+            id: ETranslations.wc_pay_switch_back_to_paying_account__msg,
+          })
         : undefined,
     };
   } else if (genericFailure) {
@@ -931,7 +978,19 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const orderAmountText = payResult?.info?.amount
     ? formatPayAmount(payResult.info.amount)
     : '';
+  const payAmountButtonText = payResult?.info?.amount
+    ? intl.formatMessage(
+        { id: ETranslations.prime_pay_amount__action },
+        formatPayAmountParts(payResult.info.amount),
+      )
+    : intl.formatMessage({ id: ETranslations.global_pay });
   const merchantName = payResult?.info?.merchant?.name ?? '';
+  const merchantText = merchantName
+    ? intl.formatMessage(
+        { id: ETranslations.wc_pay_to_merchant__label },
+        { merchant: merchantName },
+      )
+    : '';
 
   let content: ReactNode = null;
   switch (view.step.name) {
@@ -949,7 +1008,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         <WcPayOptionsStep
           merchantIconUri={payResult?.info?.merchant?.iconUrl}
           amountText={orderAmountText}
-          merchantText={merchantName ? `to ${merchantName}` : ''}
+          merchantText={merchantText}
           options={sceneOptions}
           selectedId={selectedOption?.id}
           onSelectOption={handleSelectOption}
@@ -960,8 +1019,8 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
           empty={view.step.empty}
           payButtonText={
             inlineFailureCopy?.offersPageRetry
-              ? 'Retry'
-              : `Pay ${orderAmountText}`
+              ? intl.formatMessage({ id: ETranslations.global_retry })
+              : payAmountButtonText
           }
           payDisabled={
             !isPaymentActionable ||
@@ -1017,7 +1076,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       content = (
         <WcPaySuccessStep
           amountText={orderAmountText}
-          merchantText={merchantName ? `to ${merchantName}` : ''}
+          merchantText={merchantText}
           onDone={handleClose}
         />
       );

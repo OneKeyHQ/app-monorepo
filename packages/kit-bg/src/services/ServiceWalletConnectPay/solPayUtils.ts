@@ -1,6 +1,9 @@
 import bs58 from 'bs58';
 
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 
 // generous multiple of Solana's 1232-byte packet limit. Exported so the UI
 // can refuse an oversize blob before it crosses the background proxy, using
@@ -25,7 +28,10 @@ export function extractWcPaySolanaTransaction(parsed: unknown): string {
       }
     }
   }
-  throw new OneKeyError('Invalid solana_signTransaction params');
+  throw new WcPayError({
+    code: EWcPayErrorCode.InvalidActionParams,
+    message: 'Invalid solana_signTransaction params',
+  });
 }
 
 /**
@@ -39,13 +45,19 @@ export function extractWcPaySolanaTransaction(parsed: unknown): string {
 export function wcPaySolanaTxToEncodedTx(txBase64: string): string {
   const bytes = Buffer.from(txBase64, 'base64');
   if (bytes.length === 0) {
-    throw new OneKeyError('Invalid Solana transaction payload');
+    throw new WcPayError({
+      code: EWcPayErrorCode.InvalidSolanaPayload,
+      message: 'Invalid Solana transaction payload',
+    });
   }
   // Solana wire transactions are capped at 1232 bytes (PACKET_DATA_SIZE);
   // bs58 encoding is O(n^2), so reject oversized payloads before encoding
   // to keep a hostile server from freezing the UI thread.
   if (bytes.length > WC_PAY_SOLANA_TX_MAX_BYTES) {
-    throw new OneKeyError('Solana transaction payload too large');
+    throw new WcPayError({
+      code: EWcPayErrorCode.InvalidSolanaPayload,
+      message: 'Solana transaction payload too large',
+    });
   }
   return bs58.encode(bytes);
 }

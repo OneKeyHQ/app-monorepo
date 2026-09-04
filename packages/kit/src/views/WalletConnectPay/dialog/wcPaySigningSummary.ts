@@ -1,19 +1,18 @@
 import BigNumber from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { sanitizeWcPayDisplayText } from '../hooks/wcPayInlineUtils';
 
 import type { IWcPayInlineSigningSummary } from '../hooks/wcPayInlineUtils';
+import type { IntlShape } from 'react-intl';
 
 // The two lines the sheet shows while a headless signature is being produced:
 // what the user is committing to, and what it costs beyond the amount already
 // on screen. Both are built here — one i18n site, one testable unit — and both
-// are pure so they need no render harness.
-//
-// Copy is hardcoded English like the rest of this scene.
-// copy pending product i18n keys
+// are pure: the caller hands in its intl, so they need no render harness.
 
 const LAMPORTS_PER_SOL_DECIMALS = 9;
 const SECONDS_PER_MINUTE = 60;
@@ -36,22 +35,36 @@ const APPROVE_SYMBOL_MAX_CHARS = 12;
 export function describeWcPaySigningHeadline(
   summary: IWcPayInlineSigningSummary,
   amountText: string,
+  intl: IntlShape,
 ): string {
   switch (summary.kind) {
     case 'typedData':
-      return `Authorize ${amountText} for this payment`;
+      return intl.formatMessage(
+        { id: ETranslations.wc_pay_authorize_amount__title },
+        { amount: amountText },
+      );
     case 'personalSign':
-      return 'Sign this message for the merchant';
+      return intl.formatMessage({
+        id: ETranslations.wc_pay_sign_message_for_merchant__title,
+      });
     case 'approve':
       // The symbol is server/registry-derived and lands inside trusted
       // consent copy — sanitized and bounded so a crafted symbol cannot
       // reorder or extend the headline (the personal_sign gate's rule).
-      return `Allow Permit2 to use your ${sanitizeWcPayDisplayText(
-        summary.summary.symbol,
-        APPROVE_SYMBOL_MAX_CHARS,
-      )}`;
+      return intl.formatMessage(
+        { id: ETranslations.wc_pay_allow_permit2__title },
+        {
+          token: sanitizeWcPayDisplayText(
+            summary.summary.symbol,
+            APPROVE_SYMBOL_MAX_CHARS,
+          ),
+        },
+      );
     case 'solana':
-      return `Sign this ${amountText} payment`;
+      return intl.formatMessage(
+        { id: ETranslations.wc_pay_sign_amount_payment__title },
+        { amount: amountText },
+      );
     default: {
       // compile-time exhaustiveness: a new signing kind must choose its own
       // headline rather than silently inherit the Solana spend wording
@@ -80,31 +93,45 @@ export function describeWcPaySigningHeadline(
 function describeWcPayPermitExpiry({
   deadlineSec,
   nowMs,
+  intl,
 }: {
   deadlineSec: number;
   nowMs: number;
+  intl: IntlShape;
 }): string | undefined {
   if (!Number.isFinite(deadlineSec)) {
     return undefined;
   }
   const remainingSec = deadlineSec - nowMs / 1000;
   if (remainingSec <= 0) {
-    return 'Expired';
+    return intl.formatMessage({ id: ETranslations.limit_order_expired });
   }
   if (remainingSec < SECONDS_PER_MINUTE) {
-    return 'Expires in under a minute';
+    return intl.formatMessage({
+      id: ETranslations.wc_pay_expires_under_minute__value,
+    });
   }
   if (remainingSec < SECONDS_PER_HOUR) {
-    return `Expires in ${Math.floor(remainingSec / SECONDS_PER_MINUTE)} min`;
+    return intl.formatMessage(
+      { id: ETranslations.wc_pay_expires_in_minutes__value },
+      { count: Math.floor(remainingSec / SECONDS_PER_MINUTE) },
+    );
   }
   if (remainingSec < SECONDS_PER_DAY) {
-    return `Expires in ${Math.floor(remainingSec / SECONDS_PER_HOUR)} h`;
+    return intl.formatMessage(
+      { id: ETranslations.wc_pay_expires_in_hours__value },
+      { count: Math.floor(remainingSec / SECONDS_PER_HOUR) },
+    );
   }
-  return `Expires in ${Math.floor(remainingSec / SECONDS_PER_DAY)} d`;
+  return intl.formatMessage(
+    { id: ETranslations.wc_pay_expires_in_days__value },
+    { count: Math.floor(remainingSec / SECONDS_PER_DAY) },
+  );
 }
 
 export function describeWcPaySigningSummary(
   summary: IWcPayInlineSigningSummary,
+  intl: IntlShape,
   nowMs: number = Date.now(),
 ): string {
   if (summary.kind === 'personalSign') {
@@ -113,17 +140,20 @@ export function describeWcPaySigningSummary(
     return summary.summary.text;
   }
   if (summary.kind === 'approve') {
-    // copy pending product i18n keys
-    return summary.summary.unlimited
-      ? 'One-time setup for this payment · Unlimited allowance'
-      : 'One-time setup for this payment';
+    return intl.formatMessage({
+      id: summary.summary.unlimited
+        ? ETranslations.wc_pay_one_time_setup_unlimited__desc
+        : ETranslations.wc_pay_one_time_setup__desc,
+    });
   }
   if (summary.kind === 'typedData') {
     // A permit hands a named spender a standing pull of the amount, so the
     // spender and how long it lasts are the two facts the amount alone does
     // not carry.
     const parts = [
-      `Spender ${accountUtils.shortenAddress({
+      `${intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_approval_spender,
+      })} ${accountUtils.shortenAddress({
         address: summary.summary.spender,
         minLength: 12,
         leadingLength: 6,
@@ -133,6 +163,7 @@ export function describeWcPaySigningSummary(
     const expiry = describeWcPayPermitExpiry({
       deadlineSec: summary.summary.deadlineSec,
       nowMs,
+      intl,
     });
     if (expiry) {
       parts.push(expiry);
@@ -146,14 +177,19 @@ export function describeWcPaySigningSummary(
   const parts: string[] = [];
   const fee = new BigNumber(summary.summary.priorityFeeLamports);
   if (summary.summary.sponsoredFee) {
-    parts.push('Network fee covered by the merchant');
+    parts.push(
+      intl.formatMessage({
+        id: ETranslations.wc_pay_fee_covered_by_merchant__desc,
+      }),
+    );
   } else if (fee.isFinite() && fee.isGreaterThan(0)) {
     // isFinite() is load-bearing beyond the NaN case: it is what stops an
     // 'Infinity' fee from rendering as "up to Infinity SOL".
     parts.push(
-      `Network priority fee up to ${fee
-        .shiftedBy(-LAMPORTS_PER_SOL_DECIMALS)
-        .toFixed()} SOL`,
+      intl.formatMessage(
+        { id: ETranslations.wc_pay_priority_fee_up_to__desc },
+        { fee: fee.shiftedBy(-LAMPORTS_PER_SOL_DECIMALS).toFixed() },
+      ),
     );
   }
   if (summary.summary.fundsRecipientAta) {
@@ -161,7 +197,13 @@ export function describeWcPaySigningSummary(
     // Token-2022 mint with extensions needs a larger account and costs
     // more, and the validator cannot bound it offline — a hardcoded number
     // would understate the real charge.
-    parts.push('Creates the recipient token account (rent varies by token)');
+    parts.push(
+      intl.formatMessage({
+        id: ETranslations.wc_pay_creates_token_account__desc,
+      }),
+    );
   }
-  return parts.length > 0 ? parts.join(' · ') : 'Signs the payment transaction';
+  return parts.length > 0
+    ? parts.join(' · ')
+    : intl.formatMessage({ id: ETranslations.wc_pay_signs_payment_tx__desc });
 }

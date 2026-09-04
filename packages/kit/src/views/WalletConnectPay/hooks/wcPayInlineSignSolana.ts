@@ -1,6 +1,9 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
@@ -139,8 +142,10 @@ export async function wcPayInlineSignSolanaTx({
       'payload account',
       accountAddress,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
 
   // Last pre-sign gate: past this point the signing session (hardware
@@ -188,10 +193,10 @@ export async function wcPayInlineSignSolanaTx({
   if (!rawTx || isUnchanged !== true) {
     // Never a fallback: a transaction that no longer carries the checked
     // message must not be submitted at all, by this path or the confirm page.
-    // copy pending product i18n keys
-    throw new OneKeyLocalError(
-      'Signed transaction does not match the payment request',
-    );
+    throw new WcPayError({
+      code: EWcPayErrorCode.SignedTxMismatch,
+      message: 'Signed transaction does not match the payment request',
+    });
   }
 
   // Signature-record parity with the confirm page's sign-only path, which

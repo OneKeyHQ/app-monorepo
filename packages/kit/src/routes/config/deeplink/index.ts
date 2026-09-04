@@ -27,6 +27,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -42,10 +43,6 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
-  WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE,
-} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -488,8 +485,14 @@ function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
     if (!opened) {
       // an in-flight payment is non-dismissible; a second link must not
       // silently replace it (see wcPayDialogStore.openWcPayDialog)
-      // copy pending product i18n keys
-      Toast.error({ title: WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE });
+      Toast.error({
+        // deep links are handled outside any React tree; the toast fires at
+        // event time, long after the locale is initialized
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.wc_pay_payment_in_progress__msg,
+        }),
+      });
     }
   });
 }
@@ -587,8 +590,13 @@ async function processDeepLinkWalletConnect({
       if (
         !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
       ) {
-        // copy pending product i18n keys
-        Toast.error({ title: WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE });
+        Toast.error({
+          // same as openWalletConnectPayModal: no React tree here, event-time
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
+          }),
+        });
         return {
           type: 'walletConnectPay',
           url,

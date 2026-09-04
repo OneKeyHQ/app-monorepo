@@ -1,23 +1,8 @@
 import { EWcPayActionMethod, type IWcPayAction } from './payTypes';
 
-// copy pending product i18n keys
-export const WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE =
-  'On-chain payments are not supported on this platform';
-
-// Surfaced by getStoredActionResults when the stored progress payload is
-// deterministically corrupt (decodes but is provably not a record). The UI
-// matches this exact message to offer the user-confirmed discard escape —
-// without it the payment option stays refused until the storage TTL.
-// copy pending product i18n keys
-export const WC_PAY_PROGRESS_DAMAGED_MESSAGE =
-  'Saved progress for this payment is damaged and cannot be resumed';
-
-// Shown when a new payment link arrives while the dialog is in a
-// non-dismissible stretch and the entry is refused (see
-// wcPayDialogStore.openWcPayDialog).
-// copy pending product i18n keys
-export const WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE =
-  'A payment is already in progress. Finish or close it before starting another one';
+// User-facing verdicts (platform refusal, damaged progress, payment already
+// in progress) are WcPayError codes — see payErrors.ts — and the UI renders
+// their i18n keys; nothing here is matched by message text anymore.
 
 // Error identities for the two payload-failure verdicts of the durable
 // progress store (see SimpleDbEntityWalletConnectPay.readSecureEntries):

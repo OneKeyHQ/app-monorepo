@@ -43,10 +43,6 @@ import {
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
-  WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE,
-} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -347,8 +343,11 @@ export async function parseQRCodeWithDeps(
         if (
           !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
         ) {
-          // copy pending product i18n keys
-          Toast.error({ title: WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
+            }),
+          });
           break;
         }
         // the pay flow is a global dialog, not a navigation route
@@ -358,8 +357,11 @@ export async function parseQRCodeWithDeps(
         if (!opened) {
           // an in-flight payment is non-dismissible; a second link must not
           // silently replace it (see wcPayDialogStore.openWcPayDialog)
-          // copy pending product i18n keys
-          Toast.error({ title: WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.wc_pay_payment_in_progress__msg,
+            }),
+          });
         }
       }
       break;

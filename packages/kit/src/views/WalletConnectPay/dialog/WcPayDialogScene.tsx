@@ -2,6 +2,8 @@
 import type { ReactNode } from 'react';
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Icon,
@@ -13,7 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   describeWcPaySigningHeadline,
@@ -34,7 +36,7 @@ import type {
 // (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
 // node 21926-35825). The shell (DialogV2) provides the 24pt side inset and
 // the safe-area bottom; nothing here adds horizontal padding of its own.
-// Copy is hardcoded English by product decision (Q12); story copy verbatim.
+// Copy comes from the wc_pay_* i18n keys; en_US matches the story verbatim.
 // One deliberate divergence from the story: WcPayConfirmingStep adds a
 // summary block under its headline while a headless signature is in flight —
 // the story predates inline signing and has no step that signs without a
@@ -257,11 +259,12 @@ function WcPayAssetList({
   disabled: boolean;
   onSelectOption: (id: string) => void;
 }) {
+  const intl = useIntl();
   return (
     <YStack>
       <XStack px="$4" py="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
-          Pay with
+          {intl.formatMessage({ id: ETranslations.wc_pay_pay_with__label })}
         </SizableText>
       </XStack>
       {/* Fixed 200pt viewport per the design; overflow scrolls inside. */}
@@ -358,22 +361,32 @@ function WcPayFooter({
 // Steps
 
 export function WcPayFetchingStep() {
+  const intl = useIntl();
   return (
     <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
-      <WcPayHeaderLine>Fetching payment info...</WcPayHeaderLine>
+      <WcPayHeaderLine>
+        {intl.formatMessage({
+          id: ETranslations.wc_pay_fetching_payment_info__title,
+        })}
+      </WcPayHeaderLine>
     </WcPayHeader>
   );
 }
 
 export function WcPayFetchFailedStep({ onRetry }: { onRetry: () => void }) {
+  const intl = useIntl();
   return (
     <>
       <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
-        <WcPayHeaderLine>Fetch payment info failed</WcPayHeaderLine>
+        <WcPayHeaderLine>
+          {intl.formatMessage({
+            id: ETranslations.wc_pay_fetch_payment_info_failed__title,
+          })}
+        </WcPayHeaderLine>
       </WcPayHeader>
       <WcPayFooter
         testID="wc-pay-dialog-fetch-retry"
-        label="Retry"
+        label={intl.formatMessage({ id: ETranslations.global_retry })}
         onPress={onRetry}
       />
     </>
@@ -381,16 +394,19 @@ export function WcPayFetchFailedStep({ onRetry }: { onRetry: () => void }) {
 }
 
 export function WcPayUnsupportedStep({ onClose }: { onClose: () => void }) {
+  const intl = useIntl();
   return (
     <>
       <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
         <WcPayHeaderLine>
-          This account type is not supported by WalletConnect Pay
+          {intl.formatMessage({
+            id: ETranslations.wc_pay_account_type_unsupported__msg,
+          })}
         </WcPayHeaderLine>
       </WcPayHeader>
       <WcPayFooter
         testID="wc-pay-dialog-unsupported-close"
-        label="Close"
+        label={intl.formatMessage({ id: ETranslations.global_close })}
         onPress={onClose}
       />
     </>
@@ -428,6 +444,7 @@ export function WcPayOptionsStep({
   onPay: () => void;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const hasOptions = !empty && options.length > 0;
   return (
     <>
@@ -435,7 +452,9 @@ export function WcPayOptionsStep({
         visual={<WcPayMerchantVisual iconUri={merchantIconUri} />}
         spacing="regular"
       >
-        <WcPayHeaderLine>Pay</WcPayHeaderLine>
+        <WcPayHeaderLine>
+          {intl.formatMessage({ id: ETranslations.global_pay })}
+        </WcPayHeaderLine>
         <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
         {merchantText ? (
           <WcPayHeaderLine>{merchantText}</WcPayHeaderLine>
@@ -457,18 +476,23 @@ export function WcPayOptionsStep({
       {empty === 'noAssets' ? (
         <WcPayNoticeCard>
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            No available asset
+            {intl.formatMessage({
+              id: ETranslations.wc_pay_no_available_asset__title,
+            })}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            No supported asset has enough balance to cover this payment. Top up
-            a supported stablecoin (plus gas) and try again.
+            {intl.formatMessage({
+              id: ETranslations.wc_pay_no_available_asset__desc,
+            })}
           </SizableText>
         </WcPayNoticeCard>
       ) : null}
       {empty === 'platformRefused' ? (
         <WcPayNoticeCard>
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE}
+            {intl.formatMessage({
+              id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
+            })}
           </SizableText>
         </WcPayNoticeCard>
       ) : null}
@@ -483,7 +507,7 @@ export function WcPayOptionsStep({
       ) : (
         <WcPayFooter
           testID="wc-pay-dialog-empty-close"
-          label="Close"
+          label={intl.formatMessage({ id: ETranslations.global_close })}
           onPress={onClose}
         />
       )}
@@ -493,9 +517,6 @@ export function WcPayOptionsStep({
 
 // Product decision Q5 (2026-08-27): one confirming label for every step, no
 // per-step copy. The phase stays a prop so the signing summary can key off it.
-// copy pending product i18n keys
-const CONFIRMING_HEADLINE = 'Confirming your payment...';
-
 export function WcPayConfirmingStep({
   phase,
   amountText,
@@ -507,6 +528,7 @@ export function WcPayConfirmingStep({
   /** What the headless signature in flight commits to. */
   signingSummary?: IWcPayInlineSigningSummary;
 }) {
+  const intl = useIntl();
   // The signature kinds report during `signingMessage`; the approve leg runs
   // the send pipeline instead, so its summary stays up through those phases
   // — `recording` included, because the post-broadcast mined-wait (minutes
@@ -527,15 +549,19 @@ export function WcPayConfirmingStep({
   // without ever being showable (display is that leg's whole contract).
   const isMessageBody = signingSummary?.kind === 'personalSign';
   const summaryBody = signingSummary
-    ? describeWcPaySigningSummary(signingSummary)
+    ? describeWcPaySigningSummary(signingSummary, intl)
     : '';
   return (
     <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
-      <WcPayHeaderLine>{CONFIRMING_HEADLINE}</WcPayHeaderLine>
+      <WcPayHeaderLine>
+        {intl.formatMessage({
+          id: ETranslations.wc_pay_confirming_payment__title,
+        })}
+      </WcPayHeaderLine>
       {isSummaryVisible && signingSummary ? (
         <YStack pt="$3" gap="$1" alignItems="center" alignSelf="stretch">
           <SizableText size="$bodyMd" color="$text" textAlign="center">
-            {describeWcPaySigningHeadline(signingSummary, amountText)}
+            {describeWcPaySigningHeadline(signingSummary, amountText, intl)}
           </SizableText>
           {isMessageBody ? (
             <ScrollView
@@ -566,15 +592,20 @@ export function WcPaySubmittedStep({
   canClose: boolean;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   return (
     <>
       <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
-        <WcPayHeaderLine>Confirming your payment...</WcPayHeaderLine>
+        <WcPayHeaderLine>
+          {intl.formatMessage({
+            id: ETranslations.wc_pay_confirming_payment__title,
+          })}
+        </WcPayHeaderLine>
       </WcPayHeader>
       {canClose ? (
         <WcPayFooter
           testID="wc-pay-dialog-submitted-done"
-          label="Done"
+          label={intl.formatMessage({ id: ETranslations.global_done })}
           onPress={onDone}
         />
       ) : null}
@@ -591,10 +622,13 @@ export function WcPaySuccessStep({
   merchantText: string;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   return (
     <>
       <WcPayHeader visual={SUCCESS_BADGE_VISUAL} spacing="regular">
-        <WcPayHeaderLine>You’ve paid</WcPayHeaderLine>
+        <WcPayHeaderLine>
+          {intl.formatMessage({ id: ETranslations.wc_pay_paid__title })}
+        </WcPayHeaderLine>
         <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
         {merchantText ? (
           <WcPayHeaderLine>{merchantText}</WcPayHeaderLine>
@@ -602,7 +636,7 @@ export function WcPaySuccessStep({
       </WcPayHeader>
       <WcPayFooter
         testID="wc-pay-dialog-success-done"
-        label="Done"
+        label={intl.formatMessage({ id: ETranslations.global_done })}
         onPress={onDone}
       />
     </>
@@ -611,26 +645,26 @@ export function WcPaySuccessStep({
 
 const TERMINAL_COPY: Record<
   IWcPayDialogTerminalReason,
-  { title: string; detail: string; action: 'retry' | 'close' }
+  { title: ETranslations; detail: ETranslations; action: 'retry' | 'close' }
 > = {
   failed: {
-    title: 'Payment failed',
-    detail: 'Something went wrong with this payment.',
+    title: ETranslations.wc_pay_payment_failed__title,
+    detail: ETranslations.wc_pay_payment_failed__desc,
     action: 'retry',
   },
   expired: {
-    title: 'Payment expired',
-    detail: 'This payment can no longer be paid.',
+    title: ETranslations.wc_pay_payment_expired__title,
+    detail: ETranslations.wc_pay_payment_no_longer_payable__desc,
     action: 'close',
   },
   cancelled: {
-    title: 'Payment cancelled',
-    detail: 'This payment can no longer be paid.',
+    title: ETranslations.wc_pay_payment_cancelled__title,
+    detail: ETranslations.wc_pay_payment_no_longer_payable__desc,
     action: 'close',
   },
   alreadyPaid: {
-    title: 'Payment already completed',
-    detail: 'This payment has already been paid.',
+    title: ETranslations.wc_pay_payment_already_completed__title,
+    detail: ETranslations.wc_pay_payment_already_paid__desc,
     action: 'close',
   },
 };
@@ -647,17 +681,24 @@ export function WcPayTerminalStep({
   onRetry: () => void;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const copy = TERMINAL_COPY[reason];
   const isRetry = copy.action === 'retry';
   return (
     <>
       <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
-        <WcPayHeaderLine>{copy.title}</WcPayHeaderLine>
-        <WcPayHeaderDetail>{detailText ?? copy.detail}</WcPayHeaderDetail>
+        <WcPayHeaderLine>
+          {intl.formatMessage({ id: copy.title })}
+        </WcPayHeaderLine>
+        <WcPayHeaderDetail>
+          {detailText ?? intl.formatMessage({ id: copy.detail })}
+        </WcPayHeaderDetail>
       </WcPayHeader>
       <WcPayFooter
         testID="wc-pay-dialog-terminal-action"
-        label={isRetry ? 'Retry' : 'Close'}
+        label={intl.formatMessage({
+          id: isRetry ? ETranslations.global_retry : ETranslations.global_close,
+        })}
         onPress={isRetry ? onRetry : onClose}
       />
     </>
@@ -675,14 +716,21 @@ export function WcPayDamagedStep({
   discardLoading: boolean;
   discardFailed: boolean;
 }) {
+  const intl = useIntl();
   return (
     <>
       <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
-        <WcPayHeaderLine>Payment progress damaged</WcPayHeaderLine>
+        <WcPayHeaderLine>
+          {intl.formatMessage({
+            id: ETranslations.wc_pay_progress_damaged__title,
+          })}
+        </WcPayHeaderLine>
         <WcPayHeaderDetail>
-          {discardFailed
-            ? 'Discarding failed. The saved progress is untouched — try again.'
-            : 'The progress saved for this payment on this device is damaged and cannot be resumed. Discard it to start this payment over.'}
+          {intl.formatMessage({
+            id: discardFailed
+              ? ETranslations.wc_pay_discard_failed__desc
+              : ETranslations.wc_pay_progress_damaged__desc,
+          })}
         </WcPayHeaderDetail>
       </WcPayHeader>
       <YStack pt="$8" gap="$2.5">
@@ -693,7 +741,9 @@ export function WcPayDamagedStep({
           loading={discardLoading}
           onPress={onDiscard}
         >
-          Discard and start over
+          {intl.formatMessage({
+            id: ETranslations.wc_pay_discard_and_start_over__action,
+          })}
         </Button>
         <Button
           testID="wc-pay-dialog-damaged-close"
@@ -701,7 +751,7 @@ export function WcPayDamagedStep({
           disabled={discardLoading}
           onPress={onClose}
         >
-          Close
+          {intl.formatMessage({ id: ETranslations.global_close })}
         </Button>
       </YStack>
     </>

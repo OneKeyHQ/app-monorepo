@@ -1,8 +1,11 @@
 // cspell:ignore DISPLAYABILITY
 import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -149,8 +152,10 @@ export async function wcPayInlineSignPersonalMessage({
       'payload account',
       accountAddress,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
 
   throwIfCancelled();

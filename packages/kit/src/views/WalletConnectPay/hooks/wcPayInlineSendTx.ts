@@ -10,6 +10,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { wcPayChainIdToNetworkId } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import { isWcPayExpired } from '@onekeyhq/shared/src/walletConnect/payExpiryUtils';
 import type {
   IWcPayOption,
@@ -58,7 +62,7 @@ function markWcPayInlinePostSignError(error: unknown): unknown {
       : new OneKeyLocalError(
           typeof error === 'string' && error
             ? error
-            : // copy pending product i18n keys
+            : // diagnostic only: the banner renders kind-derived copy
               'Failed to send the transaction',
         );
   (tagged as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG] = true;
@@ -236,8 +240,10 @@ export async function wcPayInlineSendTx({
       'signing account',
       accountAddress,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
 
   const estimateResult = await runWcPayInlineStage({
@@ -457,8 +463,10 @@ export async function wcPayInlineSendTx({
   // sits here too: past this point the attempt must run to completion.
   throwIfCancelled?.();
   if (isWcPayExpired(expiryMs)) {
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment has expired');
+    throw new WcPayError({
+      code: EWcPayErrorCode.PaymentExpired,
+      message: 'This payment has expired',
+    });
   }
 
   // Validate what actually gets signed. Everything above may rewrite the tx
@@ -482,8 +490,10 @@ export async function wcPayInlineSendTx({
       'wcPay inline transaction changed after validation:',
       consistency.reason,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
   // The plan approved one calldata shape; the signer must get that shape.
   // Fee/nonce rewriting cannot change calldata, so a kind flip here is the
@@ -497,8 +507,10 @@ export async function wcPayInlineSendTx({
       'wcPay inline tx kind changed after validation:',
       consistency.kind,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
   // The validator derives the option's chain from `option.account` as well, so
   // handing it back proves nothing on its own; this is what ties the chain the
@@ -510,8 +522,10 @@ export async function wcPayInlineSendTx({
       'tx network',
       networkId,
     );
-    // copy pending product i18n keys
-    throw new OneKeyLocalError('This payment cannot be completed right now');
+    throw new WcPayError({
+      code: EWcPayErrorCode.CannotCompleteNow,
+      message: 'This payment cannot be completed right now',
+    });
   }
 
   // Signing and broadcasting happen inside this one background call, so this
@@ -590,7 +604,10 @@ export async function wcPayInlineSendTx({
     // post-broadcast: the transfer may well be on chain with only its id lost,
     // so this must never look like a pre-sign failure the caller can retry.
     throw markWcPayInlinePostSignError(
-      new OneKeyLocalError('Missing transaction id'),
+      new WcPayError({
+        code: EWcPayErrorCode.MissingTxid,
+        message: 'Missing transaction id',
+      }),
     );
   }
   return { status: 'ok', txid };

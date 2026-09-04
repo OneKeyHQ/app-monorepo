@@ -135,7 +135,7 @@ export function findWcPayInlineBalanceShortfall({
 
   const requiredNative = balances.token ? feeRaw : feeRaw.plus(amountRaw);
   if (balances.nativeBalance.isLessThan(requiredNative)) {
-    // copy pending product i18n keys
+    // diagnostic only: failure.message is logged, never rendered
     return `Insufficient ${nativeSymbol}: need ${formatWcPayInlineAmount(
       requiredNative,
       nativeDecimals,
@@ -146,7 +146,7 @@ export function findWcPayInlineBalanceShortfall({
   }
 
   if (balances.token && balances.token.balance.isLessThan(amountRaw)) {
-    // copy pending product i18n keys
+    // diagnostic only: failure.message is logged, never rendered
     return `Insufficient ${balances.token.symbol}: need ${formatWcPayInlineAmount(
       amountRaw,
       balances.token.decimals,

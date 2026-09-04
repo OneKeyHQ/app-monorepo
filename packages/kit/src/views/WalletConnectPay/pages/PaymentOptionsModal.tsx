@@ -24,15 +24,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
-  WC_PAY_PROGRESS_DAMAGED_MESSAGE,
-  shouldRefuseWcPayOptionUpfront,
-} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import { shouldRefuseWcPayOptionUpfront } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  EWcPayErrorCode,
+  WcPayError,
+  isWcPayErrorCode,
+} from '@onekeyhq/shared/src/walletConnect/payErrors';
 import {
   getWcPayEffectiveExpiryMs,
   isWcPayExpired,
@@ -536,7 +537,10 @@ function PaymentOptionsPage() {
             await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress(),
         })
       ) {
-        throw new OneKeyLocalError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+        throw new WcPayError({
+          code: EWcPayErrorCode.BroadcastUnsupported,
+          message: 'On-chain payments are not supported on this platform',
+        });
       }
 
       // 1. compliance data collection must complete BEFORE fetching actions.
@@ -574,8 +578,10 @@ function PaymentOptionsPage() {
       // the compliance form (and any hesitation before it) may outlive the
       // payment deadline; never fetch/execute actions for an expired payment
       if (isWcPayExpired(effectiveExpiryMs)) {
-        // copy pending product i18n keys
-        throw new OneKeyLocalError('This payment has expired');
+        throw new WcPayError({
+          code: EWcPayErrorCode.PaymentExpired,
+          message: 'This payment has expired',
+        });
       }
 
       // 2. fetch the ordered signing actions
@@ -761,10 +767,7 @@ function PaymentOptionsPage() {
           optionId: selectedOption.id,
           accountKey: indexedAccountId ?? accountId ?? '',
         });
-      } else if (
-        (error as Error | undefined)?.message ===
-        WC_PAY_PROGRESS_DAMAGED_MESSAGE
-      ) {
+      } else if (isWcPayErrorCode(error, EWcPayErrorCode.ProgressDamaged)) {
         // Deterministically corrupt stored progress: without an escape this
         // payment+option+account stays refused until the 48h storage TTL.
         // The discard is user-confirmed and only reachable on a CONTENT
@@ -1124,7 +1127,9 @@ function PaymentOptionsPage() {
                     color="$textSubdued"
                     textAlign="center"
                   >
-                    {WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE}
+                    {intl.formatMessage({
+                      id: ETranslations.wc_pay_onchain_unsupported_platform__msg,
+                    })}
                   </SizableText>
                 </Stack>
               ) : null}
