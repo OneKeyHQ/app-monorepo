@@ -277,6 +277,37 @@ function groupSerializedEntriesBySegment({
   return segmentOutputs;
 }
 
+function removeCommonModulesFromSegmentAllocation({
+  allocation,
+  commonEagerAbsPaths,
+  sharedEquivalentAbsPaths,
+  getGraphModuleId,
+}) {
+  const removedAbsPaths = new Set();
+
+  for (const absolutePath of commonEagerAbsPaths) {
+    if (sharedEquivalentAbsPaths.has(absolutePath)) {
+      const moduleId = getGraphModuleId(absolutePath);
+      const segmentKey = allocation.moduleToSegment.get(moduleId);
+      if (segmentKey) {
+        allocation.moduleToSegment.delete(moduleId);
+        allocation.eagerModuleIds.add(moduleId);
+        allocation.segmentAbsPaths.delete(absolutePath);
+        allocation.segmentModules.get(segmentKey)?.delete(moduleId);
+        allocation.segmentAbsPathsByKey.get(segmentKey)?.delete(absolutePath);
+        removedAbsPaths.add(absolutePath);
+
+        if (allocation.segmentModules.get(segmentKey)?.size === 0) {
+          allocation.segmentModules.delete(segmentKey);
+          allocation.segmentAbsPathsByKey.delete(segmentKey);
+        }
+      }
+    }
+  }
+
+  return removedAbsPaths;
+}
+
 function seedSegmentAssignments({
   asyncRoots,
   asyncDescendants,
@@ -1022,6 +1053,7 @@ module.exports = {
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   mergeSharedSegmentOutputs,
+  removeCommonModulesFromSegmentAllocation,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
