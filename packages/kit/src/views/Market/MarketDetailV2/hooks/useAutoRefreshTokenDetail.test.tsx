@@ -156,7 +156,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
   it('does not expose an asset result from a previous route', () => {
     promiseResult = {
-      assetId: 'btc',
+      requestKey: 'asset:btc::btc--0:',
       assetDetail: { asset: { assetId: 'btc' } },
     };
 
@@ -171,6 +171,32 @@ describe('useAutoRefreshTokenDetail', () => {
     );
 
     expect(result.current.marketAssetDetail).toBeUndefined();
+  });
+
+  it('keeps the last successful Asset overview when a polling tick fails', async () => {
+    const assetDetail = { asset: { assetId: 'doge' } };
+    mockFetchAssetTokenDetail
+      .mockResolvedValueOnce(assetDetail)
+      .mockRejectedValueOnce(new Error('poll failed'));
+
+    renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      }),
+    );
+
+    await expect(promiseFactory?.()).resolves.toEqual({
+      requestKey: 'asset:doge::doge--0:',
+      assetDetail,
+    });
+    await expect(promiseFactory?.()).resolves.toEqual({
+      requestKey: 'asset:doge::doge--0:',
+      assetDetail,
+    });
   });
 
   it('clears loading when market fetching is skipped', () => {

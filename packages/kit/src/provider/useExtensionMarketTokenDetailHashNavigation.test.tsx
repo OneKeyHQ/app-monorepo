@@ -314,6 +314,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     );
   });
 
+  it('refreshes the same stock route when preview metadata changes', () => {
+    setHash(
+      '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Fnew.png',
+    );
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/old.png',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
+            stockPreviewSymbol: 'AAPL',
+            stockPreviewName: 'Apple Inc.',
+            stockPreviewLogoUrl: 'https://example.com/new.png',
+          },
+        },
+      },
+    );
+  });
+
   it.each([
     {
       query: 'disableTrade=true',

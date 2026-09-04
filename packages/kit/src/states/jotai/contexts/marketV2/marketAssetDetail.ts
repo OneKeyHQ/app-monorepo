@@ -19,6 +19,7 @@ import {
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -107,8 +108,11 @@ async function fetchMarketAssetTokenDetail(
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
   const { assetId, variantId, tokenAddress, networkId } = payload;
+  const requestId = get(tokenDetailRequestIdAtom()) + 1;
+  set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
   const isCurrentIdentity = () =>
+    get(tokenDetailRequestIdAtom()) === requestId &&
     get(tokenAddressAtom()) === tokenAddress &&
     get(networkIdAtom()) === networkId;
 

@@ -34,6 +34,14 @@ const mockFetchTokenInfoOnly: jest.MockedFunction<
 > = jest.fn();
 const mockLogError = jest.fn();
 
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -326,6 +334,61 @@ describe('marketV2 asset token detail actions', () => {
     });
 
     expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('drops an Asset response after the same token identity changes owner', async () => {
+    const assetDetailDeferred = createDeferred<IMarketAssetDetailData>();
+    mockFetchMarketAssetDetail.mockReturnValueOnce(assetDetailDeferred.promise);
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: {
+        token: {
+          address: '',
+          decimals: 8,
+          logoUrl: '',
+          name: 'Dogecoin token detail',
+          price: '0.4',
+          symbol: 'DOGE',
+        },
+      },
+    });
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      { wrapper: Wrapper },
+    );
+
+    act(() => {
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    let assetRequest: Promise<IMarketAssetDetailData> | undefined;
+    await act(async () => {
+      assetRequest = result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.fetchTokenDetail('', 'doge--0');
+    });
+    await act(async () => {
+      assetDetailDeferred.resolve(dogeAssetDetail);
+      await assetRequest;
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      name: 'Dogecoin token detail',
+      price: '0.4',
+    });
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 

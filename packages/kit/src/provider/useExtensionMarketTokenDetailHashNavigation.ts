@@ -214,7 +214,10 @@ function isCurrentMarketTokenDetailTarget(
     return (
       params.stockId === target.params.stockId &&
       params.network === target.params.network &&
-      params.tokenAddress === target.params.tokenAddress
+      params.tokenAddress === target.params.tokenAddress &&
+      params.stockPreviewSymbol === target.params.stockPreviewSymbol &&
+      params.stockPreviewName === target.params.stockPreviewName &&
+      params.stockPreviewLogoUrl === target.params.stockPreviewLogoUrl
     );
   }
 
