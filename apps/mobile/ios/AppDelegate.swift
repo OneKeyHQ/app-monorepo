@@ -135,14 +135,17 @@ private enum InitialBundleKind {
 }
 
 #if DEBUG
-/// Debug-only common HBC configuration. `sessionId` is set for the iOS
-/// Simulator DevSession shell and nil for Xcode device builds that embed the
-/// artifacts directly (see `resolveDevVendorBundleInfo`).
+/// Debug-only common HBC configuration shared by the iOS Simulator DevSession
+/// shell and Xcode builds that embed the artifacts directly (see
+/// `resolveDevVendorBundleInfo`). DevSession identifiers stay inside the
+/// dev-shell gate so non-shell builds never carry them.
 private struct DevVendorBundleInfo {
   let commonBundleURL: URL
   let fingerprint: String
   let metroBaseURL: URL
-  let sessionId: String?
+#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)
+  let sessionId: String
+#endif
 }
 #endif
 
@@ -602,8 +605,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       return DevVendorBundleInfo(
         commonBundleURL: commonURL,
         fingerprint: fingerprint,
-        metroBaseURL: metroBaseURL,
-        sessionId: nil
+        metroBaseURL: metroBaseURL
       )
     } catch {
       fatalError("Unable to validate embedded dev-vendor iOS artifacts: \(error)")
@@ -714,11 +716,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       "resolver.runtimeTarget": runtimeTarget,
       "unstable_transformProfile": "hermes-stable",
     ]
-    if let sessionId = devVendorBundleInfo.sessionId {
-      values["resolver.devSessionId"] = sessionId
-    } else {
-      values["resolver.devVendorEmbedded"] = "true"
-    }
+#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)
+    values["resolver.devSessionId"] = devVendorBundleInfo.sessionId
+#else
+    // Embedded Xcode builds have no DevSession; Metro serves them only when it
+    // is not bound to one either (see plugins/devVendor.js).
+    values["resolver.devVendorEmbedded"] = "true"
+#endif
     if runtimeTarget == "background", isDevBackgroundHMREnabled(fingerprint: fingerprint) {
       values["resolver.devVendorBackgroundHMR"] = "true"
     }
