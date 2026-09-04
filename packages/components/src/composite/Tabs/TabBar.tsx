@@ -68,7 +68,6 @@ const TEXT_SCROLL_CONTENT_STYLE = {
 const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
-const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 const TAB_BAR_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 export type ITabBarVariant = 'default' | 'pill' | 'text';
@@ -795,8 +794,8 @@ export function TabBar({
   const directTabPressSettleTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const didAlignInitialFocusedTabRef = useRef(false);
   const directTabPressResyncCountRef = useRef(0);
-  const directTabPressLastAcceptedAtRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
@@ -904,14 +903,27 @@ export function TabBar({
   );
 
   const handleScrollableTabBarReady = useCallback(() => {
-    if (!scrollable || !keepFocusedTabVisible) {
+    if (
+      !scrollable ||
+      !keepFocusedTabVisible ||
+      didAlignInitialFocusedTabRef.current
+    ) {
       return;
     }
     const tabName = currentTab || focusedTab.value;
-    if (tabName) {
-      scrollToTab(tabName);
+    if (!tabName || !tabNames.includes(tabName)) {
+      return;
     }
-  }, [currentTab, focusedTab, keepFocusedTabVisible, scrollToTab, scrollable]);
+    didAlignInitialFocusedTabRef.current = true;
+    scrollToTab(tabName);
+  }, [
+    currentTab,
+    focusedTab,
+    keepFocusedTabVisible,
+    scrollToTab,
+    scrollable,
+    tabNames,
+  ]);
 
   const clearDirectTabPressTimer = useCallback(() => {
     if (directTabPressTimerId.current) {
@@ -1005,17 +1017,6 @@ export function TabBar({
 
   const handleTabPress = useThrottledCallback((name: string) => {
     const now = Date.now();
-    if (
-      useDirectTabPressHandling &&
-      now - directTabPressLastAcceptedAtRef.current <
-        DIRECT_TAB_PRESS_MIN_INTERVAL
-    ) {
-      return;
-    }
-    if (useDirectTabPressHandling) {
-      directTabPressLastAcceptedAtRef.current = now;
-    }
-
     clearDirectTabPressTimer();
     clearDirectTabPressSettleTimer();
     directTabPressResyncCountRef.current = 0;

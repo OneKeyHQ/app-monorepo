@@ -19,6 +19,8 @@ type IAnimatedReaction = {
 
 const mockScrollToIndex = jest.fn();
 const mockAnimatedReactions: IAnimatedReaction[] = [];
+let mockListOnContentSizeChange: (() => void) | undefined;
+let mockListOnLayout: (() => void) | undefined;
 const mockTabNames = ['Watchlist', 'Trending', 'Stocks', 'Perps'];
 const mockInitialFocusedTab = { value: 'Perps' } as SharedValue<string>;
 const mockInteractiveFocusedTab = {
@@ -130,6 +132,8 @@ jest.mock('../../layouts', () => {
       React.useImperativeHandle(ref, () => ({
         scrollToIndex: mockScrollToIndex,
       }));
+      mockListOnContentSizeChange = onContentSizeChange;
+      mockListOnLayout = onLayout;
       React.useLayoutEffect(() => {
         onLayout?.();
         onContentSizeChange?.();
@@ -213,6 +217,8 @@ describe('TabBar scrollable focus handling', () => {
     jest.useFakeTimers();
     mockScrollToIndex.mockReset();
     mockAnimatedReactions.splice(0, mockAnimatedReactions.length);
+    mockListOnContentSizeChange = undefined;
+    mockListOnLayout = undefined;
     mockInitialFocusedTab.value = 'Perps';
     mockInteractiveFocusedTab.value = 'Watchlist';
     mockIndexDecimal.value = 0;
@@ -242,6 +248,50 @@ describe('TabBar scrollable focus handling', () => {
       jest.advanceTimersByTime(100);
     });
 
+    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
+      index: 3,
+      viewPosition: 1,
+    });
+
+    act(() => {
+      mockListOnLayout?.();
+      mockListOnContentSizeChange?.();
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits until the initially focused tab is available before aligning', () => {
+    const { rerender } = render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames.slice(0, 2)}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockScrollToIndex).not.toHaveBeenCalled();
+
+    rerender(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
     expect(mockScrollToIndex).toHaveBeenLastCalledWith({
       index: 3,
       viewPosition: 1,
@@ -285,5 +335,33 @@ describe('TabBar scrollable focus handling', () => {
       index: 3,
       viewPosition: 1,
     });
+  });
+
+  it('accepts rapid presses on different tabs', () => {
+    render(
+      <TabBar
+        focusedTab={mockInteractiveFocusedTab}
+        indexDecimal={mockIndexDecimal}
+        tabNames={mockTabNames}
+        onTabPress={mockInteractiveTabPress}
+        scrollable
+        keepFocusedTabVisible
+        directTabPressAnimation
+        directTabPressAnimationMode="instant"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Perps').parentElement as HTMLElement);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    fireEvent.click(screen.getByText('Stocks').parentElement as HTMLElement);
+
+    expect(mockInteractiveTabPress).toHaveBeenNthCalledWith(1, 'Perps');
+    expect(mockInteractiveTabPress).toHaveBeenNthCalledWith(2, 'Stocks');
+    expect(screen.getByText('Perps').getAttribute('data-color')).toBe(
+      '$textSubdued',
+    );
+    expect(screen.getByText('Stocks').getAttribute('data-color')).toBe('$text');
   });
 });
