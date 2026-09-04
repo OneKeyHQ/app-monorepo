@@ -192,50 +192,96 @@ target 'OneKeyWallet' do
     end
 
     if mac_catalyst_enabled
-      react_native_dependencies_framework = Dir.glob(
-        File.join(
-          installer.sandbox.root.to_s,
-          'ReactNativeDependencies',
-          '**',
-          'ReactNativeDependencies.xcframework',
-          'ios-arm64_x86_64-maccatalyst',
-          'ReactNativeDependencies.framework'
-        )
-      ).first
-      if react_native_dependencies_framework
-        framework_binary = File.join(react_native_dependencies_framework, 'ReactNativeDependencies')
-        framework_resources = File.join(react_native_dependencies_framework, 'Resources')
-        framework_current_version = File.join(react_native_dependencies_framework, 'Versions', 'Current')
+      framework_pattern = File.join(
+        installer.sandbox.root.to_s,
+        'ReactNativeDependencies',
+        '**',
+        'ReactNativeDependencies.xcframework',
+        'ios-arm64_x86_64-maccatalyst',
+        'ReactNativeDependencies.framework'
+      )
+      react_native_dependencies_framework = Dir.glob(framework_pattern).first
+      interrupted_repair_backup = Dir.glob("#{framework_pattern}.orig").first
 
-        unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version)
-          binary_source = [
-            framework_binary,
-            File.join(react_native_dependencies_framework, 'Versions', 'A', 'ReactNativeDependencies')
-          ].find { |path| File.file?(path) }
-          info_plist_source = [
-            File.join(react_native_dependencies_framework, 'Info.plist'),
-            File.join(framework_resources, 'Info.plist'),
-            File.join(react_native_dependencies_framework, 'Versions', 'A', 'Resources', 'Info.plist')
-          ].find { |path| File.file?(path) }
+      if !react_native_dependencies_framework && interrupted_repair_backup
+        react_native_dependencies_framework = interrupted_repair_backup.delete_suffix('.orig')
+        File.rename(interrupted_repair_backup, react_native_dependencies_framework)
+        puts '[Mac Catalyst] Recovered interrupted ReactNativeDependencies framework repair'
+      elsif react_native_dependencies_framework && interrupted_repair_backup
+        FileUtils.rm_rf(interrupted_repair_backup)
+      end
 
-          if binary_source && info_plist_source
-            repaired_framework = "#{react_native_dependencies_framework}.repaired"
-            repaired_resources = File.join(repaired_framework, 'Versions', 'A', 'Resources')
-            FileUtils.rm_rf(repaired_framework)
-            FileUtils.mkdir_p(repaired_resources)
-            FileUtils.cp(binary_source, File.join(repaired_framework, 'Versions', 'A', 'ReactNativeDependencies'))
-            FileUtils.cp(info_plist_source, File.join(repaired_resources, 'Info.plist'))
-            Dir.glob(File.join(react_native_dependencies_framework, '*.bundle')).each do |bundle|
-              FileUtils.cp_r(bundle, repaired_resources)
-            end
-            FileUtils.ln_s('A', File.join(repaired_framework, 'Versions', 'Current'))
-            FileUtils.ln_s('Versions/Current/ReactNativeDependencies', File.join(repaired_framework, 'ReactNativeDependencies'))
-            FileUtils.ln_s('Versions/Current/Resources', File.join(repaired_framework, 'Resources'))
-            FileUtils.rm_rf(react_native_dependencies_framework)
-            FileUtils.mv(repaired_framework, react_native_dependencies_framework)
-            puts '[Mac Catalyst] Repaired ReactNativeDependencies framework layout'
-          end
+      unless react_native_dependencies_framework
+        raise '[Mac Catalyst] ReactNativeDependencies framework was not found'
+      end
+
+      framework_binary = File.join(react_native_dependencies_framework, 'ReactNativeDependencies')
+      framework_resources = File.join(react_native_dependencies_framework, 'Resources')
+      framework_current_version = File.join(react_native_dependencies_framework, 'Versions', 'Current')
+
+      unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version)
+        binary_source = [
+          framework_binary,
+          File.join(react_native_dependencies_framework, 'Versions', 'A', 'ReactNativeDependencies')
+        ].find { |path| File.file?(path) }
+        info_plist_source = [
+          File.join(react_native_dependencies_framework, 'Info.plist'),
+          File.join(framework_resources, 'Info.plist'),
+          File.join(react_native_dependencies_framework, 'Versions', 'A', 'Resources', 'Info.plist')
+        ].find { |path| File.file?(path) }
+
+        unless binary_source && info_plist_source
+          raise '[Mac Catalyst] ReactNativeDependencies framework is missing its binary or Info.plist'
         end
+
+        repaired_framework = "#{react_native_dependencies_framework}.repaired"
+        backup_framework = "#{react_native_dependencies_framework}.orig"
+        repaired_version = File.join(repaired_framework, 'Versions', 'A')
+        repaired_resources = File.join(repaired_version, 'Resources')
+
+        FileUtils.rm_rf([repaired_framework, backup_framework])
+        FileUtils.mkdir_p(File.join(repaired_framework, 'Versions'))
+        FileUtils.cp_r(
+          react_native_dependencies_framework,
+          repaired_version,
+          preserve: true
+        )
+        FileUtils.mkdir_p(repaired_resources)
+        FileUtils.cp(binary_source, File.join(repaired_version, 'ReactNativeDependencies'), preserve: true)
+        FileUtils.cp(info_plist_source, File.join(repaired_resources, 'Info.plist'), preserve: true)
+
+        %w[Headers Modules PrivateHeaders _CodeSignature].each do |entry|
+          entry_source = [
+            File.join(react_native_dependencies_framework, entry),
+            File.join(react_native_dependencies_framework, 'Versions', 'A', entry)
+          ].find { |path| File.exist?(path) }
+          next unless entry_source
+
+          entry_destination = File.join(repaired_version, entry)
+          FileUtils.rm_rf(entry_destination)
+          FileUtils.cp_r(entry_source, entry_destination, preserve: true)
+        end
+
+        Dir.glob(File.join(react_native_dependencies_framework, '*.bundle')).each do |bundle|
+          FileUtils.cp_r(bundle, repaired_resources, preserve: true)
+        end
+
+        FileUtils.ln_s('A', File.join(repaired_framework, 'Versions', 'Current'))
+        %w[ReactNativeDependencies Resources Headers Modules PrivateHeaders].each do |entry|
+          next unless File.exist?(File.join(repaired_version, entry))
+
+          FileUtils.ln_s("Versions/Current/#{entry}", File.join(repaired_framework, entry))
+        end
+
+        File.rename(react_native_dependencies_framework, backup_framework)
+        begin
+          File.rename(repaired_framework, react_native_dependencies_framework)
+        rescue StandardError
+          File.rename(backup_framework, react_native_dependencies_framework)
+          raise
+        end
+        FileUtils.rm_rf(backup_framework)
+        puts '[Mac Catalyst] Repaired ReactNativeDependencies framework layout'
       end
 
       installer.pods_project.targets.each do |target|

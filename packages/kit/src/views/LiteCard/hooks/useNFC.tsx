@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 import {
   Dialog,
@@ -18,7 +18,7 @@ import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
 type ILiteCardModule = typeof import('@onekeyfe/react-native-lite-card');
 
 const liteCardModule: ILiteCardModule | undefined =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
+  platformEnv.isNativeIOSMacCatalyst
     ? undefined
     : (require('@onekeyfe/react-native-lite-card') as ILiteCardModule);
 

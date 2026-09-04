@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   BlurView,
@@ -25,7 +24,7 @@ import { ScanCamera } from './ScanCamera';
 type IExpoCameraModule = typeof import('expo-camera');
 
 const Camera: IExpoCameraModule['Camera'] | undefined =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
+  platformEnv.isNativeIOSMacCatalyst
     ? undefined
     : (require('expo-camera') as IExpoCameraModule).Camera;
 

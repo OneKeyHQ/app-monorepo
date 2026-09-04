@@ -5,19 +5,18 @@ import {
   type PinHashingMode,
   type Realm,
 } from '@phantom/react-native-juicebox-sdk';
-import { Platform } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 type INativeSDK =
   (typeof import('@phantom/react-native-juicebox-sdk'))['default'];
 
-const nativeSDK: INativeSDK | undefined =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
-    ? undefined
-    : (require('@phantom/react-native-juicebox-sdk') as { default: INativeSDK })
-        .default;
+const nativeSDK: INativeSDK | undefined = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('@phantom/react-native-juicebox-sdk') as { default: INativeSDK })
+      .default;
 
 function getNativeSDK(): INativeSDK {
   if (!nativeSDK) {

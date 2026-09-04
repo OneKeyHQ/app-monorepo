@@ -2,7 +2,6 @@ import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type {
   IIconProps,
@@ -330,8 +329,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
-                platformEnv.isNative &&
-                !(Platform.OS === 'ios' && Platform.isMacCatalyst)
+                platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
                   ? {
                       id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',

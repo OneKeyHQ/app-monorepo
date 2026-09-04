@@ -11,7 +11,6 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import axios from 'axios';
-import { Platform } from 'react-native';
 import {
   clearRequests,
   getRequests,
@@ -29,6 +28,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
+import platformEnv from '../../platformEnv';
 
 import { mergeConfig } from './config';
 import {
@@ -56,7 +57,7 @@ import type {
 type INetworkInfoModule = typeof import('react-native-network-info');
 
 const NetworkInfo: INetworkInfoModule['NetworkInfo'] | undefined =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
+  platformEnv.isNativeIOSMacCatalyst
     ? undefined
     : (require('react-native-network-info') as INetworkInfoModule).NetworkInfo;
 

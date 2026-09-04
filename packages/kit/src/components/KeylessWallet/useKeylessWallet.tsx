@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -35,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -79,7 +79,7 @@ import {
 import type { IKeylessSameEmailAccountStatus } from './sameEmailAccountStatusUtils';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
-  return !(Platform.OS === 'ios' && Platform.isMacCatalyst);
+  return !platformEnv.isNativeIOSMacCatalyst;
 }
 
 export function useKeylessWalletExistsLocal(): boolean {

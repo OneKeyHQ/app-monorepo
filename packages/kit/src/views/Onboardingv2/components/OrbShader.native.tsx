@@ -1,19 +1,18 @@
 // cspell:ignore GLSL SkSL uniforms uniform uTime uRot uIntensity uBreath uHue uResolution fragCoord snoise yiq rgb2yiq yiq2rgb hueRad cosA sinA hueDeg adjustHue invLen iRadius innerRadius noiseScale glowFactor baseColor extractAlpha smoothstep clamp fract floor vec atan cos sin sqrt attenuation
 import { useMemo } from 'react';
 
-import { Platform } from 'react-native';
 import { useDerivedValue } from 'react-native-reanimated';
 
 import { YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SharedValue } from 'react-native-reanimated';
 
 type ISkiaModule = typeof import('@shopify/react-native-skia');
 
-const skiaModule: ISkiaModule | undefined =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
-    ? undefined
-    : (require('@shopify/react-native-skia') as ISkiaModule);
+const skiaModule: ISkiaModule | undefined = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('@shopify/react-native-skia') as ISkiaModule);
 const { Canvas, Fill, Shader, Skia, useClock } =
   skiaModule ?? ({} as ISkiaModule);
 

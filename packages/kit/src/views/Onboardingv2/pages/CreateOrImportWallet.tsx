@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -25,6 +24,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useKeylessWalletFeatureIsEnabled } from '../../../components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -63,6 +63,7 @@ function CreateOrImportWallet() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const [isResetMode, setIsResetMode] = useState(false);
 
@@ -167,28 +168,32 @@ function CreateOrImportWallet() {
       enableKeylessWalletLoading || loadingProvider !== null;
 
     return [
-      {
-        key: 'google',
-        icon: 'GoogleIllus',
-        title: intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Google' },
-        ),
-        onPress: handleGoogleLogin,
-        isLoading: isGoogleLoading,
-        disabled: isKeylessLoginInProgress,
-      },
-      {
-        key: 'apple',
-        icon: 'AppleBrand',
-        title: intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Apple' },
-        ),
-        onPress: handleAppleLogin,
-        isLoading: isAppleLoading,
-        disabled: isKeylessLoginInProgress,
-      },
+      isKeylessWalletEnabled
+        ? {
+            key: 'google',
+            icon: 'GoogleIllus',
+            title: intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Google' },
+            ),
+            onPress: handleGoogleLogin,
+            isLoading: isGoogleLoading,
+            disabled: isKeylessLoginInProgress,
+          }
+        : null,
+      isKeylessWalletEnabled
+        ? {
+            key: 'apple',
+            icon: 'AppleBrand',
+            title: intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Apple' },
+            ),
+            onPress: handleAppleLogin,
+            isLoading: isAppleLoading,
+            disabled: isKeylessLoginInProgress,
+          }
+        : null,
       {
         key: 'phraseOrPrivateKey',
         icon: 'SecretPhraseOutline',
@@ -220,7 +225,7 @@ function CreateOrImportWallet() {
             isLoading: cloudBackupCheckLoading,
           }
         : null,
-      platformEnv.isNative && !(Platform.OS === 'ios' && Platform.isMacCatalyst)
+      platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
         ? {
             key: 'lite',
             icon: 'OnekeyLiteOutline',
@@ -245,6 +250,7 @@ function CreateOrImportWallet() {
     ].filter(Boolean) as IImportOption[];
   }, [
     intl,
+    isKeylessWalletEnabled,
     enableKeylessWalletLoading,
     loadingProvider,
     handleGoogleLogin,

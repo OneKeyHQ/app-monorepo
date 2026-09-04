@@ -1,16 +1,14 @@
-import { Platform } from 'react-native';
-
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 
 type INativeChartModule = typeof import('./native/TradingViewNativeChart');
 
-const NativeTradingViewNativeChart =
-  Platform.OS === 'ios' && Platform.isMacCatalyst
-    ? undefined
-    : (require('./native/TradingViewNativeChart') as INativeChartModule)
-        .TradingViewNativeChart;
+const NativeTradingViewNativeChart = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('./native/TradingViewNativeChart') as INativeChartModule)
+      .TradingViewNativeChart;
 
 export function TradingViewNativeChart(props: ITradingViewNativeChartProps) {
   if (!NativeTradingViewNativeChart) {

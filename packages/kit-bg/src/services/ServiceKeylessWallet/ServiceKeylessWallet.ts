@@ -1,6 +1,5 @@
 import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
-import { Platform } from 'react-native';
 
 import {
   decryptRevealableSeed,
@@ -59,6 +58,7 @@ import type {
   IKeylessRealmOperation,
   IKeylessRealmTokenDiagnosticContext,
 } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -323,7 +323,7 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string,
     operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
-    if (Platform.OS === 'ios' && Platform.isMacCatalyst) {
+    if (platformEnv.isNativeIOSMacCatalyst) {
       throw new OneKeyLocalError(
         'Keyless wallets are unavailable on Mac Catalyst',
       );
