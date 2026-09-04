@@ -769,6 +769,11 @@ export interface IMarketStockPublicItem {
   variants?: IMarketStockListVariant[];
 }
 
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
+
 export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'

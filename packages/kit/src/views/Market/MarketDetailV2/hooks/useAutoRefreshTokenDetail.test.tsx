@@ -14,6 +14,7 @@ const mockSetNetworkId = jest.fn();
 const mockSetPerpsInfo = jest.fn();
 const mockSetTokenAddress = jest.fn();
 const mockSetTokenDetail = jest.fn();
+const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
 let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
@@ -45,6 +46,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
       setPerpsInfo: mockSetPerpsInfo,
       setTokenAddress: mockSetTokenAddress,
       setTokenDetail: mockSetTokenDetail,
+      setTokenDetailLoading: mockSetTokenDetailLoading,
       setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
     },
   }),
@@ -154,7 +156,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
   it('does not expose an asset result from a previous route', () => {
     promiseResult = {
-      assetId: 'btc',
+      requestKey: 'asset:btc::btc--0:',
       assetDetail: { asset: { assetId: 'btc' } },
     };
 
@@ -169,5 +171,126 @@ describe('useAutoRefreshTokenDetail', () => {
     );
 
     expect(result.current.marketAssetDetail).toBeUndefined();
+  });
+
+  it('keeps the last successful Asset overview when a polling tick fails', async () => {
+    const assetDetail = { asset: { assetId: 'doge' } };
+    mockFetchAssetTokenDetail
+      .mockResolvedValueOnce(assetDetail)
+      .mockRejectedValueOnce(new Error('poll failed'));
+
+    renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      }),
+    );
+
+    await expect(promiseFactory?.()).resolves.toEqual({
+      requestKey: 'asset:doge::doge--0:',
+      assetDetail,
+    });
+    await expect(promiseFactory?.()).resolves.toEqual({
+      requestKey: 'asset:doge::doge--0:',
+      assetDetail,
+    });
+  });
+
+  it('does not let a stale Asset response replace the current overview cache', async () => {
+    const dogeAssetDetail = { asset: { assetId: 'doge' } };
+    const btcAssetDetail = { asset: { assetId: 'btc' } };
+    let resolveDogeRequest:
+      | ((assetDetail: typeof dogeAssetDetail) => void)
+      | undefined;
+    const dogeRequest = new Promise<typeof dogeAssetDetail>((resolve) => {
+      resolveDogeRequest = resolve;
+    });
+    mockFetchAssetTokenDetail
+      .mockReturnValueOnce(dogeRequest)
+      .mockResolvedValueOnce(btcAssetDetail)
+      .mockRejectedValueOnce(new Error('btc poll failed'));
+
+    const { rerender } = renderHook(
+      ({ assetId, networkId }: { assetId: string; networkId: string }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId,
+          isNative: true,
+          marketTokenId: assetId,
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        }),
+      {
+        initialProps: {
+          assetId: 'doge',
+          networkId: 'doge--0',
+        },
+      },
+    );
+    const fetchDoge = promiseFactory;
+    const pendingDogeResult = fetchDoge?.();
+
+    rerender({ assetId: 'btc', networkId: 'btc--0' });
+    const fetchBtc = promiseFactory;
+
+    await expect(fetchBtc?.()).resolves.toEqual({
+      requestKey: 'asset:btc::btc--0:',
+      assetDetail: btcAssetDetail,
+    });
+
+    resolveDogeRequest?.(dogeAssetDetail);
+    await expect(pendingDogeResult).resolves.toBeUndefined();
+
+    await expect(fetchBtc?.()).resolves.toEqual({
+      requestKey: 'asset:btc::btc--0:',
+      assetDetail: btcAssetDetail,
+    });
+  });
+
+  it('clears loading when market fetching is skipped', () => {
+    renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        skipMarketDataFetch: true,
+      }),
+    );
+
+    expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
+  });
+
+  it('drops an in-flight Asset result when market fetching becomes skipped', async () => {
+    const assetDetail = { asset: { assetId: 'doge' } };
+    let resolveRequest: ((value: typeof assetDetail) => void) | undefined;
+    mockFetchAssetTokenDetail.mockReturnValueOnce(
+      new Promise<typeof assetDetail>((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    const { rerender } = renderHook(
+      ({ skipMarketDataFetch }: { skipMarketDataFetch: boolean }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: 'doge--0',
+          isNative: true,
+          marketTokenId: 'doge',
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+          skipMarketDataFetch,
+        }),
+      { initialProps: { skipMarketDataFetch: false } },
+    );
+    const pendingResult = promiseFactory?.();
+
+    rerender({ skipMarketDataFetch: true });
+    resolveRequest?.(assetDetail);
+
+    await expect(pendingResult).resolves.toBeUndefined();
+    expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
   });
 });

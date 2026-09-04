@@ -299,7 +299,7 @@ function MarketStockListImpl({
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               onRow={(item) => ({
-                onPress: () => void toMarketStockDetailPage(item.stockId),
+                onPress: () => void toMarketStockDetailPage(item),
                 rowProps: {
                   testID: MarketTestIDs.stockRow(item.stockId),
                   // Data rows only: the company cell swaps its subtitle for the

@@ -47,6 +47,7 @@ export interface ITradingViewNativeHistoryDataProvider {
 }
 
 export interface ITradingViewNativeDataProvider extends ITradingViewNativeHistoryDataProvider {
+  historyRefreshInterval?: number;
   isReady: boolean;
   key: string;
   supportsRealtime: boolean;

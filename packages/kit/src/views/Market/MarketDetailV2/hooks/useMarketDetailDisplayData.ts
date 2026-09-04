@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 
 import type {
+  IMarketStockDetailPreview,
   IMarketTokenDetail,
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { resolveIsStockToken } from '../utils/resolveIsStockToken';
 
+import { useStockDetail } from './StockDetailContext';
 import { useTokenDetail } from './useTokenDetail';
 
 function toDisplayNumber(value: number | undefined) {
@@ -41,16 +43,50 @@ function buildPreviewTokenDetail(
   };
 }
 
+function buildStockPreviewTokenDetail({
+  networkId,
+  stockPreview,
+  tokenAddress,
+}: {
+  networkId: string;
+  stockPreview?: IMarketStockDetailPreview;
+  tokenAddress: string;
+}): IMarketTokenDetail | undefined {
+  if (!stockPreview) return undefined;
+
+  return {
+    address: tokenAddress,
+    networkId,
+    logoUrl: stockPreview.logoUrl,
+    name: stockPreview.name,
+    symbol: stockPreview.symbol,
+    decimals: 0,
+    decimalsResolved: false,
+  };
+}
+
 export function useMarketDetailDisplayData() {
   const tokenDetailData = useTokenDetail();
-  const { tokenDetail, tokenDetailPreview } = tokenDetailData;
+  const { stockPreview } = useStockDetail();
+  const { networkId, tokenAddress, tokenDetail, tokenDetailPreview } =
+    tokenDetailData;
 
   const previewTokenDetail = useMemo(
     () => buildPreviewTokenDetail(tokenDetailPreview),
     [tokenDetailPreview],
   );
+  const stockPreviewTokenDetail = useMemo(
+    () =>
+      buildStockPreviewTokenDetail({
+        networkId,
+        stockPreview,
+        tokenAddress,
+      }),
+    [networkId, stockPreview, tokenAddress],
+  );
 
-  const displayTokenDetail = tokenDetail ?? previewTokenDetail;
+  const displayTokenDetail =
+    tokenDetail ?? previewTokenDetail ?? stockPreviewTokenDetail;
 
   return useMemo(
     () => ({
@@ -58,7 +94,8 @@ export function useMarketDetailDisplayData() {
       tokenDetail: displayTokenDetail,
       fullTokenDetail: tokenDetail,
       isPreviewTokenDetail: Boolean(displayTokenDetail && !tokenDetail),
-      isStockToken: resolveIsStockToken(displayTokenDetail),
+      isStockToken:
+        tokenDetailData.isStockToken || resolveIsStockToken(displayTokenDetail),
     }),
     [displayTokenDetail, tokenDetail, tokenDetailData],
   );
