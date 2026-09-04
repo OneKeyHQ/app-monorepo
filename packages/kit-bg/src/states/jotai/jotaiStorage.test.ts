@@ -231,9 +231,9 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     await storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY);
 
     expect(await storage.getItem('g_states_v5:aAtom', null)).toBe('fresh');
-    expect(
-      await storage.getItem('g_states_v5:orphanedAtom', 'fallback'),
-    ).toBe('fallback');
+    expect(await storage.getItem('g_states_v5:orphanedAtom', 'fallback')).toBe(
+      'fallback',
+    );
     expect(mmkvInstance.getString('g_states_v5:orphanedAtom')).toBeUndefined();
     expect(JSON.stringify(mockNativeLoggerWrite.mock.calls)).toContain(
       'target cleanup result=cleared staleKeyCount=1',
