@@ -41,7 +41,6 @@ import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
-const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
@@ -271,9 +270,10 @@ export function DesktopLayout({
               />
             </XStack>
           </XStack>
+          {/* No padding of its own: each list portals a toolbar band that
+              already carries the design's spacing above the header. */}
           <div
             ref={portalRefCallback}
-            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
             data-testid="market-sticky-header-portal"
           />
         </YStack>
