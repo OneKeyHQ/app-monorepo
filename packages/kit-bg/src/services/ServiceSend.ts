@@ -79,6 +79,10 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  buildStageConfirmContentForMessage,
+  buildStageConfirmContentForSignTx,
+} from './ServiceHardwareUI/deviceStageConfirmUtils';
 
 import type {
   IBatchSignTransactionParamsBase,
@@ -337,9 +341,12 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams &
       ISignTransactionParamsBase & {
         prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+        /** DeviceStage confirm channel: the fee the caller already
+         * resolved, shown as the confirm card's fee row (OK-59934). */
+        stageFeeInfo?: ISendSelectedFeeInfo;
       },
   ) {
-    const { networkId, accountId, unsignedTx, signOnly } = params;
+    const { networkId, accountId, unsignedTx, signOnly, stageFeeInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
       params.prefetchedCredentials ??
@@ -362,7 +369,14 @@ class ServiceSend extends ServiceBase {
           }
           return signedTx;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+        {
+          deviceParams,
+          debugMethodName: 'serviceSend.signTransaction',
+          stageConfirmContent: buildStageConfirmContentForSignTx(
+            unsignedTx,
+            stageFeeInfo,
+          ),
+        },
       );
 
     if (process.env.NODE_ENV !== 'production') {
@@ -387,6 +401,7 @@ class ServiceSend extends ServiceBase {
         wcPayPreBroadcastRecord?: IBatchSignTransactionParamsBase['wcPayPreBroadcastRecord'];
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         isPrivateSend?: boolean;
+        stageFeeInfo?: ISendSelectedFeeInfo;
       },
   ) {
     const {
@@ -404,6 +419,7 @@ class ServiceSend extends ServiceBase {
       transferPayload,
       isPrivateSend,
       useDefaultRpc,
+      stageFeeInfo,
     } = params;
 
     const accountAddress =
@@ -466,6 +482,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       unsignedTx,
       signOnly, // external account should send tx here
+      stageFeeInfo,
     });
 
     const devSetting =
@@ -1136,12 +1153,14 @@ class ServiceSend extends ServiceBase {
                 accountId,
                 networkId,
                 signOnly: true,
+                stageFeeInfo: feeInfo,
               })
             : this.signAndSendTransaction({
                 unsignedTx,
                 networkId,
                 accountId,
                 signOnly: Boolean(signOnly),
+                stageFeeInfo: feeInfo,
                 tronResourceRentalInfo,
                 gasAccountUiState: effectiveGasAccountUiState,
                 gasAccountSubmitId: effectiveGasAccountSubmitId,
@@ -1703,7 +1722,12 @@ class ServiceSend extends ServiceBase {
           });
           return _signedMessage;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signMessage' },
+        {
+          deviceParams,
+          debugMethodName: 'serviceSend.signMessage',
+          stageConfirmContent:
+            buildStageConfirmContentForMessage(validUnsignedMessage),
+        },
       );
 
     return signedMessage;

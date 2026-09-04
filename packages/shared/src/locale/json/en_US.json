@@ -530,7 +530,7 @@
   "dapp_connect.request_for_lnurl_linking_key": "Request for LNURL linking key",
   "dapp_connect.request_invoices_and_lightning_information": "Request invoices and lightning information",
   "dapp_connect.requested_permissions": "Requested permissions",
-  "dapp_connect.risk_sign": "This type of signature request can sometimes be used for malicious purposes. Only sign it if you fully trust the website.",
+  "dapp_connect.risk_sign": "This signing method can authorize actions that are not shown as a normal transaction.",
   "dapp_connect.sats_between": "between {min} and {max} {unit}",
   "dapp_connect.send_approval_requests": "Send approval requests",
   "dapp_connect.signature_request": "Signature request",

@@ -56,7 +56,9 @@ jobs:
 
     steps:
       - name: Require x branch
-        if: ${{ github.ref != 'refs/heads/x' }}
+        if: >-
+          ${{ github.ref != 'refs/heads/x' &&
+          github.event_name != 'workflow_dispatch' }}
         run: |
           echo "::error::Mobile dev shells may only be published from refs/heads/x."
           exit 1
@@ -154,6 +156,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish Android dev shell to GHCR
+        if: ${{ github.ref == 'refs/heads/x' }}
         uses: ./.github/actions/publish-mobile-dev-shell
         with:
           architecture: arm64-v8a

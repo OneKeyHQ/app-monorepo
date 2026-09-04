@@ -530,7 +530,7 @@
   "dapp_connect.request_for_lnurl_linking_key": "请求 LNURL 链接密钥",
   "dapp_connect.request_invoices_and_lightning_information": "请求发票和闪电网络信息",
   "dapp_connect.requested_permissions": "请求的权限",
-  "dapp_connect.risk_sign": "这种类型的签名请求有时可能被用于恶意目的。只有当你完全信任该网站时，才进行签名。",
+  "dapp_connect.risk_sign": "这种签名方式可能授权未作为普通交易展示的操作。",
   "dapp_connect.sats_between": "在 {min} 和 {max} {unit} 之间",
   "dapp_connect.send_approval_requests": "发送授权请求",
   "dapp_connect.signature_request": "签名请求",
