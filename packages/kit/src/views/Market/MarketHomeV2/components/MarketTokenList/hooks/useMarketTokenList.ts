@@ -461,6 +461,11 @@ export function useMarketTokenList({
     {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: hasNetworkId,
+      onIsLoadingChange: (nextIsLoading) => {
+        if (!nextIsLoading) {
+          setIsNetworkSwitching(false);
+        }
+      },
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,

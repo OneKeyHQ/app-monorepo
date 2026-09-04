@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 
 import {
   swrCacheUtils,
@@ -12,6 +12,23 @@ import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
 import { useMarketTokenList } from './useMarketTokenList';
 
 const mockTrackNetworkLoading = jest.fn();
+type IUsePromiseResult =
+  typeof import('@onekeyhq/kit/src/hooks/usePromiseResult').usePromiseResult;
+let mockUsePromiseResultOverride: IUsePromiseResult | undefined;
+
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+  >('@onekeyhq/kit/src/hooks/usePromiseResult');
+
+  return {
+    ...actual,
+    usePromiseResult: (...args: Parameters<IUsePromiseResult>) =>
+      mockUsePromiseResultOverride
+        ? mockUsePromiseResultOverride(...args)
+        : actual.usePromiseResult(...args),
+  };
+});
 
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
@@ -125,6 +142,7 @@ describe('useMarketTokenList initial data', () => {
   const mockFetchMarketTokenList = jest.mocked(fetchMarketTokenListForPlatform);
 
   beforeEach(() => {
+    mockUsePromiseResultOverride = undefined;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenList.mockReset();
@@ -132,8 +150,42 @@ describe('useMarketTokenList initial data', () => {
   });
 
   afterEach(() => {
+    mockUsePromiseResultOverride = undefined;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
+  });
+
+  it('stops reporting a network switch after an empty request settles', async () => {
+    let settleRequest: () => void = () => undefined;
+
+    mockUsePromiseResultOverride = ((_method, _deps, options) => {
+      settleRequest = () => options?.onIsLoadingChange?.(false);
+      return {
+        result: undefined,
+        setResult: jest.fn(),
+        isLoading: false,
+        run: jest.fn(async () => undefined),
+        setStopPolling: jest.fn(() => false),
+      };
+    }) as IUsePromiseResult;
+
+    const { result } = renderHook(() =>
+      useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      }),
+    );
+    await act(async () => {
+      settleRequest();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toMatchObject({
+      data: [],
+      isLoading: false,
+      isNetworkSwitching: false,
+    });
   });
 
   it('renders SWR rows on the first frame, then replaces and caches the remote page', async () => {
