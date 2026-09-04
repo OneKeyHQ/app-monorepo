@@ -42,8 +42,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Resolve public Android dev shell
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      exists: ${{ steps.shell.outputs.exists }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+
+      - name: Resolve exact OCI shell
+        id: shell
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/mobile-dev-shell-android.json"
+          node apps/mobile/scripts/native-dev-shell.js resolve \
+            --platform android \
+            --output "$status_file"
+          exists="$(jq -er '.exists' "$status_file")"
+          tag="$(jq -er '.tag' "$status_file")"
+          oci_digest="$(jq -r '.ociDigest // ""' "$status_file")"
+          reference="ghcr.io/onekeyhq/mobile-dev-shell:$tag"
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Android dev shell"
+            echo "- Exact OCI reference: \`$reference${oci_digest:+@$oci_digest}\`"
+            echo "- Already existed: \`$exists\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-android-dev-shell:
     name: Build Android arm64 dev shell
+    needs: resolve
+    if: needs.resolve.outputs.exists != 'true'
     permissions:
       attestations: write
       contents: read

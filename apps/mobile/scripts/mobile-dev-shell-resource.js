@@ -303,6 +303,11 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
       `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
     );
     if (response.status === 404) error.code = 'SHELL_LOCATOR_NOT_FOUND';
+    error.retryable =
+      response.status === 408 ||
+      response.status === 425 ||
+      response.status === 429 ||
+      response.status >= 500;
     throw error;
   }
   const manifestBytes = await readResponseBody({
@@ -333,7 +338,51 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   };
 }
 
-function isRetryableDownloadError(error) {
+async function resolveExactMobileDevShell({
+  compatibility: inputCompatibility,
+  fetchImpl,
+  maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const resolved = await resolveOciShell({
+        compatibility,
+        fetchImpl,
+        locator: 'exact',
+        tag: compatibility.exactTag,
+      });
+      return {
+        exists: true,
+        ociDigest: resolved.ociDigest,
+        sourceCommit: resolved.sourceCommit,
+        tag: compatibility.exactTag,
+      };
+    } catch (error) {
+      if (error?.code === 'SHELL_LOCATOR_NOT_FOUND') {
+        return {
+          exists: false,
+          ociDigest: null,
+          sourceCommit: null,
+          tag: compatibility.exactTag,
+        };
+      }
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
+        throw error;
+      }
+      console.error(
+        `[mobileDevShellResource] Retrying exact shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
+  }
+  throw new Error('[mobileDevShellResource] Exact shell lookup exhausted.');
+}
+
+function isRetryableOciError(error) {
   const retryableCodes = new Set([
     'EAI_AGAIN',
     'ECONNRESET',
@@ -418,7 +467,7 @@ async function downloadLayerToFile({
       return;
     } catch (error) {
       await fs.promises.rm(filePath, { force: true });
-      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
         throw error;
       }
       console.error(
@@ -1135,6 +1184,7 @@ module.exports = {
   getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
   touchAndPruneMobileShellCache,

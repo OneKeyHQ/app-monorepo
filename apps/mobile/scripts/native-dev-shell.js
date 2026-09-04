@@ -22,9 +22,9 @@ const {
   verifyManifest,
 } = require('../plugins/devVendor');
 
-const { preparePlatform } = require('./build-dev-vendor');
 const {
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
 } = require('./mobile-dev-shell-resource');
@@ -518,11 +518,12 @@ function parseArgs(argv = process.argv.slice(2)) {
       'compatibility',
       'contract',
       'launch',
+      'resolve',
       'session',
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -2172,6 +2173,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
 }
 
 async function prepareVendor({ platform, report, vendor }) {
+  const { preparePlatform } = require('./build-dev-vendor');
   if (vendor !== 'auto' && vendor !== 'local') {
     const expectedTag = getReleaseTag();
     if (vendor !== expectedTag) {
@@ -2408,6 +2410,12 @@ async function main() {
   } else if (args.command === 'contract') {
     const manifest = await writeContractManifest(args);
     console.log(manifest.nativeContractKey);
+  } else if (args.command === 'resolve') {
+    const result = await resolveExactMobileDevShell({
+      compatibility: getShellCompatibility(args),
+    });
+    if (args.output) await writeJson(path.resolve(args.output), result);
+    console.log(String(result.exists));
   } else if (args.command === 'session') {
     const metroPort = parseMetroPort(args.metroPort) || 8081;
     const result = await writeDevSession({
