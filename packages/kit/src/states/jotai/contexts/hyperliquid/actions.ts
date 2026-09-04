@@ -3577,18 +3577,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               coins: filteredPositions.map((p) => p.position.coin),
             });
 
-          // Mids the main runtime has not received yet (cold start) are
-          // resolved by the background price source the close dialog uses.
+          // The main-runtime atom carries no age marker, so every coin is
+          // priced by the background owner (fresh snapshot or per-dex REST),
+          // matching the single close submit path.
           const midPrices = await Promise.all(
             filteredPositions.map(async (p) => {
               const { coin } = p.position;
               try {
-                const midPriceInfo = await this.getMidPrice.call(set, {
-                  coin,
-                });
-                if (midPriceInfo.mid) {
-                  return { coin, midPrice: midPriceInfo.mid };
-                }
                 return {
                   coin,
                   midPrice:
