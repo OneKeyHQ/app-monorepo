@@ -898,7 +898,7 @@ describe('devVendor', () => {
         'utf8',
       );
       const installIndex = workflow.indexOf(
-        'yarn install --immutable --mode=skip-builds',
+        'yarn install --immutable --mode=skip-build',
       );
       const resolveIndex = workflow.indexOf('Resolve exact OCI shell');
       expect(installIndex).toBeGreaterThan(-1);

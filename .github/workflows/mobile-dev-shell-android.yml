@@ -67,7 +67,7 @@ jobs:
       - name: Install native ABI inputs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn install --immutable --mode=skip-builds
+        run: yarn install --immutable --mode=skip-build
 
       - name: Resolve exact OCI shell
         id: shell

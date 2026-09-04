@@ -64,7 +64,7 @@ jobs:
       - name: Install dependency graph
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn install --immutable --mode=skip-builds
+        run: yarn install --immutable --mode=skip-build
 
       - name: Verify OCI configuration
         run: |
