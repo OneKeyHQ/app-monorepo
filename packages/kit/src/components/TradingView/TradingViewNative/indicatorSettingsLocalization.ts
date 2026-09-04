@@ -85,8 +85,6 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
     labels: {
       movingAveragePeriod:
         ETranslations.market_chart_indicator_smoothing_length__label,
-      'plot:movingAverage':
-        ETranslations.market_chart_indicator_smoothed_ma__label,
     },
     name: ETranslations.market_chart_indicator_obv__title,
   },

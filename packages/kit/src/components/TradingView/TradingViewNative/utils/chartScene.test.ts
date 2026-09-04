@@ -412,6 +412,66 @@ describe('TradingViewNative shared chart scene', () => {
         'indicatorSarPoint',
       ]),
     );
+    const mainIndicatorLegendLabels = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'legend' &&
+      /^(?:MA|EMA)\d+$/.test(command.text)
+        ? [command]
+        : [],
+    );
+    expect(mainIndicatorLegendLabels.map(({ text }) => text)).toEqual([
+      'MA5',
+      'MA10',
+      'MA20',
+      'EMA5',
+      'EMA10',
+      'EMA20',
+    ]);
+    expect(
+      mainIndicatorLegendLabels.every((command) =>
+        command.customPaintId?.endsWith(':legend'),
+      ),
+    ).toBe(true);
+    const maLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('MA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    const emaLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('EMA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    expect(maLegendYValues).toHaveLength(1);
+    expect(emaLegendYValues).toHaveLength(1);
+    const [maLegendY] = maLegendYValues;
+    const [emaLegendY] = emaLegendYValues;
+    if (maLegendY !== undefined && emaLegendY !== undefined) {
+      const priceLegendYValues = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        ['O', 'H', 'L', 'C'].includes(command.text)
+          ? [command.y]
+          : [],
+      );
+      expect(priceLegendYValues.length).toBeGreaterThan(0);
+      expect(maLegendY).toBeGreaterThan(Math.max(...priceLegendYValues));
+      expect(emaLegendY).toBeGreaterThan(maLegendY);
+    }
+    const bollFillIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'polygon' &&
+        command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+    );
+    const firstCandleIndex = scene.commands.findIndex(
+      (command) => command.kind === 'rect' && command.paint === 'up',
+    );
+    expect(bollFillIndex).toBeGreaterThan(-1);
+    expect(bollFillIndex).toBeLessThan(firstCandleIndex);
     expect(priceAxisText).toContain('-50.00');
     expect(Math.max(...priceAxisText.map(Number))).toBeGreaterThan(101);
   });

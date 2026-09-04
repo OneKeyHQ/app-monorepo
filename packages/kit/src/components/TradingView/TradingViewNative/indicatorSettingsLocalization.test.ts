@@ -79,6 +79,7 @@ describe('indicatorSettingsLocalization', () => {
     const value = getLocalizedValue();
     const volume = value.indicators.find((indicator) => indicator.id === 'VOL');
     const macd = value.indicators.find((indicator) => indicator.id === 'MACD');
+    const obv = value.indicators.find((indicator) => indicator.id === 'OBV');
     const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
     const trix = value.indicators.find((indicator) => indicator.id === 'TRIX');
 
@@ -92,6 +93,9 @@ describe('indicatorSettingsLocalization', () => {
       label: 'MACD',
       title: 'MACD',
     });
+    expect(
+      obv?.lines.find((line) => line.id === 'plot:movingAverage'),
+    ).toMatchObject({ enabled: true, label: 'MAOBV' });
     expect(rsi).toMatchObject({
       description: ETranslations.market_chart_indicator_rsi__title,
       label: 'RSI',

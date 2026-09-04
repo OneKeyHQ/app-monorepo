@@ -1,12 +1,11 @@
 // cspell:ignore Bollinger
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
-import type { ITradingViewNativeIndicatorSettingsItem } from '@onekeyhq/shared/types/tradingViewNative';
-
 import {
-  TRADING_VIEW_NATIVE_INDICATOR_CYAN_COLOR,
-  TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR,
-  TRADING_VIEW_NATIVE_INDICATOR_PINK_COLOR,
-} from '../../chartConstants';
+  type ITradingViewNativeIndicatorSettingsItem,
+  TRADING_VIEW_NATIVE_THEME_COLORS,
+} from '@onekeyhq/shared/types/tradingViewNative';
+
+import { TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR } from '../../chartConstants';
 
 import { normalizeTradingViewNativeIndicatorPeriod } from './normalizePeriod';
 import {
@@ -19,6 +18,7 @@ import type { ITradingViewNativeIndicatorSeries } from './types';
 
 const BOLL_PERIOD = 20;
 const BOLL_STANDARD_DEVIATION_MULTIPLIER = 2;
+const BOLL_BACKGROUND_OPACITY = 0.1;
 
 export function calculateTradingViewNativeBollingerBands(
   values: readonly number[],
@@ -97,36 +97,58 @@ export function buildTradingViewNativeBollSeries(
       values: bands.middle,
     },
     {
-      color: TRADING_VIEW_NATIVE_INDICATOR_CYAN_COLOR,
+      color: TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR,
       id: 'upper',
-      paint: 'indicatorCyanStroke' as const,
+      paint: 'indicatorOrangeStroke' as const,
       values: bands.upper,
     },
     {
-      color: TRADING_VIEW_NATIVE_INDICATOR_PINK_COLOR,
+      color: TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR,
       id: 'lower',
-      paint: 'indicatorPinkStroke' as const,
+      paint: 'indicatorOrangeStroke' as const,
       values: bands.lower,
     },
   ];
-  return definitions.flatMap((definition) => {
-    const line = getTradingViewNativeIndicatorLine(settings, definition.id, {
-      color: definition.color,
-      enabled: true,
-      period: 0,
-      style: 'solid',
-    });
-    return line.enabled
-      ? [
-          {
-            indicator: 'BOLL' as const,
-            key: `boll-${definition.id}`,
-            kind: 'line' as const,
-            paint: definition.paint,
-            style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
-            values: definition.values,
-          },
-        ]
-      : [];
+  const series: ITradingViewNativeIndicatorSeries[] = definitions.flatMap(
+    (definition) => {
+      const line = getTradingViewNativeIndicatorLine(settings, definition.id, {
+        color: definition.color,
+        enabled: true,
+        period: 0,
+        style: 'solid',
+      });
+      return line.enabled
+        ? [
+            {
+              indicator: 'BOLL' as const,
+              key: `boll-${definition.id}`,
+              kind: 'line' as const,
+              paint: definition.paint,
+              style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
+              values: definition.values,
+            },
+          ]
+        : [];
+    },
+  );
+  const upperSeries = series.find(({ key }) => key === 'boll-upper');
+  const lowerSeries = series.find(({ key }) => key === 'boll-lower');
+  const background = getTradingViewNativeIndicatorLine(settings, 'background', {
+    color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+    enabled: true,
+    period: 0,
+    style: 'solid',
   });
+  if (background.enabled && upperSeries && lowerSeries) {
+    const backgroundStyle = getTradingViewNativeIndicatorSeriesStyle(
+      background,
+      settings,
+    );
+    upperSeries.fill = {
+      color: backgroundStyle.color,
+      opacity: backgroundStyle.opacity * BOLL_BACKGROUND_OPACITY,
+      toSeriesKey: lowerSeries.key,
+    };
+  }
+  return series;
 }

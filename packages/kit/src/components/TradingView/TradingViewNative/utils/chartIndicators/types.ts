@@ -25,9 +25,15 @@ export type ITradingViewNativeIndicatorPaint =
   | 'indicatorSarPoint';
 
 export interface ITradingViewNativeIndicatorSeries {
+  fill?: {
+    color: string;
+    opacity: number;
+    toSeriesKey: string;
+  };
   indicator: ITradingViewNativeIndicator;
   key: string;
   kind: 'line' | 'points';
+  legendLabel?: string;
   paint: ITradingViewNativeIndicatorPaint;
   style?: {
     color: string;
