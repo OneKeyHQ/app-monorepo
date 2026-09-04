@@ -108,6 +108,7 @@ const nativeContractDependencies = {
     '@react-native-community/slider',
     '@react-native-documents/picker',
     '@react-native-google-signin/google-signin',
+    '@react-native-masked-view/masked-view',
     '@sentry/react-native',
     '@shopify/react-native-skia',
     '@walletconnect/react-native-compat',

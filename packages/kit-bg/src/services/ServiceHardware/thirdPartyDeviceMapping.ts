@@ -74,6 +74,10 @@ export function mapThirdPartyDeviceToSearchDevice({
     deviceType: 'unknown',
     uuid: '',
     commType: 'bridge',
+    // Top-level vendor is load-bearing: onboarding casts this SearchDevice to
+    // IDBDevice, and withHardwareProcessing routes third-party devices by
+    // `device.vendor ?? device.settings.vendor` — neither exists pre-persist.
+    vendor: device.vendor,
     // Pass-through: persisted into IDBDeviceSettings.vendorModel/vendorModelName.
     vendorModel: device.model,
     vendorModelName: (device as DeviceInfo & { modelName?: string }).modelName,
