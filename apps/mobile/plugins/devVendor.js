@@ -596,8 +596,119 @@ function extractMacroBodies(source, macroName) {
   return bodies;
 }
 
-function countBridgeArguments(signature) {
-  return (signature.match(/:/gu) || []).length;
+function stripNativeSignatureComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
+    .replace(/\/\/[^\n\r]*/gu, ' ');
+}
+
+function normalizeNativeSignatureToken(source) {
+  return stripNativeSignatureComments(source)
+    .replace(/\s+/gu, ' ')
+    .replace(/\s*([,[\]<>*&?])\s*/gu, '$1')
+    .trim();
+}
+
+function findMatchingDelimiter(source, openOffset, open, close) {
+  let depth = 0;
+  for (let offset = openOffset; offset < source.length; offset += 1) {
+    if (source[offset] === open) depth += 1;
+    if (source[offset] === close) {
+      depth -= 1;
+      if (depth === 0) return offset;
+    }
+  }
+  return -1;
+}
+
+function findTopLevelCharacter(source, expected) {
+  const closing = new Map([
+    ['(', ')'],
+    ['[', ']'],
+    ['{', '}'],
+    ['<', '>'],
+  ]);
+  const stack = [];
+  for (let offset = 0; offset < source.length; offset += 1) {
+    const character = source[offset];
+    if (closing.has(character)) {
+      stack.push(closing.get(character));
+    } else if (stack.at(-1) === character) {
+      stack.pop();
+    } else if (character === expected && stack.length === 0) {
+      return offset;
+    }
+  }
+  return -1;
+}
+
+function splitTopLevel(source, delimiter) {
+  const parts = [];
+  let offset = 0;
+  let remaining = source;
+  while (remaining) {
+    const delimiterOffset = findTopLevelCharacter(remaining, delimiter);
+    if (delimiterOffset < 0) break;
+    parts.push(source.slice(offset, offset + delimiterOffset));
+    offset += delimiterOffset + 1;
+    remaining = source.slice(offset);
+  }
+  parts.push(source.slice(offset));
+  return parts;
+}
+
+function canonicalizeIosBridgeMethod(macroName, inputBody) {
+  const body = stripNativeSignatureComments(inputBody).trim();
+  let signature = body;
+  let exportedName;
+  if (macroName === 'RCT_REMAP_METHOD') {
+    const commaOffset = findTopLevelCharacter(body, ',');
+    if (commaOffset < 0) return normalizeNativeSignatureToken(body);
+    exportedName = normalizeNativeSignatureToken(body.slice(0, commaOffset));
+    signature = body.slice(commaOffset + 1);
+  } else {
+    exportedName = signature.match(/^([A-Za-z_$][\w$]*)/u)?.[1];
+  }
+  if (!exportedName) return normalizeNativeSignatureToken(body);
+
+  const parameters = [];
+  const selectorPattern = /([A-Za-z_$][\w$]*)\s*:\s*\(/gu;
+  let match;
+  while ((match = selectorPattern.exec(signature))) {
+    const openOffset = signature.indexOf('(', match.index);
+    const closeOffset = findMatchingDelimiter(signature, openOffset, '(', ')');
+    if (closeOffset < 0) return normalizeNativeSignatureToken(body);
+    parameters.push(
+      `${match[1]}:${normalizeNativeSignatureToken(
+        signature.slice(openOffset + 1, closeOffset),
+      )}`,
+    );
+    selectorPattern.lastIndex = closeOffset + 1;
+  }
+  return `${exportedName}(${parameters.join(',')})`;
+}
+
+function canonicalizeAndroidParameter(inputParameter) {
+  let parameter = stripNativeSignatureComments(inputParameter)
+    .replace(/@[A-Za-z_$][\w$.]*(?:\([^)]*\))?\s*/gu, '')
+    .trim();
+  const defaultOffset = findTopLevelCharacter(parameter, '=');
+  if (defaultOffset >= 0) parameter = parameter.slice(0, defaultOffset).trim();
+  const kotlinTypeOffset = findTopLevelCharacter(parameter, ':');
+  if (kotlinTypeOffset >= 0) {
+    return normalizeNativeSignatureToken(parameter.slice(kotlinTypeOffset + 1));
+  }
+  parameter = parameter.replace(
+    /^(?:(?:final|vararg|crossinline|noinline)\s+)+/gu,
+    '',
+  );
+  const javaParameter = parameter.match(
+    /^(.*?)\s+[A-Za-z_$][\w$]*(\s*(?:\[\s*\])*)$/u,
+  );
+  if (!javaParameter) return normalizeNativeSignatureToken(parameter);
+  return normalizeNativeSignatureToken(
+    `${javaParameter[1]}${javaParameter[2] || ''}`,
+  );
 }
 
 function extractNativeBridgeSymbols(source) {
@@ -645,17 +756,26 @@ function extractNativeBridgeSymbols(source) {
     'RCT_REMAP_METHOD',
   ]) {
     for (const body of extractMacroBodies(source, macroName)) {
-      const name = body.trim().match(/^([A-Za-z_$][\w$]*)/u)?.[1];
-      if (name) {
-        symbols.add(`ios-method:${name}/${String(countBridgeArguments(body))}`);
-      }
+      symbols.add(`ios-method:${canonicalizeIosBridgeMethod(macroName, body)}`);
     }
   }
   for (const match of source.matchAll(
-    /@ReactMethod(?:\([^)]*\))?[\s\S]{0,300}?\b(?:fun|void|boolean|double|float|int|long|String|WritableMap|WritableArray|Promise)\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/gu,
+    /@ReactMethod(?:\(([^)]*)\))?[\s\S]{0,300}?(?:\bfun\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)(?:\s*:\s*([^={\n\r]+))?|\b([A-Za-z_$][\w$.]*(?:\s*<[^;{}()]*>)?(?:\s*\[\s*\])*)\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\))/gu,
   )) {
-    const argumentCount = match[2].trim() ? match[2].split(',').length : 0;
-    symbols.add(`android-method:${match[1]}/${String(argumentCount)}`);
+    const name = match[2] || match[6];
+    const parameterSource = match[3] ?? match[7] ?? '';
+    const parameters = parameterSource.trim()
+      ? splitTopLevel(parameterSource, ',').map(canonicalizeAndroidParameter)
+      : [];
+    const returnType = normalizeNativeSignatureToken(
+      match[2] ? match[4] || 'Unit' : match[5],
+    );
+    const options = match[1]
+      ? `;options=${normalizeNativeSignatureToken(match[1])}`
+      : '';
+    symbols.add(
+      `android-method:${name}(${parameters.join(',')})->${returnType}${options}`,
+    );
   }
   return [...symbols].toSorted(compareStrings);
 }

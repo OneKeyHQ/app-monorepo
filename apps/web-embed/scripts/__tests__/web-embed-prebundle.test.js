@@ -231,6 +231,32 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 
+  it('hashes browser fallbacks that replace imported Node built-ins', () => {
+    const inputPath = path.join(temporaryDirectory, 'input.js');
+    const fallbackPath = path.join(temporaryDirectory, 'crypto-fallback.js');
+    fs.writeFileSync(inputPath, "require('crypto');\n");
+    fs.writeFileSync(fallbackPath, 'module.exports = "first";\n');
+    fs.writeFileSync(path.join(temporaryDirectory, 'yarn.lock'), '');
+    const options = {
+      inputPaths: ['input.js'],
+      resolveOptions: {
+        alias: {},
+        aliasFields: ['browser', 'module', 'main'],
+        extensions: ['.js'],
+        fallback: { crypto: fallbackPath },
+        fullySpecified: false,
+        mainFields: ['browser', 'module', 'main'],
+        symlinks: true,
+      },
+      root: temporaryDirectory,
+      traceDependencies: true,
+    };
+    const inputKey = getInputKey(options);
+
+    fs.writeFileSync(fallbackPath, 'module.exports = "second";\n');
+    expect(getInputKey(options)).not.toBe(inputKey);
+  });
+
   it('uses one canonical environment for every prebundle build', async () => {
     const inputKey = 'c'.repeat(64);
     const webBuildDirectory = path.join(

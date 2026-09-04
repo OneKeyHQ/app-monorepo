@@ -13,6 +13,10 @@ const { promisify } = require('util');
 const babelParser = require('@babel/parser');
 const enhancedResolve = require('enhanced-resolve');
 
+const {
+  createBaseResolveOptions,
+} = require('../../../development/rspack/rspack.resolve.config');
+
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const WEB_EMBED_ROOT = path.resolve(__dirname, '..');
@@ -253,33 +257,35 @@ function parseModuleSpecifiers(filePath) {
   return [...specifiers].toSorted(compareStrings);
 }
 
-function createWebEmbedResolver(root) {
-  const moduleResolverMocks = path.join(root, 'development/module-resolver');
-  return enhancedResolve.create.sync({
-    alias: {
-      '@sentry/minimal$': path.join(
-        moduleResolverMocks,
-        'sentry-minimal-compat',
-      ),
-      'react-native$': 'react-native-web',
-      'react-native-aes-crypto': false,
-      'react-native-cloud-fs': false,
-      'react-native-fast-image': path.join(
-        moduleResolverMocks,
-        'react-native-fast-image-mock',
-      ),
-      'react-native-keyboard-controller': path.join(
-        moduleResolverMocks,
-        'react-native-keyboard-controller-mock',
-      ),
-    },
-    aliasFields: ['browser'],
-    conditionNames: ['browser', 'import', 'require', 'default'],
-    extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
-    mainFields: ['browser', 'module', 'main'],
-    modules: [path.join(root, 'node_modules'), 'node_modules'],
-    symlinks: true,
-  });
+function createWebEmbedResolver(root, inputResolveOptions) {
+  const resolveOptions =
+    inputResolveOptions ||
+    createBaseResolveOptions({
+      basePath: path.join(root, 'apps/web-embed'),
+      enableSentryMinimalCompat: true,
+      extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
+    });
+  const { fallback = {}, ...resolverOptions } = resolveOptions;
+  return {
+    fallback,
+    resolve: enhancedResolve.create.sync({
+      ...resolverOptions,
+      conditionNames: ['browser', 'import', 'require', 'default'],
+      modules: [path.join(root, 'node_modules'), 'node_modules'],
+    }),
+  };
+}
+
+function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
+  if (BUILTIN_MODULES.has(specifier)) {
+    const builtinName = specifier.startsWith('node:')
+      ? specifier.slice('node:'.length)
+      : specifier;
+    const replacement = fallback[builtinName];
+    if (replacement === false || replacement === undefined) return false;
+    return resolve(context, replacement);
+  }
+  return resolve(context, specifier);
 }
 
 function findPackageRoot(filePath, root) {
@@ -353,9 +359,10 @@ function getPackageResolutionRecords(packageJson, lockRecords) {
 
 function getWebEmbedInputDescriptor({
   inputPaths = INPUT_PATHS,
+  resolveOptions,
   root = REPO_ROOT,
 } = {}) {
-  const resolver = createWebEmbedResolver(root);
+  const resolver = createWebEmbedResolver(root, resolveOptions);
   const repoFiles = new Set(listFiles(inputPaths, root));
   const pending = [...repoFiles];
   const visited = new Set();
@@ -365,13 +372,15 @@ function getWebEmbedInputDescriptor({
     if (!visited.has(filePath)) {
       visited.add(filePath);
       if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
-        const specifiers = parseModuleSpecifiers(filePath).filter(
-          (specifier) => !BUILTIN_MODULES.has(specifier),
-        );
+        const specifiers = parseModuleSpecifiers(filePath);
         for (const specifier of specifiers) {
           let resolved;
           try {
-            resolved = resolver(path.dirname(filePath), specifier);
+            resolved = resolveWebEmbedSpecifier(
+              resolver,
+              path.dirname(filePath),
+              specifier,
+            );
           } catch (error) {
             const adjacentPath = path.resolve(
               path.dirname(filePath),
@@ -477,13 +486,18 @@ function getInputKey(options = {}) {
   }
   const {
     inputPaths = INPUT_PATHS,
+    resolveOptions,
     root = REPO_ROOT,
     traceDependencies = inputPaths === INPUT_PATHS,
   } = options;
   const hash = crypto.createHash('sha256');
   hash.update(`schema:${SCHEMA_VERSION}\0`);
   if (traceDependencies) {
-    const descriptor = getWebEmbedInputDescriptor({ inputPaths, root });
+    const descriptor = getWebEmbedInputDescriptor({
+      inputPaths,
+      resolveOptions,
+      root,
+    });
     hash.update(hashFiles(descriptor.files, root));
     hash.update('\0');
     hash.update(JSON.stringify(descriptor.packages));

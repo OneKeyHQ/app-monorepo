@@ -825,6 +825,63 @@ describe('devVendor', () => {
       fs.writeFileSync(
         appBridgePath,
         appBridge.replace(
+          'readLegacyAsyncStorageValue(String key, Promise promise)',
+          'readLegacyAsyncStorageValue(ReadableMap key, Promise promise)',
+        ),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      fs.writeFileSync(appBridgePath, appBridge);
+      fs.writeFileSync(
+        appBridgePath,
+        appBridge.replace(
+          'readLegacyAsyncStorageValue(String key, Promise promise)',
+          'readLegacyAsyncStorageValue(String key, Callback promise)',
+        ),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(appBridgePath, appBridge);
+
+      const iosAppBridgePath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/ios/OneKeyWallet/OneKeyNativeStorageMigration.m',
+      );
+      const iosAppBridge = fs.readFileSync(iosAppBridgePath, 'utf8');
+      fs.writeFileSync(
+        iosAppBridgePath,
+        iosAppBridge.replace(
+          'readLegacyAsyncStorageValue:(NSString *)key',
+          'readLegacyAsyncStorageValue:(NSNumber *)key',
+        ),
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(iosAppBridgePath, iosAppBridge);
+      fs.writeFileSync(
+        iosAppBridgePath,
+        iosAppBridge.replace(
+          'resolver:(RCTPromiseResolveBlock)resolve',
+          'resolver:(RCTResponseSenderBlock)resolve',
+        ),
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      fs.writeFileSync(iosAppBridgePath, iosAppBridge);
+
+      fs.writeFileSync(
+        appBridgePath,
+        appBridge.replace(
           'readLegacyAsyncStorageValue',
           'readLegacyAsyncStorageValueChanged',
         ),
