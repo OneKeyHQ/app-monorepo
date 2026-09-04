@@ -74,6 +74,7 @@ import {
 import { isTradingViewNativePriceUp } from './chartStyle';
 import { getTradingViewNativePrimarySeriesModel } from './chartType';
 import {
+  type ITradingViewNativePriceRange,
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   clampTradingViewNativeZoomScale,
@@ -248,6 +249,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel?: string;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   priceAxisFontSize?: number;
   priceAxisWidth?: number;
   priceAxisTickCount?: number;
@@ -276,6 +278,7 @@ const LATEST_PRICE_LABEL_PAINT_IDS = {
 const BACKGROUND_PAINT_ID = 'chart.background';
 
 export interface ITradingViewNativeChartScene {
+  autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
@@ -551,6 +554,7 @@ export function buildTradingViewNativeChartScene({
   candleLabels,
   currentPriceLabel,
   points,
+  pinnedPriceRange,
   priceAxisFontSize = AXIS_FONT_SIZE,
   priceAxisWidth,
   priceAxisTickCount,
@@ -729,6 +733,7 @@ export function buildTradingViewNativeChartScene({
     zoomScale,
   };
   const emptyScene = {
+    autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
     customPaintStyles,
@@ -756,6 +761,7 @@ export function buildTradingViewNativeChartScene({
         TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale,
       ),
     points,
+    pinnedPriceRange,
     priceAxisWidth: resolvedPriceAxisWidth,
     priceAxisTickCount,
     timeAxisHeight,
@@ -1302,6 +1308,7 @@ export function buildTradingViewNativeChartScene({
     });
 
   return {
+    autoPriceRange: layout.autoPriceRange,
     commands,
     crosshairPointIndex,
     customPaintStyles,

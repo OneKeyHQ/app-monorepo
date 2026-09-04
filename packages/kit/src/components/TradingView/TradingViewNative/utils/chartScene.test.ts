@@ -67,6 +67,7 @@ describe('TradingViewNative shared chart scene', () => {
       endIndex: POINTS.length,
       startIndex: 0,
     });
+    expect(scene.autoPriceRange).toEqual({ maxPrice: 105, minPrice: 97 });
     expect(scene.crosshairPointIndex).toBe(POINTS.length - 1);
     expect(scene.commands[0]).toMatchObject({
       height: 240,
