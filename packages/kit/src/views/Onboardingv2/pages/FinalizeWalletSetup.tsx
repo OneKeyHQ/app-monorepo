@@ -417,15 +417,11 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
-    // The wallet-creation run is one conversation with the device across
-    // several hardware calls (wallet, passphrase, accounts) with app work
-    // between them. Legacy showed a checking dialog per call, which is
-    // what flickered through the onboarding animation; one hold spans it.
-    await ensureBurst({
-      connectId: deviceData?.device?.connectId ?? undefined,
-      deviceType: deviceData?.device?.deviceType ?? undefined,
-      deviceName: deviceData?.device?.name ?? undefined,
-    });
+    // The stage hold is opened inside the hardware branch below, and only
+    // there: a software wallet (new mnemonic, import, keyless restore) has
+    // no device, and a hold taken here regardless painted the connecting
+    // replica over its password prompt 120ms later. endBurst() in the
+    // finally is a no-op for a run that never held.
     try {
       let hdWalletCreatedResult:
         | {
@@ -532,6 +528,16 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // The wallet-creation run is one conversation with the device
+        // across several hardware calls (wallet, passphrase, accounts) with
+        // app work between them. Legacy showed a checking dialog per call,
+        // which is what flickered through the onboarding animation; one
+        // hold spans it.
+        await ensureBurst({
+          connectId: deviceData.device?.connectId ?? undefined,
+          deviceType: deviceData.device?.deviceType ?? undefined,
+          deviceName: deviceData.device?.name ?? undefined,
+        });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
