@@ -242,6 +242,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   hasVolume: boolean;
   height: number;
   indicatorSeries?: ITradingViewNativeIndicatorSeries[];
+  isMobileLayout?: boolean;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
@@ -550,6 +551,7 @@ export function buildTradingViewNativeChartScene({
   hasVolume,
   height,
   indicatorSeries = [],
+  isMobileLayout = false,
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
@@ -712,6 +714,7 @@ export function buildTradingViewNativeChartScene({
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
     canvasWidth: width,
+    isMobileLayout,
     mainChartBottom: subIndicatorPaneStackLayout.top,
   });
   if (watermarkRect) {
