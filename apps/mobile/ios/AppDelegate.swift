@@ -1,4 +1,4 @@
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
 internal import CryptoKit
 #endif
 internal import Expo
@@ -81,7 +81,7 @@ private enum BackgroundThreadBridge {
     cls.perform(selector, with: host, with: entryURL)
   }
 
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
   static func installSharedBridgeInMainRuntime(
     _ host: AnyObject,
     thenStartBackgroundRunnerWithDevVendorConfig config: [String: String]
@@ -128,18 +128,21 @@ private func isStartupProfileEnabled() -> Bool {
 private enum InitialBundleKind {
   case none
   case common
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
   case devVendorCommon
 #endif
   case main
 }
 
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
+/// Debug-only common HBC configuration. `sessionId` is set for the iOS
+/// Simulator DevSession shell and nil for Xcode device builds that embed the
+/// artifacts directly (see `resolveDevVendorBundleInfo`).
 private struct DevVendorBundleInfo {
   let commonBundleURL: URL
   let fingerprint: String
   let metroBaseURL: URL
-  let sessionId: String
+  let sessionId: String?
 }
 #endif
 
@@ -355,7 +358,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return url
   }
 
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
   private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
 
   private func explicitDevBackgroundHMRValue() -> Bool? {
@@ -380,6 +383,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
+#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)
     guard
       let nativeContractKey = Bundle.main.object(
         forInfoDictionaryKey: "ONEKEY_NATIVE_CONTRACT_KEY"
@@ -516,6 +520,95 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         "Run the dev-shell command again for this exact simulator. Error: \(error)"
       )
     }
+#else
+    // Xcode Debug builds (physical devices and non-shell simulators): the
+    // "Bundle React Native code and images" phase embeds the validated
+    // out-dir-bundle/dev-vendor common HBC + manifest when
+    // ONEKEY_DEV_VENDOR=true. There is no DevSession; Metro is the plain
+    // `yarn app:native-bundle` server reached through the packager URL, and the
+    // delta requests identify themselves with resolver.devVendorEmbedded=true.
+    let commonURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-common",
+      withExtension: "hbc"
+    )
+    let manifestURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-manifest",
+      withExtension: "json"
+    )
+    if commonURL == nil && manifestURL == nil {
+      return nil
+    }
+    guard let commonURL, let manifestURL else {
+      fatalError("Dev-vendor common HBC and manifest must be embedded together")
+    }
+    guard
+      let packagerURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
+        forBundleRoot: ".expo/.virtual-metro-entry"
+      ),
+      var baseComponents = URLComponents(url: packagerURL, resolvingAgainstBaseURL: false)
+    else {
+      // Without a reachable packager the plain Metro path fails the same way
+      // (RN "could not connect" screen) instead of loading two full bundles.
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "embedded common HBC found but no Metro packager URL is available; using the plain Metro bundle path"
+      )
+      return nil
+    }
+    baseComponents.path = ""
+    baseComponents.query = nil
+    baseComponents.fragment = nil
+    guard
+      let metroBaseURLValue = baseComponents.url?.absoluteString,
+      let metroBaseURL = validatedMetroBaseURL(metroBaseURLValue)
+    else {
+      fatalError("Dev-vendor Metro packager URL is invalid: \(packagerURL.absoluteString)")
+    }
+    do {
+      let manifest = try readDevSessionJSON(from: manifestURL, maxBytes: 8 * 1024 * 1024)
+      guard
+        manifest["platform"] as? String == "ios",
+        let fingerprint = manifest["fingerprint"] as? String,
+        fingerprint.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        let common = manifest["common"] as? [String: Any],
+        let bytecode = common["bytecode"] as? [String: Any],
+        bytecode["file"] as? String == "common.hbc",
+        let expectedBytes = bytecode["bytes"] as? NSNumber,
+        let expectedSha256 = bytecode["sha256"] as? String,
+        expectedSha256.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        expectedBytes.int64Value > 0,
+        expectedBytes.int64Value <= 512 * 1024 * 1024
+      else {
+        fatalError("Dev-vendor embedded iOS manifest is invalid")
+      }
+      let commonAttributes = try FileManager.default.attributesOfItem(atPath: commonURL.path)
+      guard
+        let commonSize = commonAttributes[.size] as? NSNumber,
+        commonSize.int64Value == expectedBytes.int64Value,
+        (try sha256File(commonURL)) == expectedSha256
+      else {
+        fatalError("Dev-vendor embedded common.hbc integrity mismatch")
+      }
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "configured embedded iOS dev vendor fingerprint=\(fingerprint) metro=\(metroBaseURL.absoluteString)"
+      )
+      return DevVendorBundleInfo(
+        commonBundleURL: commonURL,
+        fingerprint: fingerprint,
+        metroBaseURL: metroBaseURL,
+        sessionId: nil
+      )
+    } catch {
+      fatalError("Unable to validate embedded dev-vendor iOS artifacts: \(error)")
+    }
+#endif
   }
 
   private func bundleInteger(forInfoDictionaryKey key: String) -> Int? {
@@ -618,10 +711,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       "resolver.devVendor": "true",
       "resolver.devVendorNative": "true",
       "resolver.devVendorFingerprint": fingerprint,
-      "resolver.devSessionId": devVendorBundleInfo.sessionId,
       "resolver.runtimeTarget": runtimeTarget,
       "unstable_transformProfile": "hermes-stable",
     ]
+    if let sessionId = devVendorBundleInfo.sessionId {
+      values["resolver.devSessionId"] = sessionId
+    } else {
+      values["resolver.devVendorEmbedded"] = "true"
+    }
     if runtimeTarget == "background", isDevBackgroundHMREnabled(fingerprint: fingerprint) {
       values["resolver.devVendorBackgroundHMR"] = "true"
     }
@@ -727,7 +824,6 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)
     if let devVendorBundleInfo {
       initialBundleKind = .devVendorCommon
       NitroModuleBridge.logInfo(
@@ -736,7 +832,6 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       )
       return devVendorBundleInfo.commonBundleURL
     }
-#endif
     let metroURL = canonicalDevMetroURL(
       RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
     )
@@ -842,7 +937,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
-#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+#if DEBUG
     if initialBundleKind == .devVendorCommon {
       guard
         let devVendorBundleInfo,
