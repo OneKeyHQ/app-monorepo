@@ -25,6 +25,7 @@ import {
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
+  normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -812,15 +813,42 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    // The dedupe key and the row `$key` must stay identical, so derive both
+    // from one builder. networkId is part of it because native tokens across
+    // chains share uniqueKey 'native' and an empty address: a bare
+    // `uniqueKey ?? address` collides and downstream $key-keyed maps
+    // (TokenListView tokenByKey) collapse them into one row.
+    const buildSearchTokenKey = (info: IToken) =>
+      `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
+
+    // Catalog for the delisted-network filter inside
+    // normalizeTokenSearchResults (OK-60860). The lookup is best-effort: a
+    // transient catalog failure must not discard the token queries that
+    // already succeeded, so fail open and skip the filter.
+    let availableNetworkIds: Set<string> | undefined;
+    try {
+      const { networks: availableNetworks } =
+        await this.backgroundApi.serviceNetwork.getAllNetworks();
+      availableNetworkIds = new Set(
+        availableNetworks.map((network) => network.id),
+      );
+    } catch {
+      availableNetworkIds = undefined;
+    }
+
+    // Normalize before deduping so the key sees the stamped networkId: a hit
+    // that omits it under a scoped request would otherwise collide across
+    // networks and, on press, fall back to the selector's own network.
     return uniqBy(
-      fulfilledResponses.flatMap((resp) => resp.data.data),
-      (item) =>
-        `${item.info.networkId ?? ''}_${
-          item.info.uniqueKey ?? item.info.address
-        }`,
+      normalizeTokenSearchResults({
+        items: fulfilledResponses.flatMap((resp) => resp.data.data),
+        requestNetworkId: networkId,
+        availableNetworkIds,
+      }),
+      (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,
-      $key: item.info.uniqueKey ?? item.info.address,
+      $key: buildSearchTokenKey(item.info),
     }));
   }
 
