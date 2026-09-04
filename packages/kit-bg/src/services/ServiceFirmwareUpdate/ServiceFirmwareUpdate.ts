@@ -3019,10 +3019,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
 
-    // Re-block lock screen before resuming hardware communication
+    // Re-block lock screen before resuming hardware communication. Guard
+    // first, then silence (see startUpdateWorkflow) — and a silence that
+    // fails must not leave the guard, and with it the blocked lock screen,
+    // up for the rest of the session. Dropped only while this workflow is
+    // still the current one: a newer start owns the shared guard by then.
     await firmwareUpdateWorkflowRunningAtom.set(true);
-
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
+      throw error;
+    }
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({
