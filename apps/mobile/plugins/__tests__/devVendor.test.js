@@ -659,7 +659,8 @@ describe('devVendor', () => {
           'apps/mobile/ios/Podfile.properties.json',
           'apps/mobile/ios/ServiceExtension/NotificationService.m',
           'apps/mobile/package.json',
-          'patches/react-native+0.86.2.patch',
+          'patches/react-native+0.86.2+001+initial.patch',
+          'patches/react-native+0.86.2+002+fix-hermes-podspec.patch',
           'yarn.lock',
         ]),
       );
@@ -670,7 +671,7 @@ describe('devVendor', () => {
           'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
           'apps/mobile/android/gradle.properties',
           'apps/mobile/package.json',
-          'patches/react-native+0.86.2.patch',
+          'patches/react-native+0.86.2+001+initial.patch',
           'yarn.lock',
         ]),
       );

@@ -178,6 +178,7 @@ function createScene(
   overrides: Partial<ITradingViewNativeChartScene> = {},
 ): ITradingViewNativeChartScene {
   return {
+    autoPriceRange: null,
     commands: [],
     crosshairPointIndex: null,
     customPaintStyles: {},

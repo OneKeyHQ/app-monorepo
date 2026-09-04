@@ -145,61 +145,65 @@ export function Token({
       <Image source={source} {...sharedImageProps} />
     );
 
+  let overlay: ReactNode = null;
   if (cornerBadge) {
-    return (
-      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-        {tokenImage}
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p={showCornerBadgeBorder ? '$0.5' : '$0'}
-          bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
-          borderRadius="$full"
-        >
-          {cornerBadge}
-        </Stack>
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showCornerBadgeBorder ? '$0.5' : '$0'}
+        bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        {cornerBadge}
+      </Stack>
+    );
+  } else if (networkImageUri) {
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showNetworkIconBorder ? '$0.5' : '$0'}
+        bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
+      </Stack>
+    );
+  } else if (showNetworkIcon && networkId) {
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showNetworkIconBorder ? '$0.5' : '$0'}
+        bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        <NetworkAvatar networkId={networkId} size={chainImageSize} />
       </Stack>
     );
   }
 
-  if (networkImageUri) {
-    return (
-      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-        {tokenImage}
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p={showNetworkIconBorder ? '$0.5' : '$0'}
-          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-          borderRadius="$full"
-        >
-          <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
-        </Stack>
-      </Stack>
-    );
-  }
-
-  if (showNetworkIcon && networkId) {
-    return (
-      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-        {tokenImage}
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p={showNetworkIconBorder ? '$0.5' : '$0'}
-          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-          borderRadius="$full"
-        >
-          <NetworkAvatar networkId={networkId} size={chainImageSize} />
-        </Stack>
-      </Stack>
-    );
-  }
-
-  return tokenImage;
+  // Always render the same wrapper element regardless of whether an overlay is
+  // present. Callers often resolve the network logo asynchronously, and if the
+  // root element type changed from <Image> to <Stack> once it arrived, React
+  // would unmount and reload the token image — visible as an icon flash on
+  // platforms without a synchronous image cache (Android). The wrapper only
+  // takes an explicit size when it has to anchor an overlay, so plain tokens
+  // keep hugging the image exactly as before.
+  return (
+    <Stack
+      position="relative"
+      width={overlay ? tokenImageSize : undefined}
+      height={overlay ? tokenImageSize : undefined}
+    >
+      {tokenImage}
+      {overlay}
+    </Stack>
+  );
 }
 
 export function TokenName({
