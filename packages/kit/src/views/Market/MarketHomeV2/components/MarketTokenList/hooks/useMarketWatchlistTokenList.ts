@@ -22,6 +22,8 @@ import {
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 // Cached token list shared with the edit dialog so it opens instantly.
@@ -66,7 +68,6 @@ export function useMarketWatchlistTokenList({
     [networkList],
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
@@ -103,15 +104,20 @@ export function useMarketWatchlistTokenList({
       if (spotItems.length === 0) {
         return { list: [] } as const;
       }
-      const tokenAddressList = spotItems.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        isNative: item.isNative ?? false,
-      }));
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList,
-        });
+      const tokenAddressList = spotItems.map((item) => {
+        const { isNative } = getNativeTokenInfo(
+          item.isNative,
+          item.contractAddress,
+        );
+        return {
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          isNative,
+        };
+      });
+      const response = await fetchMarketTokenListBatchForPlatform({
+        tokenAddressList,
+      });
       return response;
     },
     [watchlist, spotItems, isInitialLoad],
@@ -126,25 +132,30 @@ export function useMarketWatchlistTokenList({
   );
 
   // ── Perps data: backend API (category=all — watchlist needs all tokens) ──
-  const { result: perpsApiResult } = usePromiseResult(
-    async () => {
-      if (perpsItems.length === 0) return null;
-      const [tokenListData, tokenSearchAliases] = await Promise.all([
-        backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-          category: 'all',
-        }),
-        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
-      ]);
-      return { tokenListData, tokenSearchAliases };
-    },
-    [perpsItems.length],
-    {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
-  );
+  const { result: perpsApiResult, isLoading: perpsApiLoading } =
+    usePromiseResult(
+      async () => {
+        if (perpsItems.length === 0) return null;
+        const [tokenListData, tokenSearchAliases] = await Promise.all([
+          backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+            category: 'all',
+          }),
+          backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+        ]);
+        return { tokenListData, tokenSearchAliases };
+      },
+      [perpsItems.length],
+      {
+        pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+        watchLoading: true,
+      },
+    );
 
   // Combined loading state
-  const isLoading = isInitialLoad || apiLoading;
+  const isLoading =
+    isInitialLoad ||
+    Boolean(apiLoading) ||
+    (perpsItems.length > 0 && Boolean(perpsApiLoading));
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
@@ -180,7 +191,7 @@ export function useMarketWatchlistTokenList({
   }, [perpsApiResult]);
 
   // ── Merge spot + perps into transformedData ──
-  useEffect(() => {
+  const transformedData = useMemo(() => {
     // Transform spot items
     const spotTransformed: IMarketToken[] = [];
     if (apiResult?.list) {
@@ -260,19 +271,18 @@ export function useMarketWatchlistTokenList({
       })
       .filter(Boolean);
 
-    setTransformedData(merged);
+    return merged;
+  }, [apiResult, watchlist, spotItems, perpsTokenMap, networkLogoUriMap]);
 
-    if (isInitialLoad) {
+  useEffect(() => {
+    if (
+      isInitialLoad &&
+      apiLoading === false &&
+      (perpsItems.length === 0 || perpsApiLoading === false)
+    ) {
       setIsInitialLoad(false);
     }
-  }, [
-    apiResult,
-    watchlist,
-    spotItems,
-    perpsTokenMap,
-    isInitialLoad,
-    networkLogoUriMap,
-  ]);
+  }, [apiLoading, isInitialLoad, perpsApiLoading, perpsItems.length]);
 
   // Sorting
   const sortedData = useMemo(() => {

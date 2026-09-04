@@ -14,6 +14,8 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { useToDetailPage } from '../../MarketTokenList/hooks/useToMarketDetailPage';
 
+import { fetchMarketTopCoinsForPlatform } from './marketTopCoinsPlatformApi';
+
 const EMPTY_MARKET_ASSET_LIST: IMarketAssetListItem[] = [];
 
 function toFiniteNumber(value: string) {
@@ -148,13 +150,7 @@ export function useMarketTopCoins(
 ) {
   const handleItemPress = useMarketTopCoinNavigation(options);
   const { result, isLoading } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceMarket.fetchMarketAssetList({
-        currency: 'usd',
-        limit: 100,
-        page: 1,
-        type: MARKET_TOP_COINS_CATEGORY_ID,
-      }),
+    fetchMarketTopCoinsForPlatform,
     [],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
