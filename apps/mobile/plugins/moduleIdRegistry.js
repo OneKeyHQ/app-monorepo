@@ -1,9 +1,11 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const SCHEMA_VERSION = 2;
-const REGISTRY_EPOCH = 3;
-const ALLOCATION_VERSION = 1;
+const REGISTRY_EPOCH = 4;
+const ALLOCATION_VERSION = 2;
+const MODULE_ID_HASH_PROBE_LIMIT = 32;
 const MODULE_ID_RANGES = Object.freeze({
   workspace: Object.freeze({ start: 0x00_01, end: 0x5f_ff }),
   nodeModules: Object.freeze({ start: 0x60_00, end: 0xef_ff }),
@@ -16,6 +18,9 @@ const REGISTRY_PATH = path.resolve(
 );
 const UPDATE_HINT =
   'Run `yarn workspace @onekeyhq/mobile module-id:update --map <module-id-map.json>` and commit the registry update.';
+const MODULE_ID_COLLISION_RESOLUTION_COMMAND =
+  'yarn workspace @onekeyhq/mobile module-id:resolve-collisions';
+const MODULE_ID_COLLISION_RESOLUTION_HINT = `Run \`${MODULE_ID_COLLISION_RESOLUTION_COMMAND}\` and commit the updated module ID registry.`;
 
 function compareModuleKeys(first, second) {
   if (first < second) return -1;
@@ -107,34 +112,54 @@ function isModuleIdInDomain(moduleId, domain) {
   return Boolean(range && moduleId >= range.start && moduleId <= range.end);
 }
 
+function hashModuleIdParts(parts) {
+  const hash = crypto.createHash('sha256');
+  for (const part of parts) {
+    hash.update(String(part));
+    hash.update('\0');
+  }
+  return hash.digest().readUInt32BE(0);
+}
+
 function createModuleIdAllocator(moduleIds) {
   const usedIds = moduleIds instanceof Set ? moduleIds : new Set(moduleIds);
-  const nextIds = Object.fromEntries(
-    Object.entries(MODULE_ID_RANGES).map(([domain, range]) => {
-      const domainIds = [...usedIds].filter((moduleId) =>
-        isModuleIdInDomain(moduleId, domain),
-      );
-      return [domain, Math.max(range.start - 1, getMaxModuleId(domainIds)) + 1];
-    }),
-  );
 
-  return (domain) => {
+  return (domain, moduleKey) => {
     const range = MODULE_ID_RANGES[domain];
     if (!range) {
       throw new Error(`Unknown module ID domain: ${String(domain)}.`);
     }
-    let moduleId = nextIds[domain];
-    while (usedIds.has(moduleId) && moduleId <= range.end) {
-      moduleId += 1;
+    if (typeof moduleKey !== 'string' || moduleKey.length === 0) {
+      throw new Error('Module allocation key must be a non-empty string.');
     }
-    if (moduleId > range.end) {
-      throw new Error(
-        `Module ID range exhausted for ${domain}: ${range.start}-${range.end}.`,
-      );
+
+    const rangeSize = range.end - range.start + 1;
+    for (let probe = 0; probe < MODULE_ID_HASH_PROBE_LIMIT; probe += 1) {
+      const moduleId =
+        range.start +
+        (hashModuleIdParts(['onekey-module-id-v2', domain, moduleKey, probe]) %
+          rangeSize);
+      if (!usedIds.has(moduleId)) {
+        usedIds.add(moduleId);
+        return moduleId;
+      }
     }
-    usedIds.add(moduleId);
-    nextIds[domain] = moduleId + 1;
-    return moduleId;
+
+    // The hash probes handle normal occupancy; this scan guarantees exhaustion is exact.
+    const fallbackOffset =
+      hashModuleIdParts(['onekey-module-id-v2-fallback', domain, moduleKey]) %
+      rangeSize;
+    for (let scan = 0; scan < rangeSize; scan += 1) {
+      const moduleId = range.start + ((fallbackOffset + scan) % rangeSize);
+      if (!usedIds.has(moduleId)) {
+        usedIds.add(moduleId);
+        return moduleId;
+      }
+    }
+
+    throw new Error(
+      `Module ID range exhausted for ${domain}: ${range.start}-${range.end}.`,
+    );
   };
 }
 
@@ -266,7 +291,12 @@ function collectRegistryErrors(
 function assertValidRegistry(registry, options) {
   const errors = collectRegistryErrors(registry, options);
   if (errors.length > 0) {
-    throw new Error(`Invalid module ID registry:\n- ${errors.join('\n- ')}`);
+    const collisionHint = errors.some((error) => error.startsWith('Module ID '))
+      ? `\n\n${MODULE_ID_COLLISION_RESOLUTION_HINT}`
+      : '';
+    throw new Error(
+      `Invalid module ID registry:\n- ${errors.join('\n- ')}${collisionHint}`,
+    );
   }
   return registry;
 }
@@ -330,7 +360,10 @@ function createFileToIdMap({
       observedPaths.set(observedPath, existingId);
       return existingId;
     }
-    const moduleId = allocateModuleId(getEphemeralDomain(filePath, moduleKey));
+    const moduleId = allocateModuleId(
+      getEphemeralDomain(filePath, moduleKey),
+      moduleKey || observedPath.split(path.sep).join('/'),
+    );
     ephemeralIds.set(observedPath, moduleId);
     observedPaths.set(observedPath, moduleId);
     return moduleId;
@@ -417,6 +450,9 @@ function createFileToIdMap({
 
 module.exports = {
   ALLOCATION_VERSION,
+  MODULE_ID_COLLISION_RESOLUTION_COMMAND,
+  MODULE_ID_COLLISION_RESOLUTION_HINT,
+  MODULE_ID_HASH_PROBE_LIMIT,
   MODULE_ID_RANGES,
   REGISTRY_EPOCH,
   REGISTRY_PATH,
