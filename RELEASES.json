@@ -30,5 +30,22 @@
       "#13048"
     ],
     "notes": "Recover native notification permissions (#12910); update DeFi banners and Earn risk warnings (#13014); stabilize firmware updates and upgrade hardware SDK to 1.2.1 (#12966); add send address risk checks (#12988); restore trusted Permit confirmation behavior (#12996); send app version in market seed requests (#13048); sync hardware firmware update state (#13024); remove 0x token tax metadata (#13046)"
+  },
+  {
+    "seq": 3,
+    "commit": "02da31ef5b3f54e476a705fb20b490c87e1613c0",
+    "date": "2026-09-04T12:47:47Z",
+    "prs": [
+      "#13089",
+      "#12999",
+      "#13029",
+      "#13126",
+      "#13135",
+      "#13128",
+      "#13119",
+      "#13112",
+      "#13124"
+    ],
+    "notes": "chore: release #2 (#13089), fix: recover Perps TWAP history and stalled order book subscriptions (OK-60985, OK-61108) (#12999), feat: register the Entropy hip-3 perps dex (OK-61073, OK-60689) (#13029), fix: refresh DeFi network config cache OK-61713 (#13126), fix: DeFi share links, banner looping, risk gate coverage and in-app … (#13135), fix: Perps close-position price readiness, cold-start banner shift, favorites order sync and TWAP tab shadow flash(OK-61259 OK-61504 OK-61486 OK-61520) (#13128), feat: withdraw Perps USDC over Hyperliquid's CCTP rail(OK-61320) (#13119), fix: backport Receive token selector search optimizations to v6.5.2 (OK-61630 OK-61484 OK-61367 OK-61365) (#13112), fix: bound the All Networks header hold and split the 6.5.2 home refresh hotfix OK-61576 (#13124)"
   }
 ]
