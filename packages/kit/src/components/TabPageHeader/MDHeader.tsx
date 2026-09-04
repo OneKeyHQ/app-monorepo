@@ -19,7 +19,7 @@ import {
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { MoreActionButton } from '../MoreActionButton';
+import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
@@ -171,7 +171,7 @@ export function MDHeader({
                     this is a passthrough — the two buttons stay as before. */}
                 <GlassButtonCapsule>
                   <HeaderNotificationIconButton testID="header-right-notification" />
-                  <MoreActionButton />
+                  <LazyMoreActionButton />
                 </GlassButtonCapsule>
               </XStack>
               {/* Row 2: Wallet connection (account + network + address) */}
