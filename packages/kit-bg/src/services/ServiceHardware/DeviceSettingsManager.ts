@@ -679,7 +679,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
+        debugMethodName: 'deviceSettings.getDeviceLabel',
       },
     );
   }
@@ -1218,5 +1218,42 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       // error.payload?.code
       throw error;
     }
+  }
+
+  /** The stage's in-place PIN-entry switch (OK-61489) writes through
+   * here — the hardware UI event carries a connectId, not a walletId.
+   * No firmware support probe: a PIN request is in flight, so the device
+   * cannot take another call; the REQUEST_PIN gate re-checks support
+   * from features on the next request anyway. Turning app entry ON still
+   * stamps `inputPinOnSoftwareSupport`, the marker that distinguishes a
+   * person's choice from the creation-time default: the switch is only
+   * offered once the background has already established the device is a
+   * supported button model, and without the marker the startup migration
+   * (migrateClassicPinInputDefault) would flip this choice back to
+   * device entry if it ran after the switch. */
+  @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId({
+    connectId,
+    inputPinOnSoftware,
+  }: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    const device = await localDb.getDeviceByQuery({ connectId });
+    if (!device) {
+      throw new OneKeyLocalError(
+        'Device not found for the PIN input setting switch',
+      );
+    }
+    await localDb.updateDeviceDbSettings({
+      dbDeviceId: device.id,
+      settings: {
+        ...device.settings,
+        inputPinOnSoftware,
+        inputPinOnSoftwareSupport: inputPinOnSoftware
+          ? true
+          : device.settings?.inputPinOnSoftwareSupport,
+      },
+    });
   }
 }

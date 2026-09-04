@@ -133,7 +133,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
-import type { IDBDevice } from '../../dbs/local/types';
+import type { IDBDevice, IDBDeviceSettings } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -1369,14 +1369,31 @@ class ServiceHardware extends ServiceBase {
         const inputPinOnSoftware = features
           ? supportInputPinOnSoftwareSdk(features)
           : { support: false };
+        // On-device entry is the default (OK-61489): only an explicit
+        // opt-in (`true`, via the stage's switch entry or device
+        // settings) routes PIN input to the app keyboard.
         const supportInputPinOnSoftware =
-          dbDevice?.settings?.inputPinOnSoftware !== false &&
+          dbDevice?.settings?.inputPinOnSoftware === true &&
           inputPinOnSoftware.support;
 
         const isAttachPin = type === 'PinMatrixRequestType_AttachToPin';
         newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
         if (!supportInputPinOnSoftware && isCurrent()) {
+          // Offer the stage's switch-to-app entry (OK-61489) only when
+          // the opt-in would actually take: a stored device record to
+          // write (first-connect has none yet), a button device whose
+          // firmware supports app entry, and a plain PIN request. The
+          // app-pad hop reuses the REQUEST_PIN payload, so it never
+          // carries this flag.
+          newPayload.pinSwitchToAppAvailable =
+            Boolean(dbDevice) &&
+            !isAttachPin &&
+            Boolean(
+              requestDeviceType &&
+              deviceUtils.checkInputPinOnSoftwareSupport(requestDeviceType),
+            ) &&
+            inputPinOnSoftware.support;
           await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice({
             responseCorrelation: newPayload.uiResponseCorrelation,
           });
@@ -1687,6 +1704,26 @@ class ServiceHardware extends ServiceBase {
                     : undefined),
               },
             }));
+            // OK-59934: feed the DeviceStage burst scope. It ignores events
+            // while disabled; call-end closes morph to processing inside a
+            // burst instead of exiting the stage.
+            // Awaited, not voided: the stage write is the handler's last
+            // statement, and awaiting it puts its rejection into the catch
+            // below instead of letting it escape as an unhandled rejection
+            // in the bg runtime — deviceStageAtom.set does reject when the
+            // native jotai bridge or bridgeExtBg is not ready yet. The cost
+            // is a handful of microtasks; the chain touches only in-memory
+            // atoms, never the queue, the legacy atom or the SDK, so it
+            // cannot deadlock the queue it runs inside.
+            await this.backgroundApi.serviceHardwareUI.deviceStageBurst.onHardwareUiEvent(
+              {
+                action: appliedUiRequestType,
+                connectId: appliedConnectId,
+                payload: appliedPayload,
+                shouldClearUiState: Boolean(reduction.shouldClearUiState),
+                askCompleted: Boolean(reduction.askCompleted),
+              },
+            );
           })
           .catch((error: unknown) => {
             defaultLogger.hardware.sdkLog.log(
@@ -3274,35 +3311,6 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
-  /** @deprecated Use getDeviceState and request the required scope. */
-  @backgroundMethod()
-  async getAboutDeviceFeatures(params: { connectId: string }) {
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.connectId,
-    });
-    if (!dbDevice) {
-      throw new OneKeyLocalError('device not found');
-    }
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId: params.connectId,
-      featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.getFeaturesWithoutCache({
-          connectId: compatibleConnectId,
-          params: { retryCount: 1 },
-        }),
-      {
-        deviceParams: {
-          dbDevice,
-        },
-        hideCheckingDeviceLoading: true,
-      },
-    );
-  }
-
   @backgroundMethod()
   async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
     const dbDevice = await localDb.getDeviceByQuery({
@@ -3435,6 +3443,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId(p: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    return this.deviceSettingsManager.setInputPinOnSoftwareByConnectId(p);
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async setAutoLockDelayMs(p: ISetAutoLockDelayMsParams) {
     return this.deviceSettingsManager.setAutoLockDelayMs(p);
@@ -3556,6 +3572,52 @@ class ServiceHardware extends ServiceBase {
       (v): ISimpleDBAppStatus => ({
         ...v,
         removeDeviceHomeScreenMigrated: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async migrateClassicPinInputDefault() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.classicPinInputDefaultMigrated) {
+      return;
+    }
+
+    // One-time default flip (OK-61489): button devices (Classic / 1S /
+    // Mini) now enter PIN on the device by default. `inputPinOnSoftwareSupport`
+    // is only ever written by setInputPinOnSoftware, the user-driven enable
+    // path whose firmware capability probe passed — record creation never
+    // writes it. So a stored `true` carrying that marker is a deliberate
+    // opt-in and is kept; a stored `true` without it is the legacy creation
+    // default nobody chose, and that is what flips.
+    const { devices } = await localDb.getAllDevices();
+    const isLegacyDefault = (settings: IDBDeviceSettings | undefined) =>
+      settings?.inputPinOnSoftware === true &&
+      settings?.inputPinOnSoftwareSupport !== true;
+    for (const device of devices) {
+      if (
+        (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
+        deviceUtils.checkInputPinOnSoftwareSupport(device.deviceType) &&
+        isLegacyDefault(device.settings)
+      ) {
+        // Decided again on the settings as stored at write time: the
+        // stage's PIN-entry switch can land between the snapshot above and
+        // this write, and the snapshot written back whole would erase both
+        // the choice and its marker.
+        await localDb.updateDeviceDbSettingsInPlace({
+          dbDeviceId: device.id,
+          updater: (settings) =>
+            isLegacyDefault(settings)
+              ? { ...settings, inputPinOnSoftware: false }
+              : undefined,
+        });
+      }
+    }
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        classicPinInputDefaultMigrated: true,
       }),
     );
   }

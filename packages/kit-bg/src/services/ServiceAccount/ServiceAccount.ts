@@ -6095,6 +6095,9 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
+    /** DeviceStage confirm channel: the address the person expects, shown
+     * on the confirm card to check against the device screen. */
+    expectedAddress?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -6161,6 +6164,21 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
+        stageConfirmContent: params.expectedAddress
+          ? {
+              details: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: params.expectedAddress,
+                  highlightEnds: true,
+                },
+              ],
+            }
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
@@ -7304,6 +7322,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }

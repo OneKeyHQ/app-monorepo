@@ -35,6 +35,8 @@ import {
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
+  useDeviceStageAtom,
+  useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -43,6 +45,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isDeviceStageOwnedHardwareUiAction,
+  isLegacyHardwareUiActive,
+  shouldLegacyContainerRaiseHardwareErrorDialog,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -476,6 +483,26 @@ function HardwareUiStateContainerCmpControlled() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // OK-59934: the DeviceStage plays the interactions it owns, so this
+  // container renders only what is left to it — bluetooth pairing, the
+  // firmware-update surfaces, and the permission popups below (whose
+  // listeners always stay live). One shared table decides, so an action
+  // is never shown twice or by nobody.
+  const [firmwareUpdateRunning] = useFirmwareUpdateWorkflowRunningAtom();
+  // Whether the stage is on stage right now — the failure it is mid-flow
+  // on is the failure it will land.
+  const [deviceStage] = useDeviceStageAtom();
+  const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
+  const stageIsShowingRef = useRef(stageIsShowing);
+  stageIsShowingRef.current = stageIsShowing;
+  const stageOwnsAction =
+    !isLegacyHardwareUiActive() &&
+    isDeviceStageOwnedHardwareUiAction({
+      action: state?.action,
+      eventType: state?.payload?.eventType,
+      firmwareUpdateRunning,
+    });
+
   const { serviceHardwareUI } = backgroundApiProxy;
 
   const action = state?.action;
@@ -664,8 +691,9 @@ function HardwareUiStateContainerCmpControlled() {
   shouldSkipCancelRef.current = shouldSkipCancel;
 
   const actionStatus = useMemo(() => {
-    const isToastAction = hasToastAction(state);
-    const isDialogAction = hasDialogAction(state);
+    // Stage-owned actions render on the stage, not here.
+    const isToastAction = !stageOwnsAction && hasToastAction(state);
+    const isDialogAction = !stageOwnsAction && hasDialogAction(state);
     const isToastCloseAction = hasToastCloseAction(state);
     const isOperationAction = hasOperationAction(state);
     const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
@@ -685,6 +713,7 @@ function HardwareUiStateContainerCmpControlled() {
     hasOperationAction,
     hasToastAction,
     hasToastCloseAction,
+    stageOwnsAction,
     state,
   ]);
 
@@ -810,7 +839,17 @@ function HardwareUiStateContainerCmpControlled() {
           errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         const isBleDeviceBondError =
           errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-        if (!isDeviceNotFound && !isBleDeviceBondError) {
+        // OK-59934: one failure, one surface — the stage lands the failure
+        // itself while it is on, and this dialog speaks for everything the
+        // stage is not carrying (device search, the firmware update
+        // workflow, any call that never opened a burst).
+        if (
+          !isBleDeviceBondError &&
+          !shouldLegacyContainerRaiseHardwareErrorDialog({
+            errorType,
+            stageIsShowing: stageIsShowingRef.current,
+          })
+        ) {
           return;
         }
         if (isDeviceNotFound && isReplacingWithBleBondError) {

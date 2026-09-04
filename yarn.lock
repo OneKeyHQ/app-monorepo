@@ -10157,6 +10157,7 @@ __metadata:
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.104"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.104"
     "@onekeyfe/react-native-tab-view": "npm:3.0.104"
+    "@react-native-masked-view/masked-view": "npm:0.3.2"
     "@react-navigation/bottom-tabs": "npm:7.10.1"
     "@react-navigation/elements": "npm:2.9.5"
     "@react-navigation/native": "npm:7.1.28"
@@ -10371,6 +10372,7 @@ __metadata:
     "@react-native-community/slider": "npm:5.2.0"
     "@react-native-documents/picker": "npm:^12.0.1"
     "@react-native-google-signin/google-signin": "npm:16.1.0"
+    "@react-native-masked-view/masked-view": "npm:0.3.2"
     "@react-native/metro-config": "npm:0.86.2"
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884"
     "@rozenite/expo-atlas-plugin": "npm:1.0.0-alpha.16"
@@ -13960,6 +13962,16 @@ __metadata:
   peerDependencies:
     react-native: "*"
   checksum: 10/070442281d7ce0d766bfb8fcccf435db56dd8fe67a1475bcc548c915970bdb29d1569c5b1a87359dc8a74e6dabaea07b486d2868e1340c04d2558cfbb135d6a7
+  languageName: node
+  linkType: hard
+
+"@react-native-masked-view/masked-view@npm:0.3.2":
+  version: 0.3.2
+  resolution: "@react-native-masked-view/masked-view@npm:0.3.2"
+  peerDependencies:
+    react: ">=16"
+    react-native: ">=0.57"
+  checksum: 10/04ffbc01083aa563ca1e2d7ef6759e7b326b8129f5bb1aa5f3142348adab06d5e321a400cf70a5434324dfa906add383f8214640697c48c9e5311b30bfea03d9
   languageName: node
   linkType: hard
 

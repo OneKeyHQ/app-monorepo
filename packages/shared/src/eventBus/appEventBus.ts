@@ -287,6 +287,15 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+  // The authenticity card's exits, from the DeviceStage driver back to
+  // whoever is running the check (OK-59934).
+  [EAppEventBusNames.DeviceStageAuthAction]: {
+    action: 'retry' | 'support' | 'continueAnyway';
+  };
+  // The passphrase teach card's Continue, from the DeviceStage driver
+  // back to the flow that primed the card before its hardware call
+  // (the account selector's Add-hidden-wallet, OK-59934).
+  [EAppEventBusNames.DeviceStagePassphraseIntroContinue]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
