@@ -37,7 +37,9 @@ env:
 jobs:
   resolve:
     name: Resolve public OCI prebundle
-    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    if: >-
+      github.repository == 'OneKeyHQ/app-monorepo' &&
+      (github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: read
@@ -141,6 +143,21 @@ jobs:
           yarn workspace @onekeyhq/web-embed prebundle:package
           --source-commit "$GITHUB_SHA"
 
+      - name: Verify resolved release tag
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync(
+            'apps/web-embed/out-dir-bundle/web-embed-prebundle-release/web-embed-prebundle-release.json',
+            'utf8',
+          ));
+          if (release.tagName !== process.env.RELEASE_TAG) {
+            throw new Error(`Packaged tag ${release.tagName} does not match resolved tag ${process.env.RELEASE_TAG}.`);
+          }
+          NODE
+
       - name: Upload release assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -155,7 +172,10 @@ jobs:
     needs:
       - resolve
       - build
-    if: needs.build.result == 'success' && needs.resolve.outputs.exists != 'true'
+    if: >-
+      github.ref == 'refs/heads/x' &&
+      needs.build.result == 'success' &&
+      needs.resolve.outputs.exists != 'true'
     permissions:
       attestations: write
       contents: read
