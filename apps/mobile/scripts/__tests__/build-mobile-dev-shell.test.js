@@ -173,7 +173,7 @@ describe('build-mobile-dev-shell', () => {
     }
   });
 
-  it('serializes x-only platform publishing with exact and compatible locators', () => {
+  it('serializes x-only publishing with branch dispatch builds', () => {
     for (const [platform, workflow] of [
       ['android', 'mobile-dev-shell-android.yml'],
       ['ios-simulator', 'mobile-dev-shell-ios-simulator.yml'],
@@ -205,12 +205,10 @@ describe('build-mobile-dev-shell', () => {
           : "- 'apps/mobile/ios/**'",
       );
       expect(source).toContain("github.ref != 'refs/heads/x'");
-      if (platform === 'ios-simulator') {
-        expect(source).toContain("github.event_name != 'workflow_dispatch'");
-        expect(source).toContain(
-          `- name: Publish iOS Simulator dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
-        );
-      }
+      expect(source).toContain("github.event_name != 'workflow_dispatch'");
+      expect(source).toContain(
+        `- name: Publish ${platform === 'android' ? 'Android' : 'iOS Simulator'} dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
+      );
       expect(source).toContain(
         `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,
       );

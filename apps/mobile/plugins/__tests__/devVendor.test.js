@@ -265,9 +265,8 @@ function createTemporaryRuntimeFixture() {
     }
   }
   const projectRoot = path.join(temporaryRepoRoot, 'apps/mobile');
-  const modules = [
-    { id: loadRegistry().modules[modulePath], path: modulePath },
-  ];
+  const moduleId = loadRegistry().modules[modulePath];
+  const modules = [{ id: moduleId, path: modulePath }];
 
   const writeArtifacts = (sourceCode) => {
     const artifactDirectory = getPlatformOutputDirectory(projectRoot, 'ios');
@@ -276,7 +275,10 @@ function createTemporaryRuntimeFixture() {
     const bytecode = Buffer.from(`hbc:${sourceCode}`);
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
-    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    fs.writeFileSync(
+      path.join(artifactDirectory, 'stubs', `${moduleId}.js`),
+      '',
+    );
     const fingerprintFields = {
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -1073,8 +1075,8 @@ describe('devVendor', () => {
         ({ name }) => name === '@react-native-async-storage/async-storage',
       ),
     ).toMatchObject({
-      resolution: '@onekeyfe/react-native-async-storage@npm:3.0.95',
-      version: '3.0.95',
+      resolution: '@onekeyfe/react-native-async-storage@npm:3.0.104',
+      version: '3.0.104',
     });
     expect(
       androidDescriptor.dependencies.find(
@@ -1190,14 +1192,17 @@ describe('devVendor', () => {
     );
     const source = Buffer.from('common source');
     const bytecode = Buffer.from('common bytecode');
-    const modules = [{ id: 4, path: 'apps/mobile/index.ts' }];
+    const modulePath = 'apps/mobile/index.ts';
+    const moduleId = loadRegistry().modules[modulePath];
+    const modules = [{ id: moduleId, path: modulePath }];
     const prependModules = [
       { id: loadRegistry().modules.__prelude__, path: '__prelude__' },
     ];
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
     fs.mkdirSync(path.join(artifactDirectory, 'stubs'));
-    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    const stubPath = path.join(artifactDirectory, 'stubs', `${moduleId}.js`);
+    fs.writeFileSync(stubPath, '');
     const fingerprintFields = {
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -1246,7 +1251,7 @@ describe('devVendor', () => {
           projectRoot: '/unused',
         }),
       ).toThrow('Stable module ID mismatch for __prelude__');
-      fs.rmSync(path.join(artifactDirectory, 'stubs/4.js'));
+      fs.rmSync(stubPath);
       expect(() =>
         verifyManifest({
           artifactDirectory,
@@ -1254,7 +1259,7 @@ describe('devVendor', () => {
           platform: 'ios',
           projectRoot: '/unused',
         }),
-      ).toThrow('External stub is missing for module 4');
+      ).toThrow(`External stub is missing for module ${moduleId}`);
     } finally {
       fs.rmSync(artifactDirectory, { force: true, recursive: true });
     }
@@ -1422,6 +1427,62 @@ describe('devVendor', () => {
         platform: 'ios',
       }),
     ).toThrow('no valid ONEKEY_DEV_SESSION_ID');
+  });
+
+  it('serves embedded native requests only from a session-less Metro server', () => {
+    const manifest = { fingerprint: 'fingerprint-ios' };
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const embeddedRequest = {
+      devVendor: 'true',
+      devVendorNative: 'true',
+      devVendorEmbedded: 'true',
+      devVendorFingerprint: 'fingerprint-ios',
+      runtimeTarget: 'background',
+    };
+
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          ...embeddedRequest,
+          devVendorFingerprint: 'stale',
+        },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('cache fingerprint mismatch');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, runtimeTarget: 'worker' },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('invalid runtime target');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, devSessionId: sessionId },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('must not carry a dev session ID');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: { ONEKEY_DEV_SESSION_ID: sessionId },
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('reached a DevSession Metro server');
   });
 
   it('keeps non-native dev-vendor requests backward compatible', () => {

@@ -17,8 +17,10 @@ const {
   createSessionId,
   createRunReport,
   getAndroidPrivateSessionInstallArgs,
+  getAndroidLocalBuildEnvironment,
   getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
+  getNativeRuntimeBundleUrl,
   getShellArtifactTag,
   getShellCompatibility,
   launchNativeApp,
@@ -27,6 +29,7 @@ const {
   parseIosSimulators,
   parseMetroBaseUrl,
   parseMetroPort,
+  prewarmNativeRuntimeBundles,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,
@@ -57,19 +60,34 @@ function createDevSession({
   };
 }
 
+// Source a build without ONEKEY_DEV_SHELL compiles: dev-shell `#if` branches
+// are dropped, their `#else` branches are kept because that is exactly what a
+// production (non dev-shell) variant, including Xcode device Debug builds, gets.
 function stripSwiftDevShellBlocks(source) {
   const output = [];
-  let excludedDepth = 0;
+  const stack = [];
+  const isExcluded = () =>
+    stack.some((frame) => frame.devShell && !frame.inElse);
   for (const line of source.split('\n')) {
     if (/^\s*#if\b/u.test(line)) {
-      if (excludedDepth > 0 || line.includes('ONEKEY_DEV_SHELL')) {
-        excludedDepth += 1;
-      } else {
+      const devShell = line.includes('ONEKEY_DEV_SHELL');
+      const wasExcluded = isExcluded();
+      stack.push({ devShell, inElse: false });
+      if (!wasExcluded && !devShell) {
         output.push(line);
       }
-    } else if (/^\s*#endif\b/u.test(line) && excludedDepth > 0) {
-      excludedDepth -= 1;
-    } else if (excludedDepth === 0) {
+    } else if (/^\s*#else\b/u.test(line) && stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      frame.inElse = true;
+      if (!frame.devShell && !isExcluded()) {
+        output.push(line);
+      }
+    } else if (/^\s*#endif\b/u.test(line) && stack.length > 0) {
+      const frame = stack.pop();
+      if (!frame.devShell && !isExcluded()) {
+        output.push(line);
+      }
+    } else if (!isExcluded()) {
       output.push(line);
     }
   }
@@ -416,6 +434,114 @@ describe('native-dev-shell', () => {
     expect(wait).toHaveBeenNthCalledWith(1, 500);
     expect(wait).toHaveBeenNthCalledWith(2, 500);
     expect(wait).toHaveBeenNthCalledWith(3, 1500);
+  });
+
+  it('prewarms the version-bound main and background runtime bundles', async () => {
+    const fingerprint = 'a'.repeat(64);
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const fetchImpl = jest.fn(async (input) => {
+      const url = new URL(input);
+      return new Response(url.searchParams.get('resolver.runtimeTarget'), {
+        status: 200,
+      });
+    });
+
+    await expect(
+      prewarmNativeRuntimeBundles({
+        fetchImpl,
+        fingerprint,
+        metroPort: 8081,
+        platform: 'android',
+        sessionId,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const urls = fetchImpl.mock.calls.map(([input]) => new URL(input));
+    expect(urls.map((url) => url.pathname)).toEqual([
+      '/.expo/.virtual-metro-entry.bundle',
+      '/background.bundle',
+    ]);
+    expect(
+      urls.map((url) => url.searchParams.get('resolver.runtimeTarget')),
+    ).toEqual(['main', 'background']);
+    for (const url of urls) {
+      expect(url.searchParams.get('resolver.devVendorFingerprint')).toBe(
+        fingerprint,
+      );
+      expect(url.searchParams.get('resolver.devSessionId')).toBe(sessionId);
+      expect(url.searchParams.get('modulesOnly')).toBe('true');
+    }
+  });
+
+  it('matches the native runtime bundle URL contract', () => {
+    const url = getNativeRuntimeBundleUrl({
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+      sessionId: 'wk-111111111111-dev-222222222222-3333333333333333',
+    });
+
+    expect(url.origin).toBe('http://127.0.0.1:8082');
+    expect(url.pathname).toBe('/background.bundle');
+    expect(url.searchParams.get('platform')).toBe('ios');
+    expect(url.searchParams.get('resolver.devVendorNative')).toBe('true');
+    expect(url.searchParams.get('unstable_transformProfile')).toBe(
+      'hermes-stable',
+    );
+  });
+
+  it('selects a Java 17 JDK for Android local shell builds', () => {
+    const androidSdkRoot = path.join(temporaryDirectory, 'android-sdk');
+    fs.mkdirSync(path.join(androidSdkRoot, 'platform-tools'), {
+      recursive: true,
+    });
+    const spawnCommand = jest.fn((command) => {
+      if (command === '/usr/libexec/java_home') {
+        return { status: 0, stderr: '', stdout: '/jdk-17\n' };
+      }
+      if (command === '/jdk-24/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "24.0.2"',
+          stdout: '',
+        };
+      }
+      if (command === '/jdk-17/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "17.0.16"',
+          stdout: '',
+        };
+      }
+      if (command === 'which') {
+        return { status: 1, stderr: '', stdout: '' };
+      }
+      return {
+        error: { message: `Unexpected command: ${command}` },
+        status: null,
+        stderr: '',
+        stdout: '',
+      };
+    });
+
+    expect(
+      getAndroidLocalBuildEnvironment({
+        env: {
+          ANDROID_HOME: androidSdkRoot,
+          JAVA_HOME: '/jdk-24',
+          PATH: '/usr/bin',
+        },
+        hostPlatform: 'darwin',
+        spawnCommand,
+      }),
+    ).toMatchObject({
+      ANDROID_HOME: androidSdkRoot,
+      ANDROID_SDK_ROOT: androidSdkRoot,
+      JAVA_HOME: '/jdk-17',
+      PATH: `/jdk-17/bin${path.delimiter}/usr/bin`,
+    });
   });
 
   it('checks that an iOS app survives its startup grace period', async () => {
@@ -1662,10 +1788,16 @@ describe('native-dev-shell', () => {
     expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
       nativeDevShell.indexOf('preparationLock.release();'),
     );
+    expect(nativeDevShell.indexOf('preparationLock.release();')).toBeLessThan(
+      nativeDevShell.indexOf('await prewarmNativeRuntimeBundles({'),
+    );
     const launchSource = nativeDevShell.slice(
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),
     );
+    expect(
+      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
+    ).toBeLessThan(launchSource.indexOf('launchNativeApp('));
     expect(launchSource).toContain(
       'await waitForMetroCompletionWithSessionRenewal({',
     );
@@ -1730,8 +1862,19 @@ describe('native-dev-shell', () => {
     expect(androidDebug).toContain('resolver.devSessionId');
     expect(androidReleaseConfig).not.toContain('ONEKEY_DEV_SHELL');
     expect(iosSource).toContain(
-      '#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)',
+      '#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)',
     );
+    // Xcode Debug builds outside the Simulator dev shell must keep the embedded
+    // common HBC path (no DevSession) or physical devices fall back to two full
+    // Metro bundles and hit the per-process memory limit.
+    expect(iosProductionSource).toContain('#if DEBUG');
+    expect(iosProductionSource).toContain(
+      'forResource: "onekey-dev-vendor-common"',
+    );
+    expect(iosProductionSource).toContain(
+      'values["resolver.devVendorEmbedded"] = "true"',
+    );
+    expect(iosProductionSource).not.toContain('devVendorBundleInfo.sessionId');
 
     expect(androidDebug).toContain(
       'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "main", fingerprint)',
