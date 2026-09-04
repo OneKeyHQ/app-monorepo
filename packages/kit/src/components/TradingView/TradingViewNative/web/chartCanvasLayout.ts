@@ -16,6 +16,7 @@ import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 
 export interface ITradingViewNativeCanvasPriceScale {
   mode: ITradingViewNativePriceScaleMode;
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   rangeScale: number;
 }
 
@@ -50,9 +51,10 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
     });
   }
   context.font = getTradingViewNativeCanvasFont('priceAxis', priceAxisFontSize);
-  const scaledPriceLabel = labels.autoPriceRange
+  const priceRange = priceScale.pinnedPriceRange ?? labels.autoPriceRange;
+  const scaledPriceLabel = priceRange
     ? getTradingViewNativeScaledPriceAxisLabel({
-        autoPriceRange: labels.autoPriceRange,
+        autoPriceRange: priceRange,
         baseLabel: labels.widestPrice,
         priceRangeScale: priceScale.rangeScale,
         priceScaleMode: priceScale.mode,
