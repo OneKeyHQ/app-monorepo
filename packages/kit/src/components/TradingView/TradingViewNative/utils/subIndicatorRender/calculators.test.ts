@@ -32,7 +32,7 @@ const EXPECTED_PLOT_IDS = {
   CCI: ['cci', 'movingAverage'],
   DMI: ['plusDi', 'minusDi', 'dx', 'adx', 'adxr'],
   EMV: ['emv'],
-  MACD: ['histogram', 'macd', 'signal'],
+  MACD: ['macd', 'signal', 'histogram'],
   MFI: ['mfi'],
   MTM: ['momentum'],
   OBV: ['obv', 'movingAverage'],

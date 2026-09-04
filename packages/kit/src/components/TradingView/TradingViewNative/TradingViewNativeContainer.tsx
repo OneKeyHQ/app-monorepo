@@ -779,6 +779,7 @@ export const TradingViewNativeContainer = memo(
             indicatorSeries={indicatorSeries}
             indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
             initialRightOffset={initialRightOffset}
+            isMobileLayout={isMobileControlsLayout}
             isSwitchingInterval={isSwitchingInterval}
             locale={intl.locale}
             priceAxisTickCount={
@@ -847,7 +848,9 @@ export const TradingViewNativeContainer = memo(
               onChartSwitch={onChartSwitch}
             />
           ) : null}
-          {isMobileControlsLayout && onNativeChartFullscreenChange ? (
+          {!showChartLoadingMask &&
+          isMobileControlsLayout &&
+          onNativeChartFullscreenChange ? (
             <TradingViewNativeFullscreenButton
               chartHeight={chartHeight}
               isFullscreen={Boolean(isNativeChartFullscreen)}

@@ -31,6 +31,7 @@ describe('createTradingViewNativeAssetDataProvider', () => {
 
     expect(provider.key).toBe('asset:doge');
     expect(provider.supportsRealtime).toBe(false);
+    expect(provider.historyRefreshInterval).toBe(30_000);
     expect(fetchMarketAssetKLineData).toHaveBeenCalledWith({
       assetId: 'doge',
       interval: '1H',
