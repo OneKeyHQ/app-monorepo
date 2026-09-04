@@ -72,18 +72,21 @@ export function DeviceStageQrScanner({
       return { progress: outcome.progress };
     }
     submittedRef.current = true;
-    void backgroundApiProxy.serviceQrWallet
-      .submitStageAirGapScanResult({
+    try {
+      await backgroundApiProxy.serviceQrWallet.submitStageAirGapScanResult({
         result: outcome.result,
         sessionId: sessionIdRef.current,
-      })
-      .catch(() => {
-        // A rejected submit (a bridge hiccup) must not end the visit: the
-        // bg decoder is complete, so the next frame re-delivers the same
-        // result and gets to submit again. Left set, every later frame was
-        // discarded and the pending call waited for the callback expiry.
-        submittedRef.current = false;
       });
+    } catch {
+      // A rejected submit (a bridge hiccup) must not end the visit: the bg
+      // decoder is complete, so the next frame re-delivers the same result
+      // and gets to submit again. Two gates stand in its way — this one,
+      // and ScanQrCode's same-frame filter, which a static code (one frame,
+      // always the same bytes) would never get past on its own — so the
+      // retry is signalled to the host as well as reset here.
+      submittedRef.current = false;
+      return { retry: true };
+    }
     return {};
   }, []);
   return (

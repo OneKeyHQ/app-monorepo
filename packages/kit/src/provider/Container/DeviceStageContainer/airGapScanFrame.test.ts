@@ -5,7 +5,10 @@ import type {
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
-import { interpretAirGapScanFrame } from './airGapScanFrame';
+import {
+  createScannedFrameGate,
+  interpretAirGapScanFrame,
+} from './airGapScanFrame';
 
 describe('interpretAirGapScanFrame', () => {
   it('reports progress while a multi-part UR is still collecting', () => {
@@ -61,5 +64,44 @@ describe('interpretAirGapScanFrame', () => {
     if (outcome.kind === 'complete') {
       expect(outcome.result.raw).toBe('bc1qexampleaddress');
     }
+  });
+});
+
+describe('createScannedFrameGate', () => {
+  it('admits a frame once and filters its repeats', () => {
+    const gate = createScannedFrameGate();
+    expect(gate.admit('ur:bytes/static')).toBe(true);
+    expect(gate.admit('ur:bytes/static')).toBe(false);
+    expect(gate.admit('ur:bytes/other')).toBe(true);
+    expect(gate.admit('')).toBe(false);
+    expect(gate.admit(undefined)).toBe(false);
+  });
+
+  it('lets the same frame through again once the handler asks for a retry', () => {
+    // A static code is one frame, always the same bytes: after a rejected
+    // submit the handler's own gate had reopened, but the host still
+    // filtered every repeat, so the pending call waited for expiry.
+    const gate = createScannedFrameGate();
+    expect(gate.admit('ur:bytes/static')).toBe(true);
+    expect(gate.admit('ur:bytes/static')).toBe(false);
+    gate.release('ur:bytes/static');
+    expect(gate.admit('ur:bytes/static')).toBe(true);
+  });
+
+  it('ignores a release for a frame that is not the remembered one', () => {
+    const gate = createScannedFrameGate();
+    gate.admit('ur:bytes/current');
+    gate.release('ur:bytes/stale');
+    expect(gate.admit('ur:bytes/current')).toBe(false);
+  });
+
+  it('forgets everything on reset and reports whether anything was admitted', () => {
+    const gate = createScannedFrameGate();
+    expect(gate.hasAdmittedAny()).toBe(false);
+    gate.admit('ur:bytes/static');
+    expect(gate.hasAdmittedAny()).toBe(true);
+    gate.reset();
+    expect(gate.hasAdmittedAny()).toBe(false);
+    expect(gate.admit('ur:bytes/static')).toBe(true);
   });
 });
