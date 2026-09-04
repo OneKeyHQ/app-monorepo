@@ -106,3 +106,27 @@ export function shouldLegacyContainerRaiseHardwareErrorDialog({
 export function isLegacyHardwareUiActive(): boolean {
   return false;
 }
+
+export type IDeviceStageBackPressOutcome = 'close' | 'consume' | 'pass';
+
+/**
+ * Android back (and Escape on web, through the same hook) while the stage
+ * is up. The stage is the surface, so the press must never reach the screen
+ * underneath — the legacy container blocked it the same way while its
+ * toast showed, and the legacy dialog mapped it to its close. Once the
+ * close grant is armed the press IS the close button; before that it is
+ * swallowed, like a dialog with system close disabled. Off stage it passes
+ * through untouched.
+ */
+export function resolveDeviceStageBackPress({
+  stageIsOn,
+  closable,
+}: {
+  stageIsOn: boolean;
+  closable: boolean;
+}): IDeviceStageBackPressOutcome {
+  if (!stageIsOn) {
+    return 'pass';
+  }
+  return closable ? 'close' : 'consume';
+}

@@ -1,4 +1,5 @@
 import {
+  resolveDeviceStageBackPress,
   setDeviceStageBurstActive,
   shouldEmitDeviceNotFoundDialogEvent,
 } from './deviceStageOwnership';
@@ -38,5 +39,30 @@ describe('shouldEmitDeviceNotFoundDialogEvent', () => {
     setDeviceStageBurstActive(true);
     setDeviceStageBurstActive(false);
     expect(shouldEmitDeviceNotFoundDialogEvent({})).toBe(true);
+  });
+});
+
+describe('resolveDeviceStageBackPress', () => {
+  it('passes the press through while the stage is off', () => {
+    expect(
+      resolveDeviceStageBackPress({ stageIsOn: false, closable: false }),
+    ).toBe('pass');
+    expect(
+      resolveDeviceStageBackPress({ stageIsOn: false, closable: true }),
+    ).toBe('pass');
+  });
+
+  it('swallows the press while the stage is up but its close is not armed yet', () => {
+    // Nothing underneath may react: the stage is the surface, and a burst
+    // that has not armed its close grant cannot be dismissed by any route.
+    expect(
+      resolveDeviceStageBackPress({ stageIsOn: true, closable: false }),
+    ).toBe('consume');
+  });
+
+  it('is the close button once the close grant is armed', () => {
+    expect(
+      resolveDeviceStageBackPress({ stageIsOn: true, closable: true }),
+    ).toBe('close');
   });
 });
