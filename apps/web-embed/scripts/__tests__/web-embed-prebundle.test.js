@@ -415,53 +415,78 @@ describe('web-embed-prebundle', () => {
       '{}\n',
     );
 
-    const ociDigest = `sha256:${'b'.repeat(64)}`;
+    const layerBytes = new Map(
+      [ARCHIVE_NAME, ATTESTATION_BUNDLE_NAME, RELEASE_MANIFEST_NAME].map(
+        (fileName) => [
+          fileName,
+          fs.readFileSync(path.join(releaseDirectory, fileName)),
+        ],
+      ),
+    );
+    const blobs = new Map();
+    const layers = [...layerBytes].map(([fileName, bytes]) => {
+      const digest = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+      blobs.set(digest, bytes);
+      return {
+        annotations: { 'org.opencontainers.image.title': fileName },
+        digest,
+        mediaType: 'application/octet-stream',
+        size: bytes.length,
+      };
+    });
+    const ociManifest = Buffer.from(
+      JSON.stringify({
+        annotations: {
+          'org.opencontainers.image.source':
+            'https://github.com/OneKeyHQ/app-monorepo',
+        },
+        artifactType: OCI_ARTIFACT_TYPE,
+        config: {
+          digest: `sha256:${'c'.repeat(64)}`,
+          mediaType: 'application/vnd.oci.empty.v1+json',
+          size: 2,
+        },
+        layers,
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        schemaVersion: 2,
+      }),
+    );
+    const ociDigest = `sha256:${crypto
+      .createHash('sha256')
+      .update(ociManifest)
+      .digest('hex')}`;
     const immutableReference = `${OCI_REGISTRY}/${OCI_REPOSITORY}@${ociDigest}`;
-    execFile.mockImplementation((command, args, _options, callback) => {
-      if (command === 'oras' && args[0] === 'pull') {
-        const pullDirectory = args[args.indexOf('--output') + 1];
-        for (const fileName of [
-          ARCHIVE_NAME,
-          ATTESTATION_BUNDLE_NAME,
-          RELEASE_MANIFEST_NAME,
-        ]) {
-          fs.copyFileSync(
-            path.join(releaseDirectory, fileName),
-            path.join(pullDirectory, fileName),
-          );
-        }
-        callback(null, '', '');
-        return;
+    const fetchImpl = jest.fn(async (input, options) => {
+      const url = new URL(input);
+      if (url.pathname === '/token') {
+        return new Response(JSON.stringify({ token: 'test-token' }), {
+          status: 200,
+        });
       }
-      if (command === 'oras' && args.includes('--descriptor')) {
-        callback(null, JSON.stringify({ digest: ociDigest }), '');
-        return;
-      }
-      if (command === 'oras' && args[0] === 'manifest') {
-        callback(
-          null,
-          JSON.stringify({
-            annotations: {
-              'org.opencontainers.image.source':
-                'https://github.com/OneKeyHQ/app-monorepo',
+      if (url.pathname.includes('/manifests/')) {
+        if (options?.headers?.Authorization !== 'Bearer test-token') {
+          return new Response('authentication required', {
+            headers: {
+              'www-authenticate':
+                'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:onekeyhq/web-embed-prebundle:pull"',
             },
-            artifactType: OCI_ARTIFACT_TYPE,
-            layers: [
-              ARCHIVE_NAME,
-              ATTESTATION_BUNDLE_NAME,
-              RELEASE_MANIFEST_NAME,
-            ].map((fileName) => ({
-              annotations: {
-                'org.opencontainers.image.title': fileName,
-              },
-              size: fs.statSync(path.join(releaseDirectory, fileName)).size,
-            })),
-            schemaVersion: 2,
-          }),
-          '',
-        );
-        return;
+            status: 401,
+          });
+        }
+        return new Response(ociManifest, {
+          headers: {
+            'content-type': 'application/vnd.oci.image.manifest.v1+json',
+            'docker-content-digest': ociDigest,
+          },
+          status: 200,
+        });
       }
+      const bytes = blobs.get(url.pathname.split('/').at(-1));
+      return bytes
+        ? new Response(bytes, { status: 200 })
+        : new Response('missing', { status: 404 });
+    });
+    execFile.mockImplementation((command, args, _options, callback) => {
       if (command === 'gh') {
         callback(null, '', '');
         return;
@@ -472,17 +497,12 @@ describe('web-embed-prebundle', () => {
     expect(fs.existsSync(outputDirectory)).toBe(false);
     expect(fs.existsSync(receiptPath)).toBe(false);
 
-    await restoreRelease({ outputDirectory, receiptPath });
+    await restoreRelease({ fetchImpl, outputDirectory, receiptPath });
 
-    expect(execFile).toHaveBeenCalledWith(
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(execFile).not.toHaveBeenCalledWith(
       'oras',
-      ['manifest', 'fetch', immutableReference],
-      expect.any(Object),
-      expect.any(Function),
-    );
-    expect(execFile).toHaveBeenCalledWith(
-      'oras',
-      ['pull', '--output', expect.any(String), immutableReference],
+      expect.any(Array),
       expect.any(Object),
       expect.any(Function),
     );
