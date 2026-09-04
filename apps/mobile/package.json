@@ -113,6 +113,7 @@
     "@react-native-community/slider": "5.2.0",
     "@react-native-documents/picker": "^12.0.1",
     "@react-native-google-signin/google-signin": "16.1.0",
+    "@react-native-masked-view/masked-view": "0.3.2",
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884",
     "@sentry/react-native": "8.2.0",
     "@shopify/flash-list": "2.3.2",

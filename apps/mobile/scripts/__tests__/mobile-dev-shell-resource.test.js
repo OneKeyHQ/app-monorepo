@@ -8,6 +8,7 @@ const {
   MAX_CACHED_SHELLS,
   assertDeviceId,
   createMobileShellCacheLease,
+  downloadLayerToFile,
   getGhAttestationVerifyArgs,
   installMobileDevShell,
   restoreMobileDevShell,
@@ -579,6 +580,49 @@ describe('mobile-dev-shell-resource', () => {
       ).toBe(false);
     } finally {
       fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('retries a shell layer after a transient connection reset', async () => {
+    const filePath = path.join(
+      os.tmpdir(),
+      `onekey-shell-download-retry-${String(process.pid)}-${Date.now()}.apk`,
+    );
+    const bytes = Buffer.from('remote-shell-layer');
+    const descriptor = {
+      digest: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`,
+      size: bytes.length,
+    };
+    const connectionReset = new TypeError('terminated', {
+      cause: Object.assign(new Error('socket reset'), { code: 'ECONNRESET' }),
+    });
+    const client = {
+      fetchBlob: jest
+        .fn()
+        .mockRejectedValueOnce(connectionReset)
+        .mockResolvedValueOnce(new Response(bytes, { status: 200 })),
+    };
+    const wait = jest.fn().mockResolvedValue(undefined);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        downloadLayerToFile({
+          client,
+          descriptor,
+          filePath,
+          maxBytes: 1024,
+          retryDelayMs: 0,
+          wait,
+        }),
+      ).resolves.toBeUndefined();
+      expect(client.fetchBlob).toHaveBeenCalledTimes(2);
+      expect(wait).toHaveBeenCalledTimes(1);
+      expect(fs.readFileSync(filePath)).toEqual(bytes);
+    } finally {
+      consoleError.mockRestore();
+      fs.rmSync(filePath, { force: true });
     }
   });
 

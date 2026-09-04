@@ -659,6 +659,7 @@ function TokenListBlock({
     async () => {
       let accountId = account?.id ?? '';
       let portfolioTotalFiat = '0';
+      let portfolioTotalFiatCurrency: string | undefined;
       let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
       let singleNetworkRefreshGeneration = 0;
       let skipPortfolioSyncRequestFinish = false;
@@ -734,6 +735,7 @@ function TokenListBlock({
               }),
             ),
           );
+          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);
           portfolioTotalFiat = resp
             .reduce(
               (total, item) =>
@@ -822,6 +824,7 @@ function TokenListBlock({
             ...walletTokenFilterParams,
           });
 
+          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
           portfolioTotalFiat = accountWorth;
 
@@ -853,6 +856,7 @@ function TokenListBlock({
           portfolioSyncRequest &&
           activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
           currencyInfo?.id &&
+          portfolioTotalFiatCurrency &&
           isProtocolV2ProductType(portfolioSyncDeviceType) &&
           wallet &&
           accountUtils.isHwWallet({ walletId: wallet.id }) &&
@@ -894,7 +898,7 @@ function TokenListBlock({
                     ownerAccountId: account?.id,
                     ownerNetworkId: network.id,
                     totalFiat: portfolioTotalFiat,
-                    totalFiatCurrency: currencyInfo.id,
+                    totalFiatCurrency: portfolioTotalFiatCurrency,
                     totalTokenCount: portfolioTokens.length,
                     tokenMap: portfolioTokenMap,
                     tokens: portfolioTokens,
