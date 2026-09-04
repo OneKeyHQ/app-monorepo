@@ -17,6 +17,8 @@ import type {
 import {
   EWcPayInlineFailureKind,
   WC_PAY_INLINE_POST_SIGN_FLAG,
+  WC_PAY_PERSONAL_SIGN_MAX_CHARS,
+  WC_PAY_PERSONAL_SIGN_MAX_LINES,
   classifyWcPayInlineFailure,
   getWcPayInlineMessagePlan,
   getWcPayInlinePersonalSignPlan,
@@ -1314,7 +1316,7 @@ describe('review-hardening: unlimited threshold and displayability', () => {
     ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
   });
 
-  it('refuses blank-line and whitespace padding that hides the tail', () => {
+  it('refuses messages that outgrow the sheet or pad a fake end of message', () => {
     const plan = (text: string) =>
       getWcPayInlinePersonalSignPlan({
         action: {
@@ -1327,28 +1329,38 @@ describe('review-hardening: unlimited threshold and displayability', () => {
         option,
         accountAddress: SENDER,
       });
-    // padding pushes the authorization below the sheet's bounded viewport
-    // while the head reads as the whole message
+    const refused = { mode: 'fallback', reason: 'undisplayable message' };
+    // the tail can be hidden behind blank lines, behind many short lines
+    // (no blank line anywhere) or behind one very long line: the size
+    // bounds catch all three shapes
     for (const padded of [
       `Order #123${'\n'.repeat(200)}I authorize a transfer`,
-      'Order #123\n \n \nI authorize a transfer',
+      `Order #123${'.\n'.repeat(1000)}I authorize a transfer of all funds`,
+      `Order #123${'.'.repeat(3900)}I authorize a transfer of all funds`,
+      `Order #123\n${'x\n'.repeat(WC_PAY_PERSONAL_SIGN_MAX_LINES)}tail`,
+      'x'.repeat(WC_PAY_PERSONAL_SIGN_MAX_CHARS + 1),
+      // three blank lines inside the bounds still read as a fake end
+      'Order #123\n \n \n \nI authorize a transfer',
       `Order #123${' '.repeat(64)}I authorize a transfer`,
       `Order #123${'\t'.repeat(40)}I authorize a transfer`,
       `Order #123${'\u3000'.repeat(40)}I authorize a transfer`,
     ]) {
-      expect(plan(padded)).toEqual({
-        mode: 'fallback',
-        reason: 'undisplayable message',
+      expect(plan(padded)).toEqual(refused);
+    }
+    // sign-in style blank lines and modest column alignment are content;
+    // an EIP-4361 message without a statement is `address LF LF LF "URI: "`
+    for (const legit of [
+      'pay.walletconnect.com wants you to sign in\n\nURI: https://pay.walletconnect.com\r\nAmount:          10 USDC\n\nNonce: 8f2a',
+      `pay.walletconnect.com wants you to sign in with your Ethereum account:\n${SENDER}\n\n\nURI: https://pay.walletconnect.com\nVersion: 1\nChain ID: 8453\nNonce: 8f2a\nIssued At: 2026-09-04T00:00:00Z`,
+      'x'.repeat(WC_PAY_PERSONAL_SIGN_MAX_CHARS),
+      `${'x\n'.repeat(WC_PAY_PERSONAL_SIGN_MAX_LINES - 1)}x`,
+    ]) {
+      expect(plan(legit)).toEqual({
+        mode: 'inline',
+        summary: { text: legit },
+        message: legit,
       });
     }
-    // sign-in style single blank lines and modest column alignment are content
-    const legit =
-      'pay.walletconnect.com wants you to sign in\n\nURI: https://pay.walletconnect.com\r\nAmount:          10 USDC\n\nNonce: 8f2a';
-    expect(plan(legit)).toEqual({
-      mode: 'inline',
-      summary: { text: legit },
-      message: legit,
-    });
   });
 
   it('keeps emoji and CJK text displayable', () => {

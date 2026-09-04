@@ -665,12 +665,27 @@ const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029\u115F\u1160\u3164\uFFA0\p{Cf}\p{Co}\p{Cs}\p{Cn}]/u;
 /* eslint-enable no-control-regex */
 
-// Padding that pushes the tail of a message below the sheet's bounded
-// viewport while the head reads as the whole message: three or more line
-// breaks in a row (two blank lines - the single blank line sign-in
-// messages use is content) or a run of 32+ horizontal spaces (any Unicode
-// space separator or tab; column alignment never needs that many).
-const PERSONAL_SIGN_PADDING_RE = /(?:\r?\n[\p{Zs}\t]*){3,}|[\p{Zs}\t]{32,}/u;
+/**
+ * Size bounds for an inline personal_sign message, measured on the decoded
+ * text. The sheet renders the message in a bounded, scrollable viewport, so
+ * "the tail is hidden" cannot be prevented by pattern-matching one padding
+ * shape (a message can hide its tail behind 1000 one-character lines or a
+ * single 3900-character line just as well as behind blank lines). What can
+ * be bounded is how much there is to scroll: these caps keep the whole
+ * message within a few sheet-heights, so a reader who scrolls to the end
+ * has seen all of it. Sized for sign-in style messages (EIP-4361 with a
+ * statement and a handful of resources is ~16 lines / ~600 characters);
+ * anything larger falls back to the confirm page's raw rendering.
+ */
+export const WC_PAY_PERSONAL_SIGN_MAX_LINES = 24;
+export const WC_PAY_PERSONAL_SIGN_MAX_CHARS = 1000;
+
+// The one padding shape that still reads as a fake end of message inside
+// those bounds: a run of blank lines, or a run of 32+ horizontal spaces
+// (any Unicode space separator or tab; column alignment never needs that
+// many). Three blank lines or more - two is content: an EIP-4361 message
+// without a statement is exactly `address LF LF LF "URI: "`.
+const PERSONAL_SIGN_PADDING_RE = /(?:\r?\n[\p{Zs}\t]*){4,}|[\p{Zs}\t]{32,}/u;
 
 /**
  * Strips the forbidden display characters above and bounds the length, for
@@ -696,8 +711,8 @@ export function sanitizeWcPayDisplayText(
  * The human-readable decode of a normalized personal_sign message, or
  * undefined when the sheet could not faithfully render it: a hex payload
  * that is not valid UTF-8 (lossy decode or a non-round-tripping one),
- * embedded control or invisible characters, padding that hides its tail,
- * or nothing but whitespace.
+ * embedded control or invisible characters, more lines or characters than
+ * the sheet's bounds, blank-line padding, or nothing but whitespace.
  */
 function decodeWcPayPersonalSignText(message: string): string | undefined {
   let text = message;
@@ -722,6 +737,12 @@ function decodeWcPayPersonalSignText(message: string): string | undefined {
     }
   }
   if (PERSONAL_SIGN_FORBIDDEN_CHARS_RE.test(text)) {
+    return undefined;
+  }
+  if (
+    text.split(/\r?\n/).length > WC_PAY_PERSONAL_SIGN_MAX_LINES ||
+    Array.from(text).length > WC_PAY_PERSONAL_SIGN_MAX_CHARS
+  ) {
     return undefined;
   }
   if (PERSONAL_SIGN_PADDING_RE.test(text)) {
