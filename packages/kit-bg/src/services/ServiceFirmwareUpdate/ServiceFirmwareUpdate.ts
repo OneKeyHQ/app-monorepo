@@ -2295,15 +2295,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v1',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
-    });
-    if (!dbDevice) {
-      // throw new OneKeyLocalError('device not found');
-    }
+    // The guard goes up BEFORE the stage is silenced: an ask already queued
+    // behind the silence would otherwise pass the stage's gate in the gap
+    // and repaint over the update page until the drain below ended. The
+    // retry path orders these the same way; the finally covers a failed
+    // silence too.
     await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+      const dbDevice = await localDb.getDeviceByQuery({
+        connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
+      });
+      if (!dbDevice) {
+        // throw new OneKeyLocalError('device not found');
+      }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           try {
@@ -2488,6 +2493,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
+    // The stage leaves with the legacy state: the update page is the only
+    // surface from here, and a burst still in flight takes nothing down
+    // until its own end. An air-gap scan the stage was hosting leaves with
+    // it, rejected, rather than waiting invisibly for its expiry.
+    await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,
       connectId: '',
@@ -2801,8 +2811,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v2',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    // Guard first, then silence — see startUpdateWorkflow. A silence that
+    // fails must not leave the guard up: nothing below would run to drop it.
+    // Unless a newer start has already taken the workflow over — the guard
+    // is shared, and dropping it here would uncover THAT workflow's page.
     await firmwareUpdateWorkflowRunningAtom.set(true);
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      if (this.isUpdateWorkflowCurrent(workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
+      throw error;
+    }
 
     void (async () => {
       try {
@@ -2999,10 +3020,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
 
-    // Re-block lock screen before resuming hardware communication
+    // Re-block lock screen before resuming hardware communication. Guard
+    // first, then silence (see startUpdateWorkflow) — and a silence that
+    // fails must not leave the guard, and with it the blocked lock screen,
+    // up for the rest of the session. Dropped only while this workflow is
+    // still the current one: a newer start owns the shared guard by then.
     await firmwareUpdateWorkflowRunningAtom.set(true);
-
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
+      throw error;
+    }
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({
