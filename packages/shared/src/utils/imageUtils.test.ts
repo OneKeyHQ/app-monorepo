@@ -1,6 +1,7 @@
 // otsuThreshold/toGrayScale/shouldInvertForMajorityWhite are pure functions,
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
+import { fetch as expoFetch } from 'expo/fetch';
 import {
   deleteAsync as ExpoFSDeleteAsync,
   downloadAsync as ExpoFSDownloadAsync,
@@ -19,6 +20,7 @@ import imageUtils, {
   toGrayScale,
 } from './imageUtils';
 
+jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
 jest.mock('expo-file-system/legacy', () => ({
   cacheDirectory: 'file:///cache/',
   deleteAsync: jest.fn(async () => undefined),
@@ -115,10 +117,12 @@ describe('probeImageMimeType', () => {
   const uri = 'https://example.com/nft-media';
   const originalFetch = globalThis.fetch;
   const fetchMock = jest.fn();
+  const expoFetchMock = jest.mocked(expoFetch);
 
   beforeEach(() => {
     Object.assign(platformEnv, { isNative: false });
     globalThis.fetch = fetchMock as never;
+    expoFetchMock.mockReset();
   });
 
   afterEach(() => {
@@ -136,7 +140,24 @@ describe('probeImageMimeType', () => {
     fetchMock.mockResolvedValueOnce({
       body: { getReader: () => ({ read, cancel }) },
       headers: new Headers({ 'content-type': contentType }),
+      ok: true,
+      status: 206,
     } as unknown as Response);
+    return { read, cancel };
+  }
+
+  function mockNativeStreamingResponse(bytes: Uint8Array, status = 206) {
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: bytes })
+      .mockResolvedValueOnce({ done: true, value: undefined });
+    const cancel = jest.fn(async () => undefined);
+    expoFetchMock.mockResolvedValueOnce({
+      body: { getReader: () => ({ read, cancel }) },
+      headers: new Headers({ 'content-type': 'application/octet-stream' }),
+      ok: status >= 200 && status < 300,
+      status,
+    } as never);
     return { read, cancel };
   }
 
@@ -185,21 +206,28 @@ describe('probeImageMimeType', () => {
       headers: new Headers({
         'content-type': 'video/mp4',
       }),
+      ok: true,
+      status: 200,
     } as unknown as Response);
 
     await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
     expect(arrayBuffer).not.toHaveBeenCalled();
   });
 
-  it('uses a file-backed range probe on native', async () => {
+  it('uses a cancellable range stream on native', async () => {
     Object.assign(platformEnv, { isNative: true });
     const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
     downloadAsyncMock.mockClear();
+    const { cancel } = mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+    );
     fetchMock.mockResolvedValueOnce({
       headers: new Headers({
         'accept-ranges': 'bytes',
         'content-type': 'application/octet-stream',
       }),
+      ok: true,
+      status: 200,
     } as unknown as Response);
 
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
@@ -207,40 +235,58 @@ describe('probeImageMimeType', () => {
       uri,
       expect.objectContaining({ method: 'HEAD' }),
     );
-    expect(downloadAsyncMock).toHaveBeenCalledWith(
+    expect(expoFetchMock).toHaveBeenCalledWith(
       uri,
-      expect.stringContaining('temp-image-probe-'),
-      { headers: { Range: 'bytes=0-65535' } },
+      expect.objectContaining({
+        headers: { Range: 'bytes=0-65535' },
+        signal: expect.anything(),
+      }),
     );
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(downloadAsyncMock).not.toHaveBeenCalled();
   });
 
-  it('uses the file-backed range probe when HEAD omits range support', async () => {
+  it('stops at the bounded prefix when the server ignores Range', async () => {
     Object.assign(platformEnv, { isNative: true });
-    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
-    downloadAsyncMock.mockClear();
+    const bytes = new Uint8Array(64 * 1024 + 1);
+    bytes.set([0xff, 0xd8, 0xff, 0xe0]);
+    const { cancel, read } = mockNativeStreamingResponse(bytes, 200);
     fetchMock.mockResolvedValueOnce({
       headers: new Headers({
         'content-length': '1000000',
         'content-type': 'application/octet-stream',
       }),
+      ok: true,
+      status: 200,
     } as unknown as Response);
 
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
-    expect(downloadAsyncMock).toHaveBeenCalledWith(
-      uri,
-      expect.stringContaining('temp-image-probe-'),
-      { headers: { Range: 'bytes=0-65535' } },
-    );
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
-  it('uses the file-backed range probe when the server rejects HEAD', async () => {
+  it('uses the range stream when the server rejects HEAD', async () => {
     Object.assign(platformEnv, { isNative: true });
-    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
-    downloadAsyncMock.mockClear();
+    mockNativeStreamingResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
     fetchMock.mockRejectedValueOnce(new Error('HEAD not allowed'));
 
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
-    expect(downloadAsyncMock).toHaveBeenCalledTimes(1);
+    expect(expoFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the fallback probe when HEAD returns HTTP 405', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    mockNativeStreamingResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
+    fetchMock.mockResolvedValueOnce({
+      headers: new Headers({ 'content-type': 'text/html' }),
+      ok: false,
+      status: 405,
+    } as unknown as Response);
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(expoFetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,4 +1,5 @@
 /* eslint-disable no-plusplus */
+import { fetch as expoFetch } from 'expo/fetch';
 import {
   copyAsync as ExpoFSCopyAsync,
   deleteAsync as ExpoFSDeleteAsync,
@@ -821,12 +822,11 @@ async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
   try {
     headResponse = await fetch(uri, { method: 'HEAD', signal });
   } catch {
-    // Some NFT media servers reject HEAD; the file-backed range probe below
-    // remains bounded in JavaScript memory and works without HEAD metadata.
+    // Some NFT media servers reject HEAD; fall back to a bounded GET probe.
   }
-  const declaredMimeType = normalizeMimeType(
-    headResponse?.headers.get('content-type'),
-  );
+  const declaredMimeType = headResponse?.ok
+    ? normalizeMimeType(headResponse.headers.get('content-type'))
+    : undefined;
   const potentiallySupportedMimeTypes = [
     'application/octet-stream',
     'image/bmp',
@@ -843,36 +843,33 @@ async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
 
   if (signal?.aborted) return undefined;
 
-  const cacheDir = await getNativeCacheDirectory();
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10_000);
-  const savedPath = `${cacheDir}temp-image-probe-${timestamp}-${random}`;
-  const cleanup = createNativeCacheCleanup(savedPath);
+  const controller = new AbortController();
+  const handleAbort = () => controller.abort();
+  signal?.addEventListener('abort', handleAbort);
+  if (signal?.aborted) controller.abort();
   try {
-    const result = await ExpoFSDownloadAsync(uri, savedPath, {
+    const response = await expoFetch(uri, {
       headers: {
         Range: `bytes=0-${IMAGE_MIME_PROBE_MAX_BYTES - 1}`,
       },
+      signal: controller.signal,
     });
-    if (signal?.aborted) return undefined;
+    if (!response.ok) return undefined;
 
-    const base64 = await ExpoFSReadAsStringAsync(result.uri, {
-      encoding: 'base64',
-      length: IMAGE_MIME_PROBE_MAX_BYTES,
-      position: 0,
-    });
-    return (
-      detectMimeTypeFromProbeBytes(Buffer.from(base64, 'base64')) || undefined
-    );
+    const bytes = await readResponsePrefix(response);
+    if (!bytes?.length) return undefined;
+
+    return detectMimeTypeFromProbeBytes(bytes) || undefined;
   } finally {
-    await cleanup();
+    signal?.removeEventListener('abort', handleAbort);
+    controller.abort();
   }
 }
 
 /**
  * Probe only the leading bytes needed for media-type detection. Native uses a
- * file-backed range request; stream-capable platforms cancel after the bounded
- * prefix, so NFT details never preload the full asset into JavaScript memory.
+ * cancellable streaming request; all platforms stop after the bounded prefix,
+ * so NFT details never preload or download the full asset.
  */
 export async function probeImageMimeType(uri: string, signal?: AbortSignal) {
   if (isBase64Uri(uri)) {
@@ -895,21 +892,12 @@ export async function probeImageMimeType(uri: string, signal?: AbortSignal) {
       },
       signal: signal ?? controller?.signal,
     });
+    if (!response.ok) return undefined;
+
     const bytes = await readResponsePrefix(response);
     if (!bytes?.length) return undefined;
 
     const detectedMimeType = detectMimeTypeFromProbeBytes(bytes);
-    const hasPngSignature =
-      bytes.length >= 8 &&
-      bytes[0] === 137 &&
-      bytes[1] === 80 &&
-      bytes[2] === 78 &&
-      bytes[3] === 71 &&
-      bytes[4] === 13 &&
-      bytes[5] === 10 &&
-      bytes[6] === 26 &&
-      bytes[7] === 10;
-    if (hasPngSignature) return detectedMimeType || undefined;
     return detectedMimeType || undefined;
   } catch {
     return undefined;
