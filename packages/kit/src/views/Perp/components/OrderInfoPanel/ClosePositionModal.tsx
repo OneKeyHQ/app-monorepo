@@ -150,6 +150,8 @@ const ClosePositionForm = memo(
         !priceUnavailableToastShownRef.current
       ) {
         priceUnavailableToastShownRef.current = true;
+        // TODO(i18n): pre-existing English literal shared with the submit
+        // path below and closeAllPositions; needs a Lokalise key.
         Toast.error({
           title: 'Unable to get current market price',
         });

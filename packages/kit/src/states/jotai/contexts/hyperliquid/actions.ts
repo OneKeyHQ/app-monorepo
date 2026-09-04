@@ -3608,6 +3608,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             .map((p) => p.position.coin)
             .filter((coin) => !symbolsMetaMap[coin] || !midPriceMap[coin]);
           if (unpricedCoins.length > 0) {
+            // TODO(i18n): same pre-existing literal as ClosePositionModal.
             const message = 'Unable to get current market price';
             Toast.error({ title: message });
             throw new OneKeyLocalError(
