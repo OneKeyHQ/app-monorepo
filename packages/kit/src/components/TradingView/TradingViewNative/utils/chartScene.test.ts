@@ -413,6 +413,66 @@ describe('TradingViewNative shared chart scene', () => {
         'indicatorSarPoint',
       ]),
     );
+    const mainIndicatorLegendLabels = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'legend' &&
+      /^(?:MA|EMA)\d+$/.test(command.text)
+        ? [command]
+        : [],
+    );
+    expect(mainIndicatorLegendLabels.map(({ text }) => text)).toEqual([
+      'MA5',
+      'MA10',
+      'MA20',
+      'EMA5',
+      'EMA10',
+      'EMA20',
+    ]);
+    expect(
+      mainIndicatorLegendLabels.every((command) =>
+        command.customPaintId?.endsWith(':legend'),
+      ),
+    ).toBe(true);
+    const maLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('MA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    const emaLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('EMA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    expect(maLegendYValues).toHaveLength(1);
+    expect(emaLegendYValues).toHaveLength(1);
+    const [maLegendY] = maLegendYValues;
+    const [emaLegendY] = emaLegendYValues;
+    if (maLegendY !== undefined && emaLegendY !== undefined) {
+      const priceLegendYValues = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        ['O', 'H', 'L', 'C'].includes(command.text)
+          ? [command.y]
+          : [],
+      );
+      expect(priceLegendYValues.length).toBeGreaterThan(0);
+      expect(maLegendY).toBeGreaterThan(Math.max(...priceLegendYValues));
+      expect(emaLegendY).toBeGreaterThan(maLegendY);
+    }
+    const bollFillIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'polygon' &&
+        command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+    );
+    const firstCandleIndex = scene.commands.findIndex(
+      (command) => command.kind === 'rect' && command.paint === 'up',
+    );
+    expect(bollFillIndex).toBeGreaterThan(-1);
+    expect(bollFillIndex).toBeLessThan(firstCandleIndex);
     expect(priceAxisText).toContain('-50.00');
     expect(Math.max(...priceAxisText.map(Number))).toBeGreaterThan(101);
   });
@@ -466,6 +526,78 @@ describe('TradingViewNative shared chart scene', () => {
           'customPaintId' in command && command.customPaintId === customPaintId,
       ),
     ).toBe(true);
+  });
+
+  it('renders the BOLL fill without hidden boundary strokes', () => {
+    const points = buildLinearPoints(25);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['BOLL']),
+      indicatorSettings: {
+        BOLL: {
+          active: true,
+          id: 'BOLL',
+          lines: {
+            background: {
+              color: '#FFAA00',
+              enabled: true,
+              period: 0,
+              style: 'solid',
+            },
+            lower: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            middle: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            upper: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+          },
+          parameters: { deviation: 2, period: 20 },
+          transparency: 0,
+        },
+      },
+      points,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polygon' &&
+          command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+      ),
+    ).toBe(true);
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polyline' &&
+          (command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper' ||
+            command.customPaintId === 'chart.mainIndicator.BOLL.boll-lower'),
+      ),
+    ).toBe(false);
   });
 
   it('uses the previous close for the selected bar change', () => {
