@@ -287,6 +287,19 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('answers whether the stage is behind the caller', async () => {
+    // The air-gap flow paints its beats past the gate and must decide on this
+    // answer, not on a gate read taken before begin(): the flag can flip in
+    // between, and a QR card with no burst behind it has no exit.
+    const scope = new DeviceStageBurstScope();
+    await expect(scope.begin({ connectId: CONNECT_ID })).resolves.toBe(true);
+    // A nested join answers the same way.
+    await expect(scope.begin({ connectId: CONNECT_ID })).resolves.toBe(true);
+
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    await expect(scope.begin({ connectId: CONNECT_ID })).resolves.toBe(false);
+  });
+
   it('writes nothing to the stage while the firmware workflow owns the screen', async () => {
     firmwareWorkflowAtom.get.mockResolvedValue(true);
     const scope = new DeviceStageBurstScope();

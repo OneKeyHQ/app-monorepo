@@ -182,15 +182,24 @@ class ServiceQrWallet extends ServiceBase {
     const { deviceStageBurst } = this.backgroundApi.serviceHardwareUI;
     // The firmware-update workflow silences the stage; production rode
     // the legacy toast through that window, so this does too — the gate
-    // is the stage's, never the flow's.
-    const stageEnabled = await deviceStageBurst.isEnabled();
-
-    // **** 2. app scan device Qrcode
-    let appScanDeviceResult: IQRCodeHandlerParseResult<IAnimationValue>;
-    if (stageEnabled) {
+    // is the stage's, never the flow's. The decision is begin()'s own
+    // answer, not a gate read taken a moment earlier: the flag can flip
+    // between the two, and the QR beats paint past the gate — a code card with
+    // no burst behind it has no exit (end() finds nothing to close) and
+    // would stand over the update page for good.
+    let stageOpened = false;
+    if (await deviceStageBurst.isEnabled()) {
       // A newer request supersedes a pending one — the legacy container
       // closed the standing toast and rejected its promise the same way.
       await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
+      // Depth-joins the wrapper's burst where one is active (sign, verify
+      // address); brackets the flows that have no wrapper (add address).
+      stageOpened = await deviceStageBurst.begin({});
+    }
+
+    // **** 2. app scan device Qrcode
+    let appScanDeviceResult: IQRCodeHandlerParseResult<IAnimationValue>;
+    if (stageOpened) {
       let promiseId = 0;
       const scanPromise = new Promise<
         IQRCodeHandlerParseResult<IAnimationValue>
@@ -202,10 +211,11 @@ class ServiceQrWallet extends ServiceBase {
       });
       this.stageAirGapSessionSeq += 1;
       const sessionId = this.stageAirGapSessionSeq;
+      // Registered only once the burst is behind it, right before the
+      // bracket whose finally clears it: registered ahead of a begin()
+      // that rejected, the session and its callback stayed parked until
+      // the next scan or the callback expiry.
       this.stageAirGapSession = { promiseId, sessionId };
-      // Depth-joins the wrapper's burst where one is active (sign, verify
-      // address); brackets the flows that have no wrapper (add address).
-      await deviceStageBurst.begin({});
       let stageError: unknown;
       try {
         await deviceStageBurst.qrShowCode({ valueUr, sessionId });
