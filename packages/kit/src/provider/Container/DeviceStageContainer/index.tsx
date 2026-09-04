@@ -8,6 +8,7 @@ import type { IDeviceStageStep } from '@onekeyhq/components/src/composite/Device
 import type {
   IDeviceStageConnectionType,
   IDeviceStageVendor,
+  IDeviceStageWalletType,
 } from '@onekeyhq/components/src/composite/DeviceStage/type';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
@@ -130,7 +131,9 @@ function DeviceStageContainerCmp() {
   // notice form leaves by itself THROUGH onClose after a readable hold,
   // so the grant must already be there when the step lands. The teach
   // card arms at once too: it plays BEFORE any device contact, so its
-  // close cancels nothing — it is the dialog dismiss it replaced.
+  // close cancels nothing — it is the dialog dismiss it replaced. The
+  // wallet-type fork arms at once for the same reason: nothing is pending
+  // on the device while it asks.
   const [armedBurstId, setArmedBurstId] = useState(0);
   const closable = step !== 'off' && armedBurstId === burstId;
   useEffect(() => {
@@ -141,6 +144,7 @@ function DeviceStageContainerCmp() {
       AUTH_STEPS.has(step) ||
       step === 'error' ||
       step === 'passphraseIntro' ||
+      step === 'selectWalletType' ||
       // The OneKey Device-not-connected card is an outcome like `error`;
       // the vendor variant is the adapter's live retry ask and keeps the
       // ask timer.
@@ -199,7 +203,8 @@ function DeviceStageContainerCmp() {
     }
     // On the error outcome the call is already over (the notice form's
     // self-exit also lands here); on the teach card nothing has started
-    // yet; on the Device-not-connected card there is no device at all.
+    // yet; on the wallet-type fork the call that read the device is already
+    // over; on the Device-not-connected card there is no device at all.
     // None of them leaves anything on the device to cancel.
     void serviceHardwareUI.deviceStageUserClose({
       connectId: current?.connectId,
@@ -207,6 +212,7 @@ function DeviceStageContainerCmp() {
         Boolean(current?.vendor) ||
         current?.step === 'error' ||
         current?.step === 'passphraseIntro' ||
+        current?.step === 'selectWalletType' ||
         current?.step === 'deviceNotFound',
     });
   }, [sendVendorUiResponse, serviceHardwareUI]);
@@ -356,6 +362,19 @@ function DeviceStageContainerCmp() {
       );
     },
     [serviceHardwareUI, setSettings],
+  );
+
+  /** The wallet-creation fork's answer: the stage goes back to its wait,
+   * and the event hands the choice to the flow that put the card up (the
+   * onboarding creation awaiting it), the teach card's own shape. */
+  const handleSelectWalletType = useCallback(
+    (walletType: IDeviceStageWalletType) => {
+      void serviceHardwareUI.deviceStageSelectWalletType();
+      appEventBus.emit(EAppEventBusNames.DeviceStageWalletTypeSelected, {
+        walletType,
+      });
+    },
+    [serviceHardwareUI],
   );
 
   /** Attach PIN: the hidden wallet opens by its own device PIN instead of
@@ -553,6 +572,7 @@ function DeviceStageContainerCmp() {
           : undefined
       }
       onPassphraseSubmit={handlePassphraseSubmit}
+      onSelectWalletType={handleSelectWalletType}
       onPassphraseIntroContinue={handlePassphraseIntroContinue}
       passphraseIntroKeepShortcut={
         // The remembered wallet-list preference; the legacy dialog read

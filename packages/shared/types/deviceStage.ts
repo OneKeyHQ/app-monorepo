@@ -12,6 +12,7 @@ export type IDeviceStageStepValue =
   | 'connecting'
   | 'enterPin'
   | 'pinOnApp'
+  | 'selectWalletType'
   | 'passphraseIntro'
   | 'enterPassphrase'
   | 'passphraseOnApp'
@@ -35,6 +36,9 @@ export type IDeviceStageStepValue =
   | 'installConfirm'
   | 'installing'
   | 'installBatch';
+
+/** The wallet-creation fork's answer: the selectWalletType step's exit. */
+export type IDeviceStageWalletTypeValue = 'standard' | 'hidden';
 
 export type IDeviceStageErrorReasonValue =
   | 'rejected'

@@ -104,6 +104,7 @@ function DeviceStageContainerLazyCmp() {
           Boolean(current.vendor) ||
           current.step === 'error' ||
           current.step === 'passphraseIntro' ||
+          current.step === 'selectWalletType' ||
           current.step === 'deviceNotFound',
       });
       Toast.error({

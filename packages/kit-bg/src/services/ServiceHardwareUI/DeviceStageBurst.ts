@@ -218,6 +218,7 @@ const ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'confirm',
   'enterPin',
   'pinOnApp',
+  'selectWalletType',
   'passphraseIntro',
   'passphraseOnApp',
   'enterPassphrase',
@@ -978,6 +979,23 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     await this.setStep('processing', { passphraseMode: 'create' });
+  }
+
+  /** The wallet-creation fork was answered. The flow that asked goes on to
+   * create the wallet it chose (a standard wallet's own beats, or the
+   * device's passphrase request for a hidden one), so the stage returns to
+   * its wait. Only the fork's own answer moves it: a late wait note never
+   * repaints an ask, and any other step on stage is not this fork. */
+  async noteWalletTypeSelected() {
+    if (!(await this.isEnabled())) {
+      return;
+    }
+    const prev = await deviceStageAtom.get();
+    if (prev?.step !== 'selectWalletType') {
+      return;
+    }
+    this.clearOffTimer();
+    await this.setStep('processing', {});
   }
 
   /**

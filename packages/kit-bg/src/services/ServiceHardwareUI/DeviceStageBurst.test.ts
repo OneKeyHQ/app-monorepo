@@ -545,6 +545,29 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('enterPin');
   });
 
+  it('holds the wallet-type fork over a late wait and leaves it only by its answer', async () => {
+    // Onboarding asks the fork right after a detached processing note
+    // (showDeviceProcessLoadingDialog is `void`ed a bridge hop behind):
+    // the card is an ask and must not be repainted by that wait. Its own
+    // answer, and nothing else, moves the stage back to the wait.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('selectWalletType');
+
+    await scope.noteStep('processing', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('selectWalletType');
+
+    await scope.noteWalletTypeSelected();
+    expect(stage?.step).toBe('processing');
+
+    // Answered once; a stray second answer touches whatever came next.
+    await scope.noteStep('enterPassphrase', { connectId: CONNECT_ID });
+    await scope.noteWalletTypeSelected();
+    expect(stage?.step).toBe('enterPassphrase');
+  });
+
   it('clears a painted stage the moment the firmware workflow takes the screen', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });

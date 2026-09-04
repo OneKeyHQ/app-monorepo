@@ -51,6 +51,7 @@ export enum EAppEventBusNames {
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   DeviceStageAuthAction = 'DeviceStageAuthAction',
   DeviceStagePassphraseIntroContinue = 'DeviceStagePassphraseIntroContinue',
+  DeviceStageWalletTypeSelected = 'DeviceStageWalletTypeSelected',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',

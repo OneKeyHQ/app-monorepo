@@ -652,6 +652,34 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   /**
+   * Puts the wallet-creation fork on stage: the Select-wallet-type dialog
+   * in stage vocabulary, asked by onboarding once the device is known to
+   * run with passphrase enabled. App-authored, not an SDK event: the flow
+   * holds its burst, waits for the answer to ride back through the driver
+   * (DeviceStageWalletTypeSelected), then creates the wallet it was told
+   * to. Returns whether the card landed; while the stage is silenced (the
+   * firmware workflow) the caller falls back to its legacy dialog rather
+   * than wait on a card nobody painted.
+   */
+  @backgroundMethod()
+  async deviceStageShowSelectWalletType(params: { connectId?: string } = {}) {
+    if (!(await this.deviceStageBurst.isEnabled())) {
+      return false;
+    }
+    await this.deviceStageBurst.noteStep('selectWalletType', {
+      connectId: params.connectId,
+    });
+    return true;
+  }
+
+  /** The fork was answered on the stage: back to the wait while the flow
+   * that asked creates the chosen wallet. */
+  @backgroundMethod()
+  async deviceStageSelectWalletType() {
+    await this.deviceStageBurst.noteWalletTypeSelected();
+  }
+
+  /**
    * The authenticity flow's beats, fed by whoever runs the check (the
    * verification sequence lives UI-side, where its result contract is
    * consumed). The checklist rides along and survives the whole run.
