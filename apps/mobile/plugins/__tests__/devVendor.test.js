@@ -1072,8 +1072,8 @@ describe('devVendor', () => {
         ({ name }) => name === '@react-native-async-storage/async-storage',
       ),
     ).toMatchObject({
-      resolution: '@onekeyfe/react-native-async-storage@npm:3.0.103',
-      version: '3.0.103',
+      resolution: '@onekeyfe/react-native-async-storage@npm:3.0.104',
+      version: '3.0.104',
     });
     expect(
       androidDescriptor.dependencies.find(
