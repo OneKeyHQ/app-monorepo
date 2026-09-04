@@ -762,6 +762,10 @@ export function getImageMimeTypeFromBase64Uri(base64Uri: string) {
 
 const IMAGE_MIME_PROBE_MAX_BYTES = 64 * 1024;
 
+function normalizeMimeType(mimeType: string | null | undefined) {
+  return mimeType?.split(';')[0].trim().toLowerCase() || undefined;
+}
+
 function detectMimeTypeFromProbeBytes(bytes: Uint8Array) {
   const base64 = Buffer.from(bytes).toString('base64');
   if (base64.startsWith('iVBORw0KGgo')) {
@@ -812,14 +816,81 @@ async function readResponsePrefix(response: Response) {
   return new Uint8Array(buffer);
 }
 
+async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
+  const headResponse = await fetch(uri, { method: 'HEAD', signal });
+  const declaredMimeType = normalizeMimeType(
+    headResponse.headers.get('content-type'),
+  );
+  const potentiallySupportedMimeTypes = [
+    'application/octet-stream',
+    'image/bmp',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+  ];
+  if (
+    declaredMimeType &&
+    !potentiallySupportedMimeTypes.includes(declaredMimeType)
+  ) {
+    return declaredMimeType;
+  }
+
+  const contentLengthHeader = headResponse.headers.get('content-length');
+  const contentLength = contentLengthHeader
+    ? Number(contentLengthHeader)
+    : Number.NaN;
+  const acceptsRanges = headResponse.headers
+    .get('accept-ranges')
+    ?.toLowerCase()
+    .includes('bytes');
+  const hasBoundedContentLength =
+    Number.isFinite(contentLength) &&
+    contentLength <= IMAGE_MIME_PROBE_MAX_BYTES;
+  if (!acceptsRanges && !hasBoundedContentLength) return undefined;
+  if (signal?.aborted) return undefined;
+
+  const cacheDir = await getNativeCacheDirectory();
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10_000);
+  const savedPath = `${cacheDir}temp-image-probe-${timestamp}-${random}`;
+  const cleanup = createNativeCacheCleanup(savedPath);
+  try {
+    const result = await ExpoFSDownloadAsync(uri, savedPath, {
+      headers: {
+        Range: `bytes=0-${IMAGE_MIME_PROBE_MAX_BYTES - 1}`,
+      },
+    });
+    if (signal?.aborted) return undefined;
+
+    const base64 = await ExpoFSReadAsStringAsync(result.uri, {
+      encoding: 'base64',
+      length: IMAGE_MIME_PROBE_MAX_BYTES,
+      position: 0,
+    });
+    return (
+      detectMimeTypeFromProbeBytes(Buffer.from(base64, 'base64')) || undefined
+    );
+  } finally {
+    await cleanup();
+  }
+}
+
 /**
- * Probe only the leading bytes needed for media-type detection. The response
- * body is cancelled after the bounded prefix so NFT details never preload the
- * full media asset.
+ * Probe only the leading bytes needed for media-type detection. Native uses a
+ * file-backed range request; stream-capable platforms cancel after the bounded
+ * prefix, so NFT details never preload the full asset into JavaScript memory.
  */
 export async function probeImageMimeType(uri: string, signal?: AbortSignal) {
   if (isBase64Uri(uri)) {
     return getImageMimeTypeFromBase64Uri(uri);
+  }
+
+  if (platformEnv.isNative) {
+    try {
+      return await probeImageMimeTypeNative(uri, signal);
+    } catch {
+      return undefined;
+    }
   }
 
   const controller = signal ? undefined : new AbortController();

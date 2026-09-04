@@ -6,6 +6,8 @@ import {
   downloadAsync as ExpoFSDownloadAsync,
 } from 'expo-file-system/legacy';
 
+import platformEnv from '../platformEnv';
+
 import imageUtils, {
   atkinsonDither,
   detectMimeTypeFromMagicBytes,
@@ -113,8 +115,13 @@ describe('probeImageMimeType', () => {
   const uri = 'https://example.com/nft-media';
   const fetchMock = jest.spyOn(global, 'fetch');
 
+  beforeEach(() => {
+    Object.assign(platformEnv, { isNative: false });
+  });
+
   afterEach(() => {
     fetchMock.mockReset();
+    Object.assign(platformEnv, { isNative: true });
   });
 
   function mockStreamingResponse(bytes: Uint8Array, contentType: string) {
@@ -179,6 +186,44 @@ describe('probeImageMimeType', () => {
 
     await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
     expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  it('uses a file-backed range probe on native', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+    downloadAsyncMock.mockClear();
+    fetchMock.mockResolvedValueOnce({
+      headers: new Headers({
+        'accept-ranges': 'bytes',
+        'content-type': 'application/octet-stream',
+      }),
+    } as unknown as Response);
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(fetchMock).toHaveBeenCalledWith(
+      uri,
+      expect.objectContaining({ method: 'HEAD' }),
+    );
+    expect(downloadAsyncMock).toHaveBeenCalledWith(
+      uri,
+      expect.stringContaining('temp-image-probe-'),
+      { headers: { Range: 'bytes=0-65535' } },
+    );
+  });
+
+  it('does not download unbounded native media without range support', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+    downloadAsyncMock.mockClear();
+    fetchMock.mockResolvedValueOnce({
+      headers: new Headers({
+        'content-length': '1000000',
+        'content-type': 'application/octet-stream',
+      }),
+    } as unknown as Response);
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+    expect(downloadAsyncMock).not.toHaveBeenCalled();
   });
 });
 
