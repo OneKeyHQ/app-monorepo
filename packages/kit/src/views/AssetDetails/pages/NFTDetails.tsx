@@ -69,9 +69,8 @@ export default function NFTDetails() {
     route.params;
 
   const [isCollecting, setIsCollecting] = useState(false);
-  const [preparedCollectibleImage, setPreparedCollectibleImage] = useState<
-    { source: string; uri: string } | undefined
-  >();
+  const [supportedCollectibleImageSource, setSupportedCollectibleImageSource] =
+    useState<string>();
   const modalClosed = useRef(false);
 
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
@@ -114,19 +113,15 @@ export default function NFTDetails() {
   const collectibleImageSource = nft?.metadata?.image;
   const canCollectCurrentNFT = Boolean(canCollectNFT(nft, device));
   const isProtocolV2Product = isProtocolV2ProductType(device?.deviceType);
-  const collectibleImageUri =
-    preparedCollectibleImage &&
-    preparedCollectibleImage.source === collectibleImageSource
-      ? preparedCollectibleImage.uri
-      : undefined;
   const canShowCollectNFTAction =
     canCollectCurrentNFT &&
-    (!isProtocolV2Product || Boolean(collectibleImageUri));
+    (!isProtocolV2Product ||
+      supportedCollectibleImageSource === collectibleImageSource);
 
   useEffect(() => {
     let isCurrent = true;
-    let preparedImageCleanup: (() => Promise<void>) | undefined;
-    setPreparedCollectibleImage(undefined);
+    const controller = new AbortController();
+    setSupportedCollectibleImageSource(undefined);
 
     if (
       !canCollectCurrentNFT ||
@@ -135,26 +130,21 @@ export default function NFTDetails() {
     ) {
       return () => {
         isCurrent = false;
+        controller.abort();
       };
     }
 
     void imageUtils
-      .prepareImageForCropWithInfo(collectibleImageSource)
-      .then((preparedImage) => {
-        preparedImageCleanup = preparedImage.cleanup;
+      .probeImageMimeType(collectibleImageSource, controller.signal)
+      .then((mimeType) => {
         if (
           isCurrent &&
           isCollectibleNftMediaSupportedOnDevice(
             device?.deviceType,
-            preparedImage.mimeType,
+            mimeType,
           )
         ) {
-          setPreparedCollectibleImage({
-            source: collectibleImageSource,
-            uri: preparedImage.uri,
-          });
-        } else {
-          void preparedImage.cleanup?.();
+          setSupportedCollectibleImageSource(collectibleImageSource);
         }
       })
       .catch(() => {
@@ -163,7 +153,7 @@ export default function NFTDetails() {
 
     return () => {
       isCurrent = false;
-      void preparedImageCleanup?.();
+      controller.abort();
     };
   }, [
     canCollectCurrentNFT,
@@ -211,15 +201,17 @@ export default function NFTDetails() {
       let croppedImage: IPickerImage | undefined;
       let actionPreparedImageCleanup: (() => Promise<void>) | undefined;
       try {
-        let imageUri = collectibleImageUri;
-        if (!isProtocolV2Product) {
-          const preparedImage = await imageUtils.prepareImageForCropWithInfo(
-            collectibleImageSource,
-          );
-          imageUri = preparedImage.uri;
-          actionPreparedImageCleanup = preparedImage.cleanup;
-        }
-        if (!imageUri) {
+        const preparedImage = await imageUtils.prepareImageForCropWithInfo(
+          collectibleImageSource,
+        );
+        actionPreparedImageCleanup = preparedImage.cleanup;
+        if (
+          isProtocolV2Product &&
+          !isCollectibleNftMediaSupportedOnDevice(
+            device.deviceType,
+            preparedImage.mimeType,
+          )
+        ) {
           throw new OneKeyAppError({
             message: intl.formatMessage({
               id: ETranslations.global_unknown_error,
@@ -227,7 +219,7 @@ export default function NFTDetails() {
           });
         }
         croppedImage = await ImageCrop.openCropImage(
-          imageUri,
+          preparedImage.uri,
           config.size?.width,
           config.size?.height,
         );
@@ -373,7 +365,6 @@ export default function NFTDetails() {
     [
       accountId,
       collectibleImageSource,
-      collectibleImageUri,
       device,
       intl,
       isProtocolV2Product,

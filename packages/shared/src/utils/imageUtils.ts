@@ -677,7 +677,10 @@ function readBase64Bytes(base64: string, offset: number, length: number) {
   ).subarray(byteOffset, byteOffset + length);
 }
 
-function isAnimatedPng(base64: string): boolean {
+function detectPngMimeType(
+  base64: string,
+  assumeStaticWhenIncomplete: boolean,
+): 'image/apng' | 'image/png' | null {
   let paddingLength = 0;
   if (base64.endsWith('==')) {
     paddingLength = 2;
@@ -689,19 +692,23 @@ function isAnimatedPng(base64: string): boolean {
 
   while (offset + 12 <= byteLength) {
     const chunkHeader = readBase64Bytes(base64, offset, 8);
-    if (chunkHeader.length < 8) return false;
+    if (chunkHeader.length < 8) {
+      return assumeStaticWhenIncomplete ? 'image/png' : null;
+    }
 
     const dataLength = chunkHeader.readUInt32BE(0);
     const chunkType = chunkHeader.toString('ascii', 4, 8);
-    if (chunkType === 'acTL') return true;
-    if (chunkType === 'IDAT' || chunkType === 'IEND') return false;
+    if (chunkType === 'acTL') return 'image/apng';
+    if (chunkType === 'IDAT' || chunkType === 'IEND') return 'image/png';
 
     const nextOffset = offset + 12 + dataLength;
-    if (nextOffset <= offset || nextOffset > byteLength) return false;
+    if (nextOffset <= offset || nextOffset > byteLength) {
+      return assumeStaticWhenIncomplete ? 'image/png' : null;
+    }
     offset = nextOffset;
   }
 
-  return false;
+  return assumeStaticWhenIncomplete ? 'image/png' : null;
 }
 
 /** Detect MIME type from file magic bytes and PNG chunk metadata. */
@@ -717,7 +724,7 @@ export function detectMimeTypeFromMagicBytes(base64: string): string | null {
   if (bytes.startsWith('/9j/')) return 'image/jpeg';
   // PNG: 89 50 4E 47
   if (bytes.startsWith('iVBORw0KGgo')) {
-    return isAnimatedPng(base64) ? 'image/apng' : 'image/png';
+    return detectPngMimeType(base64, true);
   }
   // GIF: 47 49 46 38
   if (bytes.startsWith('R0lGOD')) return 'image/gif';
@@ -751,6 +758,99 @@ export function getImageMimeTypeFromBase64Uri(base64Uri: string) {
     stripBase64UriPrefix(base64Uri),
   );
   return detectedMimeType || declaredMimeType;
+}
+
+const IMAGE_MIME_PROBE_MAX_BYTES = 64 * 1024;
+
+function detectMimeTypeFromProbeBytes(bytes: Uint8Array) {
+  const base64 = Buffer.from(bytes).toString('base64');
+  if (base64.startsWith('iVBORw0KGgo')) {
+    return detectPngMimeType(base64, false);
+  }
+  return detectMimeTypeFromMagicBytes(base64);
+}
+
+async function readResponsePrefix(response: Response) {
+  const reader = response.body?.getReader();
+  if (reader) {
+    const chunks: Uint8Array[] = [];
+    let byteLength = 0;
+    try {
+      while (byteLength < IMAGE_MIME_PROBE_MAX_BYTES) {
+        const result = await reader.read();
+        if (result.done) break;
+        const remaining = IMAGE_MIME_PROBE_MAX_BYTES - byteLength;
+        const chunk = result.value.slice(0, remaining);
+        chunks.push(chunk);
+        byteLength += chunk.length;
+        if (chunk.length < result.value.length) break;
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+
+    const bytes = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return bytes;
+  }
+
+  const contentLengthHeader = response.headers.get('content-length');
+  const contentLength = contentLengthHeader
+    ? Number(contentLengthHeader)
+    : Number.NaN;
+  const isBoundedResponse =
+    Number.isFinite(contentLength) &&
+    contentLength <= IMAGE_MIME_PROBE_MAX_BYTES;
+  if (!isBoundedResponse) return undefined;
+
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > IMAGE_MIME_PROBE_MAX_BYTES) return undefined;
+  return new Uint8Array(buffer);
+}
+
+/**
+ * Probe only the leading bytes needed for media-type detection. The response
+ * body is cancelled after the bounded prefix so NFT details never preload the
+ * full media asset.
+ */
+export async function probeImageMimeType(uri: string, signal?: AbortSignal) {
+  if (isBase64Uri(uri)) {
+    return getImageMimeTypeFromBase64Uri(uri);
+  }
+
+  const controller = signal ? undefined : new AbortController();
+  try {
+    const response = await fetch(uri, {
+      headers: {
+        Range: `bytes=0-${IMAGE_MIME_PROBE_MAX_BYTES - 1}`,
+      },
+      signal: signal ?? controller?.signal,
+    });
+    const bytes = await readResponsePrefix(response);
+    if (!bytes?.length) return undefined;
+
+    const detectedMimeType = detectMimeTypeFromProbeBytes(bytes);
+    const hasPngSignature =
+      bytes.length >= 8 &&
+      bytes[0] === 137 &&
+      bytes[1] === 80 &&
+      bytes[2] === 78 &&
+      bytes[3] === 71 &&
+      bytes[4] === 13 &&
+      bytes[5] === 10 &&
+      bytes[6] === 26 &&
+      bytes[7] === 10;
+    if (hasPngSignature) return detectedMimeType || undefined;
+    return detectedMimeType || undefined;
+  } catch {
+    return undefined;
+  } finally {
+    controller?.abort();
+  }
 }
 
 function getBlacklistByMimetype(mimetype: string) {
@@ -1505,5 +1605,6 @@ export default {
   applyRoundedCorners,
   prepareImageForCrop,
   prepareImageForCropWithInfo,
+  probeImageMimeType,
   base64ImageToBlob,
 };

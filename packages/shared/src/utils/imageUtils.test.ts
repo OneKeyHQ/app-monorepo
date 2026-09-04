@@ -12,6 +12,7 @@ import imageUtils, {
   getImageMimeTypeFromBase64Uri,
   otsuFromHistogram,
   pickThresholdAxis,
+  probeImageMimeType,
   shouldInvertForMajorityWhite,
   toGrayScale,
 } from './imageUtils';
@@ -105,6 +106,79 @@ describe('detectMimeTypeFromMagicBytes', () => {
         `data:application/octet-stream;base64,${jpegBase64}`,
       ),
     ).toBe('image/jpeg');
+  });
+});
+
+describe('probeImageMimeType', () => {
+  const uri = 'https://example.com/nft-media';
+  const fetchMock = jest.spyOn(global, 'fetch');
+
+  afterEach(() => {
+    fetchMock.mockReset();
+  });
+
+  function mockStreamingResponse(bytes: Uint8Array, contentType: string) {
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: bytes })
+      .mockResolvedValueOnce({ done: true, value: undefined });
+    const cancel = jest.fn(async () => undefined);
+    fetchMock.mockResolvedValueOnce({
+      body: { getReader: () => ({ read, cancel }) },
+      headers: new Headers({ 'content-type': contentType }),
+    } as unknown as Response);
+    return { read, cancel };
+  }
+
+  it('uses a bounded range request and content bytes instead of preloading media', async () => {
+    const { cancel } = mockStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      'application/octet-stream',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(fetchMock).toHaveBeenCalledWith(
+      uri,
+      expect.objectContaining({
+        headers: { Range: 'bytes=0-65535' },
+      }),
+    );
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('detects APNG from the bounded PNG chunk prefix', async () => {
+    mockStreamingResponse(
+      Buffer.from(
+        createPngChunkFixtureBase64(['IHDR', 'acTL', 'IDAT']),
+        'base64',
+      ),
+      'image/png',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/apng');
+  });
+
+  it('does not assume a truncated PNG prefix is static', async () => {
+    mockStreamingResponse(
+      Buffer.from(createPngChunkFixtureBase64(['IHDR']), 'base64'),
+      'image/png',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+  });
+
+  it('does not buffer an unbounded response when streaming is unavailable', async () => {
+    const arrayBuffer = jest.fn();
+    fetchMock.mockResolvedValueOnce({
+      arrayBuffer,
+      body: undefined,
+      headers: new Headers({
+        'content-type': 'video/mp4',
+      }),
+    } as unknown as Response);
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 });
 
