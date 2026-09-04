@@ -2495,8 +2495,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
     // The stage leaves with the legacy state: the update page is the only
     // surface from here, and a burst still in flight takes nothing down
-    // until its own end.
-    await this.backgroundApi.serviceHardwareUI.deviceStageBurst.silenceForFirmwareWorkflow();
+    // until its own end. An air-gap scan the stage was hosting leaves with
+    // it, rejected, rather than waiting invisibly for its expiry.
+    await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,
       connectId: '',

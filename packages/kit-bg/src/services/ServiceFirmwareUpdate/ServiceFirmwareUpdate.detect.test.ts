@@ -325,7 +325,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
       } as unknown as IBackgroundApi,
@@ -370,7 +370,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -432,7 +432,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -535,7 +535,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId: jest.fn().mockResolvedValue('ONEKEY_USB_ID'),
         },
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation: jest.fn(
             async (operation: () => Promise<unknown>) => ({
               acquired: true as const,
@@ -612,7 +612,7 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
           },
         },
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           closeHardwareUiStateDialog: jest.fn(),
         },
       } as unknown as IBackgroundApi,
@@ -1623,7 +1623,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow },
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
           withHardwareProcessing,
         },
       } as unknown as IBackgroundApi,
@@ -1666,7 +1666,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           withHardwareProcessing,
         },
         serviceHardware: {
@@ -1714,7 +1714,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           withHardwareProcessing: jest.fn(
             async (callback: () => Promise<void>) => callback(),
           ),
@@ -1803,7 +1803,7 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           withHardwareProcessing: jest.fn(
             async (callback: () => Promise<void>) => callback(),
           ),
@@ -1878,7 +1878,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow },
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
         },
       } as unknown as IBackgroundApi,
     });
@@ -1906,11 +1906,9 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: {
-            silenceForFirmwareWorkflow: jest
-              .fn()
-              .mockRejectedValue(new Error('stage bridge not ready')),
-          },
+          silenceDeviceStageForFirmwareWorkflow: jest
+            .fn()
+            .mockRejectedValue(new Error('stage bridge not ready')),
         },
       } as unknown as IBackgroundApi,
     });
@@ -1950,7 +1948,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow },
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
         },
       } as unknown as IBackgroundApi,
     });
@@ -2175,7 +2173,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
         },
       } as unknown as IBackgroundApi,
     });
@@ -2216,11 +2214,9 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: {
-            silenceForFirmwareWorkflow: jest
-              .fn()
-              .mockRejectedValue(new Error('stage bridge not ready')),
-          },
+          silenceDeviceStageForFirmwareWorkflow: jest
+            .fn()
+            .mockRejectedValue(new Error('stage bridge not ready')),
         },
       } as unknown as IBackgroundApi,
     });
@@ -2262,7 +2258,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           closeHardwareUiStateDialog: jest.fn(),
         },
       } as unknown as IBackgroundApi,

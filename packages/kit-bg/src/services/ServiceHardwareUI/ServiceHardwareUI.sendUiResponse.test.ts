@@ -927,3 +927,44 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
     });
   });
 });
+
+describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    const silence = jest
+      .spyOn(service.deviceStageBurst, 'silenceForFirmwareWorkflow')
+      .mockResolvedValue();
+    return { service, silence, cancelStageAirGapScan };
+  };
+
+  it('rejects the air-gap scan the stage was hosting, naming the step it was on', async () => {
+    // The stage is that scan's only surface: silenced without this, the
+    // signing request waited invisibly for its 30-minute expiry while the
+    // update page ran.
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'scanQr', burstId: 1 } as never);
+    const { service, silence, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(silence).toHaveBeenCalledTimes(1);
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: true });
+  });
+
+  it('speaks the code-display cancel when the person was still on the code', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'showQr', burstId: 1 } as never);
+    const { service, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: false });
+  });
+});

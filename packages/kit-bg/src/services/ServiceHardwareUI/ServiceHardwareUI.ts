@@ -581,6 +581,20 @@ class ServiceHardwareUI extends ServiceBase {
 
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
 
+  /** The firmware workflow is taking the screen: the stage leaves (see
+   * DeviceStageBurst.silenceForFirmwareWorkflow) and so does any air-gap
+   * scan it was hosting — the stage was that scan's only surface, and a
+   * pending scan left behind would wait invisibly for its 30-minute expiry
+   * while the update page ran. Rejected the way a user close rejects it;
+   * a no-op without a session. */
+  async silenceDeviceStageForFirmwareWorkflow() {
+    const stepAtSilence = (await deviceStageAtom.get())?.step;
+    await this.deviceStageBurst.silenceForFirmwareWorkflow();
+    await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
+      scanning: stepAtSilence === 'scanQr',
+    });
+  }
+
   /** The stage's half of a connect abandoned before any burst began (a
    * bootloader hand-off, a failed connect): see DeviceStageBurst.dismissUnowned. */
   @backgroundMethod()
