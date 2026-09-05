@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
@@ -11,6 +12,7 @@ import type { ReactNode } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Dimensions, PixelRatio } from 'react-native';
 
 import type {
   IIconProps,
@@ -70,6 +72,10 @@ import type { ISettingsEntrySurface } from '@onekeyhq/shared/src/logger/scopes/s
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -92,6 +98,8 @@ import {
 } from './settingsAnalytics';
 import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
 
+import type { LayoutChangeEvent, TextLayoutEvent } from 'react-native';
+
 export interface ICustomElementProps {
   titleMatch?: IFuseResultMatch;
   title?: string;
@@ -104,6 +112,164 @@ export interface ICustomElementProps {
   onPress?: () => void;
   logItemClick?: () => void;
   analyticsSource?: ISettingsEntrySurface;
+}
+
+const roundTextClipMetric = (value: number) => Math.round(value * 1000) / 1000;
+
+const getTextClipLogScalar = (value: unknown) => {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+  return value === null || value === undefined ? null : String(value);
+};
+
+function logAndroidTextClip(event: string, state: Record<string, unknown>) {
+  if (!platformEnv.isNativeAndroid) {
+    return;
+  }
+  let stateText: string;
+  try {
+    stateText = JSON.stringify(state);
+  } catch (error) {
+    stateText = JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+  NativeLogger.write(LogLevel.Info, `[AndroidTextClip] ${event} ${stateText}`);
+}
+
+function AndroidTextClipValue({
+  itemId,
+  primary,
+  primaryTextProps,
+  appLanguage,
+}: {
+  itemId: 'currency' | 'language' | 'theme' | 'autoLock';
+  primary: ReactNode;
+  primaryTextProps?: ISizableTextProps;
+  appLanguage?: string;
+}) {
+  const lastContainerLayoutRef = useRef('');
+  const lastLineLayoutRef = useRef('');
+  const primaryText = typeof primary === 'string' ? primary : null;
+  const textLength =
+    primaryText === null ? null : Array.from(primaryText).length;
+
+  useEffect(() => {
+    const window = Dimensions.get('window');
+    const screen = Dimensions.get('screen');
+    logAndroidTextClip('value-render', {
+      itemId,
+      appLanguage: appLanguage ?? null,
+      textLength,
+      windowWidth: roundTextClipMetric(window.width),
+      windowHeight: roundTextClipMetric(window.height),
+      screenWidth: roundTextClipMetric(screen.width),
+      screenHeight: roundTextClipMetric(screen.height),
+      pixelRatio: roundTextClipMetric(PixelRatio.get()),
+      fontScale: roundTextClipMetric(PixelRatio.getFontScale()),
+      requestedFontToken: getTextClipLogScalar(
+        primaryTextProps?.size ?? '$bodyLgMedium',
+      ),
+      requestedFontFamilyOverride: getTextClipLogScalar(
+        primaryTextProps?.fontFamily,
+      ),
+      requestedFontWeightOverride: getTextClipLogScalar(
+        primaryTextProps?.fontWeight,
+      ),
+      expectedDefaultFace: 'Roobert-Medium',
+      allowFontScaling: primaryTextProps?.allowFontScaling ?? false,
+      maxFontSizeMultiplier: getTextClipLogScalar(
+        primaryTextProps?.maxFontSizeMultiplier ?? 1,
+      ),
+    });
+  }, [
+    appLanguage,
+    itemId,
+    primaryTextProps?.allowFontScaling,
+    primaryTextProps?.fontFamily,
+    primaryTextProps?.fontWeight,
+    primaryTextProps?.maxFontSizeMultiplier,
+    primaryTextProps?.size,
+    textLength,
+  ]);
+
+  const handleContainerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { x, y, width, height } = event.nativeEvent.layout;
+      const state = {
+        itemId,
+        textLength,
+        x: roundTextClipMetric(x),
+        y: roundTextClipMetric(y),
+        width: roundTextClipMetric(width),
+        height: roundTextClipMetric(height),
+      };
+      const signature = JSON.stringify(state);
+      if (signature !== lastContainerLayoutRef.current) {
+        lastContainerLayoutRef.current = signature;
+        logAndroidTextClip('container-layout', state);
+      }
+    },
+    [itemId, textLength],
+  );
+
+  const handleTextLineLayout = useCallback(
+    (event: TextLayoutEvent) => {
+      if (typeof primaryTextProps?.onTextLayout === 'function') {
+        primaryTextProps.onTextLayout(event);
+      }
+      const firstLine = event.nativeEvent.lines[0];
+      const state = {
+        itemId,
+        textLength,
+        lineCount: event.nativeEvent.lines.length,
+        firstLineTextLength: firstLine
+          ? Array.from(firstLine.text).length
+          : null,
+        firstLineX: firstLine ? roundTextClipMetric(firstLine.x) : null,
+        firstLineY: firstLine ? roundTextClipMetric(firstLine.y) : null,
+        firstLineWidth: firstLine ? roundTextClipMetric(firstLine.width) : null,
+        firstLineHeight: firstLine
+          ? roundTextClipMetric(firstLine.height)
+          : null,
+        firstLineAscender: firstLine
+          ? roundTextClipMetric(firstLine.ascender)
+          : null,
+        firstLineDescender: firstLine
+          ? roundTextClipMetric(firstLine.descender)
+          : null,
+        firstLineCapHeight: firstLine
+          ? roundTextClipMetric(firstLine.capHeight)
+          : null,
+        firstLineXHeight: firstLine
+          ? roundTextClipMetric(firstLine.xHeight)
+          : null,
+      };
+      const signature = JSON.stringify(state);
+      if (signature !== lastLineLayoutRef.current) {
+        lastLineLayoutRef.current = signature;
+        logAndroidTextClip('text-line-layout', state);
+      }
+    },
+    [itemId, primaryTextProps, textLength],
+  );
+
+  return (
+    <ListItem.Text
+      onLayout={handleContainerLayout}
+      primaryTextProps={{
+        ...primaryTextProps,
+        onTextLayout: handleTextLineLayout,
+      }}
+      primary={primary}
+      align="right"
+    />
+  );
 }
 
 function useLogSearchResultOnSelectOpen({
@@ -143,10 +309,10 @@ export function CurrencyListItem({
       onPress={onPress}
       testID={SettingTestIDs.currencyItem}
     >
-      <ListItem.Text
+      <AndroidTextClipValue
+        itemId="currency"
         primaryTextProps={props?.valueTextProps ?? props?.titleProps}
         primary={text.toUpperCase()}
-        align="right"
       />
     </TabSettingsListItem>
   );
@@ -192,10 +358,11 @@ export function LanguageListItem({
           testID={SettingTestIDs.languageItem}
         >
           <XStack alignItems="center">
-            <ListItem.Text
+            <AndroidTextClipValue
+              itemId="language"
+              appLanguage={String(value)}
               primaryTextProps={props?.valueTextProps ?? props?.titleProps}
               primary={label}
-              align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
@@ -272,10 +439,10 @@ export function ThemeListItem({
           testID={SettingTestIDs.themeItem}
         >
           <XStack alignItems="center">
-            <ListItem.Text
+            <AndroidTextClipValue
+              itemId="theme"
               primaryTextProps={props?.valueTextProps ?? props?.titleProps}
               primary={label}
-              align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
@@ -557,10 +724,10 @@ export function AutoLockListItem({
   }, [options, appLockDuration]);
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
-      <ListItem.Text
+      <AndroidTextClipValue
+        itemId="autoLock"
         primaryTextProps={props?.valueTextProps ?? props?.titleProps}
         primary={text}
-        align="right"
       />
     </TabSettingsListItem>
   ) : null;
