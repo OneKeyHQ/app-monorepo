@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4LocalDbBase } from '../V4LocalDbBase';
@@ -25,15 +26,18 @@ import { V4RealmDBAgent } from './V4RealmDBAgent';
 import type { IV4DBWalletIdSingleton } from '../v4localDBTypes';
 
 export class V4LocalDbRealm extends V4LocalDbBase {
-  override readyDb: Promise<V4RealmDBAgent>;
+  private realDbPromise: Promise<V4RealmDBAgent> | undefined;
 
-  constructor() {
-    super();
-    this.readyDb = this._openDb();
+  protected override getReadyDbForAdmittedOperation(): Promise<V4RealmDBAgent> {
+    return this.getRealDb();
   }
 
-  reset(): Promise<void> {
-    return this.deleteDb();
+  async reset(): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.deleteDb(),
+      onBlocked: () => undefined,
+    });
   }
 
   // ---------------------------------------------- private methods
@@ -100,7 +104,28 @@ export class V4LocalDbRealm extends V4LocalDbBase {
     );
   }
 
-  deleteDb() {
+  private getRealDb(): Promise<V4RealmDBAgent> {
+    this.realDbPromise ??= this._openDb();
+    return this.realDbPromise;
+  }
+
+  async getDbDiagnostics(): Promise<
+    { path: string; schemaVersion: number } | undefined
+  > {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        const db = await this.getRealDb();
+        return {
+          path: db.realm.path,
+          schemaVersion: db.realm.schemaVersion,
+        };
+      },
+      onBlocked: () => undefined,
+    });
+  }
+
+  private deleteDb() {
     try {
       Realm.deleteFile({ path: V4_REALM_DB_NAME });
       return Promise.resolve();

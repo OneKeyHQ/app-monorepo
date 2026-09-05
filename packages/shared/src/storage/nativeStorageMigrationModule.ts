@@ -38,6 +38,7 @@ interface INativeStorageMigrationModule {
   }>;
   peekRecoveryAction(): Promise<string>;
   readLegacyAsyncStorageValue(key: string): Promise<string | null>;
+  setTravelModePushSuppressed(suppressed: boolean): Promise<void>;
   setMigrationLedger(
     key: INativeStorageMigrationLedgerKey,
     value: INativeStorageMigrationLedgerValue,
@@ -134,6 +135,12 @@ export function acknowledgeNativeStorageRecoveryAction(
 
 export function syncNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
   return getNativeStorageMigrationModule().syncMMKV(mmapId);
+}
+
+export function setNativeTravelModePushSuppressed(suppressed: boolean) {
+  return getNativeStorageMigrationModule().setTravelModePushSuppressed(
+    suppressed,
+  );
 }
 
 /**

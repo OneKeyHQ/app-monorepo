@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 import type { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -56,6 +57,8 @@ export type IPasswordPromptPromiseTriggerAtom = {
         idNumber: number;
         type: EPasswordPromptType;
         dialogProps?: IDialogShowProps;
+        enforcePasswordErrorProtection?: boolean;
+        manualPasswordOnly?: boolean;
         skipPostVerifyBackgroundTasks?: boolean;
         kdfParams?: IPbkdf2KdfParams;
       }
@@ -126,6 +129,9 @@ export const { target: passwordModeAtom, use: usePasswordModeAtom } =
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
   globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      return false;
+    }
     const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (

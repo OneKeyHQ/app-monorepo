@@ -25,7 +25,7 @@ export type IMMKVInstance = {
 
 function normalizeMutationAcknowledgement(
   value: unknown,
-): Promise<void> | undefined {
+): void | Promise<void> {
   if (
     value &&
     (typeof value === 'object' || typeof value === 'function') &&
@@ -38,7 +38,7 @@ function normalizeMutationAcknowledgement(
 
 // ---- Factory: create ISyncStorage wrapper from any MMKV instance ----
 
-export function createMMKVSyncStorage(
+export function createMMKVSyncStorage<TKey extends string = string>(
   mmkv: IMMKVInstance,
   options?: {
     checkResetting?: boolean;
@@ -67,19 +67,16 @@ export function createMMKVSyncStorage(
   }
 
   const storage = {
-    set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+    set(key: TKey, value: boolean | string | number) {
       return safeSet(key, value);
     },
-    setObject<T extends Record<string, any>>(
-      key: EAppSyncStorageKeys,
-      value: T,
-    ) {
+    setObject<T extends Record<string, any>>(key: TKey, value: T) {
       if (!isPlainObject(value)) {
         throw new OneKeyLocalError('value must be a plain object');
       }
       return safeSet(key, JSON.stringify(value));
     },
-    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    getObject<T>(key: TKey): T | undefined {
       try {
         const raw = mmkv.getString(key);
         if (!raw) return undefined;
@@ -88,16 +85,16 @@ export function createMMKVSyncStorage(
         return undefined;
       }
     },
-    getString(key: EAppSyncStorageKeys) {
+    getString(key: TKey) {
       return mmkv.getString(key);
     },
-    getNumber(key: EAppSyncStorageKeys) {
+    getNumber(key: TKey) {
       return mmkv.getNumber(key);
     },
-    getBoolean(key: EAppSyncStorageKeys) {
+    getBoolean(key: TKey) {
       return mmkv.getBoolean(key);
     },
-    delete(key: EAppSyncStorageKeys) {
+    delete(key: TKey) {
       const acknowledgement = normalizeMutationAcknowledgement(
         mmkv.remove(key),
       );
@@ -125,4 +122,5 @@ export function createMMKVSyncStorage(
   };
 }
 
-export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
+export type ISyncStorage<TKey extends string = EAppSyncStorageKeys> =
+  ReturnType<typeof createMMKVSyncStorage<TKey>>;

@@ -1,14 +1,13 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-// eslint-disable-next-line import-js/order
-
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
+import { initializeBackgroundApiAfterRuntimeLaunchGate } from './backgroundApiRuntimeLaunch';
 import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
@@ -33,7 +32,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     vaultFactory.setBackgroundApi(this);
     externalWalletFactory.setBackgroundApi(this);
     localDb.setBackgroundApi(this);
-    void this.serviceBootstrap.init();
+    void initializeBackgroundApiAfterRuntimeLaunchGate(
+      () => this.serviceBootstrap,
+    );
   }
 
   simpleDb = simpleDb;
@@ -115,6 +116,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'servicePassword', { value });
+    return value;
+  }
+
+  get serviceTravelMode() {
+    const Service =
+      require('../services/ServiceTravelMode') as typeof import('../services/ServiceTravelMode');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceTravelMode', { value });
     return value;
   }
 

@@ -292,7 +292,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ? { ...currentData, histories: repaired.histories }
         : (currentData ?? { histories: [] });
     });
-    return { histories: repairedData.histories, changed };
+    return { histories: repairedData?.histories ?? [], changed };
   }
 
   @backgroundMethod()

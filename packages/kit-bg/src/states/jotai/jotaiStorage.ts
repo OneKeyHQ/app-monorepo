@@ -8,10 +8,17 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
-import { atomsConfig } from './atomNames';
-import { MMKV_MIGRATION_COMPLETE_KEY } from './jotaiStorageConsts';
+import { EAtomNames, atomsConfig } from './atomNames';
+import {
+  CURRENCY_REFERENCE_STORAGE_KEY,
+  MANUAL_LOCK_CONTROL_STORAGE_KEY,
+  MMKV_MIGRATION_COMPLETE_KEY,
+  PASSWORD_CONTROL_STORAGE_KEY,
+  SETTINGS_CONTROL_STORAGE_KEY,
+} from './jotaiStorageConsts';
 import { createJotaiStorageNativeMMKV } from './jotaiStorageNativeMMKV';
 import { JOTAI_RESET } from './types';
 import jotaiVerify from './utils/jotaiVerify';
@@ -54,57 +61,82 @@ const mockStorage = storageHub._mockStorage;
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
-    let data: string | null = await appStorage.getItem(key);
-    if (isString(data)) {
-      try {
-        data = JSON.parse(data);
-      } catch (e) {
-        console.error(e);
-        data = null;
+    const read = async () => {
+      let data: string | null = await appStorage.getItem(key);
+      if (isString(data)) {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.error(e);
+          data = null;
+        }
       }
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return data ?? initialValue;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return data ?? initialValue;
+    };
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: read,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      onBlocked: () => initialValue,
+    });
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    const r = await this.getItem(key, undefined);
-    if (r !== newValue) {
-      await appStorage.setItem(
-        key,
-        appStorageUtils.canSaveAsObject() && !isString(newValue)
-          ? newValue
-          : JSON.stringify(newValue),
-      );
-    }
+    const write = async () => {
+      const r = await this.getItem(key, undefined);
+      if (r !== newValue) {
+        await appStorage.setItem(
+          key,
+          appStorageUtils.canSaveAsObject() && !isString(newValue)
+            ? newValue
+            : JSON.stringify(newValue),
+        );
+      }
+    };
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: write,
+      onBlocked: () => undefined,
+    });
   }
 
   async removeItem(key: string): Promise<void> {
-    await appStorage.removeItem(key);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    await environment.persistence.run({
+      operation: () => appStorage.removeItem(key),
+      onBlocked: () => undefined,
+    });
   }
 
   async getAllEntries(): Promise<Map<string, any> | null> {
-    if (typeof (appStorage as any).getAllEntries === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const rawMap: Map<string, any> = await (
-        appStorage as any
-      ).getAllEntries();
-      const parsedMap = new Map<string, any>();
-      for (const [key, value] of rawMap) {
-        if (isString(value)) {
-          try {
-            parsedMap.set(key, JSON.parse(value));
-          } catch {
-            parsedMap.set(key, undefined);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        if (typeof (appStorage as any).getAllEntries === 'function') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const rawMap: Map<string, any> = await (
+            appStorage as any
+          ).getAllEntries();
+          const parsedMap = new Map<string, any>();
+          for (const [key, value] of rawMap) {
+            if (isString(value)) {
+              try {
+                parsedMap.set(key, JSON.parse(value));
+              } catch {
+                parsedMap.set(key, undefined);
+              }
+            } else {
+              parsedMap.set(key, value ?? undefined);
+            }
           }
-        } else {
-          parsedMap.set(key, value ?? undefined);
+          return parsedMap;
         }
-      }
-      return parsedMap;
-    }
-    // Return null to signal batch read is not supported (e.g., mobile native storage)
-    return null;
+        // Return null to signal batch read is not supported (e.g., mobile native storage)
+        return null;
+      },
+      onBlocked: () => new Map<string, any>(),
+    });
   }
 
   subscribe = undefined;
@@ -131,6 +163,166 @@ function createJotaiStorage() {
 }
 
 export const onekeyJotaiStorage = createJotaiStorage();
+
+type IPasswordControlStorage = {
+  getPasswordControlState(initialValue: unknown): Promise<unknown>;
+  removePasswordControlState(): Promise<void>;
+  setPasswordControlState(newValue: unknown): Promise<void>;
+};
+
+type ISettingsControlStorage = {
+  getSettingsControlState(initialValue: unknown): Promise<unknown>;
+  removeSettingsControlState(): Promise<void>;
+  setSettingsControlState(newValue: unknown): Promise<void>;
+};
+
+type IManualLockControlStorage = {
+  getManualLockControlState(initialValue: unknown): Promise<unknown>;
+  removeManualLockControlState(): Promise<void>;
+  setManualLockControlState(newValue: unknown): Promise<void>;
+};
+
+type ICurrencyReferenceStorage = {
+  getCurrencyReferenceState(initialValue: unknown): Promise<unknown>;
+};
+
+function hasPasswordControlStorage(
+  storage: AsyncStorage<any>,
+): storage is AsyncStorage<any> & IPasswordControlStorage {
+  return 'getPasswordControlState' in storage;
+}
+
+function hasSettingsControlStorage(
+  storage: AsyncStorage<any>,
+): storage is AsyncStorage<any> & ISettingsControlStorage {
+  return 'getSettingsControlState' in storage;
+}
+
+function hasManualLockControlStorage(
+  storage: AsyncStorage<any>,
+): storage is AsyncStorage<any> & IManualLockControlStorage {
+  return 'getManualLockControlState' in storage;
+}
+
+function hasCurrencyReferenceStorage(
+  storage: AsyncStorage<any>,
+): storage is AsyncStorage<any> & ICurrencyReferenceStorage {
+  return 'getCurrencyReferenceState' in storage;
+}
+
+export async function getTravelModePasswordControlState(
+  initialValue: unknown,
+): Promise<unknown> {
+  if (hasPasswordControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.getPasswordControlState(initialValue);
+  }
+  return onekeyJotaiStorage.getItem(PASSWORD_CONTROL_STORAGE_KEY, initialValue);
+}
+
+async function setTravelModePasswordControlState(
+  newValue: unknown,
+): Promise<void> {
+  if (hasPasswordControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.setPasswordControlState(newValue);
+  }
+  await onekeyJotaiStorage.setItem(PASSWORD_CONTROL_STORAGE_KEY, newValue);
+}
+
+async function removeTravelModePasswordControlState(): Promise<void> {
+  if (hasPasswordControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.removePasswordControlState();
+  }
+  await onekeyJotaiStorage.removeItem(PASSWORD_CONTROL_STORAGE_KEY);
+}
+
+const passwordControlJotaiStorage: AsyncStorage<any> = {
+  getItem: (_key, initialValue) =>
+    getTravelModePasswordControlState(initialValue),
+  removeItem: () => removeTravelModePasswordControlState(),
+  setItem: (_key, newValue) => setTravelModePasswordControlState(newValue),
+  subscribe: undefined,
+};
+
+export async function getTravelModeManualLockControlState(
+  initialValue: unknown,
+): Promise<unknown> {
+  if (hasManualLockControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.getManualLockControlState(initialValue);
+  }
+  return onekeyJotaiStorage.getItem(
+    MANUAL_LOCK_CONTROL_STORAGE_KEY,
+    initialValue,
+  );
+}
+
+async function setTravelModeManualLockControlState(
+  newValue: unknown,
+): Promise<void> {
+  if (hasManualLockControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.setManualLockControlState(newValue);
+  }
+  await onekeyJotaiStorage.setItem(MANUAL_LOCK_CONTROL_STORAGE_KEY, newValue);
+}
+
+async function removeTravelModeManualLockControlState(): Promise<void> {
+  if (hasManualLockControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.removeManualLockControlState();
+  }
+  await onekeyJotaiStorage.removeItem(MANUAL_LOCK_CONTROL_STORAGE_KEY);
+}
+
+const manualLockControlJotaiStorage: AsyncStorage<any> = {
+  getItem: (_key, initialValue) =>
+    getTravelModeManualLockControlState(initialValue),
+  removeItem: () => removeTravelModeManualLockControlState(),
+  setItem: (_key, newValue) => setTravelModeManualLockControlState(newValue),
+  subscribe: undefined,
+};
+
+export async function getTravelModeSettingsControlState(
+  initialValue: unknown,
+): Promise<unknown> {
+  if (hasSettingsControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.getSettingsControlState(initialValue);
+  }
+  return onekeyJotaiStorage.getItem(SETTINGS_CONTROL_STORAGE_KEY, initialValue);
+}
+
+async function setTravelModeSettingsControlState(
+  newValue: unknown,
+): Promise<void> {
+  if (hasSettingsControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.setSettingsControlState(newValue);
+  }
+  await onekeyJotaiStorage.setItem(SETTINGS_CONTROL_STORAGE_KEY, newValue);
+}
+
+async function removeTravelModeSettingsControlState(): Promise<void> {
+  if (hasSettingsControlStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.removeSettingsControlState();
+  }
+  await onekeyJotaiStorage.removeItem(SETTINGS_CONTROL_STORAGE_KEY);
+}
+
+const settingsControlJotaiStorage: AsyncStorage<any> = {
+  getItem: (_key, initialValue) =>
+    getTravelModeSettingsControlState(initialValue),
+  removeItem: () => removeTravelModeSettingsControlState(),
+  setItem: (_key, newValue) => setTravelModeSettingsControlState(newValue),
+  subscribe: undefined,
+};
+
+export async function getTravelModeCurrencyReferenceState(
+  initialValue: unknown,
+): Promise<unknown> {
+  if (hasCurrencyReferenceStorage(onekeyJotaiStorage)) {
+    return onekeyJotaiStorage.getCurrencyReferenceState(initialValue);
+  }
+  return onekeyJotaiStorage.getItem(
+    CURRENCY_REFERENCE_STORAGE_KEY,
+    initialValue,
+  );
+}
 
 export async function getNativeJotaiStorageEntries(): Promise<ReadonlyMap<
   string,
@@ -203,7 +395,14 @@ export function atomWithStorage<Value>(
   storageName: IAtomNameKeys,
   initialValue: Value,
 ): any {
-  const storage = onekeyJotaiStorage;
+  let storage: AsyncStorage<any> = onekeyJotaiStorage;
+  if (storageName === EAtomNames.passwordPersistAtom) {
+    storage = passwordControlJotaiStorage;
+  } else if (storageName === EAtomNames.passwordPersistManualLockStateAtom) {
+    storage = manualLockControlJotaiStorage;
+  } else if (storageName === EAtomNames.settingsPersistAtom) {
+    storage = settingsControlJotaiStorage;
+  }
   const key = buildJotaiStorageKey(storageName);
   const getOnInit = false;
   const baseAtom = atom(

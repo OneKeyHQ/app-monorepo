@@ -58,7 +58,7 @@ class ProviderApiWalletConnect {
     return this.requestProxyMap[networkImpl];
   }
 
-  async initializeOnStart() {
+  async initializeOnStart(): Promise<void> {
     const sessionsNew =
       await walletConnectClient.getWalletSideStorageSessions();
     // const sessions = await walletConnectStorage.walletSideStorage.getSessions();
@@ -82,23 +82,23 @@ class ProviderApiWalletConnect {
     }
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_proposal,
-      this.onSessionProposal,
+      this.handleSessionProposal,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_request,
-      this.onSessionRequest,
+      this.handleSessionRequest,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_delete,
-      this.onSessionDelete,
+      this.handleSessionDelete,
     );
     this.web3Wallet.engine.signClient.events.on(
       EWalletConnectSessionEvents.session_ping,
-      this.onSessionPing,
+      this.handleSessionPing,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_authenticate,
-      this.onAuthRequest,
+      this.handleAuthRequest,
     );
     // this.web3Wallet.on(
     //   EWalletConnectSessionEvents.session_connect,
@@ -116,27 +116,29 @@ class ProviderApiWalletConnect {
     }
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_proposal,
-      this.onSessionProposal,
+      this.handleSessionProposal,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_request,
-      this.onSessionRequest,
+      this.handleSessionRequest,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_delete,
-      this.onSessionDelete,
+      this.handleSessionDelete,
     );
     this.web3Wallet.engine.signClient.events.off(
       EWalletConnectSessionEvents.session_ping,
-      this.onSessionPing,
+      this.handleSessionPing,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_authenticate,
-      this.onAuthRequest,
+      this.handleAuthRequest,
     );
   }
 
-  onSessionProposal = async (proposal: WalletKitTypes.SessionProposal) => {
+  private handleSessionProposal = async (
+    proposal: WalletKitTypes.SessionProposal,
+  ) => {
     const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
     console.log('onSessionProposal: ', JSON.stringify(proposal));
     const optionalNamespaces = proposal?.params?.optionalNamespaces;
@@ -251,9 +253,11 @@ class ProviderApiWalletConnect {
     }
   };
 
-  onSessionRequest = async (request: WalletKitTypes.SessionRequest) => {
-    console.log('onSessionRequest: ', request);
+  private handleSessionRequest = async (
+    request: WalletKitTypes.SessionRequest,
+  ) => {
     const { topic, id } = request;
+    console.log('onSessionRequest: ', request);
     const { serviceWalletConnect } = this.backgroundApi;
 
     // check request method is supported
@@ -331,19 +335,21 @@ class ProviderApiWalletConnect {
     }
   };
 
-  onSessionDelete = (args: WalletKitTypes.SessionDelete) => {
+  private handleSessionDelete = async (args: WalletKitTypes.SessionDelete) => {
     console.log('onSessionDelete: ', args);
     console.log(this.web3Wallet?.getActiveSessions());
-    void this.backgroundApi.serviceWalletConnect.handleSessionDelete(
+    await this.backgroundApi.serviceWalletConnect.handleSessionDelete(
       args.topic,
     );
   };
 
-  onAuthRequest = (args: WalletKitTypes.SessionAuthenticate) => {
+  private handleAuthRequest = async (
+    args: WalletKitTypes.SessionAuthenticate,
+  ) => {
     console.log('onAuthRequest: ', args);
   };
 
-  onSessionPing = () => {
+  private handleSessionPing = async () => {
     console.log('ping');
   };
 

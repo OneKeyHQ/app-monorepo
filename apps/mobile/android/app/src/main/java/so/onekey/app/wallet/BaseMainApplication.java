@@ -42,9 +42,53 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+import org.json.JSONObject;
+
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
+  private boolean isTravelModeMaskingData() {
+    MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
+    if (mmkv == null) {
+      return true;
+    }
+    String rawValue = mmkv.decodeString("onekey_travel_mode_control_v1");
+    if (rawValue == null || rawValue.isEmpty()) {
+      return false;
+    }
+    try {
+      JSONObject record = new JSONObject(rawValue);
+      Object enabled = record.opt("enabled");
+      Object verifyString = record.opt("verifyString");
+      Object version = record.opt("version");
+      if (!(enabled instanceof Boolean) ||
+          !(verifyString instanceof String) ||
+          !((String) verifyString).startsWith("|VS|") ||
+          ((String) verifyString).equals("|VS|") ||
+          !(version instanceof Number) ||
+          ((Number) version).intValue() != 1) {
+        return true;
+      }
+      return (Boolean) enabled;
+    } catch (Exception ignored) {
+      return true;
+    }
+  }
+
+  private void setJPushSuppressed(boolean suppressed) {
+    try {
+      Class<?> jPushInterface = Class.forName("cn.jpush.android.api.JPushInterface");
+      String methodName = suppressed ? "stopPush" : "resumePush";
+      jPushInterface
+        .getMethod(methodName, android.content.Context.class)
+        .invoke(null, this);
+    } catch (ClassNotFoundException ignored) {
+      // Some build variants do not bundle JPush.
+    } catch (Exception exception) {
+      Log.e("TravelMode", "Failed to update JPush suppression", exception);
+    }
+  }
 
   public static boolean shouldShowRecovery = false;
 
@@ -64,6 +108,7 @@ public class BaseMainApplication extends Application implements ReactApplication
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
+        packages.add(new OneKeyTravelModeLaunchEpochPackage());
         return packages;
       }
 
@@ -136,10 +181,12 @@ public class BaseMainApplication extends Application implements ReactApplication
         }
         if (mReactHost == null) {
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
+          List<ReactPackage> mainPackages = new PackageList(this).getPackages();
+          mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
-              new PackageList(this).getPackages(),
+              mainPackages,
               ".expo/.virtual-metro-entry",
               "index.android.bundle",
               mReactNativeHost.getJSBundleFile(),
@@ -346,6 +393,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
+      backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
       manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();
@@ -532,7 +580,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       "android.app.expo_lifecycle: " + (tAfterExpo - tAfterBg) + "ms"
     );
 
-    JPushModule.registerActivityLifecycle(this);
+    boolean isTravelModeActive = isTravelModeMaskingData();
+    setJPushSuppressed(isTravelModeActive);
+    if (!isTravelModeActive) {
+      JPushModule.registerActivityLifecycle(this);
+    }
     long tDone = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",

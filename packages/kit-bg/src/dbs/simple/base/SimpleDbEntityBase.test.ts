@@ -1,3 +1,5 @@
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { TravelModeManager } from '@onekeyhq/shared/src/travelMode/TravelModeManager';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import {
@@ -44,6 +46,106 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
 }
 
 const expectedHealGetItemCalls = 1 + UNREADABLE_SELF_HEAL_MAX_RETRIES;
+
+describe('SimpleDbEntityBase Travel Mode masking', () => {
+  test('hides cached reads and skips builders and durable writes', async () => {
+    const maskedManager = new TravelModeManager(
+      {
+        async getItem() {
+          return JSON.stringify({
+            enabled: true,
+            verifyString: '|VS|verifier',
+            version: 1,
+          });
+        },
+        async removeItem() {},
+        async setItem() {},
+      },
+      true,
+    );
+    await maskedManager.ready;
+    const entity = new TestEntity({ enableCache: true });
+    const getItem = jest.fn(async () => 'persisted');
+    const setItem = jest.fn(async () => undefined);
+    const removeItem = jest.fn(async () => undefined);
+    const builder = jest.fn(() => ({ v: 2 }));
+    entity.cachedRawData = { v: 1 };
+    (entity as any).appStorage = { getItem, setItem, removeItem };
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockImplementation(() => maskedManager.getRuntimeEnvironment());
+
+    await expect(entity.getRawData()).resolves.toBeNull();
+    await expect(entity.setRawData(builder)).resolves.toBeUndefined();
+    await expect(entity.clearRawData()).resolves.toBeUndefined();
+
+    expect(builder).not.toHaveBeenCalled();
+    expect(getItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+    environmentSpy.mockRestore();
+  });
+
+  test('keeps the boot profile active while persisting the next profile', async () => {
+    let controlValue = JSON.stringify({
+      enabled: false,
+      verifyString: '|VS|verifier',
+      version: 1,
+    });
+    const manager = new TravelModeManager(
+      {
+        async getItem() {
+          return controlValue;
+        },
+        async removeItem() {
+          controlValue = '';
+        },
+        async setItem(value) {
+          controlValue = value;
+        },
+      },
+      true,
+    );
+    await manager.ready;
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockImplementation(() => manager.getRuntimeEnvironment());
+    const entity = new TestEntity();
+    const store = new Map<string, string>();
+    (entity as any).appStorage = {
+      getItem: async (key: string) => store.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: async () => undefined,
+    };
+    let releaseBuilder!: () => void;
+    const builderGate = new Promise<void>((resolve) => {
+      releaseBuilder = resolve;
+    });
+    let signalBuilderStarted!: () => void;
+    const builderStarted = new Promise<void>((resolve) => {
+      signalBuilderStarted = resolve;
+    });
+
+    const writePromise = entity.setRawData(async () => {
+      signalBuilderStarted();
+      await builderGate;
+      return { v: 7 };
+    });
+    await builderStarted;
+    const transitionPromise = manager.transition({ enabled: true });
+    await transitionPromise;
+
+    expect(JSON.parse(controlValue)).toMatchObject({ enabled: true });
+    expect(store.has(entity.entityKey)).toBe(false);
+    releaseBuilder();
+    await writePromise;
+
+    expect(store.has(entity.entityKey)).toBe(true);
+    environmentSpy.mockRestore();
+  });
+});
 
 describe('SimpleDbEntityBase clear/set mutex serialization', () => {
   test('clearRawData cannot interleave with an in-flight setRawData', async () => {

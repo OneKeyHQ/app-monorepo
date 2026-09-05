@@ -11,6 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
@@ -85,6 +86,7 @@ export function PerpTradingButton({
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
+  const isConnectWalletDisabled = shouldRedirectOnboardingToTravelMode();
   const isSpot = tradingMode === 'spot';
 
   const handleConnectWallet = useCallback(async () => {
@@ -349,6 +351,7 @@ export function PerpTradingButton({
         testID={PerpTestIDs.ConnectWalletButton}
         variant="primary"
         onPress={handleConnectWallet}
+        disabled={isConnectWalletDisabled}
       >
         {intl.formatMessage({
           id: ETranslations.global_connect_wallet,
