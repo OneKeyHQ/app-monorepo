@@ -101,14 +101,9 @@ export function WalletRenameButton({
                   disabledMaxLengthLabel: !isProtocolV2Product,
                   trimOuterWhitespace: isProtocolV2Product,
                   description: isProtocolV2Product
-                    ? `${intl.formatMessage(
-                        {
-                          id: ETranslations.address_book_add_address_name_length_error,
-                        },
-                        { num: PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH },
-                      )} ${intl.formatMessage({
-                        id: ETranslations.passphrase_allowed_characters_desc,
-                      })}`
+                    ? intl.formatMessage({
+                        id: ETranslations.hardware_label_allowed_characters__desc,
+                      })
                     : undefined,
                   onSubmit: async (name) => {
                     await backgroundApiProxy.serviceHardware.setDeviceLabel({

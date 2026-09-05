@@ -3,7 +3,7 @@ import { useState } from 'react';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { IInputProps, ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -112,6 +112,10 @@ export function RenameInputWithNameSelector({
   nameHistoryInfo,
   inputTestID,
   trimOuterWhitespace = false,
+  showSensitiveInfoWarning = true,
+  keyboardType,
+  autoCorrect,
+  autoCapitalize,
 }: {
   maxLength?: number;
   value?: string;
@@ -130,6 +134,10 @@ export function RenameInputWithNameSelector({
   };
   inputTestID?: string;
   trimOuterWhitespace?: boolean;
+  showSensitiveInfoWarning?: boolean;
+  keyboardType?: IInputProps['keyboardType'];
+  autoCorrect?: IInputProps['autoCorrect'];
+  autoCapitalize?: IInputProps['autoCapitalize'];
 }) {
   const intl = useIntl();
   const valueLength = trimOuterWhitespace
@@ -156,6 +164,9 @@ export function RenameInputWithNameSelector({
           size="large"
           $gtMd={{ size: 'medium' }}
           maxLength={trimOuterWhitespace ? undefined : maxLength}
+          keyboardType={keyboardType}
+          autoCorrect={autoCorrect}
+          autoCapitalize={autoCapitalize}
           autoFocus
           value={value}
           onChangeText={onChange}
@@ -186,11 +197,13 @@ export function RenameInputWithNameSelector({
           {validationErrorMessage}
         </Form.FieldDescription>
       ) : null}
-      <Form.FieldDescription>
-        {intl.formatMessage({
-          id: ETranslations.account_name_form_helper_text,
-        })}
-      </Form.FieldDescription>
+      {showSensitiveInfoWarning ? (
+        <Form.FieldDescription>
+          {intl.formatMessage({
+            id: ETranslations.account_name_form_helper_text,
+          })}
+        </Form.FieldDescription>
+      ) : null}
       {disabledMaxLengthLabel ? null : (
         <Form.FieldDescription textAlign="right">{`${valueLength}/${
           maxLength ?? ''

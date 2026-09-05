@@ -6,6 +6,7 @@ import type { IDialogShowProps } from '@onekeyhq/components';
 import {
   Dialog,
   Keyboard,
+  SizableText,
   Toast,
   useDialogInstance,
 } from '@onekeyhq/components';
@@ -15,10 +16,12 @@ import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/Rename
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
@@ -46,6 +49,10 @@ function DeviceLabelFormField(props: {
     description,
     trimOuterWhitespace,
   } = props;
+  const isProtocolV2Product = isProtocolV2ProductType(
+    wallet?.associatedDeviceInfo?.deviceType,
+  );
+  const isProtocolV2Native = isProtocolV2Product && platformEnv.isNative;
   const labelValue = useFormWatch<{ name: string }>({ name: 'name' }) ?? '';
   const normalizedLabelValue = normalizeHardwareLabelValue(
     labelValue,
@@ -80,6 +87,13 @@ function DeviceLabelFormField(props: {
       label={intl.formatMessage({
         id: ETranslations.global_hardware_label_title,
       })}
+      labelAddon={
+        disabledMaxLengthLabel ? undefined : (
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+            {`${normalizedLabelValue.length}/${maxLength}`}
+          </SizableText>
+        )
+      }
       rules={{
         ...(trimOuterWhitespace
           ? {}
@@ -130,7 +144,15 @@ function DeviceLabelFormField(props: {
         forceHasError={Boolean(validationErrorMessage)}
         validationErrorMessage={validationErrorMessage}
         validationErrorTestID={AccountManagerTestIDs.walletRenameError}
-        disabledMaxLengthLabel={disabledMaxLengthLabel}
+        disabledMaxLengthLabel
+        showSensitiveInfoWarning={!isProtocolV2Product}
+        keyboardType={
+          isProtocolV2Native && platformEnv.isNativeIOS
+            ? 'ascii-capable'
+            : undefined
+        }
+        autoCorrect={isProtocolV2Native ? false : undefined}
+        autoCapitalize={isProtocolV2Native ? 'none' : undefined}
         maxLength={maxLength}
         trimOuterWhitespace={trimOuterWhitespace}
         description={
