@@ -109,6 +109,7 @@ import type {
   ITwapSliceFill,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserFunding,
   IUserNonFundingLedgerUpdate,
   IUserTwapSliceFillsByTimeParameters,
   IUserTwapSliceFillsParameters,
@@ -1685,6 +1686,33 @@ export default class ServiceHyperliquid extends ServiceBase {
           coin: apiCoin,
           ...page,
         }),
+    });
+  }
+
+  @backgroundMethod()
+  async getUserFundingHistory({
+    accountAddress,
+  }: {
+    accountAddress: IHex;
+  }): Promise<IUserFunding[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const user = accountAddress.toLowerCase() as IHex;
+    const endTime = Date.now();
+
+    return fetchPerpFundingHistoryPages({
+      startTime: 0,
+      endTime,
+      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
+      getRecordKey: (record) =>
+        [
+          record.time,
+          record.hash,
+          record.delta.coin,
+          record.delta.szi,
+          record.delta.usdc,
+          record.delta.fundingRate,
+          record.delta.nSamples ?? '',
+        ].join(':'),
     });
   }
 

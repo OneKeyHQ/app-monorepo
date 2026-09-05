@@ -1,8 +1,16 @@
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  IUserFunding,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  buildCumulativeFundingChartData,
+  buildFundingDirectionDistribution,
+  buildFundingHistogramChartData,
+  buildFundingNetSummary,
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
+  resolveFundingHistogramStyle,
   sumPerpsNetDeposits,
 } from './portfolioStats';
 
@@ -28,6 +36,21 @@ function createFill(overrides: Partial<IFill>): IFill {
     builderFee: '0',
     ...overrides,
   } as IFill;
+}
+
+function createFunding(time: number, usdc: string, coin = 'BTC'): IUserFunding {
+  return {
+    time,
+    hash: `0x${'1'.repeat(64)}`,
+    delta: {
+      type: 'funding',
+      coin,
+      usdc,
+      szi: '1',
+      fundingRate: '0.0001',
+      nSamples: null,
+    },
+  };
 }
 
 describe('buildPerpPortfolioFillsStats', () => {
@@ -228,6 +251,255 @@ describe('buildPortfolioChartData', () => {
       [1_700_000_060, 5],
     ]);
     expect(chartData?.vlm).toBe('100');
+  });
+});
+
+describe('buildCumulativeFundingChartData', () => {
+  it('builds a range-relative cumulative series and combines same-time payments', () => {
+    const hour = 60 * 60 * 1000;
+    const day = 24 * hour;
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [
+        createFunding(NOW - hour, '0.5'),
+        createFunding(NOW - 2 * hour, '-0.4'),
+        createFunding(NOW - 2 * hour, '0.1', 'ETH'),
+        createFunding(NOW - 2 * day, '99'),
+        createFunding(NOW - hour, 'invalid', 'SOL'),
+      ],
+    });
+
+    expect(result).toEqual([
+      [Math.floor((NOW - day) / 1000), 0],
+      [Math.floor((NOW - 2 * hour) / 1000), -0.3],
+      [Math.floor((NOW - hour) / 1000), 0.2],
+      [Math.floor(NOW / 1000), 0.2],
+    ]);
+  });
+
+  it('starts all-time data immediately before the first funding payment', () => {
+    const fundingTime = NOW - 10 * 24 * 60 * 60 * 1000;
+    const fundingTimeInSeconds = Math.floor(fundingTime / 1000);
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'allTime',
+      now: NOW,
+      records: [createFunding(fundingTime, '-1.25')],
+    });
+
+    expect(result).toEqual([
+      [fundingTimeInSeconds - 1, 0],
+      [fundingTimeInSeconds, -1.25],
+      [Math.floor(NOW / 1000), -1.25],
+    ]);
+  });
+
+  it('returns an empty series when the selected range has no funding payments', () => {
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
+    });
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('buildFundingHistogramChartData', () => {
+  it('builds all-time buckets for a large funding history', () => {
+    const count = 200_000;
+    const records = Array.from({ length: count }, (_, index) =>
+      createFunding(NOW - (count - index) * 60_000, '0.01'),
+    );
+
+    const result = buildFundingHistogramChartData({
+      records,
+      timePeriod: 'allTime',
+      now: NOW,
+    });
+
+    expect(result).toHaveLength(30);
+    expect(
+      result.every(
+        ([time, value]) => Number.isFinite(time) && Number.isFinite(value),
+      ),
+    ).toBe(true);
+    expect(result.reduce((total, [, value]) => total + value, 0)).toBeCloseTo(
+      count * 0.01,
+      8,
+    );
+  });
+
+  it('aggregates signed funding into non-cumulative interval buckets', () => {
+    const day = 24 * 60 * 60 * 1000;
+    const rangeStart = NOW - 7 * day;
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'week',
+      now: NOW,
+      records: [
+        createFunding(NOW - 6.5 * day, '-0.5'),
+        createFunding(NOW - 6.25 * day, '0.2', 'ETH'),
+        createFunding(NOW - 2.5 * day, '1.5'),
+        createFunding(NOW - 8 * day, '99'),
+        createFunding(NOW + 1, '99'),
+        createFunding(NOW - day, 'invalid'),
+      ],
+    });
+
+    expect(result).toEqual(
+      [-0.3, 0, 0, 0, 1.5, 0, 0].map((value, index) => [
+        Math.floor((rangeStart + index * day) / 1000),
+        value,
+      ]),
+    );
+  });
+
+  it('uses one bucket for a single all-time funding payment', () => {
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'allTime',
+      now: NOW,
+      records: [createFunding(NOW, '-1.25')],
+    });
+
+    expect(result).toEqual([[Math.floor(NOW / 1000), -1.25]]);
+  });
+
+  it('returns an empty series when the selected range has no valid payments', () => {
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
+    });
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('resolveFundingHistogramStyle', () => {
+  function createChartData(bucketCount: number, activeBucketCount: number) {
+    return Array.from({ length: bucketCount }, (_, index) => [
+      index,
+      index < activeBucketCount ? 1 : 0,
+    ]) as [number, number][];
+  }
+
+  it.each([
+    {
+      bucketCount: 7,
+      activeBucketCount: 7,
+      isMobile: false,
+      expected: { barWidthRatio: 0.45, maxBarWidth: 12 },
+    },
+    {
+      bucketCount: 24,
+      activeBucketCount: 24,
+      isMobile: false,
+      expected: { barWidthRatio: 0.4, maxBarWidth: 10 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 2,
+      isMobile: false,
+      expected: { barWidthRatio: 0.45, maxBarWidth: 12 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 5,
+      isMobile: true,
+      expected: { barWidthRatio: 0.4, maxBarWidth: 7 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 6,
+      isMobile: true,
+      expected: { barWidthRatio: 0.35, maxBarWidth: 6 },
+    },
+  ])(
+    'uses the expected density for $bucketCount buckets and $activeBucketCount active buckets',
+    ({ bucketCount, activeBucketCount, isMobile, expected }) => {
+      expect(
+        resolveFundingHistogramStyle({
+          chartData: createChartData(bucketCount, activeBucketCount),
+          isMobile,
+        }),
+      ).toEqual(expected);
+    },
+  );
+});
+
+describe('buildFundingNetSummary', () => {
+  it('calculates all-time, 24-hour, and 7-day net funding in one pass', () => {
+    const hour = 60 * 60 * 1000;
+    const day = 24 * hour;
+    const summary = buildFundingNetSummary({
+      records: [
+        createFunding(NOW - 10 * day, '-4.9'),
+        createFunding(NOW - 9 * day, '1.63', 'ETH'),
+        createFunding(NOW - 23 * hour, '-1'),
+        createFunding(NOW - 3 * day, '2', 'ETH'),
+        createFunding(NOW - 8 * day, '99', 'SOL'),
+        createFunding(NOW + hour, '99', 'DOGE'),
+        createFunding(NOW - hour, 'invalid', 'HYPE'),
+      ],
+      now: NOW,
+    });
+
+    expect(summary).toEqual({
+      netAllTime: 96.73,
+      net24h: -1,
+      net7d: 1,
+    });
+  });
+});
+
+describe('buildFundingDirectionDistribution', () => {
+  it('keeps received and paid funding separate for each market', () => {
+    const result = buildFundingDirectionDistribution({
+      records: [
+        createFunding(NOW - 1, '5', 'BTC'),
+        createFunding(NOW, '-2', 'BTC'),
+        createFunding(NOW, '-3', 'ETH'),
+        createFunding(NOW - 25 * 60 * 60 * 1000, '99', 'SOL'),
+        createFunding(NOW + 1, '99', 'DOGE'),
+        createFunding(NOW, 'invalid', 'HYPE'),
+      ],
+      timePeriod: 'day',
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      paid: [
+        { coin: 'ETH', amount: 3 },
+        { coin: 'BTC', amount: 2 },
+      ],
+      received: [{ coin: 'BTC', amount: 5 }],
+    });
+  });
+
+  it('shows five markets and groups the remainder into Other', () => {
+    const result = buildFundingDirectionDistribution({
+      records: [
+        createFunding(NOW, '7', 'BTC'),
+        createFunding(NOW, '6', 'ETH'),
+        createFunding(NOW, '5', 'SOL'),
+        createFunding(NOW, '4', 'DOGE'),
+        createFunding(NOW, '3', 'HYPE'),
+        createFunding(NOW, '2', 'ARB'),
+        createFunding(NOW, '1', 'OP'),
+      ],
+      timePeriod: 'allTime',
+      now: NOW,
+    });
+
+    expect(result.received).toEqual([
+      { coin: 'BTC', amount: 7 },
+      { coin: 'ETH', amount: 6 },
+      { coin: 'SOL', amount: 5 },
+      { coin: 'DOGE', amount: 4 },
+      { coin: 'HYPE', amount: 3 },
+      { coin: 'Other', amount: 3 },
+    ]);
+    expect(result.paid).toEqual([]);
   });
 });
 

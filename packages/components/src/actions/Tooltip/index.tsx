@@ -193,11 +193,13 @@ export function Tooltip({
         placement={placement}
         {...props}
       >
+        {/* Tamagui 2 only attaches Web hover listeners when mouse handlers are
+            present. Use them on both surfaces so interactive tooltips stay open. */}
         <TMTooltip.Trigger
           asChild={triggerAsChild}
           disabled={disabled}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
+          onMouseEnter={handleHoverIn}
+          onMouseLeave={handleHoverOut}
           onPress={onPress}
         >
           {renderTrigger}
@@ -220,8 +222,8 @@ export function Tooltip({
           exitStyle={tooltipExitStyle}
           transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
+          onMouseEnter={handleHoverIn}
+          onMouseLeave={handleHoverOut}
         >
           {renderTooltipContent}
         </TMTooltip.Content>
