@@ -58,10 +58,8 @@ import { jotaiInit } from '../states/jotai/jotaiInit';
 import {
   isBackgroundApiAtomWritable,
   isExtensionInternalCall,
-  isProviderApiPrivateAllowedKeylessOrigin,
-  isProviderApiPrivateAllowedMethod,
   isProviderApiPrivateAllowedOrigin,
-  isProviderApiPrivateKeylessMethod,
+  isProviderApiPrivateOriginDenied,
 } from './backgroundApiPermissions';
 
 import type {
@@ -675,19 +673,15 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   ): Promise<IJsonRpcResponse<any>> {
     const { scope, origin } = payload;
     const payloadData = payload?.data as IJsonRpcRequest;
-    const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
-      payloadData?.method,
-    );
     const provider: ProviderApiBase = await this.getProviderApi(
       scope as IInjectedProviderNames,
     );
     if (
       scope === IInjectedProviderNames.$private &&
-      ((isKeylessPrivateMethod &&
-        !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
-        (!isKeylessPrivateMethod &&
-          !isProviderApiPrivateAllowedOrigin(origin) &&
-          !isProviderApiPrivateAllowedMethod(payloadData?.method)))
+      isProviderApiPrivateOriginDenied({
+        method: payloadData?.method,
+        origin,
+      })
     ) {
       const error = new Error(
         `[${origin as string}] is not allowed to call $private methods: ${

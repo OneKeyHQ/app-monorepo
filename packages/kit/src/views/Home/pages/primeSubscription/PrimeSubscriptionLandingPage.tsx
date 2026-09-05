@@ -31,6 +31,8 @@ import {
   scheduleDeepLinkFallbackHint,
 } from '../../utils/deepLinkLaunchUtils';
 
+import { openPrimeSubscriptionFromWebLanding } from './openPrimeSubscriptionFromWebLanding';
+
 const AUTO_OPEN_DELAY_MS = 300;
 const PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS = 3000;
 const PRIME_SUBSCRIPTION_DEEP_LINK = uriUtils.buildDeepLinkUrl({
@@ -166,7 +168,11 @@ function PrimeSubscriptionLandingPage() {
       delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
       onFallback: () => setIsFallbackVisible(true),
     });
-    openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
+    void openPrimeSubscriptionFromWebLanding({
+      openViaDeepLink: () => {
+        openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
+      },
+    });
   }, [clearFallbackTimer]);
 
   useEffect(
