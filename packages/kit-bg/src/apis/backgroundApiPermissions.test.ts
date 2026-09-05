@@ -28,63 +28,16 @@ describe('backgroundApiPermissions', () => {
 });
 
 describe('isProviderApiPrivateOriginDenied', () => {
-  it('allows wallet_openPrimeSubscription from first-party web landings', () => {
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_openPrimeSubscription',
-        origin: 'https://app.onekey.so',
-      }),
-    ).toBe(false);
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_openPrimeSubscription',
-        origin: 'https://app.onekeytest.com',
-      }),
-    ).toBe(false);
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_openPrimeSubscription',
-        origin: 'https://1key.so',
-      }),
-    ).toBe(false);
-  });
-
-  it('denies wallet_openPrimeSubscription from other origins', () => {
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_openPrimeSubscription',
-        origin: 'https://evil.example',
-      }),
-    ).toBe(true);
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_openPrimeSubscription',
-        origin: 'https://docs.onekey.so',
-      }),
-    ).toBe(true);
-  });
-
-  it('keeps keyless methods on the first-party origin gate', () => {
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_keylessGetStatus',
-        origin: 'https://app.onekey.so',
-      }),
-    ).toBe(false);
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_keylessGetStatus',
-        origin: 'https://evil.example',
-      }),
-    ).toBe(true);
-  });
-
-  it('still allows allow-listed methods from any origin', () => {
-    expect(
-      isProviderApiPrivateOriginDenied({
-        method: 'wallet_getConnectWalletInfo',
-        origin: 'https://evil.example',
-      }),
-    ).toBe(false);
+  it.each([
+    ['wallet_openPrimeSubscription', 'https://app.onekey.so', false],
+    ['wallet_openPrimeSubscription', 'https://app.onekeytest.com', false],
+    ['wallet_openPrimeSubscription', 'https://1key.so', false],
+    ['wallet_openPrimeSubscription', 'https://evil.example', true],
+    ['wallet_openPrimeSubscription', 'https://docs.onekey.so', true],
+    ['wallet_keylessGetStatus', 'https://app.onekey.so', false],
+    ['wallet_keylessGetStatus', 'https://evil.example', true],
+    ['wallet_getConnectWalletInfo', 'https://evil.example', false],
+  ])('method=%s origin=%s denied=%s', (method, origin, denied) => {
+    expect(isProviderApiPrivateOriginDenied({ method, origin })).toBe(denied);
   });
 });

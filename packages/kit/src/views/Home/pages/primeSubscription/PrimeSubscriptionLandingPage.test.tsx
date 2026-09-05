@@ -1,7 +1,5 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
-
 import {
   act,
   cleanup,
@@ -22,55 +20,32 @@ const mockOpenAppViaDeepLink = openAppViaDeepLink as jest.MockedFunction<
   typeof openAppViaDeepLink
 >;
 
-jest.mock('@react-navigation/native', () => ({
-  useFocusEffect: jest.fn(),
-}));
-
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
 
-jest.mock('@onekeyhq/components', () => {
-  const passthrough = ({ children }: { children?: ReactNode }) =>
-    children ?? null;
-  function Page({ children }: { children?: ReactNode }) {
-    return children ?? null;
-  }
-  Page.Body = passthrough;
-  return {
-    Button: ({
-      children,
-      onPress,
-      testID,
-    }: {
-      children?: ReactNode;
-      onPress?: () => void;
-      testID?: string;
-    }) => (
-      <button data-testid={testID} onClick={onPress} type="button">
-        {children}
+jest.mock('../../components/DeepLinkLanding', () => ({
+  DeepLinkLanding: ({
+    isFallbackVisible,
+    onOpenApp,
+    openAppTestID,
+  }: {
+    isFallbackVisible: boolean;
+    onOpenApp: () => void;
+    openAppTestID: string;
+  }) =>
+    isFallbackVisible ? (
+      <button data-testid={openAppTestID} onClick={onOpenApp} type="button">
+        Open app
       </button>
-    ),
-    Empty: ({ button }: { button?: ReactNode }) => button ?? null,
-    Icon: () => null,
-    Page,
-    SizableText: passthrough,
-    Spinner: () => null,
-    Stack: passthrough,
-    XStack: passthrough,
-    YStack: passthrough,
-  };
-});
+    ) : null,
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isWeb: true, isWebMobile: false },
-}));
-
-jest.mock('../../../Onboardingv2/components/Layout', () => ({
-  LayoutHeaderLanguageSelector: () => null,
 }));
 
 jest.mock('../../utils/deepLinkLaunchUtils', () => {
