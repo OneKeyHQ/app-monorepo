@@ -356,6 +356,10 @@ export function DesktopLayout({
   const proKLineDataFallback = isStockSharePrice
     ? stockKLineDataFallback
     : assetKLineDataFallback;
+  const proKLineDataSource =
+    isStockSharePrice || marketAssetId
+      ? 'polling'
+      : (effectiveMarketTradingViewParams?.dataSource ?? 'polling');
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ||
@@ -371,7 +375,9 @@ export function DesktopLayout({
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
-          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+          isChartSwitchDisabled={
+            !effectiveMarketTradingViewParams && !marketAssetId
+          }
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the
           // plot's leading edge instead of sitting over it.
@@ -382,7 +388,11 @@ export function DesktopLayout({
       ) : null;
     }
 
-    if (!effectiveMarketTradingViewParams && !isStockSharePrice) {
+    if (
+      !effectiveMarketTradingViewParams &&
+      !isStockSharePrice &&
+      !marketAssetId
+    ) {
       return null;
     }
 
@@ -410,11 +420,7 @@ export function DesktopLayout({
         decimal={
           isStockSharePrice ? undefined : marketTradingViewParams?.decimal
         }
-        dataSource={
-          isStockSharePrice
-            ? 'polling'
-            : (effectiveMarketTradingViewParams?.dataSource ?? 'polling')
-        }
+        dataSource={proKLineDataSource}
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -449,6 +455,7 @@ export function DesktopLayout({
     stockAwareFullscreenChange,
     stockId,
     proKLineDataFallback,
+    proKLineDataSource,
     tradingViewNativeSource,
   ]);
 
@@ -499,7 +506,9 @@ export function DesktopLayout({
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
-          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+          isChartSwitchDisabled={
+            !effectiveMarketTradingViewParams && !marketAssetId
+          }
           onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
         />

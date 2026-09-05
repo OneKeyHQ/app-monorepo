@@ -216,8 +216,8 @@ function MobileMarketTradingView({
 }: {
   tokenAddress: string;
   networkId: string;
-  tokenSymbol: string;
-  decimal: number;
+  tokenSymbol?: string;
+  decimal?: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
@@ -319,18 +319,18 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const marketAssetId =
+    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+      ? marketTokenId?.trim()
+      : undefined;
   let marketTradingViewKey = 'v2';
-  if (isTradingViewNative) {
-    marketTradingViewKey = [
-      'native',
-      marketTokenId ?? '',
-      networkId,
-      tokenAddress,
-    ].join(':');
+  if (marketAssetId) {
+    marketTradingViewKey = `asset:${marketAssetId}`;
+  } else if (isTradingViewNative) {
+    marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
   } else if (marketTradingViewParams) {
     marketTradingViewKey = [
       'v2',
-      marketTokenId ?? '',
       marketTradingViewParams.networkId,
       marketTradingViewParams.tokenAddress,
       marketTradingViewParams.tokenSymbol,
@@ -382,10 +382,6 @@ export function MobileLayout({
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
     isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
-  const marketAssetId =
-    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
-      ? marketTokenId?.trim()
-      : undefined;
   const tradingViewNativeSource = useMemo(
     () =>
       getMarketDetailTradingViewNativeSource({
@@ -420,6 +416,9 @@ export function MobileLayout({
         : undefined,
     [marketAssetId],
   );
+  const proKLineDataSource = marketAssetId
+    ? 'polling'
+    : (marketTradingViewParams?.dataSource ?? 'polling');
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -801,7 +800,8 @@ export function MobileLayout({
             <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
                 if (isTradingViewNative) {
-                  return networkId ? (
+                  return networkId ||
+                    tradingViewNativeSource.kind === 'asset' ? (
                     <TradingViewNative
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
@@ -812,7 +812,9 @@ export function MobileLayout({
                       }
                       nativeControlsLayoutMode="mobile"
                       isNativeChartFullscreen={isChartFullscreen}
-                      isChartSwitchDisabled={!marketTradingViewParams}
+                      isChartSwitchDisabled={
+                        !marketTradingViewParams && !marketAssetId
+                      }
                       onChartSwitch={onChartSwitch}
                       onNativeChartFullscreenChange={onChartFullscreenChange}
                       onNativeSubIndicatorCountChange={
@@ -822,7 +824,7 @@ export function MobileLayout({
                   ) : null;
                 }
 
-                if (!marketTradingViewParams) {
+                if (!marketTradingViewParams && !marketAssetId) {
                   return null;
                 }
 
@@ -830,11 +832,11 @@ export function MobileLayout({
                   return (
                     <MobileMarketTradingView
                       key={marketTradingViewKey}
-                      tokenAddress={marketTradingViewParams.tokenAddress}
-                      networkId={marketTradingViewParams.networkId}
-                      tokenSymbol={marketTradingViewParams.tokenSymbol}
-                      decimal={marketTradingViewParams.decimal}
-                      dataSource={marketTradingViewParams.dataSource}
+                      tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
+                      networkId={marketTradingViewParams?.networkId ?? ''}
+                      tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                      decimal={marketTradingViewParams?.decimal}
+                      dataSource={proKLineDataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
                       pageWidth={layoutPageWidth}
                       onChartSwitch={onChartSwitch}
@@ -857,11 +859,12 @@ export function MobileLayout({
                 }
                 return (
                   <LazyMobileMarketTradingView
-                    tokenAddress={marketTradingViewParams.tokenAddress}
-                    networkId={marketTradingViewParams.networkId}
-                    tokenSymbol={marketTradingViewParams.tokenSymbol}
-                    decimal={marketTradingViewParams.decimal}
-                    dataSource={marketTradingViewParams.dataSource}
+                    key={marketTradingViewKey}
+                    tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
+                    networkId={marketTradingViewParams?.networkId ?? ''}
+                    tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                    decimal={marketTradingViewParams?.decimal}
+                    dataSource={proKLineDataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
                     kLineDataFallback={assetKLineDataFallback}
@@ -907,6 +910,7 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
+    proKLineDataSource,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);

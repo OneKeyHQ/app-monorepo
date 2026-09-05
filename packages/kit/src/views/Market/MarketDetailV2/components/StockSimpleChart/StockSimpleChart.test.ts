@@ -272,7 +272,7 @@ describe('fetchStockSimpleChartPoints', () => {
 
     expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
       assetId: 'doge',
-      interval: '1W',
+      interval: '1D',
       timeFrom: undefined,
       timeTo: undefined,
       currency: 'usd',

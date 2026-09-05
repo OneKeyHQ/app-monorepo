@@ -12,6 +12,15 @@ const mockStockDesktopLayout = jest.fn(
 const mockTopCoinsDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
 );
+let mockMarketTradingViewParams:
+  | {
+      tokenAddress: string;
+      networkId: string;
+      tokenSymbol: string;
+      isNative: boolean;
+      dataSource: 'websocket' | 'polling';
+    }
+  | undefined;
 let mockMarketPriceSource: 'share' | 'token' = 'share';
 let mockStockDetailState = {
   isStockRoute: true,
@@ -126,13 +135,7 @@ jest.mock('../hooks/useMarketDetailDisplayData', () => ({
 }));
 
 jest.mock('../hooks/useTokenDetail', () => ({
-  useMarketTradingViewParams: jest.fn(() => ({
-    tokenAddress: '0xaapl',
-    networkId: 'evm--1',
-    tokenSymbol: 'AAPL',
-    isNative: false,
-    dataSource: 'polling',
-  })),
+  useMarketTradingViewParams: jest.fn(() => mockMarketTradingViewParams),
   useTokenDetail: jest.fn(() => ({
     tokenAddress: '0xaapl',
     networkId: 'evm--1',
@@ -165,6 +168,13 @@ jest.mock('./TopCoinsDesktopLayout', () => ({
 
 describe('DesktopLayout', () => {
   beforeEach(() => {
+    mockMarketTradingViewParams = {
+      tokenAddress: '0xaapl',
+      networkId: 'evm--1',
+      tokenSymbol: 'AAPL',
+      isNative: false,
+      dataSource: 'polling',
+    };
     mockMarketPriceSource = 'share';
     mockStockDetailState = {
       isStockRoute: true,
@@ -285,6 +295,13 @@ describe('DesktopLayout', () => {
   });
 
   it('uses Asset K-line data for the Top Coins Pro chart', async () => {
+    mockMarketTradingViewParams = {
+      tokenAddress: '',
+      networkId: 'doge--0',
+      tokenSymbol: 'DOGE',
+      isNative: true,
+      dataSource: 'websocket',
+    };
     mockMarketPriceSource = 'token';
     mockStockDetailState = {
       isStockRoute: false,
@@ -315,6 +332,7 @@ describe('DesktopLayout', () => {
       ?.marketTradingView as {
       key: string;
       props: {
+        dataSource: string;
         kLineDataFallback: (params: {
           interval: string;
           networkId: string;
@@ -334,6 +352,7 @@ describe('DesktopLayout', () => {
     });
 
     expect(marketTradingView.key).toBe('asset:doge');
+    expect(marketTradingView.props.dataSource).toBe('polling');
     expect(marketTradingView.props.primaryKLineDataUnavailable).toBe(true);
     expect(fetchMarketAssetKLineDataMock).toHaveBeenCalledWith({
       assetId: 'doge',
@@ -342,5 +361,57 @@ describe('DesktopLayout', () => {
       timeTo: 200,
     });
     expect(fetchMarketStockKLineDataMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Top Coins chart switch enabled with only an Asset identity', () => {
+    mockMarketTradingViewParams = undefined;
+    mockMarketPriceSource = 'token';
+    mockStockDetailState = {
+      isStockRoute: false,
+      stockId: '',
+      selectedTokenVariant: {
+        networkId: 'doge--0',
+        contractAddress: '',
+        symbol: 'DOGE',
+        decimals: 8,
+      },
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative
+        networkId="doge--0"
+        tokenAddress=""
+        marketTokenId="doge"
+        marketTokenCategory="top_coins"
+      />,
+    );
+
+    const topCoinsLayoutProps =
+      mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0];
+    const marketTradingView = topCoinsLayoutProps?.marketTradingView as {
+      key: string;
+      props: {
+        dataSource: string;
+        networkId: string;
+        tokenAddress: string;
+      };
+    };
+
+    expect(topCoinsLayoutProps).toEqual(
+      expect.objectContaining({ isChartSwitchDisabled: false }),
+    );
+    expect(marketTradingView.key).toBe('asset:doge');
+    expect(marketTradingView.props).toEqual(
+      expect.objectContaining({
+        dataSource: 'polling',
+        networkId: '',
+        tokenAddress: '',
+      }),
+    );
   });
 });

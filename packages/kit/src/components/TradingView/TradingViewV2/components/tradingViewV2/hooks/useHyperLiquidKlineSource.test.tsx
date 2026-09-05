@@ -89,6 +89,31 @@ describe('useHyperLiquidKlineSource', () => {
     });
   });
 
+  it('keeps an explicit fallback source ahead of the Hyperliquid whitelist', () => {
+    mockUseMarketBasicConfig.mockReturnValue({
+      basicConfig: {
+        HyperLiquidKlineSourceTokens: [
+          {
+            networkId: 'btc--0',
+            tokenAddress: '',
+            symbol: 'BTC',
+          },
+        ],
+      },
+      isLoading: false,
+    } as ReturnType<typeof useMarketBasicConfig>);
+
+    const { result } = renderHook(() =>
+      useHyperLiquidKlineSource('btc--0', '', { disabled: true }),
+    );
+
+    expect(result.current).toEqual({
+      isHyperLiquidSource: false,
+      symbol: undefined,
+      isLoading: false,
+    });
+  });
+
   it('keeps using loaded config while it is being revalidated', () => {
     mockUseMarketBasicConfig.mockReturnValue({
       basicConfig: {
