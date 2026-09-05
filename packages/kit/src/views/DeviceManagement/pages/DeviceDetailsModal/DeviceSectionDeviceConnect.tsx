@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showTrezorBleBindingDialog } from '@onekeyhq/kit/src/components/Hardware/TrezorBleBindingDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
@@ -12,6 +13,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
@@ -45,14 +47,27 @@ function DeviceSectionDeviceConnect() {
   const onPressForgetDevice = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();
     if (!walletWithDevice) return;
-    const walletId = walletWithDevice.wallet.id;
     showDialogForgetDevice({
       onConfirmForgetDevice: async () => {
         try {
-          await accountActions.current.removeWallet({
-            walletId,
-            isRemoveToMocked: false,
-          });
+          const wallets =
+            await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+              filterHiddenWallet: true,
+            });
+          // Removing each standard wallet also removes its hidden wallets.
+          for (const item of Object.values(wallets)) {
+            if (
+              deviceUtils.isSamePhysicalDevice(
+                item.device,
+                walletWithDevice.device,
+              )
+            ) {
+              await accountActions.current.removeWallet({
+                walletId: item.wallet.id,
+                isRemoveToMocked: false,
+              });
+            }
+          }
           defaultLogger.account.wallet.deleteWallet();
           Toast.success({
             title: intl.formatMessage({

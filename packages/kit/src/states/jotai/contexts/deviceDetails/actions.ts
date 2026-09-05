@@ -294,15 +294,21 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       try {
         const r =
           await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-            filterHiddenWallet: true,
+            filterHiddenWallet: false,
           });
 
-        const data = resolveUsableWalletWithDevice(r?.[walletId]);
+        const data = resolveUsableWalletWithDevice(
+          r?.[walletId],
+          Object.values(r),
+        );
         // Drop a superseded response (device switched mid-flight).
         if (get(currentWalletIdAtom()) !== walletId) {
           return data;
         }
         set(currentWalletIdAtom(), walletId);
+        if (get(walletWithDeviceStateAtom())?.device?.id !== data?.device?.id) {
+          set(deviceStateSnapshotAtom(), undefined);
+        }
         set(walletWithDeviceStateAtom(), data);
         if (!data) {
           set(deviceStateSnapshotAtom(), undefined);
@@ -365,7 +371,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   );
 
   getCurrentWalletId = contextAtomMethod(async (get) => {
-    return get(currentWalletIdAtom());
+    return get(walletWithDeviceStateAtom())?.wallet.id;
   });
 
   getWalletWithDevice = contextAtomMethod(async (get) => {
@@ -403,7 +409,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   );
 
   updateLanguage = contextAtomMethod(async (get, set, value: string) => {
-    const walletId = get(currentWalletIdAtom());
+    const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
     if (!walletId) return;
 
     await backgroundApiProxy.serviceHardware.setLanguage({
@@ -416,7 +422,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   });
 
   updateBrightness = contextAtomMethod(async (get, set, value?: number) => {
-    const walletId = get(currentWalletIdAtom());
+    const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
     if (!walletId) return;
 
     await backgroundApiProxy.serviceHardware.setBrightness({
@@ -430,7 +436,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   });
 
   updateHapticFeedback = contextAtomMethod(async (get, set, value: boolean) => {
-    const walletId = get(currentWalletIdAtom());
+    const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
     if (!walletId) return;
 
     await backgroundApiProxy.serviceHardware.setHapticFeedback({
@@ -443,7 +449,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
   });
 
   updateAutoLockDelayMs = contextAtomMethod(async (get, set, value: number) => {
-    const walletId = get(currentWalletIdAtom());
+    const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
     if (!walletId) return;
 
     await backgroundApiProxy.serviceHardware.setAutoLockDelayMs({
@@ -457,7 +463,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
 
   updateAutoShutDownDelayMs = contextAtomMethod(
     async (get, set, value: number) => {
-      const walletId = get(currentWalletIdAtom());
+      const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
       if (!walletId) return;
 
       await backgroundApiProxy.serviceHardware.setAutoShutDownDelayMs({
@@ -472,7 +478,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
 
   updatePassphraseEnabled = contextAtomMethod(
     async (get, set, value: boolean) => {
-      const walletId = get(currentWalletIdAtom());
+      const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
       if (!walletId) return;
 
       await backgroundApiProxy.serviceHardware.setPassphraseEnabled({
@@ -487,7 +493,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
 
   updateInputPinOnSoftware = contextAtomMethod(
     async (get, set, value: boolean) => {
-      const walletId = get(currentWalletIdAtom());
+      const walletId = get(walletWithDeviceStateAtom())?.wallet.id;
       if (!walletId) return;
 
       await backgroundApiProxy.serviceHardware.setInputPinOnSoftware({
