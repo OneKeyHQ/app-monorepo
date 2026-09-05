@@ -258,7 +258,7 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
       ...SEEDED_STATE,
       status: { mode: 'normal', unlocked: true, unlockedAttachPin: false },
     } as unknown as IOneKeyDeviceState;
-    const { service } = buildService({
+    const { service, getDeviceByConnectIdMock } = buildService({
       dbDevice,
       callOrder,
       latestDbDevice: { deviceStateInfo: postUnlockState },
@@ -275,6 +275,10 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
     expect(service.createHWWalletBase).toHaveBeenCalledWith(
       expect.objectContaining({ deviceState: postUnlockState }),
     );
+    expect(getDeviceByConnectIdMock).toHaveBeenNthCalledWith(1, {
+      connectId: 'CONNECT_ID_1',
+      featuresDeviceId: 'DEVICE_ID_1',
+    });
   });
 
   it('never queries by an empty connectId for the post-unlock refresh', async () => {

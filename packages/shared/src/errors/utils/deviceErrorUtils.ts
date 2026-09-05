@@ -180,10 +180,14 @@ export function convertDeviceError(
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondedCanceled:
-      return new HardwareErrors.DeviceNotBonded({ payload });
+      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
-      return new HardwareErrors.DeviceBondError({ payload });
+    case HardwareErrorCode.BleBondInvalid:
+      return new HardwareErrors.DeviceBondError({
+        payload,
+        silentMode: options?.silentMode,
+      });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:
