@@ -21,7 +21,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
-import { dedupeTokenSelectorFavoritesOrder } from '../../utils/tokenSelectorFavorites';
+import {
+  dedupeTokenSelectorFavoritesOrder,
+  sortTokenSelectorFavoritesBySequence,
+} from '../../utils/tokenSelectorFavorites';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
 
@@ -166,30 +169,14 @@ function FavoritesBar() {
 
   // Membership entries missing from the persisted order are appended at the
   // end, covering legacy data and toggles done outside the FavoriteButton.
-  const favoriteItems = useMemo(() => {
-    const merged = [...perpItems, ...spotItems];
-    const lookup = new Map<string, (typeof merged)[number]>();
-    for (const item of merged) {
-      lookup.set(`${item.mode}:${item.coinName}`, item);
-    }
-    const ordered: typeof merged = [];
-    const seen = new Set<string>();
-    for (const entry of dedupeTokenSelectorFavoritesOrder(
-      favoritesOrder.sequence,
-    )) {
-      const key = `${entry.mode}:${entry.coinName}`;
-      const item = lookup.get(key);
-      if (item) {
-        ordered.push(item);
-        seen.add(key);
-      }
-    }
-    for (const item of merged) {
-      const key = `${item.mode}:${item.coinName}`;
-      if (!seen.has(key)) ordered.push(item);
-    }
-    return ordered;
-  }, [perpItems, spotItems, favoritesOrder]);
+  const favoriteItems = useMemo(
+    () =>
+      sortTokenSelectorFavoritesBySequence(
+        [...perpItems, ...spotItems],
+        favoritesOrder.sequence,
+      ),
+    [perpItems, spotItems, favoritesOrder.sequence],
+  );
 
   // Idempotent reconciliation — only writes when sequence drifts from
   // membership, so callers that toggle favorites without touching this atom

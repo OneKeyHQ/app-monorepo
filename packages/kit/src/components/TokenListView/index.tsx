@@ -22,6 +22,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  buildCrossNetworkSearchListData,
+  isTokenSelectorSyntheticRow,
+} from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import type { ITokenSelectorListRow } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildHomeDefaultTokenMapKey,
@@ -70,6 +76,10 @@ import { ListLoading } from '../Loading';
 
 import { computeShowTokenListSkeleton } from './computeShowTokenListSkeleton';
 import { computeTokenListOwnerMismatch } from './computeTokenListOwnerMismatch';
+import {
+  CrossNetworkSearchSyntheticRow,
+  TokenSelectorSearchErrorView,
+} from './CrossNetworkSearchRows';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -118,7 +128,16 @@ type IProps = {
   tokenSelectorSearchKey?: string;
   tokenSelectorSearchTokenState?: {
     isSearching: boolean;
+    hasError?: boolean;
   };
+  // Cross-network search (main Receive single-network scope): group search
+  // results into current-network / other-networks sections and build the
+  // wrapper-level networksMap even though isAllNetworks is false.
+  crossNetworkSearchEnabled?: boolean;
+  onSearchTokensRetry?: () => void;
+  // Browse-state empty title override for flows that do not care about
+  // holdings (Receive): replaces EmptyToken's "You don't hold any crypto".
+  browseEmptyTitle?: string;
   tokenSelectorSearchTokenList?: {
     tokens: IAccountToken[];
     searchKey?: string;
@@ -248,6 +267,9 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey = '',
     tokenSelectorSearchTokenState = { isSearching: false },
     tokenSelectorSearchTokenList = { tokens: [], searchKey: '' },
+    crossNetworkSearchEnabled,
+    onSearchTokensRetry,
+    browseEmptyTitle,
     emptyAccountView,
     showActiveAccountTokenList = false,
     listViewStyleProps,
@@ -610,6 +632,9 @@ function TokenListViewCmp(props: IProps) {
         useNetworkSearch && !showActiveAccountTokenList
           ? tokenSelectorAggregateTokenListMap
           : undefined,
+      // `searchAll` is only produced by the main Receive entry, so this is a
+      // Receive-scoped switch; Send would need its own decoupled param.
+      flattenAggregateTokens: useNetworkSearch,
     });
 
     if (!isTokenSelector) {
@@ -820,6 +845,42 @@ function TokenListViewCmp(props: IProps) {
     listStructure.generation,
   ]);
 
+  // Selector search state (any scope): drives the unified "No result" /
+  // search-error empty states. The jotai `searchKey` atom is NOT written by
+  // TokenSelector, so this must key off the prop.
+  const selectorSearchActive =
+    !!isTokenSelector &&
+    tokenSelectorSearchKey.length >=
+      (searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH);
+  // Cross-network search grouping is a SEARCH-state-only presentation: browse
+  // state (empty/short search key) keeps the flat single-network list.
+  const crossNetworkGroupingActive =
+    !!crossNetworkSearchEnabled && selectorSearchActive;
+
+  const selectorListRows: ITokenSelectorListRow[] = useMemo(() => {
+    if (!crossNetworkGroupingActive) {
+      return listData;
+    }
+    return buildCrossNetworkSearchListData({
+      tokens: listData,
+      currentNetworkId: networkId,
+      hasSearchError: !!tokenSelectorSearchTokenState.hasError,
+    });
+  }, [
+    crossNetworkGroupingActive,
+    listData,
+    networkId,
+    tokenSelectorSearchTokenState.hasError,
+  ]);
+
+  const crossNetworkCurrentNetworkName = useMemo(
+    () =>
+      networksMap?.[networkId]?.name ??
+      networkUtils.getLocalNetworkInfo(networkId)?.name ??
+      '',
+    [networksMap, networkId],
+  );
+
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
@@ -979,23 +1040,57 @@ function TokenListViewCmp(props: IProps) {
     if (emptyAccountView) {
       return emptyAccountView as ReactElement;
     }
-    return searchKey ? (
-      <EmptySearch
-        onManageToken={onManageToken}
-        manageTokenEnabled={manageTokenEnabled}
+    // Unified selector search empty/error states (any scope, incl. All
+    // Networks): a no-result search must never show the browse-state
+    // "You don't hold any crypto" copy. Keys off the SELECTOR's search key
+    // prop — the jotai `searchKey` atom below is never written by
+    // TokenSelector.
+    if (selectorSearchActive) {
+      return tokenSelectorSearchTokenState.hasError ? (
+        <TokenSelectorSearchErrorView
+          onRetry={onSearchTokensRetry}
+          {...emptyProps}
+        />
+      ) : (
+        <EmptyToken
+          testID="TokenSelector-Search-Empty"
+          title={intl.formatMessage({
+            id: ETranslations.token_selector_search_no_result__title,
+          })}
+          {...emptyProps}
+        />
+      );
+    }
+    if (searchKey) {
+      return (
+        <EmptySearch
+          onManageToken={onManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          {...emptyProps}
+        />
+      );
+    }
+    return (
+      <EmptyToken
+        {...(browseEmptyTitle
+          ? { testID: 'TokenSelector-Browse-Empty', title: browseEmptyTitle }
+          : undefined)}
         {...emptyProps}
       />
-    ) : (
-      <EmptyToken {...emptyProps} />
     );
   }, [
     emptyAccountView,
+    intl,
     manageTokenEnabled,
     onManageToken,
     searchKey,
     showSkeleton,
     tableLayout,
     emptyProps,
+    selectorSearchActive,
+    tokenSelectorSearchTokenState.hasError,
+    onSearchTokensRetry,
+    browseEmptyTitle,
   ]);
 
   useEffect(() => {
@@ -1143,8 +1238,24 @@ function TokenListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={listData.length}
-      data={listData}
+      extraData={selectorListRows.length}
+      // Synthetic section rows only exist when crossNetworkGroupingActive;
+      // otherwise this IS listData. Cast because ListView's item type stays
+      // IAccountToken while synthetic rows only carry `$key`.
+      data={selectorListRows as unknown as IAccountToken[]}
+      // Only pass a discriminator when the array can actually be mixed, so the
+      // home list and the non-opted-in selector routes keep their props (and
+      // FlashList's single recycling pool) unchanged.
+      getItemType={
+        crossNetworkGroupingActive
+          ? (item: unknown) => {
+              const row = item as ITokenSelectorListRow;
+              return isTokenSelectorSyntheticRow(row)
+                ? row.syntheticRowType
+                : 'token';
+            }
+          : undefined
+      }
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
@@ -1161,32 +1272,47 @@ function TokenListViewCmp(props: IProps) {
         ) : null
       }
       ListEmptyComponent={EmptyComponentElement}
-      renderItem={({ item, index }) => (
-        <>
-          <TokenListItem
-            hideValue={hideValue}
-            hideBalanceAndValue={hideBalanceAndValue}
-            token={item}
-            key={item.$key}
-            onPress={onPressToken}
-            tableLayout={tableLayout}
-            withPrice={withPrice}
-            isAllNetworks={isAllNetworks}
-            withNetwork={withNetwork}
-            isTokenSelector={isTokenSelector}
-            withSwapAction={withSwapAction}
-            showNetworkIcon={showNetworkIcon}
-            withAggregateBadge={withAggregateBadge}
-            showProcessingState={!!exchangeFilter}
-            testIDPrefix={tokenItemTestIDPrefix}
-          />
-          {isTokenSelector &&
-          tokenSelectorSearchTokenState.isSearching &&
-          index === listData.length - 1 ? (
-            <ListLoading isTokenSelectorView={!tableLayout} />
-          ) : null}
-        </>
-      )}
+      renderItem={({ item, index }) => {
+        const row = item as unknown as ITokenSelectorListRow;
+        return (
+          <>
+            {isTokenSelectorSyntheticRow(row) ? (
+              <CrossNetworkSearchSyntheticRow
+                key={row.$key}
+                rowType={row.syntheticRowType}
+                currentNetworkName={crossNetworkCurrentNetworkName}
+                onRetry={onSearchTokensRetry}
+              />
+            ) : (
+              <TokenListItem
+                hideValue={hideValue}
+                hideBalanceAndValue={hideBalanceAndValue}
+                token={item}
+                key={item.$key}
+                onPress={onPressToken}
+                tableLayout={tableLayout}
+                withPrice={withPrice}
+                isAllNetworks={isAllNetworks}
+                withNetwork={
+                  withNetwork ||
+                  (crossNetworkGroupingActive && item.networkId !== networkId)
+                }
+                isTokenSelector={isTokenSelector}
+                withSwapAction={withSwapAction}
+                showNetworkIcon={showNetworkIcon}
+                withAggregateBadge={withAggregateBadge}
+                showProcessingState={!!exchangeFilter}
+                testIDPrefix={tokenItemTestIDPrefix}
+              />
+            )}
+            {isTokenSelector &&
+            tokenSelectorSearchTokenState.isSearching &&
+            index === selectorListRows.length - 1 ? (
+              <ListLoading isTokenSelectorView={!tableLayout} />
+            ) : null}
+          </>
+        );
+      }}
       ListFooterComponent={
         <Stack pb="$5">
           {withFooter ? (
@@ -1304,8 +1430,41 @@ const TokenListView = memo((props: IProps) => {
     props.hostAggregateTokenFiatMap,
   ]);
 
+  const selectorSearchKeyActive =
+    (props.tokenSelectorSearchKey ?? '').length >=
+    (props.searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH);
   const needNetworksMap =
-    !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
+    // Cross-network search needs the map under a single-network scope too: it
+    // powers both the local network-field keyword matching and the network
+    // badge names on other-network rows. Both are search-only, so gate on an
+    // active search — otherwise the fetch and the resulting context
+    // invalidation land on the modal-open paint for data nothing reads yet.
+    (!!props.crossNetworkSearchEnabled && selectorSearchKeyActive) ||
+    (!!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork));
+  // Receive search (`searchAll` is only produced by the main Receive entry)
+  // merges account rows, which carry fiat, with backend hits and aggregate sub
+  // rows on networks without an account, which carry none. Zero-fill the
+  // latter so every row shows `0 / $0.00` instead of a blank balance column
+  // (OK-61367). Search-active only: browse rows all have records, and the sort
+  // still reads the raw maps, so ordering is unchanged.
+  const zeroFillMissingFiat =
+    !!props.isTokenSelector && !!props.searchAll && selectorSearchKeyActive;
+  // The zero placeholder is only a valid claim on networks the selector fetch
+  // covered. All Networks fans out over every enabled network the account has
+  // an account on, so a missing record there reads as "not held". A
+  // single-network scope fetched `networkId` alone, and the other-network rows
+  // the cross-network search adds have holdings nobody fetched — they keep
+  // the blank column instead of a false `0`. `isAllNetworks` may still be
+  // unresolved on a cold start, so also read it off the networkId.
+  const zeroFillNetworkIds = useMemo(() => {
+    if (!zeroFillMissingFiat) {
+      return undefined;
+    }
+    const isAllNetworksScope =
+      !!props.isAllNetworks ||
+      networkUtils.isAllNetwork({ networkId: props.networkId });
+    return isAllNetworksScope ? undefined : new Set([props.networkId]);
+  }, [zeroFillMissingFiat, props.isAllNetworks, props.networkId]);
   const { result: allNetworksResp } = usePromiseResult<{
     networks: IServerNetwork[];
   }>(
@@ -1340,6 +1499,8 @@ const TokenListView = memo((props: IProps) => {
       tokenListMap: visibleTokenListMap,
       aggregateTokenFiatMap,
       useCellSeam,
+      zeroFillMissingFiat,
+      zeroFillNetworkIds,
     };
   }, [
     props.allAggregateTokenMap,
@@ -1348,6 +1509,8 @@ const TokenListView = memo((props: IProps) => {
     visibleTokenListMap,
     aggregateTokenFiatMap,
     useCellSeam,
+    zeroFillMissingFiat,
+    zeroFillNetworkIds,
   ]);
 
   return (

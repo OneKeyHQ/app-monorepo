@@ -159,6 +159,7 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
   mergePerpDexSlots,
   selectPerpMetasByDex,
@@ -1080,6 +1081,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     {
       max: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  // Per-dex REST snapshot that must not feed the shared cache: a main-dex-only
+  // result would wipe the sub-dex prices the WebSocket stream delivers.
+  _getMarketOrderAllMidsMemo = cacheUtils.memoizee(
+    async (dex: string) =>
+      dex
+        ? hyperLiquidApiClients.infoClient.allMids({ dex })
+        : hyperLiquidApiClients.infoClient.allMids(),
+    {
+      max: 8,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
       promise: true,
     },
   );
@@ -4009,6 +4024,26 @@ export default class ServiceHyperliquid extends ServiceBase {
     } catch (error) {
       console.error(
         '[ServiceHyperliquid] Failed to load tradingview mid price:',
+        error,
+      );
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async getMarketOrderReferencePrice(
+    coin: string,
+  ): Promise<string | undefined> {
+    try {
+      return await resolveMarketOrderReferencePrice({
+        coin,
+        cachedAllMids: hyperLiquidCache.allMids,
+        cachedAt: hyperLiquidCache.allMidsUpdatedAt,
+        loadAllMids: async (dex) => this._getMarketOrderAllMidsMemo(dex),
+      });
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to load market order reference price:',
         error,
       );
       return undefined;

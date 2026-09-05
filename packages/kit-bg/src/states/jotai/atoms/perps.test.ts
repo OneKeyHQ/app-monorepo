@@ -17,6 +17,7 @@ import {
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
   perpsComputedAccountValueAtom,
+  perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
   tradingModeAtom,
@@ -43,6 +44,17 @@ describe('tradingModeAtom', () => {
     expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
       false,
     );
+  });
+});
+
+describe('perpsCustomSettingsAtom', () => {
+  it('persists Arbitrum as the initial USDC withdrawal destination', () => {
+    const atom = perpsCustomSettingsAtom.atom() as unknown as IJotaiAtomPro<{
+      lastUsdcWithdrawDestinationId: string;
+    }>;
+
+    expect(atom.persist).toBe(true);
+    expect(atom.initialValue.lastUsdcWithdrawDestinationId).toBe('arbitrum');
   });
 });
 
