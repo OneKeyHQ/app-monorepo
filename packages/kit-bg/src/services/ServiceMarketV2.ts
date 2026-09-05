@@ -5,6 +5,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+} from '@onekeyhq/shared/src/consts/marketConsts';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -1024,8 +1028,8 @@ class ServiceMarketV2 extends ServiceBase {
         cursor: params.cursor,
         limit: params.limit ?? 20,
         category: params.category,
-        sortBy: params.sortBy ?? 'default',
-        sortType: params.sortType ?? 'asc',
+        sortBy: params.sortBy ?? DEFAULT_MARKET_STOCK_SORT_BY,
+        sortType: params.sortType ?? DEFAULT_MARKET_STOCK_SORT_TYPE,
       },
       autoHandleError: false,
     };
