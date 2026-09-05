@@ -14,7 +14,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetsFlatList } from './AvailableAssetsFlatList';
-import { EarnHomeBanner } from './EarnHomeBanner';
+import {
+  EARN_HOME_BANNER_BLOCK_HEIGHT,
+  EarnHomeBanner,
+} from './EarnHomeBanner';
 import { EarnHomeShortcuts } from './EarnHomeShortcuts';
 import { EARN_SECTION_GAP } from './earnListRhythm';
 import { FAQContent } from './FAQContent';
@@ -87,6 +90,12 @@ function EarnMobileHomeContentComponent({
       <HeaderScrollGestureWrapper
         onHorizontalSwipe={onHeaderHorizontalSwipe}
         disableVerticalScroll
+        // OK-61516: the banner is the bottom-most block inside this wrapper, and
+        // the wrapper's horizontal pan (activeOffsetX 10) sits right on top of
+        // it — so every banner swipe also armed the top-tab switch. Exclude the
+        // banner's own height, the same escape hatch MarketDetailV2 uses for its
+        // chart.
+        excludeBottomEdgeHeight={EARN_HOME_BANNER_BLOCK_HEIGHT}
       >
         {/* Token spacing, not raw numbers: narrow Android screens scale the
             token scale by 0.9 and a literal would not follow (OK-59904) */}

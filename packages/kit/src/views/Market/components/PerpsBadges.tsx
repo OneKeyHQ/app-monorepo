@@ -51,6 +51,8 @@ function getPerpDexDescriptionId(dexLabel?: string) {
       return ETranslations.perp_xyz_market__desc;
     case 'para':
       return ETranslations.perp_para_market__desc;
+    case 'io':
+      return ETranslations.perp_io_market__desc;
     default:
       return undefined;
   }
