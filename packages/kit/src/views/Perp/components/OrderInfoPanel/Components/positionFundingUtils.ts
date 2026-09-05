@@ -129,22 +129,15 @@ export function buildPositionFundingProjection({
     .negated();
   const settlementsPerDayBN = new BigNumber(24).dividedBy(intervalHoursBN);
   const annualSettlementsBN = settlementsPerDayBN.multipliedBy(365);
-  const signedFundingRateBN = fundingRateBN.multipliedBy(
-    sizeBN.isNegative() ? 1 : -1,
-  );
 
   return {
-    currentRate: signedFundingRateBN.toFixed(),
+    currentRate: fundingRateBN.toFixed(),
     currentPayment: currentPaymentBN.toFixed(),
-    next24hRate: signedFundingRateBN
-      .multipliedBy(settlementsPerDayBN)
-      .toFixed(),
+    next24hRate: fundingRateBN.multipliedBy(settlementsPerDayBN).toFixed(),
     next24hPayment: currentPaymentBN
       .multipliedBy(settlementsPerDayBN)
       .toFixed(),
-    annualizedRate: signedFundingRateBN
-      .multipliedBy(annualSettlementsBN)
-      .toFixed(),
+    annualizedRate: fundingRateBN.multipliedBy(annualSettlementsBN).toFixed(),
     annualizedPayment: currentPaymentBN
       .multipliedBy(annualSettlementsBN)
       .toFixed(),

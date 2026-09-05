@@ -59,11 +59,11 @@ describe('buildPositionFundingProjection', () => {
         fundingRate: '0.001',
       }),
     ).toEqual({
-      currentRate: '-0.001',
+      currentRate: '0.001',
       currentPayment: '-0.2',
-      next24hRate: '-0.024',
+      next24hRate: '0.024',
       next24hPayment: '-4.8',
-      annualizedRate: '-8.76',
+      annualizedRate: '8.76',
       annualizedPayment: '-1752',
     });
   });
@@ -85,6 +85,29 @@ describe('buildPositionFundingProjection', () => {
       annualizedPayment: '876',
     });
   });
+
+  it.each([
+    { signedSize: '2', payment: '0.2', daily: '4.8', annual: '1752' },
+    { signedSize: '-2', payment: '-0.2', daily: '-4.8', annual: '-1752' },
+  ])(
+    'preserves a negative market rate for size $signedSize',
+    ({ signedSize, payment, daily, annual }) => {
+      expect(
+        buildPositionFundingProjection({
+          signedSize,
+          oraclePrice: '100',
+          fundingRate: '-0.001',
+        }),
+      ).toEqual({
+        currentRate: '-0.001',
+        currentPayment: payment,
+        next24hRate: '-0.024',
+        next24hPayment: daily,
+        annualizedRate: '-8.76',
+        annualizedPayment: annual,
+      });
+    },
+  );
 
   it('rejects invalid projection inputs', () => {
     expect(

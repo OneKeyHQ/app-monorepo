@@ -138,10 +138,10 @@ function FundingDialogContent({
   const fundingRate = assetCtx?.ctx?.fundingRate || '0';
   const fundingRateNumber = parseFloat(fundingRate);
   const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(4);
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
 
   const handleViewFundingHistory = useCallback(() => {

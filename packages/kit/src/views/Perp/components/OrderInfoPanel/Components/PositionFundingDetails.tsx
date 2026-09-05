@@ -76,8 +76,7 @@ function formatRate(rate: string | undefined) {
   const rateBN = new BigNumber(rate);
   if (!rateBN.isFinite()) return '--';
   const percentageBN = rateBN.multipliedBy(100);
-  const sign = percentageBN.gt(0) ? '+' : '';
-  return `${sign}${percentageBN.toFixed(4)}%`;
+  return `${percentageBN.toFixed(4)}%`;
 }
 
 function formatPayment(payment: string | undefined) {
@@ -126,7 +125,7 @@ function FundingProjectionRow({
       >
         <SizableText
           size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
-          color={getProjectionValueColor(rate)}
+          color="$text"
           fontVariant={['tabular-nums']}
         >
           {formatRate(rate)}
