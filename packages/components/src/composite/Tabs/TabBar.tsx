@@ -815,8 +815,16 @@ export function TabBar({
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
 
+  // `AnimatedTabBarItem` draws its label from a fixed Reanimated style, so it
+  // cannot honour a focused type token or drop the indicator. A bar that asks
+  // for either takes the static path instead of losing them silently.
+  const wantsStaticFocusedLabel = !!focusedTextSize || hideActiveIndicator;
   const supportsDirectTabPressHandling =
-    !!indexDecimal && variant === 'default' && !renderItem && !textSize;
+    !!indexDecimal &&
+    variant === 'default' &&
+    !renderItem &&
+    !textSize &&
+    !wantsStaticFocusedLabel;
   const useAnimatedDefault = supportsDirectTabPressHandling && !scrollable;
   // Native pagers can report intermediate focused tabs while a tab press
   // settles. Keep the target guard available to scrollable tab bars even

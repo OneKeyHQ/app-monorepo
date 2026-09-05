@@ -5,7 +5,9 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
+import type { UIEvent } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -156,6 +158,15 @@ function MarketStockListImpl({
   const useDesktopPortal =
     webTabIntegrated && Boolean(stickyPortalTarget) && !md;
 
+  // The rows can scroll sideways below `STOCK_LIST_MIN_WIDTH`, but the header
+  // is portalled into the tab bar and cannot see that scroller. Feed it the
+  // offset so the column titles stay over their cells.
+  const [rowsScrollLeft, setRowsScrollLeft] = useState(0);
+  const handleRowsScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const next = event.currentTarget.scrollLeft;
+    setRowsScrollLeft((prev) => (prev === next ? prev : next));
+  }, []);
+
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) {
       return null;
@@ -167,6 +178,7 @@ function MarketStockListImpl({
           columns={columns}
           onHeaderRow={handleHeaderRow}
           rowProps={{ width: '100%', minWidth: STOCK_TABLE_MIN_WIDTH }}
+          scrollLeft={rowsScrollLeft}
         />
       </StickyHeaderPortal>
     );
@@ -175,6 +187,7 @@ function MarketStockListImpl({
     columns,
     handleHeaderRow,
     isTabFocused,
+    rowsScrollLeft,
     stickyPortalTarget,
     useDesktopPortal,
   ]);
@@ -265,6 +278,7 @@ function MarketStockListImpl({
         flex={1}
         className="normal-scrollbar"
         style={{ overflowX: 'auto', overflowY: 'hidden' }}
+        onScroll={handleRowsScroll}
       >
         <Stack flex={1} minWidth={STOCK_LIST_MIN_WIDTH} minHeight={400} px="$3">
           {showSkeleton ? (

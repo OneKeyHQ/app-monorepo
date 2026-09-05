@@ -42,6 +42,7 @@ export function MarketDesktopStickyHeader<T>({
   onHeaderRow,
   rowProps,
   centered = true,
+  scrollLeft = 0,
 }: {
   toolbar?: ReactNode;
   columns: ITableColumn<T>[];
@@ -49,6 +50,12 @@ export function MarketDesktopStickyHeader<T>({
   rowProps?: ITableProps<T>['rowProps'];
   /** Full-bleed surfaces (banner detail) opt out of the centred content band. */
   centered?: boolean;
+  /**
+   * How far the rows this header labels have scrolled sideways. The header is
+   * portalled out of that scroller, so a page whose rows can scroll has to
+   * hand the offset back or the columns drift apart.
+   */
+  scrollLeft?: number;
 }) {
   // The band keeps its 8px lead over the header on both frames.
   const headerInset = centered ? MARKET_DESKTOP_HEADER_INSET : '$4';
@@ -70,12 +77,14 @@ export function MarketDesktopStickyHeader<T>({
         <Stack height={MARKET_DESKTOP_NO_TOOLBAR_TABLE_INSET} />
       )}
       <Stack px={headerInset} overflow="hidden">
-        <Table.HeaderRow
-          columns={columns}
-          onHeaderRow={onHeaderRow}
-          rowProps={rowProps}
-          headerRowProps={{ height: MARKET_LIST_HEADER_ROW_HEIGHT }}
-        />
+        <Stack x={-scrollLeft}>
+          <Table.HeaderRow
+            columns={columns}
+            onHeaderRow={onHeaderRow}
+            rowProps={rowProps}
+            headerRowProps={{ height: MARKET_LIST_HEADER_ROW_HEIGHT }}
+          />
+        </Stack>
       </Stack>
     </YStack>
   );
