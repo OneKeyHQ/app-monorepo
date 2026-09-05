@@ -28,6 +28,7 @@ import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategoryById,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
 } from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
@@ -226,6 +227,9 @@ export function DesktopLayout({
         !currentSpotCategoryHasStockData,
       );
       const isTrendingCategory = currentSpotCategoryId === 'trending';
+      const showNetworkSelector = shouldShowSpotNetworkSelector(
+        currentSpotCategoryId,
+      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -257,10 +261,12 @@ export function DesktopLayout({
                   onChange={currentFilterBarProps.onTimeRangeChange}
                 />
               )}
-              <CompactNetworkSelector
-                selectedNetworkId={currentFilterBarProps.selectedNetworkId}
-                onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
-              />
+              <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+                <CompactNetworkSelector
+                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+                />
+              </XStack>
             </XStack>
           </XStack>
           <div

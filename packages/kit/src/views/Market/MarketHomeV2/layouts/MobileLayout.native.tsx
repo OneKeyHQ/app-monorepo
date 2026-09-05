@@ -35,7 +35,10 @@ import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileM
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList/MobileMarketTopCoinsFlatList';
-import { isMarketStockCategoryById } from '../utils';
+import {
+  isMarketStockCategoryById,
+  shouldShowSpotNetworkSelector,
+} from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
@@ -131,6 +134,9 @@ function MarketHomeTabBar({
     currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
     !currentSpotCategoryHasStockData,
   );
+  const showSpotNetworkSelector = shouldShowSpotNetworkSelector(
+    currentSpotCategoryId,
+  );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
     isMarketStockCategoryById(
@@ -188,6 +194,7 @@ function MarketHomeTabBar({
           <MarketFilterBarSmall
             selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
             timeRange={ctx.filterBarProps.timeRange}
+            showNetworkSelector={showSpotNetworkSelector}
             onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
             onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
           />
@@ -213,6 +220,7 @@ function MarketHomeTabBar({
       ctx.selectedStockCategoryId,
       ctx.stockCategories,
       showSpotFilterBar,
+      showSpotNetworkSelector,
       showStockCategorySelector,
     ],
   );

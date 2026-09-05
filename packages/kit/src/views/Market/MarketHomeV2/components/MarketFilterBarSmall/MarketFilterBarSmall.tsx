@@ -8,6 +8,7 @@ import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
+  showNetworkSelector?: boolean;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
 }
@@ -15,6 +16,7 @@ export interface IMarketFilterBarSmallProps {
 function MarketFilterBarSmall({
   selectedNetworkId,
   timeRange = '1h',
+  showNetworkSelector = true,
   onNetworkIdChange,
   onTimeRangeChange,
 }: IMarketFilterBarSmallProps) {
@@ -24,13 +26,15 @@ function MarketFilterBarSmall({
         px="$5"
         pt="$3"
         pb="$2"
-        justifyContent="space-between"
+        justifyContent={showNetworkSelector ? 'space-between' : 'flex-end'}
         alignItems="center"
       >
-        <MobileNetworkDropdown
-          selectedNetworkId={selectedNetworkId}
-          onNetworkIdChange={onNetworkIdChange}
-        />
+        <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+          <MobileNetworkDropdown
+            selectedNetworkId={selectedNetworkId}
+            onNetworkIdChange={onNetworkIdChange}
+          />
+        </XStack>
         {onTimeRangeChange ? (
           <TimeRangeDropdown
             value={timeRange}
