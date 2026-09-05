@@ -10,6 +10,7 @@ import {
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -40,6 +41,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
@@ -87,7 +89,6 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
-import type { LayoutChangeEvent } from 'react-native';
 
 const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
 
@@ -229,7 +230,7 @@ function FundingDialogContent({
           </XStack>
         </YStack>
       </YStack>
-      <Divider />
+      <FundingDialogDivider />
 
       <YStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -272,7 +273,7 @@ function FundingDialogContent({
         )}
       </YStack>
 
-      <Divider />
+      <FundingDialogDivider />
       <YStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
@@ -302,6 +303,24 @@ function FundingDialogContent({
         })}
       </Button>
     </YStack>
+  );
+}
+
+function FundingDialogDivider() {
+  if (!platformEnv.isNative) {
+    return <Divider />;
+  }
+
+  return (
+    <Divider
+      bg="$borderSubdued"
+      borderBottomWidth={0}
+      flex={0}
+      h={StyleSheet.hairlineWidth}
+      maxHeight={StyleSheet.hairlineWidth}
+      w="100%"
+      y={0}
+    />
   );
 }
 
