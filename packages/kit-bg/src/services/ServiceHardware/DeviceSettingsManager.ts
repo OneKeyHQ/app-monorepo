@@ -24,7 +24,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH,
+  isPrintableASCIIString,
+} from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -687,12 +690,19 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
+    const normalizedLabel = this._isProtocolV2Product(device)
+      ? label.trim()
+      : label;
     if (
       this._isProtocolV2Product(device) &&
-      !isAsciiAlphanumericWithSpaces(label)
+      (!isPrintableASCIIString(normalizedLabel) ||
+        Buffer.byteLength(normalizedLabel, 'utf8') >
+          PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH)
     ) {
       throw new OneKeyLocalError(
-        'OneKey Pro 2 device labels only support ASCII letters, numbers, and spaces',
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_hardware_label_input_error,
+        }),
       );
     }
     if (this._isTrezorDevice(device)) {
@@ -700,17 +710,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         walletId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setDeviceLabel.trezor',
-        settings: { label },
-        preciseUpdateFields: { label },
+        settings: { label: normalizedLabel },
+        preciseUpdateFields: { label: normalizedLabel },
       });
     }
     return this._withDeviceProcessing({
       walletId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setDeviceLabel',
-      preciseUpdateFields: { label },
+      preciseUpdateFields: { label: normalizedLabel },
       action: async (sdk, compatibleConnectId) =>
-        sdk.deviceSettings(compatibleConnectId, { label }),
+        sdk.deviceSettings(compatibleConnectId, { label: normalizedLabel }),
     });
   }
 
