@@ -192,6 +192,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -224,6 +225,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -291,6 +293,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -328,6 +331,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -389,6 +393,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -459,6 +464,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -521,12 +527,13 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     });
   });
 
-  it('still sends cancel after the user dismisses a Pro2 hardware prompt', async () => {
+  it('does not send another cancel after a Pro2 request is already cancelled', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -584,7 +591,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
       deviceResetToHome: false,
-      skipDeviceCancel: false,
+      skipDeviceCancel: true,
       deviceType: EDeviceType.Pro2,
     });
   });
@@ -925,6 +932,30 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
       skipDeviceCancel: false,
       immediateDeviceCancel: true,
     });
+  });
+});
+
+describe('ServiceHardwareUI delayed close ownership', () => {
+  it('does not attach an unowned delayed close to a newly acquired lease', async () => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+      const close = jest
+        .spyOn(service, 'closeHardwareUiStateDialogFn')
+        .mockResolvedValue(undefined);
+      await service.closeHardwareUiStateDialog({
+        connectId: undefined,
+        skipDeviceCancel: true,
+      });
+      await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+        operation: async () => {
+          await jest.advanceTimersByTimeAsync(600);
+          expect(close).toHaveBeenCalledTimes(1);
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

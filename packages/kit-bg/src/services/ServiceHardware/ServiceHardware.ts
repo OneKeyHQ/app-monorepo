@@ -16,7 +16,10 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type {
@@ -2811,6 +2814,9 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     pinType?: DeviceSessionPinType;
   }) {
+    const lease =
+      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease();
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -2821,12 +2827,20 @@ class ServiceHardware extends ServiceBase {
     const unlockParams: CommonParams & {
       pinType?: DeviceSessionPinType;
     } = pinType === undefined ? {} : { pinType };
-    return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUnlock(compatibleConnectId, unlockParams),
-    );
+    return convertDeviceResponse(() => {
+      if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+      return hardwareSDK?.deviceUnlock(compatibleConnectId, unlockParams);
+    });
   }
 
   cancelTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private cancelGeneration = 0;
+
+  invalidatePendingCancel() {
+    this.cancelGeneration += 1;
+    clearTimeout(this.cancelTimer);
+  }
 
   lastCancelAt: Record<string, number> = {};
 
@@ -2844,14 +2858,24 @@ class ServiceHardware extends ServiceBase {
     connectId,
     walletId,
     immediate,
+    oneKeyOperationLease,
   }: {
     connectId?: string;
     walletId?: string;
     forceDeviceResetToHome?: boolean;
     immediate?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
     deviceType?: string;
   }) {
-    // TODO skip cancel if device is canceling, save last cancel time
+    const manager =
+      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager;
+    const lease =
+      oneKeyOperationLease ?? manager?.getActiveOneKeyOperationLease();
+    const generation = this.cancelGeneration;
+    const isCurrent = () =>
+      lease
+        ? lease === manager?.getActiveOneKeyOperationLease()
+        : generation === this.cancelGeneration;
 
     try {
       if (!connectId && walletId && accountUtils.isHwWallet({ walletId })) {
@@ -2869,11 +2893,13 @@ class ServiceHardware extends ServiceBase {
     }
 
     const fn = async () => {
+      if (!isCurrent()) return;
       // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
       const sdk = await this.getSDKInstance({
         connectId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
       });
+      if (!isCurrent()) return;
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
       // cancel the hardware process
@@ -2887,6 +2913,7 @@ class ServiceHardware extends ServiceBase {
               hardwareCallContext: EHardwareCallContext.SILENT_CALL,
             })
           : undefined;
+        if (!isCurrent()) return;
         sdk.cancel(compatibleConnectId);
       } catch (e: any) {
         const { message } = e || {};
@@ -2897,6 +2924,10 @@ class ServiceHardware extends ServiceBase {
     };
 
     clearTimeout(this.cancelTimer);
+    if (lease && manager) {
+      await manager.runOneKeyOperationCleanup(lease, fn);
+      return;
+    }
     if (immediate) {
       await fn();
       return;
@@ -3103,7 +3134,13 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
-  _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
+  _getDeviceStateLowLevel = async (
+    options: IDeviceGetStateOptions & {
+      oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    },
+  ) => {
+    const { oneKeyOperationLease: lease } = options;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     const {
       connectId,
       desktopBleReuseConnectedOnly,
@@ -3145,7 +3182,10 @@ class ServiceHardware extends ServiceBase {
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
-          () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
+          () => {
+            if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+            return hardwareSDK.getDeviceState(connectId, normalizedSdkParams);
+          },
           {
             silentMode,
           },
@@ -3166,6 +3206,7 @@ class ServiceHardware extends ServiceBase {
       if (options.connectId) {
         void this.cancel({
           connectId: options.connectId,
+          oneKeyOperationLease: options.oneKeyOperationLease,
           immediate: true,
         });
       }
@@ -3173,7 +3214,9 @@ class ServiceHardware extends ServiceBase {
   });
 
   _getDeviceStateWithMutex = async (
-    options: IDeviceGetStateOptions,
+    options: IDeviceGetStateOptions & {
+      oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    },
   ): Promise<IOneKeyDeviceState> =>
     this.getFeaturesMutex.runExclusive(async () =>
       this._getDeviceStateWithTimeout(options),
@@ -3184,6 +3227,13 @@ class ServiceHardware extends ServiceBase {
     const hardwareCallContext =
       options.hardwareCallContext ??
       EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const lease = [
+      EHardwareCallContext.USER_INTERACTION,
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+    ].includes(hardwareCallContext)
+      ? this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+      : undefined;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     const compatibleConnectId = options.connectId
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
@@ -3193,6 +3243,7 @@ class ServiceHardware extends ServiceBase {
       : options.connectId;
     const state = await this._getDeviceStateWithMutex({
       ...options,
+      oneKeyOperationLease: lease,
       connectId: compatibleConnectId,
       hardwareCallContext,
     });
@@ -3765,6 +3816,11 @@ class ServiceHardware extends ServiceBase {
     packageBase64: string;
     uiMode?: 'silent' | 'progress';
   }) {
+    const lease =
+      uiMode === 'progress'
+        ? this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+        : undefined;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     if (
       desktopBleReuseConnectedOnly &&
       hardwareTransportType !== EHardwareTransportType.DesktopWebBle
@@ -3793,11 +3849,13 @@ class ServiceHardware extends ServiceBase {
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
-          () =>
-            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+          () => {
+            if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+            return hardwareSDK.uploadPortfolio(compatibleConnectId, {
               packageBase64,
               ...(uiMode === 'progress' ? { uiMode } : {}),
-            }),
+            });
+          },
           uiMode === 'silent' ? { silentMode: true } : undefined,
         ),
     });

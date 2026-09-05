@@ -26,6 +26,7 @@ import localDb from '../../dbs/local/localDb';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom as desktopHardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
+import { HardwareProcessingManager } from '../ServiceHardwareUI/HardwareProcessingManager';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
@@ -3090,5 +3091,143 @@ describe('ServiceHardware.unlockDevice', () => {
     expect(deviceUnlock).toHaveBeenCalledWith('PRO2_USB', {
       pinType: DeviceSessionPinType.Any,
     });
+  });
+});
+
+describe('ServiceHardware cancellation ownership', () => {
+  it('does not start a portfolio upload after its lease is cancelled during SDK lookup', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const uploadPortfolio = jest.fn();
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    service.getSDKInstance = jest.fn(async () => {
+      started();
+      return lookup;
+    });
+    const result = manager
+      .runExclusiveOneKeyOperation({
+        operation: () =>
+          service.uploadPortfolioPackage({
+            connectId: 'device',
+            packageBase64: 'AQID',
+            uiMode: 'progress',
+          }),
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    manager.cancelOneKeyOperation(manager.getActiveOneKeyOperationLease()!);
+    finishLookup({ uploadPortfolio } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(uploadPortfolio).not.toHaveBeenCalled();
+  });
+
+  it('ignores a delayed cancel after a new operation invalidates its async lookup', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const sdkCancel = jest.fn();
+    service.getSDKInstance = jest.fn(() => lookup);
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    const cancel = service.cancel({ connectId: 'device', immediate: true });
+    service.invalidatePendingCancel();
+    finishLookup({ cancel: sdkCancel } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await cancel;
+    expect(sdkCancel).not.toHaveBeenCalled();
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('dispatches one cancel before the next lease starts and ignores cleanup with a stale lease', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const sdkCancel = jest.fn();
+    const order: string[] = [];
+    const getSDKInstance = jest.fn(async () => {
+      started();
+      return lookup;
+    });
+    service.getSDKInstance = getSDKInstance;
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    let oldLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    const first = manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        oldLease = lease;
+        void service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: lease,
+          immediate: true,
+        });
+        void service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: lease,
+        });
+      },
+    });
+    await ready;
+    const next = manager.runExclusiveOneKeyOperation({
+      operation: async () => {
+        order.push('next');
+        await service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: oldLease,
+          immediate: true,
+        });
+      },
+    });
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    finishLookup({ cancel: sdkCancel } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await Promise.all([first, next]);
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+    expect(getSDKInstance).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['next']);
   });
 });
