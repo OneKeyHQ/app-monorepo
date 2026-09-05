@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDeviceStageBurstBeginParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/DeviceStageBurst';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 /**
  * Holds one DeviceStage burst across a whole UI flow (OK-59934).
@@ -32,7 +33,7 @@ export function useDeviceStageBurst() {
     tokenRef.current = undefined;
     await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
       token,
-      error: params?.error,
+      error: params?.error ? toPlainErrorObject(params.error) : undefined,
     });
   }, []);
 

@@ -3,7 +3,12 @@
 import { act, render } from '@testing-library/react';
 
 import { Toast, globalNetInfo } from '@onekeyhq/components';
+import {
+  NeedFirmwareUpgradeFromWeb,
+  UnknownHardwareError,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -11,30 +16,18 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
+import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({
-      id,
-      defaultMessage,
-    }: {
-      id: string;
-      defaultMessage?: string;
-    }) => {
-      const messages: Record<string, string> = {
-        'hardware.device_information_is_inconsistent_it_may_be_caused_by_device_reset':
-          '设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。',
-        'hardware.device_pin_state_error':
-          '输入的PIN码与当前钱包不符。请重试。',
-        'hardware.device_passphrase_state_error':
-          'Passphrase 与当前钱包不匹配，请再试一次',
-      };
-      return messages[id] ?? defaultMessage ?? id;
-    },
-  }),
-}));
+jest.mock('react-intl', () => {
+  const actual = jest.requireActual<typeof import('react-intl')>('react-intl');
+  const intl = actual.createIntl({
+    locale: 'zh-CN',
+    messages: jest.requireActual('@onekeyhq/shared/src/locale/json/zh_CN.json'),
+  });
+  return { ...actual, useIntl: () => intl };
+});
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -251,6 +244,65 @@ describe('ErrorToastContainer', () => {
         }),
       );
       unmount();
+    },
+  );
+
+  it.each([
+    {
+      ErrorClass: NeedFirmwareUpgradeFromWeb,
+      expectedTitle:
+        '您的硬件钱包固件需要更新。请在电脑上访问 firmware.onekey.so 进行升级。',
+    },
+    {
+      ErrorClass: UnknownHardwareError,
+      expectedTitle:
+        '操作失败。请确保您的硬件和应用程序均为最新版本，或联系技术支持。 Firmware response detail : 800',
+    },
+  ])(
+    'localizes the recovery toast from $ErrorClass.name and retains its action',
+    async ({ ErrorClass, expectedTitle }) => {
+      const { unmount } = render(<ErrorToastContainer />);
+      const error = new ErrorClass({
+        payload: {
+          connectId: 'FIRMWARE_DEVICE_ID',
+          code: 800,
+          error: 'Firmware response detail',
+        },
+      });
+      error.autoToast = true;
+      // Error construction under Jest leaves the background fallback text;
+      // the real UI formatter above must supply the Chinese guidance.
+      expect(error.message).not.toBe(expectedTitle);
+      const action = <span>Update firmware</span>;
+      jest.mocked(getErrorAction).mockReturnValueOnce(action);
+      const onShowToast = jest.fn();
+      appEventBus.on(EAppEventBusNames.ShowToast, onShowToast);
+      try {
+        await act(async () => {
+          errorToastUtils.showToastOfError(error);
+        });
+        expect(onShowToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            i18nKey: error.key,
+            i18nInfo: error.info,
+          }),
+        );
+        expect(getErrorAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            errorCode: error.code,
+            connectId: 'FIRMWARE_DEVICE_ID',
+          }),
+        );
+        expect(mockedToast.error).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: expectedTitle,
+            actions: action,
+          }),
+        );
+      } finally {
+        appEventBus.off(EAppEventBusNames.ShowToast, onShowToast);
+        unmount();
+      }
     },
   );
 
