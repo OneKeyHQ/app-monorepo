@@ -131,3 +131,69 @@ index be3bb87..1b25951 100644
              apps: {
                  [snapName]: appDescriptor,
              },
+diff --git a/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh b/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh
+index b7f4752..f257d39 100644
+--- a/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh
+@@ -74,7 +74,14 @@
+   !ifndef INSTALL_MODE_PER_ALL_USERS
+     !insertmacro PAGE_INSTALL_MODE
+   !endif
+-  !insertmacro MUI_UNPAGE_INSTFILES
++  # OneKey patch: allow the modern UI to conceal the native host before the
++  # uninstall InstFiles page is displayed.
++  # !insertmacro MUI_UNPAGE_INSTFILES
++  !ifmacrodef customUninstallInstFilesPage
++    !insertmacro customUninstallInstFilesPage
++  !else
++    !insertmacro MUI_UNPAGE_INSTFILES
++  !endif
+   !ifmacrodef customUninstallPage
+     !insertmacro customUninstallPage
+   !endif
+diff --git a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
+index c345dee..9b8b89b 100644
+--- a/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/multiUser.nsh
+@@ -28,15 +28,21 @@ Var installMode
+       StrCpy $INSTDIR $perUserInstallationFolder
+     ${else}
+       StrCpy $0 "$LocalAppData\Programs"
+-      System::Store S
++      # OneKey patch: preserve registers and copy the known-folder path
++      # directly instead of leaving System plug-in stack sentinels in $0.
++      Push $1
++      Push $2
++      StrCpy $2 0
+       # Win7 has a per-user programfiles known folder and this can be a non-default location
+       System::Call 'SHELL32::SHGetKnownFolderPath(g "${FOLDERID_UserProgramFiles}", i ${KF_FLAG_CREATE}, p 0, *p .r2)i.r1'
+       ${If} $1 == 0
+-        System::Call '*$2(&w${NSIS_MAX_STRLEN} .s)'
+-        StrCpy $0 $1
+-        System::Call 'OLE32::CoTaskMemFree(p r2)'
++        System::Call 'KERNEL32::lstrcpynW(w .r0, p r2, i ${NSIS_MAX_STRLEN})p'
+       ${endif}
+-      System::Store L
++      ${If} $2 != 0
++        System::Call 'OLE32::CoTaskMemFree(p r2)'
++      ${EndIf}
++      Pop $2
++      Pop $1
+       StrCpy $INSTDIR "$0\${APP_FILENAME}"
+     ${endif}
+
+diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
+index 917b3da..80b4653 100644
+--- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
+@@ -28,6 +28,10 @@ Function un.onInit
+     !endif
+   ${endIf}
+
++  !ifmacrodef customUnPreInit
++    !insertmacro customUnPreInit
++  !endif
++
+   !insertmacro initMultiUser
+
+   !ifmacrodef customUnInit

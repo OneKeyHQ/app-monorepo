@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+  <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
+  <Font id="1" name="Segoe UI" size="24" />
+  <Font id="2" name="Segoe UI Semibold" size="16" />
+  <Font id="3" name="Segoe UI Semibold" size="13" />
+  <Container name="page-root">
+    <LightBackdrop float="0,0,1,1" canvascolor="{{color.canvas}}" bluecolor="{{color.blueTint}}" greencolor="{{color.greenTint}}" />
+    <VerticalLayout float="0,0,1,1">
+      <HorizontalLayout height="64" inset="24,15,22,15" childvalign="vcenter"><BrandMark width="28" height="28" brandcolor="{{color.brand}}" /><Label text="OneKey" font="2" textcolor="{{color.textPrimary}}" width="82" height="28" padding="9,0,0,0" /><Control /><CaptionButton name="minbtn" kind="minimize" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" /><Control width="6" /><CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" /></HorizontalLayout>
+      <VerticalLayout inset="145,70,145,34">
+        <HorizontalLayout height="82"><Control /><SuccessMark width="82" height="82" accentcolor="{{color.brand}}" inkcolor="{{color.textPrimary}}" /><Control /></HorizontalLayout>
+        <Control height="22" />
+        <Label text="{{string.uninstall.finishTitle}}" font="1" textcolor="{{color.textPrimary}}" height="44" align="center" />
+        <Label text="{{string.uninstall.finishSubtitle}}" textcolor="{{color.textSecondary}}" height="40" align="center" />
+        <Control height="34" />
+        <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.uninstall.close}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
+        <Control />
+      </VerticalLayout>
+    </VerticalLayout>
+  </Container>
+</Window>
