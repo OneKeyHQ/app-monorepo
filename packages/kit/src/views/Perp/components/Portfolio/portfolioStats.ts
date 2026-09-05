@@ -238,7 +238,10 @@ export function buildFundingHistogramChartData({
   });
   const rangeStart =
     timePeriod === 'allTime'
-      ? Math.min(...validRecords.map(({ record }) => record.time))
+      ? validRecords.reduce(
+          (minimum, { record }) => Math.min(minimum, record.time),
+          Infinity,
+        )
       : getStartTimeForPeriod(timePeriod, now);
   const periodRecords = validRecords.filter(
     ({ record }) => record.time >= rangeStart,

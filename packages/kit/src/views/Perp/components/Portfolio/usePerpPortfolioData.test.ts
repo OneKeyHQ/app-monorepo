@@ -305,6 +305,30 @@ describe('buildCumulativeFundingChartData', () => {
 });
 
 describe('buildFundingHistogramChartData', () => {
+  it('builds all-time buckets for a large funding history', () => {
+    const count = 200_000;
+    const records = Array.from({ length: count }, (_, index) =>
+      createFunding(NOW - (count - index) * 60_000, '0.01'),
+    );
+
+    const result = buildFundingHistogramChartData({
+      records,
+      timePeriod: 'allTime',
+      now: NOW,
+    });
+
+    expect(result).toHaveLength(30);
+    expect(
+      result.every(
+        ([time, value]) => Number.isFinite(time) && Number.isFinite(value),
+      ),
+    ).toBe(true);
+    expect(result.reduce((total, [, value]) => total + value, 0)).toBeCloseTo(
+      count * 0.01,
+      8,
+    );
+  });
+
   it('aggregates signed funding into non-cumulative interval buckets', () => {
     const day = 24 * 60 * 60 * 1000;
     const rangeStart = NOW - 7 * day;

@@ -77,7 +77,7 @@ function PerpPositionsList({
     records: fundingHistory,
     isError: isFundingHistoryError,
     isLoading: isFundingHistoryLoading,
-  } = usePerpUserFundingHistory();
+  } = usePerpUserFundingHistory({ isActive: !isMobile });
   const [currentListPage, setCurrentListPage] = useState(1);
   const canMutateScopedPositions = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
