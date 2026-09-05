@@ -818,7 +818,11 @@ export class DeviceStageBurstScope {
       // The existing toast carries a firmware-update action. The outermost
       // burst owns this handoff; normal auto-toasts stay suppressed so nested
       // calls and cross-runtime copies cannot show it before the stage exits.
+      const claim = this.claimSeq;
       await this.forceOff({ force: true });
+      if (claim !== this.claimSeq) {
+        return;
+      }
       errorToastUtils.showToastOfError({
         ...toPlainErrorObject(error),
         autoToast: true,

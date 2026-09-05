@@ -615,6 +615,31 @@ describe('DeviceStageBurstScope', () => {
     },
   );
 
+  it('does not toast an old failure when a newer flow claims the stage during exit', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.get.mockImplementationOnce(async () => {
+      await scope.begin({ connectId: 'NEXT_DEVICE_ID' });
+      await scope.noteStep('pinOnApp', { connectId: 'NEXT_DEVICE_ID' });
+      return stage;
+    });
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code: ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+        message: 'Previous firmware error',
+      },
+    });
+
+    expect(stage).toMatchObject({
+      step: 'pinOnApp',
+      connectId: 'NEXT_DEVICE_ID',
+    });
+    expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+  });
+
   it('keeps an unknown transport failure on the disconnected stage when unplugged', async () => {
     const isDeviceStillConnected = jest.fn(async () => false);
     const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
