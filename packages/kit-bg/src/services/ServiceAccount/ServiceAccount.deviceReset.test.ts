@@ -75,6 +75,48 @@ describe('ServiceAccount device reset isolation', () => {
     jest.clearAllMocks();
   });
 
+  it('keeps standard and hidden hardware wallets when filtering QR wallets for reset reconciliation', async () => {
+    const service = new ServiceAccount({
+      backgroundApi: {},
+    });
+    const standardWallet = {
+      id: 'hw-standard',
+      associatedDevice: 'db-device-standard',
+    };
+    const hiddenWallet = {
+      id: 'hw-hidden',
+      associatedDevice: 'db-device-hidden',
+      passphraseState: 'hidden-state',
+    };
+    const qrWallet = {
+      id: 'qr-wallet',
+      associatedDevice: 'db-device-qr',
+    };
+    const standardDevice = { id: standardWallet.associatedDevice };
+    const hiddenDevice = { id: hiddenWallet.associatedDevice };
+    const qrDevice = { id: qrWallet.associatedDevice };
+    service.getAllWallets = jest.fn().mockResolvedValue({
+      wallets: [standardWallet, hiddenWallet, qrWallet],
+      allDevices: [standardDevice, hiddenDevice, qrDevice],
+    });
+
+    await expect(
+      service.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: false,
+        filterQrWallet: true,
+      }),
+    ).resolves.toEqual({
+      [standardWallet.id]: {
+        wallet: standardWallet,
+        device: standardDevice,
+      },
+      [hiddenWallet.id]: {
+        wallet: hiddenWallet,
+        device: hiddenDevice,
+      },
+    });
+  });
+
   it('在接收地址入口将已确认 deviceId 不一致的 deprecated 钱包映射为中文设备重置提示', async () => {
     const service = new ServiceAccount({
       backgroundApi: {

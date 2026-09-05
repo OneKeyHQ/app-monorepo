@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "Tunggu hingga sistem mengonfirmasi dan lanjutkan",
   "bluetooth.paring_guides_wait_for_confirmation_win": "Kembali ke OneKey untuk melanjutkan",
   "bluetooth.permission_prompt": "OneKey memerlukan Bluetooth untuk terhubung. Silakan izinkan saat diminta",
+  "bluetooth_pairing_invalid__desc": "Lupakan perangkat ini di pengaturan Bluetooth sistem, lalu sambungkan kembali.",
+  "bluetooth_pairing_invalid__title": "Penyandingan Bluetooth ini sudah tidak valid",
   "bluetooth_paring_dialog_title": "Memasangkan dengan perangkat Anda…",
   "boosted_ltv__title": "LTV yang ditingkatkan",
   "borrow_repay_with_collateral_unavailable__msg": "Bayar dengan jaminan tidak tersedia untuk aset ini. Segarkan lalu coba lagi.",

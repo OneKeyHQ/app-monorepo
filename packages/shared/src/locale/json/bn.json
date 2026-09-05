@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "সিস্টেমের নিশ্চিতকরণের জন্য অপেক্ষা করুন এবং চালিয়ে যান",
   "bluetooth.paring_guides_wait_for_confirmation_win": "চালিয়ে যেতে OneKey-এ ফিরে যান",
   "bluetooth.permission_prompt": "OneKey-কে সংযোগের জন্য ব্লুটুথ প্রয়োজন। অনুগ্রহ করে অনুরোধ করা হলে অনুমতি দিন",
+  "bluetooth_pairing_invalid__desc": "সিস্টেমের Bluetooth সেটিংসে এই ডিভাইসটি ভুলে যান, তারপর আবার সংযোগ করুন।",
+  "bluetooth_pairing_invalid__title": "এই Bluetooth পেয়ারিং আর বৈধ নয়",
   "bluetooth_paring_dialog_title": "আপনার ডিভাইসের সাথে জোড়া লাগানো হচ্ছে…",
   "boosted_ltv__title": "বর্ধিত LTV",
   "borrow_repay_with_collateral_unavailable__msg": "এই অ্যাসেটের জন্য জামানত দিয়ে পরিশোধ উপলভ্য নয়। রিফ্রেশ করে আবার চেষ্টা করুন।",

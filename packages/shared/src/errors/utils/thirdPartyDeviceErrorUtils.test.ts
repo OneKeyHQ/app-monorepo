@@ -131,6 +131,17 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.key).toBe('hardware_third_party_device_mismatch');
   });
 
+  it('maps enforced on-device passphrase entry to recovery guidance', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice,
+      error: 'Passphrase entry is always on device',
+    });
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware_third_party_passphrase_always_on_device');
+  });
+
   it('maps third-party PIN cancel to a structured PIN cancelled error', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.PinCancelled,

@@ -3832,6 +3832,7 @@ class ServiceAccount extends ServiceBase {
           const postUnlockDbDevice =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
               connectId,
+              featuresDeviceId: dbDevice.deviceId,
             });
           if (postUnlockDbDevice?.deviceStateInfo) {
             seededDbDevice = {
@@ -3895,6 +3896,7 @@ class ServiceAccount extends ServiceBase {
             const latestDbDevice =
               await this.backgroundApi.serviceHardware.getDeviceByConnectId({
                 connectId,
+                featuresDeviceId: dbDevice.deviceId,
               });
             const latestUnlockedAttachPin =
               latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;

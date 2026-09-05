@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "सिस्टम की पुष्टि का इंतजार करें और आगे बढ़ें",
   "bluetooth.paring_guides_wait_for_confirmation_win": "जारी रखने के लिए OneKey पर लौटें",
   "bluetooth.permission_prompt": "OneKey को कनेक्ट करने के लिए Bluetooth की आवश्यकता है। जब पूछा जाए तो कृपया अनुमति दें",
+  "bluetooth_pairing_invalid__desc": "सिस्टम की Bluetooth सेटिंग में इस डिवाइस को भूलें, फिर दोबारा कनेक्ट करें।",
+  "bluetooth_pairing_invalid__title": "यह Bluetooth पेयरिंग अब मान्य नहीं है",
   "bluetooth_paring_dialog_title": "आपके डिवाइस के साथ पेयर किया जा रहा है…",
   "boosted_ltv__title": "बढ़ा हुआ एलटीवी",
   "borrow_repay_with_collateral_unavailable__msg": "इस एसेट के लिए कोलैटरल से पुनर्भुगतान उपलब्ध नहीं है। कृपया रीफ़्रेश करके फिर कोशिश करें।",

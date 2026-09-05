@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "Дочекайтеся підтвердження системи та продовжуйте",
   "bluetooth.paring_guides_wait_for_confirmation_win": "Повернутися до OneKey, щоб продовжити",
   "bluetooth.permission_prompt": "OneKey потребує Bluetooth для підключення. Будь ласка, надайте дозвіл, коли з'явиться запит",
+  "bluetooth_pairing_invalid__desc": "Видаліть цей пристрій у системних налаштуваннях Bluetooth, потім підключіться знову.",
+  "bluetooth_pairing_invalid__title": "Це з'єднання Bluetooth більше недійсне",
   "bluetooth_paring_dialog_title": "З'єднання з вашим пристроєм…",
   "boosted_ltv__title": "Підвищений LTV",
   "borrow_repay_with_collateral_unavailable__msg": "Погашення за допомогою застави недоступне для цього активу. Оновіть і спробуйте ще раз.",

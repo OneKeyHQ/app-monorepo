@@ -73,6 +73,14 @@ const SILENT_CANCEL_CODES = [
   HardwareErrorCode.DeviceInterruptedFromOutside,
 ];
 
+/** Errors owned by the actionable Bluetooth repair dialog. The stage exits
+ * without rendering a second generic error surface. */
+const DEDICATED_DIALOG_ERROR_CODES = [
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
+];
+
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
  * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
@@ -676,6 +684,16 @@ export class DeviceStageBurstScope {
     // returning without the exit left its connecting / processing capsule
     // standing over the update page, behind the touch wall.
     if (!enabled) {
+      await this.forceOff({ force: true });
+      return;
+    }
+    if (
+      params.error &&
+      isHardwareErrorByCode({
+        error: params.error as any,
+        code: DEDICATED_DIALOG_ERROR_CODES,
+      })
+    ) {
       await this.forceOff({ force: true });
       return;
     }

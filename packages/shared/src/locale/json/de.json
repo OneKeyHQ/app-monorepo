@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "Warten Sie, bis das System bestätigt und fahren Sie fort",
   "bluetooth.paring_guides_wait_for_confirmation_win": "Kehren Sie zu OneKey zurück, um fortzufahren",
   "bluetooth.permission_prompt": "OneKey benötigt Bluetooth für die Verbindung. Bitte erlauben Sie dies, wenn Sie dazu aufgefordert werden",
+  "bluetooth_pairing_invalid__desc": "Entfernen Sie dieses Gerät in den Bluetooth-Einstellungen des Systems und verbinden Sie es erneut.",
+  "bluetooth_pairing_invalid__title": "Diese Bluetooth-Kopplung ist nicht mehr gültig",
   "bluetooth_paring_dialog_title": "Kopplung mit Ihrem Gerät…",
   "boosted_ltv__title": "Erhöhtes LTV",
   "borrow_repay_with_collateral_unavailable__msg": "Rückzahlung mit Sicherheiten ist für dieses Asset nicht verfügbar. Bitte aktualisieren und erneut versuchen.",

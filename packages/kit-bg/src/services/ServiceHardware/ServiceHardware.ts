@@ -2105,9 +2105,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+  async getDeviceByConnectId({
+    connectId,
+    featuresDeviceId,
+  }: {
+    connectId: string;
+    featuresDeviceId?: string;
+  }) {
     return localDb.getDeviceByQuery({
       connectId,
+      featuresDeviceId,
     });
   }
 
