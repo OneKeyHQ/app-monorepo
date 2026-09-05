@@ -15,7 +15,10 @@ import {
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { shouldHideFirmwareUpdateInternalError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import {
+  classifyFirmwareUpdateFailure,
+  shouldHideFirmwareUpdateInternalError,
+} from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -169,6 +172,14 @@ export function useFirmwareUpdateErrors({
       return {
         errorMessage: intl.formatMessage({
           id: ETranslations.update_hardware_update_requires_bridge,
+        }),
+      };
+    }
+
+    if (classifyFirmwareUpdateFailure(error) === 'timeout') {
+      return {
+        errorMessage: intl.formatMessage({
+          id: ETranslations.hardware_third_party_operation_timeout,
         }),
       };
     }

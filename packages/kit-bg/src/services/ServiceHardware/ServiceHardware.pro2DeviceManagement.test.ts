@@ -1712,15 +1712,20 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       'device state update',
       expect.objectContaining({
         changedKeys: ['identity.label'],
+        connectId: 'PRO2_USB',
+        serialNo: 'PRO2_SERIAL',
         revision: 2,
         source: 'apply-settings',
       }),
     );
-    // Device identifiers must never enter hardwareLog unmasked.
-    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain(
-      'PRO2_SERIAL',
+    // Full identifiers are limited to the state receipt diagnostic.
+    const otherLogs = JSON.stringify(
+      hardwareLogSpy.mock.calls.filter(
+        ([name]) => name !== 'device state update',
+      ),
     );
-    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain('PRO2_USB');
+    expect(otherLogs).not.toContain('PRO2_SERIAL');
+    expect(otherLogs).not.toContain('PRO2_USB');
     hardwareLogSpy.mockRestore();
   });
 

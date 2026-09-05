@@ -1,5 +1,5 @@
 import stringUtils, {
-  isAsciiAlphanumericWithSpaces,
+  isPrintableASCIIString,
   stableStringify,
 } from './stringUtils';
 
@@ -9,24 +9,24 @@ test('stableStringify', () => {
   );
 });
 
-describe('isAsciiAlphanumericWithSpaces', () => {
-  test.each(['OneKeyPro2', 'OneKey Pro 2', 'ONEKEY', 'onekey', '123456'])(
-    '%s is valid',
-    (value) => {
-      expect(isAsciiAlphanumericWithSpaces(value)).toBe(true);
-    },
-  );
-
+describe('isPrintableASCIIString', () => {
   test.each([
-    '',
+    'OneKeyPro2',
+    'OneKey Pro 2',
     'OneKey-Pro2',
     'OneKey_Pro2',
-    'OneKey　Pro2',
-    '一键',
-    '１２３',
-  ])('%s is invalid', (value) => {
-    expect(isAsciiAlphanumericWithSpaces(value)).toBe(false);
+    'ONEKEY',
+    '123456',
+  ])('%s is valid', (value) => {
+    expect(isPrintableASCIIString(value)).toBe(true);
   });
+
+  test.each(['', 'OneKey　Pro2', '一键', '１２３'])(
+    '%s is invalid',
+    (value) => {
+      expect(isPrintableASCIIString(value)).toBe(false);
+    },
+  );
 });
 
 describe('isValidEmail', () => {

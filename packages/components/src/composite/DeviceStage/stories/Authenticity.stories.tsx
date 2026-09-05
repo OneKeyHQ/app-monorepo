@@ -34,8 +34,7 @@ type Story = StoryObj<typeof meta>;
 // The genuine check: the on-device ask, the wait in both shapes (legacy
 // single check, and the checklist scripting itself row by row into the
 // landing), the success wallpaper, and the six failure cards — pick the
-// reason with the control; the recoverable ones gate Continue-anyway
-// behind the NOTE beat.
+// reason with the control; recoverable failures offer Retry and Support.
 function AuthenticityStage(props: IDeviceStageProps) {
   const driver = useStageDriver(props);
   return (

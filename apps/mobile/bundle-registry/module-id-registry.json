@@ -11648,6 +11648,7 @@
     "node_modules/expo-web-browser/build/ExpoWebBrowser.js": 39092,
     "node_modules/expo-web-browser/build/WebBrowser.js": 47000,
     "node_modules/expo-web-browser/build/WebBrowser.types.js": 34568,
+    "node_modules/expo/fetch.js": 41344,
     "node_modules/expo/internal/async-require-module.js": 37599,
     "node_modules/expo/node_modules/@ungap/structured-clone/cjs/deserialize.js": 35313,
     "node_modules/expo/node_modules/@ungap/structured-clone/cjs/index.js": 43823,
