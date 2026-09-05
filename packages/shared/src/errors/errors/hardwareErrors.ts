@@ -348,9 +348,20 @@ export class DeviceBondError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.feedback_try_repairing_device_in_settings,
+        defaultKey: ETranslations.bluetooth_pairing_invalid__desc,
+        defaultAutoToast: false,
       }),
     );
+
+    if (!props?.silentMode) {
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
+        errorMessage:
+          props?.payload?.message || props?.message || 'DeviceBondError',
+        payload: props?.payload,
+      });
+    }
   }
 
   override code = HardwareErrorCode.BleDeviceBondError;

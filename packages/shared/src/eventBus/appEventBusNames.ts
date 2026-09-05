@@ -63,6 +63,7 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   LocalPendingTxConfirmed = 'LocalPendingTxConfirmed',
   DeFiPositionRefreshed = 'DeFiPositionRefreshed',
+  DeFiEnabledNetworksChanged = 'DeFiEnabledNetworksChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
@@ -191,9 +192,6 @@ export enum EAppEventBusNames {
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
-  // OK-59246: earn home banner drag state, used to pause the outer
-  // Discovery pager so nested horizontal swipes don't switch top tabs
-  EarnHomeBannerDragStateChanged = 'EarnHomeBannerDragStateChanged',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',

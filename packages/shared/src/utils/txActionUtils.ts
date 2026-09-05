@@ -226,8 +226,8 @@ export function checkDecodedTxHasScalingBalanceMultiplier(
 }
 
 // Address-tag severities that must survive a local-display replacement.
-// Mirrors SecurityCheckCard's RISK_BADGE_TYPES (kit cannot be imported here).
-const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
+// SecurityCheckCard.getAddressRiskStatus reads the same set.
+export const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   'warning',
   'critical',
 ]);
@@ -236,8 +236,8 @@ const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
 // locally decoded ones (scaled-UI forced-local path), the local Address
 // components carry `tags: []`. The server may flag a risky counterparty ONLY
 // via `Address.tags` without emitting `display.alerts`, so dropping the tags
-// would let SecurityCheckCard render "No issues" for a flagged address. Merge
-// the server's risk tags back onto matching local Address components, and
+// could also let a request without a scan render "No issues". Merge the
+// server's risk tags back onto matching local Address components, and
 // preserve risk-tagged server Address rows that have no local counterpart
 // (the server may flag an address the local decoder never renders, e.g. the
 // token contract on a plain transfer) by appending them verbatim — Address

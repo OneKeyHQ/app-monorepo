@@ -499,6 +499,7 @@ export function CommonTableListView<T>({
     scrollViewRef,
     handleNativeScroll,
     handleWebScroll,
+    shadowTransitionEnabled,
   } = useFixedColumnShadow({
     position: 'right',
     enabled: hasFixedColumns,
@@ -999,7 +1000,9 @@ export function CommonTableListView<T>({
               ? getWebShadowStyle('right', isDark)
               : 'none',
             clipPath: getWebClipPath('right'),
-            transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
+            transition: shadowTransitionEnabled
+              ? `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`
+              : 'none',
           }}
         >
           <FixedColumnShadowOverlay

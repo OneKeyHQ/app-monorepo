@@ -260,6 +260,69 @@ describe('DeviceStageBurstScope', () => {
   /** Lets the scheduled exit run out. */
   const letTheExitRun = () => jest.advanceTimersByTimeAsync(OFF_GRACE_MS);
 
+  it.each([false, true])(
+    'closes skipped verification immediately without ending an outer flow (%s)',
+    async (hasOuterFlow) => {
+      const scope = new DeviceStageBurstScope();
+      const token = hasOuterFlow
+        ? await scope.beginExplicit({ connectId: CONNECT_ID })
+        : undefined;
+      await scope.begin({ connectId: CONNECT_ID });
+      await scope.noteStep('authFailure', {
+        authFailureReason: 'unknown',
+      });
+
+      await scope.noteAuthNarrativeResolved();
+      expect(stage?.step).toBe('off');
+      expect(stage?.authFailureReason).toBeUndefined();
+      expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+      await scope.end();
+
+      if (token !== undefined) {
+        expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+        await scope.noteStep('confirm', { connectId: CONNECT_ID });
+        expect(stage?.step).toBe('confirm');
+        await scope.endExplicit({ token });
+      }
+      expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+      await letTheExitRun();
+      expect(stage?.step).toBe('off');
+    },
+  );
+
+  it('does not close a newer ask when resolving an old verification failure', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    await scope.noteStep('pinOnApp', { connectId: CONNECT_ID });
+
+    await scope.noteAuthNarrativeResolved();
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
+  it('does not dismiss a newer failure while an earlier resolution is reading', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    let releaseRead: (() => void) | undefined;
+    stageAtom.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseRead = () => resolve(stage);
+        }),
+    );
+    const resolving = scope.noteAuthNarrativeResolved();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(releaseRead).toBeDefined();
+    await scope.noteStep('authFailure', {
+      authFailureReason: 'unofficialDevice',
+    });
+    releaseRead?.();
+    await resolving;
+    expect(stage?.step).toBe('authFailure');
+    expect(stage?.authFailureReason).toBe('unofficialDevice');
+  });
+
   it('releases the burst even when the firmware workflow silences the stage mid-flight', async () => {
     // startUpdateWorkflow raises the flag and only THEN waits for the
     // hardware work in flight to drain, so this wrapper's end() runs
@@ -434,6 +497,25 @@ describe('DeviceStageBurstScope', () => {
 
     expect(stage?.step).toBe('error');
     expect(stage?.errorReason).toBe('rejected');
+  });
+
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
+  ])('leaves the stage when the pairing dialog owns error %s', async (code) => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code,
+      },
+    });
+
+    expect(stage?.step).toBe('off');
   });
 
   it('hands the stage over between explicit holders without leaking a layer', async () => {

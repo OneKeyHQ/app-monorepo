@@ -5,6 +5,7 @@ import {
 } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +32,8 @@ import {
   hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
+import { HardwareConnectionManager } from '../ServiceHardware/HardwareConnectionManager';
+import ServiceHardware from '../ServiceHardware/ServiceHardware';
 
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
@@ -58,11 +61,13 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
+    ShowHardwareErrorDialog: 'ShowHardwareErrorDialog',
     FirmwareUpdateDetectStatusChanged: 'FirmwareUpdateDetectStatusChanged',
     ShowFirmwareUpdateFromBootloaderMode:
       'ShowFirmwareUpdateFromBootloaderMode',
   },
   appEventBus: {
+    on: jest.fn(),
     emit: jest.fn(),
   },
 }));
@@ -80,6 +85,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
   CoreSDKLoader: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
+  __esModule: true,
+  DEFAULT_T1_HOME_SCREEN_INFORMATION: {},
+  T1_HOME_SCREEN_DEFAULT_IMAGES: [],
+  default: {},
 }));
 
 jest.mock('../../dbs/local/localDb', () => ({
@@ -273,7 +285,88 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         skipWebDevicePrompt: true,
       },
       silentMode: true,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
     });
+  });
+
+  it('keeps a disconnected USB device without a BLE binding silent during detection', async () => {
+    HardwareConnectionManager.resetInstance();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_USB_ID',
+      usbConnectId: 'ONEKEY_USB_ID',
+      connectProtocol: 'V2',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const backgroundApi = {
+      serviceSetting: {
+        getHardwareTransportType: jest
+          .fn()
+          .mockResolvedValue(EHardwareTransportType.WEBUSB),
+      },
+      serviceHardwareUI: {
+        tryRunExclusiveOneKeyOperation: jest.fn(
+          async (operation: () => Promise<unknown>) => ({
+            acquired: true,
+            result: await operation(),
+          }),
+        ),
+      },
+    } as unknown as IBackgroundApi;
+    const hardware = new ServiceHardware({ backgroundApi });
+    backgroundApi.serviceHardware = hardware;
+    const service = new ServiceFirmwareUpdate({ backgroundApi });
+    const checkDeviceIsBootloaderMode = jest.spyOn(
+      service,
+      'checkDeviceIsBootloaderMode',
+    );
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceNotFound },
+    });
+    const resolveTransportType = jest
+      .spyOn(hardware.connectionManager, 'resolveTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    jest.spyOn(hardware, 'getSDKInstance').mockResolvedValue({
+      getDeviceState,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    jest.spyOn(service.detectMap, 'shouldDetect').mockReturnValue(true);
+    // Shared error constructors retain the real bus through their relative import.
+    const { appEventBus: hardwareEventBus } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+    >('@onekeyhq/shared/src/eventBus/appEventBus');
+    const emitHardwareEvent = jest
+      .spyOn(hardwareEventBus, 'emit')
+      .mockReturnValue(false);
+
+    try {
+      await expect(
+        service.detectActiveAccountFirmwareUpdates({
+          connectId: 'ONEKEY_USB_ID',
+        }),
+      ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+      await expect(
+        checkDeviceIsBootloaderMode.mock.results[0].value,
+      ).resolves.toMatchObject({
+        error: { code: HardwareErrorCode.DeviceNotFound },
+      });
+      expect(emitHardwareEvent).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
+      );
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        'ONEKEY_USB_ID',
+        expect.objectContaining({ scope: 'firmware', retryCount: 0 }),
+      );
+    } finally {
+      jest.restoreAllMocks();
+      HardwareConnectionManager.resetInstance();
+    }
   });
 
   it.each([EHardwareVendor.trezor, EHardwareVendor.ledger])(

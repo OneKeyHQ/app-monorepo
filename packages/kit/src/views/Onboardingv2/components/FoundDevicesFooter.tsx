@@ -184,7 +184,11 @@ export function FoundDevicesFooter({
               loading={isConnecting}
               onPress={handleConnect}
             >
-              {intl.formatMessage({ id: ETranslations.global_connect })}
+              {intl.formatMessage({
+                id: isConnecting
+                  ? ETranslations.device_stage_connecting__title
+                  : ETranslations.global_connect,
+              })}
             </Button>
           </YStack>
         ) : null}

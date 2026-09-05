@@ -49,8 +49,7 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * `authChecklist`) is verified, then a landing. The three staged steps
  * keep the replica on stage as the confirm miniature, screens per the
  * scene map; `authFailure` fronts an icon instead of the replica, worded
- * by `authFailureReason`, and its recoverable shapes gate "Continue
- * anyway" behind an in-card NOTE beat with its own Back.
+ * by `authFailureReason`, with retry/support and a developer override.
  *
  * The rest of the vocabulary is the third-party track — Trezor and
  * Ledger flows, worn by the same stage with `vendor` set. Those devices
@@ -126,9 +125,9 @@ export type IDeviceStageErrorReason =
 /**
  * What ended the authenticity check, in stage vocabulary. The first
  * three are terminal — the device (or its firmware) is the problem, and
- * Support is the only exit. The last three are recoverable — Retry plus
- * the Continue-anyway gate. Mapping concrete SDK/server errors onto
- * these is the integration layer's.
+ * Support is the only exit. The last three offer Retry and Support.
+ * Mapping concrete SDK/server errors onto these is the integration
+ * layer's.
  */
 export type IAuthFailureReason =
   | 'unofficialDevice'
@@ -338,24 +337,18 @@ export interface IDeviceStageProps {
   authChecklist?: IAuthChecklistItem[];
   /** Words and furniture the authFailure step wears. Defaults to 'unknown'. */
   authFailureReason?: IAuthFailureReason;
-  /**
-   * The fallback failure's real words (the v6.5.0 dialog's shape): shown
-   * in place of the generic unknown title. Display-ready — the driver
-   * resolves translation ids before handing it over.
-   */
+  /** @deprecated Raw authentication failures are never displayed. */
   authFailureMessage?: string;
-  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
+  /** @deprecated Authentication error codes are never displayed. */
   authFailureCode?: string;
   /** The terminal failures' single exit — Support (the live flow raises
    * Intercom). Omitted, those cards render no button. */
   onAuthSupport?: () => void;
   /** The recoverable failures' first action — run the check again. */
   onAuthRetry?: () => void;
-  /**
-   * Continuing unverified, confirmed through the NOTE beat ("I
-   * understand") — the recoverable failures' gated second exit. The
-   * card's own Back returns to the failure without leaving the step.
-   */
+  /** Allow manual continuation after any failed check in developer mode. */
+  allowAuthDevSkip?: boolean;
+  /** Continue unverified through the developer or legacy hidden override. */
   onAuthContinueAnyway?: () => void;
   /**
    * The error step's single recovery action — retry, reconnect — on its

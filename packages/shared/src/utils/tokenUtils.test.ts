@@ -13,12 +13,14 @@ import {
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
   nestAggregateTokensMap,
+  normalizeTokenSearchResults,
 } from './tokenUtils';
 
 import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   ITokenFiat,
 } from '../../types/token';
 
@@ -1373,5 +1375,104 @@ describe('buildSelectorTokenListFromResponses — token selector self-fetch merg
     });
 
     expect(merged.aggregateTokenFiatMap).toEqual({});
+  });
+});
+
+describe('normalizeTokenSearchResults — networkId normalization and catalog filter', () => {
+  const buildSearchHit = ({
+    networkId,
+    address,
+    uniqueKey,
+  }: {
+    networkId?: string;
+    address: string;
+    uniqueKey?: string;
+  }): IFetchTokenDetailItem => ({
+    info: {
+      decimals: 6,
+      name: 'Tether USD',
+      symbol: 'USDT',
+      address,
+      isNative: false,
+      networkId,
+      uniqueKey,
+    },
+    balance: '0',
+    balanceParsed: '0',
+    fiatValue: '0',
+    price: 1,
+  });
+
+  test('stamps the request network onto hits that omit networkId under a scoped request', () => {
+    const result = normalizeTokenSearchResults({
+      items: [
+        buildSearchHit({ address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }),
+      ],
+      requestNetworkId: 'tron--0x2b6653dc',
+      availableNetworkIds: new Set(['tron--0x2b6653dc']),
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].info.networkId).toBe('tron--0x2b6653dc');
+  });
+
+  test("keeps a hit's own networkId under a scoped request", () => {
+    const result = normalizeTokenSearchResults({
+      items: [buildSearchHit({ networkId: 'evm--1', address: '0xdac17f' })],
+      requestNetworkId: 'evm--56',
+      availableNetworkIds: new Set(['evm--1', 'evm--56']),
+    });
+
+    expect(result[0].info.networkId).toBe('evm--1');
+  });
+
+  test('drops hits that omit networkId under an all-networks request', () => {
+    const result = normalizeTokenSearchResults({
+      items: [
+        buildSearchHit({ address: '0xdac17f' }),
+        buildSearchHit({ networkId: 'evm--1', address: '0xdac17f' }),
+      ],
+      requestNetworkId: 'onekeyall--0',
+      availableNetworkIds: new Set(['evm--1']),
+    });
+
+    expect(result.map((item) => item.info.networkId)).toEqual(['evm--1']);
+  });
+
+  test('drops hits on networks missing from the catalog', () => {
+    const result = normalizeTokenSearchResults({
+      items: [
+        buildSearchHit({ networkId: 'evm--1', address: '0xdac17f' }),
+        buildSearchHit({ networkId: 'evm--999999', address: '0xdead' }),
+      ],
+      requestNetworkId: 'onekeyall--0',
+      availableNetworkIds: new Set(['evm--1']),
+    });
+
+    expect(result.map((item) => item.info.networkId)).toEqual(['evm--1']);
+  });
+
+  test('fails open when the catalog is unavailable', () => {
+    const result = normalizeTokenSearchResults({
+      items: [
+        buildSearchHit({ networkId: 'evm--1', address: '0xdac17f' }),
+        buildSearchHit({ networkId: 'evm--999999', address: '0xdead' }),
+      ],
+      requestNetworkId: 'onekeyall--0',
+      availableNetworkIds: undefined,
+    });
+
+    expect(result).toHaveLength(2);
+  });
+
+  test('returns the same object for hits that need no normalization', () => {
+    const hit = buildSearchHit({ networkId: 'evm--1', address: '0xdac17f' });
+    const result = normalizeTokenSearchResults({
+      items: [hit],
+      requestNetworkId: 'evm--1',
+      availableNetworkIds: new Set(['evm--1']),
+    });
+
+    expect(result[0]).toBe(hit);
   });
 });

@@ -60,9 +60,17 @@ import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
+import {
+  resolveHomeOverviewBalanceHold,
+  shouldIncludeKnownDeFiWorth,
+} from './homeOverviewBalanceHold';
+
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
 const BALANCE_REUSE_GRACE_MS = 180;
+// After the token side commits a complete All Networks snapshot, wait this
+// long for DeFi readiness before showing the live total without it.
+const ALL_NETWORKS_DEFI_GRACE_MS = 5000;
 
 const HOME_OVERVIEW_REFRESH_TABS = [
   EHomeTab.TOKENS,
@@ -459,19 +467,31 @@ function HomeOverviewContainer() {
         // accountValue SimpleDB.
         const accountWorthCurrency =
           accountWorth.currency ?? settings.currencyInfo.id;
+        const createAtNetworkValueKey = accountUtils.buildAccountValueKey({
+          accountId: account.id,
+          networkId: account.createAtNetwork ?? '',
+        });
         if (isOthers) {
           if (
             account.createAtNetwork &&
             (network.isAllNetworks || account.createAtNetwork === network.id)
           ) {
-            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-              accountId: accountValueId,
-              networkAccountId: account.id,
-              networkId: account.createAtNetwork,
-              value: accountWorth.createAtNetworkWorth,
-              currency: accountWorthCurrency,
-              shouldUpdateActiveAccountValue: true,
-            });
+            const createAtNetworkValue =
+              accountWorth.worth[createAtNetworkValueKey];
+            if (createAtNetworkValue !== undefined) {
+              void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+                accountId: accountValueId,
+                networkAccountId: account.id,
+                networkId: account.createAtNetwork,
+                // The compound-key map stores the absolute value for this
+                // network. Prefer it over the legacy scalar, which can be
+                // transiently stale while independent network responses
+                // merge.
+                value: createAtNetworkValue,
+                currency: accountWorthCurrency,
+                shouldUpdateActiveAccountValue: true,
+              });
+            }
           }
         } else if (!network.isAllNetworks) {
           const singleNetworkValue =
@@ -645,6 +665,15 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
+  // Set by the bounded All Networks hold below (resolveHomeOverviewBalanceHold).
+  const [deFiGraceExpired, setDeFiGraceExpired] = useState(false);
+  const isDeFiOverviewOwnerMatched =
+    !!currentOverviewOwnerKey &&
+    buildOverviewOwnerKey(
+      accountDeFiOverview.accountId,
+      accountDeFiOverview.networkId,
+    ) === currentOverviewOwnerKey;
+
   // Returns a USD-basis string. DeFi data arrives in display currency from
   // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
@@ -676,10 +705,14 @@ function HomeOverviewContainer() {
       currencyMap,
     });
 
-    const deFiWorthRaw =
-      !isAllNetworks || isCurrentAccountDeFiReady
-        ? (accountDeFiOverview.netWorth ?? 0)
-        : 0;
+    const deFiWorthRaw = shouldIncludeKnownDeFiWorth({
+      isAllNetworks,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      deFiGraceExpired,
+      isDeFiOverviewOwnerMatched,
+    })
+      ? (accountDeFiOverview.netWorth ?? 0)
+      : 0;
     const deFiWorthUsd = convertFiat({
       value: deFiWorthRaw,
       sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
@@ -699,8 +732,10 @@ function HomeOverviewContainer() {
     accountDeFiOverview.netWorth,
     accountDeFiOverview.currency,
     currencyMap,
+    deFiGraceExpired,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isDeFiOverviewOwnerMatched,
     isPerpsEnabled,
     network?.isAllNetworks,
     perpsNetWorthUsd,
@@ -711,6 +746,16 @@ function HomeOverviewContainer() {
   const isCurrentAllNetworksBalanceFullyReady =
     !network?.isAllNetworks ||
     (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
+  const isCurrentAccountWorthOwner =
+    !!accountWorth.accountId &&
+    (accountWorth.accountId === (account?.id ?? '') ||
+      accountWorth.accountId === (account?.indexedAccountId ?? ''));
+  // `updateAll` marks a complete snapshot for this owner (cache hydrate or an
+  // authoritative fan-out commit) as opposed to per-network progressive merges.
+  const isCurrentTokenSnapshotCommitted =
+    isCurrentAccountWorthOwner &&
+    accountWorth.initialized &&
+    accountWorth.updateAll === true;
 
   const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
     useState(false);
@@ -801,11 +846,38 @@ function HomeOverviewContainer() {
   ]);
 
   // During All Networks progressive loading, hold the previous confirmed
-  // balance until both token and DeFi data finish loading.
-  const shouldHoldCurrentConfirmedBalance =
-    !!network?.isAllNetworks &&
-    !!currentConfirmedBalance &&
-    !isCurrentAllNetworksBalanceFullyReady;
+  // balance until token and DeFi data finish loading. The hold is bounded:
+  // DeFi readiness only arrives through the cache-only DeFi hook, and when
+  // that hook does not run the header must not stay pinned to a stale
+  // persisted total for the whole session (see resolveHomeOverviewBalanceHold).
+  const { shouldHold: shouldHoldCurrentConfirmedBalance, shouldArmDeFiGrace } =
+    resolveHomeOverviewBalanceHold({
+      isAllNetworks: !!network?.isAllNetworks,
+      hasConfirmedBalance: !!currentConfirmedBalance,
+      isTokenWorthReady: isCurrentAccountWorthReady,
+      isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      isDeFiRefreshing: isRefreshingDeFiList,
+      deFiGraceExpired,
+    });
+  // An expired grace stays expired until DeFi reports for this owner (or the
+  // owner changes). Clearing it whenever the grace disarms would flip the
+  // header from the live total back to the stale confirmed one for the length
+  // of every later refresh.
+  useEffect(() => {
+    setDeFiGraceExpired(false);
+  }, [currentOverviewOwnerKey, isCurrentAccountDeFiReady]);
+  useEffect(() => {
+    if (!shouldArmDeFiGrace) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setDeFiGraceExpired(true);
+    }, ALL_NETWORKS_DEFI_GRACE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [currentOverviewOwnerKey, shouldArmDeFiGrace]);
 
   const lastConfirmedLatestUsd =
     canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest

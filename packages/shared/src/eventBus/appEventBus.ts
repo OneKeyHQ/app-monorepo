@@ -67,6 +67,7 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
+  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -333,6 +334,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -654,9 +656,6 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
-  };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:
