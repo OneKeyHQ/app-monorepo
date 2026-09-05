@@ -8,9 +8,6 @@ jest.mock('child_process', () => ({
   spawnSync: jest.fn(),
 }));
 
-const {
-  INPUT_PATHS: webEmbedInputPaths,
-} = require('../../../web-embed/scripts/web-embed-prebundle');
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   assertIosProductionInfoPlistIsolated,
@@ -191,14 +188,6 @@ describe('build-mobile-dev-shell', () => {
       expect(source).toContain("- 'patches/**'");
       expect(source).toContain("- 'yarn.lock'");
       expect(source).not.toContain('workflow_run:');
-      for (const inputPath of webEmbedInputPaths) {
-        const triggerPath = fs
-          .statSync(path.join(repoRoot, inputPath))
-          .isDirectory()
-          ? `${inputPath}/**`
-          : inputPath;
-        expect(source).toContain(`- '${triggerPath}'`);
-      }
       expect(source).toContain(
         platform === 'android'
           ? "- 'apps/mobile/android/**'"

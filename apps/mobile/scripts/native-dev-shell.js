@@ -9,9 +9,6 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const {
-  getInputKey: getWebEmbedInputKey,
-} = require('../../web-embed/scripts/web-embed-prebundle');
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeNativeContractKey,
@@ -22,9 +19,9 @@ const {
   verifyManifest,
 } = require('../plugins/devVendor');
 
-const { preparePlatform } = require('./build-dev-vendor');
 const {
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
 } = require('./mobile-dev-shell-resource');
@@ -518,11 +515,12 @@ function parseArgs(argv = process.argv.slice(2)) {
       'compatibility',
       'contract',
       'launch',
+      'resolve',
       'session',
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -585,25 +583,17 @@ function hashValues(namespace, values) {
   return hash.digest('hex');
 }
 
-function getShellCompatibility({
-  nativeContractKey,
-  platform,
-  webEmbedInputKey = getWebEmbedInputKey(),
-}) {
+function getShellCompatibility({ nativeContractKey, platform }) {
   const targetPlatform = assertPlatform(platform);
   const resolvedNativeContractKey =
     nativeContractKey ?? computeNativeContractKey(targetPlatform);
   if (!/^[0-9a-f]{64}$/.test(resolvedNativeContractKey)) {
     throw new Error('[nativeDevShell] Invalid native contract key.');
   }
-  if (!/^[0-9a-f]{64}$/.test(webEmbedInputKey)) {
-    throw new Error('[nativeDevShell] Invalid web-embed input key.');
-  }
   const platformArtifact = getPlatformArtifact(targetPlatform);
   const keyInputs = {
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
-    webEmbedInputKey,
   };
   const shellCompatibilityKey = computeShellCompatibilityKey(keyInputs);
   const shellInputKey = computeShellInputKey(keyInputs);
@@ -615,7 +605,6 @@ function getShellCompatibility({
     platform: targetPlatform,
     shellCompatibilityKey,
     shellInputKey,
-    webEmbedInputKey,
   };
 }
 
@@ -629,7 +618,7 @@ function getShellArtifactTag({ platform, shellArtifactKey }) {
 
 async function writeArtifactManifest({
   artifact,
-  expectedWebEmbedInputKey = getWebEmbedInputKey(),
+  expectedWebEmbedInputKey,
   output,
   platform,
   webEmbedReceipt,
@@ -644,6 +633,9 @@ async function writeArtifactManifest({
   const receipt = JSON.parse(
     fs.readFileSync(path.resolve(webEmbedReceipt), 'utf8'),
   );
+  const resolvedExpectedWebEmbedInputKey =
+    expectedWebEmbedInputKey ||
+    require('../../web-embed/scripts/web-embed-prebundle').getInputKey();
   const isRemoteReceipt = /^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '');
   const isLocalBuildReceipt =
     receipt.schemaVersion === 1 &&
@@ -656,7 +648,7 @@ async function writeArtifactManifest({
   ) {
     throw new Error('[nativeDevShell] Invalid web-embed preparation receipt.');
   }
-  if (receipt.inputKey !== expectedWebEmbedInputKey) {
+  if (receipt.inputKey !== resolvedExpectedWebEmbedInputKey) {
     throw new Error(
       '[nativeDevShell] Web-embed receipt does not match this checkout.',
     );
@@ -2035,7 +2027,7 @@ async function stagePrivateSession(options) {
   }
 }
 
-async function prepareWebEmbedForLocalShell(report) {
+async function prepareWebEmbedForDevSession(report) {
   report.webEmbed = { status: 'restoring' };
   await writeRunReport(report);
   try {
@@ -2065,10 +2057,9 @@ async function prepareWebEmbedForLocalShell(report) {
   await writeRunReport(report);
 }
 
-async function buildLocalShell({ platform, report }) {
+async function buildLocalShell({ platform }) {
   const buildEnv =
     platform === 'android' ? getAndroidLocalBuildEnvironment() : process.env;
-  await prepareWebEmbedForLocalShell(report);
   const resultPath = path.join(
     REPO_ROOT,
     `node_modules/.cache/onekey-mobile-dev/build-shell-${platform}-${process.pid}.json`,
@@ -2121,7 +2112,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
-    artifactPath = await buildLocalShell({ platform, report });
+    artifactPath = await buildLocalShell({ platform });
   } else {
     report.shell = {
       requested: shell,
@@ -2154,7 +2145,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       report.shell.source = 'local-build';
       report.shell.status = 'building';
       await writeRunReport(report);
-      artifactPath = await buildLocalShell({ platform, report });
+      artifactPath = await buildLocalShell({ platform });
     }
   }
   await runWithCacheLeaseCleanup({
@@ -2172,6 +2163,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
 }
 
 async function prepareVendor({ platform, report, vendor }) {
+  const { preparePlatform } = require('./build-dev-vendor');
   if (vendor !== 'auto' && vendor !== 'local') {
     const expectedTag = getReleaseTag();
     if (vendor !== expectedTag) {
@@ -2270,6 +2262,7 @@ async function launchDevShell({
     });
     await writeRunReport(report);
     preparationLock = await acquireWorktreePreparationLock({ report });
+    await prepareWebEmbedForDevSession(report);
     await resolveAndInstallShell({
       deviceId: selectedDevice.id,
       platform,
@@ -2408,6 +2401,12 @@ async function main() {
   } else if (args.command === 'contract') {
     const manifest = await writeContractManifest(args);
     console.log(manifest.nativeContractKey);
+  } else if (args.command === 'resolve') {
+    const result = await resolveExactMobileDevShell({
+      compatibility: getShellCompatibility(args),
+    });
+    if (args.output) await writeJson(path.resolve(args.output), result);
+    console.log(String(result.exists));
   } else if (args.command === 'session') {
     const metroPort = parseMetroPort(args.metroPort) || 8081;
     const result = await writeDevSession({

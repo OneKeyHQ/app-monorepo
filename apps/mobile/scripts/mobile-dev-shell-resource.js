@@ -65,7 +65,6 @@ function assertCompatibility(compatibility) {
       `platform=${compatibility?.platform || ''}`,
       `architecture=${compatibility?.architecture || ''}`,
       `native-contract=${compatibility?.nativeContractKey || ''}`,
-      `web-embed=${compatibility?.webEmbedInputKey || ''}`,
     ],
   );
   if (
@@ -75,7 +74,6 @@ function assertCompatibility(compatibility) {
     !/^[0-9a-f]{64}$/.test(compatibility?.nativeContractKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellCompatibilityKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellInputKey || '') ||
-    !/^[0-9a-f]{64}$/.test(compatibility?.webEmbedInputKey || '') ||
     compatibility?.shellCompatibilityKey !== expectedShellCompatibilityKey ||
     !/^mobile-dev-shell-contract-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
       compatibility?.compatibilityTag || '',
@@ -138,6 +136,10 @@ function parseBearerChallenge(value) {
   return parameters;
 }
 
+function isRetryableHttpStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== 'function') {
     throw new Error(
@@ -192,9 +194,11 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!tokenResponse.ok) {
-      throw new Error(
+      const error = new Error(
         `[mobileDevShellResource] OCI token request failed: HTTP ${tokenResponse.status}.`,
       );
+      error.retryable = isRetryableHttpStatus(tokenResponse.status);
+      throw error;
     }
     const tokenBytes = await readResponseBody({
       fileName: 'OCI token',
@@ -303,6 +307,7 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
       `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
     );
     if (response.status === 404) error.code = 'SHELL_LOCATOR_NOT_FOUND';
+    error.retryable = isRetryableHttpStatus(response.status);
     throw error;
   }
   const manifestBytes = await readResponseBody({
@@ -333,7 +338,51 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   };
 }
 
-function isRetryableDownloadError(error) {
+async function resolveExactMobileDevShell({
+  compatibility: inputCompatibility,
+  fetchImpl,
+  maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const resolved = await resolveOciShell({
+        compatibility,
+        fetchImpl,
+        locator: 'exact',
+        tag: compatibility.exactTag,
+      });
+      return {
+        exists: true,
+        ociDigest: resolved.ociDigest,
+        sourceCommit: resolved.sourceCommit,
+        tag: compatibility.exactTag,
+      };
+    } catch (error) {
+      if (error?.code === 'SHELL_LOCATOR_NOT_FOUND') {
+        return {
+          exists: false,
+          ociDigest: null,
+          sourceCommit: null,
+          tag: compatibility.exactTag,
+        };
+      }
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
+        throw error;
+      }
+      console.error(
+        `[mobileDevShellResource] Retrying exact shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
+  }
+  throw new Error('[mobileDevShellResource] Exact shell lookup exhausted.');
+}
+
+function isRetryableOciError(error) {
   const retryableCodes = new Set([
     'EAI_AGAIN',
     'ECONNRESET',
@@ -347,7 +396,11 @@ function isRetryableDownloadError(error) {
   ]);
   let current = error;
   while (current) {
-    if (current.retryable === true || retryableCodes.has(current.code)) {
+    if (
+      current.retryable === true ||
+      ['AbortError', 'TimeoutError'].includes(current.name) ||
+      retryableCodes.has(current.code)
+    ) {
       return true;
     }
     current = current.cause;
@@ -418,7 +471,7 @@ async function downloadLayerToFile({
       return;
     } catch (error) {
       await fs.promises.rm(filePath, { force: true });
-      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
         throw error;
       }
       console.error(
@@ -485,7 +538,7 @@ async function verifyArtifactManifest({
     (locator === 'exact' &&
       manifest.shellInputKey !== compatibility.shellInputKey) ||
     manifest.shellArtifactKey !== expectedArtifactKey ||
-    manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
+    !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.inputKey || '') ||
     !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
     (!hasRemoteWebEmbed && !hasLocalWebEmbed) ||
     manifest.artifact?.file !== compatibility.artifactFile ||
@@ -1135,6 +1188,7 @@ module.exports = {
   getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
   touchAndPruneMobileShellCache,
