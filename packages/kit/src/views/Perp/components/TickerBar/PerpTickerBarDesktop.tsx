@@ -58,6 +58,7 @@ import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { useShowPortfolio } from '../../hooks/useShowPortfolio';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
@@ -753,6 +754,9 @@ const TickerBarFundingRateView = memo(
     isLoading: boolean;
   }) => {
     const intl = useIntl();
+    const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+      initialChartType: 'funding',
+    });
     const tooltipRef = useRef<ITooltipRef>({
       closeTooltip: () => Promise.resolve(),
       openTooltip: () => Promise.resolve(),
@@ -761,6 +765,10 @@ const TickerBarFundingRateView = memo(
       void tooltipRef.current.closeTooltip();
       appEventBus.emit(EAppEventBusNames.PerpShowFundingHistory, undefined);
     }, []);
+    const handleViewFundingAnalysis = useCallback(() => {
+      void tooltipRef.current.closeTooltip();
+      void showFundingAnalysis();
+    }, [showFundingAnalysis]);
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
         <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
@@ -953,17 +961,30 @@ const TickerBarFundingRateView = memo(
                         })}
                       </SizableText>
                     </YStack>
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      width="100%"
-                      testID="perp-desktop-view-funding-history-button"
-                      onPress={handleViewFundingHistory}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.export_history__action,
-                      })}
-                    </Button>
+                    <YStack gap="$3" width="100%">
+                      <Button
+                        width="100%"
+                        size="small"
+                        variant="secondary"
+                        testID="perp-desktop-view-funding-history-button"
+                        onPress={handleViewFundingHistory}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_history__action,
+                        })}
+                      </Button>
+                      <Button
+                        width="100%"
+                        size="small"
+                        variant="secondary"
+                        testID="perp-desktop-view-funding-analysis-button"
+                        onPress={handleViewFundingAnalysis}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.perp_view_funding_analysis__action,
+                        })}
+                      </Button>
+                    </YStack>
                   </YStack>
                 }
               />
@@ -982,10 +1003,10 @@ function TickerBarFundingRate() {
   const fundingRate = parseFloat(fundingRateStr);
   const fundingRatePercent = (fundingRate * 100).toFixed(4);
   const hourlyFundingRate = (fundingRate * 100).toFixed(4);
-  const dailyFundingRate = (fundingRate * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRate * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRate * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRate * 100 * 24 * 365).toFixed(2);
+  const dailyFundingRate = (fundingRate * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRate * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRate * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRate * 100 * 24 * 365).toFixed(4);
   const countdown = useFundingCountdown();
   const isLoading = useTickerBarIsLoading();
 
