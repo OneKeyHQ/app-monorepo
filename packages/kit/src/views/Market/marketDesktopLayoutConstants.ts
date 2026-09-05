@@ -53,12 +53,19 @@ export const MARKET_LIST_STAR_COLUMN_WIDTH =
   MARKET_LIST_STAR_SLOT_WIDTH +
   MARKET_LIST_STAR_SLOT_TO_LOGO_GAP;
 
-// The design's `Left Fixed` frame: the star and name share one fixed column on
-// every list page, and the metric columns flex in what is left. Fixed rather
-// than a share of the row — the pages carry different numbers of metric
-// columns, so a percentage would resolve to a different width on each one.
-// Widened past the design's 240 to give the longer names more room.
-export const MARKET_LIST_FIRST_COLUMN_WIDTH = 320;
+// The design's `Left Fixed` frame: the star and name share one column on every
+// list page, and the metric columns flex in what is left. Keep this as an
+// explicit pixel range rather than a share of the row — the pages carry
+// different numbers of metric columns, so a percentage would resolve to a
+// different width on each one.
+export const MARKET_LIST_FIRST_COLUMN_MAX_WIDTH = 320;
+export const MARKET_LIST_FIRST_COLUMN_MIN_WIDTH = 256;
+export const MARKET_LIST_METRIC_COLUMN_MIN_WIDTH = 104;
+
+// Keep the maximum-width alias for compact surfaces that do not participate in
+// the responsive list layout.
+export const MARKET_LIST_FIRST_COLUMN_WIDTH =
+  MARKET_LIST_FIRST_COLUMN_MAX_WIDTH;
 
 // What the name column gets once the standalone star column is subtracted.
 export const MARKET_LIST_NAME_COLUMN_WIDTH =

@@ -28,6 +28,26 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+export function sortMarketTokenListData<T>({
+  data,
+  field,
+  order,
+}: {
+  data: T[];
+  field?: keyof T;
+  order?: 'asc' | 'desc';
+}) {
+  if (!field || !order) {
+    return data;
+  }
+
+  return [...data].toSorted((a, b) => {
+    const aValue = Number(a[field]) || 0;
+    const bValue = Number(b[field]) || 0;
+    return order === 'asc' ? aValue - bValue : bValue - aValue;
+  });
+}
+
 export function normalizeStockMetadataValue(
   value?: string | number | null,
 ): string | undefined {

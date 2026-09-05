@@ -6,8 +6,40 @@ import {
   normalizeStockMetadataValue,
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  sortMarketTokenListData,
   transformApiItemToToken,
 } from './tokenListHelpers';
+
+function buildSortableToken(id: string, price: number) {
+  return { id, price };
+}
+
+describe('market token list sorting', () => {
+  test('sorts the latest token values without mutating the source list', () => {
+    const source = [
+      buildSortableToken('first', 10),
+      buildSortableToken('second', 20),
+    ];
+    const latest = source.map((token) =>
+      token.id === 'first' ? { ...token, price: 30 } : token,
+    );
+
+    const sorted = sortMarketTokenListData({
+      data: latest,
+      field: 'price',
+      order: 'desc',
+    });
+
+    expect(sorted.map((token) => token.id)).toEqual(['first', 'second']);
+    expect(latest.map((token) => token.id)).toEqual(['first', 'second']);
+  });
+
+  test('keeps the original list when sorting is inactive', () => {
+    const source = [buildSortableToken('first', 10)];
+
+    expect(sortMarketTokenListData({ data: source })).toBe(source);
+  });
+});
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {

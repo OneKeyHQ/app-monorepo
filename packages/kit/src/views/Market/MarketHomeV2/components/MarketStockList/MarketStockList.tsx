@@ -5,9 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
-import type { UIEvent } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,6 +38,7 @@ import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
@@ -47,8 +46,10 @@ import { useMarketStockColumns } from './useMarketStockColumns';
 
 import type { IMarketCategoryItem } from '../../types';
 
-const STOCK_LIST_MIN_WIDTH = 1240;
-const STOCK_TABLE_MIN_WIDTH = 1216;
+const STOCK_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 128,
+  sparkline: 148,
+} as const;
 
 type IMarketStockListProps = {
   categories: IMarketCategoryItem[];
@@ -72,7 +73,15 @@ function MarketStockListImpl({
   const intl = useIntl();
   const { md } = useMedia();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const columns = useMarketStockColumns();
+  const baseColumns = useMarketStockColumns();
+  const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
+    useMarketDesktopResponsiveColumns({
+      columns: baseColumns,
+      enabled: !platformEnv.isNative && !md,
+      firstColumnCount: 1,
+      horizontalInset: 24,
+      metricColumnMinimumWidths: STOCK_METRIC_COLUMN_MINIMUM_WIDTHS,
+    });
   const {
     items,
     isLoading,
@@ -157,15 +166,14 @@ function MarketStockListImpl({
   const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal =
     webTabIntegrated && Boolean(stickyPortalTarget) && !md;
-
-  // The rows can scroll sideways below `STOCK_LIST_MIN_WIDTH`, but the header
-  // is portalled into the tab bar and cannot see that scroller. Feed it the
-  // offset so the column titles stay over their cells.
-  const [rowsScrollLeft, setRowsScrollLeft] = useState(0);
-  const handleRowsScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
-    const next = event.currentTarget.scrollLeft;
-    setRowsScrollLeft((prev) => (prev === next ? prev : next));
-  }, []);
+  useEffect(() => {
+    if (
+      sortBy !== 'default' &&
+      !columns.some((column) => column.dataIndex === sortBy)
+    ) {
+      setSorting(sortBy, undefined);
+    }
+  }, [columns, setSorting, sortBy]);
 
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) {
@@ -177,8 +185,7 @@ function MarketStockListImpl({
           toolbar={CategorySelector}
           columns={columns}
           onHeaderRow={handleHeaderRow}
-          rowProps={{ width: '100%', minWidth: STOCK_TABLE_MIN_WIDTH }}
-          scrollLeft={rowsScrollLeft}
+          rowProps={{ width: '100%' }}
         />
       </StickyHeaderPortal>
     );
@@ -187,7 +194,6 @@ function MarketStockListImpl({
     columns,
     handleHeaderRow,
     isTabFocused,
-    rowsScrollLeft,
     stickyPortalTarget,
     useDesktopPortal,
   ]);
@@ -278,16 +284,15 @@ function MarketStockListImpl({
         flex={1}
         className="normal-scrollbar"
         style={{ overflowX: 'auto', overflowY: 'hidden' }}
-        onScroll={handleRowsScroll}
+        onLayout={handleResponsiveContainerLayout}
       >
-        <Stack flex={1} minWidth={STOCK_LIST_MIN_WIDTH} minHeight={400} px="$3">
+        <Stack flex={1} minHeight={400} px="$3">
           {showSkeleton ? (
             <Table.Skeleton
               columns={columns}
               count={8}
               rowProps={{
                 width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
                 height: MARKET_LIST_ROW_HEIGHT,
               }}
             />
@@ -306,7 +311,6 @@ function MarketStockListImpl({
               onHeaderRow={handleHeaderRow}
               rowProps={{
                 width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
                 height: MARKET_LIST_ROW_HEIGHT,
               }}
               headerRowProps={{ height: 36 }}

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
@@ -28,6 +28,7 @@ import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderCon
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
 
@@ -60,6 +61,11 @@ const TOP_COINS_SORTABLE_COLUMN_KEYS = [
   'marketCap',
   'volume24h',
 ] as const;
+const TOP_COINS_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 112,
+  priceChange7dPercent: 112,
+  sparkline: 148,
+} as const;
 
 type ITopCoinsSortableColumn = (typeof TOP_COINS_SORTABLE_COLUMN_KEYS)[number];
 
@@ -286,7 +292,14 @@ export function MarketTopCoinsList({
   listContainerProps,
 }: IMarketTopCoinsListProps) {
   const { data, handleItemPress, isLoading } = useMarketTopCoins();
-  const columns = useTopCoinsColumns();
+  const baseColumns = useTopCoinsColumns();
+  const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
+    useMarketDesktopResponsiveColumns({
+      columns: baseColumns,
+      enabled: !platformEnv.isNative,
+      firstColumnCount: 2,
+      metricColumnMinimumWidths: TOP_COINS_METRIC_COLUMN_MINIMUM_WIDTHS,
+    });
   const stickyHeaderContext = useContext(DesktopStickyHeaderContext);
   const tabBarHeight = useScrollContentTabBarOffset();
   const [sortState, setSortState] = useState<
@@ -314,6 +327,14 @@ export function MarketTopCoinsList({
       return order === 'asc' ? difference : -difference;
     });
   }, [data, sortState]);
+  useEffect(() => {
+    if (
+      sortState &&
+      !columns.some((column) => column.dataIndex === sortState.column)
+    ) {
+      setSortState(undefined);
+    }
+  }, [columns, sortState]);
 
   const onHeaderRow = useCallback(
     (column: ITableColumn<IMarketAssetListItem>) => {
@@ -359,7 +380,12 @@ export function MarketTopCoinsList({
     listContainerProps?.paddingBottom ?? tabBarHeight;
 
   return (
-    <Stack flex={1} width="100%" testID="market-top-coins-list">
+    <Stack
+      flex={1}
+      width="100%"
+      testID="market-top-coins-list"
+      onLayout={handleResponsiveContainerLayout}
+    >
       {useDesktopPortal && portalTarget ? (
         <StickyHeaderPortal target={portalTarget}>
           {/* No toolbar on this page: the shared header falls back to the

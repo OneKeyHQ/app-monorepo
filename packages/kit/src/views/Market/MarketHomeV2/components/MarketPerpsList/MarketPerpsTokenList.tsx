@@ -1,4 +1,11 @@
-import { memo, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,6 +27,7 @@ import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
@@ -36,6 +44,13 @@ const PERPS_SORTABLE_FIELDS: Record<string, keyof IMarketPerpsToken> = {
   volume24h: 'volume24h',
   openInterest: 'openInterest',
 };
+const PERPS_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  change24h: 168,
+  fundingRate: 112,
+  openInterest: 112,
+  price: 112,
+  volume24h: 112,
+} as const;
 
 type IMarketPerpsTokenListProps = {
   tabIntegrated?: boolean;
@@ -64,7 +79,7 @@ function MarketPerpsTokenListImpl({
     selectedCategoryId,
   });
 
-  const perpsColumns = usePerpsColumns();
+  const basePerpsColumns = usePerpsColumns();
 
   // `/utility/v2/market/perps/token-list` has no paging at all — it answers
   // with the whole set — so the table sorts in place.
@@ -136,6 +151,25 @@ function MarketPerpsTokenListImpl({
   }, [isLoading, tokens.length]);
 
   const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const {
+    columns: perpsColumns,
+    handleContainerLayout: handleResponsiveContainerLayout,
+  } = useMarketDesktopResponsiveColumns({
+    columns: basePerpsColumns,
+    enabled: !platformEnv.isNative && !md,
+    firstColumnCount: 2,
+    metricColumnMinimumWidths: PERPS_METRIC_COLUMN_MINIMUM_WIDTHS,
+  });
+  useEffect(() => {
+    if (
+      sort &&
+      !perpsColumns.some(
+        (column) => PERPS_SORTABLE_FIELDS[column.dataIndex] === sort.field,
+      )
+    ) {
+      setSort(undefined);
+    }
+  }, [perpsColumns, sort]);
 
   // Desktop sticky header: portal the category selector + column header
   // into the renderTabBar area so they stick when scrolling.
@@ -182,7 +216,12 @@ function MarketPerpsTokenListImpl({
       };
 
   return (
-    <Stack flex={1} width="100%" testID={MarketTestIDs.perpsList}>
+    <Stack
+      flex={1}
+      width="100%"
+      testID={MarketTestIDs.perpsList}
+      onLayout={handleResponsiveContainerLayout}
+    >
       {portalContent}
       {useDesktopPortal ? null : CategorySelector}
       <Stack

@@ -47,6 +47,7 @@ import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderCon
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import {
   applyMarketTokenListLiveOverrides,
@@ -59,6 +60,7 @@ import { type IMarketToken } from './MarketTokenData';
 import {
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  sortMarketTokenListData,
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
@@ -85,6 +87,11 @@ const MARKET_HOME_WEB_DESKTOP_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: '72px',
 } satisfies CSSProperties;
+const MARKET_TOKEN_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  marketCapPrice: 136,
+  change24h: 120,
+  turnover: 112,
+} as const;
 // Client sort mode is used by banner detail and only supports 24h change.
 const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
   change24h: 'change24h',
@@ -369,39 +376,40 @@ function MarketTokenListBase({
     [],
   );
 
-  const orderedData = useMemo(() => {
-    const sortByField = (field: keyof IMarketToken, order: 'asc' | 'desc') =>
-      [...rawData].toSorted((a, b) => {
-        const aVal = (a[field] as number) ?? 0;
-        const bVal = (b[field] as number) ?? 0;
-        return order === 'asc' ? aVal - bVal : bVal - aVal;
-      });
-
+  const activeClientSort = useMemo(() => {
     if (trendingSort.field && trendingSort.order) {
-      return sortByField(
-        trendingSort.field as keyof IMarketToken,
-        trendingSort.order,
-      );
+      return {
+        field: trendingSort.field as keyof IMarketToken,
+        order: trendingSort.order,
+      };
     }
 
     if (!clientSort || !currentSortBy || !currentSortType) {
-      return rawData;
+      return undefined;
     }
 
     const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
     if (!field) {
-      return rawData;
+      return undefined;
     }
 
-    return sortByField(field, currentSortType);
+    return { field, order: currentSortType };
   }, [
     clientSort,
     currentSortBy,
     currentSortType,
-    rawData,
     trendingSort.field,
     trendingSort.order,
   ]);
+  const orderedData = useMemo(
+    () =>
+      sortMarketTokenListData({
+        data: rawData,
+        field: activeClientSort?.field,
+        order: activeClientSort?.order,
+      }),
+    [activeClientSort, rawData],
+  );
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
@@ -549,9 +557,34 @@ function MarketTokenListBase({
     onSort: handleTrendingSort,
   });
   const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
-  const marketTokenColumns = useTrendingDesktopColumns
+  const baseMarketTokenColumns = useTrendingDesktopColumns
     ? trendingColumnsDesktop
     : defaultMarketTokenColumns;
+  const {
+    columns: marketTokenColumns,
+    handleContainerLayout: handleResponsiveContainerLayout,
+  } = useMarketDesktopResponsiveColumns({
+    columns: baseMarketTokenColumns,
+    enabled: !platformEnv.isNative && !md,
+    firstColumnCount: 2,
+    metricColumnMinimumWidths: MARKET_TOKEN_METRIC_COLUMN_MINIMUM_WIDTHS,
+  });
+  useEffect(() => {
+    if (!useTrendingDesktopColumns || !trendingSort.field) {
+      return;
+    }
+    const visibleDataIndex =
+      trendingSort.field === 'marketCap' || trendingSort.field === 'price'
+        ? 'marketCapPrice'
+        : trendingSort.field;
+    if (
+      !marketTokenColumns.some(
+        (column) => column.dataIndex === visibleDataIndex,
+      )
+    ) {
+      setTrendingSort({});
+    }
+  }, [marketTokenColumns, trendingSort.field, useTrendingDesktopColumns]);
   // Trending desktop rows expose a hover group so the name cell can swap the
   // token age for the contract address. Only data rows opt in: `rowProps` below
   // is shared with the header row, which must not become a hover group.
@@ -560,15 +593,18 @@ function MarketTokenListBase({
     : undefined;
 
   const data = useMemo(() => {
-    if (!liveTokenOverride) {
-      return websocketData;
-    }
-
-    return applyMarketTokenListLiveOverrides({
-      tokens: websocketData,
-      liveTokenOverrides: [liveTokenOverride],
+    const dataWithLiveOverrides = liveTokenOverride
+      ? applyMarketTokenListLiveOverrides({
+          tokens: websocketData,
+          liveTokenOverrides: [liveTokenOverride],
+        })
+      : websocketData;
+    return sortMarketTokenListData({
+      data: dataWithLiveOverrides,
+      field: activeClientSort?.field,
+      order: activeClientSort?.order,
     });
-  }, [websocketData, liveTokenOverride]);
+  }, [activeClientSort, websocketData, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -939,7 +975,13 @@ function MarketTokenListBase({
   }, [md, rowBg, webTabIntegrated]);
 
   return (
-    <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
+    <Stack
+      ref={listRootRef as any}
+      flex={1}
+      width="100%"
+      testID={testID}
+      onLayout={handleResponsiveContainerLayout}
+    >
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
       {!useDesktopPortal ? toolbar : null}
