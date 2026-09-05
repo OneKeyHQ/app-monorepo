@@ -334,6 +334,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -655,9 +656,6 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
-  };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:
