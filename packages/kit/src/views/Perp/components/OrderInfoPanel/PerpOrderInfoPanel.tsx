@@ -42,8 +42,15 @@ import { useVisibleSpotHoldingsCount } from '../../hooks/useVisibleSpotHoldingsC
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
+import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
 import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
+import {
+  type IFundingHistoryMarketOption,
+  type IFundingHistorySideFilter,
+  reconcileFundingHistoryMarketOptions,
+} from './fundingHistoryDisplay';
 import { PerpAccountList } from './List/PerpAccountList';
+import { PerpFundingHistoryList } from './List/PerpFundingHistoryList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
@@ -55,6 +62,7 @@ const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Open Orders': ETranslations.perp_open_orders_title,
   'TWAP': ETranslations.perp_twap_order__title,
   'Trades History': ETranslations.perp_trades_history_title,
+  'Funding': ETranslations.perp_position_funding_2,
   'Account': ETranslations.perp_account_history,
   'Balances': ETranslations.perp_holdings_tokens,
 };
@@ -65,6 +73,7 @@ const ORDER_INFO_TABS = [
   'Open Orders',
   'TWAP',
   'Trades History',
+  'Funding',
   'Account',
 ] as const;
 
@@ -192,8 +201,42 @@ function PerpOrderInfoPanel() {
   const initialTabName =
     tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
   const [activeTab, setActiveTab] = useState<string>(initialTabName);
+  const [fundingHistorySideFilter, setFundingHistorySideFilter] =
+    useState<IFundingHistorySideFilter>('all');
+  const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
+    string | undefined
+  >();
+  const [fundingHistoryMarketOptions, setFundingHistoryMarketOptions] =
+    useState<IFundingHistoryMarketOption[]>([]);
   const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
     useShowUnifoldDepositTracker();
+  const hasTabBarTrailingContent =
+    activeTab === 'Balances' ||
+    activeTab === 'Funding' ||
+    (activeTab === 'Account' && isUnifoldDepositTrackerAvailable);
+
+  useEffect(() => {
+    if (
+      fundingHistoryMarketFilter &&
+      !fundingHistoryMarketOptions.some(
+        (option) => option.coin === fundingHistoryMarketFilter,
+      )
+    ) {
+      setFundingHistoryMarketFilter(undefined);
+    }
+  }, [fundingHistoryMarketFilter, fundingHistoryMarketOptions]);
+
+  const handleFundingHistoryMarketOptionsChange = useCallback(
+    (nextOptions: IFundingHistoryMarketOption[]) => {
+      setFundingHistoryMarketOptions((currentOptions) =>
+        reconcileFundingHistoryMarketOptions({
+          currentOptions,
+          nextOptions,
+        }),
+      );
+    },
+    [],
+  );
 
   const handleShowUnifoldDepositTracker = useCallback(() => {
     void showUnifoldDepositTracker();
@@ -250,6 +293,16 @@ function PerpOrderInfoPanel() {
         return <PerpTwapList />;
       case 'Trades History':
         return <PerpTradesHistoryList useTabsList={false} />;
+      case 'Funding':
+        return (
+          <PerpFundingHistoryList
+            useTabsList={false}
+            isActive={activeTab === 'Funding'}
+            sideFilter={fundingHistorySideFilter}
+            marketFilter={fundingHistoryMarketFilter}
+            onMarketOptionsChange={handleFundingHistoryMarketOptionsChange}
+          />
+        );
       case 'Account':
         return (
           <PerpAccountList
@@ -272,7 +325,13 @@ function PerpOrderInfoPanel() {
       >
         {/* Scroll instead of clipping when the pane is narrower than the tab
             list (OK-61160). */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal
+          flex={1}
+          minWidth={0}
+          mr={hasTabBarTrailingContent ? '$3' : undefined}
+          showsHorizontalScrollIndicator={false}
+        >
           {ORDER_INFO_TABS.map((name) => (
             <TabBarItem
               key={name}
@@ -286,6 +345,15 @@ function PerpOrderInfoPanel() {
           <XStack mr="$3" alignItems="center">
             <HideSmallSpotHoldingsCheckbox />
           </XStack>
+        ) : null}
+        {activeTab === 'Funding' ? (
+          <FundingHistoryFilterToolbar
+            sideFilter={fundingHistorySideFilter}
+            marketFilter={fundingHistoryMarketFilter}
+            marketOptions={fundingHistoryMarketOptions}
+            onSideFilterChange={setFundingHistorySideFilter}
+            onMarketFilterChange={setFundingHistoryMarketFilter}
+          />
         ) : null}
         {activeTab === 'Account' && isUnifoldDepositTrackerAvailable ? (
           <Button
