@@ -8,7 +8,10 @@ import { fileURLToPath, format as formatUrl } from 'url';
 import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import {
+  disposeNobleBleSupport,
+  initNobleBleSupport,
+} from '@onekeyfe/hd-transport-electron';
 import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
 import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
@@ -680,7 +683,16 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
+let bleQuitStarted = false;
+let bleQuitReady = false;
+let nobleBleInitialization = Promise.resolve();
+let trezorBleWindowCleanup = Promise.resolve();
+// Retain retired handlers so recovery-created native instances survive until app quit.
+const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+  await trezorBleWindowCleanup;
+  if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
   // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
@@ -1625,8 +1637,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
     EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
   ];
+  if (bleQuitStarted) return browserWindow;
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
-  void initNobleBleSupport(browserWindow.webContents);
+  nobleBleInitialization = initNobleBleSupport(browserWindow.webContents).catch(
+    (error) => logger.error('[NobleBLE] IPC initialization failed', error),
+  );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
   // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
@@ -1661,7 +1676,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
   logTrezorBleFlags();
-  initTrezorBleSupport(browserWindow.webContents, {
+  const trezorBleSupport = initTrezorBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
@@ -1684,6 +1699,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       }
       logger.info(message, data);
     },
+  });
+
+  trezorBleSupports.add(trezorBleSupport);
+  browserWindow.webContents.once('destroyed', () => {
+    if (bleQuitStarted) return;
+    trezorBleWindowCleanup = trezorBleSupport.dispose().catch((error) => {
+      logger.error('[TrezorBLE] Window cleanup failed', error);
+    });
   });
 
   return browserWindow;
@@ -1802,6 +1825,7 @@ if (!singleInstance && !process.mas) {
 //  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
+  if (bleQuitStarted) return;
   // During a soft restart `mainWindow` is transiently null while
   // createMainWindow() runs. Skip creating a window here in that window of time,
   // otherwise a dock-icon click would spawn a SECOND main window (without
@@ -1813,7 +1837,62 @@ app.on('activate', async () => {
   showMainWindow();
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (isMac && !bleQuitReady) {
+    event.preventDefault();
+    if (bleQuitStarted) return;
+    bleQuitStarted = true;
+    logger.info('[BLE] Process dispose started');
+    const instances = new Set<{ stop?(): void }>();
+    const stopped = new Set<{ stop?(): void }>();
+    let draining = false;
+    const stopNative = (instance: { stop?(): void }) => {
+      if (stopped.has(instance)) return;
+      stopped.add(instance);
+      try {
+        instance.stop?.();
+        logger.info('[BLE] Noble native manager stopped before app quit');
+      } catch (error) {
+        logger.error('[BLE] Noble native stop failed', error);
+      }
+    };
+    const releaseNoble = (instance: { stop?(): void }) => {
+      instances.add(instance);
+      if (draining) stopNative(instance);
+    };
+    let timeout: ReturnType<typeof setTimeout>;
+    void Promise.race([
+      Promise.allSettled([
+        nobleBleInitialization,
+        disposeNobleBleSupport(releaseNoble),
+        ...Array.from(trezorBleSupports, (support) =>
+          support.disposeForAppQuit(releaseNoble),
+        ),
+      ]).then((results) => {
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            logger.error('[BLE] Process dispose failed', result.reason);
+          }
+        }
+      }),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          logger.warn('[BLE] Process dispose timed out');
+          resolve();
+        }, 5000);
+      }),
+    ]).finally(() => {
+      clearTimeout(timeout);
+      draining = true;
+      instances.forEach(stopNative);
+      trezorBleSupports.clear();
+      logger.info('[BLE] Process dispose completed; resuming app quit');
+      bleQuitReady = true;
+      app.quit();
+    });
+    return;
+  }
+
   if (isMac) {
     destroyTrayManager();
   }
