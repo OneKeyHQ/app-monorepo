@@ -213,6 +213,29 @@ export const homeResettingFlags: Record<string, number> = {};
 // latter also drives sidebar sort order (`top` mode freezes it on creation).
 export const lastNavigationFlags: Record<string, number> = {};
 
+// Tracks last accepted title update per tab id. Trading DApps push a live
+// price through document.title, so title-only navigation events arrive at
+// ~1Hz per tab and would otherwise persist the whole tab array that often.
+export const lastTitleUpdateFlags: Record<string, number> = {};
+const TITLE_UPDATE_THROTTLE_MS = 5000;
+
+// Titles suppressed inside the throttle window, kept so the window can close
+// with a trailing update. Without this a page that sets a placeholder title
+// and then its final one within the window would keep the placeholder forever,
+// because nothing else would ever fire page-title-updated again.
+const pendingTitleUpdates: Record<
+  string,
+  { title: string; timer: ReturnType<typeof setTimeout> }
+> = {};
+
+export function clearPendingTitleUpdate(tabId: string) {
+  const pending = pendingTitleUpdates[tabId];
+  if (pending) {
+    clearTimeout(pending.timer);
+    delete pendingTitleUpdates[tabId];
+  }
+}
+
 let discoveryHomeBookmarksPrefetchGeneration = 0;
 let isDiscoveryHomeBookmarksPrefetchListenerReady = false;
 
@@ -425,11 +448,35 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         newTabs = [];
       }
       const result = buildWebTabData(newTabs);
-      // Should update tabs
-      if (!isEqual(result.keys, webTabs.keys) || options?.forceUpdate) {
-        set(webTabsAtom(), { keys: result.keys, tabs: result.data });
+
+      // `keys` only covers the tab id list, so a change to a tab's own fields
+      // (title/url/loading/favicon) never showed up here: the map replacement
+      // and the persist below used to be unconditional, so every no-op write
+      // handed all mounted tab shells a fresh map object and wrote the whole
+      // tab array back to SimpleDb. Compare the tab payloads too.
+      const keysChanged = !isEqual(result.keys, webTabs.keys);
+      const tabsChanged = !isEqual(result.data, webTabs.tabs);
+      // An Immediate persist is an authoritative snapshot from a discrete
+      // action (closing one tab / all tabs) and must never be skipped: it also
+      // cancels a pending trailing write, and its caller may have already
+      // mutated the array this comparison reads as the baseline.
+      const isImmediatePersist =
+        options?.persist === EBrowserTabPersistMode.Immediate;
+      if (
+        !keysChanged &&
+        !tabsChanged &&
+        !options?.forceUpdate &&
+        !isImmediatePersist
+      ) {
+        return;
       }
 
+      // Both atoms must advance together. Writing webTabsAtom only on a key
+      // change left field-only updates (title/loading/favicon/isPinned) with a
+      // stale webTabsAtom while webTabsMapAtom and the persisted snapshot moved
+      // on, so the next action read the old array and clobbered the field that
+      // had just been written.
+      set(webTabsAtom(), { keys: result.keys, tabs: result.data });
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
       if (options?.persist === false) {
@@ -598,42 +645,56 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
     const { tabs: previousTabs } = get(webTabsAtom());
-    const tabs = previousTabs;
-    const tabIndex = tabs.findIndex((t) => t.id === payload.id);
-    if (tabIndex > -1) {
-      const tabToModify = tabs[tabIndex];
-      Object.keys(payload).forEach((k) => {
-        const key = k as keyof IWebTab;
-        const value = payload[key];
-        if (value !== undefined && value !== tabToModify[key]) {
-          if (key === 'title') {
-            if (!value) {
-              return;
-            }
-          }
-          // @ts-expect-error
-          tabToModify[key] = value;
-          if (key === 'url') {
-            // Navigation normally bumps timestamp to Date.now(), which
-            // re-sorts the tab to the bottom. Skip when the user chose
-            // 'top' so the tab stays where it was created. Record the
-            // navigation time separately for the onNavigation debounce.
-            if (!isNewTabPositionTop()) {
-              tabToModify.timestamp = Date.now();
-            }
-            if (payload.id) {
-              lastNavigationFlags[payload.id] = Date.now();
-            }
-            if (value === 'about:blank' && payload.id) {
-              homeResettingFlags[payload.id] = Date.now();
-            }
+    const tabIndex = previousTabs.findIndex((t) => t.id === payload.id);
+    if (tabIndex === -1) {
+      return;
+    }
+    // Copy instead of mutating the tab held by webTabsAtom. The old in-place
+    // write made every downstream equality check useless — by the time
+    // buildWebTabs compared "previous" against "next" they were the same
+    // object — and it left `changed` undetectable, so a payload identical to
+    // the current state still replaced webTabsMapAtom and scheduled a full
+    // tab-array persist. A DApp that puts a live price in document.title
+    // (Hyperliquid) drove that path once per second, per tab.
+    const previousTab = previousTabs[tabIndex];
+    const tabToModify: IWebTab = { ...previousTab };
+    let changed = false;
+    Object.keys(payload).forEach((k) => {
+      const key = k as keyof IWebTab;
+      const value = payload[key];
+      if (value !== undefined && value !== tabToModify[key]) {
+        if (key === 'title') {
+          if (!value) {
+            return;
           }
         }
-      });
-      tabs[tabIndex] = tabToModify;
-      loggerForEmptyData(tabs, 'setWebTabData');
-      this.buildWebTabs.call(set, { data: tabs });
+        // @ts-expect-error
+        tabToModify[key] = value;
+        changed = true;
+        if (key === 'url') {
+          // Navigation normally bumps timestamp to Date.now(), which
+          // re-sorts the tab to the bottom. Skip when the user chose
+          // 'top' so the tab stays where it was created. Record the
+          // navigation time separately for the onNavigation debounce.
+          if (!isNewTabPositionTop()) {
+            tabToModify.timestamp = Date.now();
+          }
+          if (payload.id) {
+            lastNavigationFlags[payload.id] = Date.now();
+          }
+          if (value === 'about:blank' && payload.id) {
+            homeResettingFlags[payload.id] = Date.now();
+          }
+        }
+      }
+    });
+    if (!changed) {
+      return;
     }
+    const tabs = [...previousTabs];
+    tabs[tabIndex] = tabToModify;
+    loggerForEmptyData(tabs, 'setWebTabData');
+    this.buildWebTabs.call(set, { data: tabs });
   });
 
   openUrlInHomeTab = contextAtomMethod(
@@ -724,6 +785,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
+      // Drop any title update still waiting on its throttle window, so it
+      // cannot resurrect an entry for a tab that no longer exists.
+      clearPendingTitleUpdate(tabId);
       const mountOrder = get(webTabMountOrderAtom());
       if (mountOrder.includes(tabId)) {
         set(
@@ -731,14 +795,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           mountOrder.filter((id) => id !== tabId),
         );
       }
-      const { tabs } = get(webTabsAtom());
-      const targetIndex = tabs.findIndex((t) => t.id === tabId);
+      const { tabs: previousTabs } = get(webTabsAtom());
+      const targetIndex = previousTabs.findIndex((t) => t.id === tabId);
+      // Copy-on-write. Splicing the array held by webTabsAtom in place made it
+      // its own "previous state", so any equality check downstream compared the
+      // post-close array against itself and concluded nothing had changed.
+      let tabs = previousTabs;
       if (targetIndex !== -1) {
-        const closedTab = tabs[targetIndex];
+        const closedTab = previousTabs[targetIndex];
         const activeTabId = get(activeTabIdAtom());
         const isClosingCurrentTab =
           closedTab.isActive || activeTabId === closedTab.id;
-        tabs.splice(targetIndex, 1);
+        tabs = previousTabs.filter((_, index) => index !== targetIndex);
 
         // Add to browser history when tab is closed
         if (closedTab.url && closedTab.url !== homeTab.url) {
@@ -774,7 +842,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           const newActiveTab = tabs[newActiveTabIndex];
 
           if (newActiveTab) {
-            newActiveTab.isActive = true;
+            // Replace the entry rather than flipping isActive on the shared
+            // tab object — it is still referenced by the pre-close array.
+            tabs[newActiveTabIndex] = { ...newActiveTab, isActive: true };
             this.setCurrentWebTab.call(set, newActiveTab.id);
           } else if (platformEnv.isDesktop) {
             // if the new active tab is not in tabs, switch to Discovery (Desktop only)
@@ -860,6 +930,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (!pinnedTabs.find((tab) => tab.id === id)) {
           delete webviewRefs[id];
         }
+      }
+      // Same as closeWebTab: drop any title update still waiting on its
+      // throttle window for a tab that is going away.
+      for (const tab of tabsToClose) {
+        clearPendingTitleUpdate(tab.id);
       }
 
       loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
@@ -1505,10 +1580,65 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       }
 
+      // Trading DApps stream the live price through document.title, so
+      // `page-title-updated` fires about once a second forever. Only the URL
+      // path above is debounced, so those title-only events used to reach
+      // setWebTabData at full rate and, through buildWebTabs, replace the tab
+      // map and persist the whole tab array every second. Drop title updates
+      // that arrive inside the throttle window unless something else in this
+      // event actually changed; the tab title is refreshed again on the next
+      // event that passes, and on navigation.
+      let nextTitle = title;
+      if (title !== undefined) {
+        const isTitleOnlyUpdate =
+          !isValidNewUrl &&
+          favicon === undefined &&
+          canGoBack === undefined &&
+          canGoForward === undefined &&
+          loading === undefined;
+        const lastTitleAt = lastTitleUpdateFlags[tab.id];
+        const withinThrottleWindow =
+          Boolean(lastTitleAt) && now - lastTitleAt < TITLE_UPDATE_THROTTLE_MS;
+        if (isTitleOnlyUpdate && withinThrottleWindow) {
+          // Hold the newest title and flush it when the window closes, so the
+          // last value inside a burst is never lost.
+          const tabId = tab.id;
+          clearPendingTitleUpdate(tabId);
+          if (title && title !== tab.title) {
+            pendingTitleUpdates[tabId] = {
+              title,
+              timer: setTimeout(
+                () => {
+                  const pending = pendingTitleUpdates[tabId];
+                  delete pendingTitleUpdates[tabId];
+                  if (!pending) {
+                    return;
+                  }
+                  lastTitleUpdateFlags[tabId] = Date.now();
+                  this.setWebTabData.call(set, {
+                    id: tabId,
+                    title: pending.title,
+                  });
+                },
+                TITLE_UPDATE_THROTTLE_MS - (now - lastTitleAt),
+              ),
+            };
+          }
+          return;
+        }
+        if (title !== tab.title) {
+          // A value is going through now, so any held one is stale.
+          clearPendingTitleUpdate(tab.id);
+          lastTitleUpdateFlags[tab.id] = now;
+        } else {
+          nextTitle = undefined;
+        }
+      }
+
       this.setWebTabData.call(set, {
         displayUrl: url,
         id: tab.id,
-        title,
+        title: nextTitle,
         favicon,
         canGoBack,
         canGoForward,
