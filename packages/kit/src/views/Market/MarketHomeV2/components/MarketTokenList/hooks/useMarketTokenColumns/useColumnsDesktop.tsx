@@ -22,6 +22,15 @@ import {
   PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
+import {
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_LOGO_GAP,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -120,13 +129,13 @@ function renderLightweightTokenIdentity(record: IMarketToken) {
   return (
     <XStack
       alignItems="center"
-      gap="$3"
+      gap={MARKET_CELL_LOGO_GAP}
       userSelect="none"
       minWidth={0}
       overflow="hidden"
     >
       <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
-      <Stack flex={1} minWidth={0}>
+      <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
         <SizableText
           size="$bodyLgMedium"
           numberOfLines={1}
@@ -155,6 +164,8 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
+  // Kept for the callers that still pass it; the name column no longer
+  // branches on it now that every spot list shares one width.
   hasStock?: boolean,
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
@@ -173,23 +184,32 @@ export const useColumnsDesktop = (
     const columns = [
       {
         title: (
-          <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
+          <SizableText
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            textAlign="center"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
             #
           </SizableText>
         ) as any,
         dataIndex: 'star',
-        columnWidth: 40,
+        // No right padding: the column's trailing space IS the design's 6px gap
+        // to the name group, so the logo lands on the shared offset the other
+        // list pages use. The name column keeps its own responsive width.
+        columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
-            return (
-              <Stack pl="$2">
-                <Stack width={24} height={24} />
-              </Stack>
-            );
+            return <Stack width={MARKET_LIST_STAR_SLOT_WIDTH} height={24} />;
           }
 
           return (
-            <Stack pl="$2">
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
               {record.perpsCoin ? (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
@@ -214,9 +234,10 @@ export const useColumnsDesktop = (
         title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
+          // The watchlist keeps its own responsive width; every other spot
+          // list shares the first-column frame with Trending and Stocks.
           if (isWatchlistMode) return watchlistNameWidth;
-          if (hasStock && showStockSubtitle) return 240;
-          return 216;
+          return MARKET_LIST_NAME_COLUMN_WIDTH;
         })(),
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
@@ -239,7 +260,7 @@ export const useColumnsDesktop = (
                 tokenImageUris={record.tokenImageUris}
                 fallbackIcon="CryptoCoinOutline"
               />
-              <Stack flex={1} minWidth={0}>
+              <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
                 <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
@@ -316,9 +337,13 @@ export const useColumnsDesktop = (
       {
         title:
           change24hColumnTitle ??
-          `${intl.formatMessage({
-            id: ETranslations.dexmarket_token_change,
-          })}(%)`,
+          (isWatchlistMode
+            ? intl.formatMessage({
+                id: ETranslations.perp_token_selector_24h_change,
+              })
+            : `${intl.formatMessage({
+                id: ETranslations.dexmarket_token_change,
+              })}(%)`),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -413,9 +438,18 @@ export const useColumnsDesktop = (
             renderSkeleton: () => <Skeleton width={100} height={16} />,
           },
       {
-        title: useStockMetadataColumns
-          ? intl.formatMessage({ id: ETranslations.dexmarket_stock_pe_ttm })
-          : intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+        title: (() => {
+          if (useStockMetadataColumns) {
+            return intl.formatMessage({
+              id: ETranslations.dexmarket_stock_pe_ttm,
+            });
+          }
+          return isWatchlistMode
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })
+            : intl.formatMessage({ id: ETranslations.dexmarket_turnover });
+        })(),
         dataIndex: 'turnover',
         columnProps: { flex: 1.1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -538,7 +572,6 @@ export const useColumnsDesktop = (
     deferRichRowAfterIndex,
     gtLg,
     gtXl,
-    hasStock,
     hiddenDesktopColumns,
     hideTokenAge,
     intl,

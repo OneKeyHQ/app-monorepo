@@ -1,4 +1,11 @@
-import { memo, useContext, useMemo } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,18 +14,20 @@ import {
   SizableText,
   Stack,
   Table,
-  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import { MARKET_LIST_ROW_HEIGHT } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
@@ -26,6 +35,22 @@ import { useSyncedMarketPerpsCategory } from './hooks/useSyncedMarketPerpsCatego
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
+
+// The numeric columns the design marks sortable, keyed by their `dataIndex`.
+const PERPS_SORTABLE_FIELDS: Record<string, keyof IMarketPerpsToken> = {
+  price: 'markPrice',
+  change24h: 'change24hPercent',
+  fundingRate: 'fundingRate',
+  volume24h: 'volume24h',
+  openInterest: 'openInterest',
+};
+const PERPS_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  change24h: 168,
+  fundingRate: 112,
+  openInterest: 112,
+  price: 112,
+  volume24h: 112,
+} as const;
 
 type IMarketPerpsTokenListProps = {
   tabIntegrated?: boolean;
@@ -54,7 +79,41 @@ function MarketPerpsTokenListImpl({
     selectedCategoryId,
   });
 
-  const perpsColumns = usePerpsColumns();
+  const basePerpsColumns = usePerpsColumns();
+
+  // `/utility/v2/market/perps/token-list` has no paging at all — it answers
+  // with the whole set — so the table sorts in place.
+  const [sort, setSort] = useState<{
+    field: keyof IMarketPerpsToken;
+    order: 'asc' | 'desc';
+  }>();
+  const handleHeaderRow = useCallback(
+    (column: ITableColumn<IMarketPerpsToken>) => {
+      const field = PERPS_SORTABLE_FIELDS[String(column.dataIndex)];
+      if (!field) {
+        return undefined;
+      }
+      return {
+        onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+          setSort(order ? { field, order } : undefined);
+        },
+        initialSortOrder:
+          sort?.field === field ? (sort.order as ETableSortType) : undefined,
+      };
+    },
+    [sort],
+  );
+  const sortedTokens = useMemo(() => {
+    if (!sort) {
+      return tokens;
+    }
+    const { field, order } = sort;
+    return [...tokens].toSorted((a, b) => {
+      const aVal = Number(a[field] ?? 0);
+      const bVal = Number(b[field] ?? 0);
+      return order === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [sort, tokens]);
 
   const handleTokenPress = navigateToPerps;
 
@@ -64,11 +123,6 @@ function MarketPerpsTokenListImpl({
         categories={categoryTabs}
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={handleSelectCategory}
-        containerStyle={{
-          px: '$4',
-          pt: '$3',
-          pb: '$2',
-        }}
       />
     ),
     [categoryTabs, handleSelectCategory, selectedCategoryId],
@@ -97,6 +151,25 @@ function MarketPerpsTokenListImpl({
   }, [isLoading, tokens.length]);
 
   const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const {
+    columns: perpsColumns,
+    handleContainerLayout: handleResponsiveContainerLayout,
+  } = useMarketDesktopResponsiveColumns({
+    columns: basePerpsColumns,
+    enabled: !platformEnv.isNative && !md,
+    firstColumnCount: 2,
+    metricColumnMinimumWidths: PERPS_METRIC_COLUMN_MINIMUM_WIDTHS,
+  });
+  useEffect(() => {
+    if (
+      sort &&
+      !perpsColumns.some(
+        (column) => PERPS_SORTABLE_FIELDS[column.dataIndex] === sort.field,
+      )
+    ) {
+      setSort(undefined);
+    }
+  }, [perpsColumns, sort]);
 
   // Desktop sticky header: portal the category selector + column header
   // into the renderTabBar area so they stick when scrolling.
@@ -109,15 +182,15 @@ function MarketPerpsTokenListImpl({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp" px="$3">
-          <Stack width="100%" mb="$3">
-            {CategorySelector}
-          </Stack>
-          <Table.HeaderRow columns={perpsColumns} />
-        </YStack>
+        <MarketDesktopStickyHeader<IMarketPerpsToken>
+          toolbar={CategorySelector}
+          columns={perpsColumns}
+          onHeaderRow={handleHeaderRow}
+        />
       </StickyHeaderPortal>
     );
   }, [
+    handleHeaderRow,
     useDesktopPortal,
     isTabFocused,
     stickyPortalTarget,
@@ -135,7 +208,7 @@ function MarketPerpsTokenListImpl({
 
   const tableContentContainerStyle = tabIntegrated
     ? {
-        paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+        paddingTop: platformEnv.isNative ? 150 : 0,
         paddingBottom: integratedContentPaddingBottom,
       }
     : {
@@ -143,14 +216,18 @@ function MarketPerpsTokenListImpl({
       };
 
   return (
-    <Stack flex={1} width="100%" testID={MarketTestIDs.perpsList}>
+    <Stack
+      flex={1}
+      width="100%"
+      testID={MarketTestIDs.perpsList}
+      onLayout={handleResponsiveContainerLayout}
+    >
       {portalContent}
       {useDesktopPortal ? null : CategorySelector}
       <Stack
         flex={1}
         className="normal-scrollbar"
         style={{
-          paddingTop: 4,
           overflowX: 'auto',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
@@ -160,7 +237,7 @@ function MarketPerpsTokenListImpl({
             <Table.Skeleton
               columns={perpsColumns}
               count={20}
-              rowProps={{ minHeight: '$14' }}
+              rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
             />
           ) : (
             <Table<IMarketPerpsToken>
@@ -170,9 +247,10 @@ function MarketPerpsTokenListImpl({
               tabIntegrated={tabIntegrated}
               scrollEnabled={!webTabIntegrated}
               columns={perpsColumns}
-              dataSource={tokens}
+              dataSource={sortedTokens}
               keyExtractor={(item) => item.name}
-              estimatedItemSize="$14"
+              rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
+              estimatedItemSize={MARKET_LIST_ROW_HEIGHT}
               extraData={hasRealTimeData}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}

@@ -16,7 +16,6 @@ import {
   Spinner,
   Stack,
   Table,
-  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -43,10 +42,12 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import {
   applyMarketTokenListLiveOverrides,
@@ -59,10 +60,15 @@ import { type IMarketToken } from './MarketTokenData';
 import {
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  sortMarketTokenListData,
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
 import type { IMarketTimeRangeValue } from '../../types';
+import type {
+  IMarketSortOrder,
+  IMarketSortState,
+} from '../MarketSplitSortHeader';
 
 const SPINNER_HEIGHT = 52;
 const MARKET_HOME_MOBILE_ROW_HEIGHT_PX = 60;
@@ -81,13 +87,11 @@ const MARKET_HOME_WEB_DESKTOP_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: '72px',
 } satisfies CSSProperties;
-// Watchlist mode: only these 3 columns are sortable (server-side sort)
-const SORTABLE_COLUMNS = {
-  liquidity: 'liquidity',
-  marketCap: 'mc',
-  turnover: 'v24hUSD',
+const MARKET_TOKEN_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  marketCapPrice: 136,
+  change24h: 120,
+  turnover: 112,
 } as const;
-
 // Client sort mode is used by banner detail and only supports 24h change.
 const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
   change24h: 'change24h',
@@ -98,13 +102,20 @@ const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
   change24h: 'change24h',
 };
 
-const TRENDING_SORTABLE_COLUMNS: Record<string, string> = {
-  marketCapPrice: 'mc',
-  change24h: 'priceChangePercent',
+// `/utility/v2/market/token/list` ignores `limit` and answers with the whole
+// set (100 rows, `total` matching), and every value the trending columns show
+// is already on the row, resolved to the selected time range. So the desktop
+// trending table sorts in place rather than round-tripping a `sortBy` the
+// endpoint only accepts four values for.
+const TRENDING_CLIENT_SORT_FIELDS: Record<string, keyof IMarketToken> = {
+  change24h: 'change24h',
   liquidity: 'liquidity',
-  transactions: 'tradeCount',
-  turnover: 'v24hUSD',
+  transactions: 'transactions',
+  turnover: 'turnover',
 };
+
+// The MCap/Price column is absent above: its header carries two controls of
+// its own, keyed by `marketCap` and `price`.
 
 // Map sort keys to ESortWay enum values for logging
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
@@ -355,22 +366,50 @@ function MarketTokenListBase({
     canEnableWebSocket &&
     (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
-  const orderedData = useMemo(() => {
+  // Desktop trending sorts the full response in place; see
+  // `TRENDING_CLIENT_SORT_FIELDS`.
+  const [trendingSort, setTrendingSort] = useState<IMarketSortState>({});
+  const handleTrendingSort = useCallback(
+    (field: string, order: IMarketSortOrder) => {
+      setTrendingSort(order ? { field, order } : {});
+    },
+    [],
+  );
+
+  const activeClientSort = useMemo(() => {
+    if (trendingSort.field && trendingSort.order) {
+      return {
+        field: trendingSort.field as keyof IMarketToken,
+        order: trendingSort.order,
+      };
+    }
+
     if (!clientSort || !currentSortBy || !currentSortType) {
-      return rawData;
+      return undefined;
     }
 
     const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
     if (!field) {
-      return rawData;
+      return undefined;
     }
 
-    return [...rawData].toSorted((a, b) => {
-      const aVal = (a[field] as number) ?? 0;
-      const bVal = (b[field] as number) ?? 0;
-      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
-    });
-  }, [clientSort, currentSortBy, currentSortType, rawData]);
+    return { field, order: currentSortType };
+  }, [
+    clientSort,
+    currentSortBy,
+    currentSortType,
+    trendingSort.field,
+    trendingSort.order,
+  ]);
+  const orderedData = useMemo(
+    () =>
+      sortMarketTokenListData({
+        data: rawData,
+        field: activeClientSort?.field,
+        order: activeClientSort?.order,
+      }),
+    [activeClientSort, rawData],
+  );
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
@@ -514,22 +553,58 @@ function MarketTokenListBase({
   const trendingColumnsDesktop = useTrendingColumnsDesktop({
     networkId,
     timeRange,
+    sort: trendingSort,
+    onSort: handleTrendingSort,
   });
-  const marketTokenColumns =
-    desktopColumnVariant === 'trending' && !md
-      ? trendingColumnsDesktop
-      : defaultMarketTokenColumns;
+  const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
+  const baseMarketTokenColumns = useTrendingDesktopColumns
+    ? trendingColumnsDesktop
+    : defaultMarketTokenColumns;
+  const {
+    columns: marketTokenColumns,
+    handleContainerLayout: handleResponsiveContainerLayout,
+  } = useMarketDesktopResponsiveColumns({
+    columns: baseMarketTokenColumns,
+    enabled: !platformEnv.isNative && !md,
+    firstColumnCount: 2,
+    metricColumnMinimumWidths: MARKET_TOKEN_METRIC_COLUMN_MINIMUM_WIDTHS,
+  });
+  useEffect(() => {
+    if (!useTrendingDesktopColumns || !trendingSort.field) {
+      return;
+    }
+    const visibleDataIndex =
+      trendingSort.field === 'marketCap' || trendingSort.field === 'price'
+        ? 'marketCapPrice'
+        : trendingSort.field;
+    if (
+      !marketTokenColumns.some(
+        (column) => column.dataIndex === visibleDataIndex,
+      )
+    ) {
+      setTrendingSort({});
+    }
+  }, [marketTokenColumns, trendingSort.field, useTrendingDesktopColumns]);
+  // Trending desktop rows expose a hover group so the name cell can swap the
+  // token age for the contract address. Only data rows opt in: `rowProps` below
+  // is shared with the header row, which must not become a hover group.
+  const rowHoverGroupName = useTrendingDesktopColumns
+    ? MARKET_TOKEN_ROW_GROUP_NAME
+    : undefined;
 
   const data = useMemo(() => {
-    if (!liveTokenOverride) {
-      return websocketData;
-    }
-
-    return applyMarketTokenListLiveOverrides({
-      tokens: websocketData,
-      liveTokenOverrides: [liveTokenOverride],
+    const dataWithLiveOverrides = liveTokenOverride
+      ? applyMarketTokenListLiveOverrides({
+          tokens: websocketData,
+          liveTokenOverrides: [liveTokenOverride],
+        })
+      : websocketData;
+    return sortMarketTokenListData({
+      data: dataWithLiveOverrides,
+      field: activeClientSort?.field,
+      order: activeClientSort?.order,
     });
-  }, [websocketData, liveTokenOverride]);
+  }, [activeClientSort, websocketData, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -591,7 +666,11 @@ function MarketTokenListBase({
     (column: ITableColumn<IMarketToken>) => {
       const isTrendingDesktopColumns =
         desktopColumnVariant === 'trending' && !md;
-      if (!isWatchlistMode && !clientSort && !isTrendingDesktopColumns) {
+      // The watchlist is ordered by drag, so its headers never sort.
+      if (isWatchlistMode) {
+        return undefined;
+      }
+      if (!clientSort && !isTrendingDesktopColumns) {
         return undefined;
       }
 
@@ -602,15 +681,26 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Client sort mode is used by banner detail for 24h change sorting.
-      // Watchlist and Trending use their own server-side sort key maps.
-      let columnsMap: Record<string, string> = SORTABLE_COLUMNS;
-      if (clientSort) {
-        columnsMap = CLIENT_SORTABLE_COLUMNS;
-      } else if (isTrendingDesktopColumns) {
-        columnsMap = TRENDING_SORTABLE_COLUMNS;
+      // Desktop trending sorts the loaded set in place. The MCap/Price column
+      // is absent from the map because its header owns two controls of its own.
+      if (isTrendingDesktopColumns) {
+        const field = TRENDING_CLIENT_SORT_FIELDS[String(column.dataIndex)];
+        if (!field) {
+          return undefined;
+        }
+        return {
+          onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+            handleTrendingSort(field, order);
+          },
+          initialSortOrder:
+            trendingSort.field === field
+              ? (trendingSort.order as ETableSortType)
+              : undefined,
+        };
       }
-      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
+
+      // Client sort mode is used by banner detail for 24h change sorting.
+      const sortKey = CLIENT_SORTABLE_COLUMNS[String(column.dataIndex)];
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
@@ -628,10 +718,13 @@ function MarketTokenListBase({
     },
     [
       handleSortChange,
+      handleTrendingSort,
       isWatchlistMode,
       clientSort,
       currentSortBy,
       currentSortType,
+      trendingSort.field,
+      trendingSort.order,
       useStockMetadataColumns,
       desktopColumnVariant,
       md,
@@ -701,6 +794,7 @@ function MarketTokenListBase({
           : undefined,
         rowProps: {
           testID: MarketTestIDs.tokenRow(item.symbol),
+          ...(rowHoverGroupName ? { group: rowHoverGroupName } : undefined),
           ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
@@ -716,6 +810,7 @@ function MarketTokenListBase({
       debugSubscriptionRangeEnd,
       debugSubscriptionRangeStart,
       navigateToPerps,
+      rowHoverGroupName,
       showWebSocketDebugRows,
       toMarketDetailPage,
     ],
@@ -812,26 +907,12 @@ function MarketTokenListBase({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack
-          // Must resolve to the same frame as the rows this header labels,
-          // otherwise the column titles drift once the header sticks.
-          {...(centerDesktopPortalContent
-            ? MARKET_DESKTOP_CONTENT_FRAME_PROPS
-            : { width: '100%' as const })}
-          bg="$bgApp"
-          px={centerDesktopPortalContent ? '$3' : '$4'}
-        >
-          {toolbar ? (
-            <Stack width="100%" mb="$3">
-              {toolbar}
-            </Stack>
-          ) : null}
-          <Table.HeaderRow
-            columns={marketTokenColumns}
-            onHeaderRow={stableHandleHeaderRow}
-            headerRowProps={{ height: 36 }}
-          />
-        </YStack>
+        <MarketDesktopStickyHeader<IMarketToken>
+          toolbar={toolbar}
+          columns={marketTokenColumns}
+          onHeaderRow={stableHandleHeaderRow}
+          centered={centerDesktopPortalContent}
+        />
       </StickyHeaderPortal>
     );
   }, [
@@ -855,7 +936,7 @@ function MarketTokenListBase({
 
   const tableContentContainerStyle = tabIntegrated
     ? {
-        paddingTop: 4 + (platformEnv.isNative ? 195 : 0),
+        paddingTop: platformEnv.isNative ? 195 : 0,
         paddingBottom: integratedContentPaddingBottom,
       }
     : {
@@ -894,7 +975,13 @@ function MarketTokenListBase({
   }, [md, rowBg, webTabIntegrated]);
 
   return (
-    <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
+    <Stack
+      ref={listRootRef as any}
+      flex={1}
+      width="100%"
+      testID={testID}
+      onLayout={handleResponsiveContainerLayout}
+    >
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
       {!useDesktopPortal ? toolbar : null}
@@ -904,7 +991,6 @@ function MarketTokenListBase({
         flex={1}
         className="normal-scrollbar"
         style={{
-          paddingTop: 4,
           overflowX: 'auto',
           // Explicitly set overflowY to prevent browsers from implicitly
           // changing it to 'auto' (CSS spec: setting one overflow axis to

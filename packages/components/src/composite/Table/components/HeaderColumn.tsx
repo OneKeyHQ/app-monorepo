@@ -45,6 +45,10 @@ function HeaderColumn<T>({
     }
   }, [dataIndex, selectedColumnName]);
 
+  useEffect(() => {
+    setSortOrder(events?.initialSortOrder);
+  }, [events?.initialSortOrder]);
+
   const handleColumnPress = useCallback(() => {
     events?.onPress?.();
     if (!enableSortType) {

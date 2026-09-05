@@ -254,7 +254,7 @@ describe('MarketTokenSelector stock default category', () => {
     ];
   });
 
-  it('adds Top Coins before Stocks and renders its selector data', async () => {
+  it('adds Top Coins after Stocks and renders its selector data', async () => {
     renderOpenStockSelector();
 
     const topCoinsTab = screen.getByTestId(
@@ -262,7 +262,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
     const stocksTab = screen.getByTestId('market-token-selector-tab-stocks');
     expect(
-      topCoinsTab.compareDocumentPosition(stocksTab) &
+      stocksTab.compareDocumentPosition(topCoinsTab) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 

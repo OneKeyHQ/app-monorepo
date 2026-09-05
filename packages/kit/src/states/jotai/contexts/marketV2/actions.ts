@@ -541,11 +541,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: params,
-        callerName: 'jotaiContextActions_addIntoWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+          watchList: params,
+          callerName: 'jotaiContextActions_addIntoWatchListV2',
+        });
+      } catch (error) {
+        set(marketWatchListV2Atom(), prev);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
       // Record MARKET task completion for rookie guide
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
@@ -580,11 +584,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId, contractAddress }],
-        callerName: 'jotaiContextActions_removeFromWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+          items: [{ chainId, contractAddress }],
+          callerName: 'jotaiContextActions_removeFromWatchListV2',
+        });
+      } catch (error) {
+        set(marketWatchListV2Atom(), prev);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
     },
   );
@@ -616,10 +624,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: [item],
-        callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+          watchList: [item],
+          callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
+        });
+      } catch (error) {
+        set(marketWatchListV2Atom(), prev);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
 
       // Sync to Perps TokenSelector favorites
@@ -641,10 +654,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       const newData = prev.data.filter((item) => item.perpsCoin !== perpsCoin);
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId: '', contractAddress: '', perpsCoin }],
-        callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+          items: [{ chainId: '', contractAddress: '', perpsCoin }],
+          callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
+        });
+      } catch (error) {
+        set(marketWatchListV2Atom(), prev);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
 
       // Sync to Perps TokenSelector favorites

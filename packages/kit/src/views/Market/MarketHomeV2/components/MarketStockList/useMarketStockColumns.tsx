@@ -13,29 +13,54 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ISizableTextProps, ITableColumn } from '@onekeyhq/components';
+import type {
+  ISizableTextProps,
+  IStackProps,
+  ITableColumn,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  MARKET_LIST_FIRST_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
+import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
+import { MARKET_CELL_SUBTITLE_SIZE } from '../MarketListCell';
+import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
+
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
-// Column widths follow the 760px design grid: a 150px company column plus 122px
-// metric columns. Widths are derived from those units so that hiding a metric
-// column redistributes the freed space instead of leaving a gap in the row.
-const COMPANY_COLUMN_UNITS = 150;
-const METRIC_COLUMN_UNITS = 122;
+
+// `$bodyMd`'s line box: the company name and the variant summary share it so
+// the hover slide lands cleanly on the second line.
+const STOCK_SUBTITLE_LINE_HEIGHT = 20;
 const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
+
+const COMPACT_METRIC_COLUMN_PROPS: IStackProps = {
+  flexShrink: 0,
+  px: '$2',
+};
+
+const FLEX_METRIC_COLUMN_PROPS: IStackProps = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+};
 
 function getStockColumnWidths(
   metricColumnCount: number,
   compact: boolean,
 ): {
-  companyColumnWidth: `${number}%`;
+  companyColumnWidth: `${number}%` | number;
   metricColumnWidth: `${number}%`;
+  metricColumnProps: IStackProps;
 } {
   if (compact) {
     return {
@@ -43,13 +68,16 @@ function getStockColumnWidths(
       metricColumnWidth: `${
         (100 - COMPACT_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
       }%`,
+      metricColumnProps: COMPACT_METRIC_COLUMN_PROPS,
     };
   }
-  const totalUnits =
-    COMPANY_COLUMN_UNITS + METRIC_COLUMN_UNITS * metricColumnCount;
+  // The design splits the row into a fixed 240 `Left Fixed` company column and
+  // a `Right Flex` region the metric columns share evenly. `flexBasis: 0` makes
+  // that split independent of each column's own content width.
   return {
-    companyColumnWidth: `${(COMPANY_COLUMN_UNITS / totalUnits) * 100}%`,
-    metricColumnWidth: `${(METRIC_COLUMN_UNITS / totalUnits) * 100}%`,
+    companyColumnWidth: MARKET_LIST_FIRST_COLUMN_WIDTH,
+    metricColumnWidth: `${100 / metricColumnCount}%`,
+    metricColumnProps: FLEX_METRIC_COLUMN_PROPS,
   };
 }
 
@@ -65,11 +93,6 @@ function MissingValue({
   );
 }
 
-const metricColumnProps = {
-  flexShrink: 0,
-  px: '$2',
-} as const;
-
 export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
@@ -82,17 +105,15 @@ export function useMarketStockColumns({
   const intl = useIntl();
 
   return useMemo(() => {
-    const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
-      showSparkline ? 5 : 4,
-      compact,
-    );
+    const { companyColumnWidth, metricColumnWidth, metricColumnProps } =
+      getStockColumnWidths(showSparkline ? 5 : 4, compact);
     const metricTextSize = compact ? '$bodyMdMedium' : '$bodyLgMedium';
     const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
-          <XStack alignItems="center" gap="$1.5">
+          <XStack alignItems="center" gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}>
             <SizableText
-              width={24}
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
               textAlign="center"
               color="$textSubdued"
               size="$bodySmMedium"
@@ -113,9 +134,13 @@ export function useMarketStockColumns({
             minWidth={0}
             overflow="hidden"
             alignItems="center"
-            gap="$1.5"
+            gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}
           >
-            <Stack width={24} alignItems="center" justifyContent="center">
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
             <XStack
@@ -138,14 +163,42 @@ export function useMarketStockColumns({
                 >
                   {record.symbol}
                 </SizableText>
-                <SizableText
-                  size={compact ? '$bodySm' : '$bodyMd'}
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {record.name}
-                </SizableText>
+                <MarketHoverRevealLine
+                  lineHeight={STOCK_SUBTITLE_LINE_HEIGHT}
+                  resting={
+                    <SizableText
+                      height={STOCK_SUBTITLE_LINE_HEIGHT}
+                      size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {record.name}
+                    </SizableText>
+                  }
+                  revealed={
+                    record.variants?.length && !compact ? (
+                      <XStack
+                        height={STOCK_SUBTITLE_LINE_HEIGHT}
+                        alignItems="center"
+                        gap="$1"
+                        minWidth={0}
+                      >
+                        <SizableText
+                          size={MARKET_CELL_SUBTITLE_SIZE}
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {intl.formatMessage(
+                            { id: ETranslations.market_number_tokens },
+                            { number: record.variants.length },
+                          )}
+                        </SizableText>
+                        <MarketVariantLogoGroup variants={record.variants} />
+                      </XStack>
+                    ) : undefined
+                  }
+                />
               </YStack>
             </XStack>
           </XStack>
@@ -174,7 +227,9 @@ export function useMarketStockColumns({
                 dashThickness={0.5}
                 dashSpacing={0}
                 color="$textSubdued"
-                cursor="help"
+                // The header still sorts on press; the dashes and the tooltip
+                // are the hover affordance, so the cursor stays a pointer.
+                cursor="pointer"
               >
                 {intl.formatMessage({ id: ETranslations.global_price })}
               </DashText>
