@@ -436,6 +436,25 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.errorReason).toBe('rejected');
   });
 
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
+  ])('leaves the stage when the pairing dialog owns error %s', async (code) => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code,
+      },
+    });
+
+    expect(stage?.step).toBe('off');
+  });
+
   it('hands the stage over between explicit holders without leaking a layer', async () => {
     // The second holder supersedes the first: the first's layer has to
     // leave with its token, or its stale endExplicit releases nothing and

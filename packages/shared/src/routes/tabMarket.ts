@@ -30,6 +30,9 @@ export type IMarketTokenDetailRouteParams = {
 
 export type IMarketStockDetailRouteParams = {
   stockId: string;
+  stockPreviewSymbol?: string;
+  stockPreviewName?: string;
+  stockPreviewLogoUrl?: string;
   tokenAddress?: string;
   network?: string;
   isNative?: boolean;

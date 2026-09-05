@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
@@ -37,7 +40,17 @@ const getDeduplicationId = (
   return { id: undefined, forceDeduplicate: false };
 };
 
+// These errors may cross from a runtime without an intl instance. Other keys
+// can require interpolation values that are not part of the toast payload.
+const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
+  ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+  ETranslations.hardware_device_passphrase_state_error,
+  ETranslations.hardware_device_pin_state_error,
+]);
+
 export function ErrorToastContainer() {
+  const intl = useIntl();
+
   useEffect(
     () =>
       subscribeNativeStorageContractViolations((violation) => {
@@ -87,8 +100,13 @@ export function ErrorToastContainer() {
         i18nKey: p.i18nKey,
       });
 
+      const title =
+        p.i18nKey && MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey)
+          ? intl.formatMessage({ id: p.i18nKey, defaultMessage: p.title })
+          : p.title;
+
       Toast[p.method]({
-        title: p.title,
+        title,
         message: p.message,
         // icon is string in event bus (shared can't import IKeyOfIcons from components)
         icon: p.icon as any,
@@ -101,7 +119,7 @@ export function ErrorToastContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowToast, fn);
     };
-  }, []);
+  }, [intl]);
 
   return null;
 }
