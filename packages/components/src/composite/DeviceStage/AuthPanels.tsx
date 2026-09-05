@@ -29,8 +29,8 @@ import type { IAuthChecklistItem, IAuthFailureReason } from './type';
  * verified (green check, the result value — linked to its release page
  * when one exists), or failed (red cross + Failed). The failure card
  * fronts a critical icon where the staged steps front the replica. A
- * failed authenticity check only retains the legacy hidden developer
- * override for unofficial-device and unofficial-firmware verdicts.
+ * failed authenticity check allows an unverified developer override.
+ * Outside developer mode, only unofficial verdicts keep the hidden entry.
  */
 
 function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
@@ -110,6 +110,7 @@ export function AuthFailureCard({
   checklist,
   onSupport,
   onRetry,
+  allowDevSkip = false,
   onContinueAnyway,
   resetSignal,
 }: {
@@ -118,6 +119,7 @@ export function AuthFailureCard({
   checklist?: IAuthChecklistItem[];
   onSupport?: () => void;
   onRetry?: () => void;
+  allowDevSkip?: boolean;
   onContinueAnyway?: () => void;
   resetSignal?: number;
 }) {
@@ -193,8 +195,9 @@ export function AuthFailureCard({
               ) : null}
             </YStack>
           ) : null}
-          {allowsDevSkip &&
-          (platformEnv.isDev || devSkipUnlocked) &&
+          {(platformEnv.isDev ||
+            allowDevSkip ||
+            (allowsDevSkip && devSkipUnlocked)) &&
           onContinueAnyway ? (
             <Button
               testID="device-stage-auth-dev-skip"

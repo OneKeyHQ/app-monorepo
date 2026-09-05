@@ -49,7 +49,7 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * `authChecklist`) is verified, then a landing. The three staged steps
  * keep the replica on stage as the confirm miniature, screens per the
  * scene map; `authFailure` fronts an icon instead of the replica, worded
- * by `authFailureReason`, and only offers retry or support actions.
+ * by `authFailureReason`, with retry/support and a developer override.
  *
  * The rest of the vocabulary is the third-party track — Trezor and
  * Ledger flows, worn by the same stage with `vendor` set. Those devices
@@ -346,7 +346,9 @@ export interface IDeviceStageProps {
   onAuthSupport?: () => void;
   /** The recoverable failures' first action — run the check again. */
   onAuthRetry?: () => void;
-  /** @deprecated Authentication failures cannot be bypassed. */
+  /** Allow manual continuation after any failed check in developer mode. */
+  allowAuthDevSkip?: boolean;
+  /** Continue unverified through the developer or legacy hidden override. */
   onAuthContinueAnyway?: () => void;
   /**
    * The error step's single recovery action — retry, reconnect — on its

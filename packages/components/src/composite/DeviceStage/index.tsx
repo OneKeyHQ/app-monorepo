@@ -476,6 +476,7 @@ export function DeviceStage({
   authFailureReason,
   onAuthSupport,
   onAuthRetry,
+  allowAuthDevSkip,
   onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
@@ -1672,6 +1673,7 @@ export function DeviceStage({
             checklist={authChecklist}
             onSupport={onAuthSupport}
             onRetry={onAuthRetry}
+            allowDevSkip={allowAuthDevSkip}
             onContinueAnyway={onAuthContinueAnyway}
             resetSignal={authFailureEpoch}
           />
@@ -1683,6 +1685,7 @@ export function DeviceStage({
       authChecklist,
       authFailureReason,
       authFailureEpoch,
+      allowAuthDevSkip,
       onAuthContinueAnyway,
       onAuthRetry,
       onAuthSupport,

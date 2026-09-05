@@ -56,8 +56,9 @@ jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: 'HyperlinkText',
 }));
 
+let mockDeveloperMode = false;
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [{ enabled: mockDeveloperMode }],
 }));
 
 let mockIsDev = false;
@@ -112,6 +113,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       deviceStageJoinBurst: jest.fn(async () => undefined),
       deviceStageLeaveBurst: jest.fn(async () => undefined),
       deviceStageNoteAuthResolved: () => mockDeviceStageNoteAuthResolved(),
+      deviceStageNoteError: jest.fn(async () => undefined),
       deviceStageNoteAuthStep: (params: unknown) =>
         mockDeviceStageNoteAuthStep(params),
     },
@@ -146,6 +148,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   },
 }));
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -169,6 +172,11 @@ import {
   type IFirmwareVerifyDialogHost,
   useFirmwareVerifyDialog,
 } from './FirmwareVerifyDialog';
+
+beforeEach(() => {
+  mockIsDev = false;
+  mockDeveloperMode = false;
+});
 
 describe('legacy firmware verification recovery', () => {
   beforeEach(() => {
@@ -337,6 +345,117 @@ describe('DeviceStage certificate error classification', () => {
     mockFirmwareAuthenticate.mockReset();
   });
 
+  describe.each([
+    { name: 'development build', isDev: true, developerMode: false },
+    { name: 'App developer mode', isDev: false, developerMode: true },
+  ])('$name', ({ isDev, developerMode }) => {
+    it.each([
+      {
+        code: HardwareErrorCode.RuntimeError,
+        message: 'Failure_ProcessError,SE request failed',
+      },
+      {
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: 503,
+        message: 'Service Unavailable',
+      },
+      { code: 'ECONNABORTED', message: 'timeout of 30000ms exceeded' },
+      { code: HardwareErrorCode.NetworkError, message: 'Network error' },
+      {
+        code: HardwareErrorCode.DefectiveFirmware,
+        message: 'Defective firmware',
+      },
+    ])(
+      'only continues unverified after manual skip for $message',
+      async (error) => {
+        mockIsDev = isDev;
+        mockDeveloperMode = developerMode;
+        mockFirmwareAuthenticate.mockRejectedValueOnce(error);
+        const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+        let verification: Promise<unknown> | undefined;
+        await act(async () => {
+          verification = result.current.runDeviceStageFirmwareVerify({
+            device: {
+              connectId: 'connect-id',
+              deviceType: 'pro2',
+            } as IDBDevice,
+            features: undefined,
+          });
+        });
+        expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+        expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
+        expect(mockVerifyFirmwareHash).not.toHaveBeenCalled();
+        await act(async () => {
+          appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+            action: 'continueAnyway',
+          });
+          await expect(verification).resolves.toEqual({ checked: false });
+        });
+        expect(mockDeviceStageNoteAuthResolved).toHaveBeenCalledTimes(1);
+        expect(mockDeviceStageNoteAuthStep).not.toHaveBeenCalledWith(
+          expect.objectContaining({ step: 'authSuccess' }),
+        );
+      },
+    );
+  });
+
+  it('uses current developer mode while a failed verification is waiting', async () => {
+    mockDeveloperMode = true;
+    mockFirmwareAuthenticate.mockRejectedValueOnce({
+      code: HardwareErrorCode.RuntimeError,
+      message: 'Failure_ProcessError,SE request failed',
+    });
+    const { result, rerender } = renderHook(() =>
+      useDeviceStageFirmwareVerify(),
+    );
+    let verification: Promise<unknown> | undefined;
+    await act(async () => {
+      verification = result.current.runDeviceStageFirmwareVerify({
+        device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
+        features: undefined,
+      });
+    });
+    mockDeveloperMode = false;
+    rerender();
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+        action: 'continueAnyway',
+      });
+    });
+    expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+    mockDeveloperMode = true;
+    rerender();
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+        action: 'continueAnyway',
+      });
+      await expect(verification).resolves.toEqual({ checked: false });
+    });
+    expect(mockDeviceStageNoteAuthResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([HardwareErrorCode.PinInvalid, HardwareErrorCode.ActionCancelled])(
+    'still aborts for error %s even with developer privileges',
+    async (code) => {
+      mockIsDev = true;
+      mockDeveloperMode = true;
+      mockFirmwareAuthenticate.mockRejectedValueOnce({ code });
+      const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+      await act(async () => {
+        await expect(
+          result.current.runDeviceStageFirmwareVerify({
+            device: {
+              connectId: 'connect-id',
+              deviceType: 'pro2',
+            } as IDBDevice,
+            features: undefined,
+          }),
+        ).resolves.toEqual({ checked: false, closed: true });
+      });
+      expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['unofficialDevice', 'unofficialFirmware'])(
     'continues unverified after the developer override for %s',
     async (reason) => {
@@ -398,6 +517,19 @@ describe('DeviceStage certificate error classification', () => {
       error: { code: 'ECONNABORTED', message: 'timeout of 30000ms exceeded' },
       reason: 'unknown',
     },
+    {
+      name: 'SE request failure',
+      error: {
+        code: HardwareErrorCode.RuntimeError,
+        message: 'Failure_ProcessError,SE request failed',
+      },
+      reason: 'unknown',
+    },
+    {
+      name: 'defective firmware',
+      error: { code: HardwareErrorCode.DefectiveFirmware },
+      reason: 'defective',
+    },
   ])('classifies $name without continuing verification', async (scenario) => {
     if ('error' in scenario) {
       mockFirmwareAuthenticate.mockRejectedValueOnce(scenario.error);
@@ -457,35 +589,59 @@ describe('EnumBasicDialogContentContainer', () => {
     EFirmwareAuthenticationDialogContentType.error_fallback,
     EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
   ])(
-    'limits the visible development override for %s to unofficial verdicts',
+    'allows both developer modes to skip %s while keeping normal production blocked',
     (contentType) => {
-      mockIsDev = true;
       const onDevSkipVerificationPress = jest.fn();
-      render(
+      const renderContent = () => (
         <EnumBasicDialogContentContainer
           contentType={contentType}
           errorObj={{ code: 0 }}
           onDevSkipVerificationPress={onDevSkipVerificationPress}
-        />,
+        />
       );
-      const skipButton = screen.queryByText(
-        'Skip it And Create Wallet(Only in Dev)',
+      const { rerender } = render(renderContent());
+      expect(
+        screen.queryByText('Skip it And Create Wallet(Only in Dev)'),
+      ).toBeNull();
+      mockDeveloperMode = true;
+      rerender(renderContent());
+      fireEvent.click(
+        screen.getByText('Skip it And Create Wallet(Only in Dev)'),
       );
-      if (
-        contentType ===
-          EFirmwareAuthenticationDialogContentType.unofficial_device_detected ||
-        contentType ===
-          EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected
-      ) {
-        expect(skipButton).toBeTruthy();
-        fireEvent.click(skipButton as HTMLElement);
-        expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(1);
-      } else {
-        expect(skipButton).toBeNull();
-      }
-      mockIsDev = false;
+      expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(1);
+      mockDeveloperMode = false;
+      rerender(renderContent());
+      expect(
+        screen.queryByText('Skip it And Create Wallet(Only in Dev)'),
+      ).toBeNull();
+      mockIsDev = true;
+      rerender(renderContent());
+      fireEvent.click(
+        screen.getByText('Skip it And Create Wallet(Only in Dev)'),
+      );
+      expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(2);
     },
   );
+
+  it.each([
+    EFirmwareAuthenticationDialogContentType.default,
+    EFirmwareAuthenticationDialogContentType.verifying,
+    EFirmwareAuthenticationDialogContentType.verification_verify,
+    EFirmwareAuthenticationDialogContentType.verification_successful,
+  ])('does not offer skip before a failed verdict (%s)', (contentType) => {
+    mockDeveloperMode = true;
+    mockIsDev = true;
+    render(
+      <EnumBasicDialogContentContainer
+        contentType={contentType}
+        errorObj={{ code: 0 }}
+        onDevSkipVerificationPress={jest.fn()}
+      />,
+    );
+    expect(
+      screen.queryByText('Skip it And Create Wallet(Only in Dev)'),
+    ).toBeNull();
+  });
 
   it('reserves unofficial copy for explicit authenticity failures', () => {
     const { rerender } = render(

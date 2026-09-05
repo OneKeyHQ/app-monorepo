@@ -20,6 +20,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type OneKeyError,
   type OneKeyServerApiError,
@@ -523,7 +524,25 @@ export function EnumBasicDialogContentContainer({
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
   const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
-  const canDevSkip = platformEnv.isDev || devSkipUnlocked;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isUnofficial =
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.unofficial_device_detected ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected;
+  const isFailure =
+    isUnofficial ||
+    contentType === EFirmwareAuthenticationDialogContentType.network_error ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable ||
+    contentType === EFirmwareAuthenticationDialogContentType.error_fallback ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.defective_firmware_detected;
+  const canDevSkip =
+    isFailure &&
+    (platformEnv.isDev ||
+      devSettings.enabled ||
+      (isUnofficial && devSkipUnlocked));
 
   useEffect(() => {
     setDevSkipUnlocked(false);
@@ -699,14 +718,6 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {canDevSkip && onDevSkipVerificationPress ? (
-              <Button
-                testID="onboarding-dev-skip-verification-btn"
-                onPress={onDevSkipVerificationPress}
-              >
-                Skip it And Create Wallet(Only in Dev)
-              </Button>
-            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected:
@@ -745,14 +756,6 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {canDevSkip && onDevSkipVerificationPress ? (
-              <Button
-                testID="onboarding-dev-skip-verification-btn"
-                onPress={onDevSkipVerificationPress}
-              >
-                Skip it And Create Wallet(Only in Dev)
-              </Button>
-            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
@@ -879,10 +882,20 @@ export function EnumBasicDialogContentContainer({
     versionCompareResult,
     onActionPress,
     dialogInstance,
-    canDevSkip,
-    onDevSkipVerificationPress,
   ]);
-  return <YStack>{content}</YStack>;
+  return (
+    <YStack>
+      {content}
+      {canDevSkip && onDevSkipVerificationPress ? (
+        <Button
+          testID="onboarding-dev-skip-verification-btn"
+          onPress={onDevSkipVerificationPress}
+        >
+          Skip it And Create Wallet(Only in Dev)
+        </Button>
+      ) : null}
+    </YStack>
+  );
 }
 
 export function FirmwareAuthenticationDialogContent({

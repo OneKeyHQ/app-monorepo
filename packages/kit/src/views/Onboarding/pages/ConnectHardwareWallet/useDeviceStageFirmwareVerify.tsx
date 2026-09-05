@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -87,6 +89,9 @@ function rowsAtCertificate({
 
 export function useDeviceStageFirmwareVerify() {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const devSkipAllowedRef = useRef(false);
+  devSkipAllowedRef.current = platformEnv.isDev || devSettings.enabled;
 
   const runDeviceStageFirmwareVerify = useCallback(
     async ({
@@ -341,8 +346,8 @@ export function useDeviceStageFirmwareVerify() {
         };
 
         // Retry runs the whole check again. Support opens the help channel
-        // and leaves the card standing. Only explicit unofficial verdicts
-        // retain the legacy hidden developer override, never a verified result.
+        // and leaves the card standing. Developer overrides always continue
+        // unverified; outside developer mode only unofficial verdicts allow it.
         for (;;) {
           const outcome = await runOnce();
           if (outcome === 'verified') {
@@ -371,7 +376,10 @@ export function useDeviceStageFirmwareVerify() {
               }
               if (
                 next !== 'retry' &&
-                !(next === 'continueAnyway' && allowsDevSkip)
+                !(
+                  next === 'continueAnyway' &&
+                  (allowsDevSkip || devSkipAllowedRef.current)
+                )
               ) {
                 return;
               }

@@ -123,16 +123,39 @@ describe('AuthFailureCard fail-closed actions', () => {
     'unknown',
     'defective',
   ] as const)(
-    'limits the visible development override for %s to unofficial verdicts',
+    'allows developer overrides for %s without exposing them in normal production',
     (reason) => {
+      const onContinueAnyway = jest.fn();
+      const { rerender } = render(
+        <AuthFailureCard reason={reason} onContinueAnyway={onContinueAnyway} />,
+      );
+      expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+
+      rerender(
+        <AuthFailureCard
+          reason={reason}
+          allowDevSkip
+          onContinueAnyway={onContinueAnyway}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('device-stage-auth-dev-skip'));
+      expect(onContinueAnyway).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <AuthFailureCard
+          reason={reason}
+          allowDevSkip={false}
+          onContinueAnyway={onContinueAnyway}
+        />,
+      );
+      expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+
       mockIsDev = true;
-      render(<AuthFailureCard reason={reason} onContinueAnyway={jest.fn()} />);
-      const button = screen.queryByTestId('device-stage-auth-dev-skip');
-      if (reason === 'unofficialDevice' || reason === 'unofficialFirmware') {
-        expect(button).toBeTruthy();
-      } else {
-        expect(button).toBeNull();
-      }
+      rerender(
+        <AuthFailureCard reason={reason} onContinueAnyway={onContinueAnyway} />,
+      );
+      fireEvent.click(screen.getByTestId('device-stage-auth-dev-skip'));
+      expect(onContinueAnyway).toHaveBeenCalledTimes(2);
     },
   );
 
