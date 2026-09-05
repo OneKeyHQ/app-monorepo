@@ -36,10 +36,9 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
  * single global driver and the run is per call site.
  */
 
-/** The server's answer that verification is momentarily unavailable
- * rather than a verdict on the device (device-checking codes). */
+// 10105 is an invalid certificate verdict, not temporary unavailability.
 const SERVER_CODE_NETWORK = 10_104;
-const SERVER_CODES_UNAVAILABLE = new Set([10_105, 10_106, 10_107]);
+const SERVER_CODES_UNAVAILABLE = new Set([10_106, 10_107]);
 
 /** Errors that mean the person (or the app) ended the run — the check
  * simply stops, no failure card. */

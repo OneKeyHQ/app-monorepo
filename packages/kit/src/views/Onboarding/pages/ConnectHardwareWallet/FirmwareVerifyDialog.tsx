@@ -143,7 +143,7 @@ function useFirmwareVerifyBase({
         setErrorObj({ code: authResult.result?.code || -99_999 });
         setContentType(EFirmwareAuthenticationDialogContentType.network_error);
       } else if (
-        [10_105, 10_106, 10_107].includes(authResult.result?.code ?? -99_999)
+        [10_106, 10_107].includes(authResult.result?.code ?? -99_999)
       ) {
         setResult('error');
         setErrorObj({ code: authResult.result?.code || -99_999 });

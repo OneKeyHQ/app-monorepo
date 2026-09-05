@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
+    messages: {},
   }),
 }));
 
@@ -66,6 +67,9 @@ const mockGetFirmwareVerificationFeatures = jest.fn<
   [unknown]
 >();
 const mockVerifyFirmwareHash = jest.fn<Promise<unknown>, [unknown]>();
+const mockDeviceStageNoteAuthStep = jest.fn(
+  async (_params: unknown): Promise<void> => undefined,
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -82,6 +86,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHardwareUI: {
       closeHardwareUiStateDialog: (params: unknown) =>
         mockCloseHardwareUiStateDialog(params),
+      deviceStageJoinBurst: jest.fn(async () => undefined),
+      deviceStageLeaveBurst: jest.fn(async () => undefined),
+      deviceStageNoteAuthStep: (params: unknown) =>
+        mockDeviceStageNoteAuthStep(params),
     },
   },
 }));
@@ -110,6 +118,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   __esModule: true,
   default: {
     isFirmwareVerifySupported: () => true,
+    buildDeviceStageName: () => 'OneKey Pro 2',
   },
 }));
 
@@ -122,6 +131,11 @@ import {
 } from '@testing-library/react';
 
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -143,8 +157,8 @@ describe('legacy firmware verification recovery', () => {
     jest.useRealTimers();
   });
 
-  it.each([10_104, 10_105, 10_106, 10_107])(
-    'retries temporary certificate failure %s without checking firmware or continuing',
+  it.each([10_104, 10_106, 10_107])(
+    'preserves retry handling for server code %s without checking firmware or continuing',
     async (code) => {
       mockFirmwareAuthenticate.mockResolvedValue({
         verified: false,
@@ -192,38 +206,48 @@ describe('legacy firmware verification recovery', () => {
     },
   );
 
-  it('keeps explicit authenticity failures terminal', async () => {
-    mockFirmwareAuthenticate.mockResolvedValue({
-      verified: false,
-      result: { code: 10_100 },
-    });
-    const onContinue = jest.fn();
-    render(
-      <FirmwareAuthenticationDialogContent
-        device={{ connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice}
-        useNewProcess
-        onContinue={onContinue}
-      />,
-    );
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(50);
-    });
+  it.each([10_100, 10_105])(
+    'keeps authenticity failure %s terminal',
+    async (code) => {
+      mockFirmwareAuthenticate.mockResolvedValue({
+        verified: false,
+        result: { code },
+      });
+      const onContinue = jest.fn();
+      render(
+        <FirmwareAuthenticationDialogContent
+          device={{ connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice}
+          useNewProcess
+          onContinue={onContinue}
+        />,
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(50);
+      });
 
-    expect(
-      screen.getByText(
-        ETranslations.device_auth_unofficial_device_detected_help_text,
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: ETranslations.global_retry }),
-    ).toBeNull();
-    expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
-    expect(onContinue).not.toHaveBeenCalled();
-  });
+      expect(
+        screen.getByText(
+          ETranslations.device_auth_unofficial_device_detected_help_text,
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: ETranslations.global_retry }),
+      ).toBeNull();
+      expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
+      expect(mockVerifyFirmwareHash).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole('button', { name: ETranslations.global_contact_us }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByText(ETranslations.global_continue_anyway),
+      ).toBeNull();
+      expect(onContinue).not.toHaveBeenCalled();
+    },
+  );
 
   it('continues after retry verifies both certificate and firmware', async () => {
     mockFirmwareAuthenticate
-      .mockResolvedValueOnce({ verified: false, result: { code: 10_105 } })
+      .mockResolvedValueOnce({ verified: false, result: { code: 10_104 } })
       .mockResolvedValueOnce({
         verified: true,
         result: { code: 0, data: 'serial' },
@@ -258,6 +282,84 @@ describe('legacy firmware verification recovery', () => {
     expect(mockVerifyFirmwareHash).toHaveBeenCalledTimes(1);
     expect(onContinue).toHaveBeenCalledTimes(1);
     expect(onContinue).toHaveBeenCalledWith({ checked: true });
+  });
+});
+
+describe('DeviceStage certificate error classification', () => {
+  // Exercise the real hook; the legacy-dialog tests above mock its entry point.
+  const { useDeviceStageFirmwareVerify } = jest.requireActual<
+    typeof import('./useDeviceStageFirmwareVerify')
+  >('./useDeviceStageFirmwareVerify');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFirmwareAuthenticate.mockReset();
+  });
+
+  it.each([
+    {
+      name: 'invalid public-key certificate',
+      response: { verified: false, result: { code: 10_105 } },
+      reason: 'unofficialDevice',
+    },
+    {
+      name: 'network service failure',
+      response: { verified: false, result: { code: 10_104 } },
+      reason: 'network',
+    },
+    {
+      name: 'server unavailable',
+      error: {
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: 503,
+        message: 'Service Unavailable',
+      },
+      reason: 'unavailable',
+    },
+    {
+      name: 'request timeout',
+      error: { code: 'ECONNABORTED', message: 'timeout of 30000ms exceeded' },
+      reason: 'unknown',
+    },
+  ])('classifies $name without continuing verification', async (scenario) => {
+    if ('error' in scenario) {
+      mockFirmwareAuthenticate.mockRejectedValueOnce(scenario.error);
+    } else {
+      mockFirmwareAuthenticate.mockResolvedValueOnce(scenario.response);
+    }
+    const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+    let verification: Promise<unknown> | undefined;
+    await act(async () => {
+      verification = result.current.runDeviceStageFirmwareVerify({
+        device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
+        features: undefined,
+      });
+    });
+
+    try {
+      expect(mockDeviceStageNoteAuthStep).toHaveBeenCalledWith(
+        expect.objectContaining({
+          step: 'authFailure',
+          failureReason: scenario.reason,
+        }),
+      );
+      expect(mockDeviceStageNoteAuthStep).not.toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'authSuccess' }),
+      );
+      expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
+      expect(mockVerifyFirmwareHash).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        appEventBus.emit(
+          EAppEventBusNames.CloseHardwareUiStateDialogManually,
+          undefined,
+        );
+        await expect(verification).resolves.toEqual({
+          checked: false,
+          closed: true,
+        });
+      });
+    }
   });
 });
 
