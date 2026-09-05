@@ -1,9 +1,13 @@
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import * as consts from '../consts';
+import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { EIndexedDBBucketNames } from '../types';
 
 import { LocalDbIndexed } from './LocalDbIndexed';
+
+import type { IDBDevice, IDBWallet } from '../types';
 
 /*
 yarn jest --watch packages/kit-bg/src/dbs/local/indexed/LocalDbIndexed.test.ts
@@ -35,6 +39,103 @@ if (!hasIndexedDB) {
 }
 
 describeIfIndexedDB('LocalDbIndexed tests', () => {
+  it.each([false, true])(
+    'removes reset wallets atomically (fail second removal: %s)',
+    async (failRemoval) => {
+      const db = new LocalDbIndexed();
+      db.setBackgroundApi({
+        servicePrimeCloudSync: {
+          syncManagers: {
+            wallet: {
+              buildSyncTargetByDBQuery: jest.fn(async () => ({})),
+              buildSyncKeyAndPayload: jest.fn(async () => undefined),
+            },
+          },
+        },
+      } as never);
+      const suffix = String(failRemoval);
+      const oldId = `hw-reset-old-${suffix}`;
+      const currentId = `hw-reset-current-${suffix}`;
+      const qrId = `qr-reset-${suffix}`;
+      const oldDeviceId = `db-reset-old-${suffix}`;
+      const currentDeviceId = `db-reset-current-${suffix}`;
+      const wallets = [
+        { id: oldId, associatedDevice: oldDeviceId },
+        {
+          id: `${oldId}-hidden`,
+          associatedDevice: oldDeviceId,
+          passphraseState: 'hidden',
+        },
+        { id: currentId, associatedDevice: currentDeviceId },
+        { id: qrId, associatedDevice: currentDeviceId },
+      ].map(
+        (wallet, index) =>
+          ({
+            name: wallet.id,
+            type: wallet.id.startsWith('qr-') ? 'qr' : 'hw',
+            backuped: true,
+            accounts: [],
+            nextIds: {},
+            walletNo: index + 1,
+            ...wallet,
+          }) as IDBWallet,
+      );
+      await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          records: wallets,
+        });
+        await db.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          records: [
+            { id: oldDeviceId },
+            { id: currentDeviceId },
+          ] as IDBDevice[],
+        });
+      });
+      const removeRecords = db.txRemoveRecords.bind(db);
+      const removeSpy = jest
+        .spyOn(db, 'txRemoveRecords')
+        .mockImplementation(async (params) => {
+          await removeRecords(params);
+          if (
+            failRemoval &&
+            params.name === ELocalDBStoreNames.Wallet &&
+            params.ids?.includes(currentId)
+          ) {
+            throw new OneKeyLocalError('Second wallet removal failed');
+          }
+        });
+      try {
+        const removal = db.removeWallets({ walletIds: [oldId, currentId] });
+        if (failRemoval) {
+          await expect(removal).rejects.toThrow('Second wallet removal failed');
+        } else {
+          await removal;
+        }
+        const remainingWallets = new Set(
+          (
+            await db.getAllRecords({ name: ELocalDBStoreNames.Wallet })
+          ).records.map((wallet) => wallet.id),
+        );
+        for (const wallet of wallets) {
+          expect(remainingWallets.has(wallet.id)).toBe(
+            failRemoval || wallet.id === qrId,
+          );
+        }
+        const devices = (
+          await db.getAllRecords({ name: ELocalDBStoreNames.Device })
+        ).records.map((device) => device.id);
+        expect(devices.includes(oldDeviceId)).toBe(failRemoval);
+        expect(devices).toContain(currentDeviceId);
+      } finally {
+        removeSpy.mockRestore();
+      }
+    },
+  );
+
   it('getContext', async () => {
     const db = new LocalDbIndexed();
     // @ts-ignore

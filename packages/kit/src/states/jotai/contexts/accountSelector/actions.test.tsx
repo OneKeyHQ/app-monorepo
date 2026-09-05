@@ -1034,6 +1034,75 @@ describe('useAccountSelectorActions', () => {
 
       expect(mockUpdateWalletsDeprecatedState).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['standard', 'old-seed'],
+      ['hidden', 'old-seed'],
+      ['standard', ''],
+      ['hidden', ''],
+    ])(
+      'reconciles reset wallets by serial after %s creation with old deviceId %s',
+      async (mode, oldDeviceId) => {
+        const resetDevice = {
+          ...currentDevice,
+          connectId: 'new-android-ble',
+          bleConnectId: 'new-android-ble',
+          uuid: 'SERIAL',
+        };
+        mockCreateHWWalletService.mockResolvedValue({
+          wallet: standardWallet,
+          device: resetDevice,
+          indexedAccount: standardIndexedAccount,
+          isOverrideWallet: false,
+        });
+        const oldDevice = {
+          connectId: '',
+          deviceId: oldDeviceId,
+          uuid: 'SERIAL',
+        };
+        mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+          old: { wallet: { id: 'hw-old' }, device: oldDevice },
+          oldHidden: {
+            wallet: { id: 'hw-old-hidden', passphraseState: 'hidden' },
+            device: oldDevice,
+          },
+          current: {
+            wallet: { ...standardWallet, deprecated: true },
+            device: resetDevice,
+          },
+          other: {
+            wallet: { id: 'hw-other' },
+            device: {
+              ...resetDevice,
+              id: 'db-other',
+              uuid: 'OTHER',
+              deviceId: 'other-seed',
+            },
+          },
+        });
+        const { Wrapper } = createWrapper();
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          {
+            wrapper: Wrapper,
+          },
+        );
+        await act(async () => {
+          if (mode === 'standard') {
+            await result.current.createHWWalletWithoutHidden(createParams);
+          } else {
+            await result.current.createHWWalletWithHidden(createParams);
+          }
+        });
+        expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+          willUpdateDeprecateMap: {
+            'hw-old': true,
+            'hw-old-hidden': true,
+            [standardWallet.id]: false,
+          },
+        });
+      },
+    );
   });
 
   describe('confirmAccountSelect All Networks fallback', () => {
