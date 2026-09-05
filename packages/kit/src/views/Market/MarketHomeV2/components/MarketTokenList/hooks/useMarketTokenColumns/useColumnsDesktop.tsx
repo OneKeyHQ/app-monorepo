@@ -229,9 +229,7 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        title: isWatchlistMode
-          ? 'Name'
-          : intl.formatMessage({ id: ETranslations.global_name }),
+        title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
           // The watchlist keeps its own responsive width; every other spot
@@ -311,9 +309,7 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        title: isWatchlistMode
-          ? 'Price'
-          : intl.formatMessage({ id: ETranslations.global_price }),
+        title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnProps: { flex: 1 },
         render: (text: string, _record: IMarketToken, index?: number) => {
@@ -337,7 +333,9 @@ export const useColumnsDesktop = (
         title:
           change24hColumnTitle ??
           (isWatchlistMode
-            ? '24h Change'
+            ? intl.formatMessage({
+                id: ETranslations.perp_token_selector_24h_change,
+              })
             : `${intl.formatMessage({
                 id: ETranslations.dexmarket_token_change,
               })}(%)`),
@@ -442,7 +440,9 @@ export const useColumnsDesktop = (
             });
           }
           return isWatchlistMode
-            ? '24h Volume'
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })
             : intl.formatMessage({ id: ETranslations.dexmarket_turnover });
         })(),
         dataIndex: 'turnover',

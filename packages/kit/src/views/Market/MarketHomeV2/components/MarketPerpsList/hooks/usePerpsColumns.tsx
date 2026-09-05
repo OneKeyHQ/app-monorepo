@@ -138,7 +138,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 3: Price
         {
-          title: 'Price',
+          title: intl.formatMessage({ id: ETranslations.global_price }),
           dataIndex: 'price',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
@@ -155,7 +155,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 4: 24h Change (absolute / percent)
         {
-          title: '24h Change',
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_selector_24h_change,
+          }),
           dataIndex: 'change24h',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
@@ -209,7 +211,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 5: Funding
         {
-          title: 'Funding',
+          title: intl.formatMessage({
+            id: ETranslations.perp_position_funding,
+          }),
           dataIndex: 'fundingRate',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
@@ -238,7 +242,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 6: 24h Volume
         {
-          title: '24h Volume',
+          title: intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          }),
           dataIndex: 'volume24h',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
@@ -255,7 +261,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 7: Open Interest
         {
-          title: 'Open Interest',
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_bar_open_Interest,
+          }),
           dataIndex: 'openInterest',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
