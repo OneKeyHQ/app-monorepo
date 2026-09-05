@@ -215,6 +215,8 @@ globalThis.$desktopMainAppFunctions = {
 // Changing it will cause the system to generate new storage, preventing users from accessing their existing data.
 const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
+// Must match electron-builder's appId and the AppUserModelID on the NSIS shortcut.
+const WINDOWS_APP_USER_MODEL_ID = 'so.onekey.wallet.desktop';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 let isAppReady = false;
@@ -2527,7 +2529,7 @@ if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
 }
 
 if (isWin) {
-  app.setAppUserModelId(APP_NAME);
+  app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
 }
 
 // https://github.com/oikonomopo/electron-deep-linking-mac-win/blob/master/main.js
