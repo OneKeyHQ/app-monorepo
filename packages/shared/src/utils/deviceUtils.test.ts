@@ -47,14 +47,17 @@ describe('isSamePhysicalDevice', () => {
     ).toBe(false);
   });
 
-  it('keeps vendors separate even when identifiers collide', () => {
-    expect(
-      deviceUtils.isSamePhysicalDevice(
-        { uuid: 'SERIAL', vendor: EHardwareVendor.onekey },
-        { uuid: 'SERIAL', vendor: EHardwareVendor.trezor },
-      ),
-    ).toBe(false);
-  });
+  it.each([{ uuid: 'SERIAL' }, { deviceId: 'DEVICE-ID' }])(
+    'matches %j without depending on vendor metadata',
+    (identity) => {
+      expect(
+        deviceUtils.isSamePhysicalDevice(
+          { ...identity, vendor: EHardwareVendor.onekey },
+          { ...identity, vendor: EHardwareVendor.trezor },
+        ),
+      ).toBe(true);
+    },
+  );
 
   it('preserves case-insensitive transport matching without serial numbers', () => {
     expect(

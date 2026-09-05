@@ -72,13 +72,13 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { getDeviceManagementWallets } from '../../states/jotai/contexts/deviceDetails/deviceStateManagement';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
@@ -1432,14 +1432,9 @@ function MoreActionDevice() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDeviceSameType: true,
         });
-      const devices: Array<IDeviceManagementListItem> = Object.values(r)
-        .filter(
-          (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && !item.wallet.deprecated,
-        )
-        .toSorted((a, b) => {
+      const devices: Array<IDeviceManagementListItem> =
+        getDeviceManagementWallets(Object.values(r)).toSorted((a, b) => {
           // Sort by walletOrder or fallback to walletNo
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;

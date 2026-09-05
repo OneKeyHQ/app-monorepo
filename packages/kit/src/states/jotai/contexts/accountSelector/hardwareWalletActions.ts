@@ -56,10 +56,7 @@ export async function updateHwWalletsDeprecatedStatus({
 
     for (const { wallet, device } of Object.values(allHwWallets)) {
       if (wallet?.id && device) {
-        if (
-          deviceUtils.isSamePhysicalDevice(device, currentDevice) &&
-          device.deviceId
-        ) {
+        if (deviceUtils.isSamePhysicalDevice(device, currentDevice)) {
           const deprecated = device.deviceId !== deviceId;
           if (Boolean(wallet.deprecated) !== deprecated) {
             willUpdateDeprecateMap[wallet.id] = deprecated;

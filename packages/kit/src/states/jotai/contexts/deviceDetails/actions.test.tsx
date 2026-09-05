@@ -5,7 +5,14 @@ import { act, renderHook } from '@testing-library/react';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useDeviceDetailsActions } from './actions';
-import { ProviderJotaiContextDeviceDetails } from './atoms';
+import {
+  ProviderJotaiContextDeviceDetails,
+  emptyMetaState,
+  emptyMetaStatic,
+  useDeviceMetaStateAtom,
+  useDeviceMetaStaticAtom,
+  useRefreshSettledAtom,
+} from './atoms';
 
 const mockGetAllWallets = jest.fn<Promise<unknown>, unknown[]>();
 const mockSetLanguage = jest.fn<Promise<void>, unknown[]>();
@@ -92,5 +99,55 @@ describe('device details reached through a deprecated wallet', () => {
     await expect(result.current.getCurrentWalletId()).resolves.toBe(
       oldWallet.wallet.id,
     );
+  });
+
+  it('clears old metadata while a replacement device loads on the same route', async () => {
+    mockGetAllWallets.mockResolvedValue({ [oldWallet.wallet.id]: oldWallet });
+    const { result } = renderHook(
+      () => ({
+        actions: useDeviceDetailsActions(),
+        staticMeta: useDeviceMetaStaticAtom(),
+        stateMeta: useDeviceMetaStateAtom(),
+        settled: useRefreshSettledAtom(),
+      }),
+      { wrapper: ProviderJotaiContextDeviceDetails },
+    );
+    await act(async () => {
+      await result.current.actions.refresh(oldWallet.wallet.id);
+      result.current.staticMeta[1]({
+        ...emptyMetaStatic,
+        deviceName: 'Old device',
+      });
+      result.current.stateMeta[1]({
+        ...emptyMetaState,
+        isReady: true,
+        language: 'zh-CN',
+      });
+    });
+    let finishSnapshot: (value: undefined) => void = () => {};
+    mockGetSnapshot.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishSnapshot = resolve;
+        }),
+    );
+    mockGetAllWallets.mockResolvedValue({
+      [oldWallet.wallet.id]: oldWallet,
+      [currentWallet.wallet.id]: currentWallet,
+    });
+    let refresh: Promise<unknown> | undefined;
+    await act(async () => {
+      refresh = result.current.actions.refresh(oldWallet.wallet.id);
+    });
+    expect(result.current.staticMeta[0]).toEqual(emptyMetaStatic);
+    expect(result.current.stateMeta[0]).toEqual(emptyMetaState);
+    expect(result.current.settled[0]).toBe(false);
+    await act(async () => {
+      finishSnapshot(undefined);
+      await refresh;
+    });
+    expect(result.current.staticMeta[0]).toEqual(emptyMetaStatic);
+    expect(result.current.stateMeta[0].isReady).toBe(false);
+    expect(result.current.settled[0]).toBe(true);
   });
 });

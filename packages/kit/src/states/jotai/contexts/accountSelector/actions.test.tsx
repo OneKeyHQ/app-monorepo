@@ -1035,9 +1035,14 @@ describe('useAccountSelectorActions', () => {
       expect(mockUpdateWalletsDeprecatedState).not.toHaveBeenCalled();
     });
 
-    it.each(['standard', 'hidden'])(
-      'reconciles reset wallets by serial after %s wallet creation with changed BLE aliases',
-      async (mode) => {
+    it.each([
+      ['standard', 'old-seed'],
+      ['hidden', 'old-seed'],
+      ['standard', ''],
+      ['hidden', ''],
+    ])(
+      'reconciles reset wallets by serial after %s creation with old deviceId %s',
+      async (mode, oldDeviceId) => {
         const resetDevice = {
           ...currentDevice,
           connectId: 'new-android-ble',
@@ -1052,7 +1057,7 @@ describe('useAccountSelectorActions', () => {
         });
         const oldDevice = {
           connectId: '',
-          deviceId: 'old-seed',
+          deviceId: oldDeviceId,
           uuid: 'SERIAL',
         };
         mockGetAllHwQrWalletWithDevice.mockResolvedValue({

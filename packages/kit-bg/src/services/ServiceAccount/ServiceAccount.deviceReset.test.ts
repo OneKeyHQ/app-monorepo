@@ -40,6 +40,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     removeWallet: jest.fn(),
+    removeWallets: jest.fn(),
     updateDeviceConnectProtocol: jest.fn(),
   },
 }));
@@ -287,5 +288,117 @@ describe('ServiceAccount device reset isolation', () => {
         isRemoveToMocked: undefined,
       },
     ]);
+  });
+
+  describe('forgetting a physical device', () => {
+    function setup() {
+      const old = {
+        id: 'hw-old',
+        deprecated: true,
+        associatedDevice: 'db-old',
+      };
+      const current = { id: 'hw-current', associatedDevice: 'db-current' };
+      const hidden = {
+        id: 'hw-old-hidden',
+        passphraseState: 'hidden',
+        associatedDevice: 'db-old',
+      };
+      const qr = { id: 'qr-wallet', associatedDevice: 'db-current' };
+      const other = { id: 'hw-other', associatedDevice: 'db-other' };
+      const wallets = [old, current, hidden, qr, other];
+      const verify = jest.fn();
+      const cleanupDapp = jest.fn();
+      const service = new ServiceAccount({
+        backgroundApi: {
+          servicePassword: { promptPasswordVerifyByWallet: verify },
+          serviceDApp: { removeDappConnectionAfterWalletRemove: cleanupDapp },
+          serviceDBBackup: { removeBackupHDWallet: jest.fn() },
+        },
+      });
+      service.getAllWallets = jest.fn().mockResolvedValue({
+        wallets,
+        allDevices: [
+          { id: 'db-old', uuid: 'SERIAL', deviceId: 'old-id' },
+          { id: 'db-current', uuid: 'SERIAL', deviceId: 'new-id' },
+          { id: 'db-other', uuid: 'OTHER', deviceId: 'other-id' },
+        ],
+      });
+      service.getWalletSafe = jest
+        .fn()
+        .mockImplementation(async ({ walletId }) =>
+          wallets.find((wallet) => wallet.id === walletId),
+        );
+      service.cleanupOrphanedHyperLiquidAgentCredentials = jest.fn();
+      return { service, verify, cleanupDapp };
+    }
+
+    it('keeps every wallet when the active device check fails after an old record', async () => {
+      const { service, verify } = setup();
+      verify.mockRejectedValueOnce(new Error('Device check cancelled'));
+      await expect(
+        service.removeWallet({
+          walletId: 'hw-old',
+          removeSameDeviceWallets: true,
+        }),
+      ).rejects.toThrow('Device check cancelled');
+      expect(verify).toHaveBeenCalledWith({
+        walletId: 'hw-current',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      });
+      expect(jest.mocked(localDb).removeWallet.mock.calls).toHaveLength(0);
+      expect(jest.mocked(localDb).removeWallets.mock.calls).toHaveLength(0);
+    });
+
+    it('removes matching standard HW wallets together and preserves QR and other devices', async () => {
+      const { service, verify, cleanupDapp } = setup();
+      verify.mockImplementationOnce(async () => {
+        expect(jest.mocked(localDb).removeWallets.mock.calls).toHaveLength(0);
+      });
+      await service.removeWallet({
+        walletId: 'hw-old',
+        removeSameDeviceWallets: true,
+      });
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(localDb).removeWallet.mock.calls).toHaveLength(0);
+      expect(jest.mocked(localDb).removeWallets.mock.calls).toHaveLength(1);
+      expect(jest.mocked(localDb).removeWallets.mock.calls).toEqual([
+        [
+          {
+            walletIds: ['hw-old', 'hw-current'],
+            isRemoveToMocked: undefined,
+          },
+        ],
+      ]);
+      expect(cleanupDapp.mock.calls).toEqual([
+        [{ walletId: 'hw-old' }],
+        [{ walletId: 'hw-current' }],
+      ]);
+    });
+
+    it('does not run post-removal cleanup when the transaction fails', async () => {
+      const { service, cleanupDapp } = setup();
+      jest
+        .mocked(localDb)
+        .removeWallets.mockRejectedValueOnce(new Error('DB failed'));
+      await expect(
+        service.removeWallet({
+          walletId: 'hw-old',
+          removeSameDeviceWallets: true,
+        }),
+      ).rejects.toThrow('DB failed');
+      expect(cleanupDapp).not.toHaveBeenCalled();
+    });
+
+    it('rejects QR wallets as the target of a device removal', async () => {
+      const { service, verify } = setup();
+      await expect(
+        service.removeWallet({
+          walletId: 'qr-wallet',
+          removeSameDeviceWallets: true,
+        }),
+      ).rejects.toThrow('Only hardware wallets');
+      expect(verify).not.toHaveBeenCalled();
+      expect(jest.mocked(localDb).removeWallets.mock.calls).toHaveLength(0);
+    });
   });
 });

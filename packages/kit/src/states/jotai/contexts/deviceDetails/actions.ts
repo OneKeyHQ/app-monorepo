@@ -308,6 +308,9 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         set(currentWalletIdAtom(), walletId);
         if (get(walletWithDeviceStateAtom())?.device?.id !== data?.device?.id) {
           set(deviceStateSnapshotAtom(), undefined);
+          set(deviceMetaStaticAtom(), emptyMetaStatic);
+          set(deviceMetaStateAtom(), emptyMetaState);
+          set(refreshSettledAtom(), false);
         }
         set(walletWithDeviceStateAtom(), data);
         if (!data) {

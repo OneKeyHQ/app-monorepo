@@ -5,14 +5,12 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
 import DeviceSectionDeviceConnect from './DeviceSectionDeviceConnect';
 
 const mockRemoveWallet = jest.fn<Promise<void>, unknown[]>();
-const mockGetAllWallets = jest.fn<Promise<unknown>, unknown[]>();
 const mockShowDialog = jest.fn();
 const mockBack = jest.fn();
 const currentWallet = {
@@ -25,15 +23,6 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceAccount: {
-      getAllHwQrWalletWithDevice: (...args: unknown[]) =>
-        mockGetAllWallets(...args),
-    },
-  },
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/Hardware/TrezorBleBindingDialog',
@@ -86,30 +75,6 @@ describe('forgetting a physical device after reset', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRemoveWallet.mockResolvedValue(undefined);
-    mockGetAllWallets.mockResolvedValue({
-      old: {
-        wallet: { id: 'hw-old', deprecated: true },
-        device: {
-          id: 'db-old',
-          uuid: 'SERIAL',
-          deviceId: 'old-seed',
-          connectId: '',
-        },
-      },
-      current: currentWallet,
-      other: {
-        wallet: { id: 'hw-other' },
-        device: { id: 'db-other', uuid: 'OTHER' },
-      },
-      otherVendor: {
-        wallet: { id: 'hw-trezor' },
-        device: {
-          id: 'db-trezor',
-          uuid: 'SERIAL',
-          vendor: EHardwareVendor.trezor,
-        },
-      },
-    });
   });
 
   async function confirmForgetDevice() {
@@ -126,15 +91,14 @@ describe('forgetting a physical device after reset', () => {
     });
   }
 
-  it('removes current and deprecated standard wallets through the existing removal flow', async () => {
+  it('forgets the device in a single background removal operation', async () => {
     await confirmForgetDevice();
-    expect(mockGetAllWallets).toHaveBeenCalledWith({
-      filterHiddenWallet: true,
+    expect(mockRemoveWallet).toHaveBeenCalledTimes(1);
+    expect(mockRemoveWallet).toHaveBeenCalledWith({
+      walletId: 'hw-current',
+      isRemoveToMocked: false,
+      removeSameDeviceWallets: true,
     });
-    expect(mockRemoveWallet.mock.calls).toEqual([
-      [{ walletId: 'hw-old', isRemoveToMocked: false }],
-      [{ walletId: 'hw-current', isRemoveToMocked: false }],
-    ]);
     expect(Toast.success).toHaveBeenCalledTimes(1);
     expect(mockBack).toHaveBeenCalledTimes(1);
   });

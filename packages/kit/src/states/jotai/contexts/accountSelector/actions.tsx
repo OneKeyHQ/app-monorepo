@@ -2360,9 +2360,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         walletId,
         isRemoveToMocked,
+        removeSameDeviceWallets,
       }: {
         walletId: string;
         isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+        removeSameDeviceWallets?: boolean;
       },
     ) => {
       // TODO add home scene check
@@ -2375,6 +2377,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await serviceAccount.removeWallet({
           walletId,
           isRemoveToMocked,
+          removeSameDeviceWallets,
         });
         set(accountSelectorEditModeAtom(), false);
 

@@ -14,7 +14,6 @@ import { EHardwareTransportType } from '../../types';
 import {
   EFirmwareUpdateTipMessages,
   EFirmwareVerifyType,
-  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '../../types/device';
 import { EHardwareUiStateAction } from '../../types/hardwareUi';
@@ -147,12 +146,7 @@ function isSamePhysicalDevice(
   device: Partial<IDBDevice> | undefined,
   other: Partial<IDBDevice> | undefined,
 ): boolean {
-  if (
-    !device ||
-    !other ||
-    (device.vendor ?? EHardwareVendor.onekey) !==
-      (other.vendor ?? EHardwareVendor.onekey)
-  ) {
+  if (!device || !other) {
     return false;
   }
   if (device.id && device.id === other.id) {
