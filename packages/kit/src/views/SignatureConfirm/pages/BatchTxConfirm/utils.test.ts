@@ -94,9 +94,8 @@ describe('computeSignExitGate', () => {
 
   it('blocks every exit while the risk query is still pending', () => {
     // urlSecurityInfo stays undefined until checkUrlSecurity settles; in
-    // that window riskLevel falls back to Unknown and continueOperate is
-    // auto-ticked, so without an explicit pending state every signing exit
-    // would be enabled before the verdict arrives.
+    // The risk checkbox is hidden while pending, so the gate must not depend
+    // on checkbox visibility alone.
     const gate = computeSignExitGate({
       origin: 'https://dapp.example',
       urlSecurityInfo: undefined,
