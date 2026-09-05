@@ -478,7 +478,11 @@ function FundingDistributionCard({
             alignItems="center"
             justifyContent="center"
           >
-            <Svg width={DONUT_SIZE} height={DONUT_SIZE}>
+            <Svg
+              width={DONUT_SIZE}
+              height={DONUT_SIZE}
+              pointerEvents={platformEnv.isNative ? 'none' : 'auto'}
+            >
               <Circle
                 cx={DONUT_CENTER}
                 cy={DONUT_CENTER}

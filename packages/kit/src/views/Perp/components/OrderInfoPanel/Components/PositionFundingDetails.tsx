@@ -394,20 +394,25 @@ export function PositionFundingDetails({
             id: ETranslations.perp_funding_cumulative__title,
           })}
         </SizableText>
-        {displayPoint ? (
+        {isMobile || displayPoint ? (
           <XStack justifyContent="flex-start" gap="$1.5">
             <SizableText size={isMobile ? '$bodyMd' : '$bodyXs'} color="$text">
-              {formatPositionFundingDateTime({
-                timestampSeconds: displayPoint[0],
-                timeZone,
-              })}
+              {displayPoint
+                ? formatPositionFundingDateTime({
+                    timestampSeconds: displayPoint[0],
+                    timeZone,
+                  })
+                : // Preserve the text line height when the mobile chart is empty.
+                  ' '}
             </SizableText>
-            <SizableText
-              size={isMobile ? '$bodyMdMedium' : '$bodyXsMedium'}
-              color={getPerpsValueColor(displayPoint[1])}
-            >
-              {formatPerpsUsd(displayPoint[1], true)}
-            </SizableText>
+            {displayPoint ? (
+              <SizableText
+                size={isMobile ? '$bodyMdMedium' : '$bodyXsMedium'}
+                color={getPerpsValueColor(displayPoint[1])}
+              >
+                {formatPerpsUsd(displayPoint[1], true)}
+              </SizableText>
+            ) : null}
           </XStack>
         ) : null}
         {resolvedFundingHistoryLoading ? (
