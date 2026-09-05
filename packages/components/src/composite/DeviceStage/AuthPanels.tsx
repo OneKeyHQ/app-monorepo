@@ -163,49 +163,53 @@ export function AuthFailureCard({
         </Stack>
         <YStack gap="$6">
           {checklist?.length ? <AuthChecklist items={checklist} /> : null}
-          {copy.action === 'support' && onSupport ? (
-            <Button
-              testID="device-stage-auth-support"
-              variant="primary"
-              size="large"
-              onPress={onSupport}
-            >
-              {intl.formatMessage({ id: ETranslations.global_support })}
-            </Button>
-          ) : null}
-          {copy.action === 'retry' ? (
-            <YStack gap="$2">
+          <YStack gap="$2">
+            {copy.action === 'support' && onSupport ? (
               <Button
-                testID="device-stage-auth-retry"
+                testID="device-stage-auth-support"
                 variant="primary"
                 size="large"
-                onPress={onRetry}
+                onPress={onSupport}
               >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
+                {intl.formatMessage({ id: ETranslations.global_support })}
               </Button>
-              {onSupport ? (
+            ) : null}
+            {copy.action === 'retry' ? (
+              <>
                 <Button
-                  testID="device-stage-auth-support"
-                  variant="secondary"
+                  testID="device-stage-auth-retry"
+                  variant="primary"
                   size="large"
-                  onPress={onSupport}
+                  onPress={onRetry}
                 >
-                  {intl.formatMessage({ id: ETranslations.global_support })}
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
                 </Button>
-              ) : null}
-            </YStack>
-          ) : null}
-          {(platformEnv.isDev ||
-            allowDevSkip ||
-            (allowsDevSkip && devSkipUnlocked)) &&
-          onContinueAnyway ? (
-            <Button
-              testID="device-stage-auth-dev-skip"
-              onPress={onContinueAnyway}
-            >
-              Skip it And Create Wallet(Only in Dev)
-            </Button>
-          ) : null}
+                {onSupport ? (
+                  <Button
+                    testID="device-stage-auth-support"
+                    variant="secondary"
+                    size="large"
+                    onPress={onSupport}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_support })}
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+            {(platformEnv.isDev ||
+              allowDevSkip ||
+              (allowsDevSkip && devSkipUnlocked)) &&
+            onContinueAnyway ? (
+              <Button
+                testID="device-stage-auth-dev-skip"
+                size="large"
+                variant="secondary"
+                onPress={onContinueAnyway}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
+          </YStack>
         </YStack>
       </YStack>
     </YStack>

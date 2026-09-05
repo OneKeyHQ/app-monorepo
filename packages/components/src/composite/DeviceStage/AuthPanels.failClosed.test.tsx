@@ -30,28 +30,32 @@ jest.mock('../../primitives', () => {
     children,
     onPress,
     testID,
+    gap,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
+    gap?: string;
   }) =>
     React.createElement(
       'div',
-      { onClick: onPress, 'data-testid': testID },
+      { onClick: onPress, 'data-testid': testID, 'data-gap': gap },
       children,
     );
   const Button = ({
     children,
     testID,
     onPress,
+    size,
   }: {
     children?: ReactNode;
     testID?: string;
     onPress?: () => void;
+    size?: string;
   }) =>
     React.createElement(
       'button',
-      { onClick: onPress, 'data-testid': testID },
+      { onClick: onPress, 'data-testid': testID, 'data-size': size },
       children,
     );
 
@@ -80,6 +84,31 @@ describe('AuthFailureCard fail-closed actions', () => {
   beforeEach(() => {
     mockIsDev = false;
   });
+
+  it.each(['unknown', 'unofficialDevice'] as const)(
+    'keeps the developer action in the same large-button group for %s',
+    (reason) => {
+      render(
+        <AuthFailureCard
+          reason={reason}
+          allowDevSkip
+          onSupport={jest.fn()}
+          onRetry={jest.fn()}
+          onContinueAnyway={jest.fn()}
+        />,
+      );
+      const skip = screen.getByTestId('device-stage-auth-dev-skip');
+      const support = screen.getByTestId('device-stage-auth-support');
+      expect(skip.getAttribute('data-size')).toBe('large');
+      expect(skip.parentElement).toBe(support.parentElement);
+      expect(skip.parentElement?.getAttribute('data-gap')).toBe('$2');
+      if (reason === 'unknown') {
+        expect(
+          screen.getByTestId('device-stage-auth-retry').parentElement,
+        ).toBe(skip.parentElement);
+      }
+    },
+  );
 
   it.each(['unofficialDevice', 'unofficialFirmware'] as const)(
     'retains the hidden production override for %s and resets it between attempts',
