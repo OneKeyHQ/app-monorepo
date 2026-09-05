@@ -171,6 +171,26 @@ export function usePerpUserFundingHistory({
     activeAccountAddress: normalizedAccountAddress,
     dataAccountAddress: query.result?.accountAddress,
   });
+  const { run: refreshFundingHistory } = query;
+  useEffect(() => {
+    if (!isActive || !isCurrentAccountResult || query.isLoading) return;
+
+    // History is fetched in full. Refresh long-lived views hourly, resetting
+    // the timer after focus/manual requests so refreshes do not accumulate.
+    const timer = setTimeout(
+      () => {
+        void refreshFundingHistory();
+      },
+      60 * 60 * 1000,
+    );
+    return () => clearTimeout(timer);
+  }, [
+    isActive,
+    isCurrentAccountResult,
+    query.isLoading,
+    query.result,
+    refreshFundingHistory,
+  ]);
   const records = getPerpsAccountScopedListData({
     activeAccountAddress: normalizedAccountAddress,
     dataAccountAddress: query.result?.accountAddress,
