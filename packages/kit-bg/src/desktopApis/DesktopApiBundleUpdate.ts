@@ -2129,7 +2129,12 @@ class DesktopApiAppBundleUpdate {
     // before relaunch, preventing webview custom element double registration
     this.getMainWindow()?.destroy();
     app.relaunch();
-    app.exit(0);
+    if (process.platform === 'darwin') {
+      // before-quit releases BLE native managers before Node environment teardown.
+      app.quit();
+    } else {
+      app.exit(0);
+    }
   }
 
   async restart() {
