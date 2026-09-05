@@ -189,11 +189,10 @@ export function useMarketStockColumns({
                           color="$textSubdued"
                           numberOfLines={1}
                         >
-                          {/* No Lokalise key for this yet; the design's copy
-                              is English, like the rest of these headers. */}
-                          {`${record.variants.length} ${
-                            record.variants.length === 1 ? 'token' : 'tokens'
-                          }`}
+                          {intl.formatMessage(
+                            { id: ETranslations.market_number_tokens },
+                            { number: record.variants.length },
+                          )}
                         </SizableText>
                         <MarketVariantLogoGroup variants={record.variants} />
                       </XStack>
