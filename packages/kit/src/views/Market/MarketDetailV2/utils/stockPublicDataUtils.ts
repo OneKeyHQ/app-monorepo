@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IMarketStockAnalystRatings,
   IMarketStockEvent,
@@ -7,7 +8,7 @@ import type {
 
 import { STAT_FALLBACK_VALUE } from './statValue';
 
-export const STOCK_ABOUT_IPO_DATE_LABEL = 'IPO Date';
+import type { IntlShape } from 'react-intl';
 
 /**
  * The public stock endpoint describes the underlying listing, not the token
@@ -73,6 +74,33 @@ export function getStockAnalystConsensus(
   analystRatings?: IMarketStockAnalystRatings,
 ) {
   return analystRatings?.consensus ?? STAT_FALLBACK_VALUE;
+}
+
+/**
+ * The provider sends the consensus as a free-form English string, so it is
+ * matched case-insensitively against the ratings vocabulary. Anything outside
+ * that vocabulary is rendered as received rather than guessed at.
+ */
+const STOCK_ANALYST_CONSENSUS_LABEL_IDS: Record<string, ETranslations> = {
+  buy: ETranslations.global_buy,
+  sell: ETranslations.global_sell,
+  hold: ETranslations.market_stock_rating_hold,
+  'strong buy': ETranslations.market_stock_rating_strong_buy,
+  'strong sell': ETranslations.market_stock_rating_strong_sell,
+  neutral: ETranslations.market_stock_rating_neutral,
+};
+
+export function formatStockAnalystConsensus({
+  intl,
+  analystRatings,
+}: {
+  intl: IntlShape;
+  analystRatings?: IMarketStockAnalystRatings;
+}) {
+  const consensus = getStockAnalystConsensus(analystRatings);
+  const labelId =
+    STOCK_ANALYST_CONSENSUS_LABEL_IDS[consensus.trim().toLowerCase()];
+  return labelId ? intl.formatMessage({ id: labelId }) : consensus;
 }
 
 export function getStockEventMetadataRows(event?: IMarketStockEvent) {

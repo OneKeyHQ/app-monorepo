@@ -57,7 +57,7 @@ describe('MarketDesktopChartContainer', () => {
     );
 
     const resizeHandle = screen.getByTestId('market-chart-resize-handle');
-    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('360');
+    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('456');
     Object.defineProperties(resizeHandle, {
       hasPointerCapture: { value: jest.fn(() => true) },
       releasePointerCapture: { value: jest.fn() },
@@ -67,11 +67,11 @@ describe('MarketDesktopChartContainer', () => {
     firePointerEvent(resizeHandle, 'pointerdown', 400);
     firePointerEvent(resizeHandle, 'pointermove', 460);
     firePointerEvent(resizeHandle, 'pointerup', 460);
-    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('420');
+    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('516');
     expect(handleChartMount).toHaveBeenCalledTimes(1);
 
     fireEvent.keyDown(resizeHandle, { key: 'Home' });
-    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('360');
+    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('456');
   });
 
   it('hides the resize handle in fullscreen and restores its height on exit', () => {
@@ -101,6 +101,6 @@ describe('MarketDesktopChartContainer', () => {
       screen
         .getByTestId('market-chart-resize-handle')
         .getAttribute('aria-valuenow'),
-    ).toBe('384');
+    ).toBe('480');
   });
 });

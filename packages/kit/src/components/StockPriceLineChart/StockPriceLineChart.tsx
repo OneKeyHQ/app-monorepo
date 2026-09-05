@@ -11,23 +11,22 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { LightweightChart } from '../LightweightChart';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-// Kept in sync with `priceScaleMinimumWidth` below, so the time label can be
-// clamped to the plot area instead of drifting over the price axis.
+// Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
+// a stable width instead of resizing with the figures it prints.
 const PRICE_SCALE_WIDTH = 64;
-// The point under the crosshair is pinned to the top of the plot and only
-// tracks the pointer horizontally. Fixed widths so the label can be clamped
-// before it is drawn: the narrow one is the "when" alone, for hosts whose own
-// header already reports the price; the wide one also carries the formatted
-// price on a second line and has to fit figures like "$123,456.78".
-const TIME_ONLY_LABEL_WIDTH = 108;
-const TIME_AND_PRICE_LABEL_WIDTH = 120;
-const TIME_LABEL_EDGE_INSET = 8;
-// Flush with the top of the plot area, so the label reads as part of the chart
-// frame instead of floating with the cursor.
-const TIME_LABEL_TOP_INSET = 0;
+// The hover card follows the cursor on both axes. Fixed width so it can be
+// flipped and clamped before it is drawn, and so figures like "$123,456.78"
+// still fit on one line.
+const HOVER_TOOLTIP_WIDTH = 112;
+// Gap kept between the cursor and the card, and the smallest gap kept to the
+// chart edges so the card never hangs off the plot.
+const HOVER_TOOLTIP_CURSOR_OFFSET = 10;
+const HOVER_TOOLTIP_EDGE_INSET = 8;
+// The card rides above the cursor, far enough that the pointer never covers it.
+const HOVER_TOOLTIP_CURSOR_RISE = 56;
 // lightweight-charts stacks its canvases above the container's own
-// z-index:auto children, so the label has to opt into a layer above them.
-const TIME_LABEL_Z_INDEX = 5;
+// z-index:auto children, so the card has to opt into a layer above them.
+const HOVER_TOOLTIP_Z_INDEX = 5;
 // While scrubbing, the line past the cursor is faded so the chart reads as
 // "you are looking at this point, not the latest one". Theme colors carry their
 // own alpha, so the tail is faded as a ratio of it rather than a flat value.
@@ -76,9 +75,8 @@ export function StockPriceLineChart({
   height: number;
   pulseLastPoint?: boolean;
   testID?: string;
-  // The crosshair label answers "when" and, by default, "how much" — scrubbing
-  // has to show a price somewhere. Hosts that mirror `onHoverChange` into their
-  // own price header pass false so the figure is not printed twice.
+  // The hover card answers "when" and, by default, "how much". Hosts that must
+  // not repeat the figure pass false to keep the card time-only.
   hoverLabelShowsPrice?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
@@ -181,40 +179,34 @@ export function StockPriceLineChart({
     [],
   );
 
-  // Both centering and clamping key off the width the label will actually be
-  // drawn at, so the price variant is not pushed off the plot at either end.
-  const labelWidth = hoverLabelShowsPrice
-    ? TIME_AND_PRICE_LABEL_WIDTH
-    : TIME_ONLY_LABEL_WIDTH;
-  // Horizontally centered on the crosshair and clamped to the plot, so the
-  // label stays readable at both ends of the range instead of hanging off the
-  // edge. Vertically it stays parked at the top of the plot.
-  const timeLabelPosition = useMemo(() => {
+  // The card trails the cursor on both axes and flips to whichever side of it
+  // has room, then is clamped to the chart so it never hangs off either end.
+  const tooltipPosition = useMemo(() => {
     if (!hoverData || !chartWidth) {
       return null;
     }
-    const plotRight = chartWidth - PRICE_SCALE_WIDTH;
-    const maxLeft = Math.max(
-      TIME_LABEL_EDGE_INSET,
-      plotRight - labelWidth - TIME_LABEL_EDGE_INSET,
+    const isLeftHalf = hoverData.x < chartWidth / 2;
+    const translateX = isLeftHalf ? 0 : -HOVER_TOOLTIP_WIDTH;
+    const desiredLeft = isLeftHalf
+      ? hoverData.x + HOVER_TOOLTIP_CURSOR_OFFSET
+      : hoverData.x - HOVER_TOOLTIP_CURSOR_OFFSET;
+    const clampedLeft = Math.min(
+      Math.max(desiredLeft + translateX, HOVER_TOOLTIP_EDGE_INSET),
+      chartWidth - HOVER_TOOLTIP_WIDTH - HOVER_TOOLTIP_EDGE_INSET,
     );
     return {
-      left: Math.min(
-        Math.max(hoverData.x - labelWidth / 2, TIME_LABEL_EDGE_INSET),
-        maxLeft,
+      left: clampedLeft - translateX,
+      top: Math.max(
+        HOVER_TOOLTIP_EDGE_INSET,
+        hoverData.y - HOVER_TOOLTIP_CURSOR_RISE,
       ),
-      top: TIME_LABEL_TOP_INSET,
+      translateX,
     };
-  }, [chartWidth, hoverData, labelWidth]);
+  }, [chartWidth, hoverData]);
   const hoverTimeText = useMemo(
     () =>
       hoverData ? format(new Date(hoverData.time * 1000), 'MMM d, HH:mm') : '',
     [format, hoverData],
-  );
-  const hoverPriceText = useMemo(
-    () =>
-      hoverData && hoverLabelShowsPrice ? priceFormatter(hoverData.price) : '',
-    [hoverData, hoverLabelShowsPrice, priceFormatter],
   );
 
   return (
@@ -257,44 +249,34 @@ export function StockPriceLineChart({
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}
       />
-      {timeLabelPosition ? (
+      {hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"
-          left={timeLabelPosition.left}
-          top={timeLabelPosition.top}
-          width={labelWidth}
-          // Solid inverse chip rather than a bordered panel: it has to stay
-          // legible on top of the plot without competing with the line.
-          bg="$bgInverse"
+          left={tooltipPosition.left}
+          top={tooltipPosition.top}
+          transform={[{ translateX: tooltipPosition.translateX }]}
+          width={HOVER_TOOLTIP_WIDTH}
+          bg="$bg"
           borderRadius="$2"
-          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$borderSubdued"
           px="$2"
-          py="$1"
+          py="$1.5"
           pointerEvents="none"
-          zIndex={TIME_LABEL_Z_INDEX}
+          zIndex={HOVER_TOOLTIP_Z_INDEX}
         >
-          <SizableText
-            size="$bodyXs"
-            // On its own the time is the label's whole message; paired with the
-            // price it is the caption above it.
-            color={
-              hoverLabelShowsPrice ? '$textInverseSubdued' : '$textInverse'
-            }
-            textAlign="center"
-            numberOfLines={1}
-          >
+          <SizableText size="$bodyXs" color="$textDisabled">
             {hoverTimeText}
           </SizableText>
           {hoverLabelShowsPrice ? (
             <SizableText
               testID="stock-price-line-chart-hover-label-price"
               size="$bodySmMedium"
-              color="$textInverse"
-              textAlign="center"
+              color="$text"
               numberOfLines={1}
             >
-              {hoverPriceText}
+              {priceFormatter(hoverData.price)}
             </SizableText>
           ) : null}
         </Stack>

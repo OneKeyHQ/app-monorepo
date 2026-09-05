@@ -127,8 +127,17 @@ const MarketStockSelectorList = memo(
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
+            // The Table bakes an $3 radius into every row; the selector rows
+            // hover edge-to-edge like the other tabs, so it is squared off.
+            borderRadius: '$0',
           }}
-          headerRowProps={{ height: TOKEN_SELECTOR_HEADER_HEIGHT }}
+          // Table spreads rowProps into the header row before headerRowProps,
+          // so the row minHeight must be overridden here or the header stays
+          // 56px tall no matter what height it is given.
+          headerRowProps={{
+            height: TOKEN_SELECTOR_HEADER_HEIGHT,
+            minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
+          }}
           onRow={(item) => ({
             onPress: () => onItemPress(item),
             rowProps: {

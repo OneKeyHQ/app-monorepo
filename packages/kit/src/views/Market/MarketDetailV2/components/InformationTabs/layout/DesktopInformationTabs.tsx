@@ -88,11 +88,10 @@ function DesktopInformationTabsHeader({
       zIndex={10}
       overflow="visible"
     >
-      <Tabs.TabBar
-        {...props}
-        textSize="$bodyMdMedium"
-        renderItem={renderTabBarItem}
-      />
+      {/* Figma 25593:18628: the TabBar's defaults already match the redesigned
+          tabs ($bodyLgMedium text, 2px active indicator on the item) — only the
+          full-width divider under the row is off spec. */}
+      <Tabs.TabBar {...props} divider={false} renderItem={renderTabBarItem} />
       {realtimePauseState.isPaused ? (
         <Badge
           position="absolute"

@@ -2,13 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  IconButton,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,10 +26,12 @@ export function PerpetualTradingBanner({
   pl,
   pr,
   px,
+  py = '$3',
 }: {
   pl?: string;
   pr?: string;
   px?: string;
+  py?: string;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -88,34 +84,30 @@ export function PerpetualTradingBanner({
   );
 
   return (
-    <YStack
-      $gtMd={{ borderBottomWidth: '$px', borderBottomColor: '$borderSubdued' }}
+    <XStack
+      py={py}
+      pl={pl ?? px}
+      pr={pr ?? px}
+      alignItems="center"
+      justifyContent="space-between"
+      onPress={handlePress}
+      hoverStyle={{ opacity: 0.8 }}
+      pressStyle={{ opacity: 0.6 }}
+      userSelect="none"
     >
-      <XStack
-        py="$3"
-        pl={pl ?? px}
-        pr={pr ?? px}
-        alignItems="center"
-        justifyContent="space-between"
-        onPress={handlePress}
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
-        userSelect="none"
-      >
-        <XStack alignItems="center" gap="$2" flex={1}>
-          <Icon name="SpeakerPromoteOutline" size="$5" color="$iconSubdued" />
-          <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
-            {title} →
-          </SizableText>
-        </XStack>
-        <IconButton
-          testID="market-title-icon-btn"
-          icon="CrossedSmallOutline"
-          size="small"
-          variant="tertiary"
-          onPress={handleDismiss}
-        />
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <Icon name="SpeakerPromoteOutline" size="$5" color="$iconSubdued" />
+        <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
+          {title} →
+        </SizableText>
       </XStack>
-    </YStack>
+      <IconButton
+        testID="market-title-icon-btn"
+        icon="CrossedSmallOutline"
+        size="small"
+        variant="tertiary"
+        onPress={handleDismiss}
+      />
+    </XStack>
   );
 }

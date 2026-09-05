@@ -1,5 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   Icon,
@@ -15,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
@@ -95,6 +98,7 @@ function MarketValue({
 }
 
 function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
+  const intl = useIntl();
   const { gt2xl } = useMedia();
   const themeVariant = useThemeVariant();
 
@@ -118,7 +122,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
       },
       {
-        title: 'Name',
+        title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: 220,
         columnProps: { flexShrink: 0, px: '$2' },
@@ -152,7 +156,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
       },
       {
-        title: 'Price',
+        title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -161,7 +165,9 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Change',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_24h_change,
+        }),
         dataIndex: 'priceChange24hPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -173,7 +179,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
       },
       gt2xl
         ? {
-            title: '7d Change',
+            title: intl.formatMessage({ id: ETranslations.market_change_7d }),
             dataIndex: 'priceChange7dPercent',
             columnProps: metricColumnProps,
             render: (value: string) => (
@@ -185,7 +191,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
           }
         : undefined,
       {
-        title: 'Mcap',
+        title: intl.formatMessage({ id: ETranslations.market_mcap_short }),
         dataIndex: 'marketCap',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -194,7 +200,9 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Volume',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_24h_volume,
+        }),
         dataIndex: 'volume24h',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -204,7 +212,9 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
       },
       gt2xl
         ? {
-            title: '24h price range',
+            title: intl.formatMessage({
+              id: ETranslations.market_24h_price_range,
+            }),
             dataIndex: 'sparkline24h',
             columnProps: {
               ...metricColumnProps,
@@ -249,7 +259,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
     return columns.filter(
       (column): column is ITableColumn<IMarketAssetListItem> => Boolean(column),
     );
-  }, [gt2xl, themeVariant]);
+  }, [gt2xl, intl, themeVariant]);
 }
 
 export function MarketTopCoinsList({
@@ -362,7 +372,7 @@ export function MarketTopCoinsList({
           rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
           scrollEnabled={!webTabIntegrated}
           showHeader={!useDesktopPortal}
-          showSkeleton={isLoading && data.length === 0}
+          showSkeleton={isLoading ? data.length === 0 : false}
           skeletonCount={12}
           tabIntegrated={tabIntegrated}
         />

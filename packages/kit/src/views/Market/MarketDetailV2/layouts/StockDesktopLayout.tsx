@@ -66,13 +66,17 @@ import {
   formatRatioValue,
 } from '../utils/statValue';
 import {
-  STOCK_ABOUT_IPO_DATE_LABEL,
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
 
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
+import {
+  MARKET_CHART_TOOLBAR_VERTICAL_INSET,
+  MARKET_SIMPLE_CHART_RANGE_GAP,
+  MARKET_SIMPLE_CHART_RANGE_WIDTHS,
+} from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
 import {
@@ -86,23 +90,6 @@ type IStockDetailTab = 'overview' | 'position';
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
 const STOCK_CHART_TOOLBAR_HEIGHT = 40;
-// Pro drops the toolbar row and lays the Simple/Pro switch over the trailing
-// edge of the TradingView widget's own interval row instead. Both that row and
-// the Simple toolbar inset their contents by 4px from the top of the chart
-// block, so one offset puts the switch on the widget's line in Pro and leaves
-// it in exactly the same place when the mode is toggled.
-const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
-
-const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
-  {
-    '1H': 33,
-    '1D': 33,
-    '1W': 37,
-    '1M': 35,
-    '1Y': 32,
-    All: 34,
-  };
-const STOCK_SIMPLE_CHART_RANGE_GAP = 2;
 
 function StockPageHeader({
   showFavoriteButton,
@@ -292,6 +279,7 @@ function StockPriceHeader({
   // point under the crosshair instead of the live quote.
   hoverPoint?: IStockPriceLineChartHoverPoint;
 }) {
+  const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const isSharePrice = priceMode === 'share';
@@ -426,10 +414,12 @@ function StockPriceHeader({
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      <XStack width={191} height={38} py="$1" gap="$0.5" alignItems="center">
+      {/* Figma widths are minimums: Spanish/Italian labels outgrow the
+          English boxes, and a fixed width would truncate both options into
+          the same truncated string. */}
+      <XStack minWidth={191} height={38} py="$1" gap="$0.5" alignItems="center">
         <Button
           testID="stock-price-mode-share"
-          width={94}
           minWidth={94}
           height={30}
           m="$0"
@@ -441,11 +431,10 @@ function StockPriceHeader({
           borderRadius="$full"
           onPress={() => onPriceModeChange('share')}
         >
-          Share Price
+          {intl.formatMessage({ id: ETranslations.market_share_price })}
         </Button>
         <Button
           testID="stock-price-mode-token"
-          width={95}
           minWidth={95}
           height={30}
           m="$0"
@@ -457,7 +446,7 @@ function StockPriceHeader({
           borderRadius="$full"
           onPress={() => onPriceModeChange('token')}
         >
-          Token Price
+          {intl.formatMessage({ id: ETranslations.market_token_price })}
         </Button>
       </XStack>
     </XStack>
@@ -479,7 +468,6 @@ function StockChartModeControl({
     <XStack height={32} alignItems="center" gap="$0.5">
       <Button
         testID="stock-chart-mode-simple"
-        width={62}
         minWidth={62}
         height={32}
         m="$0"
@@ -490,11 +478,10 @@ function StockChartModeControl({
         borderRadius="$full"
         onPress={() => onChange('simple')}
       >
-        Simple
+        {intl.formatMessage({ id: ETranslations.market_chart_mode_simple })}
       </Button>
       <Button
         testID="stock-chart-mode-pro"
-        width={40}
         minWidth={40}
         height={32}
         m="$0"
@@ -542,8 +529,8 @@ export function StockChart({
   const rangeSelectorWidth = chartRanges.reduce(
     (total, item, index) =>
       total +
-      STOCK_SIMPLE_CHART_RANGE_WIDTHS[item] +
-      (index > 0 ? STOCK_SIMPLE_CHART_RANGE_GAP : 0),
+      MARKET_SIMPLE_CHART_RANGE_WIDTHS[item] +
+      (index > 0 ? MARKET_SIMPLE_CHART_RANGE_GAP : 0),
     0,
   );
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
@@ -571,23 +558,21 @@ export function StockChart({
         >
           <XStack
             testID="stock-chart-range-selector"
-            width={rangeSelectorWidth}
+            minWidth={rangeSelectorWidth}
             alignItems="center"
             gap="$0.5"
           >
             {chartRanges.map((item) => {
-              const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
+              const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
                 <Stack
                   key={item}
-                  width={itemWidth}
                   minWidth={itemWidth}
                   height={32}
                   flexShrink={0}
                 >
                   <Button
                     testID={`stock-chart-range-${item}`}
-                    width="100%"
                     minWidth={itemWidth}
                     height={32}
                     m="$0"
@@ -625,7 +610,7 @@ export function StockChart({
           {isChartFullscreen ? null : (
             <MarketDetailProChartControls
               testID="stock-chart-mode-control-pro"
-              top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
+              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
               fullscreenTestID="stock-chart-fullscreen-toggle"
               chartMode={chartMode}
               isChartSwitchDisabled={isChartSwitchDisabled}
@@ -680,7 +665,7 @@ function StockOverviewGrid() {
         ),
       },
       {
-        label: 'EPS',
+        label: intl.formatMessage({ id: ETranslations.market_stock_eps }),
         value: formatCurrencyStatValue(stockDetail?.epsTtm),
       },
       {
@@ -716,19 +701,25 @@ function StockOverviewGrid() {
         ),
       },
       {
-        label: 'Net income (FY)',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_net_income_fy,
+        }),
         value: formatCurrencyStatValue(stockDetail?.netIncomeFy),
       },
       {
-        label: 'Revenue (FY)',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_revenue_fy,
+        }),
         value: formatCurrencyStatValue(stockDetail?.revenueFy),
       },
       {
-        label: 'Shares float',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_shares_float,
+        }),
         value: formatMarketCapValue(stockDetail?.sharesFloat),
       },
       {
-        label: 'Beta (1Y)',
+        label: intl.formatMessage({ id: ETranslations.market_stock_beta_1y }),
         value: formatRatioValue(stockDetail?.beta1y),
       },
     ],
@@ -820,82 +811,6 @@ function StockPosition({
   );
 }
 
-function StockOverview({
-  portfolioData,
-  isRefreshing,
-  hasAccount,
-}: {
-  portfolioData: IMarketAccountPortfolioDisplayItem[];
-  isRefreshing: boolean;
-  hasAccount: boolean;
-}) {
-  const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
-
-  return (
-    <YStack>
-      <XStack
-        height={44}
-        px={STOCK_DETAIL_HORIZONTAL_GUTTER}
-        gap="$6"
-        alignItems="center"
-      >
-        <Button
-          testID="stock-detail-tab-overview"
-          size="medium"
-          variant="tertiary"
-          color={activeTab === 'overview' ? '$text' : '$textSubdued'}
-          bg="$transparent"
-          hoverStyle={{ bg: '$transparent' }}
-          pressStyle={{ bg: '$transparent' }}
-          borderRadius={0}
-          borderBottomWidth={activeTab === 'overview' ? 2 : 0}
-          borderBottomColor="$borderActive"
-          height={44}
-          m="$0"
-          px="$0"
-          onPress={() => setActiveTab('overview')}
-        >
-          {intl.formatMessage({ id: ETranslations.global_overview })}
-        </Button>
-        <Button
-          testID="stock-detail-tab-position"
-          size="medium"
-          variant="tertiary"
-          color={activeTab === 'position' ? '$text' : '$textSubdued'}
-          bg="$transparent"
-          hoverStyle={{ bg: '$transparent' }}
-          pressStyle={{ bg: '$transparent' }}
-          borderRadius={0}
-          borderBottomWidth={activeTab === 'position' ? 2 : 0}
-          borderBottomColor="$borderActive"
-          height={44}
-          m="$0"
-          px="$0"
-          onPress={() => setActiveTab('position')}
-        >
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
-          })}
-        </Button>
-      </XStack>
-      <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
-        <YStack minHeight={336} py={activeTab === 'overview' ? '$6' : '$0'}>
-          {activeTab === 'overview' ? (
-            <StockOverviewGrid />
-          ) : (
-            <StockPosition
-              portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
-              hasAccount={hasAccount}
-            />
-          )}
-        </YStack>
-      </YStack>
-    </YStack>
-  );
-}
-
 const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 
 function StockAnalystRatings() {
@@ -918,7 +833,14 @@ function StockAnalystRatings() {
   });
   const footerText =
     ratingCounts.total > 0
-      ? `${ratingCounts.total} ratings, ${lastUpdatedLabel}: ${lastUpdatedText}`
+      ? intl.formatMessage(
+          { id: ETranslations.market_analyst_footer },
+          {
+            total: ratingCounts.total,
+            label: lastUpdatedLabel,
+            time: lastUpdatedText,
+          },
+        )
       : `${lastUpdatedLabel}: ${lastUpdatedText}`;
 
   return (
@@ -929,7 +851,9 @@ function StockAnalystRatings() {
       py="$8"
       gap="$4"
     >
-      <SizableText size="$headingXl">Analyst ratings</SizableText>
+      <SizableText size="$headingXl">
+        {intl.formatMessage({ id: ETranslations.market_stock_analyst_ratings })}
+      </SizableText>
       {isLoading ? (
         <XStack
           testID="stock-detail-analyst-ratings-skeleton"
@@ -962,7 +886,9 @@ function StockAnalystRatings() {
               },
               {
                 key: 'hold',
-                label: 'Hold',
+                label: intl.formatMessage({
+                  id: ETranslations.market_stock_rating_hold,
+                }),
                 value: ratings?.hold,
                 barColor: '$neutral8',
               },
@@ -1029,7 +955,10 @@ function StockAnalystRatings() {
 
 // react-native-web does not fire `onTextLayout` reliably, so the toggle is
 // gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text.
+// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
+// approximation, so the clamp is only applied when the toggle is offered —
+// short-but-wide text renders unclamped rather than being cut with no way to
+// expand it.
 const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
 
 function StockAbout() {
@@ -1053,7 +982,7 @@ function StockAbout() {
   const description =
     about?.description ??
     stockDetail?.introduction ??
-    'Company information is not available.';
+    intl.formatMessage({ id: ETranslations.market_stock_about_unavailable });
   const canExpandDescription =
     description.length > STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
@@ -1064,11 +993,18 @@ function StockAbout() {
       pb="$3"
     >
       <YStack py="$8" gap="$6">
-        <SizableText size="$headingXl">About {ticker}</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage(
+            { id: ETranslations.market_about_title },
+            { ticker },
+          )}
+        </SizableText>
         <XStack height={46}>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              CEO
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_ceo,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.ceo || STAT_FALLBACK_VALUE}
@@ -1076,13 +1012,15 @@ function StockAbout() {
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Employees
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_employees,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">{formattedEmployees}</SizableText>
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Exchange
+              {intl.formatMessage({ id: ETranslations.exchange__title })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.exchange || STAT_FALLBACK_VALUE}
@@ -1090,7 +1028,9 @@ function StockAbout() {
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {STOCK_ABOUT_IPO_DATE_LABEL}
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_ipo_date,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.ipoDate
@@ -1104,7 +1044,9 @@ function StockAbout() {
             testID="stock-about-description"
             size="$bodyMd"
             color="$textSubdued"
-            numberOfLines={isDescriptionExpanded ? undefined : 2}
+            numberOfLines={
+              canExpandDescription && !isDescriptionExpanded ? 2 : undefined
+            }
           >
             {description}
           </SizableText>
@@ -1116,11 +1058,100 @@ function StockAbout() {
               alignSelf="flex-start"
               onPress={() => setIsDescriptionExpanded((value) => !value)}
             >
-              {isDescriptionExpanded ? 'Show Less' : 'Show More'}
+              {intl.formatMessage({
+                id: isDescriptionExpanded
+                  ? ETranslations.global_show_less
+                  : ETranslations.global_show_more,
+              })}
             </Button>
           ) : null}
         </YStack>
       </YStack>
+    </YStack>
+  );
+}
+
+function StockOverview({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+}) {
+  const intl = useIntl();
+  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
+
+  return (
+    <YStack>
+      <XStack
+        height={44}
+        px={STOCK_DETAIL_HORIZONTAL_GUTTER}
+        gap="$6"
+        alignItems="center"
+      >
+        <Button
+          testID="stock-detail-tab-overview"
+          size="medium"
+          variant="tertiary"
+          color={activeTab === 'overview' ? '$text' : '$textSubdued'}
+          bg="$transparent"
+          hoverStyle={{ bg: '$transparent' }}
+          pressStyle={{ bg: '$transparent' }}
+          borderRadius={0}
+          borderBottomWidth={activeTab === 'overview' ? 2 : 0}
+          borderBottomColor="$borderActive"
+          height={44}
+          m="$0"
+          px="$0"
+          onPress={() => setActiveTab('overview')}
+        >
+          {intl.formatMessage({ id: ETranslations.global_overview })}
+        </Button>
+        <Button
+          testID="stock-detail-tab-position"
+          size="medium"
+          variant="tertiary"
+          color={activeTab === 'position' ? '$text' : '$textSubdued'}
+          bg="$transparent"
+          hoverStyle={{ bg: '$transparent' }}
+          pressStyle={{ bg: '$transparent' }}
+          borderRadius={0}
+          borderBottomWidth={activeTab === 'position' ? 2 : 0}
+          borderBottomColor="$borderActive"
+          height={44}
+          m="$0"
+          px="$0"
+          onPress={() => setActiveTab('position')}
+        >
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_myposition,
+          })}
+        </Button>
+      </XStack>
+      {activeTab === 'overview' ? (
+        <>
+          <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
+            <YStack minHeight={336} py="$6">
+              <StockOverviewGrid />
+            </YStack>
+          </YStack>
+          <StockEventsSection />
+          <StockAnalystRatings />
+          <StockNewsSection />
+          <StockAbout />
+        </>
+      ) : (
+        // Portfolio brings its own horizontal padding and sizes to its rows, so
+        // it is mounted bare: an outer gutter would double-indent the table and
+        // a min-height would strand the section header above dead space.
+        <StockPosition
+          portfolioData={portfolioData}
+          isRefreshing={isRefreshing}
+          hasAccount={hasAccount}
+        />
+      )}
     </YStack>
   );
 }
@@ -1194,7 +1225,7 @@ export function StockDesktopLayout({
           <YStack
             testID="stock-token-detail-chart"
             width="100%"
-            minHeight={504}
+            minHeight={600}
             px={STOCK_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
@@ -1234,15 +1265,14 @@ export function StockDesktopLayout({
               />
             </MarketDesktopChartContainer>
           </YStack>
+          {/* The tab owns the whole lower region: Overview carries the stat
+              grid and the editorial sections, My position replaces all of
+              them. */}
           <StockOverview
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
           />
-          <StockEventsSection />
-          <StockAnalystRatings />
-          <StockNewsSection />
-          <StockAbout />
         </YStack>
 
         <Stack
