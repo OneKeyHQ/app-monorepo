@@ -18,6 +18,7 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   type OneKeyError,
@@ -32,6 +33,7 @@ import {
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -502,6 +504,7 @@ function VerifyHash({
 export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
+  onDevSkipVerificationPress,
   certificateResult,
   versionCompareResult,
   useNewProcess,
@@ -512,12 +515,19 @@ export function EnumBasicDialogContentContainer({
     message?: string;
   };
   onActionPress?: () => void;
+  onDevSkipVerificationPress?: () => void;
   certificateResult?: IFirmwareAuthenticationState;
   versionCompareResult?: IDeviceVerifyVersionCompareResult;
   useNewProcess?: boolean;
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
+  const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
+  const canDevSkip = platformEnv.isDev || devSkipUnlocked;
+
+  useEffect(() => {
+    setDevSkipUnlocked(false);
+  }, [contentType]);
 
   const content = useMemo(() => {
     switch (contentType) {
@@ -664,11 +674,13 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-              </Dialog.Title>
+              <MultipleClickStack onPress={() => setDevSkipUnlocked(true)}>
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -687,6 +699,14 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
+            {canDevSkip && onDevSkipVerificationPress ? (
+              <Button
+                testID="onboarding-dev-skip-verification-btn"
+                onPress={onDevSkipVerificationPress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected:
@@ -694,11 +714,13 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected,
-                })}
-              </Dialog.Title>
+              <MultipleClickStack onPress={() => setDevSkipUnlocked(true)}>
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_unofficial_device_detected,
+                  })}
+                </Dialog.Title>
+              </MultipleClickStack>
               <Dialog.Description>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected_help_text,
@@ -723,6 +745,14 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
+            {canDevSkip && onDevSkipVerificationPress ? (
+              <Button
+                testID="onboarding-dev-skip-verification-btn"
+                onPress={onDevSkipVerificationPress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
@@ -849,12 +879,15 @@ export function EnumBasicDialogContentContainer({
     versionCompareResult,
     onActionPress,
     dialogInstance,
+    canDevSkip,
+    onDevSkipVerificationPress,
   ]);
   return <YStack>{content}</YStack>;
 }
 
 export function FirmwareAuthenticationDialogContent({
   onContinue,
+  onDevSkipVerificationPress,
   device,
   skipDeviceCancel,
   useNewProcess,
@@ -920,6 +953,10 @@ export function FirmwareAuthenticationDialogContent({
         errorObj={errorObj}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
+        onDevSkipVerificationPress={() => {
+          onDevSkipVerificationPress?.();
+          onContinue({ checked: false });
+        }}
         certificateResult={result}
         versionCompareResult={versionCompareResult}
       />
@@ -931,6 +968,7 @@ export function FirmwareAuthenticationDialogContent({
     result,
     versionCompareResult,
     onContinue,
+    onDevSkipVerificationPress,
     reset,
     setContentType,
     verify,
@@ -1063,6 +1101,9 @@ export function useFirmwareVerifyDialog() {
           // answered with its own cancel. Either way, do not cancel twice.
           await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
           return;
+        }
+        if (!result.checked) {
+          onDevSkipVerificationPress?.();
         }
         await onVerified?.({ checked: result.checked });
         await onContinue({ checked: result.checked });

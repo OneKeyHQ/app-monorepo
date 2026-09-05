@@ -139,6 +139,7 @@ export function useDeviceStageFirmwareVerify() {
           useNewProcess = false;
         }
 
+        let failureReason: IDeviceStageAuthFailureReasonValue | undefined;
         const noteStep = async (
           step:
             | 'genuineCheck'
@@ -152,6 +153,8 @@ export function useDeviceStageFirmwareVerify() {
             failureCode?: string;
           },
         ) => {
+          failureReason =
+            step === 'authFailure' ? extras?.failureReason : undefined;
           await serviceHardwareUI.deviceStageNoteAuthStep({
             step,
             connectId,
@@ -338,7 +341,8 @@ export function useDeviceStageFirmwareVerify() {
         };
 
         // Retry runs the whole check again. Support opens the help channel
-        // and leaves the card standing; verification can never be bypassed.
+        // and leaves the card standing. Only explicit unofficial verdicts
+        // retain the legacy hidden developer override, never a verified result.
         for (;;) {
           const outcome = await runOnce();
           if (outcome === 'verified') {
@@ -347,7 +351,12 @@ export function useDeviceStageFirmwareVerify() {
           if (outcome === 'aborted') {
             return { checked: false, closed: true };
           }
-          const action = await new Promise<'retry' | 'closed'>((resolve) => {
+          const allowsDevSkip =
+            failureReason === 'unofficialDevice' ||
+            failureReason === 'unofficialFirmware';
+          const action = await new Promise<
+            'retry' | 'closed' | 'continueAnyway'
+          >((resolve) => {
             // Reassigned once both handlers exist — each exit path must
             // release BOTH listeners (the manual-close one used to leak).
             let cleanup = () => {};
@@ -360,7 +369,10 @@ export function useDeviceStageFirmwareVerify() {
                 void showIntercom();
                 return;
               }
-              if (next !== 'retry') {
+              if (
+                next !== 'retry' &&
+                !(next === 'continueAnyway' && allowsDevSkip)
+              ) {
                 return;
               }
               cleanup();
@@ -389,6 +401,10 @@ export function useDeviceStageFirmwareVerify() {
           });
           if (action === 'closed') {
             return { checked: false, closed: true };
+          }
+          if (action === 'continueAnyway') {
+            await serviceHardwareUI.deviceStageNoteAuthResolved();
+            return { checked: false };
           }
         }
       } finally {

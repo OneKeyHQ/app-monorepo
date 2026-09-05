@@ -476,6 +476,7 @@ export function DeviceStage({
   authFailureReason,
   onAuthSupport,
   onAuthRetry,
+  onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
   onSwitchPinInputToApp,
@@ -687,6 +688,7 @@ export function DeviceStage({
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
   const passphraseEpoch = panelEpochsRef.current.passphraseOnApp ?? 0;
   const pairingEpoch = panelEpochsRef.current.pairingCode ?? 0;
+  const authFailureEpoch = panelEpochsRef.current.authFailure ?? 0;
 
   // Every seat reports its own words and tail blocks. The map is what
   // lets a crossing truly land content and height target together: the
@@ -1670,6 +1672,8 @@ export function DeviceStage({
             checklist={authChecklist}
             onSupport={onAuthSupport}
             onRetry={onAuthRetry}
+            onContinueAnyway={onAuthContinueAnyway}
+            resetSignal={authFailureEpoch}
           />
         </View>
         <View onLayout={panelMeasureHandlers.authFailure.tail} />
@@ -1678,6 +1682,8 @@ export function DeviceStage({
     [
       authChecklist,
       authFailureReason,
+      authFailureEpoch,
+      onAuthContinueAnyway,
       onAuthRetry,
       onAuthSupport,
       panelMeasureHandlers,

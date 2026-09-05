@@ -16,8 +16,13 @@ jest.mock('react-native', () => ({
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  const Div = ({ children }: { children?: ReactNode }) =>
-    React.createElement('div', undefined, children);
+  const Div = ({
+    children,
+    onPress,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => React.createElement('div', { onClick: onPress }, children);
   const Button = ({
     children,
     onPress,
@@ -51,9 +56,26 @@ jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: 'HyperlinkText',
 }));
 
-jest.mock('@onekeyhq/kit/src/components/MultipleClickStack', () => ({
-  MultipleClickStack: 'MultipleClickStack',
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useDevSettingsPersistAtom: () => [{ enabled: false }],
 }));
+
+let mockIsDev = false;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv');
+  return {
+    ...actual,
+    __esModule: true,
+    default: {
+      ...actual.default,
+      get isDev() {
+        return mockIsDev;
+      },
+    },
+  };
+});
 
 const mockCloseHardwareUiStateDialog = jest.fn(
   async (_params: unknown): Promise<void> => undefined,
@@ -70,6 +92,7 @@ const mockVerifyFirmwareHash = jest.fn<Promise<unknown>, [unknown]>();
 const mockDeviceStageNoteAuthStep = jest.fn(
   async (_params: unknown): Promise<void> => undefined,
 );
+const mockDeviceStageNoteAuthResolved = jest.fn(async () => undefined);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -88,6 +111,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockCloseHardwareUiStateDialog(params),
       deviceStageJoinBurst: jest.fn(async () => undefined),
       deviceStageLeaveBurst: jest.fn(async () => undefined),
+      deviceStageNoteAuthResolved: () => mockDeviceStageNoteAuthResolved(),
       deviceStageNoteAuthStep: (params: unknown) =>
         mockDeviceStageNoteAuthStep(params),
     },
@@ -149,6 +173,7 @@ import {
 describe('legacy firmware verification recovery', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockIsDev = false;
     jest.clearAllMocks();
     mockFirmwareAuthenticate.mockReset();
   });
@@ -207,18 +232,20 @@ describe('legacy firmware verification recovery', () => {
   );
 
   it.each([10_100, 10_105])(
-    'keeps authenticity failure %s terminal',
+    'keeps authenticity failure %s blocked until the hidden override is used',
     async (code) => {
       mockFirmwareAuthenticate.mockResolvedValue({
         verified: false,
         result: { code },
       });
       const onContinue = jest.fn();
+      const onDevSkipVerificationPress = jest.fn();
       render(
         <FirmwareAuthenticationDialogContent
           device={{ connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice}
           useNewProcess
           onContinue={onContinue}
+          onDevSkipVerificationPress={onDevSkipVerificationPress}
         />,
       );
       await act(async () => {
@@ -242,6 +269,20 @@ describe('legacy firmware verification recovery', () => {
         screen.queryByText(ETranslations.global_continue_anyway),
       ).toBeNull();
       expect(onContinue).not.toHaveBeenCalled();
+      const title = screen.getByText(
+        ETranslations.device_auth_unofficial_device_detected,
+      );
+      for (let i = 0; i < 9; i += 1) fireEvent.click(title);
+      expect(
+        screen.queryByText('Skip it And Create Wallet(Only in Dev)'),
+      ).toBeNull();
+      fireEvent.click(title);
+      fireEvent.click(
+        screen.getByText('Skip it And Create Wallet(Only in Dev)'),
+      );
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(onContinue).toHaveBeenCalledWith({ checked: false });
+      expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -296,6 +337,42 @@ describe('DeviceStage certificate error classification', () => {
     mockFirmwareAuthenticate.mockReset();
   });
 
+  it.each(['unofficialDevice', 'unofficialFirmware'])(
+    'continues unverified after the developer override for %s',
+    async (reason) => {
+      mockFirmwareAuthenticate.mockResolvedValueOnce(
+        reason === 'unofficialDevice'
+          ? { verified: false, result: { code: 10_105 } }
+          : { verified: true, result: { code: 0, data: 'serial' } },
+      );
+      mockGetFirmwareVerificationFeatures.mockResolvedValue({});
+      mockVerifyFirmwareHash.mockResolvedValue({
+        firmware: { isMatch: false },
+      });
+      const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+      let verification: Promise<unknown> | undefined;
+      await act(async () => {
+        verification = result.current.runDeviceStageFirmwareVerify({
+          device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
+          features: undefined,
+        });
+      });
+      expect(mockDeviceStageNoteAuthStep).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'authFailure', failureReason: reason }),
+      );
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+          action: 'continueAnyway',
+        });
+        await expect(verification).resolves.toEqual({ checked: false });
+      });
+      expect(mockDeviceStageNoteAuthResolved).toHaveBeenCalledTimes(1);
+      expect(mockDeviceStageNoteAuthStep).not.toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'authSuccess' }),
+      );
+    },
+  );
+
   it.each([
     {
       name: 'invalid public-key certificate',
@@ -348,6 +425,14 @@ describe('DeviceStage certificate error classification', () => {
       );
       expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
       expect(mockVerifyFirmwareHash).not.toHaveBeenCalled();
+      if (scenario.reason !== 'unofficialDevice') {
+        await act(async () => {
+          appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+            action: 'continueAnyway',
+          });
+        });
+        expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+      }
     } finally {
       await act(async () => {
         appEventBus.emit(
@@ -364,6 +449,44 @@ describe('DeviceStage certificate error classification', () => {
 });
 
 describe('EnumBasicDialogContentContainer', () => {
+  it.each([
+    EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
+    EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected,
+    EFirmwareAuthenticationDialogContentType.network_error,
+    EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+    EFirmwareAuthenticationDialogContentType.error_fallback,
+    EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+  ])(
+    'limits the visible development override for %s to unofficial verdicts',
+    (contentType) => {
+      mockIsDev = true;
+      const onDevSkipVerificationPress = jest.fn();
+      render(
+        <EnumBasicDialogContentContainer
+          contentType={contentType}
+          errorObj={{ code: 0 }}
+          onDevSkipVerificationPress={onDevSkipVerificationPress}
+        />,
+      );
+      const skipButton = screen.queryByText(
+        'Skip it And Create Wallet(Only in Dev)',
+      );
+      if (
+        contentType ===
+          EFirmwareAuthenticationDialogContentType.unofficial_device_detected ||
+        contentType ===
+          EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected
+      ) {
+        expect(skipButton).toBeTruthy();
+        fireEvent.click(skipButton as HTMLElement);
+        expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(1);
+      } else {
+        expect(skipButton).toBeNull();
+      }
+      mockIsDev = false;
+    },
+  );
+
   it('reserves unofficial copy for explicit authenticity failures', () => {
     const { rerender } = render(
       <EnumBasicDialogContentContainer
@@ -480,26 +603,32 @@ describe('useFirmwareVerifyDialog', () => {
     });
   });
 
-  it('carries the stage verdict through to the caller', async () => {
-    mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({ checked: true });
-    const onContinue = jest.fn();
-    const onVerified = jest.fn();
-    const { result } = renderHook(() => useFirmwareVerifyDialog());
+  it.each([true, false])(
+    'carries the stage verdict %s through to the caller',
+    async (checked) => {
+      mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({ checked });
+      const onContinue = jest.fn();
+      const onVerified = jest.fn();
+      const onDevSkipVerificationPress = jest.fn();
+      const { result } = renderHook(() => useFirmwareVerifyDialog());
 
-    await act(async () => {
-      await result.current.showFirmwareVerifyDialog({
-        device: {
-          connectId: 'connect-id',
-          deviceType: 'pro2',
-        } as IDBDevice,
-        features: undefined,
-        onContinue,
-        onVerified,
-        onClose: jest.fn(),
+      await act(async () => {
+        await result.current.showFirmwareVerifyDialog({
+          device: {
+            connectId: 'connect-id',
+            deviceType: 'pro2',
+          } as IDBDevice,
+          features: undefined,
+          onContinue,
+          onVerified,
+          onDevSkipVerificationPress,
+          onClose: jest.fn(),
+        });
       });
-    });
 
-    expect(onVerified).toHaveBeenCalledWith({ checked: true });
-    expect(onContinue).toHaveBeenCalledWith({ checked: true });
-  });
+      expect(onVerified).toHaveBeenCalledWith({ checked });
+      expect(onContinue).toHaveBeenCalledWith({ checked });
+      expect(onDevSkipVerificationPress).toHaveBeenCalledTimes(checked ? 0 : 1);
+    },
+  );
 });

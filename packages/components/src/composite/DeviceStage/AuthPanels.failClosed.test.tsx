@@ -2,11 +2,21 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AuthFailureCard } from './AuthPanels';
+
+let mockIsDev = false;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isDev() {
+      return mockIsDev;
+    },
+  },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -16,15 +26,34 @@ jest.mock('react-intl', () => ({
 
 jest.mock('../../primitives', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  const Div = ({ children }: { children?: ReactNode }) =>
-    React.createElement('div', undefined, children);
-  const Button = ({
+  const Div = ({
     children,
+    onPress,
     testID,
   }: {
     children?: ReactNode;
+    onPress?: () => void;
     testID?: string;
-  }) => React.createElement('button', { 'data-testid': testID }, children);
+  }) =>
+    React.createElement(
+      'div',
+      { onClick: onPress, 'data-testid': testID },
+      children,
+    );
+  const Button = ({
+    children,
+    testID,
+    onPress,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    onPress?: () => void;
+  }) =>
+    React.createElement(
+      'button',
+      { onClick: onPress, 'data-testid': testID },
+      children,
+    );
 
   return {
     Anchor: Div,
@@ -48,6 +77,65 @@ jest.mock('./StepText', () => ({
 }));
 
 describe('AuthFailureCard fail-closed actions', () => {
+  beforeEach(() => {
+    mockIsDev = false;
+  });
+
+  it.each(['unofficialDevice', 'unofficialFirmware'] as const)(
+    'retains the hidden production override for %s and resets it between attempts',
+    (reason) => {
+      const onContinueAnyway = jest.fn();
+      const { rerender } = render(
+        <AuthFailureCard
+          reason={reason}
+          onContinueAnyway={onContinueAnyway}
+          resetSignal={0}
+        />,
+      );
+      const trigger = screen.getByTestId('device-stage-auth-dev-skip-trigger');
+      for (let i = 0; i < 9; i += 1) fireEvent.click(trigger);
+      expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByTestId('device-stage-auth-dev-skip'));
+      expect(onContinueAnyway).toHaveBeenCalledTimes(1);
+      expect(
+        screen.queryByText(ETranslations.global_continue_anyway),
+      ).toBeNull();
+
+      rerender(
+        <AuthFailureCard
+          reason={reason}
+          onContinueAnyway={onContinueAnyway}
+          resetSignal={1}
+        />,
+      );
+      expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+      fireEvent.click(trigger);
+      expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+    },
+  );
+
+  it.each([
+    'unofficialDevice',
+    'unofficialFirmware',
+    'network',
+    'unavailable',
+    'unknown',
+    'defective',
+  ] as const)(
+    'limits the visible development override for %s to unofficial verdicts',
+    (reason) => {
+      mockIsDev = true;
+      render(<AuthFailureCard reason={reason} onContinueAnyway={jest.fn()} />);
+      const button = screen.queryByTestId('device-stage-auth-dev-skip');
+      if (reason === 'unofficialDevice' || reason === 'unofficialFirmware') {
+        expect(button).toBeTruthy();
+      } else {
+        expect(button).toBeNull();
+      }
+    },
+  );
+
   it('shows retry and support for an unknown result without a bypass action', () => {
     render(
       <AuthFailureCard

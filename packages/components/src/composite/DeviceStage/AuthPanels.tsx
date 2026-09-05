@@ -1,6 +1,9 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   Anchor,
@@ -26,7 +29,8 @@ import type { IAuthChecklistItem, IAuthFailureReason } from './type';
  * verified (green check, the result value — linked to its release page
  * when one exists), or failed (red cross + Failed). The failure card
  * fronts a critical icon where the staged steps front the replica. A
- * failed authenticity check never permits bypassing verification.
+ * failed authenticity check only retains the legacy hidden developer
+ * override for unofficial-device and unofficial-firmware verdicts.
  */
 
 function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
@@ -106,16 +110,36 @@ export function AuthFailureCard({
   checklist,
   onSupport,
   onRetry,
+  onContinueAnyway,
+  resetSignal,
 }: {
   reason?: IAuthFailureReason;
   /** The rows that ended in failure — the unofficial-firmware shape. */
   checklist?: IAuthChecklistItem[];
   onSupport?: () => void;
   onRetry?: () => void;
+  onContinueAnyway?: () => void;
+  resetSignal?: number;
 }) {
   const intl = useIntl();
   const copy = AUTH_FAILURE_TEXT[reason];
   const failureTitle = intl.formatMessage({ id: copy.title });
+  const clickCountRef = useRef(0);
+  const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
+  const allowsDevSkip =
+    reason === 'unofficialDevice' || reason === 'unofficialFirmware';
+  const handleDevSkipTrigger = useCallback(() => {
+    if (!allowsDevSkip) return;
+    clickCountRef.current += 1;
+    if (clickCountRef.current >= 10) {
+      setDevSkipUnlocked(true);
+    }
+  }, [allowsDevSkip]);
+
+  useEffect(() => {
+    clickCountRef.current = 0;
+    setDevSkipUnlocked(false);
+  }, [reason, resetSignal]);
 
   return (
     <YStack gap="$6">
@@ -125,11 +149,16 @@ export function AuthFailureCard({
       {/* The words block's own bottom padding is its gap to what
           follows; the blocks after it keep the card's 24. */}
       <YStack>
-        <StepText
-          title={failureTitle}
-          sub={intl.formatMessage({ id: copy.sub })}
-          animated={false}
-        />
+        <Stack
+          testID="device-stage-auth-dev-skip-trigger"
+          onPress={allowsDevSkip ? handleDevSkipTrigger : undefined}
+        >
+          <StepText
+            title={failureTitle}
+            sub={intl.formatMessage({ id: copy.sub })}
+            animated={false}
+          />
+        </Stack>
         <YStack gap="$6">
           {checklist?.length ? <AuthChecklist items={checklist} /> : null}
           {copy.action === 'support' && onSupport ? (
@@ -163,6 +192,16 @@ export function AuthFailureCard({
                 </Button>
               ) : null}
             </YStack>
+          ) : null}
+          {allowsDevSkip &&
+          (platformEnv.isDev || devSkipUnlocked) &&
+          onContinueAnyway ? (
+            <Button
+              testID="device-stage-auth-dev-skip"
+              onPress={onContinueAnyway}
+            >
+              Skip it And Create Wallet(Only in Dev)
+            </Button>
           ) : null}
         </YStack>
       </YStack>
