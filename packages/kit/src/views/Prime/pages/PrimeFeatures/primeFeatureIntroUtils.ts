@@ -61,6 +61,22 @@ function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
 
 export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
   {
+    id: EPrimeFeatures.TransactionSecurityCheck,
+    listIcon: 'DocumentSearch2Outline',
+    title: ETranslations.prime_feature_transaction_security_check__title,
+    description: ETranslations.prime_feature_transaction_security_check__desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [],
+  },
+  {
     id: EPrimeFeatures.BulkSend,
     listIcon: 'ChevronDoubleUpOutline',
     title: ETranslations.wallet_bulk_send_title,

@@ -8,10 +8,33 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({
+      id,
+      defaultMessage,
+    }: {
+      id: string;
+      defaultMessage?: string;
+    }) => {
+      const messages: Record<string, string> = {
+        'hardware.device_information_is_inconsistent_it_may_be_caused_by_device_reset':
+          '设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。',
+        'hardware.device_pin_state_error':
+          '输入的PIN码与当前钱包不符。请重试。',
+        'hardware.device_passphrase_state_error':
+          'Passphrase 与当前钱包不匹配，请再试一次',
+      };
+      return messages[id] ?? defaultMessage ?? id;
+    },
+  }),
+}));
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -182,6 +205,70 @@ describe('ErrorToastContainer', () => {
     expect(mockedToast.error).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Device method call timeout',
+      }),
+    );
+    unmount();
+  });
+
+  it.each([
+    {
+      errorCode: 110,
+      title: 'Device Id in the features is not same.',
+      i18nKey:
+        ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+      expectedTitle:
+        '设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。',
+    },
+    {
+      errorCode: 118,
+      title: 'Device check unlock type not match error',
+      i18nKey: ETranslations.hardware_device_pin_state_error,
+      expectedTitle: '输入的PIN码与当前钱包不符。请重试。',
+    },
+    {
+      errorCode: 112,
+      title: 'Device passphrase state error',
+      i18nKey: ETranslations.hardware_device_passphrase_state_error,
+      expectedTitle: 'Passphrase 与当前钱包不匹配，请再试一次',
+    },
+  ])(
+    'localizes hardware error $errorCode on the main thread',
+    ({ errorCode, title, i18nKey, expectedTitle }) => {
+      const { unmount } = render(<ErrorToastContainer />);
+
+      act(() => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title,
+          errorCode,
+          i18nKey,
+        });
+      });
+
+      expect(mockedToast.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expectedTitle,
+        }),
+      );
+      unmount();
+    },
+  );
+
+  it('preserves raw details for unrelated parameterized error keys', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'The request is too large for the current connection.',
+        errorCode: 833,
+        i18nKey: ETranslations.wallet_action_failed,
+      });
+    });
+
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'The request is too large for the current connection.',
       }),
     );
     unmount();
