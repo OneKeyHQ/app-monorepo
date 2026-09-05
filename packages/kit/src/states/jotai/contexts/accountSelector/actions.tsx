@@ -44,6 +44,7 @@ import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceE
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
@@ -1911,33 +1912,45 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ? filterThirdPartyHwCreateFailureToasts(failedList)
               : failedList;
           for (const failedAccount of failedListForToast) {
-            const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-              networkId: failedAccount.networkId,
-            });
-            const deriveTypeInfo =
-              await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
-                networkId: failedAccount.networkId,
-                deriveType: failedAccount.deriveType,
-              });
             if (
-              !accountUtils.isQrWallet({
-                walletId: wallet.id,
-              })
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
             ) {
               Toast.error({
-                // eslint-disable-next-line onekey/no-app-locale-main-thread
-                title: appLocale.intl.formatMessage(
-                  {
-                    id: ETranslations.feedback_hw_create_unsupported_address_title,
-                  },
-                  {
-                    network: network?.name || failedAccount.networkId,
-                    addressType:
-                      deriveTypeInfo?.label || failedAccount.deriveType,
-                  },
-                ),
-                message: failedAccount.error.message || 'Unknown error',
+                title:
+                  ETranslations.hardware_third_party_passphrase_always_on_device,
               });
+            } else {
+              const network =
+                await backgroundApiProxy.serviceNetwork.getNetwork({
+                  networkId: failedAccount.networkId,
+                });
+              const deriveTypeInfo =
+                await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                });
+              if (
+                !accountUtils.isQrWallet({
+                  walletId: wallet.id,
+                })
+              ) {
+                Toast.error({
+                  // eslint-disable-next-line onekey/no-app-locale-main-thread
+                  title: appLocale.intl.formatMessage(
+                    {
+                      id: ETranslations.feedback_hw_create_unsupported_address_title,
+                    },
+                    {
+                      network: network?.name || failedAccount.networkId,
+                      addressType:
+                        deriveTypeInfo?.label || failedAccount.deriveType,
+                    },
+                  ),
+                  message: failedAccount.error.message || 'Unknown error',
+                });
+              }
             }
           }
         })();
