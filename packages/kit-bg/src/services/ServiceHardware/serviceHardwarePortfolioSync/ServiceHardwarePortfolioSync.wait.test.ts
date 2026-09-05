@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
+import { HardwareProcessingManager } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
   validatePortfolioPackageBase64,
@@ -549,7 +550,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       },
     );
     const withHardwareProcessing = jest.fn(
-      async (operation: (lease: object) => Promise<unknown>) =>
+      async (
+        operation: (lease: object) => Promise<unknown>,
+        _options: { onCancel?: () => void },
+      ) =>
         operation({ deviceKey: 'db-device-1', owner: Symbol('interactive') }),
     );
     const service = new ServiceHardwarePortfolioSync({
@@ -1389,6 +1393,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       expect(new Set(records.map((record) => record.syncId)).size).toBe(1);
       expect(records[0]).toMatchObject({
         deviceType: EDeviceType.Pro2,
+        connectIdSuffix: '***T_ID',
         transportType: EHardwareTransportType.BLE,
         syncId: expect.any(String),
       });
@@ -1404,6 +1409,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       for (const sensitiveValue of [
         'PRO2_DEVICE_ID',
         'PRO2_CONNECT_ID',
+        'NNECT_ID',
         '0x1234567890abcdef',
         '0.00007276',
         'AQID',
@@ -1416,7 +1422,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('cancels an interactive sync waiting for the hardware operation queue', async () => {
+  test('cancels an owned interactive sync before starting device unlock', async () => {
     const {
       service,
       withHardwareProcessing,
@@ -1443,10 +1449,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       })
       .catch((error: unknown) => error);
     await queued;
-    appEventBus.emit(
-      EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      undefined,
-    );
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
     releaseQueue();
     await expect(result).resolves.toMatchObject({
       code: HardwareErrorCode.DeviceInterruptedFromOutside,
@@ -1460,6 +1463,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     async (stage) => {
       const {
         getDeviceStateWithUnlock,
+        withHardwareProcessing,
         service,
         serviceInternals,
         uploadPortfolioPackage,
@@ -1492,10 +1496,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       // Attach a rejection handler before delivering the close event.
       const result = first.catch((error: unknown) => error);
       await started;
-      appEventBus.emit(
-        EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        undefined,
-      );
+      withHardwareProcessing.mock.calls[0][1].onCancel?.();
       await service.notifyAllNetworksTokenListSettled(buildHardwarePayload());
       release();
       await expect(result).resolves.toMatchObject({
@@ -1527,6 +1528,108 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       );
     },
   );
+
+  test('accepts a new tap while the cancelled operation is still draining', async () => {
+    const {
+      service,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({ busyResults: [false] });
+    const manager = new HardwareProcessingManager();
+    withHardwareProcessing.mockImplementation(async (operation, options) =>
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          const onCancel = options.onCancel!;
+          lease.signal?.addEventListener('abort', onCancel);
+          try {
+            return await operation(lease);
+          } finally {
+            lease.signal?.removeEventListener('abort', onCancel);
+          }
+        },
+      }),
+    );
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const first = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    const oldLease = manager.getActiveOneKeyOperationLease()!;
+    manager.cancelOneKeyOperation(oldLease);
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    // A repeated close from A must not cancel the queued B.
+    manager.cancelOneKeyOperation(oldLease);
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
+    release();
+    await expect(first).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    await expect(second).resolves.toBe(true);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('persists an acknowledged upload when closed during local bookkeeping', async () => {
+    const { service, updateTargetState, withHardwareProcessing } =
+      prepareHardwareSync({ busyResults: [false] });
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    updateTargetState.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    // The device ACK settles in this turn while attempt persistence is held.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    release();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(updateTargetState).toHaveBeenLastCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastContentHash: expect.any(String) }),
+    );
+  });
 
   test('cancels pending silent debounce before explicit unlock', async () => {
     jest.useFakeTimers();

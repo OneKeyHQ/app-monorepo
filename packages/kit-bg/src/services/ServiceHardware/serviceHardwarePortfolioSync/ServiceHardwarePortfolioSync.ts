@@ -13,10 +13,6 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -40,6 +36,7 @@ import {
   settingsPersistAtom,
 } from '../../../states/jotai/atoms';
 import ServiceBase from '../../ServiceBase';
+import serviceHardwareUtils from '../serviceHardwareUtils';
 
 import {
   buildPortfolioSyncArtifacts,
@@ -108,6 +105,7 @@ type IPortfolioSyncFailureStage = 'unlock' | 'prepare' | 'pack' | 'device-sync';
 
 type IPortfolioSyncTelemetry = {
   syncId?: string;
+  deviceApplied?: boolean;
   cancelled?: boolean;
   failureStage?: IPortfolioSyncFailureStage;
   queueDurationMs?: number;
@@ -275,6 +273,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         tokenCount: telemetry.tokenCount,
         totalTokenCount: telemetry.totalTokenCount,
         cancelled: telemetry.cancelled,
+        deviceApplied: telemetry.deviceApplied ?? 'unknown',
         ...details,
       }),
     );
@@ -1414,7 +1413,12 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       telemetry.transportType = await this.backgroundApi.serviceHardware
         .getCurrentTransportType()
         .catch(() => undefined);
-      if (this.interactiveSyncGenerationByTargetKey.has(targetKey)) {
+      const activeGeneration =
+        this.interactiveSyncGenerationByTargetKey.get(targetKey);
+      if (
+        activeGeneration !== undefined &&
+        this.isCurrentSyncGeneration(targetKey, activeGeneration)
+      ) {
         this.logSyncLifecycle('duplicate-interactive', telemetry, {
           deviceType: device.deviceType,
         });
@@ -1430,22 +1434,38 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           return;
         }
         telemetry.cancelled = true;
-        this.advanceSyncGeneration(targetKey);
+        if (
+          !telemetry.deviceApplied &&
+          this.isCurrentSyncGeneration(targetKey, generation)
+        ) {
+          // A close cannot undo a device ACK. Finish its local bookkeeping.
+          this.advanceSyncGeneration(targetKey);
+        }
+        if (
+          this.interactiveSyncGenerationByTargetKey.get(targetKey) ===
+          generation
+        ) {
+          // Keep silent snapshots suspended until cleanup; a fresh tap has a
+          // newer generation and may queue behind this cancelled operation.
+          this.pendingInteractivePayloadByTargetKey.delete(targetKey);
+          this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
+          this.pendingLockedPayloadByTargetKey.delete(targetKey);
+          this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
+          this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
+        }
         this.logSyncLifecycle('cancel-requested', telemetry, {
           deviceType: device.deviceType,
           reason: 'user-close',
         });
       };
-      appEventBus.on(
-        EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        onUserClose,
-      );
       this.logSyncLifecycle('queued', telemetry, {
         deviceType: device.deviceType,
         protocol: device.deviceStateInfo?.protocol ?? device.connectProtocol,
         firmwareVersion: device.deviceStateInfo?.versions?.firmware,
         bleVersion: device.deviceStateInfo?.versions?.ble,
-        connectIdSuffix: device.connectId?.slice(-8),
+        connectIdSuffix: serviceHardwareUtils.maskLogIdentifier(
+          device.connectId,
+        ),
       });
       try {
         return await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1489,6 +1509,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           },
           {
             debugMethodName: 'portfolio.syncPortfolio',
+            onCancel: onUserClose,
             deviceParams: { dbDevice: device },
           },
         );
@@ -1502,10 +1523,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
         throw error;
       } finally {
-        appEventBus.off(
-          EAppEventBusNames.CloseHardwareUiStateDialogManually,
-          onUserClose,
-        );
         if (
           this.interactiveSyncGenerationByTargetKey.get(targetKey) ===
           generation
@@ -1791,7 +1808,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         protocol: device?.deviceStateInfo?.protocol ?? device?.connectProtocol,
         firmwareVersion: device?.deviceStateInfo?.versions?.firmware,
         bleVersion: device?.deviceStateInfo?.versions?.ble,
-        status: telemetry.cancelled ? 'cancelled' : status,
+        status,
+        cancelRequested: telemetry.cancelled ?? false,
         failureStage,
         errorCode: errorCode ?? getPortfolioSyncErrorCode(error),
       });
@@ -2003,8 +2021,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   private async submitPortfolioJsonToServer({
     artifacts,
+    signal,
   }: {
     artifacts: IPortfolioSyncArtifacts;
+    signal?: AbortSignal;
   }): Promise<{
     serverPackageBase64: string;
     serverSubmit: IPortfolioServerSubmitResult;
@@ -2025,7 +2045,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { packageBase64: string };
-    }>('/wallet/v1/hardware/portfolio/pack', portfolio);
+    }>('/wallet/v1/hardware/portfolio/pack', portfolio, { signal });
 
     const packageBase64 = resp.data?.data?.packageBase64;
     if (!packageBase64) {
@@ -2342,12 +2362,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             : {}),
         });
       const [uploadResult, attemptStateResult] = await Promise.allSettled([
-        hardwareUploadPromise.finally(() => {
-          telemetry.hardwareDurationMs = Math.max(
-            Date.now() - lastAttemptAt,
-            0,
-          );
-        }),
+        hardwareUploadPromise
+          .then((upload) => {
+            telemetry.deviceApplied = upload.portfolioUpdated;
+            return upload;
+          })
+          .finally(() => {
+            telemetry.hardwareDurationMs = Math.max(
+              Date.now() - lastAttemptAt,
+              0,
+            );
+          }),
         this.portfolioSyncDb.updateTargetState(targetKey, {
           lastAttemptAt,
         }),
@@ -2801,6 +2826,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         ({ serverPackageBase64, serverSubmit } =
           await this.submitPortfolioJsonToServer({
             artifacts,
+            signal: options?.oneKeyOperationLease?.signal,
           }));
       } finally {
         telemetry.packDurationMs = Math.max(Date.now() - packStartedAt, 0);
