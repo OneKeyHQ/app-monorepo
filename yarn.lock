@@ -8745,8 +8745,8 @@ __metadata:
     "@babel/parser": "npm:7.27.2"
     "@babel/traverse": "npm:7.27.1"
     "@napi-rs/keyring": "npm:^1.3.0"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-core": "npm:1.2.2-alpha.101"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.2-alpha.102"
+    "@onekeyfe/hd-core": "npm:1.2.2-alpha.102"
     "@onekeyfe/hd-transport-usb": "npm:1.2.2-alpha.101"
     "@onekeyhq/core": "workspace:*"
     "@onekeyhq/shared": "workspace:*"
@@ -8951,21 +8951,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-common-connect-sdk@npm:1.2.2-alpha.101":
-  version: 1.2.2-alpha.101
-  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.2-alpha.101"
-  dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-shared": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport-emulator": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport-http": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport-lowlevel": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport-usb": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport-web-device": "npm:1.2.2-alpha.101"
-  checksum: 10/01065ace360b7f4321aa00d97a54023ab747d911fa41435abaf181322d74191537d96d545a06053da080396625d655192f77ec3de8fae115a6440aa49a69743e
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/hd-common-connect-sdk@npm:1.2.2-alpha.102":
   version: 1.2.2-alpha.102
   resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.2-alpha.102"
@@ -9024,18 +9009,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-emulator@npm:1.2.2-alpha.101":
-  version: 1.2.2-alpha.101
-  resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.2-alpha.101"
-  dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport": "npm:1.2.2-alpha.101"
-    axios: "npm:1.15.2"
-    secure-json-parse: "npm:^4.0.0"
-  checksum: 10/4e981dcd3a2254eb52feefdea3bab2afe225d3842bf5f32839fb0ef1dba10410f16e6503a0b4c8ab479d79eb346aac366056bd3f3ccd309a47185279a70020a1
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/hd-transport-emulator@npm:1.2.2-alpha.102":
   version: 1.2.2-alpha.102
   resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.2-alpha.102"
@@ -9057,16 +9030,6 @@ __metadata:
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
   checksum: 10/e0b093cfdb32ace1b3897dca67cf9d462c7d66e9edb559795c9d086bac5e4f4c5b3dfd4edcb361355f069c1af83790f37455cf22bf43d9c7d68f40d7a87bc83e
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hd-transport-lowlevel@npm:1.2.2-alpha.101":
-  version: 1.2.2-alpha.101
-  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.2-alpha.101"
-  dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.2-alpha.101"
-    "@onekeyfe/hd-transport": "npm:1.2.2-alpha.101"
-  checksum: 10/b32ccb7ba98fba388310dc63152a83422206bbbb58a772c29eae002f01d44b19d8d2f11df4a4d862b52426eaa7388a13a86a85fc196f21bc528fa096817a2666
   languageName: node
   linkType: hard
 
