@@ -30,6 +30,7 @@ import { useFundingCountdown } from '../../../hooks/useFundingCountdown';
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
+import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 
@@ -525,9 +526,11 @@ export function showPositionFundingDetailsDialog({
     showFooter: false,
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     renderContent: (
-      <PerpsProviderMirror>
-        <MobilePositionFundingDetails coin={coin} assetId={assetId} />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <MobilePositionFundingDetails coin={coin} assetId={assetId} />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
   });
 }
