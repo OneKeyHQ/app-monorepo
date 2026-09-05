@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,7 +25,6 @@ const PRIME_SUBSCRIPTION_DEEP_LINK = uriUtils.buildDeepLinkUrl({
 function PrimeSubscriptionLandingPage() {
   const intl = useIntl();
   const [isFallbackVisible, setIsFallbackVisible] = useState(false);
-  const didExplicitlyOpenAppRef = useRef(false);
 
   useEffect(() => {
     if (!platformEnv.isWeb) {
@@ -35,16 +34,19 @@ function PrimeSubscriptionLandingPage() {
     let cancelled = false;
     let fallbackCleanup: (() => void) | undefined;
     const autoOpenTimerId = setTimeout(() => {
-      fallbackCleanup = scheduleDeepLinkFallbackHint({
-        delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
-        onFallback: () => setIsFallbackVisible(true),
-      });
       void openPrimeSubscriptionFromWebLanding({
         openViaDeepLink: () => {
-          // The user already launched the app from the fallback button.
-          if (cancelled || didExplicitlyOpenAppRef.current) {
+          if (cancelled) {
             return;
           }
+          // Native fallback is only for a missing/failed extension RPC.
+          // Scheduling it while wallet_openPrimeSubscription is pending lets
+          // the user open desktop and still leave a later successful
+          // chrome.tabs navigation committed.
+          fallbackCleanup = scheduleDeepLinkFallbackHint({
+            delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
+            onFallback: () => setIsFallbackVisible(true),
+          });
           openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
         },
       });
@@ -67,7 +69,6 @@ function PrimeSubscriptionLandingPage() {
       })}
       isFallbackVisible={isFallbackVisible}
       onOpenApp={() => {
-        didExplicitlyOpenAppRef.current = true;
         openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
       }}
       openAppTestID={HomeTestIDs.primeSubscriptionOpenAppFallbackBtn}
