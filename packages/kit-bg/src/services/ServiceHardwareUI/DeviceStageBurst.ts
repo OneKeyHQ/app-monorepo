@@ -73,12 +73,13 @@ const SILENT_CANCEL_CODES = [
   HardwareErrorCode.DeviceInterruptedFromOutside,
 ];
 
-/** Errors owned by the actionable Bluetooth repair dialog. The stage exits
+/** Errors owned by a dedicated action dialog. The stage exits
  * without rendering a second generic error surface. */
 const DEDICATED_DIALOG_ERROR_CODES = [
   HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BlePeerRemovedPairingInformation,
   HardwareErrorCode.BleBondInvalid,
+  HardwareErrorCode.DeviceNotOpenedPassphrase,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search

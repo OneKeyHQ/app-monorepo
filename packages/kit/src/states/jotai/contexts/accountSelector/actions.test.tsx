@@ -2,9 +2,12 @@
 
 import type { ReactNode } from 'react';
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
+import { IntlProvider } from 'react-intl';
 
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { GlobalErrorHandlerContainer } from '@onekeyhq/kit/src/provider/Container/GlobalErrorHandlerContainer/GlobalErrorHandlerContainer';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -13,7 +16,14 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
-import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotOpenedPassphrase,
+  InvalidAttachPin,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -211,6 +221,8 @@ const mockCreateQrWalletService = jest.fn<
 >();
 const mockCreateHWWalletService = jest.fn();
 const mockCreateHWHiddenWalletService = jest.fn();
+const mockShowPassphraseDialog = jest.fn<void, [IDialogShowProps]>();
+const mockSetPassphraseEnabled = jest.fn<Promise<void>, [unknown]>();
 const mockRestoreTempCreatedWallet = jest.fn();
 const mockGetWalletDevice = jest.fn();
 const mockGetAllHwQrWalletWithDevice = jest.fn();
@@ -236,6 +248,15 @@ const mockGetAllNetworksFallbackNetworkId = jest.fn<
   Promise<string | undefined>,
   [{ walletId: string }]
 >();
+
+jest.mock('@onekeyhq/components', () => ({
+  ...jest.requireActual<typeof import('@onekeyhq/components')>(
+    '@onekeyhq/components',
+  ),
+  Dialog: {
+    show: (props: IDialogShowProps) => mockShowPassphraseDialog(props),
+  },
+}));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
   const actual = jest.requireActual<
@@ -374,6 +395,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccountProfile: {
       isSoftwareWalletOnlyUser: (): Promise<boolean> =>
         mockIsSoftwareWalletOnlyUser() as Promise<boolean>,
+    },
+    serviceHardware: {
+      setPassphraseEnabled: (params: unknown) =>
+        mockSetPassphraseEnabled(params),
     },
     serviceAllNetwork: {
       getAllNetworksFallbackNetworkId: (
@@ -786,6 +811,7 @@ describe('useAccountSelectorActions', () => {
   });
 
   describe('hidden hardware wallet reset finalization', () => {
+    const originalIntl = appLocale.intl;
     const currentDevice = {
       id: 'db-device-current',
       connectId: 'pro2-usb',
@@ -819,7 +845,9 @@ describe('useAccountSelectorActions', () => {
       hideCheckingDeviceLoading: true,
     } as unknown as IDBCreateHwWalletParamsBase;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+      appLocale.setLocale('zh-CN', await loadLocaleMessages('zh-CN'));
+      mockSetPassphraseEnabled.mockResolvedValue(undefined);
       mockCreateHWWalletService.mockResolvedValue({
         wallet: standardWallet,
         device: currentDevice,
@@ -837,6 +865,10 @@ describe('useAccountSelectorActions', () => {
         failedAccounts: [],
       });
       mockGetWalletDevice.mockResolvedValue(currentDevice);
+    });
+
+    afterEach(() => {
+      appLocale.setLocale(originalIntl.locale, originalIntl.messages);
     });
 
     it('selects the new hidden wallet before committing reset isolation', async () => {
@@ -885,7 +917,7 @@ describe('useAccountSelectorActions', () => {
       });
     });
 
-    it('preserves the global passphrase guide for an explicitly selected hidden wallet', async () => {
+    it('shows the passphrase guide before rejecting hidden wallet creation', async () => {
       const passphraseError = new DeviceNotOpenedPassphrase();
       mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
       const hiddenParams = {
@@ -915,6 +947,124 @@ describe('useAccountSelectorActions', () => {
       expect(
         mockShowQrHiddenCreateGuideDialogIfErrorMatched,
       ).toHaveBeenCalledWith(passphraseError);
+      expect(mockShowPassphraseDialog).toHaveBeenCalledTimes(1);
+      expect(mockShowPassphraseDialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '无法创建隐藏钱包',
+          description: '在您的设备上启用 Passphrase 以创建隐藏钱包。',
+          onConfirmText: '启用',
+        }),
+      );
+      expect(mockSetPassphraseEnabled).not.toHaveBeenCalled();
+
+      await mockShowPassphraseDialog.mock.calls[0][0].onConfirm?.({
+        close: jest.fn(),
+        getForm: jest.fn(),
+        isExist: () => true,
+        preventClose: jest.fn(),
+      });
+
+      expect(mockSetPassphraseEnabled).toHaveBeenCalledWith({
+        walletId: standardWallet.id,
+        passphraseEnabled: true,
+      });
+    });
+
+    it('does not repeat the guide when an RPC error reaches the global listener', async () => {
+      const addListener = jest.spyOn(globalErrorHandler, 'addListener');
+      const passphraseError = Object.assign(
+        new Error('Device not opened passphrase'),
+        toPlainErrorObject(new DeviceNotOpenedPassphrase()),
+      );
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const { unmount } = render(
+        <IntlProvider locale="zh-CN" messages={appLocale.intl.messages}>
+          <GlobalErrorHandlerContainer />
+        </IntlProvider>,
+      );
+      expect(addListener).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await expect(
+          result.current.createHWHiddenWallet({ walletId: standardWallet.id }),
+        ).rejects.toBe(passphraseError);
+      });
+      expect(mockShowPassphraseDialog).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        addListener.mock.calls[0][0](passphraseError);
+      });
+
+      expect(mockShowPassphraseDialog).toHaveBeenCalledTimes(1);
+      unmount();
+
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(
+        new DeviceNotOpenedPassphrase(),
+      );
+      await act(async () => {
+        await expect(
+          result.current.createHWHiddenWallet({ walletId: standardWallet.id }),
+        ).rejects.toBeInstanceOf(DeviceNotOpenedPassphrase);
+      });
+      expect(mockShowPassphraseDialog).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves device targeting for the global passphrase guide', async () => {
+      const addListener = jest.spyOn(globalErrorHandler, 'addListener');
+      const passphraseError = new DeviceNotOpenedPassphrase({
+        payload: {
+          connectId: currentDevice.connectId,
+          deviceId: currentDevice.deviceId,
+        },
+      });
+      const { unmount } = render(
+        <IntlProvider locale="zh-CN" messages={appLocale.intl.messages}>
+          <GlobalErrorHandlerContainer />
+        </IntlProvider>,
+      );
+
+      act(() => {
+        addListener.mock.calls[0][0](passphraseError);
+      });
+      expect(mockShowPassphraseDialog).toHaveBeenCalledTimes(1);
+      expect(mockSetPassphraseEnabled).not.toHaveBeenCalled();
+
+      await mockShowPassphraseDialog.mock.calls[0][0].onConfirm?.({
+        close: jest.fn(),
+        getForm: jest.fn(),
+        isExist: () => true,
+        preventClose: jest.fn(),
+      });
+
+      expect(mockSetPassphraseEnabled).toHaveBeenCalledWith({
+        walletId: '',
+        connectId: currentDevice.connectId,
+        featuresDeviceId: currentDevice.deviceId,
+        passphraseEnabled: true,
+      });
+      unmount();
+    });
+
+    it('does not offer to enable passphrase for a Passpin mismatch', async () => {
+      const pinError = new InvalidAttachPin();
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(pinError);
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.createHWHiddenWallet({ walletId: standardWallet.id }),
+        ).rejects.toBe(pinError);
+      });
+
+      expect(mockShowPassphraseDialog).not.toHaveBeenCalled();
+      expect(mockSetPassphraseEnabled).not.toHaveBeenCalled();
     });
 
     it('creates the hidden wallet for Attach PIN mode without a passphrase flag', async () => {

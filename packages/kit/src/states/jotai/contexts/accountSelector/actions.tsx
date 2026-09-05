@@ -7,6 +7,7 @@ import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showPassphraseDisabledDialog } from '@onekeyhq/kit/src/provider/Container/GlobalErrorHandlerContainer/GlobalErrorHandlerContainer';
 import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
 import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { toastExistingWalletSwitch } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
@@ -2090,6 +2091,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
         return res;
       } catch (error) {
+        showPassphraseDisabledDialog({ error, intl: appLocale.intl, walletId });
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         throw error;
       }

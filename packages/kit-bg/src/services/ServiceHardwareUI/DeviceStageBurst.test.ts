@@ -503,7 +503,8 @@ describe('DeviceStageBurstScope', () => {
     HardwareErrorCode.BleDeviceBondError,
     HardwareErrorCode.BlePeerRemovedPairingInformation,
     HardwareErrorCode.BleBondInvalid,
-  ])('leaves the stage when the pairing dialog owns error %s', async (code) => {
+    HardwareErrorCode.DeviceNotOpenedPassphrase,
+  ])('leaves the stage when a dedicated dialog owns error %s', async (code) => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });
     await paintOpeningBeat();
