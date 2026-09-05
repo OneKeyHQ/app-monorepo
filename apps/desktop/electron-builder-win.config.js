@@ -40,8 +40,8 @@ module.exports = {
     extraFiles: [
       ...DLLs,
       {
-        from: 'resources/windows/notificationIcon.ico',
-        to: 'resources/windows/notificationIcon.ico',
+        from: 'resources/windows/notificationIcon.png',
+        to: 'resources/windows/notificationIcon.png',
       },
     ],
     icon: 'app/build/static/images/icons/installerIcon.ico',
