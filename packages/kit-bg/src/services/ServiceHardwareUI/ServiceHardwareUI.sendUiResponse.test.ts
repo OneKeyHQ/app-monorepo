@@ -4,9 +4,14 @@ import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceBondError,
   DeviceNotFound,
+  NotInBootLoaderMode,
   OneKeyLocalError,
   UserCancel,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -33,17 +38,20 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 
-jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {
-    HardwareDeviceStateUpdate: 'HardwareDeviceStateUpdate',
-    HardwareFeaturesUpdate: 'HardwareFeaturesUpdate',
-  },
-  appEventBus: {
-    on: jest.fn(),
-    off: jest.fn(),
-    emit: jest.fn(),
-  },
-}));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+  >('@onekeyhq/shared/src/eventBus/appEventBus');
+  // Error constructors can load the bus before this service's mocks through
+  // the atom fixture. Observe that same emitter as well as service calls.
+  const emit = jest
+    .spyOn(actual.appEventBus, 'emit')
+    .mockImplementation(() => false);
+  return {
+    ...actual,
+    appEventBus: { on: jest.fn(), off: jest.fn(), emit },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
@@ -319,6 +327,92 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
     await expect(firmwarePromise).resolves.toBe('updated');
     expect(service.processingNestedNum).toBe(0);
   });
+});
+
+describe('ServiceHardwareUI bootloader recovery handoff', () => {
+  it.each([undefined, '', 'SDK_DEVICE_ID'])(
+    'notifies recovery once before leaving the stage with SDK connectId %p',
+    async (sdkConnectId) => {
+      jest.clearAllMocks();
+      const emit = jest.spyOn(appEventBus, 'emit');
+      jest
+        .mocked(firmwareUpdateWorkflowRunningAtom.get)
+        .mockResolvedValue(false);
+      const getStage = jest.spyOn(deviceStageAtom, 'get').mockResolvedValue({
+        step: 'processing',
+        burstId: 1,
+      });
+      const service = new ServiceHardwareUI({
+        backgroundApi: {
+          serviceHardware: {
+            cancelTimer: undefined,
+            getFeaturesMutex: {
+              isLocked: jest.fn(() => false),
+              waitForUnlock: jest.fn(),
+            },
+          },
+          serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+          serviceFirmwareUpdate: {
+            delayShouldDetectTimeCheck: jest.fn(),
+            delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          },
+        },
+      });
+      jest
+        .spyOn(service, 'closeHardwareUiStateDialog')
+        .mockResolvedValue(undefined);
+      const serviceInternals = service as unknown as {
+        withHardwareProcessingInternal: (
+          operation: () => Promise<void>,
+          options: {
+            deviceParams: { dbDevice: { connectId: string } };
+            hideCheckingDeviceLoading: boolean;
+          },
+        ) => Promise<void>;
+      };
+      const options = {
+        deviceParams: { dbDevice: { connectId: 'CALL_DEVICE_ID' } },
+        hideCheckingDeviceLoading: true,
+      };
+      try {
+        // The inner catch can fill metadata before the same error reaches
+        // the outer catch. Both must share one recovery notification.
+        await expect(
+          serviceInternals.withHardwareProcessingInternal(
+            () =>
+              serviceInternals.withHardwareProcessingInternal(async () => {
+                const failure = new NotInBootLoaderMode({
+                  payload: {
+                    code: HardwareErrorCode.NotAllowInBootloaderMode,
+                    connectId: sdkConnectId,
+                  },
+                });
+                throw failure;
+              }, options),
+            options,
+          ),
+        ).rejects.toBeInstanceOf(NotInBootLoaderMode);
+
+        const notifications = emit.mock.calls.filter(
+          ([name]) =>
+            name === EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+        );
+        expect(notifications).toEqual([
+          [
+            EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+            {
+              connectId: sdkConnectId || 'CALL_DEVICE_ID',
+            },
+          ],
+        ]);
+        expect(deviceStageAtom.set).toHaveBeenLastCalledWith(
+          expect.objectContaining({ step: 'off' }),
+        );
+      } finally {
+        getStage.mockRestore();
+      }
+    },
+  );
 });
 
 describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => {
