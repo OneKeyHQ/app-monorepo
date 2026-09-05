@@ -5721,11 +5721,19 @@ class ServiceAccount extends ServiceBase {
     }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     for (const id of walletIds) {
-      await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
-        {
-          walletId: id,
-        },
-      );
+      try {
+        await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
+          {
+            walletId: id,
+          },
+        );
+      } catch (error) {
+        // Wallet deletion has committed; continue the remaining cleanup.
+        console.error(
+          'Failed to cleanup DApp connections after wallet removal:',
+          error,
+        );
+      }
 
       // Cleanup orphaned HyperLiquid agent credentials
       void this.cleanupOrphanedHyperLiquidAgentCredentials({

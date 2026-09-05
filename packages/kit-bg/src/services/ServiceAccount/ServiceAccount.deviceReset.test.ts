@@ -1,5 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { DeviceNotSame } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations, LOCALES } from '@onekeyhq/shared/src/locale';
@@ -308,11 +309,13 @@ describe('ServiceAccount device reset isolation', () => {
       const wallets = [old, current, hidden, qr, other];
       const verify = jest.fn();
       const cleanupDapp = jest.fn();
+      const cleanupBackup = jest.fn();
+      const cleanupCredentials = jest.fn();
       const service = new ServiceAccount({
         backgroundApi: {
           servicePassword: { promptPasswordVerifyByWallet: verify },
           serviceDApp: { removeDappConnectionAfterWalletRemove: cleanupDapp },
-          serviceDBBackup: { removeBackupHDWallet: jest.fn() },
+          serviceDBBackup: { removeBackupHDWallet: cleanupBackup },
         },
       });
       service.getAllWallets = jest.fn().mockResolvedValue({
@@ -328,8 +331,14 @@ describe('ServiceAccount device reset isolation', () => {
         .mockImplementation(async ({ walletId }) =>
           wallets.find((wallet) => wallet.id === walletId),
         );
-      service.cleanupOrphanedHyperLiquidAgentCredentials = jest.fn();
-      return { service, verify, cleanupDapp };
+      service.cleanupOrphanedHyperLiquidAgentCredentials = cleanupCredentials;
+      return {
+        service,
+        verify,
+        cleanupDapp,
+        cleanupBackup,
+        cleanupCredentials,
+      };
     }
 
     it('keeps every wallet when the active device check fails after an old record', async () => {
@@ -374,6 +383,47 @@ describe('ServiceAccount device reset isolation', () => {
         [{ walletId: 'hw-current' }],
       ]);
     });
+
+    it.each(['hw-old', 'hw-current'])(
+      'preserves successful deletion and continues cleanup when DApp cleanup fails for %s',
+      async (failedWalletId) => {
+        const { service, cleanupDapp, cleanupBackup, cleanupCredentials } =
+          setup();
+        const error = new OneKeyLocalError('DApp cleanup failed');
+        cleanupDapp.mockImplementation(
+          async ({ walletId }: { walletId: string }) => {
+            if (walletId === failedWalletId) {
+              throw error;
+            }
+          },
+        );
+        const logError = jest
+          .spyOn(console, 'error')
+          .mockImplementation(() => {});
+        try {
+          await expect(
+            service.removeWallet({
+              walletId: 'hw-old',
+              removeSameDeviceWallets: true,
+            }),
+          ).resolves.toBeUndefined();
+          expect(jest.mocked(localDb).removeWallets.mock.calls).toHaveLength(1);
+          const expectedCalls = [
+            [{ walletId: 'hw-old' }],
+            [{ walletId: 'hw-current' }],
+          ];
+          expect(cleanupDapp.mock.calls).toEqual(expectedCalls);
+          expect(cleanupCredentials.mock.calls).toEqual(expectedCalls);
+          expect(cleanupBackup.mock.calls).toEqual(expectedCalls);
+          expect(logError).toHaveBeenCalledWith(
+            'Failed to cleanup DApp connections after wallet removal:',
+            error,
+          );
+        } finally {
+          logError.mockRestore();
+        }
+      },
+    );
 
     it('does not run post-removal cleanup when the transaction fails', async () => {
       const { service, cleanupDapp } = setup();
