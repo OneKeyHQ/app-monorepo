@@ -32,7 +32,7 @@ export type IPerpsDepositTokenRouteItem = {
   logoURI?: string;
 };
 
-export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Account';
+export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Funding' | 'Account';
 
 export type IMobilePerpMarketTab = 'orderbook' | 'info' | 'funding';
 
@@ -81,6 +81,10 @@ export type IModalPerpParamList = {
     openedFromTransfer?: boolean;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
-  [EModalPerpRoutes.MobilePortfolioPage]: undefined;
+  [EModalPerpRoutes.MobilePortfolioPage]:
+    | {
+        initialChartType?: 'accountValue' | 'pnl' | 'funding';
+      }
+    | undefined;
   [EModalPerpRoutes.PerpGuidePage]: undefined;
 };

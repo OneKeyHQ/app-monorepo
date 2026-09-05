@@ -34,6 +34,8 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  horzLineColor,
+  horzLineStyle,
   priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
@@ -47,6 +49,8 @@ export function LightweightChart({
   seriesType,
   lineType,
   baselineOptions,
+  histogramOptions,
+  referenceLine,
   showLastValue,
   showLastPointMarker,
   showTimeScale,
@@ -71,6 +75,8 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    horzLineColor,
+    horzLineStyle,
     priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
@@ -84,6 +90,8 @@ export function LightweightChart({
     seriesType,
     lineType,
     baselineOptions,
+    histogramOptions,
+    referenceLine,
     showLastValue,
     showLastPointMarker,
     showTimeScale,
@@ -112,11 +120,13 @@ export function LightweightChart({
           setWebViewReady(true);
         } else if (message.type === 'hover' && onHover) {
           onHover({
-            time: message.time ? Number(message.time) : undefined,
-            price: message.price ? Number(message.price) : undefined,
-            secondaryPrice: message.secondaryPrice
-              ? Number(message.secondaryPrice)
-              : undefined,
+            time: message.time !== undefined ? Number(message.time) : undefined,
+            price:
+              message.price !== undefined ? Number(message.price) : undefined,
+            secondaryPrice:
+              message.secondaryPrice !== undefined
+                ? Number(message.secondaryPrice)
+                : undefined,
             x: message.x,
             y: message.y,
           });
