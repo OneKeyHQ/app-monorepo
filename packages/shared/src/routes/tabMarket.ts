@@ -19,6 +19,8 @@ export type IMarketTokenDetailRouteParams = {
   marketTokenId?: string;
   marketVariantId?: string;
   marketTokenCategory?: string;
+  marketTokenSymbol?: string;
+  resolveMarketAsset?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   stockId?: never;
@@ -53,7 +55,10 @@ export type ITabMarketParamList = {
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
     skipMarketDataFetch?: boolean;
+    legacyTokenPreview?: IMarketTokenDetailPreview;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

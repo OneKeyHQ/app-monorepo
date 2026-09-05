@@ -321,7 +321,10 @@ function MarketTokenListBase({
     tabIntegrated: Boolean(tabIntegrated),
   });
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage({ marketTokenCategory });
+  const toMarketDetailPage = useToDetailPage({
+    marketTokenCategory,
+    resolveMarketAsset: isWatchlistMode,
+  });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
   const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);

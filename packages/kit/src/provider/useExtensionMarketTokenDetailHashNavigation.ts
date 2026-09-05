@@ -9,6 +9,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -52,6 +53,31 @@ function parseOptionalRouteBooleanParam(value: string | null) {
   return value === null ? undefined : value === 'true';
 }
 
+function parseTokenDetailPreviewParam(
+  value: string | null,
+): IMarketTokenDetailPreview | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const preview = JSON.parse(value) as Partial<IMarketTokenDetailPreview>;
+    if (
+      typeof preview.address !== 'string' ||
+      typeof preview.networkId !== 'string' ||
+      typeof preview.name !== 'string' ||
+      typeof preview.symbol !== 'string' ||
+      typeof preview.decimals !== 'number' ||
+      typeof preview.selectedAt !== 'number'
+    ) {
+      return undefined;
+    }
+    return preview as IMarketTokenDetailPreview;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getMarketTokenDetailNavigationTargetFromHash(
   hash: string = globalThis.location?.hash ?? '',
 ): IMarketTokenDetailNavigationTarget | undefined {
@@ -81,10 +107,18 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const skipMarketDataFetch = parseOptionalRouteBooleanParam(
       searchParams.get('skipMarketDataFetch'),
     );
+    const resolveMarketAsset = parseOptionalRouteBooleanParam(
+      searchParams.get('resolveMarketAsset'),
+    );
     const marketTokenId = searchParams.get('marketTokenId') || undefined;
     const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const marketTokenSymbol =
+      searchParams.get('marketTokenSymbol') || undefined;
+    const legacyTokenPreview = parseTokenDetailPreviewParam(
+      searchParams.get('legacyTokenPreview'),
+    );
     const from = searchParams.get('from');
 
     if (segments[1] === 'stock') {
@@ -131,6 +165,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+          ...(resolveMarketAsset === undefined
+            ? undefined
+            : { resolveMarketAsset }),
           ...(skipMarketDataFetch === undefined
             ? undefined
             : { skipMarketDataFetch }),
@@ -139,6 +177,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(showFavoriteButton === undefined
             ? undefined
             : { showFavoriteButton }),
+          ...(legacyTokenPreview ? { legacyTokenPreview } : undefined),
         },
       };
     }
@@ -151,6 +190,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         ...(marketTokenId ? { marketTokenId } : undefined),
         ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+        ...(resolveMarketAsset === undefined
+          ? undefined
+          : { resolveMarketAsset }),
         ...(skipMarketDataFetch === undefined
           ? undefined
           : { skipMarketDataFetch }),
@@ -160,6 +203,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         ...(showFavoriteButton === undefined
           ? undefined
           : { showFavoriteButton }),
+        ...(legacyTokenPreview ? { legacyTokenPreview } : undefined),
       },
     };
   } catch {
@@ -225,6 +269,11 @@ function isCurrentMarketTokenDetailTarget(
     params.marketTokenId !== target.params.marketTokenId ||
     params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
+    params.marketTokenSymbol !== target.params.marketTokenSymbol ||
+    normalizeRouteBooleanParam(params.resolveMarketAsset, false) !==
+      normalizeRouteBooleanParam(target.params.resolveMarketAsset, false) ||
+    params.legacyTokenPreview?.selectedAt !==
+      target.params.legacyTokenPreview?.selectedAt ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
       normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
   ) {
