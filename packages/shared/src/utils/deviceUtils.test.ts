@@ -141,6 +141,87 @@ describe('deviceUtils', () => {
 
     expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 22D8');
   });
+});
+
+describe('buildDeviceStageName', () => {
+  it('wears the Bluetooth name even when the device carries a label', () => {
+    // The bug this rule exists for: IDBDevice.name is a display name the
+    // label wins, so a renamed device wore its label on the stage badge
+    // where the design asks for the fixed Bluetooth name.
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          label: 'Renamed Pro 2',
+          bleName: 'Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+        fallbackName: 'Renamed Pro 2',
+      }),
+    ).toBe('Pro 2 6136');
+  });
+
+  it('shows the Pro 2 name in the same canonical form as every other surface', () => {
+    // The onboarding scan list, the device list and About all render
+    // hd-core's canonical "Pro 2 6136"; the stage must not diverge.
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          onekey_ble_name: 'Pro 2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).toBe('Pro 2 6136');
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          bleName: 'OneKey Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).toBe('OneKey Pro 2 6136');
+  });
+
+  it('leaves a non-Pro2 Bluetooth name exactly as advertised', () => {
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          label: 'My Pro',
+          ble_name: 'Pro 22D8',
+          deviceType: EDeviceType.Pro,
+        } as never,
+        fallbackName: 'My Pro',
+      }),
+    ).toBe('Pro 22D8');
+  });
+
+  it('keeps the display name for a device that advertises none', () => {
+    // Third-party vendors have no Bluetooth name at all — their badge
+    // must keep the product name it already showed, never blank.
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: { label: 'Ledger Nano X' } as never,
+        fallbackName: 'Ledger Nano X',
+      }),
+    ).toBe('Ledger Nano X');
+  });
+
+  it('treats an empty advertised name as no name', () => {
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: { onekey_ble_name: '', bleName: null } as never,
+        fallbackName: 'OneKey Classic',
+      }),
+    ).toBe('OneKey Classic');
+  });
+
+  it('names nothing when nothing is known', () => {
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: undefined,
+        fallbackName: undefined,
+      }),
+    ).toBeUndefined();
+  });
 
   it('prefers persisted DeviceState versions over stale legacy Features', async () => {
     await expect(

@@ -10,6 +10,8 @@ export function ScanCamera({
   style,
   children,
   handleScanResult,
+  // Native-only concern; stripped so it never reaches CameraView.
+  disableNavigationGuard,
   ...rest
 }: IScanCameraProps) {
   return (

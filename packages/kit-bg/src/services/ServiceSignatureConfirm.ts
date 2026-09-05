@@ -1,13 +1,24 @@
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  canAttemptTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityJsonRpc,
+  createCheckFailedTransactionSecurityResult,
+  createCheckUnavailableTransactionSecurityResult,
+  createNetworkNotSupportedTransactionSecurityResult,
+  createUnableToAssessTransactionSecurityResult,
+  resolveTransactionSecurityServerResult,
+} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
@@ -34,6 +45,11 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ITransactionSecurityCheckResult,
+  ITransactionSecurityCheckResultRaw,
+  ITransactionSecurityJsonRpc,
+} from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
   type IDecodedTx,
@@ -44,6 +60,7 @@ import {
   type IRecentRecipientEntry,
   RECENT_RECIPIENTS_BUCKET_CAP,
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -53,6 +70,27 @@ import {
 } from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
+
+type ICheckTransactionSecurityParamsBase = {
+  networkId: string;
+  accountId: string;
+  accountAddress?: string;
+};
+
+type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
+  (
+    | {
+        encodedTx: IEncodedTx;
+        jsonRpc?: never;
+      }
+    | {
+        encodedTx?: never;
+        jsonRpc: ITransactionSecurityJsonRpc;
+      }
+  );
+
+const TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE = 31_403;
+const TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE = 31_501;
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -654,6 +692,117 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
     return base;
+  }
+
+  @backgroundMethod()
+  async checkTransactionSecurity(
+    params: ICheckTransactionSecurityParams,
+  ): Promise<ITransactionSecurityCheckResult | undefined> {
+    const { accountId, networkId, encodedTx, jsonRpc } = params;
+    if ((!encodedTx && !jsonRpc) || (encodedTx && jsonRpc)) {
+      return undefined;
+    }
+
+    const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+      await primePersistAtom.get();
+    if (!isLoggedIn || !isLoggedInOnServer || !primeSubscription?.isActive) {
+      return createCheckUnavailableTransactionSecurityResult();
+    }
+
+    if (
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
+    ) {
+      return createNetworkNotSupportedTransactionSecurityResult();
+    }
+
+    if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
+      return undefined;
+    }
+
+    let authHeaders;
+    try {
+      authHeaders = await this.getOneKeyIdAuthHeaders();
+    } catch {
+      return createCheckFailedTransactionSecurityResult();
+    }
+    const authToken = authHeaders['X-Onekey-Request-Token']?.trim();
+    if (!authToken) {
+      return createCheckFailedTransactionSecurityResult();
+    }
+
+    try {
+      let accountAddress = params.accountAddress;
+      if (!accountAddress) {
+        accountAddress =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+      }
+
+      const body: {
+        networkId: string;
+        accountAddress: string;
+        encodedTx?: unknown;
+        jsonRpc?: ITransactionSecurityJsonRpc;
+      } = {
+        networkId,
+        accountAddress,
+      };
+
+      if (encodedTx) {
+        const vault = await vaultFactory.getVault({
+          networkId,
+          accountId,
+        });
+        const { encodedTx: encodedTxToCheck } =
+          await vault.buildParseTransactionParams({
+            encodedTx,
+          });
+        // The UI starts a scan when the raw payload looks attemptable
+        // (EVM objects still carry gas). After vault normalize, leftover
+        // extra keys must not skip back to a silent success.
+        if (!canSubmitTransactionSecurityEncodedTx(encodedTxToCheck)) {
+          return canAttemptTransactionSecurityEncodedTx(encodedTx)
+            ? createUnableToAssessTransactionSecurityResult()
+            : undefined;
+        }
+        body.encodedTx = encodedTxToCheck;
+      } else if (jsonRpc) {
+        body.jsonRpc = jsonRpc;
+      }
+      const walletTypeHeaders =
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        });
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const resp = await client.post<{
+        data: ITransactionSecurityCheckResultRaw;
+      }>('/utility/v1/transaction/check', body, {
+        timeout: 5000,
+        headers: {
+          ...walletTypeHeaders,
+          'X-Onekey-Request-Token': authToken,
+        },
+      });
+      return resolveTransactionSecurityServerResult(resp.data.data);
+    } catch (error) {
+      const serverError = error as { className?: string; code?: number };
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code === TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE
+      ) {
+        return createCheckUnavailableTransactionSecurityResult();
+      }
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code ===
+          TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE
+      ) {
+        return createNetworkNotSupportedTransactionSecurityResult();
+      }
+      return createCheckFailedTransactionSecurityResult();
+    }
   }
 
   @backgroundMethod()

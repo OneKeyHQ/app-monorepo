@@ -15,6 +15,7 @@ const WEB_EMBED_ROOT = path.resolve(__dirname, '..');
 const SCHEMA_VERSION = 2;
 const RELEASE_SCHEMA_VERSION = 1;
 const OCI_ARTIFACT_TYPE = 'application/vnd.onekey.web-embed-prebundle.v1';
+const OCI_MANIFEST_MEDIA_TYPE = 'application/vnd.oci.image.manifest.v1+json';
 const OCI_REGISTRY = 'ghcr.io';
 const OCI_REPOSITORY = 'onekeyhq/web-embed-prebundle';
 const SOURCE_REPOSITORY = 'OneKeyHQ/app-monorepo';
@@ -28,6 +29,8 @@ const MAX_ATTESTATION_BYTES = 8 * 1024 * 1024;
 const MAX_EXTRACTED_BYTES = 512 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 50_000;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
+const MAX_OCI_TOKEN_BYTES = 32 * 1024;
+const OCI_DOWNLOAD_MAX_ATTEMPTS = 3;
 const SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/web-embed-prebundle.yml';
 const TRUSTED_ROOT_PATH = path.join(
@@ -56,6 +59,15 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   'node_modules',
   'out-dir-bundle',
   'web-build',
+]);
+const EXCLUDED_GENERATED_INPUT_PATHS = new Set([
+  'packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
+  'packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+  'packages/kit/src/components/WebView/injectedNative.js.txt',
+  'packages/kit/src/components/WebView/translateInject.text-js',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+  'packages/shared/src/web/index.html',
 ]);
 const CANONICAL_EMPTY_ENV_KEYS = [
   'BUILD_APP_VERSION',
@@ -94,6 +106,9 @@ function toRepoPath(absolutePath, root = REPO_ROOT) {
 function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   const files = [];
   const visit = (absolutePath) => {
+    if (EXCLUDED_GENERATED_INPUT_PATHS.has(toRepoPath(absolutePath, root))) {
+      return;
+    }
     const stat = fs.lstatSync(absolutePath);
     if (stat.isSymbolicLink() || stat.isFile()) {
       files.push(absolutePath);
@@ -448,23 +463,148 @@ async function run(command, args, options = {}) {
   }
 }
 
-async function resolveOciDigest(reference) {
-  const { stdout } = await run('oras', [
-    'manifest',
-    'fetch',
-    '--descriptor',
-    reference,
-  ]);
-  const descriptor = JSON.parse(stdout);
-  if (!/^sha256:[0-9a-f]{64}$/.test(descriptor.digest || '')) {
-    throw new Error('[webEmbedPrebundle] Invalid OCI artifact digest.');
+async function readResponseBody({ fileName, maxBytes, response }) {
+  const declaredBytes = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
+    throw new Error(`[webEmbedPrebundle] Download is too large: ${fileName}.`);
   }
-  return descriptor.digest;
+  if (!response.body) {
+    throw new Error(
+      `[webEmbedPrebundle] Download has no response body: ${fileName}.`,
+    );
+  }
+  const chunks = [];
+  let receivedBytes = 0;
+  for await (const chunk of response.body) {
+    const bytes = Buffer.from(chunk);
+    receivedBytes += bytes.length;
+    if (receivedBytes > maxBytes) {
+      throw new Error(
+        `[webEmbedPrebundle] Download is too large: ${fileName}.`,
+      );
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks, receivedBytes);
 }
 
-async function verifyOciManifest(reference) {
-  const { stdout } = await run('oras', ['manifest', 'fetch', reference]);
-  const manifest = JSON.parse(stdout);
+function parseBearerChallenge(value) {
+  const scheme = value?.match(/^Bearer\s+(.+)$/iu);
+  if (!scheme) {
+    throw new Error(
+      '[webEmbedPrebundle] OCI registry returned an unsupported authentication challenge.',
+    );
+  }
+  const parameters = {};
+  const pattern = /(?:^|,)\s*([a-z][a-z0-9_-]*)="([^"]*)"/giu;
+  for (const match of scheme[1].matchAll(pattern)) {
+    parameters[match[1].toLowerCase()] = match[2];
+  }
+  if (!parameters.realm) {
+    throw new Error(
+      '[webEmbedPrebundle] OCI authentication challenge has no realm.',
+    );
+  }
+  return parameters;
+}
+
+function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('[webEmbedPrebundle] This Node.js runtime has no fetch.');
+  }
+  const baseUrl = `https://${OCI_REGISTRY}`;
+  const repositoryScope = `repository:${OCI_REPOSITORY}:pull`;
+  const repositoryUrl = `${baseUrl}/v2/${OCI_REPOSITORY}`;
+  let authorization;
+
+  async function fetchRegistry(url, { accept, timeoutMs }) {
+    const request = () =>
+      fetchImpl(url, {
+        headers: {
+          Accept: accept,
+          ...(authorization ? { Authorization: authorization } : {}),
+          'User-Agent': 'OneKey-Web-Embed-Prebundle',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    let response = await request();
+    if (response.status !== 401) return response;
+
+    const challenge = parseBearerChallenge(
+      response.headers.get('www-authenticate'),
+    );
+    if (challenge.scope && challenge.scope !== repositoryScope) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry requested an unexpected scope.',
+      );
+    }
+    const tokenUrl = new URL(challenge.realm);
+    if (
+      tokenUrl.protocol !== 'https:' ||
+      tokenUrl.username ||
+      tokenUrl.password ||
+      tokenUrl.origin !== baseUrl
+    ) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry returned an untrusted token realm.',
+      );
+    }
+    if (challenge.service) {
+      tokenUrl.searchParams.set('service', challenge.service);
+    }
+    tokenUrl.searchParams.set('scope', challenge.scope || repositoryScope);
+    const tokenResponse = await fetchImpl(tokenUrl, {
+      headers: { 'User-Agent': 'OneKey-Web-Embed-Prebundle' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!tokenResponse.ok) {
+      throw new Error(
+        `[webEmbedPrebundle] OCI token request failed: HTTP ${tokenResponse.status}.`,
+      );
+    }
+    const tokenBytes = await readResponseBody({
+      fileName: 'OCI token',
+      maxBytes: MAX_OCI_TOKEN_BYTES,
+      response: tokenResponse,
+    });
+    const tokenPayload = JSON.parse(tokenBytes.toString('utf8'));
+    const token = tokenPayload.token || tokenPayload.access_token;
+    if (
+      typeof token !== 'string' ||
+      token.length === 0 ||
+      token.length > 16_384
+    ) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry returned an invalid token.',
+      );
+    }
+    authorization = `Bearer ${token}`;
+    response = await request();
+    return response;
+  }
+
+  return {
+    fetchBlob(digest) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
+        throw new Error('[webEmbedPrebundle] Invalid OCI blob digest.');
+      }
+      return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
+        accept: 'application/octet-stream',
+        timeoutMs: 180_000,
+      });
+    },
+    fetchManifest(tagName) {
+      return fetchRegistry(
+        `${repositoryUrl}/manifests/${encodeURIComponent(tagName)}`,
+        { accept: OCI_MANIFEST_MEDIA_TYPE, timeoutMs: 15_000 },
+      );
+    },
+  };
+}
+
+function verifyOciManifest(manifest) {
   const layers = manifest.layers;
   const titles = layers
     ?.map((layer) => layer.annotations?.['org.opencontainers.image.title'])
@@ -486,18 +626,179 @@ async function verifyOciManifest(reference) {
       limit !== undefined &&
       Number.isSafeInteger(layer.size) &&
       layer.size > 0 &&
-      layer.size <= limit
+      layer.size <= limit &&
+      typeof layer.mediaType === 'string' &&
+      layer.mediaType.length > 0 &&
+      /^sha256:[0-9a-f]{64}$/.test(layer.digest || '')
     );
   });
   if (
     manifest.schemaVersion !== 2 ||
+    manifest.mediaType !== OCI_MANIFEST_MEDIA_TYPE ||
     manifest.artifactType !== OCI_ARTIFACT_TYPE ||
+    typeof manifest.config?.mediaType !== 'string' ||
+    manifest.config.mediaType.length === 0 ||
+    !Number.isSafeInteger(manifest.config?.size) ||
+    manifest.config.size <= 0 ||
+    !/^sha256:[0-9a-f]{64}$/.test(manifest.config?.digest || '') ||
     manifest.annotations?.['org.opencontainers.image.source'] !==
       `https://github.com/${SOURCE_REPOSITORY}` ||
     JSON.stringify(titles) !== JSON.stringify(expectedTitles) ||
     !hasValidLayerSizes
   ) {
     throw new Error('[webEmbedPrebundle] Invalid OCI artifact manifest.');
+  }
+  return new Map(
+    layers.map((layer) => [
+      layer.annotations['org.opencontainers.image.title'],
+      layer,
+    ]),
+  );
+}
+
+async function resolveOciArtifact({ fetchImpl, tagName }) {
+  const client = createOciClient({ fetchImpl });
+  const response = await client.fetchManifest(tagName);
+  if (!response.ok) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI manifest download failed: HTTP ${response.status}.`,
+    );
+  }
+  const contentType = response.headers.get('content-type')?.split(';')[0];
+  if (contentType !== OCI_MANIFEST_MEDIA_TYPE) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI registry returned an unexpected manifest type: ${contentType || 'missing'}.`,
+    );
+  }
+  const manifestBytes = await readResponseBody({
+    fileName: 'OCI manifest',
+    maxBytes: MAX_MANIFEST_BYTES,
+    response,
+  });
+  const ociDigest = response.headers.get('docker-content-digest');
+  const actualDigest = `sha256:${sha256(manifestBytes)}`;
+  if (
+    !/^sha256:[0-9a-f]{64}$/.test(ociDigest || '') ||
+    ociDigest !== actualDigest
+  ) {
+    throw new Error('[webEmbedPrebundle] OCI manifest digest mismatch.');
+  }
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  return {
+    client,
+    layers: verifyOciManifest(manifest),
+    ociDigest,
+  };
+}
+
+function isRetryableDownloadError(error) {
+  const retryableCodes = new Set([
+    'EAI_AGAIN',
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'ETIMEDOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_SOCKET',
+  ]);
+  let current = error;
+  while (current) {
+    if (current.retryable === true || retryableCodes.has(current.code)) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+async function downloadOciLayerOnce({
+  client,
+  descriptor,
+  filePath,
+  maxBytes,
+}) {
+  if (descriptor.size > maxBytes) {
+    throw new Error(
+      `[webEmbedPrebundle] Download is too large: ${path.basename(filePath)}.`,
+    );
+  }
+  const response = await client.fetchBlob(descriptor.digest);
+  if (!response.ok) {
+    const error = new Error(
+      `[webEmbedPrebundle] OCI blob download failed: HTTP ${response.status}.`,
+    );
+    error.retryable =
+      response.status === 408 ||
+      response.status === 425 ||
+      response.status === 429 ||
+      response.status >= 500;
+    throw error;
+  }
+  if (!response.body) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI blob has no response body: ${path.basename(filePath)}.`,
+    );
+  }
+  const file = await fs.promises.open(filePath, 'wx', 0o600);
+  const hash = crypto.createHash('sha256');
+  let receivedBytes = 0;
+  try {
+    for await (const chunk of response.body) {
+      const bytes = Buffer.from(chunk);
+      receivedBytes += bytes.length;
+      if (receivedBytes > maxBytes || receivedBytes > descriptor.size) {
+        throw new Error(
+          `[webEmbedPrebundle] Download is too large: ${path.basename(filePath)}.`,
+        );
+      }
+      hash.update(bytes);
+      await file.write(bytes);
+    }
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  if (
+    receivedBytes !== descriptor.size ||
+    `sha256:${hash.digest('hex')}` !== descriptor.digest
+  ) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI blob integrity mismatch: ${path.basename(filePath)}.`,
+    );
+  }
+}
+
+async function downloadOciLayer({
+  client,
+  descriptor,
+  filePath,
+  maxAttempts = OCI_DOWNLOAD_MAX_ATTEMPTS,
+  maxBytes,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await downloadOciLayerOnce({
+        client,
+        descriptor,
+        filePath,
+        maxBytes,
+      });
+      return;
+    } catch (error) {
+      await fs.promises.rm(filePath, { force: true });
+      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+        throw error;
+      }
+      console.error(
+        `[webEmbedPrebundle] Retrying ${path.basename(filePath)} after a transient download failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
   }
 }
 
@@ -614,17 +915,32 @@ async function replaceDirectory({
   }
 }
 
-async function restoreRelease({ outputDirectory, receiptPath } = {}) {
+async function restoreRelease({
+  fetchImpl,
+  outputDirectory,
+  receiptPath,
+} = {}) {
   const tagName = getReleaseTag();
-  const tagReference = `${OCI_REGISTRY}/${OCI_REPOSITORY}:${tagName}`;
   const pullDirectory = await fs.promises.mkdtemp(
     path.join(os.tmpdir(), 'onekey-web-embed-prebundle-'),
   );
   try {
-    const ociDigest = await resolveOciDigest(tagReference);
+    const artifact = await resolveOciArtifact({ fetchImpl, tagName });
+    const { ociDigest } = artifact;
     const reference = `${OCI_REGISTRY}/${OCI_REPOSITORY}@${ociDigest}`;
-    await verifyOciManifest(reference);
-    await run('oras', ['pull', '--output', pullDirectory, reference]);
+    const layerLimits = {
+      [ARCHIVE_NAME]: MAX_ARCHIVE_BYTES,
+      [ATTESTATION_BUNDLE_NAME]: MAX_ATTESTATION_BYTES,
+      [RELEASE_MANIFEST_NAME]: MAX_MANIFEST_BYTES,
+    };
+    for (const [fileName, maxBytes] of Object.entries(layerLimits)) {
+      await downloadOciLayer({
+        client: artifact.client,
+        descriptor: artifact.layers.get(fileName),
+        filePath: path.join(pullDirectory, fileName),
+        maxBytes,
+      });
+    }
     const manifestPath = path.join(pullDirectory, RELEASE_MANIFEST_NAME);
     getFileMetadata(manifestPath, { maxBytes: MAX_MANIFEST_BYTES });
     getFileMetadata(path.join(pullDirectory, ATTESTATION_BUNDLE_NAME), {

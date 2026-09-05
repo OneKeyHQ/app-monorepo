@@ -34,6 +34,7 @@ const FIRMWARE_DISCONNECT_ERROR_CODES = [
   HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
 ];
 
 function getErrorText(error: IOneKeyError | undefined): string {

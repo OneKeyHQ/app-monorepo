@@ -37,7 +37,10 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
@@ -336,9 +339,9 @@ function BaseMarketTokenSelectorContent({
   );
 
   const handleSelectStock = useCallback(
-    (stockId: string) => {
+    (stock: IMarketStockPublicItem) => {
       void closePopover?.();
-      void toMarketStockDetailPage(stockId);
+      void toMarketStockDetailPage(stock);
     },
     [closePopover, toMarketStockDetailPage],
   );

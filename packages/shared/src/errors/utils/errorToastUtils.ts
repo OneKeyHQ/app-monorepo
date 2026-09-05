@@ -85,6 +85,24 @@ const AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES: Set<EOneKeyErrorClassNam
     EOneKeyErrorClassNames.IncorrectPinError,
   ]);
 
+const AUTO_TOAST_HANDLED_BY_OTHER_UI_HARDWARE_ERROR_CODES = new Set<
+  number | string
+>([
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
+]);
+
+function isHardwareErrorHandledByOtherUi(
+  error: IOneKeyError | undefined,
+): boolean {
+  return [error?.code, error?.payload?.code].some(
+    (code) =>
+      code !== undefined &&
+      AUTO_TOAST_HANDLED_BY_OTHER_UI_HARDWARE_ERROR_CODES.has(code),
+  );
+}
+
 // True if the global auto toast has already been shown for this error
 // instance (marker set by showToastOfError).
 function wasAutoToastShown(error: unknown): boolean {
@@ -154,7 +172,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   if (
     isUserCancelStyleError(err) ||
     (err?.className &&
-      AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES.has(err.className))
+      AUTO_TOAST_HANDLED_BY_OTHER_UI_ERROR_CLASS_NAMES.has(err.className)) ||
+    isHardwareErrorHandledByOtherUi(err)
   ) {
     return;
   }

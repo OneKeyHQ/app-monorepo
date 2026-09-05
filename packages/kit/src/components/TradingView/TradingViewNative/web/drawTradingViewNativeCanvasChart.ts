@@ -34,6 +34,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel: string;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  isMobileLayout: boolean;
   points: IMarketTokenKLineDataPoint[];
   pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisFontSize: number;
@@ -63,6 +64,7 @@ export function drawTradingViewNativeCanvasChart({
   candleLabels,
   currentPriceLabel,
   indicatorSeries,
+  isMobileLayout,
   points,
   pinnedPriceRange,
   priceAxisFontSize,
@@ -108,6 +110,7 @@ export function drawTradingViewNativeCanvasChart({
     hasVolume,
     height,
     indicatorSeries,
+    isMobileLayout,
     measureTextWidth: (text, font) => {
       context.font = getTradingViewNativeCanvasFont(
         font,

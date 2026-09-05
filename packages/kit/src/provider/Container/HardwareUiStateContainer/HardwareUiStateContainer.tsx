@@ -35,13 +35,21 @@ import {
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
+  useDeviceStageAtom,
+  useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isDeviceStageOwnedHardwareUiAction,
+  isLegacyHardwareUiActive,
+  shouldLegacyContainerRaiseHardwareErrorDialog,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -66,6 +74,7 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
+  buildBleBondError,
   buildBleNotifyChangeError,
   buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
@@ -76,7 +85,11 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import {
+  createHardwareErrorDialogEventHandler,
+  isTrezorHardwareErrorDialogPayload,
+  shouldReplaceHardwareErrorDialog,
+} from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
@@ -470,6 +483,26 @@ function HardwareUiStateContainerCmpControlled() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // OK-59934: the DeviceStage plays the interactions it owns, so this
+  // container renders only what is left to it — bluetooth pairing, the
+  // firmware-update surfaces, and the permission popups below (whose
+  // listeners always stay live). One shared table decides, so an action
+  // is never shown twice or by nobody.
+  const [firmwareUpdateRunning] = useFirmwareUpdateWorkflowRunningAtom();
+  // Whether the stage is on stage right now — the failure it is mid-flow
+  // on is the failure it will land.
+  const [deviceStage] = useDeviceStageAtom();
+  const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
+  const stageIsShowingRef = useRef(stageIsShowing);
+  stageIsShowingRef.current = stageIsShowing;
+  const stageOwnsAction =
+    !isLegacyHardwareUiActive() &&
+    isDeviceStageOwnedHardwareUiAction({
+      action: state?.action,
+      eventType: state?.payload?.eventType,
+      firmwareUpdateRunning,
+    });
+
   const { serviceHardwareUI } = backgroundApiProxy;
 
   const action = state?.action;
@@ -658,8 +691,9 @@ function HardwareUiStateContainerCmpControlled() {
   shouldSkipCancelRef.current = shouldSkipCancel;
 
   const actionStatus = useMemo(() => {
-    const isToastAction = hasToastAction(state);
-    const isDialogAction = hasDialogAction(state);
+    // Stage-owned actions render on the stage, not here.
+    const isToastAction = !stageOwnsAction && hasToastAction(state);
+    const isDialogAction = !stageOwnsAction && hasDialogAction(state);
     const isToastCloseAction = hasToastCloseAction(state);
     const isOperationAction = hasOperationAction(state);
     const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
@@ -679,6 +713,7 @@ function HardwareUiStateContainerCmpControlled() {
     hasOperationAction,
     hasToastAction,
     hasToastCloseAction,
+    stageOwnsAction,
     state,
   ]);
 
@@ -700,6 +735,7 @@ function HardwareUiStateContainerCmpControlled() {
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const hardwareErrorDialogTypeRef = useRef<string | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
@@ -787,23 +823,77 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
-    const callback = throttle(
+    let isDisposed = false;
+    let isReplacingWithBleBondError = false;
+    const showBleBondErrorDialog = () => {
+      hardwareErrorDialogTypeRef.current =
+        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+      hardwareErrorDialogInstanceRef.current = Dialog.show(
+        buildBleBondError(intl),
+      );
+    };
+    const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        // Only handle DeviceNotFound errors for now, can be extended for other error types
-        if (errorType !== 'DeviceNotFound') {
+        const isDeviceNotFound =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
+        const isBleDeviceBondError =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+        // OK-59934: one failure, one surface — the stage lands the failure
+        // itself while it is on, and this dialog speaks for everything the
+        // stage is not carrying (device search, the firmware update
+        // workflow, any call that never opened a burst).
+        if (
+          !isBleDeviceBondError &&
+          !shouldLegacyContainerRaiseHardwareErrorDialog({
+            errorType,
+            stageIsShowing: stageIsShowingRef.current,
+          })
+        ) {
           return;
         }
-        // Prevent duplicate dialog instances
-        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
+        if (isDeviceNotFound && isReplacingWithBleBondError) {
+          return;
+        }
+        const existingDialog = hardwareErrorDialogInstanceRef.current;
+        if (existingDialog?.isExist()) {
+          if (
+            shouldReplaceHardwareErrorDialog({
+              currentErrorType: hardwareErrorDialogTypeRef.current,
+              nextErrorType: errorType,
+            })
+          ) {
+            void serviceHardwareUI.cleanHardwareUiState();
+            hardwareErrorDialogTypeRef.current =
+              HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+            isReplacingWithBleBondError = true;
+            void (async () => {
+              try {
+                await existingDialog.close();
+              } catch {
+                // Keep the repair guidance visible even if closing fails.
+              }
+              if (!isDisposed) {
+                showBleBondErrorDialog();
+              }
+              isReplacingWithBleBondError = false;
+            })();
+          }
           return;
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
 
+        if (isBleDeviceBondError) {
+          showBleBondErrorDialog();
+          return;
+        }
+
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
+        hardwareErrorDialogTypeRef.current =
+          HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: isTrezorError
@@ -823,13 +913,16 @@ function HardwareUiStateContainerCmpControlled() {
           ),
         });
       },
-      2500, // Same throttle duration as other hardware dialog instances
+      2500,
     );
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
+      isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+      callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
+      hardwareErrorDialogTypeRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
 

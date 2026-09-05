@@ -1,4 +1,7 @@
 /* eslint-disable import-path/parent-depth */
+import { type ReactNode, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
@@ -21,10 +24,36 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EHostSecurityLevel,
+  type IHostSecurity,
+} from '@onekeyhq/shared/types/discovery';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import {
+  EParseTxComponentType,
+  ETransferDirection,
+  type IDisplayComponentSimulation,
+} from '@onekeyhq/shared/types/signatureConfirm';
+import {
+  ETransactionSecurityResultCode,
+  type ITransactionSecurityCheckResult,
+} from '@onekeyhq/shared/types/transactionSecurity';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { NetworkAvatar } from '../../../../../../components/NetworkAvatar';
 import { Token } from '../../../../../../components/Token';
-import { DAppSiteMark } from '../../../../../DAppConnection/components/DAppRequestLayout';
+import { useAccountData } from '../../../../../../hooks/useAccountData';
+import {
+  DAppSiteMark,
+  shouldHideDAppSiteRiskStyle,
+} from '../../../../../DAppConnection/components/DAppRequestLayout';
+import {
+  SecurityCheckCard,
+  TransactionPreview,
+  buildSecurityCheckModel,
+} from '../../../../../SignatureConfirm/components/SecurityCheckCard';
 
 import { Layout } from './utils/Layout';
 
@@ -36,7 +65,9 @@ import type { ITokenProps } from '../../../../../../components/Token';
 function FakeWrapper({ children, ...rest }: IYStackProps) {
   return (
     <YStack
-      w={640}
+      width="100%"
+      maxWidth={640}
+      alignSelf="center"
       p="$5"
       borderWidth={1}
       borderColor="$borderSubdued"
@@ -238,12 +269,15 @@ function SignatureNetworkDetailItem({
   label: string;
   networkId: string;
 } & ISignatureDetailItemType) {
+  const { network } = useAccountData({ networkId });
   return (
     <SignatureDetailItem {...rest}>
       <SignatureDetailItem.Label>{label}</SignatureDetailItem.Label>
       <XStack gap="$2">
         <NetworkAvatar size="$5" networkId={networkId} />
-        <SignatureDetailItem.Value>Ethereum</SignatureDetailItem.Value>
+        <SignatureDetailItem.Value>
+          {network?.name ?? networkId}
+        </SignatureDetailItem.Value>
       </XStack>
     </SignatureDetailItem>
   );
@@ -492,11 +526,12 @@ function YourComponentDemo() {
       <DAppSiteMark origin="https://uniswap.org" />
 
       {/* map items */}
-      {MOCK_DATA.items.map((item) => {
+      {MOCK_DATA.items.map((item, index) => {
+        const itemKey = `${item.type}-${item.label}-${index}`;
         if (item.type === 'address') {
           return (
             <SignatureAddressDetailItem
-              key={item.label}
+              key={itemKey}
               label={item.label}
               address={item.address ?? ''}
               tags={item.tags?.map((tag) => ({
@@ -510,7 +545,7 @@ function YourComponentDemo() {
         if (item.type === 'network') {
           return (
             <SignatureNetworkDetailItem
-              key={item.label}
+              key={itemKey}
               label={item.label}
               networkId={item.networkId ?? ''}
             />
@@ -520,7 +555,7 @@ function YourComponentDemo() {
         if (item.type === 'token' || item.type === 'nft') {
           return (
             <SignatureAssetDetailItem
-              key={item.label}
+              key={itemKey}
               type={item.type}
               label={item.label}
               tokenProps={{
@@ -546,7 +581,7 @@ function YourComponentDemo() {
         }
 
         return (
-          <SignatureDetailItem key={item.label}>
+          <SignatureDetailItem key={itemKey}>
             <SignatureDetailItem.Label>{item.label}</SignatureDetailItem.Label>
             <SignatureDetailItem.Value>
               {/* @ts-expect-error - fallback case */}
@@ -603,13 +638,551 @@ function YourComponentDemo() {
   );
 }
 
+const GALLERY_HOST_VERIFIED = {
+  host: 'app.uniswap.org',
+  level: EHostSecurityLevel.Security,
+  attackTypes: [],
+  phishingSite: false,
+  checkSources: [],
+  alert: '',
+  projectName: 'Uniswap',
+  createdAt: '',
+} as IHostSecurity;
+const GALLERY_HOST_SAFE_DEMO = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'swap-demo.example',
+  projectName: 'Example Swap',
+} as IHostSecurity;
+const GALLERY_HOST_UNVERIFIED = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'permit-dapp.example',
+  level: EHostSecurityLevel.Unknown,
+  projectName: '',
+} as IHostSecurity;
+const GALLERY_HOST_PHISHING = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'approval-phishing.example',
+  level: EHostSecurityLevel.High,
+  phishingSite: true,
+  alert: 'This site is known for approval phishing.',
+  projectName: '',
+  detail: {
+    title: 'Approval phishing',
+    content: 'Other visitors lost funds after signing on lookalike domains.',
+  },
+} as IHostSecurity;
+const GALLERY_HOST_WARNING = {
+  ...GALLERY_HOST_VERIFIED,
+  host: 'new-dapp.example',
+  level: EHostSecurityLevel.Medium,
+  alert: 'This site has unusual traffic for a first-time visit.',
+  projectName: '',
+  detail: {
+    title: 'Unusual first-visit traffic',
+    content: 'Similar domains were used in approval phishing this week.',
+  },
+} as IHostSecurity;
+const GALLERY_SCAN_SECURITY: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Security,
+  detail: { code: 'security', features: [] },
+};
+const GALLERY_SCAN_UNKNOWN: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: {
+    code: ETransactionSecurityResultCode.UnableToAssess,
+    features: [],
+  },
+};
+const GALLERY_SCAN_FAILED: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: { code: ETransactionSecurityResultCode.CheckFailed, features: [] },
+};
+const GALLERY_SCAN_UNAVAILABLE: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: {
+    code: ETransactionSecurityResultCode.CheckUnavailable,
+    features: [],
+  },
+};
+const GALLERY_SCAN_NETWORK_NOT_SUPPORTED: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Unknown,
+  detail: {
+    code: ETransactionSecurityResultCode.NetworkNotSupported,
+    features: [],
+  },
+};
+const GALLERY_SCAN_WARNING: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.Medium,
+  detail: {
+    code: 'new_spender',
+    title: 'The spender has not been seen before.',
+    content: 'Review the spender before approving this request.',
+    features: [
+      {
+        level: EHostSecurityLevel.Medium,
+        code: 'new_spender',
+        title: 'Spender not seen before',
+        content: 'This address has little transaction history.',
+      },
+    ],
+  },
+};
+const GALLERY_SCAN_DRAIN: ITransactionSecurityCheckResult = {
+  level: EHostSecurityLevel.High,
+  detail: {
+    code: 'approval_drain',
+    title: 'The spender can move your full USDC balance.',
+    content: 'This approval stays valid until you revoke it.',
+    features: [
+      {
+        level: EHostSecurityLevel.High,
+        code: 'unlimited_approval',
+        title: 'Unlimited USDC allowance',
+        content: 'The spender can transfer the full balance.',
+        address: '0x111122223333444455556666777788889999aaaa',
+      },
+      {
+        level: EHostSecurityLevel.Medium,
+        code: 'new_spender',
+        title: 'Spender not seen before',
+      },
+    ],
+  },
+};
+
+function galleryDecodedTx(alerts: string[] = []): IDecodedTx {
+  return {
+    txid: 'gallery',
+    owner: '0x13b30304dAa2129a21e42df663e8f49C49b276e8',
+    signer: '0x13b30304dAa2129a21e42df663e8f49C49b276e8',
+    nonce: 1,
+    actions: [],
+    status: 'Pending',
+    networkId: 'evm--1',
+    accountId: 'gallery',
+    extraInfo: null,
+    isLocalParsed: false,
+    isConfirmationRequired: false,
+    txDisplay: {
+      title: 'Approval',
+      components: [],
+      alerts,
+    },
+  } as IDecodedTx;
+}
+
+const GALLERY_PERMIT_MESSAGE: IUnsignedMessage = {
+  type: EMessageTypesEth.TYPED_DATA_V4,
+  message: JSON.stringify({ primaryType: 'Permit' }),
+};
+
+const GALLERY_SIMULATION: IDisplayComponentSimulation[] = [
+  {
+    type: EParseTxComponentType.Simulation,
+    label: '',
+    assets: [
+      {
+        type: EParseTxComponentType.InternalAssets,
+        label: '',
+        name: 'Ethereum',
+        icon: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
+        symbol: 'ETH',
+        amount: '',
+        amountParsed: '0.12',
+        transferDirection: ETransferDirection.Out,
+      },
+      {
+        type: EParseTxComponentType.InternalAssets,
+        label: '',
+        name: 'USD Coin',
+        icon: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
+        symbol: 'USDC',
+        amount: '',
+        amountParsed: '240.00',
+        transferDirection: ETransferDirection.In,
+      },
+    ],
+  },
+];
+
+function GallerySecurityCheckCard({
+  onRetry,
+  urlSecurityInfo = GALLERY_HOST_VERIFIED,
+  decodedTxs,
+  transactionSecurityInfo,
+  isTransactionSecurityPending,
+  isTransactionSecurityApplicable,
+  isPrimeUser,
+}: {
+  onRetry?: () => void;
+  urlSecurityInfo?: IHostSecurity;
+  decodedTxs?: IDecodedTx[];
+  transactionSecurityInfo?: ITransactionSecurityCheckResult;
+  isTransactionSecurityPending?: boolean;
+  isTransactionSecurityApplicable?: boolean;
+  isPrimeUser?: boolean;
+}) {
+  const intl = useIntl();
+  return (
+    <SecurityCheckCard
+      model={buildSecurityCheckModel({
+        kind: 'transaction',
+        origin: `https://${urlSecurityInfo.host}`,
+        urlSecurityInfo,
+        decodedTxs: decodedTxs ?? [galleryDecodedTx()],
+        transactionSecurityInfo,
+        isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
+        isPrimeUser,
+        intl,
+      })}
+      onRetry={onRetry}
+    />
+  );
+}
+
+const GALLERY_ACCOUNT_TAGS = [
+  { type: 'success' as const, name: 'Wallet 1 / Account #1' },
+];
+
+function SignatureCase({
+  children,
+  showSimulation = true,
+  urlSecurityInfo = GALLERY_HOST_VERIFIED,
+  networkId = 'evm--1',
+  testID,
+}: {
+  children: ReactNode;
+  showSimulation?: boolean;
+  urlSecurityInfo?: IHostSecurity;
+  networkId?: string;
+  testID?: string;
+}) {
+  return (
+    <FakeWrapper gap="$5" testID={testID}>
+      <DAppSiteMark
+        origin={`https://${urlSecurityInfo.host}`}
+        urlSecurityInfo={urlSecurityInfo}
+        hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
+      />
+      {children}
+      {showSimulation ? (
+        <TransactionPreview simulationComponents={GALLERY_SIMULATION} />
+      ) : null}
+      <SignatureNetworkDetailItem label="Network" networkId={networkId} />
+      <SignatureAddressDetailItem
+        label="Account address"
+        address="0x13b30304dAa2129a21e42df663e8f49C49b276e8"
+        tags={GALLERY_ACCOUNT_TAGS}
+      />
+    </FakeWrapper>
+  );
+}
+
+function ApprovalCriticalDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-critical-combined"
+      urlSecurityInfo={GALLERY_HOST_PHISHING}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_PHISHING}
+        transactionSecurityInfo={GALLERY_SCAN_DRAIN}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalPrimeWarningDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-warning-prime"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_WARNING}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalWarningCheckingDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-loading-warning"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        decodedTxs={[
+          galleryDecodedTx(['The spender is an EOA and may be a scam address']),
+        ]}
+        isTransactionSecurityPending
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalUnknownDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-unable-assess"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_UNKNOWN}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalSuccessDemo() {
+  return (
+    <SignatureCase testID="signature-gallery-safe-prime">
+      <GallerySecurityCheckCard
+        transactionSecurityInfo={GALLERY_SCAN_SECURITY}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalSuccessFreeDemo() {
+  return (
+    <SignatureCase testID="signature-gallery-safe-free">
+      <GallerySecurityCheckCard
+        isPrimeUser={false}
+        isTransactionSecurityApplicable
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalLoadingDemo() {
+  return (
+    <SignatureCase testID="signature-gallery-loading">
+      <GallerySecurityCheckCard isTransactionSecurityPending isPrimeUser />
+    </SignatureCase>
+  );
+}
+
+function ApprovalViewAllDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-view-all"
+      urlSecurityInfo={GALLERY_HOST_WARNING}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_WARNING}
+        decodedTxs={[
+          galleryDecodedTx([
+            'The spender has not been seen before.',
+            'The spender is an EOA and may be a scam address',
+            'This approval stays valid until you revoke it.',
+          ]),
+        ]}
+        isPrimeUser={false}
+        isTransactionSecurityApplicable
+      />
+    </SignatureCase>
+  );
+}
+
+function PermitDemo({
+  testID,
+  urlSecurityInfo,
+}: {
+  testID: string;
+  urlSecurityInfo: IHostSecurity;
+}) {
+  const intl = useIntl();
+  return (
+    <SignatureCase
+      showSimulation={false}
+      testID={testID}
+      urlSecurityInfo={urlSecurityInfo}
+    >
+      <SecurityCheckCard
+        model={buildSecurityCheckModel({
+          kind: 'message',
+          origin: `https://${urlSecurityInfo.host}`,
+          urlSecurityInfo,
+          messageDisplay: {
+            title: 'Permit',
+            components: [],
+            alerts: [
+              intl.formatMessage({
+                id: ETranslations.dapp_connect_permit_sign_alert,
+              }),
+            ],
+          },
+          unsignedMessage: GALLERY_PERMIT_MESSAGE,
+          isConfirmationRequired: true,
+          isTransactionSecurityApplicable: true,
+          isPrimeUser: false,
+          intl,
+        })}
+      />
+    </SignatureCase>
+  );
+}
+
+function MessageParseFallbackDemo() {
+  const intl = useIntl();
+  return (
+    <SignatureCase
+      showSimulation={false}
+      testID="signature-gallery-message-fallback"
+    >
+      <SecurityCheckCard
+        model={buildSecurityCheckModel({
+          kind: 'message',
+          origin: `https://${GALLERY_HOST_VERIFIED.host}`,
+          urlSecurityInfo: GALLERY_HOST_VERIFIED,
+          messageDisplay: {
+            title: 'Message',
+            components: [],
+            alerts: [],
+          },
+          isMessageParseFallback: true,
+          isTransactionSecurityApplicable: false,
+          isPrimeUser: false,
+          intl,
+        })}
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalCheckFailedDemo() {
+  const [isRetrying, setIsRetrying] = useState(false);
+  return (
+    <SignatureCase
+      testID="signature-gallery-check-failed"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={isRetrying ? undefined : GALLERY_SCAN_FAILED}
+        isTransactionSecurityPending={isRetrying}
+        isPrimeUser
+        onRetry={() => setIsRetrying(true)}
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalUnavailableDemo() {
+  return (
+    <SignatureCase
+      testID="signature-gallery-prime-unavailable"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_UNAVAILABLE}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
+function ApprovalNetworkNotSupportedDemo() {
+  return (
+    <SignatureCase
+      showSimulation={false}
+      networkId="evm--61"
+      testID="signature-gallery-network-unsupported"
+      urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+    >
+      <GallerySecurityCheckCard
+        urlSecurityInfo={GALLERY_HOST_SAFE_DEMO}
+        transactionSecurityInfo={GALLERY_SCAN_NETWORK_NOT_SUPPORTED}
+        isPrimeUser
+      />
+    </SignatureCase>
+  );
+}
+
 const SignatureConfirmationGallery = () => (
   <Layout
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="SignatureConfirmation"
     elements={[
       {
-        title: 'Default',
+        title: 'Loading · Prime scan pending',
+        element: <ApprovalLoadingDemo />,
+      },
+      {
+        title: 'Loading · Existing warning stays visible',
+        element: <ApprovalWarningCheckingDemo />,
+      },
+      {
+        title: 'Safe · Free user',
+        element: <ApprovalSuccessFreeDemo />,
+      },
+      {
+        title: 'Safe · Prime checked',
+        element: <ApprovalSuccessDemo />,
+      },
+      {
+        title: 'Warning · Prime transaction security',
+        element: <ApprovalPrimeWarningDemo />,
+      },
+      {
+        title: 'Permit · Trusted site',
+        element: (
+          <PermitDemo
+            testID="signature-gallery-permit-trusted"
+            urlSecurityInfo={GALLERY_HOST_VERIFIED}
+          />
+        ),
+      },
+      {
+        title: 'Permit · Unverified site',
+        element: (
+          <PermitDemo
+            testID="signature-gallery-permit-unverified"
+            urlSecurityInfo={GALLERY_HOST_UNVERIFIED}
+          />
+        ),
+      },
+      {
+        title: 'Critical · Site and transaction security',
+        element: <ApprovalCriticalDemo />,
+      },
+      {
+        title: 'Unverified · Unable to assess',
+        element: <ApprovalUnknownDemo />,
+      },
+      {
+        title: 'Unverified · Message parsing fallback',
+        element: <MessageParseFallbackDemo />,
+      },
+      {
+        title: 'Incomplete · Retry',
+        element: <ApprovalCheckFailedDemo />,
+      },
+      {
+        title: 'Coverage · Prime unavailable',
+        element: <ApprovalUnavailableDemo />,
+      },
+      {
+        title: 'Coverage · Network not supported',
+        element: <ApprovalNetworkNotSupportedDemo />,
+      },
+      {
+        title: 'View all · Four findings',
+        element: <ApprovalViewAllDemo />,
+      },
+      {
+        title: 'Legacy · Signature detail primitives',
         element: <YourComponentDemo />,
       },
     ]}

@@ -190,6 +190,9 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
 
     expect(source).toContain("let portfolioTotalFiat = '0';");
+    expect(source).toContain(
+      'let portfolioTotalFiatCurrency: string | undefined;',
+    );
     expect(captureRequestIndex).toBeGreaterThan(singleNetworkRunIndex);
     expect(captureRequestIndex).toBeLessThan(missingAccountGuardIndex);
     expect(rawTotalIndex).toBeGreaterThan(0);
@@ -201,6 +204,14 @@ describe('TokenListBlock portfolio sync producer', () => {
       'activePortfolioSyncRequest?.id === portfolioSyncRequest.id',
     );
     expect(source).toContain('totalFiat: portfolioTotalFiat');
+    expect(source).toContain(
+      'portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);',
+    );
+    expect(source).toContain(
+      'portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);',
+    );
+    expect(source).toContain('totalFiatCurrency: portfolioTotalFiatCurrency');
+    expect(source).not.toContain('totalFiatCurrency: currencyInfo.id');
     expect(source).not.toContain(
       'totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r)',
     );

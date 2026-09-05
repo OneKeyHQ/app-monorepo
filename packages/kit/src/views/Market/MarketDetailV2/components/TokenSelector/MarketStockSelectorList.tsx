@@ -29,7 +29,7 @@ const MarketStockSelectorList = memo(
     onItemPress,
   }: {
     query?: string;
-    onItemPress: (stockId: string) => void;
+    onItemPress: (item: IMarketStockPublicItem) => void;
   }) => {
     const intl = useIntl();
     // The selector dropdown is a picker, not the full Market Stocks table, so
@@ -139,7 +139,7 @@ const MarketStockSelectorList = memo(
             minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
           }}
           onRow={(item) => ({
-            onPress: () => onItemPress(item.stockId),
+            onPress: () => onItemPress(item),
             rowProps: {
               testID: `market-stock-selector-row-${item.stockId}`,
             },

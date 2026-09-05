@@ -48,14 +48,15 @@ describe('fetchStockSimpleChartPoints', () => {
     jest.restoreAllMocks();
   });
 
-  it('loads and trims the one-month share chart from the stock API', async () => {
+  it('keeps the latest trading hour after the stock market closes', async () => {
+    const lastTradeSeconds = nowSeconds - 12 * 60 * 60;
     serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1y',
+      period: '1h',
       currency: 'USD',
       points: [
         {
-          t: nowSeconds - 31 * 24 * 60 * 60,
+          t: lastTradeSeconds - 30 * 60,
           o: 100,
           h: 101,
           l: 99,
@@ -63,12 +64,94 @@ describe('fetchStockSimpleChartPoints', () => {
           v: 1,
         },
         {
-          t: nowSeconds - 20 * 24 * 60 * 60,
+          t: lastTradeSeconds,
           o: 101,
           h: 102,
           l: 100,
           c: 101,
           v: 2,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: '',
+      priceMode: 'share',
+      range: '1H',
+      stockId: 'AAPL',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+      [{ stockId: 'AAPL', period: '1h', points: 100 }],
+    ]);
+    expect(result).toEqual([
+      [lastTradeSeconds - 30 * 60, 100],
+      [lastTradeSeconds, 101],
+    ]);
+  });
+
+  it('keeps the latest trading day over a weekend', async () => {
+    const lastTradeSeconds = nowSeconds - 2 * 24 * 60 * 60;
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'AAPL',
+      period: '1d',
+      currency: 'USD',
+      points: [
+        {
+          t: lastTradeSeconds,
+          o: 100,
+          h: 102,
+          l: 99,
+          c: 101,
+          v: 1,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: '',
+      priceMode: 'share',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '',
+    });
+
+    expect(result).toEqual([[lastTradeSeconds, 101]]);
+  });
+
+  it('trims the one-month share chart from the latest trading point', async () => {
+    const lastTradeSeconds = nowSeconds - 15 * 24 * 60 * 60;
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'AAPL',
+      period: '1y',
+      currency: 'USD',
+      points: [
+        {
+          t: lastTradeSeconds - 31 * 24 * 60 * 60,
+          o: 100,
+          h: 101,
+          l: 99,
+          c: 100,
+          v: 1,
+        },
+        {
+          t: lastTradeSeconds - 20 * 24 * 60 * 60,
+          o: 101,
+          h: 102,
+          l: 100,
+          c: 101,
+          v: 2,
+        },
+        {
+          t: lastTradeSeconds,
+          o: 102,
+          h: 103,
+          l: 101,
+          c: 102,
+          v: 3,
         },
       ],
     });
@@ -86,7 +169,10 @@ describe('fetchStockSimpleChartPoints', () => {
       [{ stockId: 'AAPL', period: '1y', points: 180 }],
     ]);
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
-    expect(result).toEqual([[nowSeconds - 20 * 24 * 60 * 60, 101]]);
+    expect(result).toEqual([
+      [lastTradeSeconds - 20 * 24 * 60 * 60, 101],
+      [lastTradeSeconds, 102],
+    ]);
   });
 
   it('keeps bounded token ranges on the token k-line API', async () => {
