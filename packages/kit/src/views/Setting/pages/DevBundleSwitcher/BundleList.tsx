@@ -32,6 +32,8 @@ import type {
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { loadTargetSegmentForRepro } from './segmentLoadRepro';
+
 import type { RouteProp } from '@react-navigation/core';
 
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
@@ -86,10 +88,17 @@ export function BundleItem({
   const { copyText } = useClipboard();
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
-    'idle' | 'downloading' | 'downloaded' | 'installing' | 'error'
+    | 'idle'
+    | 'downloading'
+    | 'downloaded'
+    | 'installing'
+    | 'reproducing'
+    | 'error'
   >(alreadyDownloaded ? 'downloaded' : 'idle');
   const [errorMessage, setErrorMessage] = useState('');
   const downloadedEventRef = useRef<Record<string, unknown> | null>(null);
+  const segmentLoadReproEnabled =
+    platformEnv.isNative && version === String(platformEnv.version);
 
   useEffect(() => {
     if (alreadyDownloaded && status === 'idle') {
@@ -169,91 +178,108 @@ export function BundleItem({
     skipGpgVerificationAllowed,
   ]);
 
-  const handleInstall = useCallback(async () => {
-    const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
-    setStatus('installing');
-    // Enable ignore toggle so auto-rollback doesn't undo the dev switch
-    await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-      'ignoreServerBundleUpdate',
-      true,
-    );
-    // await backgroundApiProxy.serviceAppUpdate.reset();
-    await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
-    defaultLogger.app.jsBundleDev.installBundle({
-      version,
-      bundleVersion: bundle.ciBundleVersion,
-    });
-    try {
-      if (alreadyDownloaded && !downloadedEventRef.current) {
-        await BundleUpdate.verifyExtractedBundle(
-          version,
-          bundle.ciBundleVersion,
-        );
-        defaultLogger.app.jsBundleDev.installBundleResult({
-          version,
-          bundleVersion: bundle.ciBundleVersion,
-          success: true,
-        });
-        await BundleUpdate.installBundle({
-          latestVersion: version,
-          bundleVersion: bundle.ciBundleVersion,
-          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification,
-        });
-      } else {
-        if (!downloadedEventRef.current) {
-          throw new OneKeyLocalError(
-            'Downloaded bundle info missing, please download again.',
-          );
-        }
-        await BundleUpdate.verifyBundleASC({
-          ...downloadedEventRef.current,
-          latestVersion: version,
-          bundleVersion: bundle.ciBundleVersion,
-          sha256: bundle.sha256,
-          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification,
-        });
-
-        await BundleUpdate.verifyBundle({
-          ...downloadedEventRef.current,
-          latestVersion: version,
-          bundleVersion: bundle.ciBundleVersion,
-          sha256: bundle.sha256,
-          skipGPGVerification,
-        });
-
-        defaultLogger.app.jsBundleDev.installBundleResult({
-          version,
-          bundleVersion: bundle.ciBundleVersion,
-          success: true,
-        });
-        await BundleUpdate.installBundle({
-          ...downloadedEventRef.current,
-          latestVersion: version,
-          bundleVersion: bundle.ciBundleVersion,
-          signature: bundle.signature || PLACEHOLDER_SIGNATURE,
-          skipGPGVerification,
-        });
-      }
-    } catch (e) {
-      const errMsg = (e as Error)?.message || 'Install failed';
-      setStatus('error');
-      setErrorMessage(errMsg);
-      defaultLogger.app.jsBundleDev.installBundleResult({
+  const handleInstall = useCallback(
+    async (loadTargetSegment: boolean) => {
+      const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
+      let isLoadingTargetSegment = false;
+      setStatus(loadTargetSegment ? 'reproducing' : 'installing');
+      setErrorMessage('');
+      // Enable ignore toggle so auto-rollback doesn't undo the dev switch
+      await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+        'ignoreServerBundleUpdate',
+        true,
+      );
+      // await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
+      defaultLogger.app.jsBundleDev.installBundle({
         version,
         bundleVersion: bundle.ciBundleVersion,
-        success: false,
-        error: errMsg,
       });
-    }
-  }, [
-    alreadyDownloaded,
-    bundle,
-    version,
-    gpgSkipped,
-    skipGpgVerificationAllowed,
-  ]);
+      try {
+        if (alreadyDownloaded && !downloadedEventRef.current) {
+          await BundleUpdate.verifyExtractedBundle(
+            version,
+            bundle.ciBundleVersion,
+          );
+          defaultLogger.app.jsBundleDev.installBundleResult({
+            version,
+            bundleVersion: bundle.ciBundleVersion,
+            success: true,
+          });
+          await BundleUpdate.installBundle({
+            latestVersion: version,
+            bundleVersion: bundle.ciBundleVersion,
+            signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+            skipGPGVerification,
+          });
+        } else {
+          if (!downloadedEventRef.current) {
+            throw new OneKeyLocalError(
+              'Downloaded bundle info missing, please download again.',
+            );
+          }
+          await BundleUpdate.verifyBundleASC({
+            ...downloadedEventRef.current,
+            latestVersion: version,
+            bundleVersion: bundle.ciBundleVersion,
+            sha256: bundle.sha256,
+            signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+            skipGPGVerification,
+          });
+
+          await BundleUpdate.verifyBundle({
+            ...downloadedEventRef.current,
+            latestVersion: version,
+            bundleVersion: bundle.ciBundleVersion,
+            sha256: bundle.sha256,
+            skipGPGVerification,
+          });
+
+          defaultLogger.app.jsBundleDev.installBundleResult({
+            version,
+            bundleVersion: bundle.ciBundleVersion,
+            success: true,
+          });
+          await BundleUpdate.installBundle({
+            ...downloadedEventRef.current,
+            latestVersion: version,
+            bundleVersion: bundle.ciBundleVersion,
+            signature: bundle.signature || PLACEHOLDER_SIGNATURE,
+            skipGPGVerification,
+          });
+        }
+
+        if (loadTargetSegment) {
+          isLoadingTargetSegment = true;
+          await loadTargetSegmentForRepro();
+        }
+      } catch (e) {
+        const error = e as Error;
+        const errMsg = error?.message || 'Install failed';
+        setStatus('error');
+        setErrorMessage(
+          loadTargetSegment && error?.name
+            ? `${error.name}: ${errMsg}`
+            : errMsg,
+        );
+        if (!isLoadingTargetSegment) {
+          defaultLogger.app.jsBundleDev.installBundleResult({
+            version,
+            bundleVersion: bundle.ciBundleVersion,
+            success: false,
+            error: errMsg,
+          });
+        }
+      }
+    },
+    [
+      alreadyDownloaded,
+      bundle,
+      version,
+      gpgSkipped,
+      skipGpgVerificationAllowed,
+    ],
+  );
 
   const handleCopyBundleInfo = useCallback(() => {
     copyText(
@@ -362,25 +388,39 @@ export function BundleItem({
       ) : null}
 
       {/* Status: installing */}
-      {status === 'installing' ? (
+      {status === 'installing' || status === 'reproducing' ? (
         <XStack alignItems="center" gap="$2">
           <Spinner size="small" />
           <SizableText size="$bodyXs" color="$textSubdued">
-            Installing & restarting...
+            {status === 'reproducing'
+              ? 'Installing & loading target segment...'
+              : 'Installing & restarting...'}
           </SizableText>
         </XStack>
       ) : null}
 
       {/* Action: install */}
       {!isCurrentBundle && status === 'downloaded' ? (
-        <XStack justifyContent="flex-end">
+        <XStack justifyContent="flex-end" gap="$2" flexWrap="wrap">
+          {segmentLoadReproEnabled ? (
+            <Button
+              testID="setting-load-target-segment-btn"
+              variant="secondary"
+              size="small"
+              alignSelf="flex-end"
+              px="$3"
+              onPress={() => handleInstall(true)}
+            >
+              Load Target Segment
+            </Button>
+          ) : null}
           <Button
             testID="setting-btn"
             variant="primary"
             size="small"
             alignSelf="flex-end"
             px="$3"
-            onPress={handleInstall}
+            onPress={() => handleInstall(false)}
           >
             Switch
           </Button>
