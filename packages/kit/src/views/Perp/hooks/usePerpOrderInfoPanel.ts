@@ -128,6 +128,9 @@ export function usePerpUserFundingHistory({
 } = {}) {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const accountAddress = currentAccount?.accountAddress ?? undefined;
+  const lastSuccessfulResultRef = useRef<IUserFundingHistoryResult | undefined>(
+    undefined,
+  );
   const query = usePromiseResult<IUserFundingHistoryResult>(
     async () => {
       if (!accountAddress) {
@@ -138,6 +141,7 @@ export function usePerpUserFundingHistory({
       }
 
       const normalizedRequestAddress = accountAddress.toLowerCase();
+      const previousResult = lastSuccessfulResultRef.current;
       try {
         const records =
           await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
@@ -149,6 +153,10 @@ export function usePerpUserFundingHistory({
           isError: false,
         };
       } catch {
+        // Keep same-account history visible when a refresh fails.
+        if (previousResult?.accountAddress === normalizedRequestAddress) {
+          return previousResult;
+        }
         return {
           accountAddress: normalizedRequestAddress,
           records: [],
@@ -171,6 +179,12 @@ export function usePerpUserFundingHistory({
     activeAccountAddress: normalizedAccountAddress,
     dataAccountAddress: query.result?.accountAddress,
   });
+  useEffect(() => {
+    lastSuccessfulResultRef.current =
+      isCurrentAccountResult && query.result?.isError === false
+        ? query.result
+        : undefined;
+  }, [isCurrentAccountResult, normalizedAccountAddress, query.result]);
   const { run: refreshFundingHistory } = query;
   useEffect(() => {
     if (!isActive || !isCurrentAccountResult || query.isLoading) return;
@@ -200,9 +214,7 @@ export function usePerpUserFundingHistory({
     isCurrentAccountResult && query.result?.isError === true,
   );
   const isLoading = Boolean(
-    accountAddress &&
-    !isError &&
-    (query.isLoading === true || !isCurrentAccountResult),
+    accountAddress && !isError && !isCurrentAccountResult,
   );
 
   return {

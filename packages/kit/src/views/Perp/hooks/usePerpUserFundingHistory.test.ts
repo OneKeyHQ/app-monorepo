@@ -107,6 +107,51 @@ describe('funding history refresh lifecycle', () => {
     expect(mockGetUserFundingHistory).toHaveBeenCalledTimes(3);
   });
 
+  it.each([{ records: [] }, { records: [fundingRecord] }])(
+    'keeps successful history visible while refreshing and after failure: %j',
+    async ({ records }) => {
+      mockGetUserFundingHistory.mockResolvedValue(records);
+      const { result } = renderHook(() => usePerpUserFundingHistory());
+      await advanceTime();
+      let rejectRefresh: (error: Error) => void = () => {};
+      mockGetUserFundingHistory.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectRefresh = reject;
+          }),
+      );
+      await advanceTime(HOUR);
+      expect(result.current.records).toEqual(records);
+      expect(result.current.isLoading).toBe(false);
+      await act(async () => {
+        rejectRefresh(new Error('network unavailable'));
+      });
+      expect(result.current.records).toEqual(records);
+      expect(result.current.isError).toBe(false);
+      expect(result.current.isLoading).toBe(false);
+      const nextRecord = { ...fundingRecord, time: 2 };
+      mockGetUserFundingHistory.mockResolvedValue([nextRecord]);
+      await advanceTime(HOUR);
+      expect(result.current.records).toEqual([nextRecord]);
+    },
+  );
+
+  it('reports initial failures and never falls back to another account history', async () => {
+    const { result, rerender } = renderHook(() => usePerpUserFundingHistory());
+    await advanceTime();
+    mockGetUserFundingHistory.mockRejectedValue(
+      new Error('network unavailable'),
+    );
+    mockAccountAddress = '0xDef';
+    rerender(undefined);
+    expect(result.current.records).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+    await advanceTime();
+    expect(result.current.records).toEqual([]);
+    expect(result.current.isError).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it('restarts the delay after refocus instead of accumulating refreshes', async () => {
     const { rerender } = renderHook(() => usePerpUserFundingHistory());
     await advanceTime();
