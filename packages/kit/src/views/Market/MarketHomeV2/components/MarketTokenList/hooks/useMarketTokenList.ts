@@ -461,11 +461,7 @@ export function useMarketTokenList({
     {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: hasNetworkId,
-      onIsLoadingChange: (nextIsLoading) => {
-        if (!nextIsLoading) {
-          setIsNetworkSwitching(false);
-        }
-      },
+      undefinedResultIfError: true,
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -492,6 +488,15 @@ export function useMarketTokenList({
       timeRange: timeRangeRef.current,
     }),
   );
+
+  useEffect(() => {
+    // Successful results keep the switching skeleton until the transform effect
+    // commits their rows. A settled error must instead drop the previous scope.
+    if (hasNetworkId && isLoading === false && apiResult === undefined) {
+      setTransformedData([]);
+      setIsNetworkSwitching(false);
+    }
+  }, [apiResult, hasNetworkId, isLoading]);
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);

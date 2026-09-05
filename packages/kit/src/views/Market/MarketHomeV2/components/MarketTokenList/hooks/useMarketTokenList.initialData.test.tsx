@@ -12,23 +12,6 @@ import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
 import { useMarketTokenList } from './useMarketTokenList';
 
 const mockTrackNetworkLoading = jest.fn();
-type IUsePromiseResult =
-  typeof import('@onekeyhq/kit/src/hooks/usePromiseResult').usePromiseResult;
-let mockUsePromiseResultOverride: IUsePromiseResult | undefined;
-
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
-  >('@onekeyhq/kit/src/hooks/usePromiseResult');
-
-  return {
-    ...actual,
-    usePromiseResult: (...args: Parameters<IUsePromiseResult>) =>
-      mockUsePromiseResultOverride
-        ? mockUsePromiseResultOverride(...args)
-        : actual.usePromiseResult(...args),
-  };
-});
 
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
@@ -113,10 +96,12 @@ jest.mock('./marketTokenListPlatformApi', () => ({
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((promiseResolve) => {
+  let reject: (reason: Error) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
     resolve = promiseResolve;
+    reject = promiseReject;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function createResponse(
@@ -142,7 +127,6 @@ describe('useMarketTokenList initial data', () => {
   const mockFetchMarketTokenList = jest.mocked(fetchMarketTokenListForPlatform);
 
   beforeEach(() => {
-    mockUsePromiseResultOverride = undefined;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenList.mockReset();
@@ -150,41 +134,97 @@ describe('useMarketTokenList initial data', () => {
   });
 
   afterEach(() => {
-    mockUsePromiseResultOverride = undefined;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
   });
 
-  it('stops reporting a network switch after an empty request settles', async () => {
-    let settleRequest: () => void = () => undefined;
+  it('keeps the switching skeleton until a successful response is transformed', async () => {
+    const remoteResponse = createResponse('0xremote', 'Remote Token', 'REMOTE');
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    const renderedStates: Array<{
+      data: string[];
+      isLoading: boolean | undefined;
+      isNetworkSwitching: boolean;
+    }> = [];
 
-    mockUsePromiseResultOverride = ((_method, _deps, options) => {
-      settleRequest = () => options?.onIsLoadingChange?.(false);
-      return {
-        result: undefined,
-        setResult: jest.fn(),
-        isLoading: false,
-        run: jest.fn(async () => undefined),
-        setStopPolling: jest.fn(() => false),
-      };
-    }) as IUsePromiseResult;
+    mockFetchMarketTokenList.mockReturnValueOnce(remoteRequest.promise);
 
-    const { result } = renderHook(() =>
-      useMarketTokenList({
+    function Probe() {
+      const result = useMarketTokenList({
         networkId: 'evm--1',
         pollingInterval: 0,
         type: 'trending',
-      }),
-    );
+      });
+      renderedStates.push({
+        data: result.data.map((item) => item.id),
+        isLoading: result.isLoading,
+        isNetworkSwitching: result.isNetworkSwitching,
+      });
+      return null;
+    }
+
+    render(<Probe />);
+
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(1);
+    });
     await act(async () => {
-      settleRequest();
-      await Promise.resolve();
+      remoteRequest.resolve(remoteResponse);
+      await remoteRequest.promise;
     });
 
-    expect(result.current).toMatchObject({
-      data: [],
-      isLoading: false,
-      isNetworkSwitching: false,
+    await waitFor(() => {
+      expect(renderedStates.at(-1)).toMatchObject({
+        data: ['0xremote'],
+        isNetworkSwitching: false,
+      });
+    });
+    expect(
+      renderedStates.some(
+        (state) =>
+          state.isLoading === false &&
+          !state.isNetworkSwitching &&
+          state.data.length === 0,
+      ),
+    ).toBe(false);
+  });
+
+  it('clears stale rows when a network switch request fails', async () => {
+    const failedRequest = createDeferred<IMarketTokenListResponse>();
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce(createResponse('0xold', 'Old Token', 'OLD'))
+      .mockReturnValueOnce(failedRequest.promise);
+
+    const { result, rerender } = renderHook(
+      ({ networkId }) =>
+        useMarketTokenList({
+          networkId,
+          pollingInterval: 0,
+          type: 'trending',
+        }),
+      { initialProps: { networkId: 'evm--1' } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.data.map((item) => item.id)).toEqual(['0xold']);
+    });
+
+    rerender({ networkId: 'evm--137' });
+    await waitFor(() => {
+      expect(result.current.isNetworkSwitching).toBe(true);
+    });
+
+    await act(async () => {
+      failedRequest.reject(new Error('request failed'));
+      await failedRequest.promise.catch(() => undefined);
+    });
+
+    await waitFor(() => {
+      expect(result.current).toMatchObject({
+        data: [],
+        isLoading: false,
+        isNetworkSwitching: false,
+      });
     });
   });
 
