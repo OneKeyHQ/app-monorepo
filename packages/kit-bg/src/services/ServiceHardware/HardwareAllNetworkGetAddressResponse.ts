@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { PromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -35,26 +36,24 @@ export class HardwareAllNetworkGetAddressResponse {
       hwSdkNetwork: item.network,
       useTweak: item.useTweak,
     });
-    // reject by convertDeviceResponse();
-    if (item.success) {
+    if (
+      item.success ||
+      isThirdPartyPassphraseAlwaysOnDeviceErrorCode(item.payload?.code)
+    ) {
+      // Keep this operation-level failure as response data. Each network
+      // consumer handles it when read; rejecting every pre-created target here
+      // reports unhandled promises before those consumers can await them.
       promiseTarget.resolveTarget(item);
-    } else {
-      const error = convertDeviceError(
-        {
-          code: item.payload?.code,
-          error: item.payload?.error,
-          params: item.payload?.params,
-          // message: item.payload?.message,
-          // errorCode: item.payload?.errorCode,
-          connectId: item.payload?.connectId,
-          deviceId: item.payload?.deviceId,
-        },
-        {
-          // silentMode: true,
-        },
-      );
-      promiseTarget.rejectTarget(error);
+      return;
     }
+    const error = convertDeviceError({
+      code: item.payload?.code,
+      error: item.payload?.error,
+      params: item.payload?.params,
+      connectId: item.payload?.connectId,
+      deviceId: item.payload?.deviceId,
+    });
+    promiseTarget.rejectTarget(error);
   }
 
   onSdkResponse({

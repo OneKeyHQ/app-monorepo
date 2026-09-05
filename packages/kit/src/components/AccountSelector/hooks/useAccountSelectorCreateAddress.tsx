@@ -25,6 +25,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -193,7 +194,11 @@ export function useAccountSelectorCreateAddress() {
             : failedList;
           for (const failedAccount of failedListForToast) {
             Toast.error({
-              title: failedAccount.error.message || 'Unknown error',
+              title: isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
+                ? ETranslations.hardware_third_party_passphrase_always_on_device
+                : failedAccount.error.message || 'Unknown error',
             });
           }
         }
