@@ -12,10 +12,6 @@ const runtimeAppDir = path.join(desktopPackageRoot, 'app');
 const nobleRoot = path.join(runtimeAppDir, 'node_modules/@stoprocent/noble');
 const nativeSources = [
   [
-    'lib/common/include/ThreadSafeCallback.h',
-    'napi_add_env_cleanup_hook(env_, cleanup, this)',
-  ],
-  [
     'lib/common/include/Emit.h',
     'bool state, const std::string& error = "", const std::string& errorDomain',
   ],
@@ -33,11 +29,7 @@ const patchedSources = [
   marker,
 }));
 const bindingPath = path.join(nobleRoot, 'build/Release/binding.node');
-const expectedBinaryMarkers = [
-  'nativeErrorDomain',
-  'nativeErrorCode',
-  'Failed to register BLE cleanup hook',
-];
+const expectedBinaryMarkers = ['nativeErrorDomain', 'nativeErrorCode'];
 
 function fail(message) {
   // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone Node build script
