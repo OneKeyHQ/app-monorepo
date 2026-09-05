@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,7 +16,9 @@ import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/mark
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { ICandleSnapshotParameters } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
@@ -25,6 +28,7 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketKLineProvider,
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
   IMarketStockDetail,
@@ -58,7 +62,12 @@ import {
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
+import { hyperLiquidApiClients } from './ServiceHyperLiquid/hyperLiquidApiClients';
 import { MOCK_MARKET_BANNER_LIST } from './ServiceMarketV2.const';
+import {
+  fetchMarketKlineBackfill,
+  getMarketKlineHistoryFloor,
+} from './utils/marketKlineBackfill';
 import {
   type IMarketStockAssetApiData,
   buildMarketStockDetail,
@@ -87,8 +96,147 @@ type IFetchMarketTokenListOptions = {
   forceRemote?: boolean;
 };
 
+type IFetchMarketTokenKlineParams = {
+  tokenAddress: string;
+  networkId: string;
+  provider?: IMarketKLineProvider;
+  providerSymbol?: string;
+  interval?: string;
+  timeFrom?: number;
+  timeTo?: number;
+  autoHandleError?: boolean;
+};
+
+type IFetchMarketTokenKlineByCountParams = IFetchMarketTokenKlineParams & {
+  requestId?: string;
+  targetCount: number;
+  stopAfterCount?: number;
+  historyStartTime?: number;
+};
+
+const MARKET_KLINE_MAX_TARGET_COUNT = 2000;
+const MARKET_KLINE_CANCELLED_REQUEST_TTL_MS = 5 * 60 * 1000;
+const MARKET_KLINE_MAX_CANCELLED_REQUESTS = 100;
+
+const HYPERLIQUID_KLINE_INTERVAL_MAP: Record<
+  string,
+  ICandleSnapshotParameters['interval']
+> = {
+  '1': '1m',
+  '3': '3m',
+  '5': '5m',
+  '15': '15m',
+  '30': '30m',
+  '60': '1h',
+  '120': '2h',
+  '240': '4h',
+  '480': '8h',
+  '720': '12h',
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '1h': '1h',
+  '1H': '1h',
+  '2h': '2h',
+  '2H': '2h',
+  '4h': '4h',
+  '4H': '4h',
+  '8h': '8h',
+  '8H': '8h',
+  '12h': '12h',
+  '12H': '12h',
+  '1d': '1d',
+  '1D': '1d',
+  '3d': '3d',
+  '3D': '3d',
+  '1w': '1w',
+  '1W': '1w',
+  '1M': '1M',
+};
+
+function normalizeHyperliquidKlineInterval(
+  interval?: string,
+): ICandleSnapshotParameters['interval'] {
+  return HYPERLIQUID_KLINE_INTERVAL_MAP[interval?.trim() || '1m'] ?? '1m';
+}
+
+function normalizeMarketKlineTargetCount(targetCount: number) {
+  if (!Number.isFinite(targetCount)) {
+    return 1;
+  }
+  return Math.min(
+    MARKET_KLINE_MAX_TARGET_COUNT,
+    Math.max(1, Math.floor(targetCount)),
+  );
+}
+
+function isMarketTokenKLineResponse(
+  value: unknown,
+): value is IMarketTokenKLineResponse {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const response = value as Record<string, unknown>;
+  return Array.isArray(response.points) && typeof response.total === 'number';
+}
+
+function shouldFallbackMarketKlineByCountRequest(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const httpStatusCode = (error as { httpStatusCode?: unknown }).httpStatusCode;
+  if (httpStatusCode === 404) {
+    return true;
+  }
+
+  // Keep definite server/business failures visible, but preserve chart
+  // functionality when the optimized endpoint cannot be reached at all.
+  return httpStatusCode === undefined && isTransientNetworkLikeError(error);
+}
+
+function getMarketKlineIntervalSeconds(interval?: string) {
+  const normalizedInterval = interval?.trim();
+  if (!normalizedInterval) {
+    return 60;
+  }
+  if (/^\d+$/.test(normalizedInterval)) {
+    return Math.max(1, Number(normalizedInterval)) * 60;
+  }
+
+  const match = normalizedInterval.match(/^(\d+)([mMhHdDwWyY])$/);
+  if (!match) {
+    return 60;
+  }
+
+  const value = Math.max(1, Number(match[1]));
+  switch (match[2]) {
+    case 'm':
+      return value * 60;
+    case 'h':
+    case 'H':
+      return value * 60 * 60;
+    case 'd':
+    case 'D':
+      return value * 24 * 60 * 60;
+    case 'w':
+    case 'W':
+      return value * 7 * 24 * 60 * 60;
+    case 'M':
+      return value * 30 * 24 * 60 * 60;
+    case 'y':
+    case 'Y':
+      return value * 365 * 24 * 60 * 60;
+    default:
+      return 60;
+  }
+}
+
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
+  private readonly cancelledKlineRequestIds = new Map<string, number>();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // Drop the in-memory market data cache + memoized batch fetchers on
@@ -371,22 +519,49 @@ class ServiceMarketV2 extends ServiceBase {
     return this.memoizedFetchMarketTokenList(normalizedParams);
   }
 
-  @backgroundMethod()
-  async fetchMarketTokenKline({
+  private async _fetchMarketTokenKlinePage({
     tokenAddress,
     networkId,
+    provider = 'onekey',
+    providerSymbol,
     interval,
     timeFrom,
     timeTo,
     autoHandleError,
-  }: {
-    tokenAddress: string;
-    networkId: string;
-    interval?: string;
-    timeFrom?: number;
-    timeTo?: number;
-    autoHandleError?: boolean;
-  }) {
+  }: IFetchMarketTokenKlineParams) {
+    if (provider === 'hyperliquid') {
+      const coin = providerSymbol?.trim();
+      if (!coin) {
+        throw new OneKeyLocalError(
+          'Hyperliquid market K-line provider symbol is required',
+        );
+      }
+
+      const startTime = Math.max(0, Math.floor((timeFrom ?? 0) * 1000));
+      const endTime = Math.max(
+        startTime,
+        Math.floor((timeTo ?? Date.now() / 1000) * 1000),
+      );
+      const candles = await hyperLiquidApiClients.infoClient.candleSnapshot({
+        coin,
+        interval: normalizeHyperliquidKlineInterval(interval),
+        startTime,
+        endTime,
+      });
+      const points = candles.map((candle) => ({
+        o: Number(candle.o),
+        h: Number(candle.h),
+        l: Number(candle.l),
+        c: Number(candle.c),
+        v: Number(candle.v),
+        t: Math.floor(candle.t / 1000),
+      }));
+      return {
+        points,
+        total: points.length,
+      } satisfies IMarketTokenKLineResponse;
+    }
+
     const innerInterval = normalizeMarketApiKLineInterval(interval);
 
     const requestConfig = {
@@ -409,6 +584,171 @@ class ServiceMarketV2 extends ServiceBase {
     }>('/utility/v2/market/token/kline', requestConfig);
     const { data } = response.data;
     return data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenKline(params: IFetchMarketTokenKlineParams) {
+    return this._fetchMarketTokenKlinePage(params);
+  }
+
+  private pruneCancelledKlineRequests(now = Date.now()) {
+    for (const [requestId, expiresAt] of this.cancelledKlineRequestIds) {
+      if (expiresAt <= now) {
+        this.cancelledKlineRequestIds.delete(requestId);
+      }
+    }
+
+    const overflowCount =
+      this.cancelledKlineRequestIds.size - MARKET_KLINE_MAX_CANCELLED_REQUESTS;
+    if (overflowCount <= 0) {
+      return;
+    }
+    const requestIds = this.cancelledKlineRequestIds.keys();
+    for (let index = 0; index < overflowCount; index += 1) {
+      const requestId = requestIds.next().value;
+      if (typeof requestId === 'string') {
+        this.cancelledKlineRequestIds.delete(requestId);
+      }
+    }
+  }
+
+  private isKlineRequestCancelled(requestId?: string) {
+    if (!requestId) {
+      return false;
+    }
+    this.pruneCancelledKlineRequests();
+    return this.cancelledKlineRequestIds.has(requestId);
+  }
+
+  @backgroundMethod()
+  async cancelMarketTokenKlineByCount({ requestId }: { requestId: string }) {
+    if (!requestId) {
+      return;
+    }
+    this.pruneCancelledKlineRequests();
+    this.cancelledKlineRequestIds.set(
+      requestId,
+      Date.now() + MARKET_KLINE_CANCELLED_REQUEST_TTL_MS,
+    );
+    this.pruneCancelledKlineRequests();
+  }
+
+  @backgroundMethod()
+  async fetchMarketTokenKlineByCount({
+    requestId,
+    targetCount: rawTargetCount,
+    stopAfterCount: rawStopAfterCount,
+    historyStartTime,
+    ...params
+  }: IFetchMarketTokenKlineByCountParams): Promise<IMarketTokenKLineResponse> {
+    const targetCount = normalizeMarketKlineTargetCount(rawTargetCount);
+    const stopAfterCount = Math.min(
+      targetCount,
+      normalizeMarketKlineTargetCount(rawStopAfterCount ?? targetCount),
+    );
+    const intervalSeconds = getMarketKlineIntervalSeconds(params.interval);
+    const requestTo = Number.isFinite(params.timeTo)
+      ? Math.floor(params.timeTo ?? Date.now() / 1000)
+      : Math.floor(Date.now() / 1000);
+    const normalizedHistoryStartTime =
+      Number.isFinite(historyStartTime) && (historyStartTime ?? 0) >= 0
+        ? Math.floor(historyStartTime ?? 0)
+        : undefined;
+
+    if (
+      normalizedHistoryStartTime !== undefined &&
+      normalizedHistoryStartTime >= requestTo
+    ) {
+      return {
+        points: [],
+        total: 0,
+        historyMeta: {
+          noData: true,
+          isPartial: false,
+          stopReason: 'history_exhausted',
+          requestedCount: targetCount,
+          returnedCount: 0,
+          coveredFrom: requestTo,
+          coveredTo: requestTo,
+        },
+      };
+    }
+
+    const historyFloor = getMarketKlineHistoryFloor({
+      historyStartTime: normalizedHistoryStartTime,
+    });
+    const requestedTimeFrom = Number.isFinite(params.timeFrom)
+      ? Math.floor(params.timeFrom ?? requestTo)
+      : requestTo - intervalSeconds * targetCount;
+    const buildCancelledResponse = () =>
+      ({
+        points: [],
+        total: 0,
+        historyMeta: {
+          noData: false,
+          isPartial: true,
+          cancelled: true,
+          requestedCount: targetCount,
+          returnedCount: 0,
+          coveredFrom: requestTo,
+          coveredTo: requestTo,
+        },
+      }) satisfies IMarketTokenKLineResponse;
+
+    if (this.isKlineRequestCancelled(requestId)) {
+      return buildCancelledResponse();
+    }
+
+    const canUseBackendBackfill =
+      params.provider !== 'hyperliquid' && stopAfterCount === targetCount;
+    if (canUseBackendBackfill) {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Utility);
+        const requestConfig = {
+          params: {
+            tokenAddress: params.tokenAddress,
+            networkId: params.networkId,
+            interval: normalizeMarketApiKLineInterval(params.interval),
+            targetCount,
+            timeTo: requestTo,
+            historyStartTime: normalizedHistoryStartTime,
+            currency: 'usd',
+          },
+          autoHandleError: false,
+        };
+        const response = await client.get<{
+          code: number;
+          message: string;
+          data: unknown;
+        }>('/utility/v3/market/token/kline', requestConfig);
+        if (this.isKlineRequestCancelled(requestId)) {
+          return buildCancelledResponse();
+        }
+        if (isMarketTokenKLineResponse(response.data.data)) {
+          return response.data.data;
+        }
+      } catch (error) {
+        if (!shouldFallbackMarketKlineByCountRequest(error)) {
+          throw error;
+        }
+      }
+    }
+
+    return fetchMarketKlineBackfill({
+      targetCount,
+      stopAfterCount,
+      intervalSeconds,
+      requestTimeFrom: requestedTimeFrom,
+      requestTimeTo: requestTo,
+      historyFloor,
+      fetchPage: ({ timeFrom, timeTo }) =>
+        this._fetchMarketTokenKlinePage({
+          ...params,
+          timeFrom,
+          timeTo,
+        }),
+      isCancelled: () => this.isKlineRequestCancelled(requestId),
+    });
   }
 
   @backgroundMethod()

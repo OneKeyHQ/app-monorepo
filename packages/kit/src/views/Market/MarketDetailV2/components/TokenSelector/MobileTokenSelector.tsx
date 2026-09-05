@@ -49,8 +49,12 @@ function MobileTokenSelectorContent() {
   const tokenDetailActions = useTokenDetailActions();
   const { navigateToPerps } = usePerpsNavigation();
   const routeParams = route.params as
-    | { showFavoriteButton?: boolean | string }
+    | {
+        chartMode?: 'native' | 'tradingView';
+        showFavoriteButton?: boolean | string;
+      }
     | undefined;
+  const chartMode = routeParams?.chartMode;
   const showFavoriteButton = normalizeRouteBooleanParam(
     routeParams?.showFavoriteButton,
   );
@@ -120,11 +124,18 @@ function MobileTokenSelectorContent() {
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
+        chartMode,
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
+    [
+      tokenDetailActions,
+      navigation,
+      chartMode,
+      navigateToPerps,
+      showFavoriteButton,
+    ],
   );
 
   const handleTokenSelect = useCallback(

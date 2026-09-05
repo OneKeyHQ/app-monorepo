@@ -484,6 +484,7 @@ export function TopCoinsDesktopLayout({
       py="$5"
     >
       <TokenDetailHeader
+        chartMode={chartMode}
         showStats={false}
         showFavoriteButton={showFavoriteButton}
         desktopRedesign

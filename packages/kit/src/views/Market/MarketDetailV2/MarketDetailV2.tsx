@@ -199,7 +199,10 @@ function MarketDetail({
         {isChartFullscreen ? (
           <Page.Header headerShown={false} />
         ) : (
-          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+          <MarketDetailHeader
+            chartMode={isTradingViewNative ? 'native' : 'tradingView'}
+            showFavoriteButton={showFavoriteButton}
+          />
         )}
 
         <Page.Body
@@ -236,7 +239,7 @@ function MarketDetailV2(
     | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
-  const { navigation } = props;
+  const { navigation, route } = props;
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
   const stockPreview = buildMarketStockDetailPreview({
@@ -271,7 +274,9 @@ function MarketDetailV2(
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(
+    () => route.params.chartMode !== 'tradingView',
+  );
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   const supportsChartFullscreen = Boolean(
     isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),

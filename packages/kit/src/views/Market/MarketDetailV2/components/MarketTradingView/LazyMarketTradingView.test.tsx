@@ -115,6 +115,23 @@ describe('LazyDesktopMarketTradingView web slow loading', () => {
     expect(screen.queryByTestId('chart-loading-spinner')).toBeNull();
   });
 
+  it('keeps the app spinner hidden when the visible chart switches tokens', () => {
+    const { rerender } = render(
+      <LazyDesktopMarketTradingView {...chartProps} />,
+    );
+
+    fireEvent.click(screen.getByTestId('chart-visible'));
+    rerender(
+      <LazyDesktopMarketTradingView
+        {...chartProps}
+        tokenAddress="next-token-address"
+      />,
+    );
+    act(() => jest.advanceTimersByTime(1500));
+
+    expect(screen.queryByTestId('chart-loading-spinner')).toBeNull();
+  });
+
   it('removes the app spinner when DOM embed falls back to iframe', () => {
     render(<LazyDesktopMarketTradingView {...chartProps} />);
 

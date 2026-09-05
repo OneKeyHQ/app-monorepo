@@ -12,7 +12,11 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
-import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  preloadMarketDetailV2Page,
+  prepareMarketDetailV2KlineSource,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -43,6 +47,7 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
 }
 
 interface IUseToDetailPageOptions {
+  chartMode?: 'native' | 'tradingView';
   /**
    * Switch to Market tab first before navigating to detail page.
    * - On mobile (native): switches to Discovery tab first, then pushes detail
@@ -110,6 +115,24 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     [tokenDetailActions],
   );
 
+  const prefetchFirstScreenKLine = useCallback(
+    (item: IMarketToken) => {
+      if (options?.chartMode !== 'tradingView') {
+        return;
+      }
+      prepareMarketDetailV2KlineSource({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+      });
+      void prefetchMarketDetailV2FirstScreenKLine({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+        historyStartTime: item.firstTradeTime,
+      }).catch(() => undefined);
+    },
+    [options?.chartMode],
+  );
+
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
       const stockId = resolveMarketStockId(item);
@@ -131,6 +154,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         tokenAddress: item.tokenAddress,
         network: shortCode || item.networkId,
         isNative: item.isNative,
+        ...(options?.chartMode ? { chartMode: options.chartMode } : undefined),
         from: options?.from,
         ...(item.marketTokenId
           ? { marketTokenId: item.marketTokenId }
@@ -157,6 +181,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             tokenAddress: tokenParams.tokenAddress,
             network: tokenParams.network,
             isNative: tokenParams.isNative,
+            ...(tokenParams.chartMode
+              ? { chartMode: tokenParams.chartMode }
+              : undefined),
             from: options?.from,
             ...(typeof tokenParams.disableTrade === 'boolean'
               ? { disableTrade: tokenParams.disableTrade }
@@ -208,6 +235,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           tokenDetailActions.current.clearTokenDetail();
         } else {
           preparePreviewTokenDetail(item);
+          prefetchFirstScreenKLine(item);
         }
 
         const targetTab = platformEnv.isNative
@@ -246,6 +274,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           tokenDetailActions.current.clearTokenDetail();
         } else {
           preparePreviewTokenDetail(item);
+          prefetchFirstScreenKLine(item);
         }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
@@ -279,8 +308,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     [
       currentRouteName,
       navigation,
+      prefetchFirstScreenKLine,
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
+      options?.chartMode,
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,

@@ -177,6 +177,7 @@ export function TokenDesktopLayout({
       py="$5"
     >
       <TokenDetailHeader
+        chartMode={chartMode}
         showStats={false}
         showFavoriteButton={showFavoriteButton}
         desktopRedesign

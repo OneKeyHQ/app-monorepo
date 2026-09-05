@@ -2,7 +2,11 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  preloadMarketDetailV2Page,
+  prepareMarketDetailV2KlineSource,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -74,6 +78,15 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
     switchTab: jest.fn(),
   })),
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+    prepareMarketDetailV2KlineSource: jest.fn(),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
@@ -245,6 +258,63 @@ describe('useToDetailPage', () => {
       marketTokenCategory: 'top_coins',
     });
     expect(mockNavigationReplace).not.toHaveBeenCalled();
+  });
+
+  it('prefetches only when navigation keeps TradingView mode', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ chartMode: 'tradingView' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        symbol: 'ABC',
+        firstTradeTime: 123,
+      });
+    });
+
+    expect(prepareMarketDetailV2KlineSource).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(prefetchMarketDetailV2FirstScreenKLine).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      historyStartTime: 123,
+    });
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '0xabc',
+      network: 'eth',
+      isNative: undefined,
+      chartMode: 'tradingView',
+      from: undefined,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('does not prefetch TradingView data for the default Native chart', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        symbol: 'ABC',
+      });
+    });
+
+    expect(prepareMarketDetailV2KlineSource).not.toHaveBeenCalled();
+    expect(prefetchMarketDetailV2FirstScreenKLine).not.toHaveBeenCalled();
+    mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
   it('keeps the current split-view detail route before replacing it', async () => {

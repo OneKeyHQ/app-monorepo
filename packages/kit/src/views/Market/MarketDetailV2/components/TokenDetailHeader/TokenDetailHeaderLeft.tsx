@@ -29,6 +29,7 @@ import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLef
 import { ShareButton } from './ShareButton';
 
 interface ITokenDetailHeaderLeftProps {
+  chartMode: 'native' | 'tradingView';
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
@@ -40,6 +41,7 @@ interface ITokenDetailHeaderLeftProps {
 }
 
 export function TokenDetailHeaderLeft({
+  chartMode,
   tokenDetail,
   networkId,
   networkLogoUri,
@@ -115,6 +117,7 @@ export function TokenDetailHeaderLeft({
           <>
             {desktopRedesign ? null : marketStar}
             <MarketTokenSelector
+              chartMode={chartMode}
               variant={desktopRedesign ? 'large' : 'default'}
               showName={desktopDetailVariant === 'topCoins'}
               defaultCategory={

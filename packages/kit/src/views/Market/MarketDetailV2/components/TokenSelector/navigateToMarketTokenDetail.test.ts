@@ -3,6 +3,16 @@ import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 const navigateMock = jest.fn();
 const clearTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
+const mockPrepareKlineSource = jest.fn(
+  (_params: { tokenAddress: string; networkId: string }) => undefined,
+);
+const mockPrefetchFirstScreenKLine = jest.fn(
+  (_params: {
+    tokenAddress: string;
+    networkId: string;
+    historyStartTime?: number;
+  }) => Promise.resolve(),
+);
 
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
@@ -30,6 +40,18 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 
 jest.mock('../../utils/marketDetailImagePreload', () => ({
   prewarmMarketTokenDetailPreviewImages: jest.fn(),
+}));
+
+jest.mock('../../utils/marketDetailPagePreload', () => ({
+  prepareMarketDetailV2KlineSource: (params: {
+    tokenAddress: string;
+    networkId: string;
+  }) => mockPrepareKlineSource(params),
+  prefetchMarketDetailV2FirstScreenKLine: (params: {
+    tokenAddress: string;
+    networkId: string;
+    historyStartTime?: number;
+  }) => mockPrefetchFirstScreenKLine(params),
 }));
 
 describe('navigateToMarketTokenDetail', () => {
@@ -70,6 +92,7 @@ describe('navigateToMarketTokenDetail', () => {
 
     expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
+    expect(mockPrefetchFirstScreenKLine).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
       params: {
@@ -109,6 +132,7 @@ describe('navigateToMarketTokenDetail', () => {
     jest.runAllTimers();
 
     expect(changeActiveTokenMock).toHaveBeenCalledTimes(1);
+    expect(mockPrefetchFirstScreenKLine).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
       params: {
@@ -120,6 +144,39 @@ describe('navigateToMarketTokenDetail', () => {
           marketTokenCategory: 'top_coins',
         },
       },
+    });
+  });
+
+  it('prefetches before switching tokens in TradingView mode', () => {
+    navigateToMarketTokenDetail(
+      {
+        address: '0xabc',
+        networkId: 'evm--1',
+      },
+      {
+        chartMode: 'tradingView',
+        tokenDetailActions: {
+          current: {
+            clearTokenDetail: clearTokenDetailMock,
+            changeActiveToken: changeActiveTokenMock,
+          },
+        } as never,
+        tokenDetailPreview: {
+          symbol: 'ABC',
+          name: 'ABC Token',
+          firstTradeTime: 123,
+        } as never,
+      },
+    );
+
+    expect(mockPrepareKlineSource).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(mockPrefetchFirstScreenKLine).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      historyStartTime: 123,
     });
   });
 });

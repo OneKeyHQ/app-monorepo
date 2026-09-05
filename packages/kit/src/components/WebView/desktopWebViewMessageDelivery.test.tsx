@@ -200,6 +200,44 @@ describe('desktop webview injected message delivery', () => {
     expect(captured.current?.innerRef).toBe(node);
   });
 
+  it('registers dom-ready before passive load listeners', async () => {
+    const listenerOrder: string[] = [];
+    // oxlint-disable-next-line typescript/unbound-method -- The original method is reapplied with the current element as this.
+    const addEventListener = HTMLElement.prototype.addEventListener;
+    const addEventListenerSpy = jest
+      .spyOn(HTMLElement.prototype, 'addEventListener')
+      .mockImplementation(function mockAddEventListener(
+        this: HTMLElement,
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) {
+        if (
+          this.tagName === 'WEBVIEW' &&
+          (type === 'dom-ready' || type === 'did-start-loading')
+        ) {
+          listenerOrder.push(type);
+        }
+        addEventListener.call(this, type, listener, options);
+      });
+
+    try {
+      const { container } = mount(
+        jest.fn().mockResolvedValue('file:///preload.js'),
+      );
+      await getWebviewNode(container);
+      await waitFor(() => {
+        expect(listenerOrder).toContain('did-start-loading');
+      });
+
+      expect(listenerOrder.indexOf('dom-ready')).toBeLessThan(
+        listenerOrder.indexOf('did-start-loading'),
+      );
+    } finally {
+      addEventListenerSpy.mockRestore();
+    }
+  });
+
   it('flushes messages queued before dom-ready', async () => {
     const { container, captured } = mount(
       jest.fn().mockResolvedValue('file:///preload.js'),
@@ -212,6 +250,38 @@ describe('desktop webview injected message delivery', () => {
 
     dispatch(node, 'dom-ready');
     expect(deliveredSymbols(node)).toContain('early');
+  });
+
+  it('flushes queued messages when did-finish-load arrives without dom-ready', async () => {
+    const { container, captured } = mount(
+      jest.fn().mockResolvedValue('file:///preload.js'),
+    );
+    const node = await getWebviewNode(container);
+
+    dispatch(node, 'did-start-loading');
+    sendSymbolChange(captured, 'MARKER_finish');
+    expect(deliveredSymbols(node)).not.toContain('finish');
+
+    dispatch(node, 'did-finish-load');
+    expect(deliveredSymbols(node)).toContain('finish');
+  });
+
+  it('recovers from missed load events by probing document.readyState', async () => {
+    const { container, captured } = mount(
+      jest.fn().mockResolvedValue('file:///preload.js'),
+    );
+    const node = await getWebviewNode(container);
+    node.executeJavaScript.mockImplementation((script: string) =>
+      script === 'document.readyState'
+        ? Promise.resolve('complete')
+        : Promise.resolve(undefined),
+    );
+
+    sendSymbolChange(captured, 'MARKER_probe');
+
+    await waitFor(() => {
+      expect(deliveredSymbols(node)).toContain('probe');
+    });
   });
 
   it('delivers messages when dom-ready arrives after the last parent render', async () => {

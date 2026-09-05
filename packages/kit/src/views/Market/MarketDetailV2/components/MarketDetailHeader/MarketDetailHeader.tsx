@@ -45,8 +45,10 @@ import { ShareButton } from '../TokenDetailHeader/ShareButton';
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 export function MarketDetailHeader({
+  chartMode,
   showFavoriteButton = true,
 }: {
+  chartMode: 'native' | 'tradingView';
   showFavoriteButton?: boolean;
 }) {
   const media = useMedia();
@@ -63,10 +65,11 @@ export function MarketDetailHeader({
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MobileTokenSelector,
       params: {
+        chartMode,
         showFavoriteButton,
       },
     });
-  }, [navigation, showFavoriteButton]);
+  }, [chartMode, navigation, showFavoriteButton]);
 
   const handleCopyAddress = useCallback(() => {
     const address = tokenDetail?.address;

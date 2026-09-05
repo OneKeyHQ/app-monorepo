@@ -1,6 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MESSAGE_TYPES } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes';
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -14,11 +16,14 @@ import type {
 
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
+import { captureTradingViewRequestTarget } from './tradingViewRequestTarget';
 import { sendVolumeVisibilityUpdate } from './volumeVisibilityHandler';
 
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
 const MAX_MARKS_COUNT = 60;
+const DEFAULT_HISTORY_RESPONSE_POINT_COUNT = 300;
+const MAX_HISTORY_RESPONSE_POINT_COUNT = 2000;
 export const DEFAULT_TRADING_VIEW_KLINE_RESOLUTION = '1m';
 
 export function normalizeTradingViewKLineInterval(
@@ -28,6 +33,9 @@ export function normalizeTradingViewKLineInterval(
     case '1':
     case '1m':
       return '1m';
+    case '3':
+    case '3m':
+      return '3m';
     case '5':
     case '5m':
       return '5m';
@@ -41,16 +49,33 @@ export function normalizeTradingViewKLineInterval(
     case '1h':
     case '1H':
       return '1H';
+    case '120':
+    case '2h':
+    case '2H':
+      return '2H';
     case '240':
     case '4h':
     case '4H':
       return '4H';
+    case '480':
+    case '8h':
+    case '8H':
+      return '8H';
+    case '720':
+    case '12h':
+    case '12H':
+      return '12H';
     case '1d':
     case '1D':
       return '1D';
+    case '3d':
+    case '3D':
+      return '3D';
     case '1w':
     case '1W':
       return '1W';
+    case '1M':
+      return '1M';
     default:
       return interval;
   }
@@ -81,11 +106,109 @@ export async function shouldMockEmptyKLineData(resolution?: string) {
   );
 }
 
-function buildEmptyKLineData(): IMarketTokenKLineResponse {
+function buildEmptyKLineData({
+  noData,
+  error,
+}: {
+  noData: boolean;
+  error?: string;
+}): IMarketTokenKLineResponse {
   return {
     points: [],
     total: 0,
+    historyMeta: {
+      noData,
+      ...(error ? { error } : {}),
+    },
   };
+}
+
+function getKLineIntervalSeconds(interval: string) {
+  const normalizedInterval = normalizeTradingViewKLineInterval(interval);
+  const match = normalizedInterval.match(/^(\d+)([mHDWMy])$/);
+  if (!match) {
+    return undefined;
+  }
+
+  const [, count, unit] = match;
+  const secondsByUnit = {
+    m: 60,
+    H: 60 * 60,
+    D: 24 * 60 * 60,
+    W: 7 * 24 * 60 * 60,
+    M: 30 * 24 * 60 * 60,
+    y: 365 * 24 * 60 * 60,
+  } as const;
+  return Number(count) * secondsByUnit[unit as keyof typeof secondsByUnit];
+}
+
+function constrainKLineDataToHistoryRequest({
+  data,
+  to,
+  targetCount,
+}: {
+  data: IMarketTokenKLineResponse;
+  to: number;
+  targetCount: number;
+}): IMarketTokenKLineResponse {
+  const pointsByTimestamp = new Map(
+    data.points
+      .filter((point) => point.t < to)
+      .map((point) => [point.t, point] as const),
+  );
+  const eligiblePoints = Array.from(pointsByTimestamp.values()).toSorted(
+    (a, b) => a.t - b.t,
+  );
+  const points = eligiblePoints.slice(-targetCount);
+  const omittedOlderPoints = eligiblePoints.length > points.length;
+
+  return {
+    ...data,
+    points,
+    total: points.length,
+    ...(data.historyMeta
+      ? {
+          historyMeta: {
+            ...data.historyMeta,
+            noData: data.historyMeta.noData && !omittedOlderPoints,
+            isPartial:
+              !(data.historyMeta.noData && !omittedOlderPoints) &&
+              points.length < targetCount,
+            requestedCount: targetCount,
+            returnedCount: points.length,
+          },
+        }
+      : {}),
+  };
+}
+
+function getHistoryTargetCount({
+  countBack,
+  from,
+  to,
+  resolution,
+}: {
+  countBack: unknown;
+  from: number;
+  to: number;
+  resolution: string;
+}) {
+  if (
+    typeof countBack === 'number' &&
+    Number.isFinite(countBack) &&
+    countBack > 0
+  ) {
+    return Math.min(
+      MAX_HISTORY_RESPONSE_POINT_COUNT,
+      Math.max(1, Math.floor(countBack)),
+    );
+  }
+
+  const intervalSeconds = getKLineIntervalSeconds(resolution) ?? 60;
+  return Math.min(
+    DEFAULT_HISTORY_RESPONSE_POINT_COUNT,
+    Math.max(1, Math.ceil((to - from) / intervalSeconds)),
+  );
 }
 
 function getKLineErrorMessage(error: unknown) {
@@ -96,6 +219,33 @@ function getKLineErrorMessage(error: unknown) {
     return error;
   }
   return undefined;
+}
+
+function sendKLineHistoryErrorTerminal({
+  webView,
+  requestData,
+  targetCount,
+  error,
+}: {
+  webView: IWebViewRef;
+  requestData: unknown;
+  targetCount: number;
+  error: string;
+}) {
+  const kLineData = buildEmptyKLineData({ noData: false, error });
+  webView.sendMessageViaInjectedScript({
+    type: 'kLineData',
+    payload: {
+      type: 'history',
+      kLineData,
+      historyMeta: {
+        ...kLineData.historyMeta,
+        requestedCount: targetCount,
+        returnedCount: 0,
+      },
+      requestData,
+    },
+  });
 }
 
 function formatAmount(amount: string) {
@@ -175,61 +325,6 @@ export async function fetchAccountTransactionMarks({
   });
 }
 
-export async function fetchAndSendAccountMarks({
-  accountAddress,
-  tokenAddress,
-  networkId,
-  from,
-  to,
-  symbol,
-  resolution,
-  webRef,
-}: {
-  accountAddress?: string;
-  tokenAddress: string;
-  networkId: string;
-  from: number;
-  to: number;
-  symbol?: string;
-  resolution?: string;
-  webRef: IMessageHandlerContext['webRef'];
-}) {
-  if (await shouldMockEmptyKLineData(resolution)) {
-    sendClearAccountMarks({
-      tokenAddress,
-      symbol,
-      webRef,
-    });
-    return;
-  }
-
-  if (!accountAddress) {
-    return;
-  }
-  try {
-    const marks = await fetchAccountTransactionMarks({
-      accountAddress,
-      tokenAddress,
-      networkId,
-      from,
-      to,
-    });
-
-    if (webRef.current && marks.length > 0) {
-      webRef.current.sendMessageViaInjectedScript({
-        type: MESSAGE_TYPES.MARKS_UPDATE,
-        payload: {
-          marks,
-          symbol: symbol || tokenAddress,
-          operation: 'replace',
-        },
-      });
-    }
-  } catch (error) {
-    console.error('Failed to fetch account token transactions:', error);
-  }
-}
-
 export function sendClearAccountMarks({
   tokenAddress,
   symbol,
@@ -255,6 +350,80 @@ export function sendClearAccountMarks({
   });
 }
 
+export async function fetchAndSendAccountMarks({
+  accountAddress,
+  tokenAddress,
+  networkId,
+  from,
+  to,
+  symbol,
+  resolution,
+  webRef,
+  webViewLoadGeneration,
+  isRequestCurrent,
+}: {
+  accountAddress?: string;
+  tokenAddress: string;
+  networkId: string;
+  from: number;
+  to: number;
+  symbol?: string;
+  resolution?: string;
+  webRef: IMessageHandlerContext['webRef'];
+  webViewLoadGeneration?: IMessageHandlerContext['webViewLoadGeneration'];
+  isRequestCurrent?: () => boolean;
+}) {
+  const requestTarget = captureTradingViewRequestTarget({
+    webRef,
+    webViewLoadGeneration,
+    isRequestCurrent,
+  });
+  if (!requestTarget.isCurrent()) {
+    return;
+  }
+
+  if (await shouldMockEmptyKLineData(resolution)) {
+    if (!requestTarget.isCurrent()) {
+      return;
+    }
+    sendClearAccountMarks({
+      tokenAddress,
+      symbol,
+      webRef,
+    });
+    return;
+  }
+
+  if (!accountAddress) {
+    return;
+  }
+  try {
+    if (!requestTarget.isCurrent()) {
+      return;
+    }
+    const marks = await fetchAccountTransactionMarks({
+      accountAddress,
+      tokenAddress,
+      networkId,
+      from,
+      to,
+    });
+
+    if (marks.length > 0) {
+      requestTarget.sendMessage({
+        type: MESSAGE_TYPES.MARKS_UPDATE,
+        payload: {
+          marks,
+          symbol: symbol || tokenAddress,
+          operation: 'replace',
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to fetch account token transactions:', error);
+  }
+}
+
 export async function handleKLineDataRequest({
   data,
   context,
@@ -262,6 +431,8 @@ export async function handleKLineDataRequest({
   const {
     tokenAddress = '',
     networkId = '',
+    kLineProvider = 'onekey',
+    kLineProviderSymbol,
     webRef,
     accountAddress,
     marksTimeRange,
@@ -281,10 +452,54 @@ export async function handleKLineDataRequest({
   ) {
     // Extract properties safely with explicit checks
     const safeData = messageData as unknown as Record<string, unknown>;
-    const resolution = safeData.resolution as string;
-    const from = safeData.from as number;
-    const to = safeData.to as number;
+    if (
+      typeof safeData.resolution !== 'string' ||
+      !safeData.resolution ||
+      typeof safeData.from !== 'number' ||
+      !Number.isFinite(safeData.from) ||
+      typeof safeData.to !== 'number' ||
+      !Number.isFinite(safeData.to) ||
+      safeData.to <= safeData.from
+    ) {
+      return;
+    }
+    const resolution = safeData.resolution;
+    const from = safeData.from;
+    const to = safeData.to;
     const isFirstDataRequest = safeData.firstDataRequest === true;
+    const targetCount = getHistoryTargetCount({
+      countBack: safeData.countBack,
+      from,
+      to,
+      resolution,
+    });
+    const requestRange = {
+      from,
+      to,
+      countBack: targetCount,
+      firstDataRequest: isFirstDataRequest,
+    };
+    const requestIdentity = {
+      symbol: typeof safeData.symbol === 'string' ? safeData.symbol : undefined,
+      tokenAddress:
+        typeof safeData.tokenAddress === 'string'
+          ? safeData.tokenAddress
+          : undefined,
+      networkId:
+        typeof safeData.networkId === 'string' ? safeData.networkId : undefined,
+    };
+    const requestTarget = captureTradingViewRequestTarget({
+      webRef,
+      webViewLoadGeneration: context.webViewLoadGeneration,
+      isRequestCurrent: () =>
+        (context.isRequestIdentityCurrent?.() ?? true) &&
+        (context.isCurrentKLineRequest?.(requestIdentity) ?? true),
+    });
+    const requestWebView = requestTarget.requestWebView;
+
+    if (!requestTarget.isCurrent() || !requestWebView) {
+      return;
+    }
 
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
@@ -310,14 +525,20 @@ export async function handleKLineDataRequest({
         (await shouldMockEmptyKLineData(resolution));
       const shouldSuppressKLineError = Boolean(context.emptyKLineDataOnError);
       const fetchedKLineData = shouldForceEmptyKLineData
-        ? buildEmptyKLineData()
+        ? buildEmptyKLineData({ noData: true })
         : await fetchTradingViewV2DataWithSlicing({
             tokenAddress,
             networkId,
+            kLineProvider,
+            kLineProviderSymbol,
             interval: resolution,
             timeFrom: from,
             timeTo: to,
+            targetCount,
+            historyStartTime: context.historyStartTime,
             autoHandleError: shouldSuppressKLineError ? false : undefined,
+            requestExactRange: true,
+            reuseLatestPage: isFirstDataRequest,
             kLineDataFallback: context.kLineDataFallback,
             primaryKLineDataUnavailable: context.primaryKLineDataUnavailable,
             onPrimaryKLineDataUnavailable:
@@ -326,35 +547,58 @@ export async function handleKLineDataRequest({
       const shouldUseEmptyKLineData =
         shouldForceEmptyKLineData ||
         (shouldSuppressKLineError && !fetchedKLineData);
-      const kLineData = shouldUseEmptyKLineData
-        ? buildEmptyKLineData()
-        : fetchedKLineData;
-      const isEmptyKLineData = !kLineData?.points?.length;
-
-      if (webRef.current && kLineData) {
-        webRef.current.sendMessageViaInjectedScript({
-          type: 'kLineData',
-          payload: {
-            type: 'history',
-            kLineData,
-            requestData: messageData,
-          },
-        });
-
-        sendVolumeVisibilityUpdate({
-          allowHide: Boolean(safeData.firstDataRequest),
-          kLineData,
-          source: 'history',
-          symbol: (safeData.symbol as string) || tokenSymbol || tokenAddress,
-          webRef,
+      let kLineData = fetchedKLineData;
+      if (shouldUseEmptyKLineData) {
+        kLineData = buildEmptyKLineData({ noData: true });
+      } else if (fetchedKLineData) {
+        kLineData = constrainKLineDataToHistoryRequest({
+          data: fetchedKLineData,
+          to,
+          targetCount,
         });
       }
+      if (!kLineData) {
+        throw new OneKeyLocalError(
+          'K-line history request returned no response',
+        );
+      }
+      const isEmptyKLineData = kLineData.points.length === 0;
+
+      if (!requestTarget.isCurrent()) {
+        return;
+      }
+
+      const noData =
+        shouldUseEmptyKLineData || kLineData.historyMeta?.noData === true;
+      requestTarget.sendMessage({
+        type: 'kLineData',
+        payload: {
+          type: 'history',
+          kLineData,
+          historyMeta: {
+            ...kLineData.historyMeta,
+            noData,
+            requestedCount: targetCount,
+            returnedCount: kLineData.points.length,
+          },
+          requestData: messageData,
+        },
+      });
+
+      sendVolumeVisibilityUpdate({
+        allowHide: Boolean(safeData.firstDataRequest),
+        kLineData,
+        source: 'history',
+        symbol: (safeData.symbol as string) || tokenSymbol || tokenAddress,
+        webRef,
+      });
 
       if (isEmptyKLineData) {
         if (isFirstDataRequest) {
           context.onKLineLoadError?.({
             status: 'empty',
             period: normalizeTradingViewKLineInterval(resolution),
+            requestRange,
           });
         }
         if (shouldUseEmptyKLineData) {
@@ -369,11 +613,13 @@ export async function handleKLineDataRequest({
       if (!isEmptyKLineData) {
         context.onKLineDataReady?.({
           period: normalizeTradingViewKLineInterval(resolution),
+          requestRange,
         });
       }
 
       if (
         !shouldUseEmptyKLineData &&
+        context.isKLineHistoryReady &&
         accountAddress &&
         tokenAddress &&
         networkId
@@ -387,13 +633,27 @@ export async function handleKLineDataRequest({
           symbol: (safeData.symbol as string) || tokenAddress,
           resolution,
           webRef,
+          webViewLoadGeneration: context.webViewLoadGeneration,
+          isRequestCurrent: requestTarget.isCurrent,
         });
       }
     } catch (error) {
+      if (!requestTarget.isCurrent()) {
+        return;
+      }
       context.onKLineLoadError?.({
         status: 'failed',
         period: normalizeTradingViewKLineInterval(resolution),
         message: getKLineErrorMessage(error),
+        requestRange,
+      });
+      const errorMessage =
+        getKLineErrorMessage(error) ?? 'Failed to load K-line history';
+      sendKLineHistoryErrorTerminal({
+        webView: requestWebView,
+        requestData: messageData,
+        targetCount,
+        error: errorMessage,
       });
       console.error('Failed to fetch and send kline data:', error);
     }

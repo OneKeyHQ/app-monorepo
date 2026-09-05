@@ -8,6 +8,8 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { prefetchMarketDetailV2FirstScreenKLine } from '../views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+
 import {
   getMarketTokenDetailNavigationTargetFromHash,
   useExtensionMarketTokenDetailHashNavigation,
@@ -25,6 +27,13 @@ jest.mock('@onekeyhq/components', () => ({
     current: undefined,
   },
 }));
+
+jest.mock(
+  '../views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+  }),
+);
 
 const mockRootNavigationRef = rootNavigationRef as unknown as {
   current:
@@ -103,7 +112,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&chartMode=tradingView&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -115,6 +124,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         marketTokenCategory: 'top_coins',
         skipMarketDataFetch: true,
         isNative: false,
+        chartMode: 'tradingView',
         from: 'ExtensionSidePanel',
         disableTrade: true,
         showFavoriteButton: false,
@@ -217,6 +227,17 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
           },
         },
       },
+    );
+    expect(prefetchMarketDetailV2FirstScreenKLine).not.toHaveBeenCalled();
+  });
+
+  it('prefetches only for an explicit TradingView hash target', () => {
+    setHash('#/market/token/eth/0xabc?isNative=false&chartMode=tradingView');
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(prefetchMarketDetailV2FirstScreenKLine).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenAddress: '0xabc' }),
     );
   });
 

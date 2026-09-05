@@ -9,6 +9,9 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { prefetchMarketDetailV2FirstScreenKLine } from '../views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -85,6 +88,11 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const chartModeParam = searchParams.get('chartMode');
+    const chartMode =
+      chartModeParam === 'native' || chartModeParam === 'tradingView'
+        ? chartModeParam
+        : undefined;
     const from = searchParams.get('from');
 
     if (segments[1] === 'stock') {
@@ -108,6 +116,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(tokenAddress ? { tokenAddress } : undefined),
           ...(network ? { network } : undefined),
           ...(isNative === undefined ? undefined : { isNative }),
+          ...(chartMode ? { chartMode } : undefined),
           ...(from ? { from: from as EEnterWay } : undefined),
           ...(disableTrade === undefined ? undefined : { disableTrade }),
           ...(showFavoriteButton === undefined
@@ -128,6 +137,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
+          ...(chartMode ? { chartMode } : undefined),
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
@@ -155,6 +165,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ? undefined
           : { skipMarketDataFetch }),
         ...(isNative === undefined ? undefined : { isNative }),
+        ...(chartMode ? { chartMode } : undefined),
         ...(from ? { from: from as EEnterWay } : undefined),
         ...(disableTrade === undefined ? undefined : { disableTrade }),
         ...(showFavoriteButton === undefined
@@ -188,6 +199,12 @@ function isCurrentMarketTokenDetailTarget(
   if (
     normalizeRouteBooleanParam(params.isNative, defaultIsNative) !==
     normalizeRouteBooleanParam(target.params.isNative, defaultIsNative)
+  ) {
+    return false;
+  }
+
+  if (
+    (params.chartMode ?? 'native') !== (target.params.chartMode ?? 'native')
   ) {
     return false;
   }
@@ -246,6 +263,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
         const handledHashRef = useRef<string | undefined>(undefined);
+        const preparedHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
           undefined,
         );
@@ -257,6 +275,35 @@ export const useExtensionMarketTokenDetailHashNavigation =
             retryTimerRef.current = undefined;
           }
         }, []);
+
+        const prepareTargetFromHash = useCallback(
+          (hash: string, target: IMarketTokenDetailNavigationTarget) => {
+            if (
+              target.screen === ETabMarketRoutes.MarketStockDetail ||
+              target.params.chartMode !== 'tradingView'
+            ) {
+              return;
+            }
+            if (preparedHashRef.current === hash) {
+              return;
+            }
+            preparedHashRef.current = hash;
+
+            const networkId =
+              networkUtils.getNetworkIdFromShortCode({
+                shortCode: target.params.network,
+              }) || target.params.network;
+            const tokenAddress =
+              target.screen === ETabMarketRoutes.MarketDetailV2
+                ? target.params.tokenAddress
+                : '';
+            void prefetchMarketDetailV2FirstScreenKLine({
+              tokenAddress,
+              networkId,
+            }).catch(() => undefined);
+          },
+          [],
+        );
 
         const navigateFromHash = useCallback((expectedHash: string) => {
           const currentHash = globalThis.location?.hash ?? '';
@@ -306,6 +353,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
             handledHashRef.current = undefined;
             return;
           }
+          prepareTargetFromHash(hash, target);
 
           const runId = retryRunIdRef.current + 1;
           retryRunIdRef.current = runId;
@@ -330,7 +378,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
           };
 
           run();
-        }, [clearRetryTimer, navigateFromHash]);
+        }, [clearRetryTimer, navigateFromHash, prepareTargetFromHash]);
 
         useEffect(() => {
           startNavigationFromHash();

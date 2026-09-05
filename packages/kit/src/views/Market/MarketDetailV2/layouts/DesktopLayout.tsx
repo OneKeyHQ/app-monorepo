@@ -270,6 +270,17 @@ export function DesktopLayout({
     tokenDetailPreview,
     isNative,
     websocketConfig,
+    // The token store updates before React Navigation commits the new detail
+    // route. Keep the Web DOM runtime on the current route so one selection
+    // cannot start two competing TradingView symbol transitions.
+    routeIdentity:
+      platformEnv.isWeb && !isTradingViewNative
+        ? {
+            tokenAddress: routeTokenAddress,
+            networkId: routeNetworkId,
+            isNative: routeIsNative,
+          }
+        : undefined,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
@@ -370,7 +381,9 @@ export function DesktopLayout({
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
-          nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
+          nativeChartFullscreenHeader={
+            <MarketChartFullscreenHeader chartMode="native" />
+          }
           isChartSwitchDisabled={!effectiveMarketTradingViewParams}
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the

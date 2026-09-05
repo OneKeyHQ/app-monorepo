@@ -13,6 +13,7 @@ export type IModalMarketParamList = {
     network?: string;
     stockId?: string;
     isNative?: boolean;
+    chartMode?: 'native' | 'tradingView';
     showFavoriteButton?: boolean;
   };
   [EModalMarketRoutes.MarketBannerDetail]: {
@@ -22,6 +23,7 @@ export type IModalMarketParamList = {
   };
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
+        chartMode?: 'native' | 'tradingView';
         showFavoriteButton?: boolean;
       }
     | undefined;

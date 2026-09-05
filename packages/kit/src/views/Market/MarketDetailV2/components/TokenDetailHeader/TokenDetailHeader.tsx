@@ -26,6 +26,7 @@ import type {
 const SCROLL_THRESHOLD = 2;
 
 export function TokenDetailHeader({
+  chartMode,
   showStats = true,
   showMediaAndSecurity = true,
   showFavoriteButton = true,
@@ -34,6 +35,7 @@ export function TokenDetailHeader({
   showDivider = true,
   containerProps,
 }: {
+  chartMode: 'native' | 'tradingView';
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
   showFavoriteButton?: boolean;
@@ -93,6 +95,7 @@ export function TokenDetailHeader({
       {...containerProps}
     >
       <TokenDetailHeaderLeft
+        chartMode={chartMode}
         tokenDetail={tokenDetail}
         networkId={networkId}
         networkLogoUri={networkData?.logoURI}
