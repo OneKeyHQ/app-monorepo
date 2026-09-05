@@ -11,6 +11,7 @@ import {
   ConnectTimeoutError,
   DeviceBondError,
   DeviceMethodCallTimeout,
+  UserCancel,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -76,6 +77,23 @@ describe('DeviceMethodCallTimeout', () => {
       key: 'global.connection_failed_help_text',
     });
   });
+});
+
+describe('convertDeviceError cancellation', () => {
+  it.each([
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+  ])(
+    'maps raw cancellation code %s to the localized user-cancel error',
+    (code) => {
+      const error = convertDeviceError({ code, error: 'Cancelled' });
+
+      expect(error).toBeInstanceOf(UserCancel);
+      expect(error).toMatchObject({
+        key: 'hardware.user_cancel_error',
+      });
+    },
+  );
 });
 
 describe('convertDeviceError BLE connection timeout', () => {
