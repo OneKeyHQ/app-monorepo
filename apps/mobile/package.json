@@ -73,6 +73,7 @@
   "dependencies": {
     "@backpackapp-io/react-native-toast": "0.14.0",
     "@expo-google-fonts/inter": "^0.2.3",
+    "@expo/ui": "57.0.12",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
@@ -119,7 +120,7 @@
     "@shopify/flash-list": "2.3.2",
     "@shopify/react-native-skia": "2.6.2",
     "@types/react-native-canvas": "^0.1.13",
-    "@walletconnect/react-native-compat": "2.21.9",
+    "@walletconnect/react-native-compat": "2.23.10",
     "burnt": "0.12.2",
     "expo": "57.0.14",
     "expo-apple-authentication": "~57.0.1",

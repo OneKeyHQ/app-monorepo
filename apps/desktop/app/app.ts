@@ -73,6 +73,10 @@ import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import {
+  isWcPayEmbedUrl,
+  stripFrameBlockingHeaders,
+} from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
@@ -1439,9 +1443,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // Inject security response headers for the app's own pages only.
   // Scoped to file:// and localhost to avoid interfering with external API responses.
+  //
+  // The WalletConnect Pay hosts are the one exception: their compliance form
+  // is embedded in an iframe (official web integration path), but its CSP
+  // `frame-ancestors https:` rejects the desktop renderer origin (file:// in
+  // prod, http://localhost in dev). Strip only the frame-blocking headers for
+  // those hosts; the rest of their CSP stays enforced. Electron replaces the
+  // previous onHeadersReceived listener on re-registration, so both concerns
+  // must share this single registration.
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['file://*', 'http://localhost:*/*'] },
+    {
+      urls: [
+        'file://*',
+        'http://localhost:*/*',
+        'https://pay.walletconnect.com/*',
+        'https://*.pay.walletconnect.com/*',
+      ],
+    },
     (details, callback) => {
+      if (isWcPayEmbedUrl(details.url)) {
+        callback({
+          responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
+        });
+        return;
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,

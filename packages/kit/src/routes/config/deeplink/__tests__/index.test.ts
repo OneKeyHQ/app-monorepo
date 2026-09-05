@@ -1,3 +1,9 @@
+import {
+  closeWcPayDialog,
+  getWcPayDialogState,
+  openWcPayDialog,
+  setWcPayDialogGuarded,
+} from '@onekeyhq/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
@@ -38,6 +44,18 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
     walletConnect: {
       connectToDapp: jest.fn(),
     },
+    serviceWalletConnectPay: {
+      isPaymentLink: jest.fn(async () => false),
+      supportsDurableProgress: jest.fn(async () => true),
+    },
+  },
+}));
+
+// keep the components package out of this suite's import graph; only Toast
+// is consumed by the deeplink module (explicit pay refusal)
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: jest.fn(),
   },
 }));
 
@@ -67,6 +85,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsCommonConfigPersistAtom: {
     get: jest.fn(),
   },
+}));
+
+// the pay deep link waits for unlock before opening the dialog; resolved
+// immediately by default, individual tests swap in a deferred promise
+jest.mock('../../../../utils/passwordUtils', () => ({
+  whenAppUnlocked: jest.fn(async () => {}),
 }));
 
 jest.mock('../referralLandingLink', () => ({
@@ -341,5 +365,154 @@ describe('stocks / perps universal links', () => {
 
     expect(navigate).not.toHaveBeenCalled();
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('walletconnect pay deep links', () => {
+  // oxlint-disable-next-line @cspell/spellchecker
+  const payUrl = 'wc:pay-1@2?relay-protocol=irn&symKey=abc';
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const mockedBackgroundApiProxy = (
+    jest.requireMock('../../../../background/instance/backgroundApiProxy') as {
+      default: {
+        walletConnect: { connectToDapp: jest.Mock };
+        serviceWalletConnectPay: {
+          isPaymentLink: jest.Mock;
+          supportsDurableProgress: jest.Mock;
+        };
+      };
+    }
+  ).default;
+  const mockedIsPaymentLink =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.isPaymentLink;
+  const mockedSupportsDurableProgress =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress;
+  const mockedConnectToDapp =
+    mockedBackgroundApiProxy.walletConnect.connectToDapp;
+  const mockedWhenAppUnlocked = (
+    jest.requireMock('../../../../utils/passwordUtils') as {
+      whenAppUnlocked: jest.Mock;
+    }
+  ).whenAppUnlocked;
+
+  // deep chains of awaits need more microtask turns than flushAsyncTasks runs
+  async function flushDeepAsyncTasks() {
+    for (let i = 0; i < 10; i += 1) {
+      await Promise.resolve();
+    }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedIsPaymentLink.mockResolvedValue(true);
+    mockedSupportsDurableProgress.mockResolvedValue(true);
+    // clearAllMocks keeps implementations; restore the immediate-unlock
+    // default in case a test swapped in a deferred promise
+    mockedWhenAppUnlocked.mockImplementation(async () => {});
+    appGlobals.$rootAppNavigation = undefined;
+    closeWcPayDialog();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    closeWcPayDialog();
+  });
+
+  it('opens the pay dialog for a recognized pay link', async () => {
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('opens the pay dialog for a direct https payment link', async () => {
+    // not a wc:-scheme URI, so only the bg isPaymentLink verdict routes it
+    const httpsPayUrl = 'https://pay.walletconnect.com/?pid=pay_123';
+
+    handleDeepLinkUrl({ url: httpsPayUrl });
+    await flushDeepAsyncTasks();
+
+    expect(mockedIsPaymentLink).toHaveBeenCalledWith({ uri: httpsPayUrl });
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: httpsPayUrl,
+    });
+  });
+
+  it('refuses the pay link with an explicit toast when durable progress is unsupported', async () => {
+    mockedSupportsDurableProgress.mockResolvedValue(false);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState().isOpen).toBe(false);
+    // the recognized pay URI must be consumed here, never handed to dapp
+    // pairing (pair() rejects pay URIs silently)
+    expect(mockedConnectToDapp).not.toHaveBeenCalled();
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
+  });
+
+  it('opens the pay dialog even before root navigation exists (cold start)', async () => {
+    // cold start: the link arrives before $rootAppNavigation is assigned.
+    // The dialog store holds state, not a navigation call, so nothing is
+    // dropped — the container renders from the store once it mounts.
+    expect(appGlobals.$rootAppNavigation).toBeUndefined();
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('waits for app unlock before opening the pay dialog', async () => {
+    // the dialog is a system sheet that would present ABOVE the RN lock
+    // screen, so the link must park until the app is unlocked
+    let resolveUnlock: () => void = () => {};
+    mockedWhenAppUnlocked.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+        }),
+    );
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState().isOpen).toBe(false);
+
+    resolveUnlock();
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('refuses a second pay link while the flow is entry-guarded', async () => {
+    // an in-flight, non-dismissible payment sets the entry guard; a new
+    // deep link must not remount the flow, and the refusal is surfaced
+    openWcPayDialog({ paymentLink: 'link-in-flight' });
+    setWcPayDialogGuarded(true);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: 'link-in-flight',
+    });
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
   });
 });

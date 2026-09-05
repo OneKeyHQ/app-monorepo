@@ -218,7 +218,28 @@ const ledgerCjsByPackage = new Map(
   }),
 );
 
+// @expo/ui ships no `main` — only an `exports` map — and its own sources import
+// sub-paths such as `@expo/ui/swift-ui/modifiers` that have no matching folder
+// on disk. With unstable_enablePackageExports=false Metro can resolve none of
+// them, so hand them to Node, where the `exports` map IS honored. The targets
+// are TypeScript sources, which babel-preset-expo compiles like any other file.
+const EXPO_UI_PACKAGE = '@expo/ui';
+const EXPO_UI_SUBPATH_PREFIX = '@expo/ui/';
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    moduleName === EXPO_UI_PACKAGE ||
+    moduleName.startsWith(EXPO_UI_SUBPATH_PREFIX)
+  ) {
+    try {
+      return {
+        type: 'sourceFile',
+        filePath: require.resolve(moduleName, { paths: [monorepoRoot] }),
+      };
+    } catch {
+      // Fall through to the default resolver.
+    }
+  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === '@aptos-labs/script-composer-pack'

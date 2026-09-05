@@ -364,6 +364,10 @@ PODS:
     - ExpoModulesCore
   - ExpoSplashScreen (57.0.7):
     - ExpoModulesCore
+  - ExpoUI (57.0.12):
+    - ExpoModulesCore
+    - ExpoModulesWorklets
+    - React-RCTFabric
   - ExpoWebBrowser (57.0.2):
     - ExpoModulesCore
   - FBLazyVector (0.86.2)
@@ -2031,7 +2035,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-compat (2.21.9):
+  - react-native-compat (2.23.10):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2052,6 +2056,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+    - YttriumWrapper (= 0.10.54)
   - react-native-document-picker (12.0.1):
     - hermes-engine
     - RCTRequired
@@ -3777,6 +3782,7 @@ PODS:
     - Yoga
   - TOCropViewController (2.8.1)
   - Yoga (0.0.0)
+  - YttriumWrapper (0.10.54)
   - ZXingObjC/Core (3.6.9)
   - ZXingObjC/OneD (3.6.9):
     - ZXingObjC/Core
@@ -3831,6 +3837,7 @@ DEPENDENCIES:
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
   - ExpoSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
+  - "ExpoUI (from `../../../node_modules/@expo/ui/ios`)"
   - ExpoWebBrowser (from `../../../node_modules/expo-web-browser/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
@@ -4008,6 +4015,7 @@ SPEC REPOS:
     - SPAlert
     - SPIndicator
     - SSZipArchive
+    - YttriumWrapper
     - ZXingObjC
 
 EXTERNAL SOURCES:
@@ -4103,6 +4111,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-sharing/ios"
   ExpoSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
+  ExpoUI:
+    :path: "../../../node_modules/@expo/ui/ios"
   ExpoWebBrowser:
     :path: "../../../node_modules/expo-web-browser/ios"
   FBLazyVector:
@@ -4450,6 +4460,7 @@ SPEC CHECKSUMS:
   ExpoSecureStore: 94793113049a2d7478dfe1a13aa15081e9f61755
   ExpoSharing: 1a4831b3a52dead83c3ed6a8e1541b04fef02c1d
   ExpoSplashScreen: 9c11c0c7dd0c57853244d0ae640a63e42ede8ffd
+  ExpoUI: 27fa8fbaf7b4a84d643b2bdd6e436ee061a100af
   ExpoWebBrowser: 9b98d939d5f1c5dd8f523f0a0683056fb1204434
   FBLazyVector: d153c0a7ab3a2c865dd311cb3a5418cd66b658e6
   GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d
@@ -4518,7 +4529,7 @@ SPEC CHECKSUMS:
   React-mutationobservernativemodule: c8a615cc141822983b343e6f1982d214b706246e
   react-native-ble-plx: 1c696efe881f1b519eab9efa2cd9308c007732c5
   react-native-capture-protection: 41fa8b29a34f2d36199e6b44b41ba1836f567204
-  react-native-compat: 27466917b93b2da7c1eed1022227dba8c69d4ef5
+  react-native-compat: cef830367a5c2834e8792f3cdd753b7d4e632560
   react-native-document-picker: 598c549d1cbcc8c1f73abfbb5369d2faa10da242
   react-native-keyboard-controller: 2ef1abca0f1b5ffc41c282c9e5f9c5576f83a53d
   react-native-netinfo: ac0848a4773ef5bd015399444409b5ea9ed75fa3
@@ -4615,6 +4626,7 @@ SPEC CHECKSUMS:
   TcpSocket: e549c8c3aa925666282c9b3f011beb5c73d24441
   TOCropViewController: 5fa42dd0ac8c32790c06fc6057831d17b3b16857
   Yoga: 0b38f02674a32b9a15de1f41f8680ffa06eaf8ef
+  YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: f012fa32e86207838501f0a55ea230ee50da914f

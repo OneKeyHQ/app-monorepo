@@ -66,6 +66,7 @@ import type { SimpleDbEntitySwapProSelectToken } from '../entity/SimpleDbEntityS
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import type { SimpleDbEntityWalletConnectPay } from '../entity/SimpleDbEntityWalletConnectPay';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
 
 export class SimpleDbProxy
@@ -319,4 +320,8 @@ export class SimpleDbProxy
   rookieGuide = this._createProxyService(
     'rookieGuide',
   ) as SimpleDbEntityRookieGuide;
+
+  walletConnectPay = this._createProxyService(
+    'walletConnectPay',
+  ) as SimpleDbEntityWalletConnectPay;
 }

@@ -1,0 +1,187 @@
+diff --git a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
+index 54918d4..c724a30 100644
+--- a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
++++ b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
+@@ -13,6 +13,10 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ + (void)detachTouchHandler:(UIGestureRecognizer *)touchHandler fromView:(UIView *)view;
+ 
++// OneKey patch: restore UIKit view-touch delivery for native controls
++// (UISwitch and friends) inside the hosted RN content of a system sheet.
+++ (void)relaxSheetGestureInterferenceFromView:(UIView *)view;
++
+ @end
+ 
+ NS_ASSUME_NONNULL_END
+diff --git a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
+index eb34427..8998787 100644
+--- a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
++++ b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
+@@ -23,4 +23,53 @@ + (void)detachTouchHandler:(UIGestureRecognizer *)touchHandler fromView:(UIView
+   }
+ }
+ 
++// OneKey patch: restore UIKit view-touch delivery for native controls.
++// React Native's own touch pipeline works inside a system sheet's hosted
++// content (RCTSurfaceTouchHandler never delays or cancels), but native
++// controls such as UISwitch rely on plain UIKit view-touch delivery, and
++// two recognizers above the hosted content break that road:
++//  - the sheet's drag pan on UIDropShadowView has delaysTouchesEnded, so
++//    a tap's end phase is withheld from the control while the pan
++//    deliberates (and dropped when it loses);
++//  - SwiftUI's hover recognizer on the presentation hosting view cancels
++//    touches in view when it engages.
++// The end-delay is released on every recognizer up the chain; the cancel
++// relax stays narrowed to the hover bridge (the sheet pan must keep
++// cancelling, or dragging the sheet would also operate the controls
++// under the finger). Runs twice because the sheet finishes presenting
++// after the host appears; the writes are idempotent.
+++ (void)relaxSheetGestureInterferenceFromView:(UIView *)view {
++  __weak UIView *weakView = view;
++  void (^apply)(void) = ^{
++    UIView *cur = weakView;
++    int depth = 0;
++    while (cur && depth < 40) {
++      NSString *viewClass = NSStringFromClass(cur.class);
++      for (UIGestureRecognizer *recognizer in cur.gestureRecognizers) {
++        NSString *recognizerClass = NSStringFromClass(recognizer.class);
++        if ([viewClass containsString:@"HostingView"] &&
++            [recognizerClass containsString:@"Hover"] &&
++            recognizer.cancelsTouchesInView) {
++          recognizer.cancelsTouchesInView = NO;
++          NSLog(@"OneKeyTouchRelax: %@ on %@ cancelsTouchesInView -> NO", recognizerClass, viewClass);
++        }
++        // A recognizer that withholds touch ends while it deliberates
++        // starves native controls of the end phase entirely when it never
++        // resolves for direct touches (SwiftUI's hover bridge) or loses
++        // late (the sheet pan). RN's pipeline is recognizer-based and
++        // unaffected either way, so releasing the delay only restores the
++        // controls.
++        if (recognizer.delaysTouchesEnded) {
++          recognizer.delaysTouchesEnded = NO;
++          NSLog(@"OneKeyTouchRelax: %@ on %@ delaysTouchesEnded -> NO", recognizerClass, viewClass);
++        }
++      }
++      cur = cur.superview;
++      depth++;
++    }
++  };
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), apply);
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), apply);
++}
++
+ @end
+diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
+index f385284..d47e174 100644
+--- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
++++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
+@@ -247,4 +247,19 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
+       content
+     }
+   }
++}
++// OneKey patch: expose SwiftUI's preferredColorScheme. Unlike the environment
++// colorScheme (subtree-only), it flows up to the enclosing presentation and
++// flips the system sheet chrome - background material, grabber - to the given
++// scheme. This is the only lever that keeps the native glass material while
++// pinning a sheet dark on a light system.
++
++// MARK: - Preferred Color Scheme
++
++internal struct PreferredColorSchemeModifier: ViewModifier, Record {
++  @Field var colorScheme: ColorSchemeType = .light
++
++  func body(content: Content) -> some View {
++    content.preferredColorScheme(colorScheme.toNativeColorScheme())
++  }
+ }
+\ No newline at end of file
+diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
+index fbaa436..7f644b8 100644
+--- a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
++++ b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
+@@ -2270,6 +2270,12 @@ extension ViewModifierRegistry {
+       return try EnvironmentModifier(from: params, appContext: appContext)
+     }
+ 
++    // OneKey patch: registry entry for PreferredColorSchemeModifier, defined
++    // in PresentationModifiers.swift.
++    register("preferredColorScheme") { params, appContext, _ in
++      return try PreferredColorSchemeModifier(from: params, appContext: appContext)
++    }
++
+     register("contentTransition") { params, appContext, _ in
+       return try ContentTransitionModifier(from: params, appContext: appContext)
+     }
+diff --git a/node_modules/@expo/ui/ios/RNHostView.swift b/node_modules/@expo/ui/ios/RNHostView.swift
+index 4cf3893..804e2cb 100644
+--- a/node_modules/@expo/ui/ios/RNHostView.swift
++++ b/node_modules/@expo/ui/ios/RNHostView.swift
+@@ -60,19 +60,64 @@ private final class RNHostTouchHandler: ObservableObject {
+     if attachedView === view, touchHandler != nil {
+       return
+     }
+-    detach()
++    detachNow()
+     touchHandler = ExpoUITouchHandlerHelper.createAndAttachTouchHandler(for: view)
+     attachedView = view
++    // OneKey patch: restore UIKit view-touch delivery for native controls
++    // hosted inside a system sheet (see ExpoUITouchHandlerHelper).
++    ExpoUITouchHandlerHelper.relaxSheetGestureInterference(from: view)
+   }
+ 
++  // OneKey patch: SwiftUI evaluates sheet content through transient copies of
++  // this host while the sheet presents. The copy that created the touch
++  // handler can disappear right after a surviving copy appeared (which found
++  // the handler already attached and owns nothing), so an eager detach here
++  // strips the only RCTSurfaceTouchHandler off the hosted RN tree and every
++  // Pressable inside the sheet goes dead. Release ownership immediately but
++  // only remove the recognizer once the view has really left its SwiftUI
++  // host; a view that is still hosted keeps it.
+   func detach() {
+-    if let touchHandler, let attachedView {
+-      ExpoUITouchHandlerHelper.detachTouchHandler(touchHandler, from: attachedView)
++    guard let handler = touchHandler, let view = attachedView else {
++      touchHandler = nil
++      attachedView = nil
++      return
++    }
++    touchHandler = nil
++    attachedView = nil
++    Self.detachWhenUnhosted(handler, from: view)
++  }
++
++  private func detachNow() {
++    if let handler = touchHandler, let view = attachedView {
++      ExpoUITouchHandlerHelper.detachTouchHandler(handler, from: view)
+     }
+     touchHandler = nil
+     attachedView = nil
+   }
+ 
++  private static func isSwiftUIHosted(_ view: UIView) -> Bool {
++    var current = view.superview
++    var depth = 0
++    while let candidate = current, depth < 60 {
++      if NSStringFromClass(type(of: candidate)).contains("HostingView") {
++        return true
++      }
++      current = candidate.superview
++      depth += 1
++    }
++    return false
++  }
++
++  private static func detachWhenUnhosted(_ handler: UIGestureRecognizer, from view: UIView) {
++    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
++      if view.superview != nil, isSwiftUIHosted(view) {
++        detachWhenUnhosted(handler, from: view)
++        return
++      }
++      ExpoUITouchHandlerHelper.detachTouchHandler(handler, from: view)
++    }
++  }
++
+   deinit {
+     detach()
+   }

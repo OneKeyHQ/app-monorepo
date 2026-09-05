@@ -98,6 +98,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletConnectPay from '../services/ServiceWalletConnectPay';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
@@ -276,6 +277,12 @@ class BackgroundApiProxy
 
   get serviceDappSide(): ServiceDappSide {
     return this.getProxyService<ServiceDappSide>('serviceDappSide');
+  }
+
+  get serviceWalletConnectPay(): ServiceWalletConnectPay {
+    return this.getProxyService<ServiceWalletConnectPay>(
+      'serviceWalletConnectPay',
+    );
   }
 
   get serviceWalletConnect(): ServiceWalletConnect {

@@ -30,7 +30,6 @@ import type {
 } from '@onekeyhq/shared/types/externalWallet.types';
 
 import localDb from '../../../dbs/local/localDb';
-import { WalletConnectDappSideProvider } from '../../../services/ServiceWalletConnect/WalletConnectDappSideProvider';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
 import { ExternalConnectorWalletConnect } from '../walletconnect/ExternalConnectorWalletConnect';
 
@@ -43,6 +42,7 @@ import {
 } from './ExternalConnectorEvmInjected';
 
 import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
+import type { WalletConnectDappSideProvider } from '../../../services/ServiceWalletConnect/WalletConnectDappSideProvider';
 import type {
   IExternalCheckNetworkOrAddressMatchedPayload,
   IExternalHandleWalletConnectEventsParams,
@@ -52,6 +52,19 @@ import type {
   IExternalSignMessagePayload,
   IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
+
+// WalletConnectDappSideProvider extends UniversalProvider, and a static
+// import would drag the whole walletconnect stack into the background startup
+// graph; resolve the class on demand for the instanceof narrowing below
+async function asWalletConnectProvider(
+  provider: unknown,
+): Promise<WalletConnectDappSideProvider | undefined> {
+  const { WalletConnectDappSideProvider } =
+    await import('../../../services/ServiceWalletConnect/WalletConnectDappSideProvider');
+  return provider instanceof WalletConnectDappSideProvider
+    ? provider
+    : undefined;
+}
 
 function isOneKeyExtensionConnection(connectionInfo: IExternalConnectionInfo) {
   const eip6963Rdns =
@@ -582,8 +595,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     networkId: string;
   }): Promise<number> {
     const provider = await connector.getProvider();
-    const walletConnectProvider =
-      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+    const walletConnectProvider = await asWalletConnectProvider(provider);
 
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
@@ -611,8 +623,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     networkId: string;
   }): Promise<`0x${string}`[]> {
     const provider = await connector.getProvider();
-    const walletConnectProvider =
-      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+    const walletConnectProvider = await asWalletConnectProvider(provider);
 
     let addresses: `0x${string}`[] = [];
     if (walletConnectProvider) {
