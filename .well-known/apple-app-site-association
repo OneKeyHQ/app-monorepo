@@ -1,0 +1,57 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "BVJ3FU5H2K.so.onekey.wallet"
+        ],
+        "components": [
+          {
+            "#": "no_universal_links",
+            "exclude": true,
+            "comment": "Matches any URL whose fragment equals no_universal_links and instructs the system not to open it as a universal link"
+          },
+          {
+            "/": "/account/*",
+            "comment": "Matches any URL whose path starts with /account/"
+          },
+          {
+            "/": "/wc/*",
+            "comment": "Matches any URL associate with wallet-connect"
+          },
+          {
+            "/": "/swap",
+            "?": {
+              "tab": "stock"
+            },
+            "comment": "Matches the stock trade universal link"
+          },
+          {
+            "/": "/swap/",
+            "?": {
+              "tab": "stock"
+            },
+            "comment": "Trailing-slash variant of the stock trade universal link"
+          },
+          {
+            "/": "/perps",
+            "comment": "Matches the perps trade universal link"
+          },
+          {
+            "/": "/perps/",
+            "comment": "Trailing-slash variant of the perps trade universal link"
+          },
+          {
+            "/": "/market",
+            "comment": "Matches the market home universal link"
+          },
+          {
+            "/": "/market/",
+            "comment": "Trailing-slash variant of the market home universal link"
+          }
+        ]
+      }
+    ]
+  }
+}

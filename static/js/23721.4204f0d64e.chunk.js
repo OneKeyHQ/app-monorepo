@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[23721],{577424(e,t,r){function mergeBatchCreateCustomNetworks({defaultNetworks:e,customNetworks:t}){let r=new Map;for(let s of e.concat(t??[])){let e=`${s.networkId}_${s.deriveType}`,t=r.get(e);t&&(t.indexes||!s.indexes)||r.set(e,s)}return Array.from(r.values())}r.d(t,{mergeBatchCreateCustomNetworks:()=>mergeBatchCreateCustomNetworks})}}]);
+//# sourceMappingURL=23721.4204f0d64e.chunk.js.map
