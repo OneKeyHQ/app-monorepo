@@ -169,9 +169,7 @@ export default function PrimeDashboard({
       didOpenInfiniSubscriptionRef.current = true;
       // Clear the route flag so a remount / pop-back cannot push Infini again.
       navigation.setParams({ fromDeepLink: undefined });
-      navigation.push(EPrimePages.PrimeInfiniSubscription, {
-        fromDeepLink: true,
-      });
+      navigation.push(EPrimePages.PrimeInfiniSubscription);
     };
     void openInfiniSubscriptionFromDeepLink();
     return () => {

@@ -117,16 +117,3 @@ export function getPrimeSubscriptionManagementTarget({
       : 'missing-channel-and-management-url',
   };
 }
-
-export function shouldToastUnsupportedPrimeSubscriptionManagement({
-  userInfo,
-}: {
-  userInfo: IPrimeSubscriptionManagementUserInfo;
-}) {
-  const target = getPrimeSubscriptionManagementTarget({ userInfo });
-  return (
-    target.type === 'external' ||
-    (target.type === 'unavailable' &&
-      target.reason === 'channel-without-management-url')
-  );
-}

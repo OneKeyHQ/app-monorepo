@@ -29,10 +29,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EPrimePages,
-  IPrimeParamList,
-} from '@onekeyhq/shared/src/routes/prime';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
@@ -41,14 +37,12 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
-import { shouldToastUnsupportedPrimeSubscriptionManagement } from '../PrimeDashboard/primeSubscriptionManagementUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
   normalizeInfiniSubscriptionPlan,
 } from './infiniSubscriptionUtils';
 
-import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
 
 // Fixed USD prices of the Infini crypto plans (integration plan §5.3(c)),
@@ -202,15 +196,10 @@ function CancelRenewalDialogContent({
   );
 }
 
-export default function PrimeInfiniSubscription({
-  route,
-}: {
-  route: RouteProp<IPrimeParamList, EPrimePages.PrimeInfiniSubscription>;
-}) {
+export default function PrimeInfiniSubscription() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [primeUserInfo] = usePrimePersistAtom();
-  const fromDeepLink = route.params?.fromDeepLink === true;
 
   useFocusEffect(
     useCallback(() => {
@@ -280,51 +269,6 @@ export default function PrimeInfiniSubscription({
   const subscription = isResultForCurrentUser
     ? result?.subscription
     : undefined;
-  const unsupportedToastShownRef = useRef(false);
-  const shouldCheckUnsupportedToast =
-    fromDeepLink &&
-    result !== undefined &&
-    isResultForCurrentUser &&
-    !result.hasError &&
-    !result.subscription;
-
-  useEffect(() => {
-    if (!shouldCheckUnsupportedToast || unsupportedToastShownRef.current) {
-      return;
-    }
-    let cancelled = false;
-    const toastUnsupportedManagementIfNeeded = async () => {
-      // Persist can still show IAP while the Infini webhook is pending.
-      // Refresh first; toast only on confirmed IAP / Stripe / redemption.
-      // Fetch errors and empty userInfo stay silent (webhook-safe).
-      let shouldToast = false;
-      try {
-        const { userInfo } =
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
-            forceRefresh: true,
-          });
-        shouldToast = Boolean(
-          userInfo &&
-          shouldToastUnsupportedPrimeSubscriptionManagement({ userInfo }),
-        );
-      } catch {
-        shouldToast = false;
-      }
-      if (cancelled || !shouldToast) {
-        return;
-      }
-      unsupportedToastShownRef.current = true;
-      Toast.message({
-        title: intl.formatMessage({
-          id: ETranslations.prime_subscription_management_unsupported__msg,
-        }),
-      });
-    };
-    void toastUnsupportedManagementIfNeeded();
-    return () => {
-      cancelled = true;
-    };
-  }, [intl, shouldCheckUnsupportedToast]);
 
   const runRef = useRef(run);
   runRef.current = run;
@@ -588,9 +532,12 @@ export default function PrimeInfiniSubscription({
       return (
         <Stack flex={1} alignItems="center" justifyContent="center" p="$5">
           <Empty
-            icon="CreditCardOutline"
+            illustration="SearchDocument"
             title={intl.formatMessage({
               id: ETranslations.prime_no_crypto_subscription__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.prime_no_crypto_subscription__desc,
             })}
           />
         </Stack>

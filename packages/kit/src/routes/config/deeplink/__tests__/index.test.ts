@@ -417,7 +417,6 @@ describe('prime_subscription deep link', () => {
 
     expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeInfiniSubscription,
-      params: { fromDeepLink: true },
     });
   });
 });

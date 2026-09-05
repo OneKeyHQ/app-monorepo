@@ -3,7 +3,6 @@ import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
   hasRevenueCatSubscriptionChannel,
-  shouldToastUnsupportedPrimeSubscriptionManagement,
 } from './primeSubscriptionManagementUtils';
 
 describe('primeSubscriptionManagementUtils', () => {
@@ -145,58 +144,6 @@ describe('primeSubscriptionManagementUtils', () => {
       type: 'external',
       url: 'https://example.com/revenuecat-manage',
     });
-  });
-
-  it('toasts unsupported management only for a non-Infini paid channel', () => {
-    expect(
-      shouldToastUnsupportedPrimeSubscriptionManagement({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              {
-                channel: 'app-store',
-                managementUrl: 'https://example.com/manage',
-              },
-            ],
-          },
-        },
-      }),
-    ).toBe(true);
-    expect(
-      shouldToastUnsupportedPrimeSubscriptionManagement({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'redemption' }],
-          },
-        },
-      }),
-    ).toBe(true);
-    expect(
-      shouldToastUnsupportedPrimeSubscriptionManagement({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'infini' }],
-          },
-        },
-      }),
-    ).toBe(false);
-    expect(
-      shouldToastUnsupportedPrimeSubscriptionManagement({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: 'https://onekey.so/invite' }],
-          },
-        },
-      }),
-    ).toBe(false);
   });
 
   it('keeps the refresh key stable when the server only adds subscription ids', () => {

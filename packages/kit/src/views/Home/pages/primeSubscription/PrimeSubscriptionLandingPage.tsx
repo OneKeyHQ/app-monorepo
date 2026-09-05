@@ -154,43 +154,37 @@ function FallbackContent({
 
 function PrimeSubscriptionLandingPage() {
   const [isFallbackVisible, setIsFallbackVisible] = useState(false);
-  const fallbackCleanupRef = useRef<(() => void) | null>(null);
-
-  const clearFallbackTimer = useCallback(() => {
-    fallbackCleanupRef.current?.();
-    fallbackCleanupRef.current = null;
-  }, []);
-
-  const handleOpenApp = useCallback(() => {
-    clearFallbackTimer();
-    setIsFallbackVisible(false);
-    fallbackCleanupRef.current = scheduleDeepLinkFallbackHint({
-      delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
-      onFallback: () => setIsFallbackVisible(true),
-    });
-    void openPrimeSubscriptionFromWebLanding({
-      openViaDeepLink: () => {
-        openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
-      },
-    });
-  }, [clearFallbackTimer]);
-
-  useEffect(
-    () => () => {
-      clearFallbackTimer();
-    },
-    [clearFallbackTimer],
-  );
+  const didExplicitlyOpenAppRef = useRef(false);
 
   useEffect(() => {
     if (!platformEnv.isWeb) {
       return undefined;
     }
-    const timerId = setTimeout(() => {
-      handleOpenApp();
+
+    let cancelled = false;
+    let fallbackCleanup: (() => void) | undefined;
+    const autoOpenTimerId = setTimeout(() => {
+      fallbackCleanup = scheduleDeepLinkFallbackHint({
+        delay: PRIME_SUBSCRIPTION_DEEP_LINK_FALLBACK_DELAY_MS,
+        onFallback: () => setIsFallbackVisible(true),
+      });
+      void openPrimeSubscriptionFromWebLanding({
+        openViaDeepLink: () => {
+          // The user already launched the app from the fallback button.
+          if (cancelled || didExplicitlyOpenAppRef.current) {
+            return;
+          }
+          openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
+        },
+      });
     }, AUTO_OPEN_DELAY_MS);
-    return () => clearTimeout(timerId);
-  }, [handleOpenApp]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(autoOpenTimerId);
+      fallbackCleanup?.();
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -221,7 +215,10 @@ function PrimeSubscriptionLandingPage() {
           >
             {isFallbackVisible ? (
               <FallbackContent
-                onOpenApp={handleOpenApp}
+                onOpenApp={() => {
+                  didExplicitlyOpenAppRef.current = true;
+                  openAppViaDeepLink(PRIME_SUBSCRIPTION_DEEP_LINK);
+                }}
                 onDownload={redirectToStore}
               />
             ) : (

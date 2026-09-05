@@ -121,7 +121,6 @@ async function openPrimeInfiniSubscriptionFromDeepLink({
   }
   navigation.pushModal(EModalRoutes.PrimeModal, {
     screen: EPrimePages.PrimeInfiniSubscription,
-    params: { fromDeepLink: true },
   });
 }
 

@@ -1,8 +1,8 @@
-type IOneKeyPrivateProvider = {
-  request: (args: { method: string }) => Promise<unknown>;
-};
-
-export function getOneKeyPrivateProvider(): IOneKeyPrivateProvider | undefined {
+export async function openPrimeSubscriptionFromWebLanding({
+  openViaDeepLink,
+}: {
+  openViaDeepLink: () => void;
+}): Promise<void> {
   const privateProvider = (
     globalThis as {
       $onekey?: {
@@ -12,32 +12,15 @@ export function getOneKeyPrivateProvider(): IOneKeyPrivateProvider | undefined {
       };
     }
   ).$onekey?.$private;
-  if (typeof privateProvider?.request !== 'function') {
-    return undefined;
-  }
-  return {
-    request: privateProvider.request.bind(privateProvider),
-  };
-}
-
-export async function openPrimeSubscriptionFromWebLanding({
-  getPrivateProvider = getOneKeyPrivateProvider,
-  openViaDeepLink,
-}: {
-  getPrivateProvider?: () => IOneKeyPrivateProvider | undefined;
-  openViaDeepLink: () => void;
-}): Promise<'extension' | 'deeplink'> {
-  const privateProvider = getPrivateProvider();
-  if (privateProvider) {
+  if (privateProvider && typeof privateProvider.request === 'function') {
     try {
       await privateProvider.request({
         method: 'wallet_openPrimeSubscription',
       });
-      return 'extension';
+      return;
     } catch {
       // Older extensions do not implement wallet_openPrimeSubscription.
     }
   }
   openViaDeepLink();
-  return 'deeplink';
 }

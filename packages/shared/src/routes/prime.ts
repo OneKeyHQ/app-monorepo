@@ -86,7 +86,5 @@ export type IPrimeParamList = {
     createNewPayment?: boolean;
     networkId?: string;
   };
-  [EPrimePages.PrimeInfiniSubscription]: {
-    fromDeepLink?: boolean;
-  };
+  [EPrimePages.PrimeInfiniSubscription]: undefined;
 };
