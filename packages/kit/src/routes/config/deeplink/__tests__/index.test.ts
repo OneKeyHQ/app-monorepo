@@ -1,11 +1,15 @@
+/* cspell:ignore Infini */
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {
+  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { handleDeepLinkUrl } from '..';
 import {
@@ -35,10 +39,20 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
     serviceDevSetting: {
       getDevSetting: jest.fn(async () => ({ settings: {} })),
     },
+    servicePrime: {
+      isLoggedIn: jest.fn(async () => false),
+    },
+    serviceApp: {
+      isAppLocked: jest.fn(async () => false),
+    },
     walletConnect: {
       connectToDapp: jest.fn(),
     },
   },
+}));
+
+jest.mock('../../../../utils/passwordUtils', () => ({
+  whenAppUnlocked: jest.fn(async () => undefined),
 }));
 
 jest.mock('../../../../views/Home/pages/urlAccount/urlAccountUtils', () => ({
@@ -341,5 +355,68 @@ describe('stocks / perps universal links', () => {
 
     expect(navigate).not.toHaveBeenCalled();
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('prime_subscription deep link', () => {
+  const pushModal = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const backgroundApiProxy = jest.requireMock(
+    '../../../../background/instance/backgroundApiProxy',
+  ).default as {
+    servicePrime: { isLoggedIn: jest.Mock };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it('opens Prime dashboard when the OneKey ID session is missing', async () => {
+    handleDeepLinkUrl({
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
+    });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: { fromDeepLink: true },
+    });
+  });
+
+  it.each([
+    'https://app.onekey.so/prime/subscription',
+    'https://app.onekeytest.com/prime/subscription',
+  ])(
+    'does not treat the web landing URL as an app deep link: %s',
+    async (url) => {
+      handleDeepLinkUrl({ url });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(pushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('opens the Infini subscription page when already logged in', async () => {
+    backgroundApiProxy.servicePrime.isLoggedIn.mockResolvedValue(true);
+
+    handleDeepLinkUrl({
+      url: `onekey-wallet://${EOneKeyDeepLinkPath.prime_subscription}`,
+    });
+    await flushAsyncTasks();
+    await flushAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeInfiniSubscription,
+    });
   });
 });

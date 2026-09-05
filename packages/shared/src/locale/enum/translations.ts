@@ -3800,6 +3800,7 @@ export enum ETranslations {
   prime_keep_waiting__action = 'prime_keep_waiting__action',
   prime_membership_valid_until__desc = 'prime_membership_valid_until__desc',
   prime_next_invoice__label = 'prime_next_invoice__label',
+  prime_no_crypto_subscription__desc = 'prime_no_crypto_subscription__desc',
   prime_no_crypto_subscription__title = 'prime_no_crypto_subscription__title',
   prime_no_free_trial__desc = 'prime_no_free_trial__desc',
   prime_onekey_id_session_changed__msg = 'prime_onekey_id_session_changed__msg',

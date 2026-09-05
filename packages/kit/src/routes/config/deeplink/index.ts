@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
@@ -38,6 +39,7 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -101,6 +103,25 @@ async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
   })();
 
   await redeemBitcoinVoucherOpenTask;
+}
+
+async function openPrimeInfiniSubscriptionFromDeepLink({
+  navigation,
+}: {
+  navigation: NonNullable<typeof appGlobals.$rootAppNavigation>;
+}) {
+  await whenAppUnlocked();
+  const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+  if (!isLoggedIn) {
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: { fromDeepLink: true },
+    });
+    return;
+  }
+  navigation.pushModal(EModalRoutes.PrimeModal, {
+    screen: EPrimePages.PrimeInfiniSubscription,
+  });
 }
 
 function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
@@ -422,6 +443,9 @@ async function processDeepLinkUrlAccount(
               getStringQueryParam(query?.code)?.trim() || undefined;
             await openRedeemBitcoinVoucherDialog(initialCode);
           }
+          break;
+        case EOneKeyDeepLinkPath.prime_subscription:
+          await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');

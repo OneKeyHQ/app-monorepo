@@ -24,12 +24,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EPrimePages,
-  IPrimeParamList,
+  type IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -99,7 +100,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId } = route.params || {};
+  const { fromFeature, networkId, fromDeepLink } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -148,6 +149,41 @@ export default function PrimeDashboard({
     pendingSubscribeRef,
     subscribeInFlightRef,
   });
+
+  useEffect(() => {
+    if (!fromDeepLink || !isAuthReady) {
+      return;
+    }
+    let cancelled = false;
+    const openInfiniSubscriptionFromDeepLink = async () => {
+      try {
+        // Checks the service token and resolves after the login dialog closes.
+        await loginOneKeyId();
+      } catch (error) {
+        if (error instanceof PrimeLoginDialogCancelError) {
+          if (!cancelled) {
+            navigation.setParams({ fromDeepLink: undefined });
+          }
+          return;
+        }
+        throw error;
+      }
+      if (
+        cancelled ||
+        pendingSubscribeRef.current ||
+        subscribeInFlightRef.current
+      ) {
+        return;
+      }
+      // Clear the route flag so a remount / pop-back cannot push Infini again.
+      navigation.setParams({ fromDeepLink: undefined });
+      navigation.push(EPrimePages.PrimeInfiniSubscription);
+    };
+    void openInfiniSubscriptionFromDeepLink();
+    return () => {
+      cancelled = true;
+    };
+  }, [fromDeepLink, isAuthReady, loginOneKeyId, navigation]);
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {
@@ -252,6 +288,8 @@ export default function PrimeDashboard({
     if (subscribeInFlightRef.current) {
       return;
     }
+    // An explicit purchase replaces the subscription-management intent.
+    navigation.setParams({ fromDeepLink: undefined });
     subscribeInFlightRef.current = true;
     try {
       setIsSubscribeLazyLoading(true);
@@ -287,6 +325,7 @@ export default function PrimeDashboard({
     }
   }, [
     ensurePrimeSubscriptionActive,
+    navigation,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
     fromFeature,
