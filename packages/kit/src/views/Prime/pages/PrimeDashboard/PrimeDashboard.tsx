@@ -41,7 +41,6 @@ import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
-import { shouldOpenInfiniSubscriptionAfterDashboardLogin } from './primeSubscriptionManagementUtils';
 import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
 import { usePrimeSubscribeResume } from './usePrimeSubscribeResume';
@@ -164,16 +163,7 @@ export default function PrimeDashboard({
       // Infini would then mount and immediately pop. Wait for the service.
       const isServiceLoggedIn =
         await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (
-        cancelled ||
-        !shouldOpenInfiniSubscriptionAfterDashboardLogin({
-          fromDeepLink: Boolean(fromDeepLink),
-          didOpen: didOpenInfiniSubscriptionRef.current,
-          isAuthReady,
-          persistLoggedIn: isLoggedIn,
-          isServiceLoggedIn,
-        })
-      ) {
+      if (cancelled || !isServiceLoggedIn) {
         return;
       }
       didOpenInfiniSubscriptionRef.current = true;

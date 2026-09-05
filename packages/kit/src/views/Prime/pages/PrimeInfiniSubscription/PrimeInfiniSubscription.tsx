@@ -41,7 +41,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
-import { shouldToastUnsupportedManagementAfterUserInfoRefresh } from '../PrimeDashboard/primeSubscriptionManagementUtils';
+import { shouldToastUnsupportedPrimeSubscriptionManagement } from '../PrimeDashboard/primeSubscriptionManagementUtils';
 
 import {
   isInfiniSubscriptionRenewalStopped,
@@ -297,15 +297,19 @@ export default function PrimeInfiniSubscription({
       // Persist can still show IAP while the Infini webhook is pending.
       // Refresh first; toast only on confirmed IAP / Stripe / redemption.
       // Fetch errors and empty userInfo stay silent (webhook-safe).
-      const shouldToast =
-        await shouldToastUnsupportedManagementAfterUserInfoRefresh({
-          fetchUserInfo: async () =>
-            (
-              await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
-                forceRefresh: true,
-              })
-            ).userInfo,
-        });
+      let shouldToast = false;
+      try {
+        const { userInfo } =
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+            forceRefresh: true,
+          });
+        shouldToast = Boolean(
+          userInfo &&
+          shouldToastUnsupportedPrimeSubscriptionManagement({ userInfo }),
+        );
+      } catch {
+        shouldToast = false;
+      }
       if (cancelled || !shouldToast) {
         return;
       }
