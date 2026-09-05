@@ -139,28 +139,67 @@ class ProviderApiWalletConnect {
   onSessionProposal = async (proposal: WalletKitTypes.SessionProposal) => {
     const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
     console.log('onSessionProposal: ', JSON.stringify(proposal));
-    const optionalNamespaces = proposal?.params?.optionalNamespaces;
+    const requiredNamespaces = proposal?.params?.requiredNamespaces ?? {};
+    const optionalNamespaces = proposal?.params?.optionalNamespaces ?? {};
     const optionalNamespacesString = Object.keys(optionalNamespaces).join(', ');
     // check if all required networks are supported
-    const notSupportedChains = await serviceWalletConnect.getNotSupportedChains(
-      // proposal,
-      proposal?.params?.requiredNamespaces,
-    );
+    const notSupportedChains =
+      await serviceWalletConnect.getNotSupportedChains(requiredNamespaces);
+    // A required namespace the wallet has no impl for is left out of the
+    // approve payload, which then fails the SDK's requiredNamespaces
+    // conformance check after the user already tapped Approve. Catch it here:
+    // getNotSupportedChains only inspects the chains an entry declares.
+    const notSupportedNamespaces =
+      await serviceWalletConnect.getNotSupportedNamespaces(requiredNamespaces);
+    // CAIP-25 proposals commonly leave requiredNamespaces empty and put every
+    // chain in optionalNamespaces. Both checks above are no-ops in that case,
+    // so a wallet-only-supports-EVM proposal for solana/bip122/tron would
+    // otherwise open the approval modal with zero selectable accounts, let the
+    // user tap Approve, and only then fail inside approveSession -- reported
+    // to the dApp as SESSION_SETTLEMENT_FAILED instead of
+    // UNSUPPORTED_NAMESPACE_KEY, and to the user as an approval that silently
+    // did nothing. Only reject on this path once every optional namespace is
+    // unsupported: a mixed proposal (e.g. optional eip155 + solana) still has
+    // something to approve.
+    const optionalNamespaceKeys = Object.keys(optionalNamespaces);
+    const notSupportedOptionalNamespaces =
+      Object.keys(requiredNamespaces).length === 0 &&
+      optionalNamespaceKeys.length > 0
+        ? await serviceWalletConnect.getNotSupportedNamespaces(
+            optionalNamespaces,
+          )
+        : [];
+    const allOptionalNamespacesUnsupported =
+      optionalNamespaceKeys.length > 0 &&
+      notSupportedOptionalNamespaces.length === optionalNamespaceKeys.length;
     const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
 
     const metadata = proposal.params.proposer.metadata;
-    if (notSupportedChains.length > 0) {
+    if (
+      notSupportedChains.length > 0 ||
+      notSupportedNamespaces.length > 0 ||
+      allOptionalNamespacesUnsupported
+    ) {
+      const unsupportedNamespaceLabel =
+        notSupportedNamespaces[0] ?? notSupportedOptionalNamespaces[0];
+      const notSupportedLabel = notSupportedChains.length
+        ? `ChainId: ${notSupportedChains[0]}`
+        : `Namespace: ${unsupportedNamespaceLabel}`;
       console.error(
-        'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
+        'ProviderApiWalletConnect ERROR: onSessionProposal not supported',
         notSupportedChains,
+        notSupportedNamespaces,
+        notSupportedOptionalNamespaces,
       );
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
-        reason: getSdkError('UNSUPPORTED_CHAINS'),
+        reason: notSupportedChains.length
+          ? getSdkError('UNSUPPORTED_CHAINS')
+          : getSdkError('UNSUPPORTED_NAMESPACE_KEY'),
       });
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: `ChainId: ${notSupportedChains[0]}`,
+        title: notSupportedLabel,
         message: 'Unsupported yet',
       });
       defaultLogger.discovery.dapp.dappUse({
@@ -168,10 +207,18 @@ class ProviderApiWalletConnect {
         dappDomain: metadata.url,
         action: 'ConnectWallet',
         network: optionalNamespacesString,
-        failReason: `Unsupported ChainId: ${notSupportedChains[0]}`,
+        failReason: `Unsupported ${notSupportedLabel}`,
       });
       return;
     }
+
+    // Tracks whether the user already approved the proposal, so a failure after
+    // that point is not reported to the dApp as a rejection by the user.
+    let userApproved = false;
+    // Settling consumes the proposal. Rejecting afterwards would target a
+    // proposal that no longer exists while the session stays live, so failures
+    // past this point are only logged.
+    let sessionSettled = false;
 
     try {
       if (!origin) {
@@ -213,10 +260,13 @@ class ProviderApiWalletConnect {
         },
         fullScreen: true,
       })) as IWalletConnectSessionProposalResult;
+      // openModal only resolves once the user taps Approve.
+      userApproved = true;
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,
       });
+      sessionSettled = true;
       await serviceDApp.saveConnectionSession({
         origin,
         accountsInfo: result.accountsInfo,
@@ -235,10 +285,21 @@ class ProviderApiWalletConnect {
       });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
-      await this.web3Wallet?.rejectSession({
-        id: proposal.id,
-        reason: getSdkError('USER_REJECTED'),
-      });
+      if (!sessionSettled) {
+        try {
+          await this.web3Wallet?.rejectSession({
+            id: proposal.id,
+            reason: userApproved
+              ? getSdkError('SESSION_SETTLEMENT_FAILED')
+              : getSdkError('USER_REJECTED'),
+          });
+        } catch (rejectError) {
+          // reject() throws by itself when the proposal is already gone — it
+          // expires after five minutes, and a reject while offline throws too.
+          // Swallow it so the logging below still runs.
+          console.error('onSessionProposal rejectSession error: ', rejectError);
+        }
+      }
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
