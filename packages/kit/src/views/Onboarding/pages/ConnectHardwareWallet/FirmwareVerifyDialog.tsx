@@ -139,9 +139,17 @@ function useFirmwareVerifyBase({
             : EFirmwareAuthenticationDialogContentType.verification_successful,
         );
       } else if (authResult.result?.code === 10_104) {
-        setResult('unknown');
+        setResult('error');
         setErrorObj({ code: authResult.result?.code || -99_999 });
         setContentType(EFirmwareAuthenticationDialogContentType.network_error);
+      } else if (
+        [10_105, 10_106, 10_107].includes(authResult.result?.code ?? -99_999)
+      ) {
+        setResult('error');
+        setErrorObj({ code: authResult.result?.code || -99_999 });
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+        );
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });
@@ -150,7 +158,7 @@ function useFirmwareVerifyBase({
         );
       }
 
-      if (useNewProcess) {
+      if (useNewProcess && authResult.verified) {
         // verify firmware hash
         const latestFeatures =
           await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(

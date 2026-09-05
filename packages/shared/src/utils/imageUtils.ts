@@ -763,10 +763,6 @@ export function getImageMimeTypeFromBase64Uri(base64Uri: string) {
 
 const IMAGE_MIME_PROBE_MAX_BYTES = 64 * 1024;
 
-function normalizeMimeType(mimeType: string | null | undefined) {
-  return mimeType?.split(';')[0].trim().toLowerCase() || undefined;
-}
-
 function detectMimeTypeFromProbeBytes(bytes: Uint8Array) {
   const base64 = Buffer.from(bytes).toString('base64');
   if (base64.startsWith('iVBORw0KGgo')) {
@@ -818,29 +814,6 @@ async function readResponsePrefix(response: Response) {
 }
 
 async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
-  let headResponse: Response | undefined;
-  try {
-    headResponse = await fetch(uri, { method: 'HEAD', signal });
-  } catch {
-    // Some NFT media servers reject HEAD; fall back to a bounded GET probe.
-  }
-  const declaredMimeType = headResponse?.ok
-    ? normalizeMimeType(headResponse.headers.get('content-type'))
-    : undefined;
-  const potentiallySupportedMimeTypes = [
-    'application/octet-stream',
-    'image/bmp',
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-  ];
-  if (
-    declaredMimeType &&
-    !potentiallySupportedMimeTypes.includes(declaredMimeType)
-  ) {
-    return declaredMimeType;
-  }
-
   if (signal?.aborted) return undefined;
 
   const controller = new AbortController();

@@ -146,7 +146,11 @@ describe('probeImageMimeType', () => {
     return { read, cancel };
   }
 
-  function mockNativeStreamingResponse(bytes: Uint8Array, status = 206) {
+  function mockNativeStreamingResponse(
+    bytes: Uint8Array,
+    status = 206,
+    contentType = 'application/octet-stream',
+  ) {
     const read = jest
       .fn()
       .mockResolvedValueOnce({ done: false, value: bytes })
@@ -154,7 +158,7 @@ describe('probeImageMimeType', () => {
     const cancel = jest.fn(async () => undefined);
     expoFetchMock.mockResolvedValueOnce({
       body: { getReader: () => ({ read, cancel }) },
-      headers: new Headers({ 'content-type': 'application/octet-stream' }),
+      headers: new Headers({ 'content-type': contentType }),
       ok: status >= 200 && status < 300,
       status,
     } as never);
@@ -221,20 +225,8 @@ describe('probeImageMimeType', () => {
     const { cancel } = mockNativeStreamingResponse(
       new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
     );
-    fetchMock.mockResolvedValueOnce({
-      headers: new Headers({
-        'accept-ranges': 'bytes',
-        'content-type': 'application/octet-stream',
-      }),
-      ok: true,
-      status: 200,
-    } as unknown as Response);
-
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
-    expect(fetchMock).toHaveBeenCalledWith(
-      uri,
-      expect.objectContaining({ method: 'HEAD' }),
-    );
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(expoFetchMock).toHaveBeenCalledWith(
       uri,
       expect.objectContaining({
@@ -252,41 +244,34 @@ describe('probeImageMimeType', () => {
     const bytes = new Uint8Array(64 * 1024 + 1);
     bytes.set([0xff, 0xd8, 0xff, 0xe0]);
     const { cancel, read } = mockNativeStreamingResponse(bytes, 200);
-    fetchMock.mockResolvedValueOnce({
-      headers: new Headers({
-        'content-length': '1000000',
-        'content-type': 'application/octet-stream',
-      }),
-      ok: true,
-      status: 200,
-    } as unknown as Response);
-
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
     expect(read).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
-  it('uses the range stream when the server rejects HEAD', async () => {
+  it('detects native image content even when the CDN declares a different MIME type', async () => {
     Object.assign(platformEnv, { isNative: true });
-    mockNativeStreamingResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
-    fetchMock.mockRejectedValueOnce(new Error('HEAD not allowed'));
+    mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      206,
+      'binary/octet-stream',
+    );
 
     await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
     expect(expoFetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the fallback probe when HEAD returns HTTP 405', async () => {
+  it('does not accept a failed native HTTP response as an image', async () => {
     Object.assign(platformEnv, { isNative: true });
-    mockNativeStreamingResponse(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
-    fetchMock.mockResolvedValueOnce({
-      headers: new Headers({ 'content-type': 'text/html' }),
-      ok: false,
-      status: 405,
-    } as unknown as Response);
+    const { read } = mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      503,
+    );
 
-    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
-    expect(expoFetchMock).toHaveBeenCalledTimes(1);
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+    expect(read).not.toHaveBeenCalled();
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 });
 

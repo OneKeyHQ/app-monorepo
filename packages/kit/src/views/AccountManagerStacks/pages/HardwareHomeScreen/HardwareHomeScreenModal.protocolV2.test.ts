@@ -16,14 +16,14 @@ describe('HardwareHomeScreenModal Protocol V2 wallpapers', () => {
     );
   });
 
-  it('closes the wallpaper page after applying a wallpaper', () => {
+  it('only closes the wallpaper page automatically for Protocol V2 devices', () => {
     const source = readFileSync(
       join(__dirname, 'HardwareHomeScreenModal.tsx'),
       'utf8',
     );
 
     expect(source).toMatch(
-      /await backgroundApiProxy\.serviceHardware\.setDeviceHomeScreen\([\s\S]*close\(\);[\s\S]*Toast\.success/u,
+      /await backgroundApiProxy\.serviceHardware\.setDeviceHomeScreen\([\s\S]*if \(isProtocolV2ProductType\(device\.deviceType\)\) \{\s*close\(\);\s*\}[\s\S]*Toast\.success/u,
     );
   });
 });

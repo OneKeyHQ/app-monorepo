@@ -896,7 +896,9 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            close();
+            if (isProtocolV2ProductType(device.deviceType)) {
+              close();
+            }
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
