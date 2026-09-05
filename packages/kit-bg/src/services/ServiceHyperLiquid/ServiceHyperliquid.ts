@@ -78,6 +78,7 @@ import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperli
 import {
   CACHE_TIME_QUANTIZE_MS,
   DEX_PREFIXES,
+  PERPS_ASSET_TYPE_VERSION,
   SPOT_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
@@ -169,6 +170,7 @@ import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMod
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
+import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
   mergePerpDexSlots,
   selectPerpMetasByDex,
@@ -865,7 +867,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
-    >('/utility/v1/perp-config');
+    >('/utility/v1/perp-config', {
+      params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
+    });
     const resData = resp.data;
 
     if (process.env.NODE_ENV !== 'production') {
@@ -1032,6 +1036,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     {
       max: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  // Per-dex REST snapshot that must not feed the shared cache: a main-dex-only
+  // result would wipe the sub-dex prices the WebSocket stream delivers.
+  _getMarketOrderAllMidsMemo = cacheUtils.memoizee(
+    async (dex: string) =>
+      dex
+        ? hyperLiquidApiClients.infoClient.allMids({ dex })
+        : hyperLiquidApiClients.infoClient.allMids(),
+    {
+      max: 8,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
       promise: true,
     },
   );
@@ -4177,6 +4195,26 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       })
       .catch(() => undefined);
+  }
+
+  @backgroundMethod()
+  async getMarketOrderReferencePrice(
+    coin: string,
+  ): Promise<string | undefined> {
+    try {
+      return await resolveMarketOrderReferencePrice({
+        coin,
+        cachedAllMids: hyperLiquidCache.allMids,
+        cachedAt: hyperLiquidCache.allMidsUpdatedAt,
+        loadAllMids: async (dex) => this._getMarketOrderAllMidsMemo(dex),
+      });
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to load market order reference price:',
+        error,
+      );
+      return undefined;
+    }
   }
 
   @backgroundMethod()

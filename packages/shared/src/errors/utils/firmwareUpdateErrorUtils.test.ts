@@ -151,6 +151,7 @@ describe('firmwareUpdateErrorUtils', () => {
     ['ARTIFACT_PROTOCOL_INVALID: invalid response', 'download'],
     ['ARTIFACT_CANCELLED', 'cancelled'],
     ['ARTIFACT_LEASE_CREATE_TIMEOUT', 'timeout'],
+    ['Protocol V2 firmware install timed out', 'timeout'],
   ] as const)('classifies %s as %s', (message, expected) => {
     expect(classifyFirmwareUpdateFailure({ message })).toBe(expected);
   });

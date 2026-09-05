@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -19,7 +18,6 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -144,9 +142,17 @@ function useFirmwareVerifyBase({
             : EFirmwareAuthenticationDialogContentType.verification_successful,
         );
       } else if (authResult.result?.code === 10_104) {
-        setResult('unknown');
+        setResult('error');
         setErrorObj({ code: authResult.result?.code || -99_999 });
         setContentType(EFirmwareAuthenticationDialogContentType.network_error);
+      } else if (
+        [10_106, 10_107].includes(authResult.result?.code ?? -99_999)
+      ) {
+        setResult('error');
+        setErrorObj({ code: authResult.result?.code || -99_999 });
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+        );
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });
@@ -155,7 +161,7 @@ function useFirmwareVerifyBase({
         );
       }
 
-      if (useNewProcess) {
+      if (useNewProcess && authResult.verified) {
         // verify firmware hash
         const latestFeatures =
           await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
@@ -189,7 +195,9 @@ function useFirmwareVerifyBase({
         EOneKeyErrorClassNames.OneKeyServerApiError
       ) {
         const { code, message } = error as OneKeyError;
-        setContentType(EFirmwareAuthenticationDialogContentType.error_fallback);
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+        );
         setErrorObj({ code, message });
         return;
       }
@@ -497,9 +505,7 @@ function VerifyHash({
 export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
-  onContinuePress,
   onDevSkipVerificationPress,
-  errorObj,
   certificateResult,
   versionCompareResult,
   useNewProcess,
@@ -510,7 +516,6 @@ export function EnumBasicDialogContentContainer({
     message?: string;
   };
   onActionPress?: () => void;
-  onContinuePress?: () => void;
   onDevSkipVerificationPress?: () => void;
   certificateResult?: IFirmwareAuthenticationState;
   versionCompareResult?: IDeviceVerifyVersionCompareResult;
@@ -518,75 +523,30 @@ export function EnumBasicDialogContentContainer({
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
-
-  const [showRiskyWarning, setShowRiskyWarning] = useState(false);
-  const renderFooter = useCallback(
-    () => (
-      <Stack pt="$4">
-        {!showRiskyWarning ? (
-          <Button
-            testID="onboarding-render-footer-btn"
-            $md={
-              {
-                size: 'large',
-              } as any
-            }
-            onPress={() => setShowRiskyWarning(true)}
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_continue_anyway,
-            })}
-          </Button>
-        ) : (
-          <YStack
-            p="$5"
-            gap="$5"
-            bg="$bgCautionSubdued"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderCautionSubdued"
-            borderRadius="$3"
-            borderCurve="continuous"
-          >
-            <SizableText size="$bodyLgMedium" color="$textCaution">
-              {intl.formatMessage({
-                id: ETranslations.device_auth_continue_anyway_warning_message,
-              })}
-            </SizableText>
-            <Button
-              testID="onboarding-btn"
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
-              onPress={onContinuePress}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_i_understand,
-              })}
-            </Button>
-          </YStack>
-        )}
-      </Stack>
-    ),
-    [intl, onContinuePress, showRiskyWarning],
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
   const [devSettings] = useDevSettingsPersistAtom();
+  const isUnofficial =
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.unofficial_device_detected ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected;
+  const isFailure =
+    isUnofficial ||
+    contentType === EFirmwareAuthenticationDialogContentType.network_error ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable ||
+    contentType === EFirmwareAuthenticationDialogContentType.error_fallback ||
+    contentType ===
+      EFirmwareAuthenticationDialogContentType.defective_firmware_detected;
+  const canDevSkip =
+    isFailure &&
+    (platformEnv.isDev ||
+      devSettings.enabled ||
+      (isUnofficial && devSkipUnlocked));
 
-  const [canSkipUnofficialDeviceState, setCanSkipUnofficialDeviceState] =
-    useState(false);
-
-  const canSkipUnofficialDevice = useMemo(() => {
-    // return canSkipUnofficialDeviceState;
-    return platformEnv.isDev || canSkipUnofficialDeviceState;
-  }, [canSkipUnofficialDeviceState]);
-
-  const handleDevSkipVerificationPress = useCallback(() => {
-    onDevSkipVerificationPress?.();
-    onContinuePress?.();
-  }, [onContinuePress, onDevSkipVerificationPress]);
+  useEffect(() => {
+    setDevSkipUnlocked(false);
+  }, [contentType]);
 
   const content = useMemo(() => {
     switch (contentType) {
@@ -696,7 +656,6 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.global_network_error,
                 })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -716,7 +675,17 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-            {renderFooter()}
+            <Button
+              testID="onboarding-contact-support-btn"
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              onPress={() => showIntercom()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
           </>
         );
       case EFirmwareAuthenticationDialogContentType.unofficial_device_detected:
@@ -724,16 +693,11 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <MultipleClickStack
-                onPress={() => {
-                  setCanSkipUnofficialDeviceState(true);
-                }}
-              >
+              <MultipleClickStack onPress={() => setDevSkipUnlocked(true)}>
                 <Dialog.Title>
                   {intl.formatMessage({
                     id: ETranslations.device_auth_unofficial_device_detected,
                   })}
-                  <SizableText>{`(${errorObj.code})`}</SizableText>
                 </Dialog.Title>
               </MultipleClickStack>
               <Dialog.Description>
@@ -754,19 +718,6 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {canSkipUnofficialDevice ? (
-              <Button
-                testID="onboarding-btn"
-                $md={
-                  {
-                    size: 'large',
-                  } as any
-                }
-                onPress={handleDevSkipVerificationPress}
-              >
-                Skip it And Create Wallet(Only in Dev)
-              </Button>
-            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected:
@@ -774,11 +725,7 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <MultipleClickStack
-                onPress={() => {
-                  setCanSkipUnofficialDeviceState(true);
-                }}
-              >
+              <MultipleClickStack onPress={() => setDevSkipUnlocked(true)}>
                 <Dialog.Title>
                   {intl.formatMessage({
                     id: ETranslations.device_auth_unofficial_device_detected,
@@ -809,20 +756,6 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
-            {canSkipUnofficialDevice ? (
-              <Button
-                testID="onboarding-btn"
-                mt="$5"
-                $md={
-                  {
-                    size: 'large',
-                  } as any
-                }
-                onPress={onContinuePress}
-              >
-                Skip it And Create Wallet(Only in Dev)
-              </Button>
-            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
@@ -834,7 +767,6 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.device_auth_temporarily_unavailable,
                 })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -854,7 +786,17 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-            {renderFooter()}
+            <Button
+              testID="onboarding-contact-support-btn"
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              onPress={() => showIntercom()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
           </>
         );
       case EFirmwareAuthenticationDialogContentType.defective_firmware_detected:
@@ -896,21 +838,15 @@ export function EnumBasicDialogContentContainer({
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                <HyperlinkText
-                  size="$headingXl"
-                  translationId={
-                    (errorObj.message as ETranslations) ||
-                    ETranslations.global_unknown_error
-                  }
-                  defaultMessage={errorObj.message}
-                />
-                <SizableText size="$headingXl">
-                  ({errorObj.code || 'unknown'})
-                </SizableText>
+                {intl.formatMessage({
+                  id: ETranslations.send_verification_failure,
+                })}
               </Dialog.Title>
-              <Dialog.HyperlinkTextDescription
-                translationId={ETranslations.global_unknown_error_retry_message}
-              />
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                })}
+              </Dialog.Description>
             </Dialog.Header>
             <Button
               testID="onboarding-btn"
@@ -924,7 +860,17 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-            {renderFooter()}
+            <Button
+              testID="onboarding-contact-support-btn"
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              onPress={() => showIntercom()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
           </>
         );
     }
@@ -935,15 +881,21 @@ export function EnumBasicDialogContentContainer({
     certificateResult,
     versionCompareResult,
     onActionPress,
-    errorObj.code,
-    errorObj.message,
-    renderFooter,
-    canSkipUnofficialDevice,
-    handleDevSkipVerificationPress,
-    onContinuePress,
     dialogInstance,
   ]);
-  return <YStack>{content}</YStack>;
+  return (
+    <YStack>
+      {content}
+      {canDevSkip && onDevSkipVerificationPress ? (
+        <Button
+          testID="onboarding-dev-skip-verification-btn"
+          onPress={onDevSkipVerificationPress}
+        >
+          Skip it And Create Wallet(Only in Dev)
+        </Button>
+      ) : null}
+    </YStack>
+  );
 }
 
 export function FirmwareAuthenticationDialogContent({
@@ -981,14 +933,6 @@ export function FirmwareAuthenticationDialogContent({
       result === 'official',
   );
 
-  const handleContinuePress = useCallback(() => {
-    onContinue({ checked: false });
-  }, [onContinue]);
-
-  const handleDevSkipVerificationPress = useCallback(() => {
-    onDevSkipVerificationPress?.();
-  }, [onDevSkipVerificationPress]);
-
   const content = useMemo(() => {
     const propsMap: Record<
       IFirmwareAuthenticationState,
@@ -1022,8 +966,10 @@ export function FirmwareAuthenticationDialogContent({
         errorObj={errorObj}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
-        onContinuePress={handleContinuePress}
-        onDevSkipVerificationPress={handleDevSkipVerificationPress}
+        onDevSkipVerificationPress={() => {
+          onDevSkipVerificationPress?.();
+          onContinue({ checked: false });
+        }}
         certificateResult={result}
         versionCompareResult={versionCompareResult}
       />
@@ -1033,10 +979,9 @@ export function FirmwareAuthenticationDialogContent({
     errorObj,
     contentType,
     result,
-    handleContinuePress,
-    handleDevSkipVerificationPress,
     versionCompareResult,
     onContinue,
+    onDevSkipVerificationPress,
     reset,
     setContentType,
     verify,
@@ -1169,6 +1114,9 @@ export function useFirmwareVerifyDialog() {
           // answered with its own cancel. Either way, do not cancel twice.
           await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
           return;
+        }
+        if (!result.checked) {
+          onDevSkipVerificationPress?.();
         }
         await onVerified?.({ checked: result.checked });
         await onContinue({ checked: result.checked });

@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
@@ -36,10 +38,9 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
  * single global driver and the run is per call site.
  */
 
-/** The server's answer that verification is momentarily unavailable
- * rather than a verdict on the device (device-checking codes). */
+// 10105 is an invalid certificate verdict, not temporary unavailability.
 const SERVER_CODE_NETWORK = 10_104;
-const SERVER_CODES_UNAVAILABLE = new Set([10_105, 10_106, 10_107]);
+const SERVER_CODES_UNAVAILABLE = new Set([10_106, 10_107]);
 
 /** Errors that mean the person (or the app) ended the run — the check
  * simply stops, no failure card. */
@@ -88,6 +89,9 @@ function rowsAtCertificate({
 
 export function useDeviceStageFirmwareVerify() {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const devSkipAllowedRef = useRef(false);
+  devSkipAllowedRef.current = platformEnv.isDev || devSettings.enabled;
 
   const runDeviceStageFirmwareVerify = useCallback(
     async ({
@@ -140,6 +144,7 @@ export function useDeviceStageFirmwareVerify() {
           useNewProcess = false;
         }
 
+        let failureReason: IDeviceStageAuthFailureReasonValue | undefined;
         const noteStep = async (
           step:
             | 'genuineCheck'
@@ -153,6 +158,8 @@ export function useDeviceStageFirmwareVerify() {
             failureCode?: string;
           },
         ) => {
+          failureReason =
+            step === 'authFailure' ? extras?.failureReason : undefined;
           await serviceHardwareUI.deviceStageNoteAuthStep({
             step,
             connectId,
@@ -286,7 +293,7 @@ export function useDeviceStageFirmwareVerify() {
             if (
               err?.className === EOneKeyErrorClassNames.OneKeyServerApiError
             ) {
-              reason = 'unknown';
+              reason = 'unavailable';
             } else if (
               err?.code === HardwareErrorCode.NetworkError ||
               err?.code === HardwareErrorCode.BridgeNetworkError ||
@@ -338,10 +345,9 @@ export function useDeviceStageFirmwareVerify() {
           }
         };
 
-        // The failure card's exits decide what happens next: Retry runs the
-        // whole check again (a fresh device confirmation included), Continue
-        // anyway proceeds unverified, Support opens the help channel and
-        // leaves the card standing.
+        // Retry runs the whole check again. Support opens the help channel
+        // and leaves the card standing. Developer overrides always continue
+        // unverified; outside developer mode only unofficial verdicts allow it.
         for (;;) {
           const outcome = await runOnce();
           if (outcome === 'verified') {
@@ -350,8 +356,11 @@ export function useDeviceStageFirmwareVerify() {
           if (outcome === 'aborted') {
             return { checked: false, closed: true };
           }
+          const allowsDevSkip =
+            failureReason === 'unofficialDevice' ||
+            failureReason === 'unofficialFirmware';
           const action = await new Promise<
-            'retry' | 'support' | 'continueAnyway' | 'closed'
+            'retry' | 'closed' | 'continueAnyway'
           >((resolve) => {
             // Reassigned once both handlers exist — each exit path must
             // release BOTH listeners (the manual-close one used to leak).
@@ -363,6 +372,15 @@ export function useDeviceStageFirmwareVerify() {
             }) => {
               if (next === 'support') {
                 void showIntercom();
+                return;
+              }
+              if (
+                next !== 'retry' &&
+                !(
+                  next === 'continueAnyway' &&
+                  (allowsDevSkip || devSkipAllowedRef.current)
+                )
+              ) {
                 return;
               }
               cleanup();
@@ -389,15 +407,12 @@ export function useDeviceStageFirmwareVerify() {
               onStageClosed,
             );
           });
-          if (action === 'continueAnyway') {
-            // The confirmation is the narrative's ending (Stage 4, 2a):
-            // retire it, or every later call-end close re-pins the failure
-            // card over whatever the flow does next.
-            await serviceHardwareUI.deviceStageNoteAuthResolved();
-            return { checked: false };
-          }
           if (action === 'closed') {
             return { checked: false, closed: true };
+          }
+          if (action === 'continueAnyway') {
+            await serviceHardwareUI.deviceStageNoteAuthResolved();
+            return { checked: false };
           }
         }
       } finally {

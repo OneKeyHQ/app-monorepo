@@ -72,7 +72,12 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { filterTokensByAccountNetworkCompatibility } from '../../../utils/tokenSelectorAccountCompatibility';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
+import {
+  resolveSearchTokenListForKeywords,
+  shouldApplySearchResponse,
+} from '../utils/tokenSelectorSearchUtils';
 
+import type { ITokenSelectorSearchTokenList } from '../utils/tokenSelectorSearchUtils';
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
 
@@ -462,11 +467,20 @@ function TokenSelector() {
   const allNetworksCrossSearchEnabled =
     !!searchAll && isSelectorAllNetworks && !showLpTokensOnly;
   // Others (imported / watch-only / external) accounts hold one credential on
-  // one impl, so cross-network results must be narrowed to the networks that
-  // credential can actually derive an address on. HD/HW accounts are unfiltered
-  // — they can create an account on any network.
+  // one impl, so cross-network results — single-network cross mode and the
+  // onekeyall search in All Networks alike — must be narrowed to the networks
+  // that credential can actually derive an address on. Same rule as the
+  // All-Networks account fan-out, so every row left is selectable. HD/HW
+  // accounts are unfiltered — they can create an account on any network.
+  // Keyed on whether the request itself is cross-network, not on the
+  // keyword-stripping gates above: the All-Networks selector sends its own
+  // onekeyall networkId regardless of the LP filter, so with LP on
+  // `allNetworksCrossSearchEnabled` is false while the backend still answers
+  // across networks.
+  const isCrossNetworkSearchRequest =
+    crossNetworkSearchEnabled || (!!searchAll && !!isSelectorAllNetworks);
   const othersAccountForNetworkFilter =
-    crossNetworkSearchEnabled &&
+    isCrossNetworkSearchRequest &&
     account &&
     accountId &&
     accountUtils.isOthersAccount({ accountId })
@@ -649,12 +663,17 @@ function TokenSelector() {
   }>({
     isSearching: false,
   });
-  const [searchTokenList, setSearchTokenList] = useState<{
-    tokens: IAccountToken[];
-    searchKey: string;
-    filterContext: ITokenSelectorSearchFilterContext;
-  }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
+  const [searchTokenList, setSearchTokenList] = useState<
+    ITokenSelectorSearchTokenList<ITokenSelectorSearchFilterContext>
+  >({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
+  // Mirrors the input text synchronously — written from onChangeText, ahead
+  // of the 200 ms `searchKey` debounce — so an in-flight response can only
+  // apply while the input still reads the keywords it was fetched for (see
+  // shouldApplySearchResponse). Reading the debounced `searchKey` here instead
+  // would leave a 200 ms window after each keystroke where a response for the
+  // previous query still passes.
+  const liveSearchKeyRef = useRef('');
   const lastTokenSelectorErrorToastAtRef = useRef(0);
 
   const showFetchTokenListErrorToast = useCallback(() => {
@@ -1052,10 +1071,15 @@ function TokenSelector() {
     ],
   );
 
-  const debounceUpdateSearchKey = useDebouncedCallback(
-    setSearchKey,
-    searchAll ? 1000 : 200,
-  );
+  // Two-stage search debounce. `searchKey` (list + local filter) follows the
+  // input at 200 ms; in `searchAll` mode the backend request waits a further
+  // 800 ms (`debounceSearchTokensBySearchKey` below), so the onekeyall search
+  // still fires 1 s after the last keystroke and its load is unchanged.
+  const debounceUpdateSearchKey = useDebouncedCallback(setSearchKey, 200);
+  const clearSearchKey = useCallback(() => {
+    liveSearchKeyRef.current = '';
+    setSearchKey('');
+  }, []);
 
   const headerSearchBarOptions = useMemo(
     () => ({
@@ -1069,6 +1093,7 @@ function TokenSelector() {
       }: {
         nativeEvent: TextInputFocusEventData;
       }) => {
+        liveSearchKeyRef.current = nativeEvent.text;
         debounceUpdateSearchKey(nativeEvent.text);
       },
     }),
@@ -1121,21 +1146,27 @@ function TokenSelector() {
         networkId ?? '',
         tokenSelectorSearchFilterContext,
         searchScopeMode,
+        // `account` resolves after `accountId`: the run before it lands is
+        // unfiltered, the run after is narrowed, and they must not share an
+        // identity or the earlier response could overwrite the later one.
+        othersAccountForNetworkFilter ? 'others-filtered' : 'unfiltered',
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
       const isLatest = () =>
-        latestSearchRequestContextRef.current === requestContext;
+        shouldApplySearchResponse({
+          requestContext,
+          latestRequestContext: latestSearchRequestContextRef.current,
+          keywords,
+          liveSearchKey: liveSearchKeyRef.current,
+        });
       setSearchTokenState({ isSearching: true });
       setSearchTokenList((prev) =>
-        prev.searchKey === keywords &&
-        prev.filterContext === tokenSelectorSearchFilterContext
-          ? prev
-          : {
-              tokens: [],
-              searchKey: '',
-              filterContext: tokenSelectorSearchFilterContext,
-            },
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
       );
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       let searchFailed = false;
@@ -1606,7 +1637,10 @@ function TokenSelector() {
             valueAccountId = activeAccountId;
           }
         }
-        if (valueAccountId && activeNetworkId) {
+        // A filtered selector response is only a token subset (wallet-only or
+        // dApp-only). It must not be persisted as the canonical network total;
+        // otherwise opening the selector can overwrite Home with a partial sum.
+        if (valueAccountId && activeNetworkId && !showTokenSelectorFilter) {
           const valueKey = accountUtils.buildAccountValueKey({
             accountId: activeAccountId,
             networkId: activeNetworkId,
@@ -1651,6 +1685,7 @@ function TokenSelector() {
     networkId,
     showActiveAccountTokenList,
     showLpTokensOnly,
+    showTokenSelectorFilter,
     showFetchTokenListErrorToast,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,
@@ -1901,10 +1936,50 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // Backend stage of the two-stage search debounce (see
+  // debounceUpdateSearchKey). Scheduled on every live-key change, so editing
+  // back to the previous keywords within the wait still re-runs the request;
+  // use-debounce invokes the latest callback, so the closure never goes stale.
+  const debounceSearchTokensBySearchKey = useDebouncedCallback(
+    (keywords: string) => {
+      void searchTokensBySearchKey(keywords);
+    },
+    800,
+  );
+  // Key the backend stage was last scheduled for. The effect below also
+  // re-runs when a scope gate or the filter context flips (`network` /
+  // `account` resolving, the LP toggle); those are not keystrokes and must
+  // not sit out the typing debounce — the pre-split effect fired at once.
+  const scheduledSearchKeyRef = useRef('');
+
   useEffect(() => {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
-      void searchTokensBySearchKey(searchKey);
+      // The list re-filters on the live key right away: drop results that
+      // belong to another query and show the trailing loader until the
+      // request for this key lands. Without this, a slower response for an
+      // intermediate query ("usd" while editing "usdt" into "sol") used to
+      // land after the input had moved on and show the wrong list until the
+      // next debounce fired (OK-61484).
+      setSearchTokenList((prev) =>
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords: searchKey,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
+      );
+      setSearchTokenState((prev) =>
+        prev.isSearching ? prev : { isSearching: true },
+      );
+      if (scheduledSearchKeyRef.current === searchKey) {
+        debounceSearchTokensBySearchKey.cancel();
+        void searchTokensBySearchKey(searchKey);
+      } else {
+        scheduledSearchKeyRef.current = searchKey;
+        debounceSearchTokensBySearchKey(searchKey);
+      }
     } else {
+      scheduledSearchKeyRef.current = '';
+      debounceSearchTokensBySearchKey.cancel();
       latestSearchRequestContextRef.current = '';
       setSearchTokenState({ isSearching: false });
       setSearchTokenList({
@@ -1915,8 +1990,12 @@ function TokenSelector() {
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [
+    debounceSearchTokensBySearchKey,
     searchAll,
     searchKey,
+    // Identity changes when the scope gates flip (e.g. `network` resolves
+    // after the first keystrokes); re-run so the request carries the right
+    // scope, as the pre-split effect did.
     searchTokensBySearchKey,
     tokenSelectorSearchFilterContext,
   ]);
@@ -1925,8 +2004,8 @@ function TokenSelector() {
     <Page
       lazyLoad
       safeAreaEnabled={false}
-      onClose={() => setSearchKey('')}
-      onUnmounted={() => setSearchKey('')}
+      onClose={clearSearchKey}
+      onUnmounted={clearSearchKey}
     >
       <Page.Header
         title={

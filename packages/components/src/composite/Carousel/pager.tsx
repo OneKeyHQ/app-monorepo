@@ -19,6 +19,9 @@ export function PagerView({
   ref,
   style,
   onPageSelected,
+  // Native-only signal. Destructured so it is never spread onto the DOM node
+  // below; the web shim drives scrolling itself and has no equivalent state.
+  onPageScrollStateChanged: _onPageScrollStateChanged,
   keyboardDismissMode,
   pageWidth: pageWidthProp,
   disableAnimation = false,
@@ -147,16 +150,27 @@ export function PagerView({
     };
   }, [onPageSelected]);
 
-  const lockScrollEvent = useCallback((page: number) => {
-    if (timerId.current) {
-      clearTimeout(timerId.current);
-    }
-    isLockPageIndex.current = true;
-    timerId.current = setTimeout(() => {
-      isLockPageIndex.current = false;
-      pageIndex.current = page;
-    }, 500);
-  }, []);
+  const lockScrollEvent = useCallback(
+    (page: number) => {
+      if (timerId.current) {
+        clearTimeout(timerId.current);
+      }
+      const safePage = getSafePageIndex(page);
+      isLockPageIndex.current = true;
+      timerId.current = setTimeout(() => {
+        isLockPageIndex.current = false;
+        if (pageIndex.current !== safePage) {
+          pageIndex.current = safePage;
+          void onPageSelected?.({
+            nativeEvent: {
+              position: safePage,
+            },
+          } as any);
+        }
+      }, 500);
+    },
+    [getSafePageIndex, onPageSelected],
+  );
 
   const handleMouseDown = useCallback(
     (event: MouseEvent) => {

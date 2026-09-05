@@ -1,4 +1,5 @@
-import type { IFill, IHex, ITIF, IWithdraw3Request } from './sdk';
+import type { IUsdcWithdrawDestinationId } from './perp.constants';
+import type { IFill, IHex, ITIF } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -156,8 +157,12 @@ export type IOrderAmendKind =
   | { kind: 'limit'; tif: ITIF }
   | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
 
-export interface IWithdrawParams extends IWithdraw3Request {
+export interface IWithdrawParams {
   userAccountId: string;
+  amount: string;
+  destinationId: IUsdcWithdrawDestinationId;
+  expectedRoute?: 'bridge' | 'cctp';
+  expectedCctpFee?: string;
 }
 
 export interface ILeverageUpdateRequest {

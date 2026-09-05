@@ -1156,18 +1156,21 @@ export class DeviceStageBurstScope {
     await this.setStep(step, extras);
   }
 
-  /** The failure card's "Continue anyway": the verdict is taken and the
-   * narrative ends with it. No repaint here — inside a held flow the next
-   * call's beats take the stage over, and a runner-held burst ending
-   * right after this lands the exit itself. Without it, every later
-   * call-end close re-pins the failure card over whatever the flow does
-   * next. */
+  /** Retire the skipped failure immediately, without releasing the outer
+   * flow's burst or cancelling its next hardware interaction. */
   async noteAuthNarrativeResolved() {
+    const seq = this.authHoldSeq;
     if (!(await this.isEnabled())) {
+      return;
+    }
+    const current = await deviceStageAtom.get();
+    // A newer beat owns its own exit, even if it is another auth failure.
+    if (seq !== this.authHoldSeq || current?.step !== 'authFailure') {
       return;
     }
     this.authoredAuthStep = undefined;
     this.clearAuthHold();
+    await this.forceOff({ force: true });
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing

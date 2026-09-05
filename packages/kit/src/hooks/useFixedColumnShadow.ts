@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { ScrollView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,6 +25,8 @@ export interface IUseFixedColumnShadowResult {
   handleNativeScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** Scroll handler for web platforms */
   handleWebScroll: () => void;
+  /** Web only: false until the first measured state has been painted */
+  shadowTransitionEnabled: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ export function useFixedColumnShadow({
   const forceVisible = (isNative || isMobileWeb) && enabled;
 
   const [showShadow, setShowShadow] = useState(initialVisible);
+  const [shadowTransitionEnabled, setShadowTransitionEnabled] = useState(false);
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const getScrollElement = useCallback((): HTMLElement | null => {
@@ -134,8 +137,11 @@ export function useFixedColumnShadow({
     [forceVisible, position],
   );
 
-  // Web ResizeObserver setup
-  useEffect(() => {
+  // Measure before the first paint, and keep CSS transitions off until that
+  // measured state has been painted: reading scrollWidth here forces a style
+  // flush with the seeded initialVisible shadow, so a transition would animate
+  // the seeded → measured change even though the seeded frame never paints.
+  useLayoutEffect(() => {
     if (!enabled || isNative || forceVisible) return;
     if (typeof ResizeObserver === 'undefined') return;
 
@@ -145,7 +151,13 @@ export function useFixedColumnShadow({
     handleWebScroll();
     const resizeObserver = new ResizeObserver(handleWebScroll);
     resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setShadowTransitionEnabled(true));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+    };
   }, [enabled, handleWebScroll, getScrollElement, isNative, forceVisible]);
 
   return {
@@ -153,6 +165,7 @@ export function useFixedColumnShadow({
     scrollViewRef,
     handleNativeScroll,
     handleWebScroll,
+    shadowTransitionEnabled,
   };
 }
 
