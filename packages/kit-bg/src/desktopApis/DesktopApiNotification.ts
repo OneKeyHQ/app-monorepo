@@ -291,18 +291,15 @@ async function getElectronNotificationPermission(): Promise<{
 class DesktopApiNotification {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
-    this.initWin32TaskBarBadge(
-      globalThis.$desktopMainAppFunctions?.getAppName?.() || 'OneKey Wallet',
-    );
+    this.initWin32TaskBarBadge();
   }
 
   desktopApi: IDesktopApi;
 
   private win32TaskBarBadge?: WindowsTaskbarBadge;
 
-  private initWin32TaskBarBadge(APP_NAME: string) {
+  private initWin32TaskBarBadge() {
     if (process.platform === 'win32') {
-      app.setAppUserModelId(APP_NAME);
       const safelyMainWindow =
         globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
 
