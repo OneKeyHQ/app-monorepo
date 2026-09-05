@@ -1875,8 +1875,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
-    return getUsdcWithdrawRoute();
+  async getUsdcWithdrawRoute(params?: {
+    forceRefresh?: boolean;
+  }): Promise<IUsdcWithdrawRoute> {
+    return getUsdcWithdrawRoute(params);
   }
 
   private _callHyperEvmRpc: IHyperEvmRpcCall = async (method, params) => {

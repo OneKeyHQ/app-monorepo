@@ -509,6 +509,31 @@ function useAllNetworkRequests<T>(params: {
     };
   }, [isAllNetworks]);
 
+  useEffect(() => {
+    if (!isAllNetworks || !isDeFiRequests) {
+      return;
+    }
+    const onDeFiEnabledNetworksChanged = () => {
+      // The event reaches the main runtime independently of the background
+      // config refresh. Rebuild the main-runtime fan-out so it deserializes
+      // the current map and removes data for networks that were disabled.
+      allNetworkDataInit.current = false;
+      runCountRef.current = 0;
+      setEnabledNetworksChangedNonce((value) => value + 1);
+      void runWithQueueRef.current?.({ alwaysSetState: true });
+    };
+    appEventBus.on(
+      EAppEventBusNames.DeFiEnabledNetworksChanged,
+      onDeFiEnabledNetworksChanged,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.DeFiEnabledNetworksChanged,
+        onDeFiEnabledNetworksChanged,
+      );
+    };
+  }, [isAllNetworks, isDeFiRequests]);
+
   // Hardware wallets create default network accounts in series after connect
   // (BTC -> EVM -> TRON -> SOL). The 15s account-list cache can otherwise
   // capture a half-formed snapshot that contains only the first impl, which

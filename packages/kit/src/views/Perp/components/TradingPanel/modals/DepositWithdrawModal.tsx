@@ -380,6 +380,19 @@ function DepositWithdrawContent({
   const [withdrawRoute, setWithdrawRoute] = useState<
     'bridge' | 'cctp' | undefined
   >(undefined);
+  const fetchWithdrawRoute = useCallback(async () => {
+    try {
+      return await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawRoute(
+        { forceRefresh: true },
+      );
+    } catch (error) {
+      console.error(
+        '[DepositWithdrawModal] Failed to resolve withdraw route:',
+        error,
+      );
+      return undefined;
+    }
+  }, []);
   // Seeded from the module cache so reopening the form does not blank the row
   // again; the effects below refresh it on every open.
   const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
@@ -1637,6 +1650,12 @@ function DepositWithdrawContent({
       ) {
         logDirectDepositFailure('build', getPerpDepositErrorCode(error));
       }
+      if (selectedAction === 'withdraw') {
+        const latestWithdrawRoute = await fetchWithdrawRoute();
+        if (latestWithdrawRoute) {
+          setWithdrawRoute(latestWithdrawRoute);
+        }
+      }
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
     } finally {
@@ -1667,6 +1686,7 @@ function DepositWithdrawContent({
     withdraw,
     isDepositQuotePendingDebounce,
     shouldRefreshDepositQuote,
+    fetchWithdrawRoute,
   ]);
 
   const nativeInputProps = platformEnv.isNativeIOS
@@ -2227,7 +2247,8 @@ function DepositWithdrawContent({
   );
 
   // Refreshed alongside the fee: a rail that flips while the form is open fails
-  // submission with "route changed", and the retry it asks for needs this.
+  // submission with "route changed", and the retry it asks for needs a live
+  // refresh instead of the longer-lived background cache.
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
       return;
@@ -2235,19 +2256,11 @@ function DepositWithdrawContent({
     let cancelled = false;
     setWithdrawRoute(undefined);
     const loadWithdrawRoute = () => {
-      void backgroundApiProxy.serviceHyperliquidExchange
-        .getUsdcWithdrawRoute()
-        .then((route) => {
-          if (!cancelled) {
-            setWithdrawRoute(route);
-          }
-        })
-        .catch((error) => {
-          console.error(
-            '[DepositWithdrawModal] Failed to resolve withdraw route:',
-            error,
-          );
-        });
+      void fetchWithdrawRoute().then((route) => {
+        if (!cancelled && route) {
+          setWithdrawRoute(route);
+        }
+      });
     };
     loadWithdrawRoute();
     const refreshInterval = setInterval(
@@ -2258,7 +2271,7 @@ function DepositWithdrawContent({
       cancelled = true;
       clearInterval(refreshInterval);
     };
-  }, [selectedAction]);
+  }, [fetchWithdrawRoute, selectedAction]);
 
   // Quote every destination up front. The rail only changes server-side, so this
   // runs once per form open and lets a switch land on a confirmed number instead

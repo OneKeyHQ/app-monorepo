@@ -226,11 +226,7 @@ export function EarnHomeBanner({
 
   if (isLoading && validBanners.length === 0) {
     return (
-      <YStack
-        h={EARN_HOME_BANNER_BLOCK_HEIGHT}
-        px="$pagePadding"
-        pb="$4"
-      >
+      <YStack h={EARN_HOME_BANNER_BLOCK_HEIGHT} px="$pagePadding" pb="$4">
         <Skeleton h={BANNER_HEIGHT} borderRadius="$3" />
       </YStack>
     );

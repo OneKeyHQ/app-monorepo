@@ -150,16 +150,27 @@ export function PagerView({
     };
   }, [onPageSelected]);
 
-  const lockScrollEvent = useCallback((page: number) => {
-    if (timerId.current) {
-      clearTimeout(timerId.current);
-    }
-    isLockPageIndex.current = true;
-    timerId.current = setTimeout(() => {
-      isLockPageIndex.current = false;
-      pageIndex.current = page;
-    }, 500);
-  }, []);
+  const lockScrollEvent = useCallback(
+    (page: number) => {
+      if (timerId.current) {
+        clearTimeout(timerId.current);
+      }
+      const safePage = getSafePageIndex(page);
+      isLockPageIndex.current = true;
+      timerId.current = setTimeout(() => {
+        isLockPageIndex.current = false;
+        if (pageIndex.current !== safePage) {
+          pageIndex.current = safePage;
+          void onPageSelected?.({
+            nativeEvent: {
+              position: safePage,
+            },
+          } as any);
+        }
+      }, 500);
+    },
+    [getSafePageIndex, onPageSelected],
+  );
 
   const handleMouseDown = useCallback(
     (event: MouseEvent) => {

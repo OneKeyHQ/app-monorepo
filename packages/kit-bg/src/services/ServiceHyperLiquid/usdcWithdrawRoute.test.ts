@@ -83,6 +83,18 @@ describe('usdc withdraw route resolution', () => {
     }
   });
 
+  it('bypasses the cached rail when a live refresh is requested', async () => {
+    requestMock
+      .mockResolvedValueOnce({ withdrawalRoute: 'cctp' })
+      .mockResolvedValueOnce({ withdrawalRoute: 'bridge' });
+
+    await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
+    await expect(getUsdcWithdrawRoute({ forceRefresh: true })).resolves.toBe(
+      'bridge',
+    );
+    expect(requestMock).toHaveBeenCalledTimes(2);
+  });
+
   // Caching a failure would pin later withdrawals to the pricier rail.
   it('retries after a failed lookup', async () => {
     requestMock.mockRejectedValueOnce(new Error('network down'));

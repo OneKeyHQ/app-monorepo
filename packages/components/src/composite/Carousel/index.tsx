@@ -8,9 +8,10 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { NavigationContext } from '@react-navigation/native';
 import { debounce } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -73,6 +74,29 @@ const useCarouselContext = () => {
   return context;
 };
 
+function useOptionalIsFocused() {
+  const navigation = useContext(NavigationContext);
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      if (!navigation) {
+        return () => undefined;
+      }
+      const unsubscribeFocus = navigation.addListener('focus', callback);
+      const unsubscribeBlur = navigation.addListener('blur', callback);
+      return () => {
+        unsubscribeFocus();
+        unsubscribeBlur();
+      };
+    },
+    [navigation],
+  );
+  const getSnapshot = useCallback(
+    () => navigation?.isFocused() ?? true,
+    [navigation],
+  );
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
 /** Lets a carousel item ignore the press a swipe leaves behind. */
 export const useCarouselPressSuppressor = () => {
   const { shouldSuppressPress } = useCarouselContext();
@@ -110,6 +134,7 @@ export function Carousel<T>({
   const [pageIndex, setPageIndex] = useState<number>(defaultIndex);
   const currentPage = useRef<number>(defaultIndex);
   currentPage.current = pageIndex;
+  const lastNotifiedPageRef = useRef<number | null>(null);
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
@@ -233,8 +258,9 @@ export function Carousel<T>({
   const isInteractingRef = useRef(false);
   // A wrap jump that arrived mid-gesture, held until the pager is idle.
   const pendingCloneSwapRef = useRef<number | null>(null);
-  // When the pager last settled. A finger lifting at the end of a swipe still
-  // produces a press, so items stay press-proof for a moment afterwards.
+  const hasUserDraggedRef = useRef(false);
+  // When the pager last settled after a user drag. A finger lifting at the end
+  // of a swipe still produces a press, so items stay press-proof briefly.
   const lastScrollEndAtRef = useRef(0);
 
   const stopAutoPlay = useCallback(() => {
@@ -293,7 +319,7 @@ export function Carousel<T>({
   // stops it (onPressIn) and nothing ever starts it again — onPressOut does not
   // arrive once the screen is leaving, and the IntersectionObserver above is
   // web-only. Coming back re-focuses the screen and picks it up again.
-  const isFocused = useIsFocused();
+  const isFocused = useOptionalIsFocused();
 
   useEffect(() => {
     if (isFocused) {
@@ -347,7 +373,10 @@ export function Carousel<T>({
       const logicalIndex = toLogicalIndex(renderedIndex);
       currentPage.current = logicalIndex;
       debouncedSetPageIndex(logicalIndex);
-      onPageChanged?.(logicalIndex);
+      if (lastNotifiedPageRef.current !== logicalIndex) {
+        lastNotifiedPageRef.current = logicalIndex;
+        onPageChanged?.(logicalIndex);
+      }
       if (
         isInfinite &&
         (renderedIndex === 0 || renderedIndex === data.length + 1)
@@ -387,13 +416,20 @@ export function Carousel<T>({
         Readonly<{ pageScrollState: 'idle' | 'dragging' | 'settling' }>
       >,
     ) => {
-      const isIdle = e.nativeEvent.pageScrollState === 'idle';
+      const pageScrollState = e.nativeEvent.pageScrollState;
+      if (pageScrollState === 'dragging') {
+        hasUserDraggedRef.current = true;
+      }
+      const isIdle = pageScrollState === 'idle';
       isInteractingRef.current = !isIdle;
       if (!isIdle) {
         stopAutoPlay();
         return;
       }
-      lastScrollEndAtRef.current = Date.now();
+      if (hasUserDraggedRef.current) {
+        hasUserDraggedRef.current = false;
+        lastScrollEndAtRef.current = Date.now();
+      }
       // Settled: it is now safe to finish a wrap that landed mid-gesture.
       const pending = pendingCloneSwapRef.current;
       if (pending !== null) {
@@ -403,6 +439,26 @@ export function Carousel<T>({
       startAutoPlay();
     },
     [startAutoPlay, stopAutoPlay],
+  );
+  const pagerOnPageSelected = pagerProps?.onPageSelected;
+  const pagerOnPageScrollStateChanged = pagerProps?.onPageScrollStateChanged;
+  const handlePageSelected = useCallback(
+    (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
+      onPageSelected(e);
+      void pagerOnPageSelected?.(e);
+    },
+    [onPageSelected, pagerOnPageSelected],
+  );
+  const handlePageScrollStateChanged = useCallback(
+    (
+      e: NativeSyntheticEvent<
+        Readonly<{ pageScrollState: 'idle' | 'dragging' | 'settling' }>
+      >,
+    ) => {
+      onPageScrollStateChanged(e);
+      void pagerOnPageScrollStateChanged?.(e);
+    },
+    [onPageScrollStateChanged, pagerOnPageScrollStateChanged],
   );
 
   const [layout, setLayout] = useState<{ width: number; height: number }>({
@@ -507,13 +563,13 @@ export function Carousel<T>({
                 style={pagerViewStyle}
                 initialPage={toRenderedIndex(defaultIndex)}
                 pageWidth={pageWidth}
-                onPageSelected={onPageSelected}
-                onPageScrollStateChanged={onPageScrollStateChanged}
                 // Only effective on native; web PagerView ignores this and uses "none"
                 // to avoid globally blurring focused inputs via dismissKeyboard().
                 keyboardDismissMode="on-drag"
                 disableAnimation={disableAnimation}
                 {...pagerProps}
+                onPageSelected={handlePageSelected}
+                onPageScrollStateChanged={handlePageScrollStateChanged}
               >
                 {pages.map((item, index) => (
                   <Stack key={index} style={pageItemStyle}>

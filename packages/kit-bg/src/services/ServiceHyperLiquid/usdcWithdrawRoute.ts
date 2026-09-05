@@ -44,9 +44,15 @@ async function fetchWithdrawRoute(): Promise<IUsdcWithdrawRoute | undefined> {
   return parseRoute(response?.withdrawalRoute);
 }
 
-export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
+export async function getUsdcWithdrawRoute(
+  params: { forceRefresh?: boolean } = {},
+): Promise<IUsdcWithdrawRoute> {
   const now = Date.now();
-  if (cachedRoute && now - cachedRoute.fetchedAt < ROUTE_CACHE_TTL_MS) {
+  if (
+    !params.forceRefresh &&
+    cachedRoute &&
+    now - cachedRoute.fetchedAt < ROUTE_CACHE_TTL_MS
+  ) {
     return cachedRoute.route;
   }
   if (!inFlightRequest) {
