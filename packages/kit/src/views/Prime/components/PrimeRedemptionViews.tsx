@@ -27,11 +27,6 @@ function usePrimeRedemptionIconName() {
     : 'OnekeyPrimeDarkColored';
 }
 
-function PrimeRedemptionHeroIcon() {
-  const primeIconName = usePrimeRedemptionIconName();
-  return <Icon name={primeIconName} size="$12" />;
-}
-
 function PrimeRedemptionSuccessSummary({
   primeIconName,
   receivedDaysMessage,
@@ -73,13 +68,14 @@ export function PrimeRedemptionFormView({
   form: IPrimeRedemptionForm;
 }) {
   const intl = useIntl();
+  const primeIconName = usePrimeRedemptionIconName();
   const redemptionCodeLabel = intl.formatMessage({
     id: ETranslations.redemption_enter_code_placeholder,
   });
 
   return (
     <YStack alignItems="center" width="100%">
-      <PrimeRedemptionHeroIcon />
+      <Icon name={primeIconName} size="$12" />
       <SizableText size="$headingXl" textAlign="center" mt="$5" mb="$5">
         {intl.formatMessage({
           id: ETranslations.prime_redeem__action,

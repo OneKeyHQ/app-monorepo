@@ -174,14 +174,11 @@ export function Footer() {
     [intl, links],
   );
 
-  if (currentTab === ETabRoutes.WebviewPerpTrade) {
-    return null;
-  }
-
   const pathname = globalThis.location?.pathname;
   if (
+    currentTab === ETabRoutes.WebviewPerpTrade ||
     pathname === PRIME_REDEEM_LANDING_PATH ||
-    pathname?.startsWith(`${PRIME_REDEEM_LANDING_PATH}/`)
+    pathname === `${PRIME_REDEEM_LANDING_PATH}/`
   ) {
     return null;
   }

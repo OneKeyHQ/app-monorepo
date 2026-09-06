@@ -322,7 +322,6 @@ function PrimeRedeemLandingPage() {
     <Theme name="dark">
       <Page
         scrollEnabled
-        backgroundColor="$bgApp"
         scrollProps={{
           keyboardShouldPersistTaps: 'handled',
           contentContainerStyle: {
