@@ -3723,6 +3723,22 @@ export function useSwapBuildTx({
             ...prev.preSwapData,
             fromTokenAmount: rebuiltQuoteResult.fromAmount,
             toTokenAmount: rebuiltQuoteResult.toAmount,
+            rateDifference:
+              rebuiltQuoteResult.protocol === EProtocolOfExchange.LIMIT
+                ? undefined
+                : buildSwapRateDifference({
+                    fromTokenPrice: prev.preSwapData.fromToken?.price,
+                    toTokenPrice: prev.preSwapData.toToken?.price,
+                    fromTokenCurrency: prev.preSwapData.fromToken?.currency,
+                    toTokenCurrency: prev.preSwapData.toToken?.currency,
+                    defaultTokenCurrency: persistSettings.currencyInfo.id,
+                    currencyMap,
+                    instantRate: new BigNumber(
+                      rebuiltQuoteResult.toAmount ?? '',
+                    )
+                      .dividedBy(rebuiltQuoteResult.fromAmount ?? '')
+                      .toFixed(),
+                  }),
             minToAmount: rebuiltQuoteResult.minToAmount,
             providerInfo: rebuiltQuoteResult.info,
             fee: rebuiltQuoteResult.fee,
@@ -3772,6 +3788,8 @@ export function useSwapBuildTx({
       fromAccountNetworkId,
       getApproveUnSignedTxArr,
       setSwapSteps,
+      currencyMap,
+      persistSettings.currencyInfo.id,
     ],
   );
 
