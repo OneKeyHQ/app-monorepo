@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
@@ -328,6 +329,8 @@ export interface IDeviceStageProps {
    * `sub` and action are unaffected.
    */
   errorMessage?: string;
+  /** Translate in the UI runtime, whose locale messages are loaded. */
+  errorI18n?: IDeviceStageErrorI18n;
   /**
    * The authenticity checklist, shown under the words on `authVerifying`,
    * on `authSuccess` when the checklist flow is what succeeded, and

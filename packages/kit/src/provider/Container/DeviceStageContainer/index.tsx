@@ -508,6 +508,7 @@ function DeviceStageContainerCmp() {
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
+      errorI18n={stage?.errorI18n}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
       authFailureMessage={stage?.authFailureMessage}
