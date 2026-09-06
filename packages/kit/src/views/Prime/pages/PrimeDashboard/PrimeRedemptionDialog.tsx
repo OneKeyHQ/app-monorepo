@@ -19,6 +19,7 @@ async function readInfiniPaymentEntryGuard() {
   try {
     return await getPrimeInfiniPaymentEntryGuard();
   } catch {
+    // Probe failed: treat as not ready so redeem stays blocked.
     return undefined;
   }
 }

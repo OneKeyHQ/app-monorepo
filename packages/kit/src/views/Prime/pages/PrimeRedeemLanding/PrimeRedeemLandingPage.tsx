@@ -45,16 +45,18 @@ function getStringQueryParam(value: unknown): string | undefined {
   return undefined;
 }
 
+function goToWebHome() {
+  if (typeof globalThis.location !== 'undefined') {
+    globalThis.location.href = '/';
+  }
+}
+
 function Header() {
   return (
     <XStack h={52} px="$5" ai="center" jc="space-between">
       <Stack
         aria-label="OneKey home"
-        onPress={() => {
-          if (typeof globalThis.location !== 'undefined') {
-            globalThis.location.href = '/';
-          }
-        }}
+        onPress={goToWebHome}
         hoverStyle={{ opacity: 0.7 }}
         pressStyle={{ opacity: 0.5 }}
       >
@@ -63,12 +65,6 @@ function Header() {
       <LayoutHeaderLanguageSelector />
     </XStack>
   );
-}
-
-function goToWebHome() {
-  if (typeof globalThis.location !== 'undefined') {
-    globalThis.location.href = '/';
-  }
 }
 
 function PrimeRedeemLoginPrompt({
@@ -115,11 +111,13 @@ function PrimeRedeemFormSection({
   expectedOneKeyUserId,
   initialCode,
   isPrimeActiveBeforeRedeem,
+  onExpiredSession,
 }: {
   displayEmail: string | undefined;
   expectedOneKeyUserId: string;
   initialCode: string;
   isPrimeActiveBeforeRedeem: boolean;
+  onExpiredSession: () => void | Promise<void>;
 }) {
   const intl = useIntl();
   const {
@@ -145,14 +143,6 @@ function PrimeRedeemFormSection({
       isPrimeActiveBeforeRedeem,
     });
   }, [isPrimeActiveBeforeRedeem]);
-
-  const handleRedeem = useCallback(async () => {
-    const code = form.getValues('code').trim();
-    if (!code) {
-      return;
-    }
-    await runWithSubmittingLock(() => submitRedemption({ code }));
-  }, [form, runWithSubmittingLock, submitRedemption]);
 
   if (redemptionResult) {
     return (
@@ -187,7 +177,13 @@ function PrimeRedeemFormSection({
         disabled={!codeValue?.trim() || isSubmitting}
         loading={isSubmitting}
         onPress={() => {
-          void handleRedeem();
+          const code = form.getValues('code').trim();
+          if (!code) {
+            return;
+          }
+          void runWithSubmittingLock(() =>
+            submitRedemption({ code, onExpiredSession }),
+          );
         }}
       >
         {intl.formatMessage({
@@ -208,7 +204,6 @@ function PrimeRedeemLandingPage() {
   const isLoginLoadingRef = useRef(false);
   const initialCode = getStringQueryParam(route.params?.code)?.trim() || '';
   const expectedOneKeyUserId = user?.onekeyUserId;
-  const canRedeem = Boolean(isLoggedIn && expectedOneKeyUserId);
 
   const handleLogin = useCallback(() => {
     if (isLoginLoadingRef.current) {
@@ -253,7 +248,7 @@ function PrimeRedeemLandingPage() {
               py: '$20',
             }}
           >
-            {canRedeem && expectedOneKeyUserId ? (
+            {isLoggedIn && expectedOneKeyUserId ? (
               <PrimeRedeemFormSection
                 displayEmail={user?.displayEmail}
                 expectedOneKeyUserId={expectedOneKeyUserId}
@@ -261,6 +256,7 @@ function PrimeRedeemLandingPage() {
                 isPrimeActiveBeforeRedeem={Boolean(
                   user?.primeSubscription?.isActive,
                 )}
+                onExpiredSession={handleLogin}
               />
             ) : (
               <PrimeRedeemLoginPrompt

@@ -17,10 +17,10 @@ import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeT
 
 import { PrimeTestIDs } from '../testIDs';
 
-import type { IPrimeRedemptionSubmit } from '../hooks/usePrimeRedemptionSubmit';
+import type { IPrimeRedemptionForm } from '../hooks/usePrimeRedemptionSubmit';
 
-export function usePrimeRedemptionIconName() {
-  const themeName = useThemeName() as 'light' | 'dark';
+function usePrimeRedemptionIconName() {
+  const themeName = useThemeName();
   return themeName === 'light'
     ? 'OnekeyPrimeLightColored'
     : 'OnekeyPrimeDarkColored';
@@ -29,7 +29,7 @@ export function usePrimeRedemptionIconName() {
 export function PrimeRedemptionFormView({
   form,
 }: {
-  form: IPrimeRedemptionSubmit['form'];
+  form: IPrimeRedemptionForm;
 }) {
   const intl = useIntl();
   const primeIconName = usePrimeRedemptionIconName();

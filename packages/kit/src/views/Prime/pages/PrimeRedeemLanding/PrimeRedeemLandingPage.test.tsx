@@ -1,10 +1,10 @@
 /** @jest-environment jsdom */
-/* cspell:ignore Infini */
 
 import type { ReactElement, ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPrimeRedemptionParams,
   IPrimeRedemptionResult,
@@ -25,14 +25,6 @@ const mockFetchPrimeUserInfo = jest.fn<
 const mockLoginOneKeyId = jest.fn<Promise<void>, []>();
 const mockPrimeRedemptionResult = jest.fn();
 const mockPrimeRedemptionEntryClick = jest.fn();
-const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
-  Promise<{
-    isLoggedIn: boolean;
-    hasPendingPayment: boolean;
-    onekeyUserId: string | undefined;
-  }>,
-  []
->();
 
 let mockRouteParams: { code?: string } | undefined;
 let mockIsLoggedIn = false;
@@ -252,10 +244,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-jest.mock('../../hooks/primeInfiniExternalCheckoutGuard', () => ({
-  getPrimeInfiniPaymentEntryGuard: mockGetPrimeInfiniPaymentEntryGuard,
-}));
-
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -284,10 +272,9 @@ describe('PrimeRedeemLandingPage', () => {
       expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByTestId(PrimeTestIDs.redemptionCodeInput)).toBeNull();
-    expect(mockGetPrimeInfiniPaymentEntryGuard).not.toHaveBeenCalled();
   });
 
-  it('prefills the code from the route and redeems without the Infini guard', async () => {
+  it('prefills the code from the route and redeems', async () => {
     mockIsLoggedIn = true;
     mockRouteParams = { code: '  OKP-PJ37L-DYXWR  ' };
     mockRedeemPrimeCode.mockResolvedValue({
@@ -310,7 +297,6 @@ describe('PrimeRedeemLandingPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
-    expect(mockGetPrimeInfiniPaymentEntryGuard).not.toHaveBeenCalled();
     expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
       code: 'OKP-PJ37L-DYXWR',
       expectedOneKeyUserId: 'user-a',
@@ -340,11 +326,33 @@ describe('PrimeRedeemLandingPage', () => {
     fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionSubmitBtn));
 
     expect(await screen.findByText(serverMessage)).toBeTruthy();
-    expect(mockGetPrimeInfiniPaymentEntryGuard).not.toHaveBeenCalled();
     expect(mockPrimeRedemptionResult).toHaveBeenCalledWith({
       result: 'failed',
       isPrimeActiveBeforeRedeem: true,
       errorCode: 90_506,
+    });
+  });
+
+  it('re-prompts OneKey ID login when the session is expired', async () => {
+    mockIsLoggedIn = true;
+    mockRouteParams = { code: 'OKP-PJ37L-DYXWR' };
+    const message = '用户认证失败，请重试登录。';
+    mockRedeemPrimeCode.mockRejectedValue({
+      key: ETranslations.id_login_expired_description,
+      message,
+    });
+
+    render(<PrimeRedeemLandingPage />);
+    fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionSubmitBtn));
+
+    await waitFor(() => {
+      expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText(message)).toBeNull();
+    expect(mockPrimeRedemptionResult).toHaveBeenCalledWith({
+      result: 'failed',
+      isPrimeActiveBeforeRedeem: false,
+      errorCode: undefined,
     });
   });
 });

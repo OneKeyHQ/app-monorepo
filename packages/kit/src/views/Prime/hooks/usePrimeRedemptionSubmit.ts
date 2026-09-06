@@ -76,7 +76,7 @@ export function usePrimeRedemptionSubmit({
         setRedemptionResult(result);
         void backgroundApiProxy.servicePrime
           .apiFetchPrimeUserInfo({ forceRefresh: true })
-          .catch(() => undefined);
+          .catch(() => undefined); // best-effort persist refresh; success UI is already shown
       } catch (error) {
         const presentation = getPrimeRedemptionErrorPresentation({
           error,
@@ -109,6 +109,6 @@ export function usePrimeRedemptionSubmit({
   };
 }
 
-export type IPrimeRedemptionSubmit = ReturnType<
+export type IPrimeRedemptionForm = ReturnType<
   typeof usePrimeRedemptionSubmit
->;
+>['form'];
