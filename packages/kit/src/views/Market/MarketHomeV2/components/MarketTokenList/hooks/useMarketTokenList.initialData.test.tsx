@@ -213,6 +213,7 @@ describe('useMarketTokenList initial data', () => {
     await waitFor(() => {
       expect(result.current.isNetworkSwitching).toBe(true);
     });
+    expect(result.current.data.map((item) => item.id)).toEqual(['0xold']);
 
     await act(async () => {
       failedRequest.reject(new Error('request failed'));
@@ -226,6 +227,79 @@ describe('useMarketTokenList initial data', () => {
         isNetworkSwitching: false,
       });
     });
+  });
+
+  it('keeps the switching skeleton until a retry response is transformed', async () => {
+    const failedRequest = createDeferred<IMarketTokenListResponse>();
+    const recoveredRequest = createDeferred<IMarketTokenListResponse>();
+    const renderedStates: Array<{
+      data: string[];
+      isLoading: boolean | undefined;
+      isNetworkSwitching: boolean;
+    }> = [];
+    mockFetchMarketTokenList
+      .mockReturnValueOnce(failedRequest.promise)
+      .mockReturnValueOnce(recoveredRequest.promise);
+
+    const { result } = renderHook(() => {
+      const value = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      renderedStates.push({
+        data: value.data.map((item) => item.id),
+        isLoading: value.isLoading,
+        isNetworkSwitching: value.isNetworkSwitching,
+      });
+      return value;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(true);
+    });
+    await act(async () => {
+      failedRequest.reject(new Error('request failed'));
+      await failedRequest.promise.catch(() => undefined);
+    });
+    await waitFor(() => {
+      expect(result.current).toMatchObject({
+        data: [],
+        isLoading: false,
+        isNetworkSwitching: false,
+      });
+    });
+
+    const retryRenderStart = renderedStates.length;
+    let retryPromise: Promise<void> | undefined;
+    act(() => {
+      retryPromise = result.current.refetch();
+    });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(true);
+    });
+    await act(async () => {
+      recoveredRequest.resolve(
+        createResponse('0xrecovered', 'Recovered Token', 'RECOVERED'),
+      );
+      await retryPromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.data.map((item) => item.id)).toEqual([
+        '0xrecovered',
+      ]);
+    });
+    expect(
+      renderedStates
+        .slice(retryRenderStart)
+        .some(
+          (state) =>
+            state.isLoading === false &&
+            !state.isNetworkSwitching &&
+            state.data.length === 0,
+        ),
+    ).toBe(false);
   });
 
   it('renders SWR rows on the first frame, then replaces and caches the remote page', async () => {

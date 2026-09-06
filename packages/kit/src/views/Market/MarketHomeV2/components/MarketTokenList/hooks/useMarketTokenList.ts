@@ -488,15 +488,29 @@ export function useMarketTokenList({
       timeRange: timeRangeRef.current,
     }),
   );
+  const previousIsLoadingRef = useRef(isLoading);
 
   useEffect(() => {
+    const wasLoading = previousIsLoadingRef.current;
+    previousIsLoadingRef.current = isLoading;
+
+    if (isLoading === true && transformedData.length === 0) {
+      setIsNetworkSwitching(true);
+      return;
+    }
+
     // Successful results keep the switching skeleton until the transform effect
     // commits their rows. A settled error must instead drop the previous scope.
-    if (hasNetworkId && isLoading === false && apiResult === undefined) {
+    if (
+      hasNetworkId &&
+      wasLoading === true &&
+      isLoading === false &&
+      apiResult === undefined
+    ) {
       setTransformedData([]);
       setIsNetworkSwitching(false);
     }
-  }, [apiResult, hasNetworkId, isLoading]);
+  }, [apiResult, hasNetworkId, isLoading, transformedData.length]);
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
