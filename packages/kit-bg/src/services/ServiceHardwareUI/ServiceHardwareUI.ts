@@ -1457,10 +1457,25 @@ class ServiceHardwareUI extends ServiceBase {
       // can then target the failing device instead of resolving one.
       if (connectId && isHardwareError({ error: error as IOneKeyError })) {
         const hardwareError = error as IOneKeyError;
+        const hadConnectId = Boolean(hardwareError.payload?.connectId);
         hardwareError.payload = {
           ...hardwareError.payload,
-          connectId: hardwareError.payload?.connectId ?? connectId,
+          connectId: hardwareError.payload?.connectId || connectId,
         };
+        // The error constructor only notifies recovery when it already has
+        // a connectId. Notify here when this catch supplied the missing ID.
+        if (
+          !hadConnectId &&
+          isHardwareErrorByCode({
+            error: hardwareError,
+            code: HardwareErrorCode.NotAllowInBootloaderMode,
+          })
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+            { connectId },
+          );
+        }
       }
       // OK-59934 hard rule #2 (失败不外溢): the stage lands hardware
       // failures as its error outcome, so the same failure must not also

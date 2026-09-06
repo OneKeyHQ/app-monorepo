@@ -167,15 +167,15 @@ describe('DeviceSettingsManager device adapters', () => {
 
     await manager.setDeviceLabel({
       walletId: 'wallet-1',
-      label: 'Renamed Pro 2',
+      label: ' OneKey-Pro_2 ',
     });
 
     expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-      label: 'Renamed Pro 2',
+      label: 'OneKey-Pro_2',
     });
   });
 
-  test.each(['OneKey-Pro2', 'OneKey_Pro2', 'OneKey　Pro2', '一键Pro2'])(
+  test.each(['OneKey　Pro2', '一键Pro2', 'A'.repeat(15)])(
     'rejects unsupported label %s before calling the SDK',
     async (label) => {
       const deviceSettings = jest.fn();
@@ -185,7 +185,7 @@ describe('DeviceSettingsManager device adapters', () => {
 
       await expect(
         manager.setDeviceLabel({ walletId: 'wallet-1', label }),
-      ).rejects.toThrow('only support ASCII letters, numbers, and spaces');
+      ).rejects.toThrow(ETranslations.global_hardware_label_input_error);
       expect(deviceSettings).not.toHaveBeenCalled();
     },
   );

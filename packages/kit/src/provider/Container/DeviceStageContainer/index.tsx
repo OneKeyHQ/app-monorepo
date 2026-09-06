@@ -13,6 +13,7 @@ import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/Hardw
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useDevSettingsPersistAtom,
   useDeviceStageAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -99,6 +100,7 @@ function toStageVendor(
 
 function DeviceStageContainerCmp() {
   const [stage] = useDeviceStageAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const stageRef = useRef(stage);
   stageRef.current = stage;
   const {
@@ -506,6 +508,7 @@ function DeviceStageContainerCmp() {
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
+      errorI18n={stage?.errorI18n}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
       authFailureMessage={stage?.authFailureMessage}
@@ -513,6 +516,7 @@ function DeviceStageContainerCmp() {
       onAuthSupport={handleAuthSupport}
       onAuthRetry={handleAuthRetry}
       onAuthContinueAnyway={handleAuthContinueAnyway}
+      allowAuthDevSkip={devSettings.enabled}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
       passphraseAllowUtf8={
