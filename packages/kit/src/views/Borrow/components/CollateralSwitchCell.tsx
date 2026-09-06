@@ -57,6 +57,7 @@ import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/He
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 type ICollateralSettlementStatus = 'idle' | 'confirming' | 'success';
+type ICollateralConfirmationOperation = { phase: 'preview' | 'dialog' };
 
 const COLLATERAL_SETTLEMENT_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
@@ -216,7 +217,7 @@ export function CollateralSwitchCell({
     useState<boolean | null>(null);
   // Synchronous guard: block a second confirm dialog from opening before the
   // modal overlay mounts (sub-frame double-tap) — prevents duplicate signing.
-  const confirmingRef = useRef(false);
+  const confirmingRef = useRef<ICollateralConfirmationOperation | null>(null);
   const submittingTargetRef = useRef<boolean | null>(null);
   const settlementRefreshAttemptsRef = useRef(0);
   const settlementWarningShownRef = useRef(false);
@@ -294,13 +295,21 @@ export function CollateralSwitchCell({
   useLayoutEffect(() => {
     const operationScopeChanged =
       operationScopeRef.current !== renderedOperationScope;
+    const confirmationScopeChanged =
+      confirmationScopeRef.current !== renderedConfirmationScope;
     operationScopeRef.current = renderedOperationScope;
     confirmationScopeRef.current = renderedConfirmationScope;
+    if (
+      confirmationScopeChanged &&
+      confirmingRef.current?.phase === 'preview'
+    ) {
+      confirmingRef.current = null;
+      setPreviewLoading(false);
+    }
     if (!operationScopeChanged) {
       return;
     }
     setOptimisticUsageAsCollateral(null);
-    setPreviewLoading(false);
     releaseLocalSubmission();
   }, [
     releaseLocalSubmission,
@@ -424,16 +433,18 @@ export function CollateralSwitchCell({
       return;
     }
     if (confirmingRef.current) return;
-    confirmingRef.current = true;
     const target = !(effectiveUsageAsCollateral === true);
     const targetEModeId = target ? eModeId : undefined;
     if (
       target &&
       (!canEnableCollateral || (requiresEModeId && targetEModeId === undefined))
     ) {
-      confirmingRef.current = false;
       return;
     }
+    const confirmationOperation: ICollateralConfirmationOperation = {
+      phase: 'preview',
+    };
+    confirmingRef.current = confirmationOperation;
     void (async () => {
       let confirmed = false;
       try {
@@ -461,11 +472,13 @@ export function CollateralSwitchCell({
         }
         if (
           !mountedRef.current ||
+          confirmingRef.current !== confirmationOperation ||
           operationScopeRef.current !== renderedOperationScope ||
           confirmationScopeRef.current !== renderedConfirmationScope
         ) {
           return;
         }
+        confirmationOperation.phase = 'dialog';
         setPreviewLoading(false);
         confirmed = await showCollateralConfirmDialog({
           title: intl.formatMessage({
@@ -478,9 +491,11 @@ export function CollateralSwitchCell({
           symbol: item.token.symbol,
         });
       } finally {
-        confirmingRef.current = false;
-        if (mountedRef.current) {
-          setPreviewLoading(false);
+        if (confirmingRef.current === confirmationOperation) {
+          confirmingRef.current = null;
+          if (mountedRef.current) {
+            setPreviewLoading(false);
+          }
         }
       }
       if (
@@ -634,19 +649,20 @@ export function CollateralSwitchCell({
         e.stopPropagation();
       }}
     >
-      <Switch
-        testID={BorrowTestIDs.suppliedCollateralSwitch}
-        value={value}
-        size={size}
-        opacity={previewLoading ? 0 : 1}
-        disabled={
-          previewLoading ||
-          isNativeActionUnsupported ||
-          disabled ||
-          (!value && requiresEModeId && eModeId === undefined)
-        }
-        onChange={handleToggle}
-      />
+      <Stack opacity={previewLoading ? 0 : 1}>
+        <Switch
+          testID={BorrowTestIDs.suppliedCollateralSwitch}
+          value={value}
+          size={size}
+          disabled={
+            previewLoading ||
+            isNativeActionUnsupported ||
+            disabled ||
+            (!value && requiresEModeId && eModeId === undefined)
+          }
+          onChange={handleToggle}
+        />
+      </Stack>
       {previewLoading ? (
         <Stack
           position="absolute"

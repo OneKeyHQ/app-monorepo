@@ -200,10 +200,12 @@ async function flushMicrotasks() {
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((innerResolve) => {
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
     resolve = innerResolve;
+    reject = innerReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('CollateralSwitchCell settlement guard', () => {
@@ -452,6 +454,112 @@ describe('CollateralSwitchCell settlement guard', () => {
         dialogOptions?.onClose?.();
         await flushMicrotasks();
       });
+    },
+  );
+
+  it.each([
+    { scope: 'eMode', oldFinishesFirst: true, oldFails: false },
+    { scope: 'eMode', oldFinishesFirst: true, oldFails: true },
+    { scope: 'eMode', oldFinishesFirst: false, oldFails: false },
+    { scope: 'account', oldFinishesFirst: true, oldFails: false },
+    { scope: 'market', oldFinishesFirst: true, oldFails: false },
+  ])(
+    'releases a stale $scope preview without unlocking the new operation ($oldFinishesFirst, $oldFails)',
+    async ({ scope, oldFinishesFirst, oldFails }) => {
+      const oldPreview = createDeferred<{ canBeCollateral: boolean }>();
+      const newPreview = createDeferred<{ canBeCollateral: boolean }>();
+      serviceMock.getBorrowTransactionConfirmation
+        .mockReturnValueOnce(oldPreview.promise)
+        .mockReturnValueOnce(newPreview.promise);
+      let dialogOptions: ITestDialogOptions | undefined;
+      componentsMock.dialogShow.mockImplementation(
+        (options: ITestDialogOptions) => {
+          dialogOptions = options;
+          return { close: jest.fn(async () => options.onClose?.()) };
+        },
+      );
+      const item = createSuppliedAsset(false);
+      const view = render(<CollateralSwitchCell item={item} eModeId={1} />);
+      const toggle = async () => {
+        await act(async () => {
+          const { onChange } = getSwitch(view).props as {
+            onChange: () => void;
+          };
+          onChange();
+          await flushMicrotasks();
+        });
+      };
+      await toggle();
+      expect(getSwitch(view).props.disabled).toBe(true);
+
+      if (scope === 'account') {
+        borrowContext = {
+          ...borrowContext,
+          earnAccount: { data: { account: { id: 'account-2' } } },
+        };
+      } else if (scope === 'market') {
+        borrowContext = {
+          ...borrowContext,
+          market: { ...borrowContext.market, marketAddress: '0xother-market' },
+        };
+      }
+      view.rerender(
+        <CollateralSwitchCell
+          item={item}
+          eModeId={scope === 'eMode' ? 2 : 1}
+        />,
+      );
+      expect(getSwitch(view).props.disabled).toBe(false);
+      await toggle();
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(2);
+
+      const finishOldPreview = async () => {
+        await act(async () => {
+          if (oldFails) {
+            oldPreview.reject(new Error('stale preview failed'));
+          } else {
+            oldPreview.resolve({ canBeCollateral: true });
+          }
+          await flushMicrotasks();
+        });
+      };
+      if (oldFinishesFirst) {
+        await finishOldPreview();
+        expect(getSwitch(view).props.disabled).toBe(true);
+        expect(componentsMock.dialogShow).not.toHaveBeenCalled();
+        await toggle();
+        expect(
+          serviceMock.getBorrowTransactionConfirmation,
+        ).toHaveBeenCalledTimes(2);
+      }
+      await act(async () => {
+        newPreview.resolve({ canBeCollateral: true });
+        await flushMicrotasks();
+      });
+      expect(componentsMock.dialogShow).toHaveBeenCalledTimes(1);
+      expect(getSwitch(view).props.disabled).toBe(false);
+      if (!oldFinishesFirst) {
+        await finishOldPreview();
+      }
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(2);
+      expect(componentsMock.dialogShow).toHaveBeenCalledTimes(1);
+      expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
+
+      await act(async () => {
+        dialogOptions?.onClose?.();
+        await flushMicrotasks();
+      });
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(3);
+      expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
     },
   );
 
