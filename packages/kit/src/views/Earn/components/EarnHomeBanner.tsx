@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   BlurView,
@@ -9,10 +9,8 @@ import {
   Stack,
   XStack,
   YStack,
+  useCarouselPressSuppressor,
 } from '@onekeyhq/components';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
@@ -23,6 +21,7 @@ import {
 import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
+export const EARN_HOME_BANNER_BLOCK_HEIGHT = 248;
 const BANNER_INFO_HEIGHT = 48;
 // Matches the admin dashboard BannerPreview text-shadow so copy stays
 // readable on both light and dark background images
@@ -41,8 +40,9 @@ const BANNER_DEFAULT_COLORS = {
 } as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
+  const shouldSuppressPress = useCarouselPressSuppressor();
   const handlePress = useCallback(async () => {
-    if (!item.href) {
+    if (!item.href || shouldSuppressPress()) {
       return;
     }
     // Official universal links (e.g. earn detail page URLs) should navigate
@@ -56,7 +56,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
       return;
     }
     handleDeepLinkUrl({ url: item.href });
-  }, [item.href, item.hrefType]);
+  }, [item.href, item.hrefType, shouldSuppressPress]);
 
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 
@@ -224,39 +224,9 @@ export function EarnHomeBanner({
     [],
   );
 
-  // OK-59246: the banner pager is nested inside the Discovery outer pager
-  // (market / DeFi / browser) — both are horizontal react-native-pager-views,
-  // and the outer one would win the gesture and switch top tabs mid-swipe.
-  // Report drag state so the outer pager pauses its own scrolling while the
-  // user is swiping the banner.
-  //
-  // Only a real finger drag counts. `settling` is also emitted by the 5s
-  // autoplay's programmatic setPage() — and autoplay never pauses on native
-  // (the Carousel's visibility observer is web-only) — so treating it as a
-  // drag would disable the outer pager for ~300ms every 5s even while the
-  // user sits on another top tab. After the finger lifts the gesture owner
-  // is already decided, so `settling` needs no gating either.
-  const handleBannerPageScrollStateChanged = useCallback(
-    (event: { nativeEvent: { pageScrollState: string } }) => {
-      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-        dragging: event.nativeEvent.pageScrollState === 'dragging',
-      });
-    },
-    [],
-  );
-  useEffect(
-    () => () => {
-      // Never leave the outer pager disabled if the banner unmounts mid-drag
-      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-        dragging: false,
-      });
-    },
-    [],
-  );
-
   if (isLoading && validBanners.length === 0) {
     return (
-      <YStack h={248} px="$pagePadding" pb="$4">
+      <YStack h={EARN_HOME_BANNER_BLOCK_HEIGHT} px="$pagePadding" pb="$4">
         <Skeleton h={BANNER_HEIGHT} borderRadius="$3" />
       </YStack>
     );
@@ -267,17 +237,18 @@ export function EarnHomeBanner({
   }
 
   return (
-    <YStack testID={EarnTestIDs.banner} h={248} px="$pagePadding" pb="$4">
+    <YStack
+      testID={EarnTestIDs.banner}
+      h={EARN_HOME_BANNER_BLOCK_HEIGHT}
+      px="$pagePadding"
+      pb="$4"
+    >
       <Carousel
         data={validBanners}
         renderItem={renderItem}
-        pagerProps={
-          platformEnv.isNative
-            ? { onPageScrollStateChanged: handleBannerPageScrollStateChanged }
-            : undefined
-        }
         autoPlayInterval={5000}
         loop={validBanners.length > 1}
+        infinite
         showPagination={validBanners.length > 1}
         // Extra 16px of height: render room for the card's drop shadow;
         // otherwise the Carousel viewport clips it and the depth effect is
