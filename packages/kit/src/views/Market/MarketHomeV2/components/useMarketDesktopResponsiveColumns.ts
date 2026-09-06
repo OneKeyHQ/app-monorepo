@@ -87,15 +87,22 @@ export function buildMarketDesktopResponsiveColumns<T>({
   const firstColumns = columns.slice(0, firstColumnCount);
   const metricColumns = columns
     .slice(firstColumnCount, firstColumnCount + visibleMetricColumnCount)
-    .map((column) => ({
-      ...column,
-      columnProps: {
-        ...column.columnProps,
-        minWidth:
-          metricColumnMinimumWidths?.[column.dataIndex] ??
-          MARKET_LIST_METRIC_COLUMN_MIN_WIDTH,
-      },
-    }));
+    .map((column) => {
+      const configuredMinimumWidth =
+        metricColumnMinimumWidths?.[column.dataIndex] ??
+        MARKET_LIST_METRIC_COLUMN_MIN_WIDTH;
+      const declaredMinimumWidth =
+        typeof column.columnProps?.minWidth === 'number'
+          ? column.columnProps.minWidth
+          : 0;
+      return {
+        ...column,
+        columnProps: {
+          ...column.columnProps,
+          minWidth: Math.max(configuredMinimumWidth, declaredMinimumWidth),
+        },
+      };
+    });
 
   if (firstColumns.length === 0) {
     return metricColumns;
@@ -155,11 +162,16 @@ export function useMarketDesktopResponsiveColumns<T>({
     return getMarketDesktopResponsiveLayout({
       containerWidth: Math.max(0, containerWidth - horizontalInset),
       metricColumnCount: metricColumns.length,
-      metricColumnMinimumWidths: metricColumns.map(
-        (column) =>
+      metricColumnMinimumWidths: metricColumns.map((column) => {
+        const configuredMinimumWidth =
           metricColumnMinimumWidths?.[column.dataIndex] ??
-          MARKET_LIST_METRIC_COLUMN_MIN_WIDTH,
-      ),
+          MARKET_LIST_METRIC_COLUMN_MIN_WIDTH;
+        const declaredMinimumWidth =
+          typeof column.columnProps?.minWidth === 'number'
+            ? column.columnProps.minWidth
+            : 0;
+        return Math.max(configuredMinimumWidth, declaredMinimumWidth);
+      }),
       minimumVisibleMetricColumnCount,
     });
   }, [

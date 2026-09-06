@@ -56,10 +56,12 @@ const mockLogError = jest.fn();
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((promiseResolve) => {
+  let reject: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
     resolve = promiseResolve;
+    reject = promiseReject;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -526,6 +528,7 @@ describe('marketV2 watchlist optimistic actions', () => {
     const { store, Wrapper } = createWrapper();
     store.set(marketV2StorageReadyAtom(), true);
     store.set(marketWatchListV2Atom(), { data: initialData });
+    mockGetMarketWatchListV2.mockResolvedValue({ data: initialData });
     const hook = renderHook(() => useWatchListV2Actions().current, {
       wrapper: Wrapper,
     });
@@ -607,5 +610,81 @@ describe('marketV2 watchlist optimistic actions', () => {
     });
 
     expect(store.get(marketWatchListV2Atom()).data).toEqual(initialData);
+  });
+
+  test('keeps a newer successful addition when an older addition fails', async () => {
+    const olderRequest = createDeferred<unknown>();
+    const newerRequest = createDeferred<unknown>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockAddMarketWatchListV2
+      .mockReturnValueOnce(olderRequest.promise)
+      .mockReturnValueOnce(newerRequest.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({
+      data: [spotItem, newerItem],
+    });
+
+    let olderAction: Promise<void> | undefined;
+    let newerAction: Promise<void> | undefined;
+    act(() => {
+      olderAction = result.current.addIntoWatchListV2({
+        chainId: 'evm--1',
+        contractAddress: '0xdef',
+      });
+      newerAction = result.current.addIntoWatchListV2(newerItem);
+    });
+
+    await act(async () => {
+      newerRequest.resolve(undefined);
+      await newerAction;
+    });
+    await act(async () => {
+      olderRequest.reject(new Error('older add failed'));
+      await expect(olderAction).rejects.toThrow('older add failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+  });
+
+  test('ignores an older watchlist refresh response', async () => {
+    const olderRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const newerRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockGetMarketWatchListV2
+      .mockReturnValueOnce(olderRefresh.promise)
+      .mockReturnValueOnce(newerRefresh.promise);
+
+    let olderAction: Promise<void> | undefined;
+    let newerAction: Promise<void> | undefined;
+    act(() => {
+      olderAction = result.current.refreshWatchListV2();
+      newerAction = result.current.refreshWatchListV2();
+    });
+
+    await act(async () => {
+      newerRefresh.resolve({ data: [spotItem, newerItem] });
+      await newerAction;
+    });
+    await act(async () => {
+      olderRefresh.resolve({ data: [spotItem] });
+      await olderAction;
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
   });
 });

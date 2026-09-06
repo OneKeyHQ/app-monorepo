@@ -125,4 +125,23 @@ describe('buildMarketDesktopResponsiveColumns', () => {
       MARKET_LIST_METRIC_COLUMN_MIN_WIDTH,
     );
   });
+
+  it('preserves a metric column declared minimum width', () => {
+    const result = buildMarketDesktopResponsiveColumns({
+      columns: [
+        { title: 'Name', dataIndex: 'name' },
+        {
+          title: 'Sparkline',
+          dataIndex: 'sparkline24h',
+          columnProps: { minWidth: 132 },
+        },
+      ],
+      firstColumnCount: 1,
+      firstColumnWidth: MARKET_LIST_FIRST_COLUMN_MIN_WIDTH,
+      metricColumnMinimumWidths: { sparkline24h: 148 },
+      visibleMetricColumnCount: 1,
+    });
+
+    expect(result[1]?.columnProps?.minWidth).toBe(148);
+  });
 });

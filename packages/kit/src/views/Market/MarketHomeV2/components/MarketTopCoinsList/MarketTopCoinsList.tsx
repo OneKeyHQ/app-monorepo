@@ -64,7 +64,7 @@ const TOP_COINS_SORTABLE_COLUMN_KEYS = [
 const TOP_COINS_METRIC_COLUMN_MINIMUM_WIDTHS = {
   priceChange24hPercent: 112,
   priceChange7dPercent: 112,
-  sparkline: 148,
+  sparkline24h: 148,
 } as const;
 
 type ITopCoinsSortableColumn = (typeof TOP_COINS_SORTABLE_COLUMN_KEYS)[number];

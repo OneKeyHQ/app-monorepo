@@ -28,6 +28,7 @@ import {
   contextAtomMethod,
   isNativeAtom,
   marketWatchListV2Atom,
+  marketWatchListV2RefreshRequestIdAtom,
   networkIdAtom,
   perpsInfoAtom,
   showWatchlistOnlyAtom,
@@ -493,9 +494,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   // ------------------------------------------------------------
-  refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
+  refreshWatchListV2 = contextAtomMethod(async (get, set) => {
+    const requestId = get(marketWatchListV2RefreshRequestIdAtom()) + 1;
+    set(marketWatchListV2RefreshRequestIdAtom(), requestId);
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+    if (get(marketWatchListV2RefreshRequestIdAtom()) !== requestId) {
+      return;
+    }
     return this.flushWatchListV2Atom.call(set, data.data);
   });
 
@@ -547,7 +553,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_addIntoWatchListV2',
         });
       } catch (error) {
-        set(marketWatchListV2Atom(), prev);
+        await this.refreshWatchListV2.call(set);
         throw error;
       }
       await this.refreshWatchListV2.call(set);
@@ -590,7 +596,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_removeFromWatchListV2',
         });
       } catch (error) {
-        set(marketWatchListV2Atom(), prev);
+        await this.refreshWatchListV2.call(set);
         throw error;
       }
       await this.refreshWatchListV2.call(set);
@@ -630,7 +636,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
         });
       } catch (error) {
-        set(marketWatchListV2Atom(), prev);
+        await this.refreshWatchListV2.call(set);
         throw error;
       }
       await this.refreshWatchListV2.call(set);
@@ -660,7 +666,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
         });
       } catch (error) {
-        set(marketWatchListV2Atom(), prev);
+        await this.refreshWatchListV2.call(set);
         throw error;
       }
       await this.refreshWatchListV2.call(set);
