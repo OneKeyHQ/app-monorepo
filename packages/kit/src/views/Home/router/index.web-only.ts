@@ -1,5 +1,8 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
 
 import {
   LazyLoadPage,
@@ -68,7 +71,7 @@ export const referralLandingRewrite = '/r/:code/app/:page';
 export const referralLandingRewriteWithoutPage = '/r/:code/app';
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
-export const primeRedeemLandingRewrite = '/prime/redeem';
+export const primeRedeemLandingRewrite = PRIME_REDEEM_LANDING_PATH;
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {

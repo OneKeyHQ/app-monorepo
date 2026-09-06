@@ -17,6 +17,8 @@ export enum ETabHomeRoutes {
   TabHomeApprovalList = 'TabHomeApprovalList',
 }
 
+export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
+
 export type ITabHomeUrlAccountParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountPage]: {
     networkId: string;

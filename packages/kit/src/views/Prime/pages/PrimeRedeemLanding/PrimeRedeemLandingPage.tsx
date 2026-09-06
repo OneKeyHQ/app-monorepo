@@ -28,6 +28,7 @@ import {
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
   PrimeRedemptionFormView,
   PrimeRedemptionSuccessView,
@@ -199,6 +200,7 @@ function PrimeRedeemLandingPage() {
     ITabHomeParamList,
     ETabHomeRoutesType.TabHomePrimeRedeem
   >();
+  const intl = useIntl();
   const { isLoggedIn, loginOneKeyId, user } = useOneKeyAuth();
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const isLoginLoadingRef = useRef(false);
@@ -212,12 +214,14 @@ function PrimeRedeemLandingPage() {
     isLoginLoadingRef.current = true;
     setIsLoginLoading(true);
     void loginOneKeyId()
-      .catch(() => undefined)
+      .catch((error) => {
+        showOneKeyIdLoginFailedToast({ error, intl });
+      })
       .finally(() => {
         isLoginLoadingRef.current = false;
         setIsLoginLoading(false);
       });
-  }, [loginOneKeyId]);
+  }, [intl, loginOneKeyId]);
 
   useFocusEffect(
     useCallback(() => {

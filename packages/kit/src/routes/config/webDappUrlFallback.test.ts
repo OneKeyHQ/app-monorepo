@@ -1,3 +1,6 @@
+import { PRIME_REDEEM_LANDING_PATH } from '@onekeyhq/shared/src/routes';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
+
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
@@ -45,16 +48,30 @@ describe('getWebDappUrlFallback', () => {
   });
 
   it('keeps the Prime redeem landing query', () => {
-    expect(
-      getWebDappUrlFallback({
-        allowList: {
-          '/prime/redeem': { showUrl: true, showParams: true },
-        },
-        allowListKeys: ['/prime/redeem'],
-        currentPath: '/prime/redeem',
-        currentSearch: '?code=OKP-TEST',
-      }),
-    ).toBe('/prime/redeem?code=OKP-TEST');
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeRedeemAllowList = buildAllowList({}, true);
+
+      expect(primeRedeemAllowList[PRIME_REDEEM_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: true,
+      });
+      const slashStrippedKey = `/${PRIME_REDEEM_LANDING_PATH.replace(
+        /\//g,
+        '',
+      )}`;
+      expect(primeRedeemAllowList[slashStrippedKey]).toBeUndefined();
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeRedeemAllowList,
+          allowListKeys: Object.keys(primeRedeemAllowList),
+          currentPath: PRIME_REDEEM_LANDING_PATH,
+          currentSearch: '?code=OKP-TEST',
+        }),
+      ).toBe(`${PRIME_REDEEM_LANDING_PATH}?code=OKP-TEST`);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('strips params when the current route does not expose them', () => {

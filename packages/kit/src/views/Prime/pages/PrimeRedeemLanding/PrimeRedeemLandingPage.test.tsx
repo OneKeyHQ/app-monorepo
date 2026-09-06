@@ -25,6 +25,7 @@ const mockFetchPrimeUserInfo = jest.fn<
 const mockLoginOneKeyId = jest.fn<Promise<void>, []>();
 const mockPrimeRedemptionResult = jest.fn();
 const mockPrimeRedemptionEntryClick = jest.fn();
+const mockShowOneKeyIdLoginFailedToast = jest.fn();
 
 let mockRouteParams: { code?: string } | undefined;
 let mockIsLoggedIn = false;
@@ -36,6 +37,12 @@ const mockUser: {
   displayEmail: 'user@example.com',
   onekeyUserId: 'user-a',
 };
+
+jest.mock('../../components/oneKeyIdLoginToastUtils', () => ({
+  showOneKeyIdLoginFailedToast: (...args: unknown[]) => {
+    mockShowOneKeyIdLoginFailedToast(...args);
+  },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -272,6 +279,21 @@ describe('PrimeRedeemLandingPage', () => {
       expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByTestId(PrimeTestIDs.redemptionCodeInput)).toBeNull();
+  });
+
+  it('reports OneKey ID login failures instead of swallowing them', async () => {
+    const error = new Error('login failed');
+    mockLoginOneKeyId.mockRejectedValue(error);
+    render(<PrimeRedeemLandingPage />);
+
+    fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionLoginBtn));
+
+    await waitFor(() => {
+      expect(mockShowOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+        error,
+        intl: expect.anything(),
+      });
+    });
   });
 
   it('prefills the code from the route and redeems', async () => {
