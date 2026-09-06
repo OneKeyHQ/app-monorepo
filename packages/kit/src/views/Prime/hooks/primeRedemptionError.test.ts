@@ -39,6 +39,23 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     });
   });
 
+  it('uses the API payload message when translated copy is missing', () => {
+    expect(
+      getPrimeRedemptionErrorPresentation({
+        error: {
+          data: {
+            message: 'server-message',
+          },
+        },
+        fallbackMessage: 'fallback',
+      }),
+    ).toEqual({
+      errorCode: undefined,
+      isExpiredSession: false,
+      message: 'server-message',
+    });
+  });
+
   it('falls back when the error has no usable message', () => {
     expect(
       getPrimeRedemptionErrorPresentation({

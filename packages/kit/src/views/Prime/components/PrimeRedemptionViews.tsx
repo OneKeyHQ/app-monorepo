@@ -12,13 +12,14 @@ import {
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
+import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeTestIDs } from '../testIDs';
 
-import type { IPrimeRedemptionForm } from '../hooks/usePrimeRedemptionSubmit';
+import type { IPrimeRedemptionFormValues } from '../hooks/usePrimeRedemptionSubmit';
 
 function usePrimeRedemptionIconName() {
   const themeName = useThemeName();
@@ -65,7 +66,7 @@ function PrimeRedemptionSuccessSummary({
 export function PrimeRedemptionFormView({
   form,
 }: {
-  form: IPrimeRedemptionForm;
+  form: UseFormReturn<IPrimeRedemptionFormValues>;
 }) {
   const intl = useIntl();
   const primeIconName = usePrimeRedemptionIconName();

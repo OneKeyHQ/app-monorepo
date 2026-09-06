@@ -55,12 +55,10 @@ export function usePrimeRedemptionSubmit({
 
   const submitRedemption = useCallback(
     async ({
-      code,
       onExpiredSession,
     }: {
-      code: string;
       onExpiredSession?: () => void | Promise<void>;
-    }) => {
+    } = {}) => {
       if (!expectedOneKeyUserId) {
         return;
       }
@@ -68,7 +66,7 @@ export function usePrimeRedemptionSubmit({
       try {
         const result = await backgroundApiProxy.servicePrime.apiRedeemPrimeCode(
           {
-            code,
+            code: form.getValues('code').trim(),
             expectedOneKeyUserId,
           },
         );
@@ -112,7 +110,3 @@ export function usePrimeRedemptionSubmit({
     submitRedemption,
   };
 }
-
-export type IPrimeRedemptionForm = ReturnType<
-  typeof usePrimeRedemptionSubmit
->['form'];

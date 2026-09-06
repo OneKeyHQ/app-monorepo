@@ -1,22 +1,10 @@
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
-type IPrimeRedemptionApiError = {
-  code?: unknown;
-  data?: {
-    code?: unknown;
-    message?: unknown;
-    translatedMessage?: unknown;
-  };
-  key?: unknown;
-  message?: unknown;
-  response?: {
-    data?: {
-      code?: unknown;
-      message?: unknown;
-      translatedMessage?: unknown;
-    };
-  };
-};
+type IPrimeRedemptionErrorPayload = Partial<
+  Pick<IOneKeyAPIBaseResponse, 'code' | 'message' | 'translatedMessage'>
+>;
 
 export type IPrimeRedemptionErrorPresentation = {
   errorCode: number | undefined;
@@ -41,20 +29,19 @@ export function getPrimeRedemptionErrorPresentation({
   error: unknown;
   fallbackMessage: string;
 }): IPrimeRedemptionErrorPresentation {
-  const apiError = error as IPrimeRedemptionApiError;
-  const responseData = apiError.response?.data;
+  const apiError =
+    error && typeof error === 'object'
+      ? (error as IOneKeyError<unknown, IPrimeRedemptionErrorPayload>)
+      : undefined;
+  const payload = apiError?.data;
   return {
-    errorCode: readErrorCode(
-      apiError.data?.code ?? responseData?.code ?? apiError.code,
-    ),
+    errorCode: readErrorCode(payload?.code ?? apiError?.code),
     isExpiredSession:
-      apiError.key === ETranslations.id_login_expired_description,
+      apiError?.key === ETranslations.id_login_expired_description,
     message:
-      readErrorText(apiError.data?.translatedMessage) ||
-      readErrorText(responseData?.translatedMessage) ||
-      readErrorText(apiError.data?.message) ||
-      readErrorText(responseData?.message) ||
-      readErrorText(apiError.message) ||
+      readErrorText(payload?.translatedMessage) ||
+      readErrorText(payload?.message) ||
+      readErrorText(apiError?.message) ||
       fallbackMessage,
   };
 }

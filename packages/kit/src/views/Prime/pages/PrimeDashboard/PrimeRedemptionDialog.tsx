@@ -47,50 +47,36 @@ function PrimeRedemptionDialogContent({
     useState(false);
 
   const handleRedeem = useCallback(
-    async ({
-      close,
-      preventClose,
-    }: IDialogInstance & { preventClose: () => void }) => {
+    async (
+      { close, preventClose }: IDialogInstance & { preventClose: () => void },
+      options?: { skipPendingPaymentCheck?: boolean },
+    ) => {
       preventClose();
-      const code = form.getValues('code').trim();
-
       await runWithSubmittingLock(async () => {
-        const entryGuard = await readInfiniPaymentEntryGuard();
-        if (
-          !entryGuard?.isLoggedIn ||
-          entryGuard.onekeyUserId !== expectedOneKeyUserId
-        ) {
-          form.setError('code', {
-            message: intl.formatMessage({
-              id: ETranslations.global_unknown_error_retry_message,
-            }),
-          });
-          return;
-        }
-        if (entryGuard.hasPendingPayment) {
-          setIsPendingPaymentConfirmation(true);
-          return;
+        if (!options?.skipPendingPaymentCheck) {
+          const entryGuard = await readInfiniPaymentEntryGuard();
+          if (
+            !entryGuard?.isLoggedIn ||
+            entryGuard.onekeyUserId !== expectedOneKeyUserId
+          ) {
+            form.setError('code', {
+              message: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
+            return;
+          }
+          if (entryGuard.hasPendingPayment) {
+            setIsPendingPaymentConfirmation(true);
+            return;
+          }
         }
 
-        await submitRedemption({ code, onExpiredSession: close });
-      });
-    },
-    [expectedOneKeyUserId, form, intl, runWithSubmittingLock, submitRedemption],
-  );
-
-  const handleConfirmedRedeem = useCallback(
-    async ({
-      close,
-      preventClose,
-    }: IDialogInstance & { preventClose: () => void }) => {
-      preventClose();
-      const code = form.getValues('code').trim();
-      await runWithSubmittingLock(async () => {
-        await submitRedemption({ code, onExpiredSession: close });
+        await submitRedemption({ onExpiredSession: close });
         setIsPendingPaymentConfirmation(false);
       });
     },
-    [form, runWithSubmittingLock, submitRedemption],
+    [expectedOneKeyUserId, form, intl, runWithSubmittingLock, submitRedemption],
   );
 
   if (redemptionResult) {
@@ -129,7 +115,9 @@ function PrimeRedemptionDialogContent({
           onCancelText={intl.formatMessage({
             id: ETranslations.global_back,
           })}
-          onConfirm={handleConfirmedRedeem}
+          onConfirm={(dialog) =>
+            handleRedeem(dialog, { skipPendingPaymentCheck: true })
+          }
           onConfirmText={intl.formatMessage({
             id: ETranslations.prime_redeem_anyway__action,
           })}

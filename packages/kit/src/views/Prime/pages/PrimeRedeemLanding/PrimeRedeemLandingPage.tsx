@@ -148,52 +148,6 @@ function Header() {
   );
 }
 
-function PrimeRedeemLandingCta({
-  canRedeem,
-  codeValue,
-  isLoginLoading,
-  isSubmitting,
-  onLogin,
-  onRedeem,
-}: {
-  canRedeem: boolean;
-  codeValue: string | undefined;
-  isLoginLoading: boolean;
-  isSubmitting: boolean;
-  onLogin: () => void;
-  onRedeem: () => void;
-}) {
-  const intl = useIntl();
-  if (!canRedeem) {
-    return (
-      <Button
-        {...LANDING_ACTION_BUTTON}
-        loading={isLoginLoading}
-        testID={PrimeTestIDs.redemptionLoginBtn}
-        onPress={onLogin}
-      >
-        {intl.formatMessage({
-          id: ETranslations.sign_in_to_onekey_id__title,
-        })}
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      {...LANDING_ACTION_BUTTON}
-      testID={PrimeTestIDs.redemptionSubmitBtn}
-      disabled={!codeValue?.trim() || isSubmitting}
-      loading={isSubmitting}
-      onPress={onRedeem}
-    >
-      {intl.formatMessage({
-        id: ETranslations.redemption_redeem_button,
-      })}
-    </Button>
-  );
-}
-
 function PrimeRedeemFormSection({
   canRedeem,
   displayEmail,
@@ -259,21 +213,31 @@ function PrimeRedeemFormSection({
         <RedeemLandingEmailChip displayEmail={displayEmail} />
       ) : null}
       <PrimeRedemptionFormView form={form} />
-      <PrimeRedeemLandingCta
-        canRedeem={canRedeem}
-        codeValue={codeValue}
-        isLoginLoading={isLoginLoading}
-        isSubmitting={isSubmitting}
-        onLogin={onLogin}
-        onRedeem={() => {
+      <Button
+        {...LANDING_ACTION_BUTTON}
+        testID={
+          canRedeem
+            ? PrimeTestIDs.redemptionSubmitBtn
+            : PrimeTestIDs.redemptionLoginBtn
+        }
+        disabled={canRedeem ? !codeValue?.trim() || isSubmitting : undefined}
+        loading={canRedeem ? isSubmitting : isLoginLoading}
+        onPress={() => {
+          if (!canRedeem) {
+            onLogin();
+            return;
+          }
           void runWithSubmittingLock(() =>
-            submitRedemption({
-              code: form.getValues('code').trim(),
-              onExpiredSession: onLogin,
-            }),
+            submitRedemption({ onExpiredSession: onLogin }),
           );
         }}
-      />
+      >
+        {intl.formatMessage({
+          id: canRedeem
+            ? ETranslations.redemption_redeem_button
+            : ETranslations.sign_in_to_onekey_id__title,
+        })}
+      </Button>
     </RedeemLandingContent>
   );
 }
