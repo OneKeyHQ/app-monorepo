@@ -27,7 +27,7 @@ function usePrimeRedemptionIconName() {
     : 'OnekeyPrimeDarkColored';
 }
 
-export function PrimeRedemptionHeroIcon() {
+function PrimeRedemptionHeroIcon() {
   const primeIconName = usePrimeRedemptionIconName();
   return (
     <Stack

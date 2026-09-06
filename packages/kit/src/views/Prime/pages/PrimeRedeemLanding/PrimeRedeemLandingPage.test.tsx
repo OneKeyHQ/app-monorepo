@@ -275,15 +275,25 @@ describe('PrimeRedeemLandingPage', () => {
     mockFetchPrimeUserInfo.mockResolvedValue(undefined);
   });
 
-  it('asks a logged-out user to sign in to OneKey ID', async () => {
+  it('shows the redeem form and opens OneKey ID login from the primary button', async () => {
     render(<PrimeRedeemLandingPage />);
+
+    expect(screen.getByTestId(PrimeTestIDs.redemptionCodeInput)).toBeTruthy();
+    expect(
+      screen.queryByText(ETranslations.prime_not_logged_in_title),
+    ).toBeNull();
+    expect(screen.queryByText('user@example.com')).toBeNull();
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionSubmitBtn)).toBeNull();
+    expect(
+      screen.getByTestId(PrimeTestIDs.redemptionLoginBtn).textContent,
+    ).toBe(ETranslations.sign_in_to_onekey_id__title);
 
     fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionLoginBtn));
 
     await waitFor(() => {
       expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
     });
-    expect(screen.queryByTestId(PrimeTestIDs.redemptionCodeInput)).toBeNull();
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
   });
 
   it('reports OneKey ID login failures instead of swallowing them', async () => {
@@ -299,6 +309,19 @@ describe('PrimeRedeemLandingPage', () => {
         intl: expect.anything(),
       });
     });
+  });
+
+  it('prefills a logged-out code from the route without redeeming', () => {
+    mockRouteParams = { code: '  OKP-PJ37L-DYXWR  ' };
+
+    render(<PrimeRedeemLandingPage />);
+
+    expect(
+      (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
+        .value,
+    ).toBe('OKP-PJ37L-DYXWR');
+    expect(screen.getByTestId(PrimeTestIDs.redemptionLoginBtn)).toBeTruthy();
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
   });
 
   it('prefills the code from the route and redeems', async () => {

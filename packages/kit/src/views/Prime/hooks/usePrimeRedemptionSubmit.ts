@@ -19,7 +19,7 @@ export function usePrimeRedemptionSubmit({
   initialCode = '',
   isPrimeActiveBeforeRedeem,
 }: {
-  expectedOneKeyUserId: string;
+  expectedOneKeyUserId: string | undefined;
   initialCode?: string;
   isPrimeActiveBeforeRedeem: boolean;
 }) {
@@ -61,6 +61,10 @@ export function usePrimeRedemptionSubmit({
       code: string;
       onExpiredSession?: () => void | Promise<void>;
     }) => {
+      if (!expectedOneKeyUserId) {
+        return;
+      }
+
       try {
         const result = await backgroundApiProxy.servicePrime.apiRedeemPrimeCode(
           {

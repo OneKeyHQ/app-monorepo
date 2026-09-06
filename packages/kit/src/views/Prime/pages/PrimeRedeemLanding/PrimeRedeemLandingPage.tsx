@@ -39,7 +39,6 @@ import {
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
   PrimeRedemptionFormView,
-  PrimeRedemptionHeroIcon,
   PrimeRedemptionSuccessView,
 } from '../../components/PrimeRedemptionViews';
 import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
@@ -187,33 +186,24 @@ function Header() {
   );
 }
 
-function PrimeRedeemLoginPrompt({
+function PrimeRedeemLandingCta({
+  canRedeem,
+  codeValue,
   isLoginLoading,
+  isSubmitting,
   onLogin,
+  onRedeem,
 }: {
+  canRedeem: boolean;
+  codeValue: string | undefined;
   isLoginLoading: boolean;
+  isSubmitting: boolean;
   onLogin: () => void;
+  onRedeem: () => void;
 }) {
   const intl = useIntl();
-  return (
-    <RedeemLandingCard>
-      <YStack gap="$4" alignItems="center">
-        <PrimeRedemptionHeroIcon />
-        <SizableText
-          size="$headingXl"
-          textAlign="center"
-          $gtMd={{ size: '$heading2xl' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.prime_not_logged_in_title,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.prime_not_logged_in_description,
-          })}
-        </SizableText>
-      </YStack>
+  if (!canRedeem) {
+    return (
       <Button
         {...LANDING_ACTION_BUTTON}
         loading={isLoginLoading}
@@ -224,22 +214,40 @@ function PrimeRedeemLoginPrompt({
           id: ETranslations.sign_in_to_onekey_id__title,
         })}
       </Button>
-    </RedeemLandingCard>
+    );
+  }
+
+  return (
+    <Button
+      {...LANDING_ACTION_BUTTON}
+      testID={PrimeTestIDs.redemptionSubmitBtn}
+      disabled={!codeValue?.trim() || isSubmitting}
+      loading={isSubmitting}
+      onPress={onRedeem}
+    >
+      {intl.formatMessage({
+        id: ETranslations.redemption_redeem_button,
+      })}
+    </Button>
   );
 }
 
 function PrimeRedeemFormSection({
+  canRedeem,
   displayEmail,
   expectedOneKeyUserId,
   initialCode,
+  isLoginLoading,
   isPrimeActiveBeforeRedeem,
-  onExpiredSession,
+  onLogin,
 }: {
+  canRedeem: boolean;
   displayEmail: string | undefined;
-  expectedOneKeyUserId: string;
+  expectedOneKeyUserId: string | undefined;
   initialCode: string;
+  isLoginLoading: boolean;
   isPrimeActiveBeforeRedeem: boolean;
-  onExpiredSession: () => void | Promise<void>;
+  onLogin: () => void;
 }) {
   const intl = useIntl();
   const {
@@ -285,26 +293,25 @@ function PrimeRedeemFormSection({
 
   return (
     <RedeemLandingCard>
-      <RedeemLandingEmailChip displayEmail={displayEmail} />
+      {canRedeem ? (
+        <RedeemLandingEmailChip displayEmail={displayEmail} />
+      ) : null}
       <PrimeRedemptionFormView form={form} />
-      <Button
-        {...LANDING_ACTION_BUTTON}
-        testID={PrimeTestIDs.redemptionSubmitBtn}
-        disabled={!codeValue?.trim() || isSubmitting}
-        loading={isSubmitting}
-        onPress={() => {
+      <PrimeRedeemLandingCta
+        canRedeem={canRedeem}
+        codeValue={codeValue}
+        isLoginLoading={isLoginLoading}
+        isSubmitting={isSubmitting}
+        onLogin={onLogin}
+        onRedeem={() => {
           void runWithSubmittingLock(() =>
             submitRedemption({
               code: form.getValues('code').trim(),
-              onExpiredSession,
+              onExpiredSession: onLogin,
             }),
           );
         }}
-      >
-        {intl.formatMessage({
-          id: ETranslations.redemption_redeem_button,
-        })}
-      </Button>
+      />
     </RedeemLandingCard>
   );
 }
@@ -382,22 +389,17 @@ function PrimeRedeemLandingPage() {
               py: '$20',
             }}
           >
-            {isLoggedIn && expectedOneKeyUserId ? (
-              <PrimeRedeemFormSection
-                displayEmail={user?.displayEmail}
-                expectedOneKeyUserId={expectedOneKeyUserId}
-                initialCode={initialCode}
-                isPrimeActiveBeforeRedeem={Boolean(
-                  user?.primeSubscription?.isActive,
-                )}
-                onExpiredSession={handleLogin}
-              />
-            ) : (
-              <PrimeRedeemLoginPrompt
-                isLoginLoading={isLoginLoading}
-                onLogin={handleLogin}
-              />
-            )}
+            <PrimeRedeemFormSection
+              canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
+              displayEmail={user?.displayEmail}
+              expectedOneKeyUserId={expectedOneKeyUserId}
+              initialCode={initialCode}
+              isLoginLoading={isLoginLoading}
+              isPrimeActiveBeforeRedeem={Boolean(
+                user?.primeSubscription?.isActive,
+              )}
+              onLogin={handleLogin}
+            />
           </YStack>
         </YStack>
       </Page.Body>
