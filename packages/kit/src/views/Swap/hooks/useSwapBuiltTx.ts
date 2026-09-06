@@ -21,6 +21,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -149,6 +150,7 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
@@ -349,6 +351,7 @@ export function useSwapBuildTx({
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [persistSettings, setPersistSettings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { isFirstTimeSwap } = persistSettings;
   const swapActionState = useSwapActionState();
   const [swapNetWorkFeeLevel] = useSwapStepNetFeeLevelAtom();
@@ -2591,13 +2594,31 @@ export function useSwapBuildTx({
             buildSwapRes.result.quoteId ??
             '';
           if (updateReviewState) {
+            const builtFromAmount =
+              buildSwapRes.result.fromAmount ?? data.fromAmount;
+            const builtToAmount = buildSwapRes.result.toAmount ?? data.toAmount;
+            const builtInstantRate = new BigNumber(builtToAmount)
+              .dividedBy(builtFromAmount)
+              .toFixed();
             setSwapSteps((prev) => ({
               ...prev,
               preSwapData: {
                 ...prev.preSwapData,
                 swapBuildLoading: false,
                 requiresSlippageRebuildOnConfirm: false,
-                toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
+                toTokenAmount: builtToAmount,
+                rateDifference:
+                  data.protocol === EProtocolOfExchange.LIMIT
+                    ? undefined
+                    : buildSwapRateDifference({
+                        fromTokenPrice: prev.preSwapData.fromToken?.price,
+                        toTokenPrice: prev.preSwapData.toToken?.price,
+                        fromTokenCurrency: prev.preSwapData.fromToken?.currency,
+                        toTokenCurrency: prev.preSwapData.toToken?.currency,
+                        defaultTokenCurrency: persistSettings.currencyInfo.id,
+                        currencyMap,
+                        instantRate: builtInstantRate,
+                      }),
                 swapBuildResultData: {
                   swapInfo,
                   orderId,
@@ -2648,6 +2669,8 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       intl,
+      persistSettings.currencyInfo.id,
+      currencyMap,
     ],
   );
 
