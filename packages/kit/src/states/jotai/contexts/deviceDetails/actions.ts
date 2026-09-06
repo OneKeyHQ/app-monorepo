@@ -18,6 +18,7 @@ import {
   deviceStateSnapshotAtom,
   emptyMetaState,
   emptyMetaStatic,
+  refreshRequestIdAtom,
   refreshSettledAtom,
   walletWithDeviceStateAtom,
 } from './atoms';
@@ -201,13 +202,19 @@ async function buildDeviceMetaState(
 class DeviceDetailsActions extends ContextJotaiActionsBase {
   updateDeviceMetaStatic = contextAtomMethod(
     async (get, set, walletId?: string) => {
+      const requestId = get(refreshRequestIdAtom());
       const data = get(walletWithDeviceStateAtom());
       const metaStatic = await buildDeviceMetaStatic(
         data,
         get(deviceStateSnapshotAtom()),
       );
-      // Superseded by a newer device switch during the await — drop this write.
-      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      // A newer refresh can replace the device without changing the route.
+      if (
+        get(refreshRequestIdAtom()) !== requestId ||
+        (walletId && get(currentWalletIdAtom()) !== walletId)
+      ) {
+        return;
+      }
       if (metaStatic) {
         set(deviceMetaStaticAtom(), metaStatic);
       }
@@ -216,12 +223,18 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
 
   updateDeviceMetaState = contextAtomMethod(
     async (get, set, walletId?: string) => {
+      const requestId = get(refreshRequestIdAtom());
       const data = get(walletWithDeviceStateAtom());
       const metaState = await buildDeviceMetaState(
         data,
         get(deviceStateSnapshotAtom()),
       );
-      if (walletId && get(currentWalletIdAtom()) !== walletId) return;
+      if (
+        get(refreshRequestIdAtom()) !== requestId ||
+        (walletId && get(currentWalletIdAtom()) !== walletId)
+      ) {
+        return;
+      }
       if (metaState) {
         set(deviceMetaStateAtom(), metaState);
       }
@@ -281,6 +294,12 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       const walletId = incomingWalletId ?? get(currentWalletIdAtom());
       if (!walletId) return;
 
+      const requestId = get(refreshRequestIdAtom()) + 1;
+      set(refreshRequestIdAtom(), requestId);
+      const isCurrentRefresh = () =>
+        get(refreshRequestIdAtom()) === requestId &&
+        get(currentWalletIdAtom()) === walletId;
+
       // Device switched: reset header state so the skeleton re-engages.
       if (walletId !== get(currentWalletIdAtom())) {
         set(currentWalletIdAtom(), walletId);
@@ -301,8 +320,8 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
           r?.[walletId],
           Object.values(r),
         );
-        // Drop a superseded response (device switched mid-flight).
-        if (get(currentWalletIdAtom()) !== walletId) {
+        // Drop responses superseded by another refresh, even on the same route.
+        if (!isCurrentRefresh()) {
           return data;
         }
         set(currentWalletIdAtom(), walletId);
@@ -333,7 +352,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
               refreshInfo: options?.refreshFirmwareInfo,
             })
             .catch(() => undefined);
-          if (get(currentWalletIdAtom()) !== walletId) {
+          if (!isCurrentRefresh()) {
             return data;
           }
           set(
@@ -362,11 +381,14 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
           );
         }
         await this.updateDeviceMetaStatic.call(set, walletId);
+        if (!isCurrentRefresh()) {
+          return data;
+        }
         await this.updateDeviceMetaState.call(set, walletId);
         return data;
       } finally {
         // Don't mark settled if a newer refresh already took over.
-        if (get(currentWalletIdAtom()) === walletId) {
+        if (isCurrentRefresh()) {
           set(refreshSettledAtom(), true);
         }
       }
