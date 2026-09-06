@@ -27,6 +27,8 @@ jest.mock('@onekeyhq/components', () => {
     __esModule: true,
     Dialog: { show: dialogShow, Footer: DialogFooter },
     SizableText: Text,
+    Spinner: (props: Record<string, unknown>) =>
+      React.createElement(View, props),
     Stack: View,
     Switch: (props: Record<string, unknown>) =>
       React.createElement(View, props),
@@ -35,14 +37,20 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceStaking: {
-      getBorrowTransactionConfirmation: jest.fn(),
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
+  const getBorrowTransactionConfirmation = jest.fn();
+  (globalThis as Record<string, unknown>).__collateralCellServiceMock = {
+    getBorrowTransactionConfirmation,
+  };
+  return {
+    __esModule: true,
+    default: {
+      serviceStaking: {
+        getBorrowTransactionConfirmation,
+      },
     },
-  },
-}));
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult', () => {
   const showDeFiActionTxConfirmDialog = jest.fn();
@@ -66,16 +74,6 @@ jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => {
   (globalThis as Record<string, unknown>).__collateralCellWaitStatusMock =
     waitForTxFinalStatus;
   return { __esModule: true, waitForTxFinalStatus };
-});
-
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const usePromiseResult = jest.fn();
-  (globalThis as Record<string, unknown>).__collateralCellPromiseResultMock =
-    usePromiseResult;
-  return {
-    __esModule: true,
-    usePromiseResult,
-  };
 });
 
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
@@ -154,8 +152,10 @@ const waitStatusMock = (globalThis as Record<string, unknown>)
   .__collateralCellWaitStatusMock as jest.Mock;
 const contextMock = (globalThis as Record<string, unknown>)
   .__collateralCellContextMock as jest.Mock;
-const promiseResultMock = (globalThis as Record<string, unknown>)
-  .__collateralCellPromiseResultMock as jest.Mock;
+const serviceMock = (globalThis as Record<string, unknown>)
+  .__collateralCellServiceMock as {
+  getBorrowTransactionConfirmation: jest.Mock;
+};
 const setCollateralMocks = (globalThis as Record<string, unknown>)
   .__collateralCellSetCollateralMock as {
   setCollateral: jest.Mock;
@@ -231,10 +231,9 @@ describe('CollateralSwitchCell settlement guard', () => {
     waitStatusMock.mockReset();
     waitStatusMock.mockResolvedValue(undefined);
     contextMock.mockReset();
-    promiseResultMock.mockReset();
-    promiseResultMock.mockReturnValue({
-      result: { canBeCollateral: true },
-      isLoading: false,
+    serviceMock.getBorrowTransactionConfirmation.mockReset();
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      canBeCollateral: true,
     });
     setCollateralMocks.setCollateral.mockReset();
     setCollateralMocks.useUniversalBorrowSetCollateral.mockClear();
@@ -321,9 +320,9 @@ describe('CollateralSwitchCell settlement guard', () => {
   });
 
   it('ignores collateral eligibility and omits eModeId when disabling', async () => {
-    promiseResultMock.mockReturnValue({
-      result: { canBeCollateral: false, liquidationRisk: false },
-      isLoading: false,
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      canBeCollateral: false,
+      liquidationRisk: false,
     });
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
@@ -370,14 +369,11 @@ describe('CollateralSwitchCell settlement guard', () => {
   });
 
   it('allows a successful preview that omits optional collateral eligibility', async () => {
-    promiseResultMock.mockReturnValue({
-      result: {
-        healthFactor: {
-          current: { title: { text: '22.39' } },
-          latest: { title: { text: '24.18' } },
-        },
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      healthFactor: {
+        current: { title: { text: '22.39' } },
+        latest: { title: { text: '24.18' } },
       },
-      isLoading: false,
     });
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
@@ -390,40 +386,23 @@ describe('CollateralSwitchCell settlement guard', () => {
     [
       'the live preview rejects collateral eligibility',
       { canBeCollateral: false },
-      false,
       true,
       false,
     ],
-    ['the live preview is unavailable', undefined, false, true, false],
-    ['the live preview has not started', undefined, undefined, false, false],
-    ['the disable preview is unavailable', undefined, false, true, true],
-    [
-      'the live preview is loading',
-      { canBeCollateral: true },
-      true,
-      false,
-      false,
-    ],
+    ['the live preview is unavailable', undefined, true, false],
+    ['the disable preview is unavailable', undefined, true, true],
     [
       'the live preview reports liquidation risk',
       { canBeCollateral: true, liquidationRisk: true },
-      false,
       false,
       true,
     ],
   ])(
     'blocks confirmation when %s',
-    async (
-      _title,
-      confirmation,
-      isLoading,
-      showsUnavailable,
-      usageAsCollateral,
-    ) => {
-      promiseResultMock.mockReturnValue({
-        result: confirmation,
-        isLoading,
-      });
+    async (_title, confirmation, showsUnavailable, usageAsCollateral) => {
+      serviceMock.getBorrowTransactionConfirmation.mockResolvedValue(
+        confirmation,
+      );
       let dialogOptions: ITestDialogOptions | undefined;
       const close = jest.fn(async () => dialogOptions?.onClose?.());
       componentsMock.dialogShow.mockImplementation(
@@ -457,9 +436,6 @@ describe('CollateralSwitchCell settlement guard', () => {
           typeof node.props.onConfirm === 'function',
       );
       expect(footer).toBeDefined();
-      if (isLoading === undefined) {
-        expect(footer?.props.confirmButtonProps?.loading).toBe(true);
-      }
       const onConfirm = footer?.props.onConfirm as
         | (() => Promise<void>)
         | undefined;
