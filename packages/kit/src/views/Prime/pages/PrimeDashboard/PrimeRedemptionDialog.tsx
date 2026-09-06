@@ -53,9 +53,6 @@ function PrimeRedemptionDialogContent({
     }: IDialogInstance & { preventClose: () => void }) => {
       preventClose();
       const code = form.getValues('code').trim();
-      if (!code) {
-        return;
-      }
 
       await runWithSubmittingLock(async () => {
         const entryGuard = await readInfiniPaymentEntryGuard();
@@ -88,9 +85,6 @@ function PrimeRedemptionDialogContent({
     }: IDialogInstance & { preventClose: () => void }) => {
       preventClose();
       const code = form.getValues('code').trim();
-      if (!code) {
-        return;
-      }
       await runWithSubmittingLock(async () => {
         await submitRedemption({ code, onExpiredSession: close });
         setIsPendingPaymentConfirmation(false);

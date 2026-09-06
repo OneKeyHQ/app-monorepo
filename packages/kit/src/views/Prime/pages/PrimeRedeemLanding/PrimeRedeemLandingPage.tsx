@@ -178,12 +178,11 @@ function PrimeRedeemFormSection({
         disabled={!codeValue?.trim() || isSubmitting}
         loading={isSubmitting}
         onPress={() => {
-          const code = form.getValues('code').trim();
-          if (!code) {
-            return;
-          }
           void runWithSubmittingLock(() =>
-            submitRedemption({ code, onExpiredSession }),
+            submitRedemption({
+              code: form.getValues('code').trim(),
+              onExpiredSession,
+            }),
           );
         }}
       >
