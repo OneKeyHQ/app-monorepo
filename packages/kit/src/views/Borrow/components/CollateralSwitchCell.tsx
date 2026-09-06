@@ -18,6 +18,7 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import type { ISwitchProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getLastSignedTxid,
@@ -185,9 +186,11 @@ function showCollateralConfirmDialog(params: {
 export function CollateralSwitchCell({
   item,
   eModeId,
+  size = 'small',
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
+  size?: ISwitchProps['size'];
 }) {
   const intl = useIntl();
   const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
@@ -634,7 +637,7 @@ export function CollateralSwitchCell({
       <Switch
         testID={BorrowTestIDs.suppliedCollateralSwitch}
         value={value}
-        size="small"
+        size={size}
         opacity={previewLoading ? 0 : 1}
         disabled={
           previewLoading ||
