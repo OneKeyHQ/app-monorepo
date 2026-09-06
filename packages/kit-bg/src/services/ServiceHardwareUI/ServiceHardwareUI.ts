@@ -763,6 +763,7 @@ class ServiceHardwareUI extends ServiceBase {
     const stageAtClose = await deviceStageAtom.get();
     const stepAtClose = stageAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
+    let deviceCancelStarted = false;
     if (
       lease !== this.hardwareProcessingManager.getActiveOneKeyOperationLease()
     )
@@ -776,6 +777,8 @@ class ServiceHardwareUI extends ServiceBase {
       !qrStepAtClose &&
       !skipDeviceCancel
     ) {
+      this.hardwareProcessingManager.cancelOperation(connectId);
+      deviceCancelStarted = true;
       void this.backgroundApi.serviceHardware.cancel({
         connectId,
         oneKeyOperationLease: lease,
@@ -814,7 +817,9 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       oneKeyOperationLease: lease,
       skipDeviceCancel:
-        qrStepAtClose || !connectId ? true : (skipDeviceCancel ?? false),
+        deviceCancelStarted || qrStepAtClose || !connectId
+          ? true
+          : (skipDeviceCancel ?? false),
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });

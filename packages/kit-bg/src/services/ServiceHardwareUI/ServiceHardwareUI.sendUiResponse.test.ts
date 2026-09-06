@@ -886,8 +886,10 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
 describe('ServiceHardwareUI.deviceStageUserClose', () => {
   const createService = () => {
     const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const cancelDevice = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceHardwareUI({
       backgroundApi: {
+        serviceHardware: { cancel: cancelDevice },
         serviceQrWallet: { cancelStageAirGapScan },
       } as never,
     });
@@ -895,7 +897,7 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
     const close = jest
       .spyOn(service, 'closeHardwareUiStateDialogFn')
       .mockResolvedValue(undefined);
-    return { service, close };
+    return { service, close, cancelDevice };
   };
 
   beforeEach(() => {
@@ -920,18 +922,30 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
   });
 
   it('still cancels on the device the stage names', async () => {
-    const { service, close } = createService();
+    const { service, close, cancelDevice } = createService();
+    const cancelOperation = jest.spyOn(
+      service.hardwareProcessingManager,
+      'cancelOperation',
+    );
 
-    await service.deviceStageUserClose({
-      connectId: 'PRB09B0058A',
-      skipDeviceCancel: false,
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({
+          connectId: 'PRB09B0058A',
+          skipDeviceCancel: false,
+        });
+        expect(lease.signal?.aborted).toBe(true);
+      },
     });
 
     expect(close.mock.calls[0][0]).toMatchObject({
       connectId: 'PRB09B0058A',
-      skipDeviceCancel: false,
+      skipDeviceCancel: true,
       immediateDeviceCancel: true,
     });
+    expect(cancelOperation).toHaveBeenCalledTimes(1);
+    expect(cancelOperation).toHaveBeenCalledWith('PRB09B0058A');
+    expect(cancelDevice).toHaveBeenCalledTimes(1);
   });
 });
 
