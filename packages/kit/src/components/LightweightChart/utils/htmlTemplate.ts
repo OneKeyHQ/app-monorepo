@@ -127,6 +127,7 @@ function getChartInitScript(): string {
       function getPrimarySeriesType(nextConfig) {
         if (nextConfig.seriesType === 'baseline') return 'baseline';
         if (nextConfig.seriesType === 'dotted-area') return 'dotted-area';
+        if (nextConfig.seriesType === 'histogram') return 'histogram';
         return 'area';
       }
       function createDottedAreaSeriesPaneView() {
@@ -265,10 +266,111 @@ function getChartInitScript(): string {
           priceFormat: { type: 'custom', formatter: priceFormatter },
         };
       }
+      function createHistogramSeriesPaneView() {
+        var defaultOptions = Object.assign(
+          {},
+          LightweightCharts.customSeriesDefaultOptions || {},
+          {
+            color: '#22AB15',
+            base: 0,
+            barWidthRatio: 0.52,
+            maxBarWidth: 24,
+            baseLineVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        );
+        var renderer = {
+          data: null,
+          options: defaultOptions,
+          update: function(data, options) {
+            this.data = data;
+            this.options = options || defaultOptions;
+          },
+          draw: function(target, priceConverter) {
+            if (!this.data || !this.data.bars || !this.data.bars.length) return;
+            var options = this.options || defaultOptions;
+            var baseY = priceConverter(options.base);
+            if (baseY === null || baseY === undefined) return;
+            var barSpacing = this.data.barSpacing * Math.max(1, this.data.conflationFactor || 1);
+            var barWidthRatio = Math.min(1, Math.max(0.1, options.barWidthRatio));
+            var maxBarWidth = Math.max(1, options.maxBarWidth);
+            var bars = this.data.bars;
+            target.useBitmapCoordinateSpace(function(scope) {
+              var ctx = scope.context;
+              var horizontalRatio = scope.horizontalPixelRatio;
+              var verticalRatio = scope.verticalPixelRatio;
+              var barWidth = Math.max(
+                1,
+                Math.round(Math.min(maxBarWidth, barSpacing * barWidthRatio) * horizontalRatio)
+              );
+              var baseYInPixels = baseY * verticalRatio;
+              bars.forEach(function(bar) {
+                var value = bar.originalData.value;
+                if (!Number.isFinite(value) || value === options.base) return;
+                var valueY = priceConverter(value);
+                if (valueY === null || valueY === undefined) return;
+                var valueYInPixels = valueY * verticalRatio;
+                var top = Math.min(valueYInPixels, baseYInPixels);
+                var bottom = Math.max(valueYInPixels, baseYInPixels);
+                var centerX = bar.x * horizontalRatio;
+                var left = Math.round(centerX - barWidth / 2);
+                var topPixel = Math.round(top);
+                var bottomPixel = Math.round(bottom);
+                ctx.fillStyle = bar.barColor || options.color;
+                ctx.fillRect(
+                  left,
+                  topPixel,
+                  barWidth,
+                  Math.max(1, bottomPixel - topPixel)
+                );
+              });
+            });
+          },
+        };
+        return {
+          renderer: function() { return renderer; },
+          update: function(data, seriesOptions) { renderer.update(data, seriesOptions); },
+          priceValueBuilder: function(plotRow) {
+            return [renderer.options.base, plotRow.value, plotRow.value];
+          },
+          isWhitespace: function(data) {
+            return !data || typeof data.value !== 'number' || !Number.isFinite(data.value);
+          },
+          defaultOptions: function() { return defaultOptions; },
+        };
+      }
       function getLineType(nextConfig) {
         return nextConfig.lineType === 'steps'
           ? LightweightCharts.LineType.WithSteps
           : LightweightCharts.LineType.Simple;
+      }
+      function getReferenceLineStyle(lineStyle) {
+        if (lineStyle === 'dotted') return LightweightCharts.LineStyle.Dotted;
+        if (lineStyle === 'dashed') return LightweightCharts.LineStyle.Dashed;
+        if (lineStyle === 'large-dashed') return LightweightCharts.LineStyle.LargeDashed;
+        if (lineStyle === 'sparse-dotted') return LightweightCharts.LineStyle.SparseDotted;
+        return LightweightCharts.LineStyle.Solid;
+      }
+      function getHistogramSeriesOptions(nextConfig) {
+        var priceFormatter = getPriceFormatter(nextConfig);
+        var showLast = Boolean(nextConfig.showLastValue);
+        var histogramOptions = nextConfig.histogramOptions || {};
+        return {
+          priceScaleId: getPriceScalePosition(nextConfig),
+          base: Number.isFinite(histogramOptions.base) ? histogramOptions.base : 0,
+          color: histogramOptions.positiveColor || nextConfig.theme.lineColor,
+          barWidthRatio: Number.isFinite(histogramOptions.barWidthRatio)
+            ? histogramOptions.barWidthRatio
+            : 0.52,
+          maxBarWidth: Number.isFinite(histogramOptions.maxBarWidth)
+            ? histogramOptions.maxBarWidth
+            : 24,
+          baseLineVisible: false,
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        };
       }
       function createPrimarySeries(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
@@ -290,6 +392,12 @@ function getChartInitScript(): string {
             crosshairMarkerRadius: 5,
             priceFormat: { type: 'custom', formatter: priceFormatter },
           }));
+        }
+        if (getPrimarySeriesType(nextConfig) === 'histogram') {
+          return chart.addCustomSeries(
+            createHistogramSeriesPaneView(),
+            getHistogramSeriesOptions(nextConfig)
+          );
         }
         return chart.addSeries(LightweightCharts.AreaSeries, {
           priceScaleId: getPriceScalePosition(nextConfig),
@@ -326,6 +434,10 @@ function getChartInitScript(): string {
           }));
           return;
         }
+        if (window.seriesType === 'histogram') {
+          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
+          return;
+        }
         window.series.applyOptions({
           priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
@@ -346,12 +458,30 @@ function getChartInitScript(): string {
           if (window.series) {
             chart.removeSeries(window.series);
           }
+          window.referencePriceLine = null;
           window.series = createPrimarySeries(nextConfig);
           window.seriesType = nextSeriesType;
         } else {
           applyPrimarySeriesOptions(nextConfig);
         }
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+      }
+      function syncReferenceLine(nextConfig) {
+        if (!window.series) return;
+        if (window.referencePriceLine) {
+          window.series.removePriceLine(window.referencePriceLine);
+          window.referencePriceLine = null;
+        }
+        if (!nextConfig.referenceLine) return;
+        window.referencePriceLine = window.series.createPriceLine({
+          price: nextConfig.referenceLine.price,
+          color: nextConfig.referenceLine.color,
+          lineWidth: getNormalizedLineWidth(nextConfig.referenceLine.lineWidth, 1),
+          lineStyle: getReferenceLineStyle(nextConfig.referenceLine.lineStyle),
+          lineVisible: true,
+          axisLabelVisible: Boolean(nextConfig.referenceLine.axisLabelVisible),
+          title: '',
+        });
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {
@@ -467,11 +597,13 @@ function getChartInitScript(): string {
       window.chart = chart;
       window.series = null;
       window.seriesType = null;
+      window.referencePriceLine = null;
       window.secondarySeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.chart.applyOptions(getChartOptions(nextConfig));
         syncPrimarySeries(nextConfig);
+        syncReferenceLine(nextConfig);
         syncSecondarySeries(nextConfig);
         window.chart.timeScale().fitContent();
       };

@@ -60,6 +60,7 @@ import {
 } from '../hooks/usePerpMarketData';
 import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
@@ -126,6 +127,9 @@ function FundingDialogContent({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+    initialChartType: 'funding',
+  });
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { assetCtx } = usePerpsActiveAssetCtxDisplay(
@@ -134,10 +138,10 @@ function FundingDialogContent({
   const fundingRate = assetCtx?.ctx?.fundingRate || '0';
   const fundingRateNumber = parseFloat(fundingRate);
   const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(4);
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
 
   const handleViewFundingHistory = useCallback(() => {
@@ -148,6 +152,13 @@ function FundingDialogContent({
       });
     }, FUNDING_DIALOG_CLOSE_DURATION_MS);
   }, [closeDialog, navigation]);
+
+  const handleViewFundingAnalysis = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      void showFundingAnalysis();
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, showFundingAnalysis]);
 
   return (
     <YStack
@@ -291,17 +302,30 @@ function FundingDialogContent({
           })}
         </SizableText>
       </YStack>
-      <Button
-        size="medium"
-        variant="secondary"
-        width="100%"
-        testID="perp-view-funding-history-button"
-        onPress={handleViewFundingHistory}
-      >
-        {intl.formatMessage({
-          id: ETranslations.export_history__action,
-        })}
-      </Button>
+      <YStack gap="$3" width="100%">
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-history-button"
+          onPress={handleViewFundingHistory}
+        >
+          {intl.formatMessage({
+            id: ETranslations.export_history__action,
+          })}
+        </Button>
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-analysis-button"
+          onPress={handleViewFundingAnalysis}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_view_funding_analysis__action,
+          })}
+        </Button>
+      </YStack>
     </YStack>
   );
 }

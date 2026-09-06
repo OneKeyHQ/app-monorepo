@@ -34,6 +34,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
     expect(source).toContain('assetStatusCurrency &&');
     expect(source).toContain('if (!snapshot || isStaleOwnerRequest())');
+    expect(source).toContain('clearRetainedResultOnAcceptedRun: true');
     expect(source).toContain('totalFiatCurrency: assetStatusCurrency');
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
@@ -215,5 +216,31 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).not.toContain(
       'totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r)',
     );
+  });
+
+  it('commits the authoritative snapshot before running asset status analytics', () => {
+    const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+    const producerStart = source.indexOf(
+      'const updateAllNetworksTokenList = useCallback',
+    );
+    const producerSource = source.slice(producerStart);
+    const worthIndex = producerSource.indexOf('updateAccountWorth({');
+    const commitIndex = producerSource.indexOf(
+      'commitAuthoritativeIngest(snapshot);',
+    );
+    const readyStateIndex = producerSource.indexOf(
+      'updateTokenListState({',
+      commitIndex,
+    );
+    const analyticsIndex = producerSource.indexOf(
+      'getWalletAssetStatusAnalytics',
+      commitIndex,
+    );
+
+    expect(producerStart).toBeGreaterThan(0);
+    expect(worthIndex).toBeGreaterThan(0);
+    expect(commitIndex).toBeGreaterThan(worthIndex);
+    expect(readyStateIndex).toBeGreaterThan(commitIndex);
+    expect(analyticsIndex).toBeGreaterThan(readyStateIndex);
   });
 });
