@@ -259,6 +259,7 @@ const PaginationFooter = ({
   headerTextColor,
   borderColor,
   onViewAll,
+  paginationAction,
 }: {
   currentPage: number;
   totalPages: number;
@@ -270,6 +271,7 @@ const PaginationFooter = ({
   borderColor: string;
   isMobile?: boolean;
   onViewAll?: () => void;
+  paginationAction?: ReactElement | null;
 }) => {
   const intl = useIntl();
   const [inputValue, setInputValue] = useState(currentPage.toString());
@@ -295,7 +297,7 @@ const PaginationFooter = ({
     handleInputSubmit();
   };
 
-  if (totalPages <= 1 && !onViewAll) {
+  if (totalPages <= 1 && !onViewAll && !paginationAction) {
     return null;
   }
 
@@ -376,6 +378,7 @@ const PaginationFooter = ({
           {intl.formatMessage({ id: ETranslations.global_view_more })}
         </Button>
       ) : null}
+      {paginationAction}
     </XStack>
   );
 };
@@ -426,6 +429,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
+  paginationAction?: ReactElement | null;
   onPullToRefresh?: () => Promise<void>;
   ListHeaderComponent?: ReactElement | null;
   mobileLoadingComponent?: ReactElement;
@@ -454,6 +458,7 @@ export function CommonTableListView<T>({
   pageSize = 20,
   listViewDebugRenderTrackerProps,
   onViewAll,
+  paginationAction,
   onPullToRefresh,
   ListHeaderComponent,
   mobileLoadingComponent,
@@ -499,6 +504,7 @@ export function CommonTableListView<T>({
     scrollViewRef,
     handleNativeScroll,
     handleWebScroll,
+    shadowTransitionEnabled,
   } = useFixedColumnShadow({
     position: 'right',
     enabled: hasFixedColumns,
@@ -999,7 +1005,9 @@ export function CommonTableListView<T>({
               ? getWebShadowStyle('right', isDark)
               : 'none',
             clipPath: getWebClipPath('right'),
-            transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
+            transition: shadowTransitionEnabled
+              ? `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`
+              : 'none',
           }}
         >
           <FixedColumnShadowOverlay
@@ -1055,6 +1063,7 @@ export function CommonTableListView<T>({
           headerTextColor={headerTextColor}
           borderColor={borderColor}
           onViewAll={onViewAll}
+          paginationAction={paginationAction}
         />
       ) : null}
     </YStack>

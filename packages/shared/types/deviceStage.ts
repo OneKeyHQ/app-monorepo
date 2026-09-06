@@ -1,3 +1,13 @@
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '../src/errors/types/errorTypes';
+
+export type IDeviceStageErrorI18n = Pick<
+  IOneKeyError<IOneKeyErrorI18nInfo>,
+  'key' | 'info'
+>;
+
 /**
  * DeviceStage integration-layer vocabulary (OK-59934).
  *

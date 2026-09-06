@@ -40,6 +40,7 @@ export enum EPrimeFeatures {
   HistoryExport = 'HistoryExport',
   DAppTranslate = 'DAppTranslate',
   BlockaidSiteScan = 'BlockaidSiteScan',
+  TransactionSecurityCheck = 'TransactionSecurityCheck',
   ExtendedHistory = 'ExtendedHistory',
   ReceiveRiskMonitoring = 'ReceiveRiskMonitoring',
   AddressRiskCheck = 'AddressRiskCheck',

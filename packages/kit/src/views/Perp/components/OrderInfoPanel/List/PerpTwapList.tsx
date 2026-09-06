@@ -49,6 +49,7 @@ import {
 import type {
   IFill,
   ITwapHistoryRecord,
+  ITwapHistoryStatusValue,
   ITwapSliceFill,
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -165,20 +166,38 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
   return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
+const TWAP_HISTORY_STATUS_TEXT_MAP: Record<
+  ITwapHistoryStatusValue,
+  ETranslations
+> = {
+  activated: ETranslations.perp_twap_status_activated__title,
+  error: ETranslations.perp_twap_status_error__title,
+  finished: ETranslations.perp_twap_status_finished__title,
+  terminated: ETranslations.perp_twap_status_terminated__title,
+  stopped: ETranslations.perp_twap_status_stopped__title,
+  waitingForTrigger: ETranslations.perp_twap_status_waiting_for_trigger__title,
+};
+
+function humanizeTwapHistoryStatus(status: string | undefined) {
+  // Also covers a status object that carries no `status` value at all, which
+  // the SDK type says cannot happen.
+  if (!status) {
+    return '--';
+  }
+  const words = status.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function getTwapHistoryStatusText(
-  status: ITwapHistoryRecord['status']['status'],
+  status: ITwapHistoryStatusValue,
   intl: IntlShape,
 ) {
-  const statusTextMap: Record<
-    ITwapHistoryRecord['status']['status'],
-    ETranslations
-  > = {
-    activated: ETranslations.perp_twap_status_activated__title,
-    error: ETranslations.perp_twap_status_error__title,
-    finished: ETranslations.perp_twap_status_finished__title,
-    terminated: ETranslations.perp_twap_status_terminated__title,
-  };
-  return intl.formatMessage({ id: statusTextMap[status] });
+  const translationId = TWAP_HISTORY_STATUS_TEXT_MAP[status];
+  // An unmapped status must degrade to raw text; `formatMessage` throws on an
+  // undefined id and takes the whole history tab down with it.
+  return translationId
+    ? intl.formatMessage({ id: translationId })
+    : humanizeTwapHistoryStatus(status);
 }
 
 function getTableRowBgColor({
@@ -625,7 +644,11 @@ function TwapHistoryRow({
 }) {
   const intl = useIntl();
   const { state } = record;
-  const isActivated = record.status.status === 'activated';
+  const statusValue = record.status.status;
+  // A trigger TWAP waiting to fire has not executed anything yet, so it shares
+  // the in-flight presentation with `activated`.
+  const isActivated =
+    statusValue === 'activated' || statusValue === 'waitingForTrigger';
   const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
@@ -661,24 +684,21 @@ function TwapHistoryRow({
   const statusText = useMemo(() => {
     const statusDescription =
       record.status.status === 'error' ? record.status.description : undefined;
-    const translatedStatus = getTwapHistoryStatusText(
-      record.status.status,
-      intl,
-    );
+    const translatedStatus = getTwapHistoryStatusText(statusValue, intl);
     if (statusDescription) {
       return `${translatedStatus}: ${statusDescription}`;
     }
     return translatedStatus;
-  }, [intl, record.status]);
+  }, [intl, record.status, statusValue]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
   if (isMobile) {
     let statusColor = '$textSubdued';
-    if (record.status.status === 'error') {
+    if (statusValue === 'error') {
       statusColor = '$red11';
-    } else if (record.status.status === 'finished') {
+    } else if (statusValue === 'finished') {
       statusColor = '$green11';
     }
 
@@ -887,7 +907,7 @@ function TwapHistoryRow({
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color={record.status.status === 'error' ? '$red11' : '$text'}
+            color={statusValue === 'error' ? '$red11' : '$text'}
           >
             {statusText}
           </SizableText>

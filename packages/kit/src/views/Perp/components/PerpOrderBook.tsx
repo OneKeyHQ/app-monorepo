@@ -10,6 +10,7 @@ import {
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -40,6 +41,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
@@ -58,6 +60,7 @@ import {
 } from '../hooks/usePerpMarketData';
 import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
@@ -87,7 +90,6 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
-import type { LayoutChangeEvent } from 'react-native';
 
 const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
 
@@ -125,6 +127,9 @@ function FundingDialogContent({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+    initialChartType: 'funding',
+  });
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { assetCtx } = usePerpsActiveAssetCtxDisplay(
@@ -133,10 +138,10 @@ function FundingDialogContent({
   const fundingRate = assetCtx?.ctx?.fundingRate || '0';
   const fundingRateNumber = parseFloat(fundingRate);
   const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(4);
   const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
 
   const handleViewFundingHistory = useCallback(() => {
@@ -147,6 +152,13 @@ function FundingDialogContent({
       });
     }, FUNDING_DIALOG_CLOSE_DURATION_MS);
   }, [closeDialog, navigation]);
+
+  const handleViewFundingAnalysis = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      void showFundingAnalysis();
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, showFundingAnalysis]);
 
   return (
     <YStack
@@ -229,7 +241,7 @@ function FundingDialogContent({
           </XStack>
         </YStack>
       </YStack>
-      <Divider />
+      <FundingDialogDivider />
 
       <YStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -272,7 +284,7 @@ function FundingDialogContent({
         )}
       </YStack>
 
-      <Divider />
+      <FundingDialogDivider />
       <YStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
@@ -290,18 +302,49 @@ function FundingDialogContent({
           })}
         </SizableText>
       </YStack>
-      <Button
-        size="medium"
-        variant="secondary"
-        width="100%"
-        testID="perp-view-funding-history-button"
-        onPress={handleViewFundingHistory}
-      >
-        {intl.formatMessage({
-          id: ETranslations.export_history__action,
-        })}
-      </Button>
+      <YStack gap="$3" width="100%">
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-history-button"
+          onPress={handleViewFundingHistory}
+        >
+          {intl.formatMessage({
+            id: ETranslations.export_history__action,
+          })}
+        </Button>
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-analysis-button"
+          onPress={handleViewFundingAnalysis}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_view_funding_analysis__action,
+          })}
+        </Button>
+      </YStack>
     </YStack>
+  );
+}
+
+function FundingDialogDivider() {
+  if (!platformEnv.isNative) {
+    return <Divider />;
+  }
+
+  return (
+    <Divider
+      bg="$borderSubdued"
+      borderBottomWidth={0}
+      flex={0}
+      h={StyleSheet.hairlineWidth}
+      maxHeight={StyleSheet.hairlineWidth}
+      w="100%"
+      y={0}
+    />
   );
 }
 
