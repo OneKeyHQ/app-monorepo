@@ -207,21 +207,17 @@ jest.mock('@onekeyhq/components', () => {
         placeholder,
         value,
       }),
-    LinearGradient: Container,
     LottieView: () =>
       React.createElement('span', { 'data-testid': 'success-lottie' }),
     Page,
     SizableText: Container,
     Stack: Container,
+    Theme: ({ children }: { children?: ReactNode }) => children,
     UnOrderedList,
     XStack: Container,
     YStack: Container,
     useForm: jest.requireActual('react-hook-form').useForm,
-    useTheme: () => ({
-      brand3: { val: '#E5F9E2' },
-      bgApp: { val: '#FFFFFF' },
-    }),
-    useThemeName: () => 'light',
+    useThemeName: () => 'dark',
   };
 });
 

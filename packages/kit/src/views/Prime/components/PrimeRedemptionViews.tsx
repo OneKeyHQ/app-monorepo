@@ -29,20 +29,7 @@ function usePrimeRedemptionIconName() {
 
 function PrimeRedemptionHeroIcon() {
   const primeIconName = usePrimeRedemptionIconName();
-  return (
-    <Stack
-      w="$16"
-      h="$16"
-      bg="$brand3"
-      borderRadius="$full"
-      borderWidth="$px"
-      borderColor="$brand4"
-      alignItems="center"
-      justifyContent="center"
-    >
-      <Icon name={primeIconName} size="$10" />
-    </Stack>
-  );
+  return <Icon name={primeIconName} size="$12" />;
 }
 
 function PrimeRedemptionSuccessSummary({
@@ -103,15 +90,7 @@ export function PrimeRedemptionFormView({
           <Form.Field
             name="code"
             description={
-              <UnOrderedList
-                width="100%"
-                mt="$3"
-                px="$3"
-                py="$2.5"
-                bg="$bgSubdued"
-                borderRadius="$3"
-                borderCurve="continuous"
-              >
+              <UnOrderedList width="100%" mt="$3">
                 <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.prime_redemption_codes_cumulative__desc,

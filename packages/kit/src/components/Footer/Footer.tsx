@@ -12,7 +12,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { NetworkStatus } from '../NetworkStatus';
@@ -171,6 +175,14 @@ export function Footer() {
   );
 
   if (currentTab === ETabRoutes.WebviewPerpTrade) {
+    return null;
+  }
+
+  const pathname = globalThis.location?.pathname;
+  if (
+    pathname === PRIME_REDEEM_LANDING_PATH ||
+    pathname?.startsWith(`${PRIME_REDEEM_LANDING_PATH}/`)
+  ) {
     return null;
   }
 

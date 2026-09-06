@@ -12,13 +12,12 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  LinearGradient,
   Page,
   SizableText,
   Stack,
+  Theme,
   XStack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -51,9 +50,6 @@ const LANDING_ACTION_BUTTON = {
   $gtMd: { size: 'medium' as const },
 };
 
-const REDEEM_LANDING_CARD_WEB_SHADOW =
-  'inset 0 1px 0 0 rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 1px -0.5px rgba(0, 0, 0, 0.06), 0 3px 3px -1.5px rgba(0, 0, 0, 0.06)';
-
 function getStringQueryParam(value: unknown): string | undefined {
   if (typeof value === 'string') {
     return value;
@@ -70,27 +66,7 @@ function goToWebHome() {
   }
 }
 
-function RedeemLandingBackdrop() {
-  const theme = useTheme();
-  return (
-    <LinearGradient
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      height={240}
-      colors={[theme.brand3.val, `${theme.bgApp.val}00`]}
-      start={[0.5, 0]}
-      end={[0.5, 1]}
-      pointerEvents="none"
-      $gtMd={{
-        height: 360,
-      }}
-    />
-  );
-}
-
-function RedeemLandingCard({
+function RedeemLandingContent({
   children,
   testID,
 }: {
@@ -101,22 +77,9 @@ function RedeemLandingCard({
     <YStack
       w="100%"
       maxWidth={360}
-      px="$5"
-      py="$6"
       gap="$5"
-      bg="$bg"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-      borderRadius="$4"
-      borderCurve="continuous"
       $gtMd={{
-        maxWidth: 420,
-        px: '$8',
-        py: '$8',
-        borderRadius: '$5',
-      }}
-      $platform-web={{
-        boxShadow: REDEEM_LANDING_CARD_WEB_SHADOW,
+        maxWidth: 400,
       }}
       testID={testID}
     >
@@ -139,12 +102,12 @@ function RedeemLandingEmailChip({
       gap="$1.5"
       px="$2.5"
       py="$1.5"
-      bg="$brand2"
+      bg="$bgSubdued"
       borderWidth="$px"
-      borderColor="$brand4"
+      borderColor="$borderSubdued"
       borderRadius="$full"
     >
-      <Icon name="PeopleOutline" size="$4" color="$brand11" />
+      <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
       <SizableText
         size="$bodySmMedium"
         color="$text"
@@ -168,7 +131,6 @@ function Header() {
       px="$5"
       ai="center"
       jc="space-between"
-      zIndex={2}
       $gtMd={{
         px: '$8',
       }}
@@ -276,7 +238,7 @@ function PrimeRedeemFormSection({
 
   if (redemptionResult) {
     return (
-      <RedeemLandingCard testID={PrimeTestIDs.redemptionSuccess}>
+      <RedeemLandingContent testID={PrimeTestIDs.redemptionSuccess}>
         <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
         <Button
           {...LANDING_ACTION_BUTTON}
@@ -287,12 +249,12 @@ function PrimeRedeemFormSection({
             id: ETranslations.redemption_done_button,
           })}
         </Button>
-      </RedeemLandingCard>
+      </RedeemLandingContent>
     );
   }
 
   return (
-    <RedeemLandingCard>
+    <RedeemLandingContent>
       {canRedeem ? (
         <RedeemLandingEmailChip displayEmail={displayEmail} />
       ) : null}
@@ -312,7 +274,7 @@ function PrimeRedeemFormSection({
           );
         }}
       />
-    </RedeemLandingCard>
+    </RedeemLandingContent>
   );
 }
 
@@ -357,53 +319,53 @@ function PrimeRedeemLandingPage() {
   );
 
   return (
-    <Page
-      scrollEnabled
-      scrollProps={{
-        keyboardShouldPersistTaps: 'handled',
-        contentContainerStyle: {
-          flexGrow: 1,
-        },
-      }}
-    >
-      <Page.Body>
-        <YStack
-          flex={1}
-          minHeight="100%"
-          position="relative"
-          bg="$bgSubdued"
-          testID={PrimeTestIDs.redemptionLandingPage}
-        >
-          <RedeemLandingBackdrop />
-          <Header />
+    <Theme name="dark">
+      <Page
+        scrollEnabled
+        backgroundColor="$bgApp"
+        scrollProps={{
+          keyboardShouldPersistTaps: 'handled',
+          contentContainerStyle: {
+            flexGrow: 1,
+          },
+        }}
+      >
+        <Page.Body>
           <YStack
             flex={1}
-            w="100%"
-            alignItems="center"
-            justifyContent="center"
-            px="$4"
-            py="$8"
-            zIndex={1}
-            $gtMd={{
-              px: '$8',
-              py: '$20',
-            }}
+            minHeight="100%"
+            bg="$bgApp"
+            testID={PrimeTestIDs.redemptionLandingPage}
           >
-            <PrimeRedeemFormSection
-              canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
-              displayEmail={user?.displayEmail}
-              expectedOneKeyUserId={expectedOneKeyUserId}
-              initialCode={initialCode}
-              isLoginLoading={isLoginLoading}
-              isPrimeActiveBeforeRedeem={Boolean(
-                user?.primeSubscription?.isActive,
-              )}
-              onLogin={handleLogin}
-            />
+            <Header />
+            <YStack
+              flex={1}
+              w="100%"
+              alignItems="center"
+              justifyContent="center"
+              px="$4"
+              py="$8"
+              $gtMd={{
+                px: '$8',
+                py: '$20',
+              }}
+            >
+              <PrimeRedeemFormSection
+                canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
+                displayEmail={user?.displayEmail}
+                expectedOneKeyUserId={expectedOneKeyUserId}
+                initialCode={initialCode}
+                isLoginLoading={isLoginLoading}
+                isPrimeActiveBeforeRedeem={Boolean(
+                  user?.primeSubscription?.isActive,
+                )}
+                onLogin={handleLogin}
+              />
+            </YStack>
           </YStack>
-        </YStack>
-      </Page.Body>
-    </Page>
+        </Page.Body>
+      </Page>
+    </Theme>
   );
 }
 
