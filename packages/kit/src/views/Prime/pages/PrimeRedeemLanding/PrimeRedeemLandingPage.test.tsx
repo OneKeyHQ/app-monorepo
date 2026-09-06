@@ -218,7 +218,7 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     useForm: jest.requireActual('react-hook-form').useForm,
     useTheme: () => ({
-      brand2: { val: '#F4FBF3' },
+      brand3: { val: '#E5F9E2' },
       bgApp: { val: '#FFFFFF' },
     }),
     useThemeName: () => 'light',

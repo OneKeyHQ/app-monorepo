@@ -80,7 +80,7 @@ function RedeemLandingBackdrop() {
       left={0}
       right={0}
       height={240}
-      colors={[theme.brand2.val, `${theme.bgApp.val}00`]}
+      colors={[theme.brand3.val, `${theme.bgApp.val}00`]}
       start={[0.5, 0]}
       end={[0.5, 1]}
       pointerEvents="none"
@@ -364,6 +364,7 @@ function PrimeRedeemLandingPage() {
           flex={1}
           minHeight="100%"
           position="relative"
+          bg="$bgSubdued"
           testID={PrimeTestIDs.redemptionLandingPage}
         >
           <RedeemLandingBackdrop />
