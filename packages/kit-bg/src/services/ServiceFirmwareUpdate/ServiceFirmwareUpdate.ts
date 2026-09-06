@@ -432,6 +432,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             : {}),
         },
         silentMode: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         hardwareTransportType,
       });
       features = projectLegacyDeviceFeaturesFromState(state);

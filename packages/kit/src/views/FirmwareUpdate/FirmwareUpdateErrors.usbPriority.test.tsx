@@ -34,6 +34,7 @@ const usbPriorityMessage = 'Disconnect USB to continue using Bluetooth.';
 const deviceDisconnectedMessage =
   'The device has been disconnected. Please reconnect the device and try again.';
 const deviceDisconnectedTitle = 'Device disconnected';
+const operationTimedOutMessage = 'Operation timed out';
 
 const intlMessages: Record<string, string> = {
   [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
@@ -41,6 +42,8 @@ const intlMessages: Record<string, string> = {
   [ETranslations.hardware_third_party_device_disconnected]:
     deviceDisconnectedTitle,
   [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
+  [ETranslations.hardware_third_party_operation_timeout]:
+    operationTimedOutMessage,
   [ETranslations.global_retry]: 'Retry',
 };
 
@@ -125,5 +128,23 @@ describe('firmware update cancellation errors', () => {
 
     expect(content.props.title).toBe(deviceDisconnectedTitle);
     expect(content.props.message).toBe(deviceDisconnectedMessage);
+  });
+});
+
+describe('firmware update timeout errors', () => {
+  it('localizes the Protocol V2 install timeout instead of exposing SDK text', () => {
+    const error: IOneKeyError = {
+      message: 'Protocol V2 firmware install timed out',
+    };
+    const { result } = renderHook(
+      () =>
+        useFirmwareUpdateErrorsV2({
+          error,
+          lastFirmwareTipMessage: undefined,
+        }),
+      { wrapper: IntlWrapper },
+    );
+
+    expect(result.current.errorMessage).toBe(operationTimedOutMessage);
   });
 });

@@ -1,6 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,8 +15,8 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { isPrimaryTypePermitSign } from '@onekeyhq/shared/src/signMessage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -27,29 +26,19 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { useHyperliquidReferralPromotion } from '../../hooks/useHyperliquidReferralPromotion';
 import { SignatureConfirmTestIDs } from '../../testIDs';
-import {
-  hasAddressRiskTags,
-  isTrustedPermitSign,
-  shouldHideGenericPermitAlert,
-} from '../SecurityCheckCard/utils';
+
+import type { ISecurityCheckConfirmation } from '../SecurityCheckCard';
 
 type IProps = {
   accountId: string;
   networkId: string;
   unsignedMessage: IUnsignedMessage;
-  messageDisplay: ISignatureConfirmDisplay | undefined;
-  continueOperate: boolean;
-  setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
-  showContinueOperate?: boolean;
-  urlSecurityInfo?: IHostSecurity;
-  isConfirmationRequired?: boolean;
+  securityCheckConfirmation: ISecurityCheckConfirmation;
+  securityCheckAcknowledgementKey: string;
   sourceInfo?: IDappSourceInfo;
   walletInternalSign?: boolean;
   skipBackupCheck?: boolean;
@@ -63,12 +52,8 @@ function MessageConfirmActions(props: IProps) {
     accountId,
     networkId,
     unsignedMessage,
-    messageDisplay,
-    continueOperate: continueOperateLocal,
-    setContinueOperate: setContinueOperateLocal,
-    showContinueOperate: showContinueOperateLocal,
-    urlSecurityInfo,
-    isConfirmationRequired,
+    securityCheckConfirmation,
+    securityCheckAcknowledgementKey,
     sourceInfo,
     walletInternalSign,
     skipBackupCheck,
@@ -87,7 +72,8 @@ function MessageConfirmActions(props: IProps) {
 
   const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [continueOperate, setContinueOperate] = useState(false);
+  const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
+    useScopedAcknowledgement(securityCheckAcknowledgementKey);
 
   // Get user address for referral promotion check
   const { result: accountAddress } = usePromiseResult(
@@ -280,64 +266,13 @@ function MessageConfirmActions(props: IProps) {
     ],
   );
 
-  const showTakeRiskAlert = useMemo(() => {
-    if (walletInternalSign) {
-      return false;
-    }
-
-    const genericPermitAlert = intl.formatMessage({
-      id: ETranslations.dapp_connect_permit_sign_alert,
-    });
-    const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
-    const shouldHidePermitWarning = isTrustedPermitSign({
-      isPermitSignMethod,
-      isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
-    });
-
-    if (shouldHidePermitWarning) {
-      const hasSpecificParserAlert = messageDisplay?.alerts.some(
-        (alert) =>
-          Boolean(alert) &&
-          !shouldHideGenericPermitAlert({
-            alert,
-            genericPermitAlert,
-            isPermitSignMethod,
-            isSiteVerified: true,
-          }),
-      );
-      return (
-        hasSpecificParserAlert ||
-        hasAddressRiskTags(messageDisplay?.components ?? [])
-      );
-    }
-
-    if (isConfirmationRequired) {
-      return true;
-    }
-
-    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
-      return false;
-    }
-
-    if (!isEmpty(messageDisplay?.alerts)) {
-      return true;
-    }
-
-    if (showContinueOperateLocal) {
-      return true;
-    }
-
-    return false;
-  }, [
-    intl,
-    messageDisplay?.alerts,
-    messageDisplay?.components,
-    showContinueOperateLocal,
-    unsignedMessage,
-    urlSecurityInfo?.level,
-    walletInternalSign,
-    isConfirmationRequired,
-  ]);
+  const isSecurityCheckPending = securityCheckConfirmation === 'pending';
+  const showConfirmationAlert =
+    !walletInternalSign &&
+    !isSecurityCheckPending &&
+    securityCheckConfirmation !== 'none';
+  const showTakeRiskAlert =
+    showConfirmationAlert && securityCheckConfirmation === 'risk';
 
   const cancelCalledRef = useRef(false);
   const onCancelOnce = useCallback(() => {
@@ -382,21 +317,24 @@ function MessageConfirmActions(props: IProps) {
         confirmButtonProps={{
           loading: isLoading,
           disabled:
-            showTakeRiskAlert && (!continueOperate || !continueOperateLocal),
+            isSecurityCheckPending ||
+            (showConfirmationAlert && !continueOperate),
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >
         <Stack gap="$3" flexShrink={1}>
-          {showTakeRiskAlert ? (
+          {showConfirmationAlert ? (
             <Checkbox
               testID={SignatureConfirmTestIDs.MessageConfirmRiskCheckbox}
               label={intl.formatMessage({
-                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+                id: showTakeRiskAlert
+                  ? ETranslations.dapp_connect_proceed_at_my_own_risk
+                  : ETranslations.global_i_understand,
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setContinueOperate(!!checked);
-                setContinueOperateLocal(!!checked);
+                const isChecked = !!checked;
+                setSecurityCheckAccepted(isChecked);
               }}
             />
           ) : null}

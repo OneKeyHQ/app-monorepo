@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +28,7 @@ import {
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
@@ -251,6 +253,9 @@ export const useColumnsDesktop = (
                   {record.maxLeverage ? (
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
+                  <PerpDexBadge
+                    dexLabel={parseDexCoin(record.perpsCoin).dexLabel}
+                  />
                 </XStack>
                 {record.perpsSubtitle ? (
                   <SubtitleText subtitle={record.perpsSubtitle} />
