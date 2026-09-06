@@ -207,6 +207,7 @@ jest.mock('@onekeyhq/components', () => {
         placeholder,
         value,
       }),
+    LinearGradient: Container,
     LottieView: () =>
       React.createElement('span', { 'data-testid': 'success-lottie' }),
     Page,
@@ -216,6 +217,10 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Container,
     YStack: Container,
     useForm: jest.requireActual('react-hook-form').useForm,
+    useTheme: () => ({
+      brand2: { val: '#F4FBF3' },
+      bgApp: { val: '#FFFFFF' },
+    }),
     useThemeName: () => 'light',
   };
 });
@@ -310,6 +315,7 @@ describe('PrimeRedeemLandingPage', () => {
       (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
         .value,
     ).toBe('OKP-PJ37L-DYXWR');
+    expect(screen.getByText('user@example.com')).toBeTruthy();
     expect(mockPrimeRedemptionEntryClick).toHaveBeenCalledWith({
       isPrimeActiveBeforeRedeem: false,
     });

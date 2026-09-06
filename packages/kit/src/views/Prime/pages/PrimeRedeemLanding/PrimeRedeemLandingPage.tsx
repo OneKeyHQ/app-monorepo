@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -6,11 +12,13 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
+  LinearGradient,
   Page,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -31,10 +39,21 @@ import {
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
   PrimeRedemptionFormView,
+  PrimeRedemptionHeroIcon,
   PrimeRedemptionSuccessView,
 } from '../../components/PrimeRedemptionViews';
 import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
 import { PrimeTestIDs } from '../../testIDs';
+
+const LANDING_ACTION_BUTTON = {
+  variant: 'accent' as const,
+  width: '100%' as const,
+  size: 'large' as const,
+  $gtMd: { size: 'medium' as const },
+};
+
+const REDEEM_LANDING_CARD_WEB_SHADOW =
+  'inset 0 1px 0 0 rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 1px -0.5px rgba(0, 0, 0, 0.06), 0 3px 3px -1.5px rgba(0, 0, 0, 0.06)';
 
 function getStringQueryParam(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -52,9 +71,109 @@ function goToWebHome() {
   }
 }
 
+function RedeemLandingBackdrop() {
+  const theme = useTheme();
+  return (
+    <LinearGradient
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      height={240}
+      colors={[theme.brand2.val, `${theme.bgApp.val}00`]}
+      start={[0.5, 0]}
+      end={[0.5, 1]}
+      pointerEvents="none"
+      $gtMd={{
+        height: 360,
+      }}
+    />
+  );
+}
+
+function RedeemLandingCard({
+  children,
+  testID,
+}: {
+  children: ReactNode;
+  testID?: string;
+}) {
+  return (
+    <YStack
+      w="100%"
+      maxWidth={360}
+      px="$5"
+      py="$6"
+      gap="$5"
+      bg="$bg"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+      borderRadius="$4"
+      borderCurve="continuous"
+      $gtMd={{
+        maxWidth: 420,
+        px: '$8',
+        py: '$8',
+        borderRadius: '$5',
+      }}
+      $platform-web={{
+        boxShadow: REDEEM_LANDING_CARD_WEB_SHADOW,
+      }}
+      testID={testID}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function RedeemLandingEmailChip({
+  displayEmail,
+}: {
+  displayEmail: string | undefined;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack
+      alignSelf="center"
+      maxWidth="100%"
+      alignItems="center"
+      gap="$1.5"
+      px="$2.5"
+      py="$1.5"
+      bg="$brand2"
+      borderWidth="$px"
+      borderColor="$brand4"
+      borderRadius="$full"
+    >
+      <Icon name="PeopleOutline" size="$4" color="$brand11" />
+      <SizableText
+        size="$bodySmMedium"
+        color="$text"
+        numberOfLines={1}
+        ellipsizeMode="middle"
+        flexShrink={1}
+      >
+        {getDisplayEmailOrUnknown({
+          intl,
+          displayEmail,
+        })}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function Header() {
   return (
-    <XStack h={52} px="$5" ai="center" jc="space-between">
+    <XStack
+      h={52}
+      px="$5"
+      ai="center"
+      jc="space-between"
+      zIndex={2}
+      $gtMd={{
+        px: '$8',
+      }}
+    >
       <Stack
         aria-label="OneKey home"
         onPress={goToWebHome}
@@ -77,24 +196,26 @@ function PrimeRedeemLoginPrompt({
 }) {
   const intl = useIntl();
   return (
-    <YStack w="100%" maxWidth={360} gap="$4" alignItems="center">
-      <SizableText
-        size="$headingXl"
-        textAlign="center"
-        $gtMd={{ size: '$heading2xl' }}
-      >
-        {intl.formatMessage({
-          id: ETranslations.prime_not_logged_in_title,
-        })}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        {intl.formatMessage({
-          id: ETranslations.prime_not_logged_in_description,
-        })}
-      </SizableText>
+    <RedeemLandingCard>
+      <YStack gap="$4" alignItems="center">
+        <PrimeRedemptionHeroIcon />
+        <SizableText
+          size="$headingXl"
+          textAlign="center"
+          $gtMd={{ size: '$heading2xl' }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.prime_not_logged_in_title,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.prime_not_logged_in_description,
+          })}
+        </SizableText>
+      </YStack>
       <Button
-        variant="accent"
-        size="medium"
+        {...LANDING_ACTION_BUTTON}
         loading={isLoginLoading}
         testID={PrimeTestIDs.redemptionLoginBtn}
         onPress={onLogin}
@@ -103,7 +224,7 @@ function PrimeRedeemLoginPrompt({
           id: ETranslations.sign_in_to_onekey_id__title,
         })}
       </Button>
-    </YStack>
+    </RedeemLandingCard>
   );
 }
 
@@ -147,11 +268,10 @@ function PrimeRedeemFormSection({
 
   if (redemptionResult) {
     return (
-      <YStack w="100%" maxWidth={360} testID={PrimeTestIDs.redemptionSuccess}>
+      <RedeemLandingCard testID={PrimeTestIDs.redemptionSuccess}>
         <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
         <Button
-          mt="$5"
-          variant="accent"
+          {...LANDING_ACTION_BUTTON}
           testID={PrimeTestIDs.redemptionDoneBtn}
           onPress={goToWebHome}
         >
@@ -159,21 +279,16 @@ function PrimeRedeemFormSection({
             id: ETranslations.redemption_done_button,
           })}
         </Button>
-      </YStack>
+      </RedeemLandingCard>
     );
   }
 
   return (
-    <YStack w="100%" maxWidth={360} gap="$5">
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        {getDisplayEmailOrUnknown({
-          intl,
-          displayEmail,
-        })}
-      </SizableText>
+    <RedeemLandingCard>
+      <RedeemLandingEmailChip displayEmail={displayEmail} />
       <PrimeRedemptionFormView form={form} />
       <Button
-        variant="accent"
+        {...LANDING_ACTION_BUTTON}
         testID={PrimeTestIDs.redemptionSubmitBtn}
         disabled={!codeValue?.trim() || isSubmitting}
         loading={isSubmitting}
@@ -190,7 +305,7 @@ function PrimeRedeemFormSection({
           id: ETranslations.redemption_redeem_button,
         })}
       </Button>
-    </YStack>
+    </RedeemLandingCard>
   );
 }
 
@@ -235,17 +350,32 @@ function PrimeRedeemLandingPage() {
   );
 
   return (
-    <Page>
+    <Page
+      scrollEnabled
+      scrollProps={{
+        keyboardShouldPersistTaps: 'handled',
+        contentContainerStyle: {
+          flexGrow: 1,
+        },
+      }}
+    >
       <Page.Body>
-        <YStack flex={1} testID={PrimeTestIDs.redemptionLandingPage}>
+        <YStack
+          flex={1}
+          minHeight="100%"
+          position="relative"
+          testID={PrimeTestIDs.redemptionLandingPage}
+        >
+          <RedeemLandingBackdrop />
           <Header />
           <YStack
             flex={1}
             w="100%"
             alignItems="center"
             justifyContent="center"
-            px="$5"
-            py="$10"
+            px="$4"
+            py="$8"
+            zIndex={1}
             $gtMd={{
               px: '$8',
               py: '$20',

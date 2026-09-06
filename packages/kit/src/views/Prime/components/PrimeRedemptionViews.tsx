@@ -1,5 +1,6 @@
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -26,31 +27,73 @@ function usePrimeRedemptionIconName() {
     : 'OnekeyPrimeDarkColored';
 }
 
+export function PrimeRedemptionHeroIcon() {
+  const primeIconName = usePrimeRedemptionIconName();
+  return (
+    <Stack
+      w="$16"
+      h="$16"
+      bg="$brand3"
+      borderRadius="$full"
+      borderWidth="$px"
+      borderColor="$brand4"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon name={primeIconName} size="$10" />
+    </Stack>
+  );
+}
+
+function PrimeRedemptionSuccessSummary({
+  primeIconName,
+  receivedDaysMessage,
+  validUntilMessage,
+}: {
+  primeIconName: IKeyOfIcons;
+  receivedDaysMessage: string;
+  validUntilMessage: string;
+}) {
+  return (
+    <YStack
+      mt="$5"
+      width="100%"
+      alignItems="center"
+      bg="$brand2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      borderWidth="$px"
+      borderColor="$brand4"
+      overflow="hidden"
+    >
+      <Stack w="100%" h="$1" bg="$brand5" />
+      <YStack px="$4" py="$4" gap="$1.5" alignItems="center" width="100%">
+        <Icon name={primeIconName} size="$6" />
+        <SizableText size="$headingMd" textAlign="center">
+          {receivedDaysMessage}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {validUntilMessage}
+        </SizableText>
+      </YStack>
+    </YStack>
+  );
+}
+
 export function PrimeRedemptionFormView({
   form,
 }: {
   form: IPrimeRedemptionForm;
 }) {
   const intl = useIntl();
-  const primeIconName = usePrimeRedemptionIconName();
   const redemptionCodeLabel = intl.formatMessage({
     id: ETranslations.redemption_enter_code_placeholder,
   });
 
   return (
-    <YStack alignItems="center">
-      <Stack
-        w="$16"
-        h="$16"
-        bg="$brand3"
-        borderRadius="$full"
-        alignItems="center"
-        justifyContent="center"
-        mb="$5"
-      >
-        <Icon name={primeIconName} size="$10" />
-      </Stack>
-      <SizableText size="$headingXl" textAlign="center" mb="$5">
+    <YStack alignItems="center" width="100%">
+      <PrimeRedemptionHeroIcon />
+      <SizableText size="$headingXl" textAlign="center" mt="$5" mb="$5">
         {intl.formatMessage({
           id: ETranslations.prime_redeem__action,
         })}
@@ -60,7 +103,15 @@ export function PrimeRedemptionFormView({
           <Form.Field
             name="code"
             description={
-              <UnOrderedList width="100%" pt="$2">
+              <UnOrderedList
+                width="100%"
+                mt="$3"
+                px="$3"
+                py="$2.5"
+                bg="$bgSubdued"
+                borderRadius="$3"
+                borderCurve="continuous"
+              >
                 <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.prime_redemption_codes_cumulative__desc,
@@ -131,25 +182,11 @@ export function PrimeRedemptionSuccessView({
       <SizableText size="$headingXl" textAlign="center" mt="$-2">
         {successTitle}
       </SizableText>
-      <YStack
-        mt="$5"
-        width="100%"
-        px="$4"
-        py="$4"
-        gap="$1.5"
-        alignItems="center"
-        bg="$brand2"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        <Icon name={primeIconName} size="$6" />
-        <SizableText size="$headingMd" textAlign="center">
-          {receivedDaysMessage}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {validUntilMessage}
-        </SizableText>
-      </YStack>
+      <PrimeRedemptionSuccessSummary
+        primeIconName={primeIconName}
+        receivedDaysMessage={receivedDaysMessage}
+        validUntilMessage={validUntilMessage}
+      />
     </YStack>
   );
 }
