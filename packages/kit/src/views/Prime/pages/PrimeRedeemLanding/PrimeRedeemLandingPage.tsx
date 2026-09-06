@@ -79,7 +79,7 @@ function RedeemLandingContent({
       maxWidth={360}
       gap="$5"
       $gtMd={{
-        maxWidth: 400,
+        maxWidth: 320,
       }}
       testID={testID}
     >
