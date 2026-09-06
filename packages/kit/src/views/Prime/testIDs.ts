@@ -6,6 +6,10 @@ export const PrimeTestIDs = {
   manageSubscriptionMenuItem: 'prime-manage-subscription-menu-item',
   redemptionCodeInput: 'prime-redemption-code-input',
   redemptionSuccess: 'prime-redemption-success',
+  redemptionLandingPage: 'prime-redemption-landing-page',
+  redemptionLoginBtn: 'prime-redemption-login-btn',
+  redemptionSubmitBtn: 'prime-redemption-submit-btn',
+  redemptionDoneBtn: 'prime-redemption-done-btn',
 
   // --- Login Email Dialog ---
   emailInput: 'prime-email-input',
