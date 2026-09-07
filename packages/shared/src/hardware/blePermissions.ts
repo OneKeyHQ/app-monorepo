@@ -15,7 +15,7 @@ import bleManagerInstance from './bleManager';
 export async function openBLESettings() {
   try {
     if (platformEnv.isNativeIOS) {
-      await Linking.openURL('App-Prefs:root=Bluetooth');
+      await openSettings();
     } else if (platformEnv.isNativeAndroid) {
       await Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS');
     }
