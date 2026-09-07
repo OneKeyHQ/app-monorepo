@@ -243,8 +243,10 @@ describe('fetchStockSimpleChartPoints', () => {
 
     expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
       assetId: 'doge',
-      interval: '15m',
-      timeFrom: nowSeconds - 24 * 60 * 60,
+      interval: '5m',
+      // Five minutes short of a day: at a full 86400s window the endpoint
+      // ignores `interval` and answers with hourly buckets.
+      timeFrom: nowSeconds - (24 * 60 * 60 - 5 * 60),
       timeTo: nowSeconds,
       currency: 'usd',
       autoHandleError: false,
@@ -252,6 +254,61 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
     expect(result).toEqual([[nowSeconds - 60, 0.08]]);
+  });
+
+  it('asks the Asset K-line API for its finest served interval on 1H', async () => {
+    serviceMarketAsset.fetchMarketAssetKline.mockResolvedValue({
+      pointType: 'single',
+      total: 0,
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: true,
+      marketAssetId: 'doge',
+      networkId: 'doge--0',
+      priceMode: 'token',
+      range: '1H',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
+      assetId: 'doge',
+      interval: '5m',
+      timeFrom: nowSeconds - 60 * 60,
+      timeTo: nowSeconds,
+      currency: 'usd',
+      autoHandleError: false,
+    });
+  });
+
+  it('leaves the DEX token K-line intervals untouched', async () => {
+    serviceMarketV2.fetchMarketTokenKline.mockResolvedValue({
+      total: 0,
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'token',
+      range: '1H',
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+    });
+
+    expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toEqual([
+      [
+        {
+          interval: '1m',
+          networkId: 'evm--1',
+          tokenAddress: '0xaapl',
+          timeFrom: nowSeconds - 60 * 60,
+          timeTo: nowSeconds,
+          autoHandleError: false,
+        },
+      ],
+    ]);
   });
 
   it('requests complete Top Coins history without a CoinGecko lookup', async () => {

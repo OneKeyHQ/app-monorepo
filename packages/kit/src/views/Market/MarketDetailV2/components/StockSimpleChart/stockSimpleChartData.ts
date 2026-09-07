@@ -86,6 +86,23 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   All: '1W',
 };
 
+// The Asset K-line endpoint derives its own granularity from the requested
+// window and only honours `interval` below a full day: measured against
+// `/utility/v1/market/asset/kline`, a 23h55m window answers `5m` with 300s
+// spacing, while a 86400s window returns 24 hourly points whatever `interval`
+// says. It also never serves finer than 300s, so `1m` was only ever an
+// unfulfilled request. Both entries below say what the endpoint actually
+// serves; drop this map and the clamp once it honours `interval` at a full day.
+const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
+  ...STOCK_TOKEN_CHART_INTERVALS,
+  '1H': '5m',
+  '1D': '5m',
+};
+
+// Five minutes short of a day, to stay on the 5m series. The chart loses its
+// oldest bucket, which reads the same at this scale as a full day.
+const MARKET_ASSET_SUB_DAY_WINDOW_SECONDS = 24 * 60 * 60 - 5 * 60;
+
 const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1H': '1',
   '1D': '1',
@@ -195,10 +212,16 @@ export async function fetchStockSimpleChartPoints(
   const timeFrom = rangeSeconds ? timeTo - rangeSeconds : undefined;
 
   if (marketAssetId) {
+    const assetTimeFrom =
+      range === '1D' && timeFrom !== undefined
+        ? timeTo - MARKET_ASSET_SUB_DAY_WINDOW_SECONDS
+        : timeFrom;
     const response = await fetchMarketAssetKLineData({
       assetId: marketAssetId,
-      interval: STOCK_TOKEN_CHART_INTERVALS[range],
-      ...(timeFrom !== undefined ? { timeFrom, timeTo } : undefined),
+      interval: MARKET_ASSET_CHART_INTERVALS[range],
+      ...(assetTimeFrom !== undefined
+        ? { timeFrom: assetTimeFrom, timeTo }
+        : undefined),
     });
     return response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
@@ -207,7 +230,7 @@ export async function fetchStockSimpleChartPoints(
           Number.isFinite(timestamp) && Number.isFinite(price);
         return (
           isValidPoint &&
-          (!timeFrom || timestamp >= timeFrom) &&
+          (!assetTimeFrom || timestamp >= assetTimeFrom) &&
           timestamp <= timeTo
         );
       })
