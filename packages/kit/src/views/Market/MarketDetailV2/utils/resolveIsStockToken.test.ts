@@ -30,6 +30,17 @@ describe('resolveIsStockToken', () => {
 });
 
 describe('resolveMarketStockId', () => {
+  it('uses the stock id returned by the market search payload', () => {
+    expect(
+      resolveMarketStockId({
+        stock: {
+          stockId: ' abnb ',
+          underlyingAssetTicker: 'fallback',
+        },
+      }),
+    ).toBe('ABNB');
+  });
+
   it('prefers the explicit underlying ticker', () => {
     expect(
       resolveMarketStockId({
@@ -42,8 +53,22 @@ describe('resolveMarketStockId', () => {
     expect(resolveMarketStockId({ stockId: ' tsla ' })).toBe('TSLA');
   });
 
-  it('does not infer stock identity from a token symbol', () => {
-    expect(resolveMarketStockId({ stock: {} })).toBeUndefined();
+  it('resolves an xStocks token when search metadata omits stock', () => {
+    expect(
+      resolveMarketStockId({
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+      }),
+    ).toBe('ABNB');
+  });
+
+  it('does not infer stock identity from the x suffix alone', () => {
+    expect(
+      resolveMarketStockId({
+        name: 'Example Token',
+        symbol: 'ABNBx',
+      }),
+    ).toBeUndefined();
   });
 
   it('does not classify ordinary tokens as stocks', () => {
