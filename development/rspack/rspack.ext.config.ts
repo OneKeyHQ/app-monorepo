@@ -266,7 +266,13 @@ function createCompilerConfig({
 
   const environmentConfig =
     nodeEnv === 'production'
-      ? createProductionConfig({ platform, basePath })
+      ? createProductionConfig({
+          platform,
+          basePath,
+          // The unsplit background bundle benefits from one extra compression pass.
+          compressPasses:
+            compilerName === compilerNames.background ? 3 : undefined,
+        })
       : createDevelopmentConfig({ basePath });
 
   const config = merge(
