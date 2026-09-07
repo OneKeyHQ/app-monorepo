@@ -5,7 +5,7 @@ import {
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { isSwapHistoryTerminalStatus } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { isSwapHistoryTerminalStatus } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 

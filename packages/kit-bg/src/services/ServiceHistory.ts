@@ -35,6 +35,7 @@ import {
   getPrivateSendHistoryDisplayStatus,
   isPrivateSendAccountHistoryTx,
   isPrivateSendSwapHistoryItem,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -101,13 +102,6 @@ const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
 
-const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
 type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
   IHistoryDecodedAction['assetTransfer']
@@ -127,12 +121,8 @@ function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
 ) {
-  const isNextTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    next.status,
-  );
-  const isCurrentTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    current.status,
-  );
+  const isNextTerminal = isSwapHistoryTerminalStatus(next.status);
+  const isCurrentTerminal = isSwapHistoryTerminalStatus(current.status);
 
   if (isNextTerminal !== isCurrentTerminal) {
     return isNextTerminal;
