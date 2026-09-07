@@ -177,6 +177,8 @@ function getPrivateSendProgressStepStatuses({
 
   if (
     status === ESwapTxHistoryStatus.FAILED ||
+    status === ESwapTxHistoryStatus.REFUNDED ||
+    status === ESwapTxHistoryStatus.EXPIRED ||
     status === ESwapTxHistoryStatus.CANCELED ||
     extraStatus === ESwapExtraStatus.EXPIRED ||
     extraStatus === ESwapExtraStatus.REFUNDED ||
@@ -217,6 +219,12 @@ function getPrivateSendHistoryStatusTextProps({
       key: ETranslations.swap_history_detail_badge_refunded,
       color: '$textSuccess',
     } as const;
+  }
+  if (
+    status === ESwapTxHistoryStatus.REFUNDED ||
+    status === ESwapTxHistoryStatus.EXPIRED
+  ) {
+    return getSwapHistoryStatusTextProps(status);
   }
   if (
     crossChainStatus === ESwapCrossChainStatus.EXPIRED ||
@@ -1319,7 +1327,7 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {isSwapHistoryRefundStatus(txHistory?.crossChainStatus) &&
+        {isSwapHistoryRefundStatus(txHistory) &&
         txHistory?.swapOrderHash?.refundHash &&
         !transactionIdRows.some((row) => row.kind === 'refund') ? (
           <XStack

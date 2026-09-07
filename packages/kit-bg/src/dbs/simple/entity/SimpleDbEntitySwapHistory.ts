@@ -1,14 +1,12 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
-import {
-  isSwapHistoryTerminalStatus,
-  markUnreadTerminalAsRead,
-} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
