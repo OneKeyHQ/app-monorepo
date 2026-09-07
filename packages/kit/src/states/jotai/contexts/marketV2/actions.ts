@@ -493,6 +493,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  invalidateWatchListV2Refresh = contextAtomMethod((get, set) => {
+    set(
+      marketWatchListV2RefreshRequestIdAtom(),
+      get(marketWatchListV2RefreshRequestIdAtom()) + 1,
+    );
+  });
+
   // ------------------------------------------------------------
   refreshWatchListV2 = contextAtomMethod(async (get, set) => {
     const requestId = get(marketWatchListV2RefreshRequestIdAtom()) + 1;
@@ -539,6 +546,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      this.invalidateWatchListV2Refresh.call(set);
       // Immediately update local state with proper sorting
       const sortedNewData = sortUtils.buildSortedList({
         oldList: prev.data,
@@ -577,6 +585,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      this.invalidateWatchListV2Refresh.call(set);
       // Immediately update local state using proper token matching
       const newData = prev.data.filter(
         (item) =>
@@ -623,6 +632,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         perpsCoin,
       };
 
+      this.invalidateWatchListV2Refresh.call(set);
       const sortedNewData = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: [item],
@@ -657,6 +667,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      this.invalidateWatchListV2Refresh.call(set);
       const newData = prev.data.filter((item) => item.perpsCoin !== perpsCoin);
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
@@ -756,6 +767,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }),
       ];
 
+      this.invalidateWatchListV2Refresh.call(set);
       const newList = sortUtils.buildSortedList({
         oldList: oldItemsResult.data,
         saveItems: watchList,
@@ -783,6 +795,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       return;
     }
 
+    this.invalidateWatchListV2Refresh.call(set);
     // Immediately update local state
     set(marketWatchListV2Atom(), { ...prev, data: [] });
 

@@ -66,4 +66,29 @@ describe('HeaderColumn', () => {
 
     expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe('');
   });
+
+  test('shows an external sort order when the selected column is stale', () => {
+    const getExternalOrder = jest.fn<ETableSortType | undefined, []>();
+    const onHeaderRow: ITableProps<IRow>['onHeaderRow'] = () => ({
+      initialSortOrder: getExternalOrder(),
+      onSortTypeChange: jest.fn(),
+    });
+    const props = {
+      column,
+      index: 0,
+      selectedColumnName: 'previousColumn',
+      onChangeSelectedName: jest.fn(),
+      onHeaderRow,
+    };
+    const { rerender } = render(<HeaderColumn {...props} />);
+
+    expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe('');
+
+    getExternalOrder.mockReturnValue(ETableSortType.DESC);
+    rerender(<HeaderColumn {...props} />);
+
+    expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe(
+      'desc',
+    );
+  });
 });

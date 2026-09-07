@@ -687,4 +687,45 @@ describe('marketV2 watchlist optimistic actions', () => {
       newerItem,
     ]);
   });
+
+  test('keeps an optimistic addition when an older refresh completes', async () => {
+    const olderRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const pendingWrite = createDeferred<unknown>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockGetMarketWatchListV2
+      .mockReturnValueOnce(olderRefresh.promise)
+      .mockResolvedValueOnce({ data: [spotItem, newerItem] });
+    mockAddMarketWatchListV2.mockReturnValueOnce(pendingWrite.promise);
+
+    let refreshAction: Promise<void> | undefined;
+    let addAction: Promise<void> | undefined;
+    act(() => {
+      refreshAction = result.current.refreshWatchListV2();
+      addAction = result.current.addIntoWatchListV2(newerItem);
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+
+    await act(async () => {
+      olderRefresh.resolve({ data: [spotItem] });
+      await refreshAction;
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+
+    await act(async () => {
+      pendingWrite.resolve(undefined);
+      await addAction;
+    });
+  });
 });

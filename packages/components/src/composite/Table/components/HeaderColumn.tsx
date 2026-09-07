@@ -77,7 +77,8 @@ function HeaderColumn<T>({
   const cursor = enableSortType ? 'pointer' : undefined;
   const showSortIcon = enableSortType && !renderTitle;
   const currentSortOrder =
-    dataIndex === selectedColumnName ? sortOrder : undefined;
+    events?.initialSortOrder ??
+    (dataIndex === selectedColumnName ? sortOrder : undefined);
 
   const { renderSortIcon: renderInlineSortIcon } = useSortIcon({
     showSortIcon: enableSortType && !!renderTitle,

@@ -273,7 +273,7 @@ export function useTrendingColumnsDesktop({
                 { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
                 { amount: ageInfo.amount },
               )
-            : EMPTY_MARKET_VALUE;
+            : undefined;
 
           return (
             <MarketIdentityCell
