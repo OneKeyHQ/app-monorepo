@@ -879,6 +879,71 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('processing');
   });
 
+  it('keeps an app-authored card standing with no burst holding the stage', async () => {
+    // Legacy onboarding paints the fork at depth 0: the device-state read
+    // before it does not run through a wrapper, so nothing holds the
+    // stage. That call's straggling close must not schedule the stage off
+    // under a card the person has not answered — the flow would then wait
+    // for a choice it has taken away from them.
+    const scope = new DeviceStageBurstScope();
+    await scope.noteStep('processing', { connectId: CONNECT_ID });
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('selectWalletType');
+
+    // Answered with nothing behind it: the wait stands for the grace, long
+    // enough for the flow's first call to rejoin and no longer.
+    await scope.noteWalletTypeSelected();
+    expect(stage?.step).toBe('processing');
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('keeps an app-authored card standing over an unresolved auth narrative', async () => {
+    // An ask painted over a verification beat leaves `authoredAuthStep`
+    // set — an ASK step never clears it, and the narrative's own resolver
+    // declines to clear it once something else stands on stage. The next
+    // call-end close would otherwise put the verification beat back over
+    // a question the person is still reading.
+    const scope = new DeviceStageBurstScope();
+    await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+    await scope.noteAuthNarrativeResolved();
+    expect(stage?.step).toBe('selectWalletType');
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('selectWalletType');
+  });
+
+  it('reports whether an authored card landed', async () => {
+    // The caller waits for the card's answer, so it must hear when the
+    // card was refused: the firmware workflow raising its flag between the
+    // caller's own check and the paint left onboarding waiting forever on
+    // a card nobody painted.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(
+      await scope.noteStep('selectWalletType', { connectId: CONNECT_ID }),
+    ).toBe(true);
+
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    expect(
+      await scope.noteStep('passphraseIntro', { connectId: CONNECT_ID }),
+    ).toBe(false);
+    expect(stage?.step).toBe('selectWalletType');
+  });
+
   it('announces every exit so a flow awaiting a card stops waiting', async () => {
     const emit = jest.spyOn(appEventBus, 'emit');
     const scope = new DeviceStageBurstScope();

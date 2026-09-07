@@ -219,18 +219,23 @@ export function useAddHiddenWallet() {
             deviceType: device?.deviceType,
             deviceName: stageDeviceName,
           });
-        await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
-          {
-            connectId: device?.connectId,
-            deviceType: device?.deviceType,
-            deviceName: stageDeviceName,
-          },
-        );
-        // The person dismissing the stage ends the run just as well.
-        const intro = await waitForDeviceStageAnswer(
-          EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-          () => 'continue' as const,
-        );
+        const introShown =
+          await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
+            {
+              connectId: device?.connectId,
+              deviceType: device?.deviceType,
+              deviceName: stageDeviceName,
+            },
+          );
+        // The person dismissing the stage ends the run just as well — and
+        // a card a silenced stage declined to paint has no Continue to
+        // wait for, so the run ends here rather than hanging on it.
+        const intro = introShown
+          ? await waitForDeviceStageAnswer(
+              EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+              () => 'continue' as const,
+            )
+          : ({ closed: true } as const);
         if (intro.closed) {
           // Dismissed at the teaching: nothing was started, nothing to
           // land — the stage's own close already dropped the hold and

@@ -947,6 +947,24 @@ export class DeviceStageBurstScope {
         // wait the person can make nothing of.
         return;
       }
+      if (current && APP_AUTHORED_ASK_STEPS.has(current.step)) {
+        // A question the person has not answered yet. No device call
+        // stands behind it, so the one ending here is a bystander's —
+        // the previous step's straggler, housekeeping — and nothing it
+        // reports can retire the question.
+        //
+        // Ahead of BOTH branches below on purpose. Ahead of the depth
+        // split, because a flow that paints the card without holding a
+        // burst (legacy onboarding) would otherwise lose it to that
+        // straggler's scheduleOff and wait for an answer the person can
+        // no longer give. Ahead of the narrative re-assert, because an
+        // authored auth beat outlives its own card here: an ASK painted
+        // over it never clears `authoredAuthStep`, and the narrative's
+        // resolver declines to clear it once something else stands on
+        // stage — so the next close would put the verification beat back
+        // over a question the person is still reading.
+        return;
+      }
       if (this.authoredAuthStep) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
@@ -967,9 +985,6 @@ export class DeviceStageBurstScope {
         return;
       }
       if (this.depth > 0) {
-        if (current && APP_AUTHORED_ASK_STEPS.has(current.step)) {
-          return;
-        }
         await this.setStep('processing', { connectId });
       } else {
         this.scheduleOff();
@@ -1102,6 +1117,14 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     await this.setStep('processing', extras);
+    if (this.depth <= 0) {
+      // Nothing holds the stage: the flow that asked starts its hardware
+      // call next, and that begin() rejoins inside the grace. Should it
+      // never come — a flow that throws before touching the device — the
+      // grace takes the stage off rather than leave a processing capsule
+      // standing with nothing behind it.
+      this.scheduleOff();
+    }
   }
 
   /**
@@ -1239,9 +1262,9 @@ export class DeviceStageBurstScope {
       authFailureCode?: string;
       passphraseMode?: IDeviceStageState['passphraseMode'];
     } = {},
-  ) {
+  ): Promise<boolean> {
     if (!(await this.isEnabled())) {
-      return;
+      return false;
     }
     if (PROGRESS_WRITABLE_STEPS.has(step)) {
       // An app-authored wait obeys the rule an SDK progress tick obeys
@@ -1252,7 +1275,7 @@ export class DeviceStageBurstScope {
       // PIN card down while the device still waited for its PIN.
       const current = await deviceStageAtom.get();
       if (current && ASK_STEPS.has(current.step)) {
-        return;
+        return false;
       }
     }
     this.clearOffTimer();
@@ -1277,6 +1300,7 @@ export class DeviceStageBurstScope {
       this.armAuthSuccessHold();
     }
     await this.setStep(step, extras);
+    return true;
   }
 
   /** Retire the skipped failure immediately, without releasing the outer

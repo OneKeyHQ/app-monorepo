@@ -640,6 +640,9 @@ class ServiceHardwareUI extends ServiceBase {
    * holds a UI burst around it, waits for the card's Continue, and only
    * then begins the hardware call — the account selector's deliberate
    * Add-hidden-wallet is the one place that teaches.
+   *
+   * Returns whether the card landed, so a caller never waits on a card a
+   * silenced stage (the firmware workflow) declined to paint.
    */
   @backgroundMethod()
   async deviceStageShowPassphraseIntro(params: {
@@ -647,7 +650,7 @@ class ServiceHardwareUI extends ServiceBase {
     deviceType?: IDeviceStageState['deviceType'];
     deviceName?: string;
   }) {
-    await this.deviceStageBurst.noteStep('passphraseIntro', {
+    return this.deviceStageBurst.noteStep('passphraseIntro', {
       connectId: params.connectId,
       deviceType: params.deviceType,
       deviceName: params.deviceName,
@@ -667,13 +670,13 @@ class ServiceHardwareUI extends ServiceBase {
    */
   @backgroundMethod()
   async deviceStageShowSelectWalletType(params: { connectId?: string } = {}) {
-    if (!(await this.deviceStageBurst.isEnabled())) {
-      return false;
-    }
-    await this.deviceStageBurst.noteStep('selectWalletType', {
+    // The paint itself reports: asking isEnabled() here as well would
+    // answer for a moment that has passed by the time the card is
+    // written — the firmware workflow raising its flag in between left
+    // the caller waiting on an answer to a card nobody painted.
+    return this.deviceStageBurst.noteStep('selectWalletType', {
       connectId: params.connectId,
     });
-    return true;
   }
 
   /** The fork was answered on the stage: back to the wait while the flow
