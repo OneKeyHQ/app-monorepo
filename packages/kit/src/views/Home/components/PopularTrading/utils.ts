@@ -1,3 +1,4 @@
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigHomeTab,
@@ -106,6 +107,8 @@ function mapMarketPerpsTokenToDisplay({
   token: IMarketPerpsTokenFromServer;
   subtitle?: string;
 }): IFavoriteTokenDisplay {
+  const { dexLabel } = parseDexCoin(token.name);
+
   return {
     chainId: '',
     contractAddress: '',
@@ -119,6 +122,7 @@ function mapMarketPerpsTokenToDisplay({
     volume24h: parseMarketValue(token.volume24h) ?? 0,
     perpsCoin: token.name,
     perpsSubtitle: subtitle,
+    perpsDexLabel: dexLabel,
     maxLeverage: token.maxLeverage,
   };
 }
