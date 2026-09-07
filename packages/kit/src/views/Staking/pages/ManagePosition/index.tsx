@@ -71,6 +71,7 @@ const ManagePositionPage = () => {
     enableProtocolSwitch: boolean;
     initialProtocol: ISelectedProtocol;
     initialTab: 'deposit' | 'withdraw';
+    onStakeWithdrawSuccess: (() => void) | undefined;
   }>(() => {
     const {
       networkId,
@@ -80,6 +81,7 @@ const ManagePositionPage = () => {
       tokenImageUri,
       enableProtocolSwitch,
       tab,
+      onStakeWithdrawSuccess,
     } = route.params;
 
     return {
@@ -95,6 +97,7 @@ const ManagePositionPage = () => {
         vault,
       },
       initialTab: tab ?? 'deposit',
+      onStakeWithdrawSuccess,
     };
   }, [activeAccount, route.params, selectedAccount]);
 
@@ -127,6 +130,7 @@ const ManagePositionPage = () => {
     symbol,
     tokenImageUri,
     enableProtocolSwitch,
+    onStakeWithdrawSuccess,
   } = resolvedParams;
 
   const { result: protocols, isLoading: isProtocolListLoading } =
@@ -219,6 +223,7 @@ const ManagePositionPage = () => {
           defaultTab={selectedTab}
           onTabChange={setSelectedTab}
           stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
+          onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
       </Page.Body>
     </Page>
