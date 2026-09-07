@@ -19,7 +19,7 @@ export function createRuntimeWalletEffectTransport<T extends object>(
       if (!wrappedMethod) {
         wrappedMethod = (...args: unknown[]) =>
           runRuntimeWalletEffect(() =>
-            Promise.resolve(Reflect.apply(value, target, args) as unknown),
+            Promise.resolve().then(() => Reflect.apply(value, target, args)),
           );
         wrappedMethods.set(property, wrappedMethod);
       }
