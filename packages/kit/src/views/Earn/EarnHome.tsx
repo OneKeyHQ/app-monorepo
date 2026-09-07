@@ -80,12 +80,22 @@ type IEarnPageBannerState = {
 function BasicEarnHome({
   showHeader,
   showContent,
+  isVisible,
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
 }: {
   showHeader?: boolean;
+  /** Owns data fetching: only the committed tab requests. */
   showContent?: boolean;
+  /**
+   * Owns painting. The outer pager reveals the neighboring page as soon as the
+   * finger moves, but showContent only flips once the swipe commits, so the
+   * body stayed display:none for the whole gesture and the user swiped onto a
+   * blank page (OK-60300). Deliberately separate from showContent so following
+   * the swipe never triggers a request for a tab the user is only passing over.
+   */
+  isVisible?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -610,6 +620,8 @@ function BasicEarnHome({
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
 
+  // Compensating swipe for hosts with no outer pager. Gating happens at the
+  // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (direction === 'right') {
@@ -666,11 +678,10 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={!earnPageBannerState.isResolved}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
-          showContent={showContent !== false}
+          showContent={(isVisible ?? showContent) !== false}
           isRefreshing={isOverviewRefreshing}
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
@@ -680,7 +691,19 @@ function BasicEarnHome({
           onOpenPortfolio={handleOpenPortfolio}
           onOpenTokens={handleOpenTokens}
           onOpenProtocols={handleOpenAllProtocols}
-          onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
+          // OK-60606: withholding the handler is what matters, not making it
+          // a no-op. HeaderScrollGestureWrapper only builds its horizontal pan
+          // when a handler exists, and that pan is Race'd rather than
+          // Simultaneous with the native gesture (simultaneousWithNativeGesture
+          // defaults to false) and cancels child touches — so it claims the
+          // drag and blocks the pager underneath. With a handler present but
+          // inert, the header swallowed swipes in both directions; with it
+          // absent, horizontal drags fall through to OuterTabPagerView, which
+          // already reaches Market and Browser on its own. Hosts without an
+          // outer pager still get the compensating switch.
+          onHeaderHorizontalSwipe={
+            useSwipePager ? undefined : handleHeaderHorizontalSwipe
+          }
         />
 
         {showHeader && showContent && (useSwipePager || media.md) ? (
@@ -762,6 +785,7 @@ function BasicEarnHome({
 export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
+  isVisible,
   defaultTab,
   tabsRef,
   useSwipePager,
@@ -769,6 +793,7 @@ export function EarnHomeWithProvider({
 }: {
   showHeader?: boolean;
   showContent?: boolean;
+  isVisible?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -786,6 +811,7 @@ export function EarnHomeWithProvider({
         <BasicEarnHome
           showHeader={showHeader}
           showContent={showContent}
+          isVisible={isVisible}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
           useSwipePager={useSwipePager}
