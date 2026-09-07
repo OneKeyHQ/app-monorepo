@@ -5,5 +5,6 @@ import type { AxiosAdapter } from 'axios';
 export function createRuntimeNetworkAdapter(
   adapter: AxiosAdapter,
 ): AxiosAdapter {
-  return (config) => runRuntimeWalletEffect(() => adapter(config));
+return (config) =>
+  runRuntimeWalletEffect(() => Promise.resolve().then(() => adapter(config)));
 }
