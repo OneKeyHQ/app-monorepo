@@ -721,7 +721,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ...data,
       identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
     }));
-    return rawData.identityLifecycleRevision ?? 0;
+    return rawData?.identityLifecycleRevision ?? 0;
   }
 
   async isIdentityLinkDue({
