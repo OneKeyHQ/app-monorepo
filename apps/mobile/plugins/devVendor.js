@@ -1,3 +1,4 @@
+/* cspell:words codegen Codegen Srcs */
 /* eslint-disable onekey/no-raw-error */
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
@@ -41,6 +42,38 @@ const SHELL_INPUT_BINARY_EXTENSIONS = new Set([
   '.woff',
   '.woff2',
 ]);
+const NATIVE_ABI_SOURCE_EXTENSIONS = new Set([
+  '.c',
+  '.cc',
+  '.cpp',
+  '.h',
+  '.hpp',
+  '.java',
+  '.js',
+  '.jsx',
+  '.kt',
+  '.m',
+  '.mm',
+  '.swift',
+  '.ts',
+  '.tsx',
+]);
+const NATIVE_ABI_EXCLUDED_DIRECTORIES = new Set([
+  '.git',
+  '__tests__',
+  'build',
+  'dist',
+  'docs',
+  'example',
+  'examples',
+  'generated',
+  'lib',
+  'node_modules',
+  'prebuilds',
+  'test',
+  'tests',
+  'vendor',
+]);
 const runtimeCache = new Map();
 
 function sha256(content) {
@@ -72,6 +105,26 @@ function listDirectoryFiles(repoRoot, relativeDirectory) {
     }
   }
   return files.toSorted();
+}
+
+function compareStrings(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function stableJsonValue(value) {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(([left], [right]) => compareStrings(left, right))
+      .map(([key, child]) => [key, stableJsonValue(child)]),
+  );
+}
+
+function stableJsonStringify(value) {
+  return JSON.stringify(stableJsonValue(value));
 }
 
 function getFingerprintInputPaths(repoRoot = REPO_ROOT) {
@@ -279,138 +332,6 @@ function getShellInputPaths(platform, repoRoot = REPO_ROOT) {
   ].toSorted();
 }
 
-function readYarnScalar(value) {
-  if (value.startsWith('"')) return JSON.parse(value);
-  return value;
-}
-
-function getYarnDescriptor(packageName, requested) {
-  const protocolPattern =
-    /^(?:exec|file|git|https?|link|patch|portal|workspace):/u;
-  return `${packageName}@${
-    requested.startsWith('npm:') || protocolPattern.test(requested)
-      ? requested
-      : `npm:${requested}`
-  }`;
-}
-
-function versionMatchesRequested(version, requested) {
-  const aliasVersion = requested.startsWith('npm:')
-    ? requested.slice(requested.lastIndexOf('@') + 1)
-    : requested;
-  const match = aliasVersion.match(/^(\^|~)?(\d+)\.(\d+)\.(\d+)/u);
-  const versionMatch = version.match(/^(\d+)\.(\d+)\.(\d+)/u);
-  if (!match || !versionMatch) return false;
-  const requestedParts = match.slice(2).map(Number);
-  const versionParts = versionMatch.slice(1).map(Number);
-  if (!match[1]) {
-    return requestedParts.every((part, index) => part === versionParts[index]);
-  }
-  if (match[1] === '~') {
-    return (
-      requestedParts[0] === versionParts[0] &&
-      requestedParts[1] === versionParts[1] &&
-      versionParts[2] >= requestedParts[2]
-    );
-  }
-  const isAtLeastRequested = versionParts.some(
-    (part, index) =>
-      part > requestedParts[index] &&
-      versionParts
-        .slice(0, index)
-        .every(
-          (prefixPart, prefixIndex) =>
-            prefixPart === requestedParts[prefixIndex],
-        ),
-  );
-  return (
-    requestedParts[0] === versionParts[0] &&
-    (requestedParts.every((part, index) => part === versionParts[index]) ||
-      isAtLeastRequested)
-  );
-}
-
-function readInstalledPackageVersion(packageName, repoRoot) {
-  const packagePath = path.join(
-    repoRoot,
-    'node_modules',
-    ...packageName.split('/'),
-    'package.json',
-  );
-  if (!fs.existsSync(packagePath)) return undefined;
-  return JSON.parse(fs.readFileSync(packagePath, 'utf8')).version;
-}
-
-function readYarnResolutions(dependencies, repoRoot) {
-  const descriptorSet = new Set(
-    dependencies.map(({ descriptor }) => descriptor),
-  );
-  const resolutions = new Map();
-  const candidates = new Map(dependencies.map(({ name }) => [name, []]));
-  let activeDescriptors = [];
-  let activeNames = [];
-  let activeResolution;
-
-  const flush = () => {
-    if (activeDescriptors.length === 0 && activeNames.length === 0) return;
-    if (!activeResolution?.resolution || !activeResolution.version) {
-      throw new Error(
-        `[devVendor] Invalid yarn.lock entry: ${activeDescriptors[0] || activeNames[0]}`,
-      );
-    }
-    for (const descriptor of activeDescriptors) {
-      resolutions.set(descriptor, activeResolution);
-    }
-    for (const name of activeNames) candidates.get(name).push(activeResolution);
-  };
-
-  const lockSource = fs.readFileSync(path.join(repoRoot, 'yarn.lock'), 'utf8');
-  for (const line of lockSource.split('\n')) {
-    if (line && !line.startsWith(' ') && line.endsWith(':')) {
-      flush();
-      const rawKey = line.slice(0, -1);
-      const key = rawKey.startsWith('"') ? JSON.parse(rawKey) : rawKey;
-      activeDescriptors = key
-        .split(', ')
-        .filter((descriptor) => descriptorSet.has(descriptor));
-      activeNames = dependencies
-        .filter(({ name }) =>
-          key
-            .split(', ')
-            .some((descriptor) => descriptor.startsWith(`${name}@`)),
-        )
-        .map(({ name }) => name);
-      activeResolution =
-        activeDescriptors.length > 0 || activeNames.length > 0 ? {} : undefined;
-    } else if (activeResolution) {
-      const field = line.match(/^  (checksum|resolution|version): (.+)$/u);
-      if (field) activeResolution[field[1]] = readYarnScalar(field[2]);
-    }
-  }
-  flush();
-
-  for (const { descriptor, name, requested } of dependencies) {
-    if (!resolutions.has(descriptor)) {
-      const installedVersion = readInstalledPackageVersion(name, repoRoot);
-      const matchingCandidates = candidates
-        .get(name)
-        .filter(({ version }) =>
-          installedVersion
-            ? version === installedVersion
-            : versionMatchesRequested(version, requested),
-        );
-      if (matchingCandidates.length === 1) {
-        resolutions.set(descriptor, matchingCandidates[0]);
-      } else {
-        throw new Error(
-          `[devVendor] Native ABI dependency is missing from yarn.lock: ${descriptor}`,
-        );
-      }
-    }
-  }
-  return resolutions;
-}
-
 function readKeyValueProperties(filePath) {
   return Object.fromEntries(
     fs
@@ -426,10 +347,6 @@ function readKeyValueProperties(filePath) {
         ];
       }),
   );
-}
-
-function getPodRootName(requirement) {
-  return requirement.split(' (', 1)[0].split('/', 1)[0];
 }
 
 function readCocoaPodsLockScalar(rawValue) {
@@ -464,83 +381,29 @@ function getCocoaPodsLockSections(source) {
   return sections;
 }
 
-function readCocoaPodsLock(repoRoot) {
+function assertIosNativeDependenciesLinked(dependencyNames, repoRoot) {
   const sections = getCocoaPodsLockSections(
     fs.readFileSync(
       path.join(repoRoot, 'apps/mobile/ios/Podfile.lock'),
       'utf8',
     ),
   );
-  const podLines = sections.get('PODS');
   const dependencyLines = sections.get('DEPENDENCIES');
-  const checksumLines = sections.get('SPEC CHECKSUMS');
-  if (!podLines || !dependencyLines || !checksumLines) {
+  if (!dependencyLines) {
     throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
   }
-
-  const pods = [];
-  let activePod;
-  for (const line of podLines) {
-    if (line.startsWith('  - ')) {
-      let requirement = line.slice(4);
-      if (requirement.endsWith(':')) requirement = requirement.slice(0, -1);
-      activePod = {
-        dependencies: [],
-        requirement: readCocoaPodsLockScalar(requirement),
-      };
-      pods.push(activePod);
-    } else if (line.startsWith('    - ') && activePod) {
-      activePod.dependencies.push(readCocoaPodsLockScalar(line.slice(6)));
-    } else if (line.trim()) {
-      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
-    }
-  }
-
-  const dependencies = dependencyLines.map((line) => {
+  const dependencyNameSet = new Set(dependencyNames);
+  const linkedPackages = new Set();
+  for (const line of dependencyLines) {
     if (!line.startsWith('  - ')) {
       throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
     }
-    return readCocoaPodsLockScalar(line.slice(4));
-  });
-  const specChecksums = new Map();
-  for (const line of checksumLines) {
-    const checksum = line.match(/^  (.+): ([0-9a-f]{40})$/u);
-    if (!checksum) {
-      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
-    }
-    specChecksums.set(readCocoaPodsLockScalar(checksum[1]), checksum[2]);
-  }
-
-  const checkoutOptions = new Map();
-  let activeCheckout;
-  for (const line of sections.get('CHECKOUT OPTIONS') || []) {
-    const checkout = line.match(/^  (.+):$/u);
-    const option = line.match(/^    (:[^:]+): (.+)$/u);
-    if (checkout) {
-      activeCheckout = new Map();
-      checkoutOptions.set(readCocoaPodsLockScalar(checkout[1]), activeCheckout);
-    } else if (option && activeCheckout) {
-      activeCheckout.set(option[1], readCocoaPodsLockScalar(option[2]));
-    } else if (line.trim()) {
-      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
-    }
-  }
-  return { checkoutOptions, dependencies, pods, specChecksums };
-}
-
-function getIosNativePodDescriptor(dependencyNames, repoRoot) {
-  const lock = readCocoaPodsLock(repoRoot);
-
-  const dependencyNameSet = new Set(dependencyNames);
-  const linkedPackages = new Set();
-  const directPods = new Set();
-  for (const dependency of lock.dependencies) {
+    const dependency = readCocoaPodsLockScalar(line.slice(4));
     const packageMatch = dependency.match(
       /node_modules\/((?:@[^/`]+\/)?[^/`]+)/u,
     );
     if (packageMatch && dependencyNameSet.has(packageMatch[1])) {
       linkedPackages.add(packageMatch[1]);
-      directPods.add(getPodRootName(dependency));
     }
   }
   const missingPackage = dependencyNames.find(
@@ -551,77 +414,543 @@ function getIosNativePodDescriptor(dependencyNames, repoRoot) {
       `[devVendor] Native ABI dependency is missing from Podfile.lock: ${missingPackage}`,
     );
   }
+}
 
-  const pods = new Map();
-  for (const { dependencies: podDependencies, requirement } of lock.pods) {
-    const match = requirement.match(/^(.+) \(([^)]+)\)$/u);
-    if (!match) {
-      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+function getInstalledPackageRoot(packageName, repoRoot) {
+  try {
+    return path.dirname(
+      require.resolve(`${packageName}/package.json`, {
+        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
+      }),
+    );
+  } catch (error) {
+    throw new Error(
+      `[devVendor] Install dependencies before resolving the native ABI: ${packageName}`,
+      { cause: error },
+    );
+  }
+}
+
+function listAbsoluteFiles(directory) {
+  if (!fs.existsSync(directory)) return [];
+  const pending = [directory];
+  const files = [];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const excludedDirectory =
+        entry.isDirectory() &&
+        NATIVE_ABI_EXCLUDED_DIRECTORIES.has(entry.name) &&
+        (!['build', 'dist', 'lib'].includes(entry.name) ||
+          current === directory);
+      const absolutePath = path.join(current, entry.name);
+      if (entry.isDirectory() && !excludedDirectory) {
+        pending.push(absolutePath);
+      } else if (entry.isFile()) {
+        files.push(absolutePath);
+      }
     }
-    const name = getPodRootName(match[1]);
-    const version = match[2];
-    const existing = pods.get(name);
-    if (existing && existing.version !== version) {
+  }
+  return files.toSorted(compareStrings);
+}
+
+function isFileForPlatform(filePath, platform) {
+  const normalized = filePath.split(path.sep).join('/').toLowerCase();
+  if (platform === 'android') {
+    return !/(?:^|\/)(?:apple|ios)(?:\/|$)|\.ios\.[^/]+$/u.test(normalized);
+  }
+  return !/(?:^|\/)android(?:\/|$)|\.android\.[^/]+$/u.test(normalized);
+}
+
+function getPackageSourceFiles(packageRoot, platform) {
+  const sourceRoots = ['android/src', 'apple', 'binding', 'ios', 'js', 'src']
+    .map((relativePath) => path.join(packageRoot, relativePath))
+    .filter((absolutePath) => fs.existsSync(absolutePath));
+  const rootFiles = fs
+    .readdirSync(packageRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(packageRoot, entry.name));
+  return [...new Set([...rootFiles, ...sourceRoots.flatMap(listAbsoluteFiles)])]
+    .filter(
+      (filePath) =>
+        NATIVE_ABI_SOURCE_EXTENSIONS.has(
+          path.extname(filePath).toLowerCase(),
+        ) && isFileForPlatform(filePath, platform),
+    )
+    .toSorted(compareStrings);
+}
+
+function getCodegenConfigurations(packageJson) {
+  if (!packageJson.codegenConfig) return [];
+  return packageJson.codegenConfig.libraries || [packageJson.codegenConfig];
+}
+
+function getCodegenAbiDescriptor({ packageJson, packageRoot, platform }) {
+  const {
+    combineSchemas,
+  } = require('@react-native/codegen/lib/cli/combine/combine-js-to-schema.js');
+  const {
+    filterJSFile,
+  } = require('@react-native/codegen/lib/cli/combine/combine-utils.js');
+  return getCodegenConfigurations(packageJson).map((config) => {
+    const sourceRoot = path.resolve(packageRoot, config.jsSrcsDir || '.');
+    if (!fs.existsSync(sourceRoot)) {
       throw new Error(
-        `[devVendor] CocoaPods resolved conflicting versions for ${name}.`,
+        `[devVendor] Native codegen source directory is missing: ${packageJson.name}/${config.jsSrcsDir}`,
       );
     }
-    const dependencies = new Set(existing?.dependencies || []);
-    for (const dependency of podDependencies) {
-      dependencies.add(getPodRootName(dependency));
-    }
-    pods.set(name, { dependencies, version });
-  }
-
-  const resolvedPods = new Set();
-  const pendingPods = [...directPods];
-  while (pendingPods.length > 0) {
-    const name = pendingPods.pop();
-    if (!resolvedPods.has(name)) {
-      const pod = pods.get(name);
-      if (!pod) {
-        throw new Error(`[devVendor] CocoaPods resolution is missing: ${name}`);
-      }
-      resolvedPods.add(name);
-      pendingPods.push(...pod.dependencies);
-    }
-  }
-  return [...resolvedPods].toSorted().map((name) => {
-    const checksum = lock.specChecksums.get(name);
-    if (!/^[0-9a-f]{40}$/u.test(checksum || '')) {
-      throw new Error(`[devVendor] CocoaPods checksum is missing: ${name}`);
-    }
-    const checkout = [
-      ...(lock.checkoutOptions.get(name)?.entries() || []),
-    ].toSorted(([first], [second]) => compareModuleKeys(first, second));
-    return { checkout, checksum, name, version: pods.get(name).version };
+    const sourceFiles = listAbsoluteFiles(sourceRoot).filter((filePath) => {
+      if (!/\.(?:js|ts|tsx)$/u.test(filePath)) return false;
+      if (!filterJSFile(filePath, platform, null)) return false;
+      const source = fs.readFileSync(filePath, 'utf8');
+      return (
+        /\bextends\s+TurboModule\b/u.test(source) ||
+        /\bcodegenNativeComponent\s*</u.test(source)
+      );
+    });
+    const schema = combineSchemas(sourceFiles, config.name);
+    return {
+      name: config.name,
+      schemaDigest: sha256(stableJsonStringify(schema)),
+      type: config.type,
+    };
   });
+}
+
+function canonicalAstDigest(filePath) {
+  const parser = require('@babel/parser');
+  const source = fs.readFileSync(filePath, 'utf8');
+  const commonPlugins = [
+    'classProperties',
+    'decorators-legacy',
+    'dynamicImport',
+    'importMeta',
+    'jsx',
+    'topLevelAwait',
+  ];
+  let ast;
+  try {
+    ast = parser.parse(source, {
+      plugins: [...commonPlugins, 'typescript'],
+      sourceType: 'unambiguous',
+    });
+  } catch {
+    ast = parser.parse(source, {
+      plugins: [...commonPlugins, 'flow', 'flowComments'],
+      sourceType: 'unambiguous',
+    });
+  }
+  const stripMetadata = (value) => {
+    if (Array.isArray(value)) return value.map(stripMetadata);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(
+          ([key]) =>
+            ![
+              'comments',
+              'end',
+              'errors',
+              'extra',
+              'leadingComments',
+              'loc',
+              'start',
+              'tokens',
+              'trailingComments',
+            ].includes(key),
+        )
+        .map(([key, child]) => [key, stripMetadata(child)]),
+    );
+  };
+  return sha256(stableJsonStringify(stripMetadata(ast.program)));
+}
+
+function extractMacroBodies(source, macroName) {
+  const bodies = [];
+  const marker = `${macroName}(`;
+  let offset = 0;
+  while ((offset = source.indexOf(marker, offset)) >= 0) {
+    let depth = 1;
+    let cursor = offset + marker.length;
+    let quote;
+    for (; cursor < source.length && depth > 0; cursor += 1) {
+      const character = source[cursor];
+      if (quote) {
+        if (character === '\\') cursor += 1;
+        else if (character === quote) quote = undefined;
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '(') {
+        depth += 1;
+      } else if (character === ')') {
+        depth -= 1;
+      }
+    }
+    if (depth === 0) {
+      bodies.push(source.slice(offset + marker.length, cursor - 1));
+      offset = cursor;
+    } else {
+      break;
+    }
+  }
+  return bodies;
+}
+
+function stripNativeSignatureComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
+    .replace(/\/\/[^\n\r]*/gu, ' ');
+}
+
+function normalizeNativeSignatureToken(source) {
+  return stripNativeSignatureComments(source)
+    .replace(/\s+/gu, ' ')
+    .replace(/\s*([,[\]<>*&?])\s*/gu, '$1')
+    .trim();
+}
+
+function findMatchingDelimiter(source, openOffset, open, close) {
+  let depth = 0;
+  for (let offset = openOffset; offset < source.length; offset += 1) {
+    if (source[offset] === open) depth += 1;
+    if (source[offset] === close) {
+      depth -= 1;
+      if (depth === 0) return offset;
+    }
+  }
+  return -1;
+}
+
+function findTopLevelCharacter(source, expected) {
+  const closing = new Map([
+    ['(', ')'],
+    ['[', ']'],
+    ['{', '}'],
+    ['<', '>'],
+  ]);
+  const stack = [];
+  for (let offset = 0; offset < source.length; offset += 1) {
+    const character = source[offset];
+    if (closing.has(character)) {
+      stack.push(closing.get(character));
+    } else if (stack.at(-1) === character) {
+      stack.pop();
+    } else if (character === expected && stack.length === 0) {
+      return offset;
+    }
+  }
+  return -1;
+}
+
+function splitTopLevel(source, delimiter) {
+  const parts = [];
+  let offset = 0;
+  let remaining = source;
+  while (remaining) {
+    const delimiterOffset = findTopLevelCharacter(remaining, delimiter);
+    if (delimiterOffset < 0) break;
+    parts.push(source.slice(offset, offset + delimiterOffset));
+    offset += delimiterOffset + 1;
+    remaining = source.slice(offset);
+  }
+  parts.push(source.slice(offset));
+  return parts;
+}
+
+function canonicalizeIosBridgeMethod(macroName, inputBody) {
+  const body = stripNativeSignatureComments(inputBody).trim();
+  let signature = body;
+  let exportedName;
+  if (macroName === 'RCT_REMAP_METHOD') {
+    const commaOffset = findTopLevelCharacter(body, ',');
+    if (commaOffset < 0) return normalizeNativeSignatureToken(body);
+    exportedName = normalizeNativeSignatureToken(body.slice(0, commaOffset));
+    signature = body.slice(commaOffset + 1);
+  } else {
+    exportedName = signature.match(/^([A-Za-z_$][\w$]*)/u)?.[1];
+  }
+  if (!exportedName) return normalizeNativeSignatureToken(body);
+
+  const parameters = [];
+  const selectorPattern = /([A-Za-z_$][\w$]*)\s*:\s*\(/gu;
+  let match;
+  while ((match = selectorPattern.exec(signature))) {
+    const openOffset = signature.indexOf('(', match.index);
+    const closeOffset = findMatchingDelimiter(signature, openOffset, '(', ')');
+    if (closeOffset < 0) return normalizeNativeSignatureToken(body);
+    parameters.push(
+      `${match[1]}:${normalizeNativeSignatureToken(
+        signature.slice(openOffset + 1, closeOffset),
+      )}`,
+    );
+    selectorPattern.lastIndex = closeOffset + 1;
+  }
+  return `${exportedName}(${parameters.join(',')})`;
+}
+
+function canonicalizeAndroidParameter(inputParameter) {
+  let parameter = stripNativeSignatureComments(inputParameter)
+    .replace(/@[A-Za-z_$][\w$.]*(?:\([^)]*\))?\s*/gu, '')
+    .trim();
+  const defaultOffset = findTopLevelCharacter(parameter, '=');
+  if (defaultOffset >= 0) parameter = parameter.slice(0, defaultOffset).trim();
+  const kotlinTypeOffset = findTopLevelCharacter(parameter, ':');
+  if (kotlinTypeOffset >= 0) {
+    return normalizeNativeSignatureToken(parameter.slice(kotlinTypeOffset + 1));
+  }
+  parameter = parameter.replace(
+    /^(?:(?:final|vararg|crossinline|noinline)\s+)+/gu,
+    '',
+  );
+  const javaParameter = parameter.match(
+    /^(.*?)\s+[A-Za-z_$][\w$]*(\s*(?:\[\s*\])*)$/u,
+  );
+  if (!javaParameter) return normalizeNativeSignatureToken(parameter);
+  return normalizeNativeSignatureToken(
+    `${javaParameter[1]}${javaParameter[2] || ''}`,
+  );
+}
+
+function extractNativeBridgeSymbols(source) {
+  const symbols = new Set();
+  const addMatches = (label, pattern) => {
+    for (const match of source.matchAll(pattern)) {
+      const name = match.slice(1).find(Boolean);
+      if (name) symbols.add(`${label}:${name}`);
+    }
+  };
+  addMatches(
+    'js-module',
+    /\bNativeModules(?:\.([A-Za-z_$][\w$]*)|\[['"]([^'"]+)['"]\])/gu,
+  );
+  addMatches(
+    'js-native',
+    /\b(?:createHybridObject|getHybridObjectConstructor|requireNativeComponent|requireNativeModule|requireNativeViewManager)\s*(?:<[^;()]*>)?\s*\(\s*['"]([^'"]+)['"]/gu,
+  );
+  addMatches(
+    'jsi-property',
+    /\b(?:PropNameID::forAscii|setProperty)\s*\([^,]+,\s*['"]([^'"]+)['"]/gu,
+  );
+  addMatches(
+    'android-module',
+    /\bgetName\s*\(\s*\)\s*(?:const\s*)?(?:override\s*)?(?:final\s*)?(?:->\s*[^{]+)?\{[\s\S]{0,300}?\breturn\s+['"]([^'"]+)['"]/gu,
+  );
+  addMatches(
+    'android-module',
+    /\b(?:const\s+val|static\s+final\s+String)\s+NAME\s*=\s*['"]([^'"]+)['"]/gu,
+  );
+  addMatches('expo-module', /\bName\s*\(\s*['"]([^'"]+)['"]\s*\)/gu);
+  addMatches(
+    'expo-member',
+    /\b(?:AsyncFunction|Events|Function|Prop|Property)\s*\(\s*['"]([^'"]+)['"]/gu,
+  );
+  for (const macroName of ['RCT_EXPORT_MODULE', 'RCT_EXTERN_MODULE']) {
+    for (const body of extractMacroBodies(source, macroName)) {
+      const name = body.trim().split(/[\s,]/u, 1)[0];
+      if (name) symbols.add(`ios-module:${name}`);
+    }
+  }
+  for (const macroName of [
+    'RCT_EXPORT_METHOD',
+    'RCT_EXTERN_METHOD',
+    'RCT_REMAP_METHOD',
+  ]) {
+    for (const body of extractMacroBodies(source, macroName)) {
+      symbols.add(`ios-method:${canonicalizeIosBridgeMethod(macroName, body)}`);
+    }
+  }
+  for (const match of source.matchAll(
+    /@ReactMethod(?:\(([^)]*)\))?[\s\S]{0,300}?(?:\bfun\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)(?:\s*:\s*([^={\n\r]+))?|\b([A-Za-z_$][\w$.]*(?:\s*<[^;{}()]*>)?(?:\s*\[\s*\])*)\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\))/gu,
+  )) {
+    const name = match[2] || match[6];
+    const parameterSource = match[3] ?? match[7] ?? '';
+    const parameters = parameterSource.trim()
+      ? splitTopLevel(parameterSource, ',').map(canonicalizeAndroidParameter)
+      : [];
+    const returnType = normalizeNativeSignatureToken(
+      match[2] ? match[4] || 'Unit' : match[5],
+    );
+    const options = match[1]
+      ? `;options=${normalizeNativeSignatureToken(match[1])}`
+      : '';
+    symbols.add(
+      `android-method:${name}(${parameters.join(',')})->${returnType}${options}`,
+    );
+  }
+  return [...symbols].toSorted(compareStrings);
+}
+
+function getExpoModuleTopology(packageRoot, platform) {
+  const configPath = path.join(packageRoot, 'expo-module.config.json');
+  if (!fs.existsSync(configPath)) return null;
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const platformKeys = platform === 'ios' ? ['apple', 'ios'] : ['android'];
+  const selectTopology = (value = {}) =>
+    Object.fromEntries(
+      [
+        'appDelegateSubscribers',
+        'gradlePlugins',
+        'modules',
+        'reactDelegateHandlers',
+        'services',
+      ]
+        .filter((key) => value[key] !== undefined)
+        .map((key) => [key, value[key]]),
+    );
+  return Object.fromEntries(
+    platformKeys
+      .filter((key) => config[key])
+      .map((key) => [key, selectTopology(config[key])]),
+  );
+}
+
+function getNativePackageAbiInputs(packageName, platform, repoRoot) {
+  const packageRoot = getInstalledPackageRoot(packageName, repoRoot);
+  const packageJsonPath = path.join(packageRoot, 'package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const sourceFiles = getPackageSourceFiles(packageRoot, platform);
+  const nitroConfigPath = path.join(packageRoot, 'nitro.json');
+  const nitroSpecFiles = sourceFiles.filter((filePath) =>
+    /\.nitro\.(?:ts|tsx)$/u.test(filePath),
+  );
+  const markerPattern =
+    /NativeModules|TurboModule|codegenNative|createHybridObject|requireNative|RCT_(?:EXPORT|EXTERN|REMAP)|@ReactMethod|ModuleDefinition|PropNameID::forAscii|\.setProperty\s*\(/u;
+  const bridgeFiles = sourceFiles.filter((filePath) => {
+    const stat = fs.statSync(filePath);
+    return (
+      stat.size <= 8 * 1024 * 1024 &&
+      markerPattern.test(fs.readFileSync(filePath, 'utf8'))
+    );
+  });
+  return {
+    bridgeFiles,
+    expoConfigPath: fs.existsSync(
+      path.join(packageRoot, 'expo-module.config.json'),
+    )
+      ? path.join(packageRoot, 'expo-module.config.json')
+      : undefined,
+    nitroConfigPath: fs.existsSync(nitroConfigPath)
+      ? nitroConfigPath
+      : undefined,
+    nitroSpecFiles,
+    packageJson,
+    packageJsonPath,
+    packageRoot,
+  };
+}
+
+function getNativePackageAbiInputPaths(
+  packageName,
+  platform,
+  repoRoot = REPO_ROOT,
+) {
+  const inputs = getNativePackageAbiInputs(packageName, platform, repoRoot);
+  const hermesCompilerPath =
+    packageName === 'hermes-compiler'
+      ? getHermesCompilerExecutable(inputs.packageRoot)
+      : undefined;
+  return [
+    inputs.packageJsonPath,
+    inputs.expoConfigPath,
+    hermesCompilerPath,
+    inputs.nitroConfigPath,
+    ...inputs.nitroSpecFiles,
+    ...inputs.bridgeFiles,
+  ]
+    .filter(Boolean)
+    .map((absolutePath) =>
+      path.relative(repoRoot, absolutePath).split(path.sep).join('/'),
+    )
+    .toSorted(compareStrings);
+}
+
+function getNativePackageAbiDescriptor(packageName, platform, repoRoot) {
+  const inputs = getNativePackageAbiInputs(packageName, platform, repoRoot);
+  const nitroConfig = inputs.nitroConfigPath
+    ? JSON.parse(fs.readFileSync(inputs.nitroConfigPath, 'utf8'))
+    : undefined;
+  const nitroTopology = nitroConfig
+    ? {
+        autolinking: nitroConfig.autolinking,
+        cxxNamespace: nitroConfig.cxxNamespace,
+        platform: nitroConfig[platform],
+      }
+    : null;
+  return {
+    bridgeSymbols: [
+      ...new Set(
+        inputs.bridgeFiles.flatMap((filePath) =>
+          extractNativeBridgeSymbols(fs.readFileSync(filePath, 'utf8')),
+        ),
+      ),
+    ].toSorted(compareStrings),
+    codegen: getCodegenAbiDescriptor({
+      packageJson: inputs.packageJson,
+      packageRoot: inputs.packageRoot,
+      platform,
+    }),
+    expo: getExpoModuleTopology(inputs.packageRoot, platform),
+    name: packageName,
+    nitro: nitroTopology,
+    nitroSpecDigests: inputs.nitroSpecFiles
+      .map(canonicalAstDigest)
+      .toSorted(compareStrings),
+  };
+}
+
+function getHermesCompilerExecutable(packageRoot) {
+  let platformDirectory = 'linux64-bin';
+  if (process.platform === 'win32') platformDirectory = 'win64-bin';
+  if (process.platform === 'darwin') platformDirectory = 'osx-bin';
+  return path.join(
+    packageRoot,
+    'hermesc',
+    platformDirectory,
+    process.platform === 'win32' ? 'hermesc.exe' : 'hermesc',
+  );
+}
+
+function getHermesBytecodeVersion(repoRoot) {
+  const packageRoot = getInstalledPackageRoot('hermes-compiler', repoRoot);
+  const executable = getHermesCompilerExecutable(packageRoot);
+  const result = spawnSync(executable, ['-version'], { encoding: 'utf8' });
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  const match = output.match(/HBC bytecode version:\s*(\d+)/u);
+  if (result.status !== 0 || result.error || !match) {
+    throw new Error(
+      `[devVendor] Unable to read the Hermes bytecode ABI: ${result.stderr || result.error?.message || 'unknown error'}`,
+    );
+  }
+  return Number(match[1]);
+}
+
+function getAppNativeAbiDescriptor(platform, repoRoot) {
+  const sourceExtensions = NATIVE_CONTRACT_SOURCE_EXTENSIONS[platform];
+  const files = getAppNativeContractInputPaths(platform, repoRoot).filter(
+    (relativePath) =>
+      sourceExtensions.has(path.extname(relativePath).toLowerCase()),
+  );
+  return {
+    bridgeSymbols: [
+      ...new Set(
+        files.flatMap((relativePath) =>
+          extractNativeBridgeSymbols(
+            fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'),
+          ),
+        ),
+      ),
+    ].toSorted(compareStrings),
+  };
 }
 
 function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.join(repoRoot, 'apps/mobile/package.json'), 'utf8'),
-  );
   const dependencyNames = [
     ...devVendorConfig.nativeContractDependencies.shared,
     ...devVendorConfig.nativeContractDependencies[platform],
   ].toSorted();
-  const dependencies = dependencyNames.map((name) => {
-    const directRequested =
-      packageJson.dependencies?.[name] ?? packageJson.devDependencies?.[name];
-    const requested =
-      directRequested ?? readInstalledPackageVersion(name, repoRoot);
-    if (typeof requested !== 'string' || !requested) {
-      throw new Error(
-        `[devVendor] Native ABI dependency is not installed: ${name}`,
-      );
-    }
-    return { descriptor: getYarnDescriptor(name, requested), name, requested };
-  });
-  const resolutions = readYarnResolutions(dependencies, repoRoot);
   let engine;
   if (platform === 'android') {
     const properties = readKeyValueProperties(
@@ -646,28 +975,18 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   if (!engine.hermes || !engine.newArchitecture) {
     throw new Error('[devVendor] Native engine ABI configuration is missing.');
   }
+  if (platform === 'ios') {
+    assertIosNativeDependenciesLinked(dependencyNames, repoRoot);
+  }
   return {
-    appNativeInputsDigest: hashRepoFiles(
-      getAppNativeContractInputPaths(platform, repoRoot),
-      repoRoot,
+    app: getAppNativeAbiDescriptor(platform, repoRoot),
+    dependencies: dependencyNames.map((name) =>
+      getNativePackageAbiDescriptor(name, platform, repoRoot),
     ),
-    dependencies: dependencies.map(({ descriptor, name, requested }) => {
-      const resolution = resolutions.get(descriptor);
-      return {
-        checksum: resolution.checksum || null,
-        name,
-        requested,
-        resolution: resolution.resolution,
-        version: resolution.version,
-      };
-    }),
     engine,
+    hermesBytecodeVersion: getHermesBytecodeVersion(repoRoot),
     loaderProtocolVersion: devVendorConfig.NATIVE_LOADER_PROTOCOL_VERSION,
     platform,
-    pods:
-      platform === 'ios'
-        ? getIosNativePodDescriptor(dependencyNames, repoRoot)
-        : [],
     vendorSchemaVersion: devVendorConfig.SCHEMA_VERSION,
     vendorStrategyVersion: devVendorConfig.STRATEGY_VERSION,
   };
@@ -773,39 +1092,21 @@ function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
       `loader-protocol=${descriptor.loaderProtocolVersion}`,
       `vendor-schema=${descriptor.vendorSchemaVersion}`,
       `vendor-strategy=${descriptor.vendorStrategyVersion}`,
-      `app-native-inputs=${descriptor.appNativeInputsDigest}`,
       `engine.hermes=${descriptor.engine.hermes}`,
       `engine.new-architecture=${descriptor.engine.newArchitecture}`,
-      ...descriptor.dependencies.map(
-        ({ checksum, name, resolution, version }) =>
-          [name, resolution, version, checksum || ''].join('\0'),
-      ),
-      ...descriptor.pods.map(({ checkout, checksum, name, version }) =>
-        [
-          'pod',
-          name,
-          version,
-          checksum,
-          ...checkout.flatMap(([key, value]) => [key, value]),
-        ].join('\0'),
-      ),
+      `hermes-bytecode-version=${String(descriptor.hermesBytecodeVersion)}`,
+      `app=${stableJsonStringify(descriptor.app)}`,
+      ...descriptor.dependencies.map(stableJsonStringify),
     ].join('\0'),
   );
 }
 
-function computeShellCompatibilityKey({
-  nativeContractKey,
-  platform,
-  webEmbedInputKey,
-}) {
+function computeShellCompatibilityKey({ nativeContractKey, platform }) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
   if (!/^[0-9a-f]{64}$/u.test(nativeContractKey || '')) {
     throw new Error('[devVendor] Invalid native contract key.');
-  }
-  if (!/^[0-9a-f]{64}$/u.test(webEmbedInputKey || '')) {
-    throw new Error('[devVendor] Invalid web-embed input key.');
   }
   const architecture = platform === 'android' ? 'arm64-v8a' : 'arm64';
   return sha256(
@@ -814,26 +1115,20 @@ function computeShellCompatibilityKey({
       `platform=${platform}`,
       `architecture=${architecture}`,
       `native-contract=${nativeContractKey}`,
-      `web-embed=${webEmbedInputKey}`,
       '',
     ].join('\0'),
   );
 }
 
-function computeShellInputKey(
-  { nativeContractKey, platform, webEmbedInputKey },
-  repoRoot = REPO_ROOT,
-) {
+function computeShellInputKey({ nativeContractKey, platform }) {
   const shellCompatibilityKey = computeShellCompatibilityKey({
     nativeContractKey,
     platform,
-    webEmbedInputKey,
   });
   return sha256(
     [
       'onekey-mobile-dev-shell-input-v3',
       `compatibility=${shellCompatibilityKey}`,
-      hashShellInputFiles(getShellInputPaths(platform, repoRoot), repoRoot),
       '',
     ].join('\0'),
   );
@@ -1543,6 +1838,7 @@ module.exports = {
   getFingerprintInputPaths,
   getNativeContractInputPaths,
   getNativeContractDescriptor,
+  getNativePackageAbiInputPaths,
   getShellInputPaths,
   getManifestPath,
   getPlatformOutputDirectory,
