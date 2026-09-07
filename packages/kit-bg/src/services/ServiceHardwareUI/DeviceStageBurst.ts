@@ -1127,11 +1127,15 @@ export class DeviceStageBurstScope {
     card: IDeviceStageStepValue,
     extras: { passphraseMode?: IDeviceStageState['passphraseMode'] } = {},
   ) {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
       return;
     }
     const prev = await deviceStageAtom.get();
     if (prev?.step !== card) {
+      return;
+    }
+    if (dismissal !== this.dismissSeq) {
       return;
     }
     this.clearOffTimer();
@@ -1282,6 +1286,7 @@ export class DeviceStageBurstScope {
       passphraseMode?: IDeviceStageState['passphraseMode'];
     } = {},
   ): Promise<boolean> {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
       return false;
     }
@@ -1296,6 +1301,15 @@ export class DeviceStageBurstScope {
       if (current && ASK_STEPS.has(current.step)) {
         return false;
       }
+    }
+    // Same rule as the SDK events and the third-party feed: a beat
+    // decided before the stage was taken away is not news any more. The
+    // firmware workflow can claim the screen across either await above,
+    // and its forceOff has already run — writing the step here would put
+    // the card back over the update page, and answering `true` would
+    // leave the caller waiting on it.
+    if (dismissal !== this.dismissSeq) {
+      return false;
     }
     this.clearOffTimer();
     // Any newer beat cancels a pending handover: a Retry's authFailure,

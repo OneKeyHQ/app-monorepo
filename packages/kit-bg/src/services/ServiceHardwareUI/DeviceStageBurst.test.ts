@@ -954,6 +954,25 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('selectWalletType');
   });
 
+  it('paints no card the firmware workflow claimed mid-flight', async () => {
+    // The takeover lands while the enablement read is still in flight:
+    // its forceOff has already run and the update page owns the screen,
+    // so writing the card here would put it back over that page — and
+    // answering `true` would leave the caller waiting on it.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    firmwareWorkflowAtom.get.mockImplementationOnce(async () => {
+      await scope.silenceForFirmwareWorkflow();
+      return false;
+    });
+    expect(
+      await scope.noteStep('selectWalletType', { connectId: CONNECT_ID }),
+    ).toBe(false);
+    expect(stage?.step).toBe('off');
+  });
+
   it('reports whether an authored card landed', async () => {
     // The caller waits for the card's answer, so it must hear when the
     // card was refused: the firmware workflow raising its flag between the
