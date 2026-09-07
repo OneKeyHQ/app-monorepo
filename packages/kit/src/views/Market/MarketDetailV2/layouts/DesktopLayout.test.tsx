@@ -26,6 +26,10 @@ let mockStockDetailState = {
 const fetchMarketAssetKLineDataMock = jest.mocked(fetchMarketAssetKLineData);
 const fetchMarketStockKLineDataMock = jest.mocked(fetchMarketStockKLineData);
 
+jest.mock('../hooks/useMarketNativeChartPriceUpdate', () => ({
+  useMarketNativeChartPriceUpdate: jest.fn(() => jest.fn()),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
