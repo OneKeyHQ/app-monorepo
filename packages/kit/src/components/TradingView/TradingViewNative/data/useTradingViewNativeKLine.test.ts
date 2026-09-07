@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { useLayoutEffect } from 'react';
+
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type {
@@ -183,12 +185,14 @@ function buildProviderKey(source: ITradingViewNativeSource) {
 function buildMarketSource({
   fallbackCoinGeckoId,
   isNative,
+  networkId = 'evm--1',
   realtime = 'disabled',
   symbol = 'TOKEN',
   tokenAddress = '0x123',
 }: {
   fallbackCoinGeckoId?: string;
   isNative?: boolean;
+  networkId?: string;
   realtime?: 'disabled' | 'websocket';
   symbol?: string;
   tokenAddress?: string;
@@ -197,7 +201,7 @@ function buildMarketSource({
     kind: 'market',
     ...(fallbackCoinGeckoId ? { fallbackCoinGeckoId } : {}),
     ...(isNative ? { isNative: true } : {}),
-    networkId: 'evm--1',
+    networkId,
     tokenAddress,
     symbol,
     realtime,
@@ -3881,6 +3885,126 @@ describe('TradingViewNative K-line data state machine', () => {
       v: 8,
       t: 200,
     });
+  });
+
+  it.each([
+    { networkId: 'evm--1', tokenAddress: '0x456' },
+    { networkId: 'evm--8453', tokenAddress: '0x123' },
+  ])(
+    'rejects old subscription prices before passive cleanup after switching to %j',
+    async (nextToken) => {
+      mockFetchHistory.mockResolvedValue(buildResponse(100));
+      const previousPriceUpdate = jest.fn();
+      const nextPriceUpdate = jest.fn();
+      const emitPreviousPoint = jest.fn();
+      let emittedBeforeCleanup = false;
+      const { result, rerender } = renderHook(
+        ({ networkId, tokenAddress, onRealtimePoint }) => {
+          const chart = useTradingViewNativeKLine({
+            onRealtimePoint,
+            source: buildMarketSource({
+              networkId,
+              tokenAddress,
+              realtime: 'websocket',
+            }),
+          });
+          useLayoutEffect(() => {
+            if (networkId !== 'evm--1' || tokenAddress !== '0x123') {
+              emitPreviousPoint();
+            }
+          }, [networkId, tokenAddress]);
+          return chart;
+        },
+        {
+          initialProps: {
+            networkId: 'evm--1',
+            tokenAddress: '0x123',
+            onRealtimePoint: previousPriceUpdate,
+          },
+        },
+      );
+
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      const previousSubscription = mockSubscribeRealtime.mock.calls[0][0];
+      const previousSignal = previousSubscription.signal;
+      emitPreviousPoint.mockImplementation(() => {
+        emittedBeforeCleanup = !previousSignal.aborted;
+        previousSubscription.onPoint({
+          o: 100,
+          h: 106,
+          l: 99,
+          c: 105,
+          v: 12,
+          t: 100,
+        });
+      });
+
+      rerender({ ...nextToken, onRealtimePoint: nextPriceUpdate });
+
+      expect(emittedBeforeCleanup).toBe(true);
+      expect(previousPriceUpdate).not.toHaveBeenCalled();
+      expect(nextPriceUpdate).not.toHaveBeenCalled();
+      expect(previousSignal.aborted).toBe(true);
+
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() =>
+        expect(mockSubscribeRealtime).toHaveBeenCalledTimes(2),
+      );
+      const currentPoint = { o: 100, h: 111, l: 99, c: 110, v: 12, t: 200 };
+      pushRealtimePoint(currentPoint);
+      expect(nextPriceUpdate).toHaveBeenCalledTimes(1);
+      expect(nextPriceUpdate).toHaveBeenLastCalledWith(currentPoint);
+    },
+  );
+
+  it('updates an older candle without publishing it as the latest price', async () => {
+    mockFetchHistory.mockResolvedValue(
+      buildMultiPointResponse([
+        { close: 100, timestamp: 100 },
+        { close: 200, timestamp: 200 },
+      ]),
+    );
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+
+    pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
+
+    expect(result.current.points.map((point) => point.c)).toEqual([105, 200]);
+    expect(onRealtimePoint).not.toHaveBeenCalled();
+  });
+
+  it('ignores delayed price updates within a batch and keeps updates to the current candle', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(100));
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+    const currentPoint = { o: 100, h: 301, l: 99, c: 300, v: 12, t: 300 };
+    const updatedPoint = { ...currentPoint, c: 310, h: 311 };
+
+    act(() => {
+      realtimePointListener?.(currentPoint);
+      realtimePointListener?.({ ...currentPoint, c: 250, t: 200 });
+      realtimePointListener?.(updatedPoint);
+    });
+
+    expect(onRealtimePoint).toHaveBeenCalledTimes(2);
+    expect(onRealtimePoint).toHaveBeenNthCalledWith(1, currentPoint);
+    expect(onRealtimePoint).toHaveBeenNthCalledWith(2, updatedPoint);
+    expect(result.current.points.at(-1)).toEqual(updatedPoint);
   });
 
   it('discards realtime candles until initial history is ready', async () => {

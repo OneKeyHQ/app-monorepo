@@ -24,6 +24,8 @@ export function useMarketNativeChartPriceUpdate({
         networkId,
         tokenAddress,
         price: String(data.price),
+        // Candle timestamps mark interval starts; use reception time so later
+        // ticks within the same candle can refresh the price cache.
         lastUpdated: data.receivedAt,
       });
     },

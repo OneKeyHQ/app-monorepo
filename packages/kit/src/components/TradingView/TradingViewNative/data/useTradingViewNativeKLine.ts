@@ -3573,6 +3573,7 @@ export function useTradingViewNativeKLine({
     (point: IMarketTokenKLineDataPoint) => {
       const realtimeScope = realtimeScopeRef.current;
       if (
+        currentSeriesKeyRef.current !== seriesKey ||
         realtimeScope.seriesKey !== seriesKey ||
         realtimeScope.interval !== activeInterval
       ) {
@@ -3632,7 +3633,15 @@ export function useTradingViewNativeKLine({
         seriesKey,
         to: point.t,
       });
-      onRealtimePointRef.current?.(point);
+      // Historical corrections must not replace the latest price, including
+      // when multiple ticks arrive before React commits the chart update.
+      const latestTimestamp = Math.max(
+        currentChartData.points.at(-1)?.t ?? point.t,
+        ...realtimePointBufferRef.current.keys(),
+      );
+      if (point.t >= latestTimestamp) {
+        onRealtimePointRef.current?.(point);
+      }
       const updatedAt = Date.now();
       lastRealtimeActivityAtRef.current = updatedAt;
       setRealtimeState({
