@@ -102,7 +102,7 @@ export function formatAccountSelectorValueV2({
   } else {
     const deFiAll = Object.values(overview?.overview ?? {}).reduce(
       (sum, current) =>
-        new BigNumber(sum).plus(current.netWorth ?? '0').toFixed(),
+        new BigNumber(sum).plus(current?.netWorth ?? '0').toFixed(),
       perpsNetWorth,
     );
     total = calculateAccountTotalValue({

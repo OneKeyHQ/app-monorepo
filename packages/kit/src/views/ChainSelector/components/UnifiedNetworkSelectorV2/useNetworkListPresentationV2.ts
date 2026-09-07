@@ -43,7 +43,7 @@ export function getNetworkValueV2({
   if (network.isAllNetworks) {
     return Object.values(accountDeFiOverview)
       .reduce(
-        (total, value) => total.plus(value.netWorth ?? 0),
+        (total, value) => total.plus(value?.netWorth ?? 0),
         Object.values(accountNetworkValues).reduce(
           (total, value) => total.plus(value ?? '0'),
           new BigNumber(0),

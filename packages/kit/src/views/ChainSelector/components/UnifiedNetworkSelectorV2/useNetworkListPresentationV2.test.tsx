@@ -5,7 +5,10 @@ import { renderHook } from '@testing-library/react';
 
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { useNetworkListPresentationV2 } from './useNetworkListPresentationV2';
+import {
+  getNetworkValueV2,
+  useNetworkListPresentationV2,
+} from './useNetworkListPresentationV2';
 
 const mockTheme = new Proxy({}, { get: () => ({ val: '#000000' }) });
 let mockHideValue = false;
@@ -30,6 +33,22 @@ describe('network currency presentation V2', () => {
       btc: { unit: '₿', value: 0.000_001 },
       eur: { unit: '€', value: 0.8 },
     };
+  });
+
+  it('ignores missing DeFi entries when summing all networks', () => {
+    expect(
+      getNetworkValueV2({
+        network: {
+          id: 'onekeyall--0',
+          isAllNetworks: true,
+        } as Parameters<typeof getNetworkValueV2>[0]['network'],
+        accountNetworkValues: { 'evm--1': '2' },
+        accountDeFiOverview: {
+          'evm--1': undefined as never,
+          'evm--137': { netWorth: 3 },
+        },
+      }),
+    ).toBe('5');
   });
 
   it('uses the original Currency exchange-rate conversion and target unit', () => {

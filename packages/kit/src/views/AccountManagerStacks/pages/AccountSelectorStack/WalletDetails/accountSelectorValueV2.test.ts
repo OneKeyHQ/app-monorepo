@@ -86,6 +86,28 @@ describe('account selector V2 values', () => {
     ).toEqual({ text: '$5.00', tone: 'secondary' });
   });
 
+  it('ignores missing DeFi network entries in all-network mode', () => {
+    expect(
+      formatAccountSelectorValueV2({
+        ...defaults,
+        linkedNetworkId: 'onekeyall--0',
+        accountValue: { accountId: 'account-1', currency: 'usd', value: {} },
+        overview: {
+          overview: {
+            'evm--1': undefined as never,
+            'evm--137': {
+              netWorth: 4,
+              totalValue: 4,
+              totalDebt: 0,
+              totalReward: 0,
+              currency: 'usd',
+            },
+          },
+        },
+      }),
+    ).toEqual({ text: '$4.00', tone: 'secondary' });
+  });
+
   it('keeps the source currency unit until the target exchange rate is available', () => {
     expect(
       formatAccountSelectorValueV2({
