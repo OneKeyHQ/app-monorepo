@@ -26,6 +26,7 @@ import { MARKET_LIST_ROW_HEIGHT } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { sortMarketTokenListData } from '../MarketTokenList/utils/tokenListHelpers';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
@@ -107,11 +108,10 @@ function MarketPerpsTokenListImpl({
     if (!sort) {
       return tokens;
     }
-    const { field, order } = sort;
-    return [...tokens].toSorted((a, b) => {
-      const aVal = Number(a[field] ?? 0);
-      const bVal = Number(b[field] ?? 0);
-      return order === 'asc' ? aVal - bVal : bVal - aVal;
+    return sortMarketTokenListData({
+      data: tokens,
+      field: sort.field,
+      order: sort.order,
     });
   }, [sort, tokens]);
 

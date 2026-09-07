@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ETableSortType, type ITableColumn, type ITableProps } from '../types';
 
@@ -22,15 +22,22 @@ jest.mock('./Column', () => ({
   Column: ({
     children,
     name,
+    onPress,
     order,
   }: {
     children?: ReactNode;
     name: string;
+    onPress?: () => void;
     order?: string;
   }) => (
-    <div data-testid={name} data-order={order ?? ''}>
+    <button
+      type="button"
+      data-testid={name}
+      data-order={order ?? ''}
+      onClick={onPress}
+    >
       {children}
-    </div>
+    </button>
   ),
 }));
 
@@ -90,5 +97,35 @@ describe('HeaderColumn', () => {
     expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe(
       'desc',
     );
+  });
+
+  test('shows the locally cycled order while the external initial order stays fixed', async () => {
+    const onSortTypeChange = jest.fn();
+    const onHeaderRow: ITableProps<IRow>['onHeaderRow'] = () => ({
+      initialSortOrder: ETableSortType.DESC,
+      onSortTypeChange,
+    });
+    const props = {
+      column,
+      index: 0,
+      selectedColumnName: 'change24h',
+      onChangeSelectedName: jest.fn(),
+      onHeaderRow,
+    };
+
+    render(<HeaderColumn {...props} />);
+
+    expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe(
+      'desc',
+    );
+
+    fireEvent.click(screen.getByTestId('change24h'));
+
+    expect(screen.getByTestId('change24h').getAttribute('data-order')).toBe(
+      'asc',
+    );
+    await waitFor(() => {
+      expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.ASC);
+    });
   });
 });

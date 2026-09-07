@@ -28,6 +28,18 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+function getFiniteNumericSortValue(value: unknown) {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '')
+  ) {
+    return undefined;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+}
+
 export function sortMarketTokenListData<T>({
   data,
   field,
@@ -42,8 +54,14 @@ export function sortMarketTokenListData<T>({
   }
 
   return [...data].toSorted((a, b) => {
-    const aValue = Number(a[field]) || 0;
-    const bValue = Number(b[field]) || 0;
+    const aValue = getFiniteNumericSortValue(a[field]);
+    const bValue = getFiniteNumericSortValue(b[field]);
+    if (aValue === undefined) {
+      return bValue === undefined ? 0 : 1;
+    }
+    if (bValue === undefined) {
+      return -1;
+    }
     return order === 'asc' ? aValue - bValue : bValue - aValue;
   });
 }

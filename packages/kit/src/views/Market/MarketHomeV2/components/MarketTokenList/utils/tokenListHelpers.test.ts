@@ -39,6 +39,31 @@ describe('market token list sorting', () => {
 
     expect(sortMarketTokenListData({ data: source })).toBe(source);
   });
+
+  test.each(['asc', 'desc'] as const)(
+    'keeps missing and invalid metrics last when sorting %s',
+    (order) => {
+      const source = [
+        { id: 'missing', price: undefined },
+        { id: 'high', price: 20 },
+        { id: 'invalid', price: Number.NaN },
+        { id: 'zero', price: 0 },
+        { id: 'low', price: 10 },
+      ];
+
+      const sorted = sortMarketTokenListData({
+        data: source,
+        field: 'price',
+        order,
+      });
+
+      expect(sorted.map((token) => token.id)).toEqual(
+        order === 'asc'
+          ? ['zero', 'low', 'high', 'missing', 'invalid']
+          : ['high', 'low', 'zero', 'missing', 'invalid'],
+      );
+    },
+  );
 });
 
 describe('stock metadata values', () => {
