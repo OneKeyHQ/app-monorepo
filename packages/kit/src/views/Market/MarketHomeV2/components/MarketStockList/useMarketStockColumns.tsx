@@ -29,7 +29,10 @@ import {
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
 import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
-import { MARKET_CELL_SUBTITLE_SIZE } from '../MarketListCell';
+import {
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
 import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
 
 import { StockSparkline } from './StockSparkline';
@@ -39,7 +42,6 @@ const EMPTY_VALUE = '--';
 
 // `$bodyMd`'s line box: the company name and the variant summary share it so
 // the hover slide lands cleanly on the second line.
-const STOCK_SUBTITLE_LINE_HEIGHT = 20;
 const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
 
 const COMPACT_METRIC_COLUMN_PROPS: IStackProps = {
@@ -171,10 +173,10 @@ export function useMarketStockColumns({
                   {record.symbol}
                 </SizableText>
                 <MarketHoverRevealLine
-                  lineHeight={STOCK_SUBTITLE_LINE_HEIGHT}
+                  lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                   resting={
                     <SizableText
-                      height={STOCK_SUBTITLE_LINE_HEIGHT}
+                      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                       size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
                       color="$textSubdued"
                       numberOfLines={1}
@@ -186,7 +188,7 @@ export function useMarketStockColumns({
                   revealed={
                     record.variants?.length && !compact ? (
                       <XStack
-                        height={STOCK_SUBTITLE_LINE_HEIGHT}
+                        height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                         alignItems="center"
                         gap="$1"
                         minWidth={0}

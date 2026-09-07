@@ -29,7 +29,11 @@ import {
 } from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
-import { MARKET_CELL_LOGO_GAP } from '../MarketListCell';
+import {
+  MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
@@ -172,7 +176,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               tokenImageUri={record.logoUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <XStack alignItems="center" gap="$2" minWidth={0}>
+            <YStack flex={1} minWidth={0} justifyContent="center">
               <SizableText
                 size="$bodyLgMedium"
                 numberOfLines={1}
@@ -180,7 +184,20 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               >
                 {record.symbol.toUpperCase()}
               </SizableText>
-            </XStack>
+              {/* The stock list's resting company line, without its hover
+                  reveal: top coins carry no variant group to swap in. */}
+              {record.name ? (
+                <SizableText
+                  height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                  size={MARKET_CELL_SUBTITLE_SIZE}
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {record.name}
+                </SizableText>
+              ) : null}
+            </YStack>
           </XStack>
         ),
         renderSkeleton: () => (
