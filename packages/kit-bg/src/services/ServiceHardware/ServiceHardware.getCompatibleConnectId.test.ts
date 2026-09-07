@@ -3095,6 +3095,45 @@ describe('ServiceHardware.unlockDevice', () => {
 });
 
 describe('ServiceHardware cancellation ownership', () => {
+  it('preserves the operation outcome when cancel initialization fails', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    const operationError = new Error('operation failed');
+    service.getSDKInstance = jest
+      .fn()
+      .mockRejectedValue(new Error('cancel initialization failed'));
+
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void service.cancel({
+            connectId: 'device',
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+          return 'operation result';
+        },
+      }),
+    ).resolves.toBe('operation result');
+
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void service.cancel({
+            connectId: 'device',
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+          throw operationError;
+        },
+      }),
+    ).rejects.toBe(operationError);
+  });
+
   it('does not start a portfolio upload after its lease is cancelled during SDK lookup', async () => {
     const manager = new HardwareProcessingManager();
     const service = new ServiceHardware({
