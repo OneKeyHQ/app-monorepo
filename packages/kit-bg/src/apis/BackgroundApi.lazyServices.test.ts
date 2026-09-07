@@ -8,6 +8,7 @@ const mockUnifoldConstructor = jest.fn();
 const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
 const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
 const mockIdentityExitConstructor = jest.fn();
+const mockTravelModeConstructor = jest.fn();
 const mockIdentityExitRecovery = jest.fn(async () => ({
   recoveredOperationCount: 0,
   abandonedOperationCount: 0,
@@ -15,6 +16,7 @@ const mockIdentityExitRecovery = jest.fn(async () => ({
 let mockDemoModuleLoadCount = 0;
 let mockUnifoldModuleLoadCount = 0;
 let mockIdentityExitModuleLoadCount = 0;
+let mockTravelModeModuleLoadCount = 0;
 
 jest.mock('./BackgroundApiBase', () => ({
   __esModule: true,
@@ -70,6 +72,16 @@ jest.mock('../services/ServiceDemo', () => {
   };
 });
 
+jest.mock('../services/ServiceTravelMode', () => {
+  mockTravelModeModuleLoadCount += 1;
+  return {
+    __esModule: true,
+    default: function ServiceTravelMode(params: unknown) {
+      mockTravelModeConstructor(params);
+    },
+  };
+});
+
 jest.mock('../services/ServiceUnifoldDeposit', () => {
   mockUnifoldModuleLoadCount += 1;
   return {
@@ -107,7 +119,34 @@ describe('BackgroundApi lazy services', () => {
     mockDemoModuleLoadCount = 0;
     mockUnifoldModuleLoadCount = 0;
     mockIdentityExitModuleLoadCount = 0;
+    mockTravelModeModuleLoadCount = 0;
   });
+
+  test.each([false, true])(
+    'loads Travel Mode only on mobile (native: %s)',
+    async (isNative) => {
+      const { default: platformEnv } =
+        await import('@onekeyhq/shared/src/platformEnv');
+      platformEnv.isNative = isNative;
+      const { default: BackgroundApi } = await import('./BackgroundApi');
+      const backgroundApi = new BackgroundApi();
+
+      expect(mockTravelModeModuleLoadCount).toBe(0);
+      if (isNative) {
+        const service = backgroundApi.serviceTravelMode;
+        expect(backgroundApi.serviceTravelMode).toBe(service);
+        expect(mockTravelModeModuleLoadCount).toBe(1);
+        expect(mockTravelModeConstructor).toHaveBeenCalledTimes(1);
+        expect(mockTravelModeConstructor).toHaveBeenCalledWith({ backgroundApi });
+      } else {
+        expect(() => backgroundApi.serviceTravelMode).toThrow(
+          'Travel Mode is only supported on mobile',
+        );
+        expect(mockTravelModeModuleLoadCount).toBe(0);
+        expect(mockTravelModeConstructor).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   test('loads and constructs each service only when a method is called', async () => {
     const { default: BackgroundApi } = await import('./BackgroundApi');

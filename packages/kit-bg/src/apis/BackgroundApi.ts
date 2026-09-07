@@ -1,6 +1,9 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
@@ -120,13 +123,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceTravelMode() {
-    const Service =
-      require('../services/ServiceTravelMode') as typeof import('../services/ServiceTravelMode');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceTravelMode', { value });
-    return value;
+    if (platformEnv.isNative) {
+      const Service =
+        require('../services/ServiceTravelMode') as typeof import('../services/ServiceTravelMode');
+      const value = new Service.default({
+        backgroundApi: this,
+      });
+      Object.defineProperty(this, 'serviceTravelMode', { value });
+      return value;
+    }
+    throw new OneKeyLocalError('Travel Mode is only supported on mobile');
   }
 
   get serviceWebviewPerp() {
