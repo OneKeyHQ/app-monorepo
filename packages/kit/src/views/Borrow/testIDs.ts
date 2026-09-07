@@ -8,6 +8,10 @@ export const BorrowTestIDs = {
   reservesRetryBtn: 'borrow-reserves-retry-btn',
   positionCard: (kind: 'supplied' | 'borrowed', reserveAddress: string) =>
     `borrow-position-card-${kind}-${reserveAddress.toLowerCase()}`,
+  positionCardActions: (
+    kind: 'supplied' | 'borrowed',
+    reserveAddress: string,
+  ) => `borrow-position-card-actions-${kind}-${reserveAddress.toLowerCase()}`,
 
   // --- Overview ---
   overviewRefreshBtn: 'borrow-overview-refresh-btn',
