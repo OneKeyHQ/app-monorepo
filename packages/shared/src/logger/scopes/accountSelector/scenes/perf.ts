@@ -3,6 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { LogToConsoleDevOnly } from '../../../base/decorators';
 
 import { AccountSelectorDevOnlyScene } from './devOnlyScene';
+import { recordAccountSelectorPerfE2ETrace } from './perfE2E';
 
 type ISelectedAccountLike = {
   deriveType?: string;
@@ -72,42 +73,6 @@ export type TAccountSelectorPerfEventName =
   | 'walletDeprecatedStatusUpdateResult'
   | 'walletLookupFailed';
 
-const ACCOUNT_SELECTOR_PERF_E2E_TRACE_LIMIT = 10_000;
-
-type IAccountSelectorPerfE2ETrace = Record<string, unknown> & {
-  event: TAccountSelectorPerfEventName;
-};
-
-const accountSelectorPerfE2ETraceBuffer: IAccountSelectorPerfE2ETrace[] = [];
-let accountSelectorPerfE2EDroppedCount = 0;
-
-// Runtime override for perf attribution under E2E. Defaults to enabled so
-// existing E2E flows keep their tracing; an explicit false makes
-// isAccountSelectorPerfDebugEnabled() return false, which is the production
-// wiring (attribution WeakMaps stay empty, no perf trace calls). Module-scoped
-// like the trace buffer above: web/desktop E2E run a single JS runtime, so one
-// flag covers both UI and background callers. Split-runtime targets would need
-// the override set in each runtime.
-let accountSelectorPerfE2EAttributionEnabled = true;
-
-export function setAccountSelectorPerfE2EAttributionEnabled(enabled: boolean) {
-  accountSelectorPerfE2EAttributionEnabled = enabled;
-}
-
-export function isAccountSelectorPerfE2EAttributionEnabled() {
-  return accountSelectorPerfE2EAttributionEnabled;
-}
-
-export function drainAccountSelectorPerfE2ETrace() {
-  const events = accountSelectorPerfE2ETraceBuffer.splice(0);
-  const droppedCount = accountSelectorPerfE2EDroppedCount;
-  accountSelectorPerfE2EDroppedCount = 0;
-  return {
-    droppedCount,
-    events,
-  };
-}
-
 function buildSelectionSummary(selectedAccount: ISelectedAccountLike) {
   let accountKind = 'none';
   if (selectedAccount.indexedAccountId) {
@@ -131,26 +96,7 @@ export class AccountSelectorPerfScene extends AccountSelectorDevOnlyScene {
     metadataList: Parameters<AccountSelectorDevOnlyScene['_emitLog']>[2],
   ) {
     if (platformEnv.isE2E && methodName === 'trace') {
-      const trace = args[0];
-      if (
-        trace &&
-        typeof trace === 'object' &&
-        typeof (trace as IAccountSelectorPerfE2ETrace).event === 'string'
-      ) {
-        if (
-          accountSelectorPerfE2ETraceBuffer.length >=
-          ACCOUNT_SELECTOR_PERF_E2E_TRACE_LIMIT
-        ) {
-          const deleteCount = Math.floor(
-            ACCOUNT_SELECTOR_PERF_E2E_TRACE_LIMIT / 5,
-          );
-          accountSelectorPerfE2ETraceBuffer.splice(0, deleteCount);
-          accountSelectorPerfE2EDroppedCount += deleteCount;
-        }
-        accountSelectorPerfE2ETraceBuffer.push({
-          ...(trace as IAccountSelectorPerfE2ETrace),
-        });
-      }
+      recordAccountSelectorPerfE2ETrace(args[0]);
     }
     return super._emitLog(methodName, args, metadataList);
   }
