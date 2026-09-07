@@ -43,7 +43,11 @@ export class HardwareProcessingManager {
     cleanup: () => Promise<void>,
   ) {
     if (lease !== this.activeOneKeyOperationLease) return Promise.resolve();
-    this.activeCleanup ??= Promise.resolve().then(cleanup);
+    this.activeCleanup ??= Promise.resolve()
+      .then(cleanup)
+      .catch((error) => {
+        console.error('OneKey hardware operation cleanup failed', error);
+      });
     return this.activeCleanup;
   }
 

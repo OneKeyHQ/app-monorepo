@@ -2894,17 +2894,17 @@ class ServiceHardware extends ServiceBase {
 
     const fn = async () => {
       if (!isCurrent()) return;
-      // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
-      const sdk = await this.getSDKInstance({
-        connectId,
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
-      });
-      if (!isCurrent()) return;
-      // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
-
-      // cancel the hardware process
-      // (cancel not working on enter pin on device mode, use getFeatures() later)
       try {
+        // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
+        const sdk = await this.getSDKInstance({
+          connectId,
+          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        });
+        if (!isCurrent()) return;
+        // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
+
+        // cancel the hardware process
+        // (cancel not working on enter pin on device mode, use getFeatures() later)
         // For cancel operations, use getCompatibleConnectId but skip transport detection
         // to avoid unnecessary /enumerate calls while still getting the correct connectId
         const compatibleConnectId = connectId
@@ -2915,12 +2915,11 @@ class ServiceHardware extends ServiceBase {
           : undefined;
         if (!isCurrent()) return;
         sdk.cancel(compatibleConnectId);
+        console.log('sdk.cancel device: ', connectId);
       } catch (e: any) {
         const { message } = e || {};
         console.log('sdk.cancel error: ', message);
       }
-
-      console.log('sdk.cancel device: ', connectId);
     };
 
     clearTimeout(this.cancelTimer);

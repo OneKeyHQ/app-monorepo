@@ -349,6 +349,7 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
         backgroundApi: {
           serviceHardware: {
             cancelTimer: undefined,
+            invalidatePendingCancel: jest.fn(),
             getFeaturesMutex: {
               isLocked: jest.fn(() => false),
               waitForUnlock: jest.fn(),
