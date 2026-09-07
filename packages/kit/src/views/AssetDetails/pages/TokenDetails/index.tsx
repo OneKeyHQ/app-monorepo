@@ -57,7 +57,6 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -79,6 +78,7 @@ import {
   useTokenDetailsContext,
 } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
+import { enableNetworkInAllNetworksOnce } from './tokenDetailsNetworkAutoEnable';
 import TokenDetailsOverview from './TokenDetailsOverview';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
@@ -753,44 +753,49 @@ function TokenDetailsView() {
 
   const pageWidth = useTabletModalPageWidth();
 
+  // The native Tabs container captures onIndexChange once, so read the tab
+  // list through a ref instead of trusting the closure to stay current.
+  const aggregateTabsRef = useRef(aggregateTabs);
+  aggregateTabsRef.current = aggregateTabs;
+  const enablingNetworkIdsRef = useRef<Set<string>>(new Set());
+
   const handleTabIndexChange = useCallback(
     async (index: number) => {
       setActiveTabIndex(index);
 
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
-      const activeToken = aggregateTabs?.[index]?.token;
-      if (
-        isAllNetworks &&
-        activeToken?.accountId &&
-        activeToken.networkId &&
-        !isEnabledNetworksInAllNetworks({
-          networkId: activeToken.networkId,
-          disabledNetworks: allNetworksState.disabledNetworks,
-          enabledNetworks: allNetworksState.enabledNetworks,
-          isTestnet: false,
-        })
-      ) {
-        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: { [activeToken.networkId]: true },
-        });
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.network_also_enabled,
-          }),
-        });
-        void refreshAllNetworkState();
+      const activeToken = aggregateTabsRef.current?.[index]?.token;
+      const activeNetworkId = activeToken?.networkId;
+      if (!isAllNetworks || !activeToken?.accountId || !activeNetworkId) {
+        return;
       }
+      // OK-61863: decide against the live All-Networks state rather than the
+      // render snapshot, so a network enabled by an earlier tab switch is
+      // never enabled (and toasted) a second time.
+      const enabled = await enableNetworkInAllNetworksOnce({
+        networkId: activeNetworkId,
+        inFlightNetworkIds: enablingNetworkIdsRef.current,
+        getAllNetworksState: () =>
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        enableNetwork: async (targetNetworkId) => {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [targetNetworkId]: true },
+          });
+        },
+      });
+      if (!enabled) {
+        return;
+      }
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.network_also_enabled,
+        }),
+      });
+      void refreshAllNetworkState();
     },
-    [
-      isAllNetworks,
-      aggregateTabs,
-      allNetworksState.disabledNetworks,
-      allNetworksState.enabledNetworks,
-      intl,
-      refreshAllNetworkState,
-    ],
+    [isAllNetworks, intl, refreshAllNetworkState],
   );
 
   const tokenDetailsViewElement = useMemo(() => {
