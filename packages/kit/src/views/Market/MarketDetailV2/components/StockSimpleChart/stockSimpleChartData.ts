@@ -1,5 +1,9 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
+import {
+  fillMarketKLineGaps,
+  getMarketApiKLineIntervalSeconds,
+} from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
@@ -77,9 +81,12 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   All: undefined,
 };
 
+// The token K-line endpoint honours whatever interval it is given (unlike the
+// Asset one below), but only returns buckets that actually traded, so the
+// series is sparse wherever the market is thin.
 const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1H': '1m',
-  '1D': '15m',
+  '1D': '5m',
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',
@@ -278,9 +285,10 @@ export async function fetchStockSimpleChartPoints(
     return [];
   }
 
+  const tokenInterval = STOCK_TOKEN_CHART_INTERVALS[range];
   const response =
     await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-      interval: STOCK_TOKEN_CHART_INTERVALS[range],
+      interval: tokenInterval,
       networkId,
       tokenAddress,
       timeFrom,
@@ -288,11 +296,20 @@ export async function fetchStockSimpleChartPoints(
       autoHandleError: false,
     });
 
-  return response.points
+  const points = response.points
     .map((point) => [Number(point.t), Number(point.c)] as [number, number])
     .filter(([timestamp, price]) => {
       const isValidPoint = Number.isFinite(timestamp) && Number.isFinite(price);
       return isValidPoint;
     })
     .toSorted((a, b) => a[0] - b[0]);
+
+  // This feed skips buckets that never traded, and the chart spaces points
+  // evenly whatever their timestamps say — so an untouched sparse series draws
+  // a thin market's quiet hours as if they were single steps, squashing the
+  // shape and pulling the time axis out of true.
+  return fillMarketKLineGaps(
+    points,
+    getMarketApiKLineIntervalSeconds(tokenInterval),
+  );
 }

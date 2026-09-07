@@ -175,6 +175,37 @@ describe('fetchStockSimpleChartPoints', () => {
     ]);
   });
 
+  it('fills the buckets the token k-line feed skipped', async () => {
+    const t = nowSeconds - 60 * 60;
+    serviceMarketV2.fetchMarketTokenKline.mockResolvedValue({
+      total: 3,
+      points: [
+        { t, o: 10, h: 10, l: 10, c: 10, v: 0 },
+        { t: t + 900, o: 12, h: 12, l: 12, c: 12, v: 0 },
+        { t: t + 1200, o: 11, h: 11, l: 11, c: 11, v: 0 },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'token',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+    });
+
+    // 1D asks for 5m buckets; the two the feed skipped carry the last close so
+    // the chart's even point spacing still matches elapsed time.
+    expect(result).toEqual([
+      [t, 10],
+      [t + 300, 10],
+      [t + 600, 10],
+      [t + 900, 12],
+      [t + 1200, 11],
+    ]);
+  });
+
   it('keeps bounded token ranges on the token k-line API', async () => {
     serviceMarketV2.fetchMarketTokenKline.mockResolvedValue({
       total: 1,
@@ -202,7 +233,7 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toEqual([
       [
         {
-          interval: '15m',
+          interval: '5m',
           networkId: 'evm--1',
           tokenAddress: '0xaapl',
           timeFrom: nowSeconds - 24 * 60 * 60,
