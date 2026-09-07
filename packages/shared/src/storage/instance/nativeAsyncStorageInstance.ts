@@ -161,7 +161,7 @@ const nativeAsyncStorageInstance: AsyncStorageStatic = new Proxy(
   nativeAsyncStorageImplementation,
   {
     get(target, property, receiver) {
-      if (property === 'then') {
+      if (property === 'then' || property === '$$typeof') {
         return undefined;
       }
       if (typeof property === 'symbol' || Reflect.has(target, property)) {

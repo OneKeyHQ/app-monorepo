@@ -3,6 +3,7 @@ import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
+import { travelModeManager } from '../travelMode';
 import { COLD_START_SNAPSHOT_HARD_MAX_CHARS } from '../utils/coldStartCacheSnapshotUtils';
 import {
   SWR_CACHE_MAX_SERIALIZED_CHARS,
@@ -29,6 +30,7 @@ import {
   isNativeSWRCachePhysicalKey,
 } from './nativeSWRCachePersistence';
 import { broadcastNativeSyncStorageMutation } from './nativeSyncStorageBroadcast';
+import { EAppSyncStorageKeys } from './syncStorageKeys';
 
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
 import type {
@@ -979,27 +981,39 @@ async function processRecoveryAction() {
 
 export async function prepareNativeStorageForBackgroundStartup() {
   assertBackgroundRuntime();
-  recoveryActionPromise ??= processRecoveryAction().catch((error: unknown) => {
-    recoveryActionPromise = undefined;
-    throw error;
+  const environment = travelModeManager.getRuntimeEnvironmentSync();
+  return environment.persistence.run({
+    operation: () => {
+      recoveryActionPromise ??= processRecoveryAction().catch(
+        (error: unknown) => {
+          recoveryActionPromise = undefined;
+          throw error;
+        },
+      );
+      return recoveryActionPromise;
+    },
+    onBlocked: () => undefined,
   });
-  await recoveryActionPromise;
-  // Finish the legacy copy before importing background business services. This
-  // prevents startup reads or writes from changing the source while it is being
-  // snapshotted.
-  await ensureNativeAppStorageMigrated();
 }
 
 export function ensureNativeAppStorageMigrated() {
   assertBackgroundRuntime();
-  appStorageMigrationPromise ??= migrateAppStorageFromLegacy().catch(
-    (error: unknown) => {
-      appStorageMigrationPromise = undefined;
-      logMigration(`failed error=${(error as Error)?.message || 'unknown'}`);
-      throw error;
+  const environment = travelModeManager.getRuntimeEnvironmentSync();
+  return environment.persistence.run({
+    operation: () => {
+      appStorageMigrationPromise ??= migrateAppStorageFromLegacy().catch(
+        (error: unknown) => {
+          appStorageMigrationPromise = undefined;
+          logMigration(
+            `failed error=${(error as Error)?.message || 'unknown'}`,
+          );
+          throw error;
+        },
+      );
+      return appStorageMigrationPromise;
     },
-  );
-  return appStorageMigrationPromise;
+    onBlocked: () => undefined,
+  });
 }
 
 async function resetAppStorageAfterMigrationMismatch() {
@@ -1610,27 +1624,85 @@ async function buildBootstrapSnapshot(): Promise<INativeStorageBootstrapSnapshot
   };
 }
 
-export async function executeNativeStorageRequest(
+async function executeMaskedNativeStorageRequest(
   request: INativeStorageRequest,
 ): Promise<unknown> {
-  assertBackgroundRuntime();
+  if (request.scope === 'bootstrap') {
+    const controlValue = await travelModeManager.getBootstrapControlValue();
+    const settings: INativeSyncStorageEntry[] = controlValue
+      ? [[EAppSyncStorageKeys.onekey_travel_mode_control_v1, controlValue]]
+      : [];
+    return {
+      settings,
+      coldStart: [],
+      devSettings: [],
+    };
+  }
+  if (request.scope === 'recovery') {
+    return undefined;
+  }
+  if (request.scope === 'asyncStorage') {
+    switch (request.operation) {
+      case 'getItem':
+        return null;
+      case 'getAllKeys':
+        return [];
+      case 'multiGet':
+        return request.keys.map((key) => [key, null]);
+      default:
+        return undefined;
+    }
+  }
+  if (request.operation === 'clear') {
+    return {
+      operation: 'clear',
+      store: request.store,
+      sourceMutationId: request.sourceMutationId,
+    };
+  }
+  if (request.operation === 'patchSWR') {
+    return {
+      entries: [],
+      operation: 'patchSWR',
+      store: request.store,
+      sourceMutationId: request.sourceMutationId,
+    };
+  }
+  return {
+    key: request.key,
+    operation: 'remove',
+    store: request.store,
+    sourceMutationId: request.sourceMutationId,
+  };
+}
+
+async function executeRealNativeStorageRequest(
+  request: INativeStorageRequest,
+): Promise<unknown> {
   switch (request.scope) {
-    case 'asyncStorage':
-      return enqueueAsyncStorageRequest(request);
-    case 'syncStorage':
-      return executeSyncStorageRequest(request);
+    case 'asyncStorage': {
+      const result = await enqueueAsyncStorageRequest(request);
+      return result;
+    }
+    case 'syncStorage': {
+      const result = await executeSyncStorageRequest(request);
+      return result;
+    }
     case 'recovery':
       if (
         request.operation === 'resetMigrationTarget' &&
         request.target === 'appStorage'
       ) {
-        return enqueueAppStorageMigrationReset();
+        const result = await enqueueAppStorageMigrationReset();
+        return result;
       }
       throw new OneKeyLocalError(
         'Jotai migration recovery must be handled by its storage owner',
       );
-    case 'bootstrap':
-      return buildBootstrapSnapshot();
+    case 'bootstrap': {
+      const result = await buildBootstrapSnapshot();
+      return result;
+    }
     default: {
       const exhaustive: never = request;
       throw new OneKeyLocalError(
@@ -1638,4 +1710,15 @@ export async function executeNativeStorageRequest(
       );
     }
   }
+}
+
+export async function executeNativeStorageRequest(
+  request: INativeStorageRequest,
+): Promise<unknown> {
+  assertBackgroundRuntime();
+  const environment = await travelModeManager.getRuntimeEnvironment();
+  return environment.persistence.run({
+    operation: () => executeRealNativeStorageRequest(request),
+    onBlocked: () => executeMaskedNativeStorageRequest(request),
+  });
 }
