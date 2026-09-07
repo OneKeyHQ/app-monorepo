@@ -8,7 +8,7 @@ import {
 import type { TravelModeManager } from './TravelModeManager';
 
 export async function completeTravelModeRuntimeLaunchAcknowledgement(
-  manager: TravelModeManager,
+  manager: Pick<TravelModeManager, 'getRuntimeProfile' | 'markRestartFailed'>,
 ): Promise<boolean> {
   if (!platformEnv.isNative || !platformEnv.nativeRuntimeKind) {
     return true;
