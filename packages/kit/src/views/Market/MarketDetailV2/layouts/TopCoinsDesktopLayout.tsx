@@ -320,10 +320,14 @@ function TopCoinsOverview({
           />
           <TopCoinsStatItem
             label={intl.formatMessage({ id: ETranslations.global_max_supply })}
-            value={formatStatValueWithFormatter(
-              market?.maxSupply,
-              MARKET_CAP_FORMATTER,
-            )}
+            value={
+              market?.maxSupply === 'unlimited'
+                ? '∞'
+                : formatStatValueWithFormatter(
+                    market?.maxSupply,
+                    MARKET_CAP_FORMATTER,
+                  )
+            }
           />
         </XStack>
       </YStack>
