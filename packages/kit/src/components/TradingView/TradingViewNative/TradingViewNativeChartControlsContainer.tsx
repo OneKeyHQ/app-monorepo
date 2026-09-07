@@ -203,7 +203,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTypeToggleIcon="TradingViewCandlesOutline"
         chartTypes={TRADING_VIEW_NATIVE_CHART_TYPE_OPTIONS}
         hasVisibleControls
-        hasVisibleIndicators={!onChartClose}
+        hasVisibleIndicators={!compactMobileLayout && !onChartClose}
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
