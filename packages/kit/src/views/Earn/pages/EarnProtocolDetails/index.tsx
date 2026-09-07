@@ -362,6 +362,7 @@ function ChartSection({
   provider,
   vault,
   showTimeRangeControls,
+  apyBreakdownItems,
 }: {
   networkId: string;
   symbol: string;
@@ -371,6 +372,10 @@ function ChartSection({
   // filters to whatever data falls in the window, so a sparse history simply
   // draws fewer points rather than needing its own guard.
   showTimeRangeControls?: boolean;
+  // The APY popup's breakdown rows, used to name the two lines. Taking the
+  // names from the same payload the Yield sheet renders means the chart and the
+  // sheet can never disagree about what the orange line is.
+  apyBreakdownItems?: NonNullable<IEarnPopupActionIcon['data']['items']>;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -461,6 +466,34 @@ function ChartSection({
       // segment colors. TODO(design): confirm the exact orange against Figma.
       (extraApyKind === 'reward' && '#0177E5') || '#DD7B22';
 
+  // Both lines used to read "APY" in the tooltip, which left the reader with no
+  // way to tell the vault's own yield from the bonus on top of it.
+  const { primaryLabel, secondaryLabel } = useMemo(() => {
+    if (isPendleProvider) {
+      return {
+        primaryLabel: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
+        secondaryLabel: intl.formatMessage({
+          id: ETranslations.defi_underlying_apy,
+        }),
+      };
+    }
+    const titleOf = (kind: 'base' | 'campaign' | 'reward') =>
+      apyBreakdownItems?.find((item) => item.kind === kind)?.title?.text;
+    return {
+      primaryLabel:
+        titleOf('base') ||
+        intl.formatMessage({ id: ETranslations.earn_base_apy }),
+      secondaryLabel:
+        (extraApyKind ? titleOf(extraApyKind) : undefined) ||
+        intl.formatMessage({
+          id:
+            extraApyKind === 'reward'
+              ? ETranslations.earn_rewards
+              : ETranslations.defi_platform_bonus,
+        }),
+    };
+  }, [apyBreakdownItems, extraApyKind, intl, isPendleProvider]);
+
   // Calculate high and low APY
   const { high, low } = useMemo(() => {
     if (!impliedApyHistory || impliedApyHistory.length === 0) {
@@ -511,16 +544,8 @@ function ChartSection({
         controlsPlacement={showTimeRangeControls ? 'bottom' : 'top'}
         showChartControls={isPendleProvider || Boolean(showTimeRangeControls)}
         showUnderlyingApyToggle={showUnderlyingApyToggle}
-        primaryApyLabel={
-          isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_fixed_income })
-            : undefined
-        }
-        secondaryApyLabel={
-          isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.defi_underlying_apy })
-            : undefined
-        }
+        primaryApyLabel={primaryLabel}
+        secondaryApyLabel={secondaryLabel}
       />
     </YStack>
   );
@@ -836,6 +861,7 @@ const DetailsPartComponent = ({
                   provider={provider}
                   vault={vault}
                   showTimeRangeControls
+                  apyBreakdownItems={popupData?.items}
                 />
                 <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
               </YStack>
@@ -850,6 +876,7 @@ const DetailsPartComponent = ({
                       networkId={networkId}
                       symbol={symbol}
                       provider={provider}
+                      vault={detailInfo.protocol?.vault ?? vault}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
                     />
@@ -918,6 +945,7 @@ const DetailsPartComponent = ({
                 symbol={symbol}
                 provider={provider}
                 vault={vault}
+                apyBreakdownItems={popupData?.items}
               />
               {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
               <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
@@ -1180,7 +1208,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   );
 
   const handleOpenManageModal = useCallback(
-    (tab?: 'deposit') => {
+    (tab?: 'deposit' | 'withdraw') => {
       const protocolVault = detailInfo?.protocol?.vault ?? vault;
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
@@ -1282,7 +1310,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               }),
               cancelButtonProps: {
                 variant: 'secondary',
-                onPress: () => handleOpenManageModal(),
+                // ManagePosition defaults to the deposit tab, so Redeem has to
+                // name its own or it opens the wrong side of the modal.
+                onPress: () => handleOpenManageModal('withdraw'),
                 mb: tabBarHeight,
               },
             }

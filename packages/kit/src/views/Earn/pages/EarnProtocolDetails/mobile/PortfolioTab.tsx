@@ -2,7 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -10,13 +17,14 @@ import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/Proto
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/GridItemV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
+import type { IBadgeType } from '@onekeyhq/components';
 import type { GestureResponderEvent } from 'react-native';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
@@ -49,19 +57,28 @@ function TransactionLink({
   );
 }
 
+// The server speaks the full EBadgeColor set; 'danger' is the one value the
+// Badge component does not have a variant for.
+function toBadgeType(badgeType: string): IBadgeType {
+  return badgeType === 'danger' ? 'critical' : (badgeType as IBadgeType);
+}
+
 function PortfolioRow({
   item,
   networkId,
   protocolInfo,
   tokenInfo,
   onPress,
+  onRedeem,
 }: {
   item: IPortfolioRow;
   networkId: string;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   onPress?: () => void;
+  onRedeem?: () => void;
 }) {
+  const intl = useIntl();
   return (
     <XStack
       minHeight={40}
@@ -97,6 +114,20 @@ function PortfolioRow({
             token={item.token.info}
           />
         ))}
+        {/* Rewards the user cannot act on state their stage here instead of
+            under a section heading of their own (figma 29180-111458). */}
+        {item.badge ? (
+          <Badge badgeType={toBadgeType(item.badge.badgeType)}>
+            <Badge.Text>{item.badge.text.text}</Badge.Text>
+          </Badge>
+        ) : null}
+        {/* Rewards carry a Claim button, so the principal gets the matching
+            action rather than leaving the footer as the only way to redeem. */}
+        {onRedeem ? (
+          <Button size="small" variant="secondary" onPress={onRedeem}>
+            {intl.formatMessage({ id: ETranslations.earn_redeem })}
+          </Button>
+        ) : null}
       </XStack>
     </XStack>
   );
@@ -107,6 +138,7 @@ export function PortfolioTab({
   networkId,
   symbol,
   provider,
+  vault,
   protocolInfo,
   tokenInfo,
 }: {
@@ -114,6 +146,7 @@ export function PortfolioTab({
   networkId: string;
   symbol: string;
   provider: string;
+  vault?: string;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
 }) {
@@ -121,8 +154,30 @@ export function PortfolioTab({
   const navigation = useAppNavigation();
   const accountId = protocolInfo?.earnAccount?.accountId;
 
+  // Same destination as the page footer's Redeem, so the two cannot drift.
+  const openRedeem = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ManagePosition,
+      params: {
+        networkId,
+        symbol,
+        provider,
+        vault,
+        tab: 'withdraw',
+        tokenImageUri: tokenInfo?.token?.logoURI,
+      },
+    });
+  }, [
+    navigation,
+    networkId,
+    symbol,
+    provider,
+    vault,
+    tokenInfo?.token?.logoURI,
+  ]);
+
   // Only the distributed rows carry a history entry worth opening; the other
-  // groups describe live state that this page already shows in full.
+  // rows describe live state that this page already shows in full.
   const openPositionDetails = useCallback(() => {
     if (!accountId) {
       return;
@@ -178,8 +233,13 @@ export function PortfolioTab({
               protocolInfo={protocolInfo}
               tokenInfo={tokenInfo}
               onPress={
-                group.key === 'distributed' && accountId
+                item.status === 'distributed' && accountId
                   ? openPositionDetails
+                  : undefined
+              }
+              onRedeem={
+                item.redeemable && portfolio.capabilities.redeem
+                  ? openRedeem
                   : undefined
               }
             />

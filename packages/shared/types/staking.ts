@@ -620,7 +620,15 @@ export interface ISubscriptionAction {
 }
 
 interface IEarnBadge {
-  badgeType: 'success' | 'warning';
+  // Mirrors the server's EBadgeColor. 'danger' has no Badge variant on the
+  // client and maps onto 'critical' at the render site.
+  badgeType:
+    | 'default'
+    | 'success'
+    | 'info'
+    | 'warning'
+    | 'critical'
+    | 'danger';
   badgeSize: 'sm' | 'lg';
   text: {
     text: string;
@@ -1552,9 +1560,20 @@ export interface IStakeEarnDetail {
     hasPosition: boolean;
     summary?: { items: IEarnGridItem[] };
     groups: {
-      key: 'balance' | 'claimable' | 'pending' | 'distributed';
+      // Two sections per design; the reward stage lives on the row instead of
+      // splitting rewards into one section per stage.
+      key: 'balance' | 'rewards';
       title: IEarnText;
-      items: (NonNullable<IStakeEarnDetail['portfolios']>['items'][0] & {
+      items: (Omit<
+        NonNullable<IStakeEarnDetail['portfolios']>['items'][0],
+        'badge'
+      > & {
+        // Optional here, unlike the wide-layout portfolio row: only the reward
+        // stages the user cannot act on carry one.
+        badge?: IEarnBadge;
+        status?: 'claimable' | 'pending' | 'distributed';
+        /** the balance row the page's Redeem action applies to */
+        redeemable?: boolean;
         txHash?: string;
         distributedAt?: number;
         availableAt?: number;
