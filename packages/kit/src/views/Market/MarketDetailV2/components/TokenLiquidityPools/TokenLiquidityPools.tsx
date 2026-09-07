@@ -799,6 +799,82 @@ function AddressActions({
   );
 }
 
+function DetailTokenRows({ tokens }: { tokens: IDisplayPoolToken[] }) {
+  const detailTokens = tokens.length
+    ? tokens
+    : [
+        {
+          key: 'empty',
+          symbol: FALLBACK_VALUE,
+          amount: FALLBACK_VALUE,
+        },
+      ];
+
+  return (
+    <YStack gap="$4">
+      {detailTokens.map((token) => (
+        <XStack key={token.key} ai="flex-start" jc="space-between" gap="$4">
+          <SizableText
+            size="$bodyLg"
+            color="$textSubdued"
+            flex={1}
+            numberOfLines={1}
+          >
+            {token.symbol}
+          </SizableText>
+          <YStack ai="flex-end" flex={1} minWidth={0}>
+            <NumberSizeableText
+              size="$bodyLg"
+              color="$text"
+              autoFormatter="balance-marketCap"
+              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {token.amount}
+            </NumberSizeableText>
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+function TokenAmountListDialogContent({
+  tokens,
+}: {
+  tokens: IDisplayPoolToken[];
+}) {
+  const intl = useIntl();
+  const labels = useLiquidityPoolLabels();
+  const shouldScrollTokenRows =
+    tokens.length > POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD;
+  const tokenRows = <DetailTokenRows tokens={tokens} />;
+
+  return (
+    <YStack pb="$5" gap="$4">
+      <XStack ai="center" jc="space-between">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {labels.tokenAmount}
+        </SizableText>
+      </XStack>
+      {shouldScrollTokenRows ? (
+        <ScrollView
+          maxHeight={POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT}
+          nestedScrollEnabled
+        >
+          {tokenRows}
+        </ScrollView>
+      ) : (
+        tokenRows
+      )}
+    </YStack>
+  );
+}
+
 function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
   const labels = useLiquidityPoolLabels();
 
@@ -872,41 +948,6 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
         />
       ) : null}
     </XStack>
-  );
-}
-
-function TokenAmountListDialogContent({
-  tokens,
-}: {
-  tokens: IDisplayPoolToken[];
-}) {
-  const intl = useIntl();
-  const labels = useLiquidityPoolLabels();
-  const shouldScrollTokenRows =
-    tokens.length > POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD;
-  const tokenRows = <DetailTokenRows tokens={tokens} />;
-
-  return (
-    <YStack pb="$5" gap="$4">
-      <XStack ai="center" jc="space-between">
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
-        </SizableText>
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          {labels.tokenAmount}
-        </SizableText>
-      </XStack>
-      {shouldScrollTokenRows ? (
-        <ScrollView
-          maxHeight={POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT}
-          nestedScrollEnabled
-        >
-          {tokenRows}
-        </ScrollView>
-      ) : (
-        tokenRows
-      )}
-    </YStack>
   );
 }
 
@@ -987,7 +1028,13 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
       }}
     >
       <YStack flex={1} minWidth={DESKTOP_CONTENT_MIN_WIDTH}>
-        <TokenLiquidityPoolsDesktopHeader />
+        {/* The other tabs get their column header from the tabs' StickyHeader,
+            centered in a 44px zone. This header must scroll horizontally with
+            the rows, so it stays in here — the matching zone keeps the gap
+            under the tab bar consistent across tabs. */}
+        <YStack height={44} justifyContent="center">
+          <TokenLiquidityPoolsDesktopHeader />
+        </YStack>
 
         {pools.map((item, index) => (
           <XStack
@@ -1028,47 +1075,6 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
         ))}
       </YStack>
     </ScrollView>
-  );
-}
-
-function DetailTokenRows({ tokens }: { tokens: IDisplayPoolToken[] }) {
-  const detailTokens = tokens.length
-    ? tokens
-    : [
-        {
-          key: 'empty',
-          symbol: FALLBACK_VALUE,
-          amount: FALLBACK_VALUE,
-        },
-      ];
-
-  return (
-    <YStack gap="$4">
-      {detailTokens.map((token) => (
-        <XStack key={token.key} ai="flex-start" jc="space-between" gap="$4">
-          <SizableText
-            size="$bodyLg"
-            color="$textSubdued"
-            flex={1}
-            numberOfLines={1}
-          >
-            {token.symbol}
-          </SizableText>
-          <YStack ai="flex-end" flex={1} minWidth={0}>
-            <NumberSizeableText
-              size="$bodyLg"
-              color="$text"
-              autoFormatter="balance-marketCap"
-              autoFormatterThreshold={TOKEN_AMOUNT_COMPACT_THRESHOLD}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {token.amount}
-            </NumberSizeableText>
-          </YStack>
-        </XStack>
-      ))}
-    </YStack>
   );
 }
 

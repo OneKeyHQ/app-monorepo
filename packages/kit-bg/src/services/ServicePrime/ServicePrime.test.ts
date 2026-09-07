@@ -266,10 +266,14 @@ const {
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
+  OneKeyServerApiError,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
+const {
+  toPlainErrorObject,
+} = require('@onekeyhq/shared/src/errors/utils/errorUtils');
 const {
   EAppEventBusNames,
   appEventBus,
@@ -1338,6 +1342,99 @@ describe('ServicePrime Prime redemption API', () => {
     ).rejects.toBe(error);
     expect(error.autoToast).toBe(true);
   });
+
+  it.each([400, 404, 409, 422])(
+    'normalizes Axios HTTP %s business errors so translated copy survives the bridge',
+    async (status) => {
+      const { service } = createRedemptionService();
+      const translatedMessage = '当前订阅不支持兑换；不会影响订阅扣款日期';
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        {
+          headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+        },
+        {},
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: { 'x-secret': 'should-not-copy' },
+          config: {
+            headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+          },
+          data: {
+            code: 90_506,
+            message: 'server-message',
+            translatedMessage,
+            extra: 'drop-me',
+          },
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      const error = await service
+        .apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(OneKeyServerApiError);
+      expect((error as { autoToast?: boolean }).autoToast).toBe(false);
+      expect((error as { httpStatusCode?: number }).httpStatusCode).toBe(
+        status,
+      );
+      const plain = toPlainErrorObject(error);
+      expect(plain.data).toEqual({
+        code: 90_506,
+        message: 'server-message',
+        translatedMessage,
+      });
+      expect(plain.code).toBe(90_506);
+      expect(JSON.stringify(plain)).not.toContain('secret-token');
+      expect(JSON.stringify(plain)).not.toContain('should-not-copy');
+      expect(JSON.stringify(plain)).not.toContain('drop-me');
+    },
+  );
+
+  it.each([
+    { status: 400, payload: '<html>not-json</html>' },
+    { status: 401, payload: { code: 90_003, message: 'Expired session' } },
+    { status: 403, payload: { code: 403, message: 'Forbidden' } },
+  ])(
+    'preserves non-business HTTP $status errors',
+    async ({ status, payload }) => {
+      const { service } = createRedemptionService();
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        undefined,
+        undefined,
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: {},
+          config: { headers: new AxiosHeaders() },
+          data: payload,
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      await expect(
+        service.apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toBe(axiosError);
+      expect((axiosError as { autoToast?: boolean }).autoToast).toBe(false);
+    },
+  );
 });
 
 describe('ServicePrime Infini payment APIs', () => {

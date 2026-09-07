@@ -100,7 +100,7 @@ export function useMarketStockColumns({
               #
             </SizableText>
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              Company
+              {intl.formatMessage({ id: ETranslations.market_stock_company })}
             </SizableText>
           </XStack>
         ),
@@ -115,6 +115,10 @@ export function useMarketStockColumns({
             alignItems="center"
             gap="$1.5"
           >
+            {/* Decorative for now — the public stocks payload carries no
+                chainId/contractAddress, so the watchlist cannot identify a
+                stock yet. The 24px box centers the star under the header's
+                24px "#" cell and starts the logo where "Company" starts. */}
             <Stack width={24} alignItems="center" justifyContent="center">
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
@@ -122,17 +126,22 @@ export function useMarketStockColumns({
               flex={1}
               minWidth={0}
               alignItems="center"
-              gap={compact ? '$1.5' : 14}
+              gap={compact ? '$2.5' : 14}
             >
               <Token
-                size={compact ? 'xs' : 'lg'}
+                size={compact ? 'md' : 'lg'}
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
-              <YStack flex={1} minWidth={0} justifyContent="center">
+              <YStack
+                flex={1}
+                minWidth={0}
+                gap={compact ? '$0.5' : undefined}
+                justifyContent="center"
+              >
                 <SizableText
-                  size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
+                  size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
@@ -181,7 +190,9 @@ export function useMarketStockColumns({
             }
             renderContent={
               <SizableText size="$bodySm">
-                The displayed price is the underlying stock price.
+                {intl.formatMessage({
+                  id: ETranslations.market_stock_price_underlying_tooltip,
+                })}
               </SizableText>
             }
             placement="top"
