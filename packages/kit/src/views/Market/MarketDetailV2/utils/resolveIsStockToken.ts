@@ -12,9 +12,12 @@ type IMarketStockIdentity = {
 };
 
 export function resolveMarketStockId(item: IMarketStockIdentity) {
-  const explicitStockId =
-    item.stockId ?? item.stock?.stockId ?? item.stock?.underlyingAssetTicker;
-  if (explicitStockId?.trim()) {
+  const explicitStockId = [
+    item.stockId,
+    item.stock?.stockId,
+    item.stock?.underlyingAssetTicker,
+  ].find((stockId) => stockId?.trim());
+  if (explicitStockId) {
     return explicitStockId.trim().toUpperCase();
   }
 

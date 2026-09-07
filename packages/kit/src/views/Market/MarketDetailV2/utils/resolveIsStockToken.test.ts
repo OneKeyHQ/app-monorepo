@@ -53,6 +53,46 @@ describe('resolveMarketStockId', () => {
     expect(resolveMarketStockId({ stockId: ' tsla ' })).toBe('TSLA');
   });
 
+  it.each(['', ' ', '\t\n'])('skips blank stock ids (%j)', (stockId) => {
+    expect(
+      resolveMarketStockId({
+        stockId,
+        stock: { stockId: ' abnb ', underlyingAssetTicker: 'AAPL' },
+      }),
+    ).toBe('ABNB');
+    expect(
+      resolveMarketStockId({
+        stockId,
+        stock: { stockId, underlyingAssetTicker: ' aapl ' },
+      }),
+    ).toBe('AAPL');
+    expect(
+      resolveMarketStockId({
+        stock: { stockId, underlyingAssetTicker: ' aapl ' },
+      }),
+    ).toBe('AAPL');
+  });
+
+  it('prefers a nonblank adapter stock id over other identifiers', () => {
+    expect(
+      resolveMarketStockId({
+        stockId: ' tsla ',
+        stock: { stockId: 'ABNB', underlyingAssetTicker: 'AAPL' },
+      }),
+    ).toBe('TSLA');
+  });
+
+  it('infers xStocks identity when every explicit identifier is blank', () => {
+    expect(
+      resolveMarketStockId({
+        stockId: '',
+        stock: { stockId: ' ', underlyingAssetTicker: '\t' },
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+      }),
+    ).toBe('ABNB');
+  });
+
   it('resolves an xStocks token when search metadata omits stock', () => {
     expect(
       resolveMarketStockId({
