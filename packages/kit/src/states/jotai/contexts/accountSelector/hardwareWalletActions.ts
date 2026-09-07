@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { EWalletDeprecatedStatusUpdateOutcome } from './outcomes';
@@ -23,11 +24,13 @@ export async function updateHwWalletsDeprecatedStatus({
   usbConnectId,
   bleConnectId,
   deviceId,
+  uuid,
 }: {
   connectId: string;
   usbConnectId?: string;
   bleConnectId?: string;
   deviceId: string;
+  uuid?: string;
 }) {
   if (!connectId || !deviceId) {
     return;
@@ -35,27 +38,28 @@ export async function updateHwWalletsDeprecatedStatus({
 
   // Best-effort cleanup: callers run it after the wallet is already created.
   try {
-    const currentConnectIds = new Set(
-      [connectId, usbConnectId, bleConnectId]
-        .filter((item): item is string => Boolean(item))
-        .map((item) => item.toLowerCase()),
-    );
     const allHwWallets = await serviceAccount.getAllHwQrWalletWithDevice({
       filterHiddenWallet: false,
       filterQrWallet: true,
     });
+    const currentIdentity = {
+      connectId,
+      usbConnectId,
+      bleConnectId,
+      deviceId,
+      uuid,
+    };
+    const currentDevice =
+      Object.values(allHwWallets).find(
+        ({ device }) =>
+          device?.deviceId === deviceId &&
+          deviceUtils.isSamePhysicalDevice(device, currentIdentity),
+      )?.device ?? currentIdentity;
     const willUpdateDeprecateMap: Record<string, boolean> = {};
 
     for (const { wallet, device } of Object.values(allHwWallets)) {
       if (wallet?.id && device) {
-        const isSameConnectId = [
-          device.connectId,
-          device.usbConnectId,
-          device.bleConnectId,
-        ]
-          .filter((item): item is string => Boolean(item))
-          .some((item) => currentConnectIds.has(item.toLowerCase()));
-        if (isSameConnectId) {
+        if (deviceUtils.isSamePhysicalDevice(device, currentDevice)) {
           const deprecated = device.deviceId !== deviceId;
           if (Boolean(wallet.deprecated) !== deprecated) {
             willUpdateDeprecateMap[wallet.id] = deprecated;
@@ -134,6 +138,7 @@ export async function createHWWalletWithoutHidden({
           usbConnectId: createdDevice.usbConnectId,
           bleConnectId: createdDevice.bleConnectId,
           deviceId: createdDevice.deviceId,
+          uuid: createdDevice.uuid,
         });
       }
     },
@@ -229,6 +234,7 @@ export async function createHWWalletWithHidden({
           usbConnectId: createdDevice.usbConnectId,
           bleConnectId: createdDevice.bleConnectId,
           deviceId: createdDevice.deviceId,
+          uuid: createdDevice.uuid,
         });
       }
     },
