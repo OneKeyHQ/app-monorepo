@@ -74,6 +74,7 @@ type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 type IEarnPageBannerState = {
   theme: IEarnBannerTheme;
   list: IEarnPageBannerListItem[];
+  isResolved: boolean;
 };
 
 function BasicEarnHome({
@@ -106,24 +107,22 @@ function BasicEarnHome({
   const themeName = useThemeName();
   const earnBannerTheme: IEarnBannerTheme =
     themeName === 'dark' ? 'dark' : 'light';
-  // Banner list is plain state rather than usePromiseResult's result, because
-  // it has two independent writers and the later one must not be able to
-  // resurrect an older value:
-  //   1. simpleDb, read once on mount. The list a cold start paints comes from
-  //      the previous session, so the banner is already at its real height
-  //      instead of occupying 0pt and expanding when the network answers
-  //      (OK-60299). Mirrors how the wallet home seeds its own banners.
-  //   2. the network, on every switch onto the DeFi tab. Overwrites the cached
-  //      value, including with an empty list once the account genuinely has no
-  //      banners. State also survives the re-runs that showContent triggers,
-  //      so a re-entry starts from what is already on screen.
   const [earnPageBannerState, setEarnPageBannerState] =
-    useState<IEarnPageBannerState>();
-  const earnPageBannerList =
-    earnPageBannerState?.theme === earnBannerTheme
-      ? earnPageBannerState.list
-      : [];
-  const hasNetworkBannerThemesRef = useRef(new Set<IEarnBannerTheme>());
+    useState<IEarnPageBannerState>(() => ({
+      theme: earnBannerTheme,
+      list: [],
+      isResolved: false,
+    }));
+  if (earnPageBannerState.theme !== earnBannerTheme) {
+    setEarnPageBannerState({
+      theme: earnBannerTheme,
+      list: [],
+      isResolved: false,
+    });
+  }
+  const earnPageBannerStateRef = useRef(earnPageBannerState);
+  earnPageBannerStateRef.current = earnPageBannerState;
+  const earnPageBannerList = earnPageBannerState.list;
   // usePromiseResult guards its own setResult against stale responses with a
   // nonce, but that guard runs after the method body returns — a setState made
   // inside the body is not covered by it. This hook has three triggers that do
@@ -132,32 +131,6 @@ function BasicEarnHome({
   // once and the result would otherwise be decided by whichever resolves last.
   const bannerRequestSeqRef = useRef(0);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
-    let isCurrentTheme = true;
-    void (async () => {
-      const cached =
-        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache({
-          theme: earnBannerTheme,
-        });
-      // The request can win this race on a warm start; its answer is the
-      // current one and must not be replaced by what we read from disk.
-      if (
-        !isCurrentTheme ||
-        hasNetworkBannerThemesRef.current.has(earnBannerTheme) ||
-        cached.length === 0
-      ) {
-        return;
-      }
-      setEarnPageBannerState({ theme: earnBannerTheme, list: cached });
-    })();
-    return () => {
-      isCurrentTheme = false;
-    };
-  }, [earnBannerTheme]);
-
   const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
       if (!platformEnv.isNative || showContent === false) {
@@ -165,26 +138,74 @@ function BasicEarnHome({
       }
       const requestTheme = earnBannerTheme;
       const requestSeq = (bannerRequestSeqRef.current += 1);
-      try {
-        const list =
-          await backgroundApiProxy.serviceStaking.getEarnPageBannerList({
-            theme: requestTheme,
-          });
-        // Set outside the staleness check: its job is to stop the simpleDb
-        // seed from backfilling once the network has spoken at all, and a
-        // newer request is already on its way to write the real value.
-        hasNetworkBannerThemesRef.current.add(requestTheme);
+      const networkResultPromise = backgroundApiProxy.serviceStaking
+        .getEarnPageBannerList({
+          theme: requestTheme,
+        })
+        .then((list) => ({ list }))
+        .catch(() => ({ list: undefined }));
+      const currentBannerState = earnPageBannerStateRef.current;
+      let hasResolvedLayout =
+        currentBannerState.theme === requestTheme &&
+        currentBannerState.isResolved;
+      let visibleList = hasResolvedLayout ? currentBannerState.list : [];
+      if (!hasResolvedLayout) {
+        try {
+          const cachedState =
+            await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache(
+              {
+                theme: requestTheme,
+              },
+            );
+          visibleList = cachedState.list;
+          hasResolvedLayout = cachedState.isCacheHit;
+        } catch {
+          // Cache failures must not block the authoritative network request.
+        }
         if (requestSeq !== bannerRequestSeqRef.current) {
           return;
         }
-        setEarnPageBannerState({ theme: requestTheme, list });
-      } catch {
-        // Keep whatever is on screen — the cached list, or the previous
-        // response. Rethrowing would take the whole Earn refresh down with it:
-        // usePromiseResult re-throws non-abort errors, and refreshEarnData
-        // awaits this inside a Promise.all with no catch, so a flaky banner
-        // request would skip the balance and portfolio refresh behind it.
+        if (hasResolvedLayout) {
+          setEarnPageBannerState({
+            theme: requestTheme,
+            list: visibleList,
+            isResolved: true,
+          });
+        }
       }
+
+      const { list } = await networkResultPromise;
+      if (requestSeq !== bannerRequestSeqRef.current) {
+        return;
+      }
+      if (list) {
+        const preservesLayout =
+          !hasResolvedLayout ||
+          Boolean(visibleList.length) === Boolean(list.length);
+        if (!preservesLayout) {
+          return;
+        }
+        setEarnPageBannerState({
+          theme: requestTheme,
+          list,
+          isResolved: true,
+        });
+        return;
+      }
+
+      // Keep whatever is on screen — the cached list, or the previous
+      // response. An uncached failure resolves to no banner so the placeholder
+      // cannot remain indefinitely. The error stays local because rethrowing
+      // would abort the rest of the Earn refresh Promise.all.
+      setEarnPageBannerState((previous) =>
+        previous.theme === requestTheme && previous.isResolved
+          ? previous
+          : {
+              theme: requestTheme,
+              list: visibleList,
+              isResolved: true,
+            },
+      );
     },
     [earnBannerTheme, showContent],
     {
@@ -267,6 +288,12 @@ function BasicEarnHome({
       return filteredTotalFiatValue;
     }
 
+    // Keep the last account-scoped aggregate stable while individual
+    // investments refresh. A first load without this cache remains progressive.
+    if (portfolioData.cachedOverviewTotalFiatValue !== undefined) {
+      return portfolioData.cachedOverviewTotalFiatValue || '0';
+    }
+
     return portfolioData.investments
       .reduce((sum, inv) => {
         if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
@@ -275,11 +302,20 @@ function BasicEarnHome({
         return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
       }, new BigNumber(0))
       .toFixed();
-  }, [filteredTotalFiatValue, hasPortfolioRows, portfolioData.investments]);
+  }, [
+    filteredTotalFiatValue,
+    hasPortfolioRows,
+    portfolioData.cachedOverviewTotalFiatValue,
+    portfolioData.investments,
+  ]);
 
   const displayEarnings24h = useMemo(() => {
     if (filteredEarnings24h !== undefined || !hasPortfolioRows) {
       return filteredEarnings24h;
+    }
+
+    if (portfolioData.cachedOverviewTotalFiatValue !== undefined) {
+      return portfolioData.cachedOverviewEarnings24h || '0';
     }
 
     return portfolioData.investments
@@ -290,7 +326,13 @@ function BasicEarnHome({
         return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
       }, new BigNumber(0))
       .toFixed();
-  }, [filteredEarnings24h, hasPortfolioRows, portfolioData.investments]);
+  }, [
+    filteredEarnings24h,
+    hasPortfolioRows,
+    portfolioData.cachedOverviewEarnings24h,
+    portfolioData.cachedOverviewTotalFiatValue,
+    portfolioData.investments,
+  ]);
 
   const prefetchEarnAvailableAssets = useCallback(async () => {
     const types = [
@@ -624,7 +666,7 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={false}
+          isBannerLoading={!earnPageBannerState.isResolved}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
