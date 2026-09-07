@@ -15,7 +15,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import {
+  isLegacyHardwareUiActive,
+  shouldCancelDeviceOnStageClose,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -637,6 +640,9 @@ class ServiceHardwareUI extends ServiceBase {
    * holds a UI burst around it, waits for the card's Continue, and only
    * then begins the hardware call — the account selector's deliberate
    * Add-hidden-wallet is the one place that teaches.
+   *
+   * Returns whether the card landed, so a caller never waits on a card a
+   * silenced stage (the firmware workflow) declined to paint.
    */
   @backgroundMethod()
   async deviceStageShowPassphraseIntro(params: {
@@ -644,12 +650,40 @@ class ServiceHardwareUI extends ServiceBase {
     deviceType?: IDeviceStageState['deviceType'];
     deviceName?: string;
   }) {
-    await this.deviceStageBurst.noteStep('passphraseIntro', {
+    return this.deviceStageBurst.noteStep('passphraseIntro', {
       connectId: params.connectId,
       deviceType: params.deviceType,
       deviceName: params.deviceName,
       passphraseMode: 'create',
     });
+  }
+
+  /**
+   * Puts the wallet-creation fork on stage: the Select-wallet-type dialog
+   * in stage vocabulary, asked by onboarding once the device is known to
+   * run with passphrase enabled. App-authored, not an SDK event: the flow
+   * holds its burst, waits for the answer to ride back through the driver
+   * (DeviceStageWalletTypeSelected), then creates the wallet it was told
+   * to. Returns whether the card landed; while the stage is silenced (the
+   * firmware workflow) the caller falls back to its legacy dialog rather
+   * than wait on a card nobody painted.
+   */
+  @backgroundMethod()
+  async deviceStageShowSelectWalletType(params: { connectId?: string } = {}) {
+    // The paint itself reports: asking isEnabled() here as well would
+    // answer for a moment that has passed by the time the card is
+    // written — the firmware workflow raising its flag in between left
+    // the caller waiting on an answer to a card nobody painted.
+    return this.deviceStageBurst.noteStep('selectWalletType', {
+      connectId: params.connectId,
+    });
+  }
+
+  /** The fork was answered on the stage: back to the wait while the flow
+   * that asked creates the chosen wallet. */
+  @backgroundMethod()
+  async deviceStageSelectWalletType() {
+    await this.deviceStageBurst.noteWalletTypeSelected();
   }
 
   /**
@@ -752,8 +786,9 @@ class ServiceHardwareUI extends ServiceBase {
     skipDeviceCancel?: boolean;
   }) {
     // Read before the close settles the atom at off: which cancel a
-    // dismissed air-gap step maps to depends on where the person was.
-    const stepAtClose = (await deviceStageAtom.get())?.step;
+    // dismissed step maps to depends on where the person was.
+    const stateAtClose = await deviceStageAtom.get();
+    const stepAtClose = stateAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
     await this.deviceStageBurst.userClose();
     // Unconditional, keyed to session existence (a no-op without one):
@@ -782,11 +817,19 @@ class ServiceHardwareUI extends ServiceBase {
     // closed before the search resolved, the opening beat of a scan: with
     // no connectId there is nothing to cancel BY, so the device half is
     // skipped rather than let the missing id fall through to that global
-    // cancel.
+    // cancel. Left unsaid by the caller, the step decides (an outcome, a
+    // decision or the teach card leaves nothing to cancel; a third-party
+    // burst cancels through its adapter).
+    const cancelsDevice =
+      skipDeviceCancel === undefined
+        ? shouldCancelDeviceOnStageClose({
+            step: stepAtClose ?? 'off',
+            vendor: stateAtClose?.vendor,
+          })
+        : !skipDeviceCancel;
     await this.closeHardwareUiStateDialogFn({
       connectId,
-      skipDeviceCancel:
-        qrStepAtClose || !connectId ? true : (skipDeviceCancel ?? false),
+      skipDeviceCancel: qrStepAtClose || !connectId ? true : !cancelsDevice,
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });
