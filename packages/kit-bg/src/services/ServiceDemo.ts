@@ -13,7 +13,6 @@ import {
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -38,7 +37,6 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IWalletConnectChainString } from '@onekeyhq/shared/src/walletConnect/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
@@ -48,7 +46,10 @@ import {
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../dbs/local/types';
-import { settingsPersistAtom } from '../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -59,9 +60,12 @@ import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 const LARGE_WALLET_DATA_WALLET_COUNT = 1000;
 const LARGE_WALLET_DATA_ACCOUNT_COUNT = 1000;
+const LARGE_WALLET_DATA_ACCOUNT_BATCH_SIZE = 100;
 
 @backgroundClass()
 class ServiceDemo extends ServiceBase {
+  private isCreatingLargeWalletData = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -140,31 +144,64 @@ class ServiceDemo extends ServiceBase {
     return c;
   }
 
-  @backgroundMethodForDev()
-  async createLargeWalletsAndAccounts(
-    _params: IBackgroundMethodWithDevOnlyPassword,
-  ) {
+  @backgroundMethod()
+  async createLargeWalletsAndAccounts() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    if (this.isCreatingLargeWalletData) {
+      throw new OneKeyLocalError(
+        'Large wallet data creation is already running',
+      );
+    }
+
+    this.isCreatingLargeWalletData = true;
     const startedAt = Date.now();
     let walletsCreated = 0;
     let accountsCreated = 0;
+    let currentWalletIndex = 0;
+    let accountsCreatedInCurrentWallet = 0;
     let password = '';
-    const accountIndexes = range(0, LARGE_WALLET_DATA_ACCOUNT_COUNT);
+    const accountsTotal =
+      LARGE_WALLET_DATA_WALLET_COUNT * LARGE_WALLET_DATA_ACCOUNT_COUNT;
+    const emitProgress = () => {
+      appEventBus.emit(EAppEventBusNames.DevLargeWalletDataCreationProgress, {
+        isRunning: this.isCreatingLargeWalletData,
+        walletIndex: currentWalletIndex,
+        walletsCreated,
+        walletsTotal: LARGE_WALLET_DATA_WALLET_COUNT,
+        accountsCreatedInWallet: accountsCreatedInCurrentWallet,
+        accountsPerWallet: LARGE_WALLET_DATA_ACCOUNT_COUNT,
+        accountsCreated,
+        accountsTotal,
+      });
+    };
 
     try {
-      ({ password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-          skipPostVerifyBackgroundTasks: true,
-        }));
+      emitProgress();
 
       for (
         let walletIndex = 0;
         walletIndex < LARGE_WALLET_DATA_WALLET_COUNT;
         walletIndex += 1
       ) {
+        currentWalletIndex = walletIndex + 1;
+        accountsCreatedInCurrentWallet = 0;
+        let createdWalletId = '';
         let mnemonic = '';
         let revealableSeed: IBip39RevealableSeed | undefined;
         try {
+          password =
+            (await this.backgroundApi.servicePassword.getCachedPassword()) ||
+            '';
+          if (!password) {
+            throw new OneKeyLocalError(
+              'Unlock the app before creating large wallet data',
+            );
+          }
+
+          emitProgress();
           mnemonic = generateMnemonic();
           revealableSeed = mnemonicToRevealableSeed(mnemonic);
           mnemonic = '';
@@ -180,42 +217,64 @@ class ServiceDemo extends ServiceBase {
               },
             );
           walletsCreated += 1;
+          createdWalletId = wallet.id;
+          emitProgress();
 
-          const indexedAccounts =
-            await this.backgroundApi.serviceAccount.addIndexedAccount({
-              walletId: wallet.id,
-              indexes: accountIndexes,
-              skipIfExists: false,
-            });
-          accountsCreated += indexedAccounts.length;
-
-          await localDb.withTransaction(
-            EIndexedDBBucketNames.account,
-            async (tx) => {
-              await localDb.txUpdateWallet({
-                tx,
+          for (
+            let accountStartIndex = 0;
+            accountStartIndex < LARGE_WALLET_DATA_ACCOUNT_COUNT;
+            accountStartIndex += LARGE_WALLET_DATA_ACCOUNT_BATCH_SIZE
+          ) {
+            const accountIndexes = range(
+              accountStartIndex,
+              Math.min(
+                accountStartIndex + LARGE_WALLET_DATA_ACCOUNT_BATCH_SIZE,
+                LARGE_WALLET_DATA_ACCOUNT_COUNT,
+              ),
+            );
+            const indexedAccounts =
+              await this.backgroundApi.serviceAccount.addIndexedAccount({
                 walletId: wallet.id,
-                updater: (walletRecord) => {
-                  if (!walletRecord.nextIds) {
-                    walletRecord.nextIds = {};
-                  }
-                  walletRecord.nextIds.accountHdIndex =
-                    LARGE_WALLET_DATA_ACCOUNT_COUNT;
-                  return walletRecord;
-                },
+                indexes: accountIndexes,
+                skipIfExists: false,
               });
-            },
-          );
+            accountsCreatedInCurrentWallet += indexedAccounts.length;
+            accountsCreated += indexedAccounts.length;
+            emitProgress();
+          }
         } finally {
+          password = '';
           mnemonic = '';
           if (revealableSeed) {
             revealableSeed.entropyWithLangPrefixed = '';
             revealableSeed.seed = '';
             revealableSeed = undefined;
           }
+          if (createdWalletId) {
+            const walletId = createdWalletId;
+            const nextAccountHdIndex = accountsCreatedInCurrentWallet;
+            await localDb.withTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                await localDb.txUpdateWallet({
+                  tx,
+                  walletId,
+                  updater: (walletRecord) => {
+                    if (!walletRecord.nextIds) {
+                      walletRecord.nextIds = {};
+                    }
+                    walletRecord.nextIds.accountHdIndex = nextAccountHdIndex;
+                    return walletRecord;
+                  },
+                });
+              },
+            );
+          }
         }
       }
     } finally {
+      this.isCreatingLargeWalletData = false;
+      emitProgress();
       password = '';
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);

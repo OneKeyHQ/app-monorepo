@@ -2494,28 +2494,9 @@ const BaseDevSettingsSection = () => {
                         searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
                         testID="create-large-wallet-account-data"
                         onPress={() => {
-                          showDevOnlyPasswordDialog({
-                            title:
-                              'Danger Zone: Create 1,000 Real HD Wallets × 1,000 Accounts',
-                            description:
-                              'This generates and encrypts 1,000 independent recovery phrases, then creates 1,000 usable HD wallets, 1,000,000 indexed accounts, credentials, and standard cloud-sync records. Recovery phrases are never displayed or logged, and the wallets are marked as not backed up. Network addresses are derived normally when used. This may take a long time and make the app temporarily unresponsive. Each run creates another complete data set.',
-                            confirmButtonProps: {
-                              testID:
-                                'create-large-wallet-account-data-confirm',
-                            },
-                            onConfirm: async (params) => {
-                              const result =
-                                await backgroundApiProxy.serviceDemo.createLargeWalletsAndAccounts(
-                                  params,
-                                );
-                              Toast.success({
-                                title: 'Real HD wallet data ready',
-                                message: `${result.walletsCreated.toLocaleString()} wallet(s) and ${result.accountsCreated.toLocaleString()} account(s) created in ${(
-                                  result.durationMs / 1000
-                                ).toFixed(1)}s`,
-                              });
-                            },
-                          });
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+                          );
                         }}
                       />
 
