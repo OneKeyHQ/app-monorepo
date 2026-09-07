@@ -28,6 +28,8 @@ import {
 import { formatDirectPercentValue } from '../../utils/stockPublicDataUtils';
 import { STOCK_DETAIL_HORIZONTAL_GUTTER } from '../stockDesktopLayoutConstants';
 
+import type { IntlShape } from 'react-intl';
+
 const STOCK_EVENT_ROW_HEIGHT = 72;
 const STOCK_EVENT_CALENDAR_SIZE = 56;
 // The detail column is padded by 3px so its collapsed height (3 + 24 + 6 + 20 +
@@ -42,23 +44,24 @@ type IStockEventDetailLine = {
 };
 
 /**
- * Labels are sentence case to match the design ("EPS estimate", not "Eps
- * Estimated"). Keys the backend sends but the design never spelled out fall
- * back to a camelCase split so they still render as one `Label: value` line.
+ * Keys the backend sends but the design never spelled out have no translation,
+ * so they fall back to a camelCase split and still render as one
+ * `Label: value` line.
  */
-const STOCK_EVENT_METADATA_LABELS: Record<string, string> = {
-  epsEstimated: 'EPS estimate',
-  epsActual: 'EPS actual',
-  revenueEstimated: 'Revenue estimate',
-  revenueActual: 'Revenue actual',
-  dividendPerShare: 'Dividend per share',
-  adjustedDividendPerShare: 'Adjusted dividend per share',
-  dividendYield: 'Dividend yield',
-  declarationDate: 'Declaration date',
-  recordDate: 'Record date',
-  paymentDate: 'Payment date',
-  frequency: 'Frequency',
-  lastUpdated: 'Last updated',
+const STOCK_EVENT_METADATA_LABEL_IDS: Record<string, ETranslations> = {
+  epsEstimated: ETranslations.market_stock_event_eps_estimate,
+  epsActual: ETranslations.market_stock_event_eps_actual,
+  revenueEstimated: ETranslations.market_stock_event_revenue_estimate,
+  revenueActual: ETranslations.market_stock_event_revenue_actual,
+  dividendPerShare: ETranslations.market_stock_event_dividend_per_share,
+  adjustedDividendPerShare:
+    ETranslations.market_stock_event_adj_dividend_per_share,
+  dividendYield: ETranslations.dexmarket_stock_dividend_yield,
+  declarationDate: ETranslations.market_stock_event_declaration_date,
+  recordDate: ETranslations.market_stock_event_record_date,
+  paymentDate: ETranslations.market_stock_event_payment_date,
+  frequency: ETranslations.market_stock_event_frequency,
+  lastUpdated: ETranslations.market_last_updated,
 };
 
 const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
@@ -79,14 +82,15 @@ const STOCK_EVENT_DATE_METADATA_KEYS = new Set([
   'lastUpdated',
 ]);
 
-function getStockEventMetadataLabel(key: string) {
-  return (
-    STOCK_EVENT_METADATA_LABELS[key] ??
-    key
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .toLowerCase()
-      .replace(/^./, (character) => character.toUpperCase())
-  );
+function getStockEventMetadataLabel(key: string, intl: IntlShape) {
+  const labelId = STOCK_EVENT_METADATA_LABEL_IDS[key];
+  if (labelId) {
+    return intl.formatMessage({ id: labelId });
+  }
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function formatStockEventMetadataValue(
@@ -113,11 +117,12 @@ function formatStockEventMetadataValue(
 function getStockEventDetailLines(
   event: IMarketStockEvent,
   formatDate: IFormatDate,
+  intl: IntlShape,
 ): IStockEventDetailLine[] {
   if (!event.metadata) return [];
   return Object.entries(event.metadata).flatMap(([key, value]) => {
     if (value === null || value === undefined || value === '') return [];
-    const label = getStockEventMetadataLabel(key);
+    const label = getStockEventMetadataLabel(key, intl);
     const formattedValue = formatStockEventMetadataValue(
       key,
       value,
@@ -127,21 +132,36 @@ function getStockEventDetailLines(
   });
 }
 
-function getStockEventTitle(event: IMarketStockEvent) {
-  if (event.type === 'earnings') return 'Earnings';
-  if (event.type === 'cash_dividend') return 'Cash Dividends';
-  if (event.type === 'stock_split') return 'Stock Split';
+function getStockEventTitle(event: IMarketStockEvent, intl: IntlShape) {
+  if (event.type === 'earnings') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_earnings,
+    });
+  }
+  if (event.type === 'cash_dividend') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_cash_dividends,
+    });
+  }
+  if (event.type === 'stock_split') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_stock_split,
+    });
+  }
   return event.title;
 }
 
-function getStockEventDescription(event: IMarketStockEvent) {
+function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
   const epsEstimate = event.metadata?.epsEstimated;
   if (
     event.type === 'earnings' &&
     epsEstimate !== null &&
     epsEstimate !== undefined
   ) {
-    return `EPS estimate: $${epsEstimate}`;
+    const label = intl.formatMessage({
+      id: ETranslations.market_stock_event_eps_estimate,
+    });
+    return `${label}: $${epsEstimate}`;
   }
   return event.description ?? STAT_FALLBACK_VALUE;
 }
@@ -156,7 +176,7 @@ function StockEventRow({
   const intl = useIntl();
   const { format, formatDate } = useFormatDate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const detailLines = getStockEventDetailLines(event, formatDate);
+  const detailLines = getStockEventDetailLines(event, formatDate, intl);
 
   return (
     <YStack opacity={isPast ? 0.62 : 1}>
@@ -193,7 +213,7 @@ function StockEventRow({
         >
           <XStack alignItems="center" gap="$2">
             <SizableText size="$headingLg">
-              {getStockEventTitle(event)}
+              {getStockEventTitle(event, intl)}
             </SizableText>
             {event.status === 'scheduled' ? (
               <Stack
@@ -221,7 +241,7 @@ function StockEventRow({
             ))
           ) : (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {getStockEventDescription(event)}
+              {getStockEventDescription(event, intl)}
             </SizableText>
           )}
         </YStack>
