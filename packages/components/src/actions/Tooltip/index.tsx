@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useImperativeHandle, useMemo } from 'react';
 
 import { TMTooltip } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import type { PopoverContentProps } from '@onekeyhq/components/src/shared/tamaguiOverlay';
@@ -13,49 +7,13 @@ import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 import { TooltipContext } from './context';
 import { TooltipText } from './TooltipText';
+import { useTooltipOpenState } from './useTooltipOpenState';
 
 import type { ITooltipProps } from './type';
 
 const tooltipEnterStyle = { scale: 0.95, opacity: 0 } as const;
 const tooltipExitStyle = { scale: 0.95, opacity: 0 } as const;
 const tooltipContentWebStyle = { width: 'max-content' } as const;
-
-const useHoverTooltip = () => {
-  const [isHovered, setIsHovered] = useState(false);
-  const showTooltipRef = useRef(isHovered);
-  showTooltipRef.current = isHovered;
-  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleHoverIn = useCallback(() => {
-    if (showTooltipRef.current) {
-      if (closeTooltipTimer.current) {
-        clearTimeout(closeTooltipTimer.current);
-      }
-    } else {
-      showTooltipTimer.current = setTimeout(() => {
-        setIsHovered(true);
-      }, 250);
-    }
-  }, []);
-  const dismissTooltip = useCallback(() => {
-    setIsHovered(false);
-  }, []);
-  const handleHoverOut = useCallback(() => {
-    if (showTooltipRef.current) {
-      closeTooltipTimer.current = setTimeout(() => {
-        dismissTooltip();
-      }, 300);
-    } else if (showTooltipTimer.current) {
-      clearTimeout(showTooltipTimer.current);
-    }
-  }, [dismissTooltip]);
-  return {
-    setIsHovered,
-    isHovered,
-    onContentHoverIn: handleHoverIn,
-    onContentHoverOut: handleHoverOut,
-  };
-};
 
 const transformOriginMap: Record<
   NonNullable<ITooltipProps['placement']>,
@@ -97,12 +55,19 @@ export function Tooltip({
     [transformOrigin],
   );
 
-  const [isShow, setIsShow] = useState(false);
-  const [forceClose, setForceClose] = useState(false);
-  const [isDisabled, setIsDisabled] = useState(false);
-
-  const { isHovered, setIsHovered, onContentHoverIn, onContentHoverOut } =
-    useHoverTooltip();
+  const {
+    isOpen,
+    setIsShow,
+    setIsDisabled,
+    handleOpenChange,
+    handleTriggerPointerDown,
+    handleTriggerMouseEnter,
+    handleTriggerMouseLeave,
+    handleContentMouseEnter,
+    handleContentMouseLeave,
+    closeTooltip,
+    openTooltip,
+  } = useTooltipOpenState({ hovering });
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
@@ -118,59 +83,15 @@ export function Tooltip({
     }
 
     return renderContent;
-  }, [renderContent, shortcutKey]);
-
-  const isOpen = useMemo(() => {
-    if (forceClose) {
-      return false;
-    }
-    if (hovering) {
-      return isHovered;
-    }
-    return isDisabled ? false : isShow;
-  }, [forceClose, hovering, isDisabled, isShow, isHovered]);
-
-  const handleHoverIn = useCallback(() => {
-    if (hovering) {
-      onContentHoverIn();
-    }
-  }, [hovering, onContentHoverIn]);
-
-  const handleHoverOut = useCallback(() => {
-    if (hovering) {
-      onContentHoverOut();
-    }
-  }, [hovering, onContentHoverOut]);
-
-  const closeTooltip = useCallback(() => {
-    return new Promise<void>((resolve) => {
-      setForceClose(true);
-      setIsShow(false);
-      setIsHovered(false);
-      setTimeout(() => {
-        resolve();
-      }, 150);
-      setTimeout(() => {
-        setForceClose(false);
-      }, 200);
-    });
-  }, [setIsHovered, setIsShow, setForceClose]);
+  }, [renderContent, setIsDisabled, setIsShow, shortcutKey]);
 
   useImperativeHandle(
     ref,
     () => ({
       closeTooltip,
-      openTooltip: () => {
-        return new Promise<void>((resolve) => {
-          setIsShow(true);
-          setIsHovered(true);
-          setTimeout(() => {
-            resolve();
-          }, 50);
-        });
-      },
+      openTooltip,
     }),
-    [closeTooltip, setIsHovered],
+    [closeTooltip, openTooltip],
   );
 
   const contextValue = useMemo(
@@ -188,7 +109,7 @@ export function Tooltip({
         delay={0}
         offset={6}
         open={isOpen}
-        onOpenChange={setIsShow}
+        onOpenChange={handleOpenChange}
         allowFlip
         placement={placement}
         {...props}
@@ -198,8 +119,13 @@ export function Tooltip({
         <TMTooltip.Trigger
           asChild={triggerAsChild}
           disabled={disabled}
-          onMouseEnter={handleHoverIn}
-          onMouseLeave={handleHoverOut}
+          onMouseEnter={handleTriggerMouseEnter}
+          onMouseLeave={handleTriggerMouseLeave}
+          // Pressing the trigger (mouse/pen) closes the tooltip so it never
+          // lingers above whatever the press opens. pointerdown is used instead
+          // of onPressIn because the latter also fires for touch, where a tap is
+          // the only way to reveal a tooltip.
+          onPointerDown={handleTriggerPointerDown}
           onPress={onPress}
         >
           {renderTrigger}
@@ -222,8 +148,8 @@ export function Tooltip({
           exitStyle={tooltipExitStyle}
           transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-          onMouseEnter={handleHoverIn}
-          onMouseLeave={handleHoverOut}
+          onMouseEnter={handleContentMouseEnter}
+          onMouseLeave={handleContentMouseLeave}
         >
           {renderTooltipContent}
         </TMTooltip.Content>
@@ -235,4 +161,5 @@ export function Tooltip({
 Tooltip.Text = TooltipText;
 
 export * from './context';
+export { closeAllTooltips } from './tooltipRegistry';
 export * from './type';
