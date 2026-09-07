@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,10 +45,18 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+  }),
+);
+
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: {
     UNKNOWN: 'UNKNOWN',
   },
+  s: (value: number) => value,
   rootNavigationRef: {
     current: {
       navigate: jest.fn(),
@@ -162,6 +171,12 @@ describe('useToDetailPage', () => {
       from: undefined,
       disableTrade: true,
       showFavoriteButton: false,
+    });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: true,
+      layout: 'mobile',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
@@ -291,6 +306,12 @@ describe('useToDetailPage', () => {
       from: undefined,
       marketTokenCategory: 'top_coins',
     });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: false,
+      layout: 'mobile',
+    });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -325,6 +346,38 @@ describe('useToDetailPage', () => {
       skipMarketDataFetch: true,
       disableTrade: true,
       showFavoriteButton: false,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('preserves asset and variant identity for Top Coins detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        symbol: 'DOGE',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketVariantId: 'doge-doge--0-1',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'doge',
+      marketVariantId: 'doge-doge--0-1',
       marketTokenCategory: 'top_coins',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;

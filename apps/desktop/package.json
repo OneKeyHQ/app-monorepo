@@ -10,7 +10,7 @@
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",
     "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=16384\" yarn dev:rspack",
-    "install-app-deps": "electron-builder install-app-deps && node scripts/apply-runtime-patches.js && node scripts/verify-runtime-patches.js",
+    "install-app-deps": "rimraf ./app/node_modules && electron-builder install-app-deps && node scripts/apply-runtime-patches.js && node scripts/ensure-runtime-noble.js && node scripts/audit-packaged-runtime-patches.js",
     "dev": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:rspack": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer:rspack\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 app/dist/app.js",
@@ -57,6 +57,7 @@
   },
   "devDependencies": {
     "@electron/notarize": "2.3.2",
+    "@electron/rebuild": "4.0.1",
     "@electron/remote": "^2.0.1",
     "@types/adm-zip": "^0",
     "@types/electron-localshortcut": "^3.1.0",

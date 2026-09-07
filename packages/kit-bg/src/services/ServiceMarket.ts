@@ -5,6 +5,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -15,6 +16,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketAssetDetailData,
+  IMarketAssetKLineData,
   IMarketAssetListData,
   IMarketCategory,
   IMarketDetailPlatform,
@@ -128,6 +130,38 @@ class ServiceMarket extends ServiceBase {
         variantId,
         currency,
       },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetKline({
+    assetId,
+    interval,
+    timeFrom,
+    timeTo,
+    currency = 'usd',
+    autoHandleError,
+  }: {
+    assetId: string;
+    interval: string;
+    timeFrom?: number;
+    timeTo?: number;
+    currency?: string;
+    autoHandleError?: boolean;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketAssetKLineData;
+    }>('/utility/v1/market/asset/kline', {
+      params: {
+        assetId,
+        interval: normalizeMarketApiKLineInterval(interval),
+        timeFrom,
+        timeTo,
+        currency,
+      },
+      ...(autoHandleError === false ? { autoHandleError: false } : {}),
     });
     return response.data.data;
   }

@@ -763,7 +763,7 @@ function ProtocolLendingActionDefiContent({
     };
     try {
       await Keyboard.dismissWithDelay(80);
-      await submitProtocolPositionAction({
+      const started = await submitProtocolPositionAction({
         action: source.action,
         selectedAssets: [selectedAsset],
         amount,
@@ -782,6 +782,11 @@ function ProtocolLendingActionDefiContent({
         onConfirmFail: releaseSubmitGuardOnceWithError,
         onConfirmCancel: releaseSubmitGuardOnce,
       });
+      // A declined risk disclaimer does not fire a callback or throw, so the
+      // dialog still owns the submit guard on this path.
+      if (started === false) {
+        releaseSubmitGuardOnce();
+      }
     } catch (error) {
       if (
         !isActionDialogClosed &&

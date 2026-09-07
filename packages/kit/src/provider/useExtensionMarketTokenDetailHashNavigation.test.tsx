@@ -103,7 +103,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -111,6 +111,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         network: 'bsc',
         tokenAddress: '0xabc',
         marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--56-0xabc',
         marketTokenCategory: 'top_coins',
         skipMarketDataFetch: true,
         isNative: false,
@@ -153,6 +154,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         from: 'ExtensionPopup',
         disableTrade: true,
         showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('parses the stock preview from an extension detail hash', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Faapl.png',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/aapl.png',
       },
     });
   });
@@ -297,6 +314,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     );
   });
 
+  it('refreshes the same stock route when preview metadata changes', () => {
+    setHash(
+      '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Fnew.png',
+    );
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/old.png',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
+            stockPreviewSymbol: 'AAPL',
+            stockPreviewName: 'Apple Inc.',
+            stockPreviewLogoUrl: 'https://example.com/new.png',
+          },
+        },
+      },
+    );
+  });
+
   it.each([
     {
       query: 'disableTrade=true',
@@ -312,6 +362,11 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       query: 'marketTokenId=bitcoin',
       currentParams: {},
       expectedParams: { marketTokenId: 'bitcoin' },
+    },
+    {
+      query: 'marketVariantId=bitcoin-evm--1-0xabc',
+      currentParams: {},
+      expectedParams: { marketVariantId: 'bitcoin-evm--1-0xabc' },
     },
     {
       query: 'marketTokenCategory=top_coins',

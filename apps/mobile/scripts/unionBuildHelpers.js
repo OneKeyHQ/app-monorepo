@@ -17,6 +17,57 @@ function setEquals(left, right) {
   return true;
 }
 
+function assertEntryStartsWithPolyfills({
+  entryPath,
+  graph,
+  polyfillsEntryPath,
+  runtimeLabel,
+}) {
+  const entryModule = graph.get(entryPath);
+  const firstDependency = entryModule
+    ? [...entryModule.dependencies.values()].find(
+        (dependency) => dependency.absolutePath,
+      )
+    : undefined;
+  if (firstDependency?.absolutePath === polyfillsEntryPath) {
+    return;
+  }
+
+  throw new Error(
+    `[RuntimePolyfills] ${runtimeLabel} entry must require ${polyfillsEntryPath} before every other dependency. First dependency: ${firstDependency?.absolutePath ?? 'missing entry module'}`,
+  );
+}
+
+function assertPolyfillBootstrapSynchronous({
+  polyfillsPathPrefix,
+  runtimeGraphs,
+}) {
+  const violations = [];
+  for (const { graph, runtimeLabel } of runtimeGraphs) {
+    for (const [absolutePath, moduleData] of graph) {
+      if (absolutePath.startsWith(polyfillsPathPrefix)) {
+        for (const [dependencyName, dependency] of moduleData.dependencies) {
+          if (dependency.data?.data?.asyncType === 'async') {
+            violations.push(
+              `${runtimeLabel}: ${absolutePath} -> ${dependencyName} (${dependency.absolutePath ?? 'unresolved'})`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    throw new Error(
+      [
+        '[RuntimePolyfills] Polyfill bootstrap must be fully synchronous.',
+        'Dynamic imports can return control before required globals are installed:',
+        ...violations.map((violation) => `  - ${violation}`),
+      ].join('\n'),
+    );
+  }
+}
+
 function buildModuleSignature(moduleData) {
   if (!moduleData) {
     return '';
@@ -224,6 +275,37 @@ function groupSerializedEntriesBySegment({
   }
 
   return segmentOutputs;
+}
+
+function removeCommonModulesFromSegmentAllocation({
+  allocation,
+  commonEagerAbsPaths,
+  sharedEquivalentAbsPaths,
+  getGraphModuleId,
+}) {
+  const removedAbsPaths = new Set();
+
+  for (const absolutePath of commonEagerAbsPaths) {
+    if (sharedEquivalentAbsPaths.has(absolutePath)) {
+      const moduleId = getGraphModuleId(absolutePath);
+      const segmentKey = allocation.moduleToSegment.get(moduleId);
+      if (segmentKey) {
+        allocation.moduleToSegment.delete(moduleId);
+        allocation.eagerModuleIds.add(moduleId);
+        allocation.segmentAbsPaths.delete(absolutePath);
+        allocation.segmentModules.get(segmentKey)?.delete(moduleId);
+        allocation.segmentAbsPathsByKey.get(segmentKey)?.delete(absolutePath);
+        removedAbsPaths.add(absolutePath);
+
+        if (allocation.segmentModules.get(segmentKey)?.size === 0) {
+          allocation.segmentModules.delete(segmentKey);
+          allocation.segmentAbsPathsByKey.delete(segmentKey);
+        }
+      }
+    }
+  }
+
+  return removedAbsPaths;
 }
 
 function seedSegmentAssignments({
@@ -954,6 +1036,8 @@ function computeSharedPerRuntimeDeps({
 }
 
 module.exports = {
+  assertEntryStartsWithPolyfills,
+  assertPolyfillBootstrapSynchronous,
   assertBundleCompleteness,
   buildPostSection,
   buildSerializedModuleEntries,
@@ -969,6 +1053,7 @@ module.exports = {
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   mergeSharedSegmentOutputs,
+  removeCommonModulesFromSegmentAllocation,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,

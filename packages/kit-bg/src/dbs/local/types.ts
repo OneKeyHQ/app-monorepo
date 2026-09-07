@@ -460,6 +460,12 @@ export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;
   settings: IDBDeviceSettings;
 };
+export type IDBUpdateDeviceSettingsInPlaceParams = {
+  dbDeviceId: string;
+  /** Receives the settings as stored at write time; returns the settings
+   * to store, or undefined to leave the record untouched. */
+  updater: (settings: IDBDeviceSettings) => IDBDeviceSettings | undefined;
+};
 export type IDBUpdateFirmwareVerifiedParams = {
   device: IDBDevice;
   verifyResult: 'official' | 'unofficial' | 'unknown';

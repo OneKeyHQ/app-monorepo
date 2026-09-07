@@ -15,6 +15,7 @@ const zlib = require('zlib');
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeConfigInputsDigest,
+  computeNativeContractKey,
   computeReleaseCompatibilityKey,
   getPlatformOutputDirectory,
   getReleaseTag,
@@ -37,6 +38,7 @@ const SHARED_CACHE_SCHEMA_VERSION = 2;
 const SHARED_CACHE_ENV = 'ONEKEY_METRO_PREBUNDLE_CACHE_DIR';
 const MAX_CACHED_RELEASES = 5;
 const CACHE_LOCK_OWNER_NAME = 'owner.json';
+const CACHE_LOCK_RECLAIM_DIRECTORY_NAME = '.reclaim';
 const CACHE_LOCK_STALE_MS = 10 * 60_000;
 const CACHE_LOCK_WAIT_TIMEOUT_MS = 3 * 60_000;
 const CACHE_LOCK_POLL_INTERVAL_MS = 250;
@@ -654,6 +656,12 @@ async function packagePrebundleRelease({
           process.env,
           registry,
         ),
+        nativeContractKeys: Object.fromEntries(
+          SUPPORTED_PLATFORMS.map((platform) => [
+            platform,
+            computeNativeContractKey(platform, repoRoot),
+          ]),
+        ),
         registryEpoch: registry.registryEpoch,
         schemaVersion: devVendorConfig.SCHEMA_VERSION,
         strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -719,6 +727,8 @@ function verifyReleaseManifest({ manifest, platform, repoRoot = REPO_ROOT }) {
   if (
     manifest.devVendor?.schemaVersion !== devVendorConfig.SCHEMA_VERSION ||
     manifest.devVendor?.strategyVersion !== devVendorConfig.STRATEGY_VERSION ||
+    manifest.devVendor?.nativeContractKeys?.[platform] !==
+      computeNativeContractKey(platform, repoRoot) ||
     manifest.devVendor?.registryEpoch !== registry.registryEpoch ||
     manifest.devVendor?.configInputsDigest !==
       computeConfigInputsDigest(repoRoot, process.env, registry)
@@ -1340,10 +1350,10 @@ function isProcessRunning(pid) {
   }
 }
 
-async function readCacheLockOwner(lockDirectory) {
+async function readCacheLockOwner(lockDirectory, fileSystem = fs.promises) {
   const ownerPath = path.join(lockDirectory, CACHE_LOCK_OWNER_NAME);
   try {
-    const stat = await fs.promises.lstat(ownerPath);
+    const stat = await fileSystem.lstat(ownerPath);
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||
@@ -1352,7 +1362,7 @@ async function readCacheLockOwner(lockDirectory) {
     ) {
       return undefined;
     }
-    const owner = JSON.parse(await fs.promises.readFile(ownerPath, 'utf8'));
+    const owner = JSON.parse(await fileSystem.readFile(ownerPath, 'utf8'));
     if (
       !Number.isSafeInteger(owner.pid) ||
       owner.pid <= 0 ||
@@ -1370,10 +1380,236 @@ async function readCacheLockOwner(lockDirectory) {
   }
 }
 
+async function getCacheLockSnapshot(lockDirectory, fileSystem) {
+  let lastStat;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const firstOwner = await readCacheLockOwner(lockDirectory, fileSystem);
+    let firstStat;
+    try {
+      firstStat = await fileSystem.lstat(lockDirectory);
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        return {
+          ageMs: undefined,
+          identity: undefined,
+          missing: true,
+          owner: undefined,
+          stable: true,
+          stat: undefined,
+        };
+      }
+      throw error;
+    }
+    const firstIdentity = `${String(firstStat.dev)}:${String(firstStat.ino)}`;
+    const confirmedOwner = await readCacheLockOwner(lockDirectory, fileSystem);
+    let confirmedStat;
+    try {
+      confirmedStat = await fileSystem.lstat(lockDirectory);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    lastStat = confirmedStat;
+    if (confirmedStat) {
+      const lastIdentity = `${String(confirmedStat.dev)}:${String(confirmedStat.ino)}`;
+      if (
+        firstIdentity === lastIdentity &&
+        firstOwner?.token === confirmedOwner?.token
+      ) {
+        return {
+          ageMs: Date.now() - confirmedStat.mtimeMs,
+          identity: lastIdentity,
+          missing: false,
+          owner: confirmedOwner,
+          stable: true,
+          stat: confirmedStat,
+        };
+      }
+    }
+  }
+  return {
+    ageMs: lastStat ? Date.now() - lastStat.mtimeMs : undefined,
+    identity: lastStat
+      ? `${String(lastStat.dev)}:${String(lastStat.ino)}`
+      : undefined,
+    missing: !lastStat,
+    owner: undefined,
+    stable: false,
+    stat: lastStat,
+  };
+}
+
+function isSameCacheLockGeneration(first, second) {
+  return (
+    !first.missing &&
+    !second.missing &&
+    first.stable &&
+    second.stable &&
+    first.identity === second.identity &&
+    first.owner?.token === second.owner?.token
+  );
+}
+
+function isReclaimMarkerBoundToLock(marker, lock) {
+  return (
+    marker.stable &&
+    lock.stable &&
+    (!marker.owner ||
+      (marker.owner.lockIdentity === lock.identity &&
+        marker.owner.lockOwnerToken === (lock.owner?.token || null)))
+  );
+}
+
+async function recoverAbandonedCacheReclaimMarker({
+  fileSystem,
+  lockDirectory,
+  processIsRunning,
+  reclaimDirectory,
+  rootSnapshot,
+  staleMs,
+  token,
+}) {
+  const marker = await getCacheLockSnapshot(reclaimDirectory, fileSystem);
+  if (marker.missing) return true;
+  if (!isReclaimMarkerBoundToLock(marker, rootSnapshot)) return false;
+  if (marker.owner && processIsRunning(marker.owner.pid)) return false;
+  if (!marker.owner && marker.ageMs <= staleMs) return false;
+
+  const confirmedRoot = await getCacheLockSnapshot(lockDirectory, fileSystem);
+  const confirmedMarker = await getCacheLockSnapshot(
+    reclaimDirectory,
+    fileSystem,
+  );
+  if (
+    !isSameCacheLockGeneration(rootSnapshot, confirmedRoot) ||
+    !isSameCacheLockGeneration(marker, confirmedMarker) ||
+    !isReclaimMarkerBoundToLock(confirmedMarker, confirmedRoot) ||
+    (confirmedMarker.owner && processIsRunning(confirmedMarker.owner.pid))
+  ) {
+    return false;
+  }
+
+  const staleMarker = `${reclaimDirectory}.stale-${token}`;
+  try {
+    await fileSystem.rename(reclaimDirectory, staleMarker);
+  } catch (error) {
+    if (['EEXIST', 'ENOENT', 'ENOTEMPTY'].includes(error?.code)) return false;
+    throw error;
+  }
+  const movedMarker = await getCacheLockSnapshot(staleMarker, fileSystem);
+  const finalRoot = await getCacheLockSnapshot(lockDirectory, fileSystem);
+  if (
+    !isSameCacheLockGeneration(confirmedMarker, movedMarker) ||
+    !isSameCacheLockGeneration(confirmedRoot, finalRoot)
+  ) {
+    return false;
+  }
+  await fileSystem.rm(staleMarker, { force: true, recursive: true });
+  return true;
+}
+
+async function tryReclaimCacheLock({
+  fileSystem,
+  lockDirectory,
+  processIsRunning,
+  snapshot,
+  staleMs,
+  token,
+}) {
+  const reclaimDirectory = path.join(
+    lockDirectory,
+    CACHE_LOCK_RECLAIM_DIRECTORY_NAME,
+  );
+  const markerOwner = {
+    lockIdentity: snapshot.identity,
+    lockOwnerToken: snapshot.owner?.token || null,
+    pid: process.pid,
+    token,
+  };
+  let markerAcquired = false;
+  let lockRenamed = false;
+  try {
+    try {
+      await fileSystem.mkdir(reclaimDirectory, { mode: 0o700 });
+      markerAcquired = true;
+      try {
+        await fileSystem.writeFile(
+          path.join(reclaimDirectory, CACHE_LOCK_OWNER_NAME),
+          `${JSON.stringify(markerOwner)}\n`,
+          { flag: 'wx', mode: 0o600 },
+        );
+      } catch (error) {
+        await fileSystem.rm(reclaimDirectory, {
+          force: true,
+          recursive: true,
+        });
+        markerAcquired = false;
+        throw error;
+      }
+    } catch (error) {
+      if (error?.code === 'ENOENT') return true;
+      if (error?.code !== 'EEXIST') throw error;
+      return recoverAbandonedCacheReclaimMarker({
+        fileSystem,
+        lockDirectory,
+        processIsRunning,
+        reclaimDirectory,
+        rootSnapshot: snapshot,
+        staleMs,
+        token,
+      });
+    }
+
+    const confirmedRoot = await getCacheLockSnapshot(lockDirectory, fileSystem);
+    const confirmedMarker = await getCacheLockSnapshot(
+      reclaimDirectory,
+      fileSystem,
+    );
+    if (
+      !isSameCacheLockGeneration(snapshot, confirmedRoot) ||
+      confirmedMarker.owner?.token !== token ||
+      !isReclaimMarkerBoundToLock(confirmedMarker, confirmedRoot) ||
+      (confirmedRoot.owner && processIsRunning(confirmedRoot.owner.pid))
+    ) {
+      return false;
+    }
+
+    const staleDirectory = `${lockDirectory}.stale-${token}`;
+    try {
+      await fileSystem.rename(lockDirectory, staleDirectory);
+      lockRenamed = true;
+    } catch (error) {
+      if (error?.code === 'ENOENT') return true;
+      throw error;
+    }
+    const movedRoot = await getCacheLockSnapshot(staleDirectory, fileSystem);
+    if (!isSameCacheLockGeneration(confirmedRoot, movedRoot)) {
+      throw new Error(
+        '[metroDevPrebundle] Shared cache lock generation changed while reclaiming.',
+      );
+    }
+    await fileSystem.rm(staleDirectory, { force: true, recursive: true });
+    return true;
+  } finally {
+    if (markerAcquired && !lockRenamed) {
+      const currentMarker = await getCacheLockSnapshot(
+        reclaimDirectory,
+        fileSystem,
+      );
+      if (currentMarker.stable && currentMarker.owner?.token === token) {
+        await fileSystem.rm(reclaimDirectory, {
+          force: true,
+          recursive: true,
+        });
+      }
+    }
+  }
+}
+
 async function withCacheLock(
   lockDirectory,
   callback,
   {
+    fileSystem = fs.promises,
     heartbeatIntervalMs = CACHE_LOCK_HEARTBEAT_INTERVAL_MS,
     processIsRunning = isProcessRunning,
     staleMs = CACHE_LOCK_STALE_MS,
@@ -1386,59 +1622,57 @@ async function withCacheLock(
   await ensureCacheDirectory(path.dirname(lockDirectory));
   while (true) {
     try {
-      await fs.promises.mkdir(lockDirectory, { mode: 0o700 });
+      await fileSystem.mkdir(lockDirectory, { mode: 0o700 });
       try {
-        await fs.promises.writeFile(
+        await fileSystem.writeFile(
           path.join(lockDirectory, CACHE_LOCK_OWNER_NAME),
           `${JSON.stringify({ pid: process.pid, token })}\n`,
           { flag: 'wx', mode: 0o600 },
         );
       } catch (error) {
-        await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+        await fileSystem.rm(lockDirectory, { force: true, recursive: true });
         throw error;
       }
       break;
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
-      let stat;
-      try {
-        stat = await fs.promises.lstat(lockDirectory);
-      } catch (statError) {
-        if (statError?.code !== 'ENOENT') throw statError;
-      }
-      if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) {
+      const snapshot = await getCacheLockSnapshot(lockDirectory, fileSystem);
+      if (
+        !snapshot.missing &&
+        (!snapshot.stat.isDirectory() || snapshot.stat.isSymbolicLink())
+      ) {
         throw new Error(
           `[metroDevPrebundle] Invalid shared cache lock: ${lockDirectory}.`,
           { cause: error },
         );
       }
-      const owner = stat ? await readCacheLockOwner(lockDirectory) : undefined;
       let reclaimed = false;
       if (
-        stat &&
-        Date.now() - stat.mtimeMs > staleMs &&
-        (!owner || !processIsRunning(owner.pid))
+        !snapshot.missing &&
+        snapshot.stable &&
+        snapshot.ageMs > staleMs &&
+        (!snapshot.owner || !processIsRunning(snapshot.owner.pid))
       ) {
-        const staleDirectory = `${lockDirectory}.stale-${token}`;
-        try {
-          await fs.promises.rename(lockDirectory, staleDirectory);
-          await fs.promises.rm(staleDirectory, {
-            force: true,
-            recursive: true,
-          });
-          reclaimed = true;
-        } catch (renameError) {
-          if (renameError?.code !== 'ENOENT') throw renameError;
-          reclaimed = true;
-        }
+        reclaimed = await tryReclaimCacheLock({
+          fileSystem,
+          lockDirectory,
+          processIsRunning,
+          snapshot,
+          staleMs,
+          token,
+        });
       }
-      if (!reclaimed && stat && Date.now() - startedAt >= waitTimeoutMs) {
+      if (
+        !reclaimed &&
+        !snapshot.missing &&
+        Date.now() - startedAt >= waitTimeoutMs
+      ) {
         throw new CacheLockTimeoutError(
           `[metroDevPrebundle] Timed out waiting for shared cache lock: ${lockDirectory}.`,
           { cause: error },
         );
       }
-      if (!reclaimed && stat) {
+      if (!reclaimed && !snapshot.missing) {
         await new Promise((resolve) => setTimeout(resolve, waitPollIntervalMs));
       }
     }
@@ -1448,10 +1682,10 @@ async function withCacheLock(
   const heartbeatTimer = setInterval(() => {
     heartbeat = heartbeat
       .then(async () => {
-        const owner = await readCacheLockOwner(lockDirectory);
+        const owner = await readCacheLockOwner(lockDirectory, fileSystem);
         if (owner?.token === token) {
           const now = new Date();
-          await fs.promises.utimes(lockDirectory, now, now);
+          await fileSystem.utimes(lockDirectory, now, now);
         }
       })
       .catch(() => undefined);
@@ -1462,9 +1696,9 @@ async function withCacheLock(
   } finally {
     clearInterval(heartbeatTimer);
     await heartbeat;
-    const owner = await readCacheLockOwner(lockDirectory);
+    const owner = await readCacheLockOwner(lockDirectory, fileSystem);
     if (owner?.token === token) {
-      await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+      await fileSystem.rm(lockDirectory, { force: true, recursive: true });
     }
   }
 }

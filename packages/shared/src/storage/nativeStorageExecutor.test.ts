@@ -51,6 +51,7 @@ const mockColdStartMMKV = new FakeMMKV();
 const mockDevSettingsMMKV = new FakeMMKV();
 const mockLegacyData = new Map<string, string>();
 const mockMigrationLedger = new Map<string, string>();
+let mockLegacySourceError: Error | undefined;
 let mockRecoveryAction: 'auto_repair' | 'try_again' | undefined;
 const mockLegacyStorage = {
   getAllKeys: jest.fn(async () => [...mockLegacyData.keys()]),
@@ -71,6 +72,7 @@ const mockSetMigrationLedger = jest.fn(async (key: string, value: string) => {
   mockMigrationLedger.set(key, value);
 });
 const mockSyncNativeStorageMMKV = jest.fn(async () => undefined);
+const mockLegacyRetryWait = jest.fn(async (_delayMs: number) => undefined);
 const mockSWRCacheCapacityLimit = jest.fn();
 const mockNativeMigrationLog = jest.fn();
 const mockAcknowledgeRecoveryAction = jest.fn(async (action: string) => {
@@ -89,8 +91,17 @@ jest.mock('../platformEnv', () => ({
   __esModule: true,
   default: { isNativeBackgroundThread: true },
 }));
+jest.mock('../utils/timerUtils', () => ({
+  __esModule: true,
+  default: { wait: mockLegacyRetryWait },
+}));
 jest.mock('./legacyAsyncStorageMigration', () => ({
-  getLegacyAsyncStorageForMigration: () => mockLegacyStorage,
+  getLegacyAsyncStorageForMigration: () => {
+    if (mockLegacySourceError) {
+      throw new Error(mockLegacySourceError.message);
+    }
+    return mockLegacyStorage;
+  },
 }));
 jest.mock('./nativeStorageMigrationModule', () => ({
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE: 'complete-v1',
@@ -144,6 +155,10 @@ jest.mock('./instance/mmkvDevSettingStorageInstance', () => ({
 
 const MIGRATION_KEY = '__onekey_internal_app_storage_migration_v1__';
 const LEGACY_CLEANUP_KEY = '__onekey_internal_app_storage_legacy_cleanup_v1__';
+const LEGACY_RETENTION_KEY =
+  '__onekey_internal_app_storage_legacy_retention_v1__';
+const MIGRATION_REPORT_KEY =
+  '__onekey_internal_app_storage_migration_report_v1__';
 const BATCH_JOURNAL_KEY = '__onekey_internal_app_storage_batch_journal_v1__';
 const nativeStorageGlobal = globalThis as typeof globalThis & {
   __onekeyNativeSyncStorageBroadcast?: jest.Mock;
@@ -156,7 +171,7 @@ function loadExecutor() {
 
 function markAppStorageMigrated() {
   mockAppMMKV.set(MIGRATION_KEY, '1');
-  mockAppMMKV.set(LEGACY_CLEANUP_KEY, '1');
+  mockAppMMKV.set(LEGACY_RETENTION_KEY, 'retained-v1');
   mockMigrationLedger.set('app-storage-v1', 'complete-v1');
 }
 
@@ -180,17 +195,21 @@ describe('nativeStorageExecutor', () => {
     mockSWRCacheCapacityLimit.mockReset();
     mockNativeMigrationLog.mockReset();
     mockLegacyData.clear();
+    mockLegacySourceError = undefined;
     mockMigrationLedger.clear();
     mockRecoveryAction = undefined;
+    mockLegacyStorage.getAllKeys.mockReset();
     mockLegacyStorage.getAllKeys.mockImplementation(async () => [
       ...mockLegacyData.keys(),
     ]);
+    mockLegacyStorage.multiGet.mockReset();
     mockLegacyStorage.multiGet.mockImplementation(async (keys: string[]) =>
       keys.map(
         (key) =>
           [key, mockLegacyData.get(key) ?? null] as [string, string | null],
       ),
     );
+    mockLegacyStorage.multiRemove.mockReset();
     mockLegacyStorage.multiRemove.mockImplementation(async (keys: string[]) => {
       keys.forEach((key) => mockLegacyData.delete(key));
     });
@@ -243,21 +262,80 @@ describe('nativeStorageExecutor', () => {
     releaseMigration?.();
     await expect(readPromise).resolves.toBe('legacy-value');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
-    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBe('1');
+    expect(mockAppMMKV.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
-    expect(mockLegacyData.has('business-key')).toBe(false);
+    expect(mockLegacyData.get('business-key')).toBe('legacy-value');
     expect(mockLegacyData.get('g_states_v5:settingsPersistAtom')).toBe(
       'jotai-value',
     );
     expect(mockSyncNativeStorageMMKV.mock.invocationCallOrder[0]).toBeLessThan(
-      mockLegacyStorage.multiRemove.mock.invocationCallOrder[0],
+      mockSetMigrationLedgerComplete.mock.invocationCallOrder[0],
     );
-    expect(
-      mockAppMMKV.getString('app:g_states_v5:settingsPersistAtom'),
-    ).toBeUndefined();
+    expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(mockAppMMKV.getString('app:g_states_v5:settingsPersistAtom')).toBe(
+      'jotai-value',
+    );
   });
 
-  it('does not publish a marker on failure and retries from an empty namespace', async () => {
+  it('migrates every third-party and Jotai key into AppStorage MMKV', async () => {
+    const thirdPartyKey = '@third-party/sdk:persisted-session';
+    const jotaiKey = 'g_states_v5:removedHistoricalAtom';
+    mockLegacyData.set(thirdPartyKey, 'third-party-value');
+    mockLegacyData.set(jotaiKey, 'jotai-value');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getAllKeys',
+      }),
+    ).resolves.toEqual(expect.arrayContaining([thirdPartyKey, jotaiKey]));
+
+    expect(mockAppMMKV.getString(`app:${thirdPartyKey}`)).toBe(
+      'third-party-value',
+    );
+    expect(mockAppMMKV.getString(`app:${jotaiKey}`)).toBe('jotai-value');
+    expect(mockLegacyData.get(thirdPartyKey)).toBe('third-party-value');
+    expect(mockLegacyData.get(jotaiKey)).toBe('jotai-value');
+  });
+
+  it('bounds legacy value retention by reading migration keys in chunks', async () => {
+    for (let index = 0; index < 101; index += 1) {
+      mockLegacyData.set(`key-${String(index).padStart(3, '0')}`, `${index}`);
+    }
+    let releaseLastKeyInFirstChunk: (() => void) | undefined;
+    let markLastKeyInFirstChunkStarted: (() => void) | undefined;
+    const lastKeyInFirstChunkStarted = new Promise<void>((resolve) => {
+      markLastKeyInFirstChunkStarted = resolve;
+    });
+    mockLegacyStorage.multiGet.mockImplementation(async (keys: string[]) => {
+      if (keys[0] === 'key-099') {
+        markLastKeyInFirstChunkStarted?.();
+        await new Promise<void>((resolve) => {
+          releaseLastKeyInFirstChunk = resolve;
+        });
+      }
+      return keys.map(
+        (key) =>
+          [key, mockLegacyData.get(key) ?? null] as [string, string | null],
+      );
+    });
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    const migration = executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'getItem',
+      key: 'key-100',
+    });
+    await lastKeyInFirstChunkStarted;
+
+    expect(mockLegacyStorage.multiGet).toHaveBeenCalledTimes(100);
+    releaseLastKeyInFirstChunk?.();
+    await expect(migration).resolves.toBe('100');
+    expect(mockLegacyStorage.multiGet).toHaveBeenCalledTimes(103);
+  });
+
+  it('retries a transient key failure before publishing MMKV', async () => {
     mockLegacyData.set('key', 'fresh');
     mockAppMMKV.set('app:key', 'partial');
     mockLegacyStorage.multiGet.mockRejectedValueOnce(new Error('disk error'));
@@ -269,18 +347,11 @@ describe('nativeStorageExecutor', () => {
         operation: 'getItem',
         key: 'key',
       }),
-    ).rejects.toThrow('disk error');
-    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
-    expect(mockMigrationLedger.get('app-storage-v1')).toBe('migrating-v1');
-
-    await expect(
-      executeNativeStorageRequest({
-        scope: 'asyncStorage',
-        operation: 'getItem',
-        key: 'key',
-      }),
     ).resolves.toBe('fresh');
     expect(mockAppMMKV.getString('app:key')).toBe('fresh');
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+    expect(mockLegacyRetryWait.mock.calls).toEqual([[50]]);
   });
 
   it('publishes the OTA gate before MMKV mutation and recovers after marker write', async () => {
@@ -324,14 +395,14 @@ describe('nativeStorageExecutor', () => {
         key: 'key',
       }),
     ).resolves.toBe('fresh');
-    expect(mockLegacyStorage.getAllKeys).toHaveBeenCalledTimes(2);
+    expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
     expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
-    expect(mockLegacyData.size).toBe(0);
-    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBe('1');
+    expect(mockLegacyData.get('key')).toBe('fresh');
+    expect(mockAppMMKV.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
   });
 
-  it('checks free disk before clearing or copying legacy data', async () => {
+  it('enters an empty MMKV fallback when migration capacity is insufficient', async () => {
     mockLegacyData.set('key', 'legacy');
     mockAppMMKV.set('app:key', 'untouched-partial');
     mockGetMigrationStorageCapacity.mockResolvedValueOnce({
@@ -346,36 +417,99 @@ describe('nativeStorageExecutor', () => {
         operation: 'getItem',
         key: 'key',
       }),
-    ).rejects.toThrow('Not enough free device storage');
-    expect(mockAppMMKV.getString('app:key')).toBe('untouched-partial');
-    expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
+    ).resolves.toBeNull();
+    expect(mockAppMMKV.getString('app:key')).toBeUndefined();
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockLegacyStorage.getAllKeys).toHaveBeenCalledTimes(1);
+    expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
+    expect(
+      JSON.parse(mockAppMMKV.getString(MIGRATION_REPORT_KEY) || '{}'),
+    ).toMatchObject({
+      migratedKeyCount: 0,
+      status: 'degraded',
+    });
   });
 
-  it('fails closed when legacy multiGet omits a requested key', async () => {
-    const sensitiveLookingKey = 'session:user-secret-shaped-key';
-    mockLegacyData.set(sensitiveLookingKey, 'value');
-    mockLegacyStorage.multiGet.mockResolvedValueOnce([]);
+  it('enters an empty MMKV fallback when the legacy module stays unavailable', async () => {
+    mockLegacySourceError = new Error('legacy module unavailable');
     const { executeNativeStorageRequest } = loadExecutor();
 
-    const error = await executeNativeStorageRequest({
-      scope: 'asyncStorage',
-      operation: 'getItem',
-      key: sensitiveLookingKey,
-    }).catch((reason: unknown) => reason as Error);
-    expect(error).toBeInstanceOf(Error);
-    const errorMessage = (error as Error).message;
-    expect(errorMessage).toContain('incomplete batch at index=0');
-    expect(errorMessage).not.toContain(sensitiveLookingKey);
-    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'key',
+      }),
+    ).resolves.toBeNull();
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+    expect(mockLegacyRetryWait.mock.calls).toEqual([[50], [500], [1000]]);
+    expect(
+      JSON.parse(mockAppMMKV.getString(MIGRATION_REPORT_KEY) || '{}'),
+    ).toMatchObject({
+      enumerationStatus: 'failed',
+      sourceAccessAttemptCount: 4,
+      status: 'degraded',
+    });
   });
 
-  it('skips an unreadable legacy key while migrating readable entries', async () => {
+  it('skips a permanently unreadable key and records its raw key locally', async () => {
+    const sensitiveLookingKey = 'session:user-secret-shaped-key';
+    mockLegacyData.set(sensitiveLookingKey, 'value');
+    mockLegacyStorage.multiGet.mockResolvedValue([]);
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: sensitiveLookingKey,
+      }),
+    ).resolves.toBeNull();
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    const report = JSON.parse(
+      mockAppMMKV.getString(MIGRATION_REPORT_KEY) || '{}',
+    ) as { failures?: Array<{ key: string }>; status?: string };
+    expect(report.status).toBe('degraded');
+    expect(
+      report.failures?.some(({ key }) => key === sensitiveLookingKey),
+    ).toBe(true);
+    const serializedLogs = JSON.stringify(mockNativeMigrationLog.mock.calls);
+    expect(serializedLogs).toContain('result=skipped');
+    expect(serializedLogs).not.toContain(sensitiveLookingKey);
+  });
+
+  it('logs migration shape without exposing unknown keys or values', async () => {
+    const sensitiveLookingKey = 'session:user-secret-shaped-key';
+    const sensitiveLookingValue = 'sensitive-value';
+    mockLegacyData.set(sensitiveLookingKey, sensitiveLookingValue);
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: sensitiveLookingKey,
+      }),
+    ).resolves.toBe(sensitiveLookingValue);
+
+    const serializedLogs = JSON.stringify(mockNativeMigrationLog.mock.calls);
+    expect(serializedLogs).not.toContain(sensitiveLookingKey);
+    expect(serializedLogs).not.toContain(sensitiveLookingValue);
+    expect(serializedLogs).toContain('<redacted:');
+    expect(serializedLogs).toContain('result=migrated');
+    expect(serializedLogs).toContain('sourceBytes=');
+  });
+
+  it('migrates readable keys and skips a persistently unreadable key', async () => {
     mockLegacyData.set('readable', 'value');
     mockLegacyData.set('unreadable', 'stale-placeholder');
-    mockLegacyStorage.multiGet.mockResolvedValueOnce([
-      ['readable', 'value'],
-      ['unreadable', null],
-    ]);
+    mockLegacyStorage.multiGet.mockImplementation(async (keys: string[]) =>
+      keys.map((key): [string, string | null] => [
+        key,
+        key === 'unreadable' ? null : (mockLegacyData.get(key) ?? null),
+      ]),
+    );
     const { executeNativeStorageRequest } = loadExecutor();
 
     await expect(
@@ -388,16 +522,16 @@ describe('nativeStorageExecutor', () => {
     expect(mockAppMMKV.getString('app:readable')).toBe('value');
     expect(mockAppMMKV.getString('app:unreadable')).toBeUndefined();
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
-    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBe('1');
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
-    expect(mockLegacyData.size).toBe(0);
+    expect(mockLegacyData.get('readable')).toBe('value');
+    expect(mockLegacyData.get('unreadable')).toBe('stale-placeholder');
     expect(mockNativeMigrationLog).toHaveBeenCalledWith(
       'info',
-      expect.stringContaining('skippedUnreadableKeyCount=1'),
+      expect.stringContaining('result=skipped'),
     );
   });
 
-  it('never opens legacy storage after migration and cleanup are complete', async () => {
+  it('does not reopen legacy storage during normal reads after migration', async () => {
     markAppStorageMigrated();
     mockAppMMKV.set('app:key', 'mmkv');
     const { executeNativeStorageRequest } = loadExecutor();
@@ -413,7 +547,34 @@ describe('nativeStorageExecutor', () => {
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
   });
 
-  it('cleans legacy data retained by an already migrated build', async () => {
+  it('keeps normal mutations on MMKV and leaves the retained backup untouched', async () => {
+    markAppStorageMigrated();
+    mockAppMMKV.set('app:key', 'old-mmkv');
+    mockLegacyData.set('key', 'legacy-backup');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'setItem',
+      key: 'key',
+      value: 'new-mmkv',
+    });
+    expect(mockAppMMKV.getString('app:key')).toBe('new-mmkv');
+    expect(mockLegacyData.get('key')).toBe('legacy-backup');
+
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'removeItem',
+      key: 'key',
+    });
+    expect(mockAppMMKV.getString('app:key')).toBeUndefined();
+    expect(mockLegacyData.get('key')).toBe('legacy-backup');
+    expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
+    expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
+    expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
+  });
+
+  it('preserves legacy data retained by an already migrated build', async () => {
     mockAppMMKV.set(MIGRATION_KEY, '1');
     mockAppMMKV.set('app:key', 'mmkv');
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
@@ -429,19 +590,17 @@ describe('nativeStorageExecutor', () => {
       }),
     ).resolves.toBe('mmkv');
 
-    expect(mockLegacyData.has('key')).toBe(false);
+    expect(mockLegacyData.get('key')).toBe('retained-legacy-value');
     expect(mockLegacyData.get('g_states_v5:aAtom')).toBe(
       'keep-for-jotai-cleanup',
     );
-    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBe('1');
+    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBeUndefined();
+    expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
     expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
   });
 
-  it('retries legacy cleanup without recopying verified MMKV data', async () => {
+  it('retains the source after a successful migration', async () => {
     mockLegacyData.set('key', 'legacy-value');
-    mockLegacyStorage.multiRemove.mockRejectedValueOnce(
-      new Error('legacy cleanup interrupted'),
-    );
     const { executeNativeStorageRequest } = loadExecutor();
 
     await expect(
@@ -453,11 +612,9 @@ describe('nativeStorageExecutor', () => {
     ).resolves.toBe('legacy-value');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
     expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBeUndefined();
+    expect(mockAppMMKV.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
-    expect(mockNativeMigrationLog).toHaveBeenCalledWith(
-      'info',
-      expect.stringContaining('legacy app-storage cleanup deferred'),
-    );
+    expect(mockLegacyData.get('key')).toBe('legacy-value');
 
     mockLegacyStorage.multiGet.mockClear();
     jest.resetModules();
@@ -471,9 +628,121 @@ describe('nativeStorageExecutor', () => {
     ).resolves.toBe('legacy-value');
 
     expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
-    expect(mockLegacyData.has('key')).toBe(false);
-    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBe('1');
+    expect(mockLegacyData.get('key')).toBe('legacy-value');
+    expect(mockAppMMKV.getString(LEGACY_CLEANUP_KEY)).toBeUndefined();
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+  });
+
+  it('retries source enumeration before migrating every discovered key', async () => {
+    mockLegacyData.set('a', 'one');
+    mockLegacyData.set('b', 'two');
+    mockLegacyStorage.getAllKeys.mockRejectedValueOnce(
+      new Error('manifest unavailable'),
+    );
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'b',
+      }),
+    ).resolves.toBe('two');
+
+    expect(mockAppMMKV.getString('app:a')).toBe('one');
+    expect(mockAppMMKV.getString('app:b')).toBe('two');
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockNativeMigrationLog).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('source enumeration retry=1 delayMs=50'),
+    );
+    expect(mockLegacyRetryWait.mock.calls).toEqual([[50]]);
+  });
+
+  it('migrates and diagnoses address book and local history as critical keys', async () => {
+    const addressBookKey = 'simple_db_v5:addressBookItems';
+    const localHistoryKey = 'simple_db_v5:localHistory';
+    mockLegacyData.set(addressBookKey, 'address-book');
+    mockLegacyData.set(localHistoryKey, 'pending-history');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: localHistoryKey,
+      }),
+    ).resolves.toBe('pending-history');
+
+    expect(mockAppMMKV.getString(`app:${addressBookKey}`)).toBe('address-book');
+    expect(mockAppMMKV.getString(`app:${localHistoryKey}`)).toBe(
+      'pending-history',
+    );
+    const serializedLogs = JSON.stringify(mockNativeMigrationLog.mock.calls);
+    expect(serializedLogs).toContain(
+      `key=${addressBookKey} enumerated=true present=true`,
+    );
+    expect(serializedLogs).toContain(
+      `key=${localHistoryKey} enumerated=true present=true`,
+    );
+  });
+
+  it('recovers a critical key even when enumeration omits it', async () => {
+    const addressBookKey = 'simple_db_v5:addressBookItems';
+    mockLegacyData.set(addressBookKey, 'address-book');
+    mockLegacyStorage.getAllKeys.mockResolvedValue([]);
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: addressBookKey,
+      }),
+    ).resolves.toBe('address-book');
+
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockAppMMKV.getString(`app:${addressBookKey}`)).toBe('address-book');
+    expect(mockLegacyData.get(addressBookKey)).toBe('address-book');
+    expect(mockNativeMigrationLog).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining(
+        `key=${addressBookKey} enumerated=false present=true`,
+      ),
+    );
+    expect(
+      JSON.parse(mockAppMMKV.getString(MIGRATION_REPORT_KEY) || '{}'),
+    ).toMatchObject({
+      recoveredUnlistedKeyCount: 1,
+      status: 'degraded',
+    });
+  });
+
+  it('logs and skips a critical key after all retries fail', async () => {
+    const addressBookKey = 'simple_db_v5:addressBookItems';
+    mockLegacyData.set(addressBookKey, 'retained-address-book');
+    mockLegacyStorage.multiGet.mockImplementation(async (keys: string[]) =>
+      keys.map((key): [string, string | null] => [
+        key,
+        key === addressBookKey ? null : (mockLegacyData.get(key) ?? null),
+      ]),
+    );
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: addressBookKey,
+      }),
+    ).resolves.toBeNull();
+    expect(mockLegacyData.get(addressBookKey)).toBe('retained-address-book');
+    expect(mockAppMMKV.getString(`app:${addressBookKey}`)).toBeUndefined();
+    const serializedLogs = JSON.stringify(mockNativeMigrationLog.mock.calls);
+    expect(serializedLogs).toContain(
+      `result=skipped index=0 key=${addressBookKey} stage=read attempts=4`,
+    );
+    expect(mockLegacyRetryWait.mock.calls).toEqual([[50], [500], [1000]]);
   });
 
   it('fails closed instead of resurrecting legacy data when MMKV loses its marker', async () => {
@@ -491,7 +760,7 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
   });
 
-  it('resets an inconsistent app-storage target without restoring stale legacy data', async () => {
+  it('resets an inconsistent app-storage target while retaining legacy backup data', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockAppMMKV.set('app:key', 'partial-mmkv-value');
     mockLegacyData.set('key', 'stale-legacy-value');
@@ -507,10 +776,10 @@ describe('nativeStorageExecutor', () => {
       'app-storage-v1',
       'resetting-v1',
     );
-    expect(mockLegacyData.size).toBe(0);
+    expect(mockLegacyData.get('key')).toBe('stale-legacy-value');
     expect(mockAppMMKV.getAllKeys()).toEqual([
       MIGRATION_KEY,
-      LEGACY_CLEANUP_KEY,
+      LEGACY_RETENTION_KEY,
     ]);
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
     await expect(
@@ -522,7 +791,7 @@ describe('nativeStorageExecutor', () => {
     ).resolves.toBeNull();
   });
 
-  it('finishes an interrupted app-storage reset before serving business reads', async () => {
+  it('finishes an interrupted app-storage reset without deleting its backup', async () => {
     mockMigrationLedger.set('app-storage-v1', 'resetting-v1');
     mockAppMMKV.set('app:key', 'partial-mmkv-value');
     mockLegacyData.set('key', 'stale-legacy-value');
@@ -535,10 +804,10 @@ describe('nativeStorageExecutor', () => {
         key: 'key',
       }),
     ).resolves.toBeNull();
-    expect(mockLegacyData.size).toBe(0);
+    expect(mockLegacyData.get('key')).toBe('stale-legacy-value');
     expect(mockAppMMKV.getAllKeys()).toEqual([
       MIGRATION_KEY,
-      LEGACY_CLEANUP_KEY,
+      LEGACY_RETENTION_KEY,
     ]);
     expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
   });
@@ -563,8 +832,10 @@ describe('nativeStorageExecutor', () => {
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
     expect(mockAppMMKV.getAllKeys()).toEqual([
       MIGRATION_KEY,
+      LEGACY_RETENTION_KEY,
       LEGACY_CLEANUP_KEY,
     ]);
+    expect(mockAppMMKV.getString(LEGACY_RETENTION_KEY)).toBe('cleared-v1');
     expect(mockLegacyData.size).toBe(0);
   });
 

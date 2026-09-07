@@ -1,3 +1,28 @@
+diff --git a/node_modules/app-builder-lib/out/codeSign/macCodeSign.js b/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
+index 17e0c1e..e73ec51 100644
+--- a/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
++++ b/node_modules/app-builder-lib/out/codeSign/macCodeSign.js
+@@ -157,16 +157,17 @@ async function createKeychain({ tmpDir, cscLink, cscKeyPassword, cscILink, cscIK
+     if (cscIKeyPassword != null) {
+         cscPasswords.push(cscIKeyPassword);
+     }
+-    return await importCerts(keychainFile, certPaths, cscPasswords);
++    return await importCerts(keychainFile, certPaths, cscPasswords, keychainPassword);
+ }
+-async function importCerts(keychainFile, paths, keyPasswords) {
++async function importCerts(keychainFile, paths, keyPasswords, keychainPassword) {
+     var _a;
+     for (let i = 0; i < paths.length; i++) {
+         const password = (_a = keyPasswords[i]) !== null && _a !== void 0 ? _a : "";
+         await (0, builder_util_1.exec)("/usr/bin/security", ["import", paths[i], "-k", keychainFile, "-T", "/usr/bin/codesign", "-T", "/usr/bin/productbuild", "-P", password]);
+         // https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
+         // https://github.com/electron-userland/electron-packager/issues/701#issuecomment-322315996
+-        await (0, builder_util_1.exec)("/usr/bin/security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]);
++        // OneKey patch: authenticate the temporary keychain with its own password on macOS 26.6+.
++        await (0, builder_util_1.exec)("/usr/bin/security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", keychainPassword, keychainFile]);
+     }
+     return {
+         keychainFile,
 diff --git a/node_modules/app-builder-lib/out/macPackager.js b/node_modules/app-builder-lib/out/macPackager.js
 index a52a853..1815f53 100644
 --- a/node_modules/app-builder-lib/out/macPackager.js

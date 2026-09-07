@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
 import type { ITradingViewNativeChartRuntimeState } from '../utils/chartRuntime';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 interface IDrawTradingViewNativeCanvasChartOptions {
@@ -33,7 +34,9 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel: string;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  isMobileLayout: boolean;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisFontSize: number;
   priceAxisWidth: number;
   priceAxisTickCount?: number;
@@ -61,7 +64,9 @@ export function drawTradingViewNativeCanvasChart({
   candleLabels,
   currentPriceLabel,
   indicatorSeries,
+  isMobileLayout,
   points,
+  pinnedPriceRange,
   priceAxisFontSize,
   priceAxisWidth,
   priceAxisTickCount,
@@ -105,6 +110,7 @@ export function drawTradingViewNativeCanvasChart({
     hasVolume,
     height,
     indicatorSeries,
+    isMobileLayout,
     measureTextWidth: (text, font) => {
       context.font = getTradingViewNativeCanvasFont(
         font,
@@ -116,6 +122,7 @@ export function drawTradingViewNativeCanvasChart({
     candleLabels,
     currentPriceLabel,
     points,
+    pinnedPriceRange,
     priceAxisFontSize,
     priceAxisWidth,
     priceAxisTickCount,

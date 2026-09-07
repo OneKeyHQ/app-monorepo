@@ -1,8 +1,26 @@
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+
+import {
+  UNREADABLE_SELF_HEAL_MAX_RETRIES,
+  getUnreadableSelfHealDelayMs,
+} from './retryUnreadableStorageRead';
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 /*
 yarn jest packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.test.ts
 */
+
+jest.mock('@onekeyhq/shared/src/utils/promiseUtils', () => {
+  const actual = jest.requireActual(
+    '@onekeyhq/shared/src/utils/promiseUtils',
+  ) as typeof import('@onekeyhq/shared/src/utils/promiseUtils');
+  return {
+    ...actual,
+    waitAsync: jest.fn(async () => undefined),
+  };
+});
+
+const waitAsyncMock = waitAsync as jest.MockedFunction<typeof waitAsync>;
 
 // Single configurable entity over controllable in-memory appStorage mocks —
 // oxlint allows one class per file, so cache/self-heal variants are options.
@@ -16,7 +34,7 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
   constructor({
     name = 'test-entity',
     enableCache = false,
-    selfHeal = false,
+    selfHeal = true,
   }: { name?: string; enableCache?: boolean; selfHeal?: boolean } = {}) {
     super();
     this.entityName = name;
@@ -24,6 +42,8 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
     this.enableUnreadableRecordSelfHeal = selfHeal;
   }
 }
+
+const expectedHealGetItemCalls = 1 + UNREADABLE_SELF_HEAL_MAX_RETRIES;
 
 describe('SimpleDbEntityBase clear/set mutex serialization', () => {
   test('clearRawData cannot interleave with an in-flight setRawData', async () => {
@@ -79,6 +99,11 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
 // A corrupted external blob makes every read reject forever, and builder-based
 // setRawData reads first — without self-heal the record could never be repaired.
 describe('SimpleDbEntityBase unreadable-record self-heal', () => {
+  beforeEach(() => {
+    waitAsyncMock.mockClear();
+    waitAsyncMock.mockImplementation(async () => undefined);
+  });
+
   const makeHealEntity = () =>
     new TestEntity({ name: 'test-heal-entity', selfHeal: true });
 
@@ -123,13 +148,21 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     };
   };
 
-  test('getRawData drops the unreadable record and returns null', async () => {
+  test('getRawData drops the unreadable record after exponential-backoff retries', async () => {
     const entity = makeHealEntity();
     const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
     (entity as any).appStorage = storage;
 
     await expect(entity.getRawData()).resolves.toBeNull();
-    expect(calls).toEqual(['getItem', 'getItem', 'removeItem']);
+    expect(calls).toEqual([
+      ...Array(expectedHealGetItemCalls).fill('getItem'),
+      'removeItem',
+    ]);
+    expect(waitAsyncMock.mock.calls.map((c) => c[0])).toEqual(
+      Array.from({ length: UNREADABLE_SELF_HEAL_MAX_RETRIES }, (_, i) =>
+        getUnreadableSelfHealDelayMs(i),
+      ),
+    );
   });
 
   test('setRawData(builder) rebuilds the record after a read failure', async () => {
@@ -157,6 +190,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
       'Failed to read large IndexedDB value',
     );
     expect(calls).toEqual(['getItem']);
+    expect(waitAsyncMock).not.toHaveBeenCalled();
   });
 
   test('NotReadableError propagates without deleting (transient IO condition)', async () => {
@@ -186,6 +220,21 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     expect(calls).toEqual(['getItem']);
   });
 
+  test('UnknownError whose message includes the corrupted-blob fragment self-heals', async () => {
+    const entity = makeHealEntity();
+    const { storage, calls } = makeBrokenStorage({
+      errorName: 'UnknownError',
+      errorMessage: 'Failed to read large IndexedDB value (disk full)',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).resolves.toBeNull();
+    expect(calls).toEqual([
+      ...Array(expectedHealGetItemCalls).fill('getItem'),
+      'removeItem',
+    ]);
+  });
+
   test('a transient read failure recovers via retry and keeps the record', async () => {
     const entity = makeHealEntity();
     const { storage, store, calls } = makeBrokenStorage({
@@ -198,6 +247,8 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     await expect(entity.getRawData()).resolves.toEqual({ v: 9 });
     expect(calls).toEqual(['getItem', 'getItem']);
     expect(entity.entityKey in store).toBe(true);
+    expect(waitAsyncMock).toHaveBeenCalledTimes(1);
+    expect(waitAsyncMock).toHaveBeenCalledWith(getUnreadableSelfHealDelayMs(0));
   });
 
   test('self-heal delete is skipped when a write lands during the failing read', async () => {
@@ -287,8 +338,11 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     expect(entity.entityKey in store).toBe(true);
   });
 
-  test('entities without opt-in propagate the corrupted-blob error and keep the record', async () => {
-    const entity = new TestEntity({ name: 'test-no-heal-entity' });
+  test('entities that opt out propagate the corrupted-blob error and keep the record', async () => {
+    const entity = new TestEntity({
+      name: 'test-no-heal-entity',
+      selfHeal: false,
+    });
     const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
     (entity as any).appStorage = storage;
 

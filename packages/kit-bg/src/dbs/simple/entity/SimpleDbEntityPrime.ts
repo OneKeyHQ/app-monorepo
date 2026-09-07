@@ -571,6 +571,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
 
   override enableCache = true;
 
+  // Tombstone + monotonic epoch: deleting an unreadable record is not
+  // equivalent to "never written". getRawData() null lets
+  // persistMigratedLegacyAuthSessionSourceIfUnset rebuild loggedIn from a
+  // leftover Supabase session, and authStateGeneration rolls back to 0.
+  protected override readonly enableUnreadableRecordSelfHeal = false;
+
   @backgroundMethod()
   async getActiveAuthToken(): Promise<string> {
     const authSessionSource = await this.getEffectiveAuthSessionSource();

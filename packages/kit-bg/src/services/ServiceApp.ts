@@ -409,6 +409,7 @@ class ServiceApp extends ServiceBase {
     tokenAddress: string;
     network: string;
     marketTokenId?: string;
+    marketVariantId?: string;
     skipMarketDataFetch?: boolean;
     disableTrade?: boolean;
     isNative?: boolean;
@@ -420,6 +421,7 @@ class ServiceApp extends ServiceBase {
       tokenAddress,
       network,
       marketTokenId,
+      marketVariantId,
       skipMarketDataFetch,
       disableTrade,
       isNative,
@@ -444,6 +446,9 @@ class ServiceApp extends ServiceBase {
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
     }
+    if (marketVariantId) {
+      routeParams.marketVariantId = marketVariantId;
+    }
     if (skipMarketDataFetch) {
       routeParams.skipMarketDataFetch = true;
     }
@@ -460,6 +465,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async openExtensionMarketStockDetail(params: {
     stockId: string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
     tokenAddress?: string;
     network?: string;
     isNative?: boolean;
@@ -469,6 +477,9 @@ class ServiceApp extends ServiceBase {
   }) {
     const {
       stockId,
+      stockPreviewLogoUrl,
+      stockPreviewName,
+      stockPreviewSymbol,
       tokenAddress,
       network,
       isNative,
@@ -478,6 +489,15 @@ class ServiceApp extends ServiceBase {
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
+    if (stockPreviewSymbol) {
+      routeParams.stockPreviewSymbol = stockPreviewSymbol;
+    }
+    if (stockPreviewName) {
+      routeParams.stockPreviewName = stockPreviewName;
+    }
+    if (stockPreviewLogoUrl) {
+      routeParams.stockPreviewLogoUrl = stockPreviewLogoUrl;
+    }
     if (tokenAddress) {
       routeParams.tokenAddress = tokenAddress;
     }

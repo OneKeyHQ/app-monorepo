@@ -2,33 +2,25 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
+import {
+  type IUnreadableSelfHealLogger,
+  getStorageErrorMeta,
+  retryUnreadableStorageRead,
+} from './retryUnreadableStorageRead';
 import { getSimpleDbEntityKey } from './simpleDbFacadeCompatibility';
+import { isUnreadableStorageValueError } from './unreadableStorageValueError';
 
 type ISimpleDbEntitySavedData<T> = {
   data: T;
   updatedAt: number;
 };
 
-// Chromium rejects reads with exactly this signature when a value's external
-// blob file is corrupted (e.g. crash mid-write); the record then stays
-// unreadable forever. Match nothing broader: UnknownError without this
-// message and NotReadableError both cover transient IO conditions where
-// deleting would lose recoverable data (OK-59997).
-function isUnreadableStorageValueError(error: unknown): boolean {
-  const { name, message } = (error ?? {}) as {
-    name?: string;
-    message?: string;
-  };
-  return (
-    name === 'UnknownError' &&
-    Boolean(message?.includes('Failed to read large IndexedDB value'))
-  );
-}
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
   appStorage: AsyncStorageStatic =
@@ -40,10 +32,12 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly enableCache: boolean;
 
-  // Deleting an unreadable record is only safe for entities whose data can be
-  // fully rebuilt (OK-59997's perp cache); user-authored entities must keep
-  // failing loudly instead, so self-heal is opt-in per entity.
-  protected readonly enableUnreadableRecordSelfHeal: boolean = false;
+  // Default on: this Chromium signature means the record is already
+  // unreadable, and builder setRawData cannot repair it. Leaving the dead
+  // key blocks the whole entity (and often the app). Matcher + 50/500/1000ms
+  // retries + write-overlap veto still avoid transient-IO deletes
+  // (OK-59997 / OK-61648). Opt out only for diagnostic loud-fail entities.
+  protected readonly enableUnreadableRecordSelfHeal: boolean = true;
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);
@@ -80,6 +74,24 @@ abstract class SimpleDbEntityBase<T> {
     this.cachedRawDataPromise = null;
   }
 
+  private logUnreadableSelfHeal: IUnreadableSelfHealLogger = (params) => {
+    try {
+      defaultLogger.app.storage.simpleDbUnreadableSelfHeal({
+        entityName: this.entityName,
+        entityKey: this.entityKey,
+        ...params,
+      });
+    } catch (error) {
+      // Logging must never block self-heal (e.g. desktopApi not ready yet).
+      console.error(
+        '[simpleDb self-heal log failed]',
+        this.entityName,
+        params.phase,
+        error,
+      );
+    }
+  };
+
   @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
@@ -103,30 +115,31 @@ abstract class SimpleDbEntityBase<T> {
         ) {
           throw error;
         }
-        try {
-          // One retry separates transient IO failures from true corruption.
-          savedDataStr = await this.appStorage.getItem(this.entityKey);
-        } catch (retryError) {
-          if (!isUnreadableStorageValueError(retryError)) {
-            throw retryError;
-          }
-          console.error(retryError);
-          // Drop the dead record so builder-based setRawData can rebuild it;
-          // use appStorage directly — clearRawData() would deadlock on the
-          // shared mutex. Any write overlapping this read vetoes the delete:
-          // pending at read start, still pending now, or started since. (A
-          // write starting after this check wins anyway — same-store ops keep
-          // issue order, so its setItem lands after this removeItem.)
-          if (
+        const meta = getStorageErrorMeta(error);
+        this.logUnreadableSelfHeal({
+          phase: 'detected',
+          errorName: meta.errorName,
+          errorMessage: meta.errorMessage,
+        });
+        // Backoff retries, then drop the dead record so builder-based
+        // setRawData can rebuild it. Use appStorage directly — clearRawData()
+        // would deadlock on the shared mutex. Any write overlapping this read
+        // vetoes the delete: pending at read start, still pending now, or
+        // started since.
+        savedDataStr = await retryUnreadableStorageRead({
+          read: () => this.appStorage.getItem(this.entityKey),
+          shouldDelete: () =>
             pendingWritesBefore === 0 &&
             this.pendingWrites === 0 &&
-            this.writeSeq === writeSeqBefore
-          ) {
+            this.writeSeq === writeSeqBefore,
+          onDelete: async () => {
             await this.appStorage
               .removeItem(this.entityKey)
               .catch(() => undefined);
-          }
-        }
+          },
+          errorMeta: meta,
+          log: (entry) => this.logUnreadableSelfHeal(entry),
+        });
       }
       let updatedAt = 0;
       // @ts-ignore

@@ -34,6 +34,7 @@ export interface IMarketTokenDetail {
   name: string;
   symbol: string;
   decimals: number;
+  decimalsResolved?: boolean;
   marketCap?: string;
   fdv?: string;
   tvl?: string;
@@ -754,6 +755,11 @@ export interface IMarketStockPublicItem {
   sparkline?: number[];
   sparklineUpdatedAt?: string;
 }
+
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
 
 export type IMarketStockPublicListSortBy =
   | 'default'

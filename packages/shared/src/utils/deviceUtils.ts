@@ -477,6 +477,25 @@ function buildDeviceBleName({
   return getDeviceBleNameFromFeatures(features);
 }
 
+/**
+ * The name the DeviceStage wears on its badge and capsule second line: the
+ * device's Bluetooth name in the same canonical form every other surface
+ * shows it (the onboarding scan list, the device list, About) — where
+ * `IDBDevice.name` is a display name the user-settable label wins (see
+ * getDeviceDisplayName). Devices that advertise no Bluetooth name —
+ * third-party vendors above all — keep the display name they already
+ * showed.
+ */
+function buildDeviceStageName({
+  features,
+  fallbackName,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+  fallbackName?: string;
+}): string | undefined {
+  return buildDeviceBleName({ features }) || fallbackName || undefined;
+}
+
 async function getFirmwareType({
   features,
 }: {
@@ -1053,6 +1072,7 @@ export default {
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,
+  buildDeviceStageName,
   getDefaultDeviceLabel,
   getDeviceVerifyVersionsFromFeatures,
   getDeviceVerifyVersionsFromRawOnekeyFeatures,

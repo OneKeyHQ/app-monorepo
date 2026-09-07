@@ -120,6 +120,10 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Pick your device
+  pickYourDeviceLegacyOptionBtn: (key: string) =>
+    `onboarding-pick-your-device-legacy-${key}-btn`,
+
   // Connect your device
   connectYourDeviceTroubleshootingBtn:
     'onboarding-connect-your-device-troubleshooting-btn',
@@ -133,6 +137,7 @@ export const OnboardingTestIDs = {
     'onboarding-connect-your-device-create-qr-wallet-btn',
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
+  connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',

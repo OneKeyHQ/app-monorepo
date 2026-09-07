@@ -133,7 +133,7 @@ runs:
 
     - name: Dotenv Action
       id: dotenv
-      uses: OneKeyHQ/actions/dotenv-action@main
+      uses: OneKeyHQ/actions/dotenv-action@a0f21d9b4be112edb5c758064a55f13e514c47df # main
       with:
         path: .env.version
 

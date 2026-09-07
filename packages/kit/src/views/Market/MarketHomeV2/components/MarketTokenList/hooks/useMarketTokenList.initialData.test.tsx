@@ -517,4 +517,35 @@ describe('useMarketTokenList initial data', () => {
       ).toBe(true);
     });
   });
+
+  it('omits sorting when the caller requests the API default order', async () => {
+    mockFetchMarketTokenList.mockResolvedValue(
+      createResponse('0xremote', 'Remote Token', 'REMOTE'),
+    );
+
+    function Probe() {
+      useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+        useApiDefaultSort: true,
+      });
+      return null;
+    }
+
+    render(<Probe />);
+
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: 'evm--1',
+          page: 1,
+          sortBy: undefined,
+          sortType: undefined,
+          type: 'trending',
+        }),
+        undefined,
+      );
+    });
+  });
 });

@@ -305,6 +305,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
         this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
       ),
+      timedDeferred('serviceHardware.migrateClassicPinInputDefault', () =>
+        this.backgroundApi.serviceHardware.migrateClassicPinInputDefault(),
+      ),
       timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
         systemTimeUtils.startServerTimeInterval();
       }),

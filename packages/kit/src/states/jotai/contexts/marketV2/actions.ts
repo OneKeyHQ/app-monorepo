@@ -35,6 +35,7 @@ import {
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -71,7 +72,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -85,7 +86,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  setTokenDetailLoading = contextAtomMethod((_, set, payload: boolean) => {
+  setTokenDetailLoading = contextAtomMethod((get, set, payload: boolean) => {
+    if (!payload) {
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+    }
     set(tokenDetailLoadingAtom(), payload);
   });
 
@@ -102,7 +106,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   prepareTokenDetailPreview = contextAtomMethod(
-    (_, set, payload: IMarketTokenDetailPreview | undefined) => {
+    (get, set, payload: IMarketTokenDetailPreview | undefined) => {
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), payload);
       set(tokenDetailLoadingAtom(), false);
@@ -150,7 +155,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  clearTokenDetail = contextAtomMethod((_, set) => {
+  clearTokenDetail = contextAtomMethod((get, set) => {
+    set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
     set(tokenDetailAtom(), undefined);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailLoadingAtom(), false);
@@ -252,6 +258,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           : undefined;
       // Set atom values directly — `this.xxx.call(set)` doesn't work
       // because `this` is not the class instance inside contextAtomMethod.
+      const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      set(tokenDetailRequestIdAtom(), requestId);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), nextPreview);
       set(tokenDetailWebsocketAtom(), undefined);
@@ -261,6 +269,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(isNativeAtom(), isNative);
 
       let isStale = false;
+      const isCurrentRequest = () =>
+        get(tokenDetailRequestIdAtom()) === requestId;
       try {
         set(tokenDetailLoadingAtom(), true);
         const response =
@@ -272,7 +282,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        if (
+          !isCurrentRequest() ||
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId
+        ) {
           isStale = true;
           return;
         }
@@ -288,7 +302,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailAtom(), {
+          ...responseData.data.token,
+          networkId,
+        });
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -296,7 +313,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         console.error('Failed to fetch token detail:', error);
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        if (
+          !isCurrentRequest() ||
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId
+        ) {
           isStale = true;
         } else {
           set(tokenDetailAtom(), undefined);
@@ -336,7 +357,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   fetchTokenDetail = contextAtomMethod(
     async (get, set, tokenAddress: string, networkId: string) => {
+      const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      set(tokenDetailRequestIdAtom(), requestId);
       let isStale = false;
+      const isCurrentRequest = () =>
+        get(tokenDetailRequestIdAtom()) === requestId;
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -351,6 +376,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // the data validity check so that early returns don't clobber loading.
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
+        if (!isCurrentRequest()) {
+          isStale = true;
+          return;
+        }
         if (currentAddress !== tokenAddress && currentAddress !== '') {
           isStale = true;
           return;
@@ -391,7 +420,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }
 
         // Extract token, websocket and perpsInfo from response format
-        const tokenData = responseData.data.token;
+        const tokenData = {
+          ...responseData.data.token,
+          networkId,
+        };
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
@@ -430,7 +462,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Only clear atoms if we're still on the same token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (
+        if (!isCurrentRequest()) {
+          isStale = true;
+        } else if (
           (currentAddress === tokenAddress || currentAddress === '') &&
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {

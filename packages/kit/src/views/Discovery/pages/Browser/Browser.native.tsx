@@ -76,7 +76,7 @@ import {
   useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import { webviewRefs } from '../../utils/explorerUtils';
+import { dismissWebviewKeyboard, webviewRefs } from '../../utils/explorerUtils';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -280,10 +280,16 @@ function MobileBrowser() {
     }
     return displayHomePage;
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
+  const isBrowserHeaderTabSelected =
+    selectedHeaderTab === ETranslations.global_browser;
   const isBrowserWebPageVisible =
-    selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
+    isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
-    selectedHeaderTab === ETranslations.global_browser && showDiscoveryPage;
+    isBrowserHeaderTabSelected && showDiscoveryPage;
+  const shouldKeepBrowserTabLayerAttached =
+    platformEnv.isNativeIOSPad && isTabletDetailView;
+  const shouldDismissKeyboardOnTabSwitch =
+    platformEnv.isNativeIOSPad && !isTabletMainView;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -358,6 +364,9 @@ function MobileBrowser() {
       // Dashboard before switching the main tab.
       // If the target is Browser itself, do NOT collapse the WebView.
       if (!displayHomePage && event.tab !== ETranslations.global_browser) {
+        if (shouldDismissKeyboardOnTabSwitch) {
+          dismissWebviewKeyboard(activeTabId ?? undefined);
+        }
         setDisplayHomePage(true);
       }
       if (event.tab === ETranslations.global_browser && event.showWebPage) {
@@ -375,7 +384,12 @@ function MobileBrowser() {
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, [displayHomePage, setDisplayHomePage]);
+  }, [
+    activeTabId,
+    displayHomePage,
+    setDisplayHomePage,
+    shouldDismissKeyboardOnTabSwitch,
+  ]);
 
   // For risk detection
   useEffect(() => {
@@ -439,33 +453,7 @@ function MobileBrowser() {
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
-    // Execute blur() to hide keyboard on the current webview
-    if (activeTabId) {
-      const webviewRef = webviewRefs[activeTabId];
-      if (webviewRef?.innerRef) {
-        try {
-          // Inject JavaScript to blur any focused input elements
-          (webviewRef.innerRef as WebView)?.injectJavaScript(`
-            try {
-              if (document.activeElement && document.activeElement.blur) {
-                document.activeElement.blur();
-              }
-              // Also try to blur any input elements that might be focused
-              const inputs = document.querySelectorAll('input, textarea');
-              inputs.forEach(function(input) {
-                if (input === document.activeElement) {
-                  input.blur();
-                }
-              });
-            } catch (e) {
-              console.error('Error blurring elements:', e);
-            }
-          `);
-        } catch (error) {
-          console.error('Error injecting blur script:', error);
-        }
-      }
-    }
+    dismissWebviewKeyboard(activeTabId ?? undefined);
 
     await Promise.race([
       takeScreenshot(),
@@ -527,11 +515,15 @@ function MobileBrowser() {
     }
     return isTabletDetailView && !isLandscape;
   }, [isDualScreen, isTabletMainView, isLandscape, isTabletDetailView]);
-  if (isTabletDetailView && isLandscape && displayHomePage) {
+  const shouldShowTabletHomeContainer =
+    isTabletDetailView && isLandscape && displayHomePage;
+  // Android can keep the early return. On iPad, render the placeholder as an
+  // overlay so the active WKWebView remains attached underneath it.
+  if (shouldShowTabletHomeContainer && !shouldKeepBrowserTabLayerAttached) {
     return <TabletHomeContainer />;
   }
 
-  const displayBottomBar = !showDiscoveryPage;
+  const displayBottomBar = isBrowserWebPageVisible;
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
   const browserDashboardContent = (
     <View
@@ -673,7 +665,7 @@ function MobileBrowser() {
           </>
         ) : (
           <>
-            {/* Tablet / DualScreen: keep legacy display:none/flex switching */}
+            {/* Keep iPad browser layers attached; Android retains legacy display switching. */}
             {isShowContent ? (
               <View
                 style={{
@@ -691,12 +683,33 @@ function MobileBrowser() {
             ) : null}
             <Stack
               flex={1}
-              zIndex={3}
+              zIndex={shouldKeepBrowserTabLayerAttached ? undefined : 3}
+              collapsable={false}
+              pointerEvents={
+                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+                  ? 'none'
+                  : 'auto'
+              }
+              accessibilityElementsHidden={
+                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+              }
+              importantForAccessibility={
+                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+                  ? 'no-hide-descendants'
+                  : 'auto'
+              }
               display={
-                selectedHeaderTab === ETranslations.global_browser
+                shouldKeepBrowserTabLayerAttached || isBrowserHeaderTabSelected
                   ? undefined
                   : 'none'
               }
+              style={[
+                shouldKeepBrowserTabLayerAttached && styles.webPageRootLayer,
+                shouldKeepBrowserTabLayerAttached &&
+                  (isBrowserHeaderTabSelected
+                    ? styles.iosWebPageRootLayerVisible
+                    : styles.iosWebPageRootLayerHidden),
+              ]}
             >
               <Stack flex={1}>
                 <View
@@ -713,14 +726,20 @@ function MobileBrowser() {
                 {!isTabletMainView ? (
                   <View
                     collapsable={false}
-                    pointerEvents={showDiscoveryPage ? 'none' : 'auto'}
-                    accessibilityElementsHidden={showDiscoveryPage}
+                    pointerEvents={isBrowserWebPageVisible ? 'auto' : 'none'}
+                    accessibilityElementsHidden={!isBrowserWebPageVisible}
                     importantForAccessibility={
-                      showDiscoveryPage ? 'no-hide-descendants' : 'auto'
+                      isBrowserWebPageVisible ? 'auto' : 'no-hide-descendants'
                     }
                     style={[
                       styles.webPageLayer,
-                      { display: showDiscoveryPage ? 'none' : 'flex' },
+                      platformEnv.isNativeIOSPad &&
+                        (isBrowserWebPageVisible
+                          ? styles.iosWebPageRootLayerVisible
+                          : styles.iosWebPageRootLayerHidden),
+                      !platformEnv.isNativeIOSPad && {
+                        display: showDiscoveryPage ? 'none' : 'flex',
+                      },
                     ]}
                   >
                     {content}
@@ -808,6 +827,18 @@ function MobileBrowser() {
             }
           />
         </YStack>
+      ) : null}
+      {shouldShowTabletHomeContainer ? (
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          zIndex={5}
+        >
+          <TabletHomeContainer />
+        </Stack>
       ) : null}
     </Page>
   );

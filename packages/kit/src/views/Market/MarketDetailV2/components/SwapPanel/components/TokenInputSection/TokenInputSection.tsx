@@ -13,8 +13,10 @@ import { useIntl } from 'react-intl';
 import { Icon, Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IInputRef, IYStackProps } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import SwapInputActions from '@onekeyhq/kit/src/views/Swap/pages/components/SwapInputActions';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -53,6 +55,7 @@ export interface ITokenInputSectionProps {
   balanceLoading?: boolean;
   fiatValue?: string;
   onMaxPress?: () => void;
+  onSelectPercentageStage?: (stage: number) => void;
 }
 
 function TokenInputSectionComponent(
@@ -71,12 +74,15 @@ function TokenInputSectionComponent(
     balanceLoading,
     fiatValue,
     onMaxPress,
+    onSelectPercentageStage,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
   const intl = useIntl();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
+  const [percentageInputStageShow, setPercentageInputStageShow] =
+    useState(false);
   const inputRef = useRef<IInputRef>(null);
   const isPresetSelectionRef = useRef(false);
   const selectedNetworkImageUri = useNetworkLogoUri({
@@ -142,6 +148,25 @@ function TokenInputSectionComponent(
     </SizableText>
   );
 
+  const handleAmountInputFocus = useCallback(() => {
+    setPercentageInputStageShow(true);
+  }, []);
+  const handleAmountInputBlur = useCallback(() => {
+    setTimeout(() => {
+      setPercentageInputStageShow(false);
+    }, 200);
+  }, []);
+  const showPercentageInput = Boolean(
+    selectedToken &&
+    onSelectPercentageStage &&
+    !balanceLoading &&
+    balance !== undefined &&
+    (percentageInputStageShow || internalValue),
+  );
+  const showPercentageInputDebounce = useDebounce(showPercentageInput, 100, {
+    leading: true,
+  });
+
   useEffect(() => {
     const handleSwapSpeedBuildTxSuccess = (data: {
       fromToken: import('@onekeyhq/shared/types/swap/types').ISwapTokenBase;
@@ -205,7 +230,13 @@ function TokenInputSectionComponent(
           borderRadius="$3"
           overflow="hidden"
         >
-          <XStack height={30} pt="$2.5" px="$3.5" alignItems="flex-start">
+          <XStack
+            height={30}
+            pt="$2.5"
+            px="$3.5"
+            alignItems="flex-start"
+            justifyContent="space-between"
+          >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id:
@@ -214,6 +245,12 @@ function TokenInputSectionComponent(
                     : ETranslations.global_sell,
               })}
             </SizableText>
+            <SwapInputActions
+              fromToken={selectedToken}
+              showPercentageInput={showPercentageInputDebounce}
+              showActionBuy={false}
+              onSelectStage={onSelectPercentageStage}
+            />
           </XStack>
           <AmountInput
             value={internalValue}
@@ -238,6 +275,8 @@ function TokenInputSectionComponent(
             })}
             inputProps={{
               placeholder: '0.0',
+              onFocus: handleAmountInputFocus,
+              onBlur: handleAmountInputBlur,
               testID: 'market-handle-dismiss-keyboard-input',
             }}
             tokenSelectorTriggerProps={{

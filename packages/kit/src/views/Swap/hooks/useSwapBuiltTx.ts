@@ -1095,6 +1095,16 @@ export function useSwapBuildTx({
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false as const,
+        // The direct pipeline never passes through the confirm page's fee
+        // footer, so hand the resolved fee to the device stage card here.
+        stageFeeInfo: {
+          feeInfo: gasInfo as IFeeInfoUnit,
+          total,
+          totalNative,
+          totalFiat,
+          totalNativeForDisplay,
+          totalFiatForDisplay,
+        },
       };
       const res = await sendDirectSwapWithGasAccountAnalytics({
         context: gasAccountAnalyticsContext,
