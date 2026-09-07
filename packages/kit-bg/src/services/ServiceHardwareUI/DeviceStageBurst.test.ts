@@ -904,6 +904,35 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('keeps an app-authored card standing over an answered PIN’s progress beat', async () => {
+    // A real PIN window's close reaches the scope rewritten as progress
+    // carrying `askCompleted` — the flag that resumes a narrative after
+    // the device's own ask was answered. That PIN belongs to the call
+    // that ran before the card (the device-state read that decided to
+    // ask), so it must not paint Connecting over the question. The stage
+    // stays on through such a repaint, so nothing would announce an exit
+    // and the flow would wait on a card that is gone.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+      askCompleted: true,
+    });
+    expect(stage?.step).toBe('selectWalletType');
+
+    // The device asking for something itself still outranks the card: a
+    // request nobody can answer would strand the call that made it.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
   it('keeps an app-authored card standing over an unresolved auth narrative', async () => {
     // An ask painted over a verification beat leaves `authoredAuthStep`
     // set — an ASK step never clears it, and the narrative's own resolver

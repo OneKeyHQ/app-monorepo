@@ -1008,6 +1008,25 @@ export class DeviceStageBurstScope {
     // resolveDeviceNotFoundLanding reads. Recorded before the repaint
     // gates below: whether the event wins the stage is beside the point.
     this.sawDeviceEventThisBurst = true;
+    if (current && APP_AUTHORED_ASK_STEPS.has(current.step)) {
+      // An app-authored card is a question with no device call behind it,
+      // so nothing that merely narrates progress may paint over it — not
+      // the ticks, not the narrative re-assert, and above all not the
+      // `askCompleted` beat. That beat is a real PIN window's close,
+      // rewritten by the event pipeline into progress (see the close
+      // branch above), and the PIN it completes belongs to the call that
+      // ran BEFORE this card — the device-state read that decided to ask
+      // the question. Letting it through put Connecting over an
+      // unanswered fork, and with the stage still on, no exit was
+      // announced for the flow waiting on the answer.
+      //
+      // Only another ask outranks the card: that means the device itself
+      // is now waiting on the person, and a request nobody can answer
+      // would strand the call that made it.
+      if (!ASK_STEPS.has(step)) {
+        return;
+      }
+    }
     if (outcomeOnStage && !ASK_STEPS.has(step)) {
       return;
     }
