@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -101,6 +101,23 @@ export function useProtocolDetailData({
         Boolean(result.protocol || result.subscriptionValue?.token),
     },
   );
+
+  // For an indexed account, useEarnAccount re-resolves the address after a
+  // GlobalDeriveTypeUpdate / NetworkDeriveTypeChanged, but the request above
+  // only carries the unchanged accountId/indexedAccountId, so nothing would
+  // refetch: protocolInfo below would move to the new address while
+  // mobilePortfolio, balances and rewards still described the old one.
+  // Guarded on a previous value so the initial undefined -> resolved
+  // transition does not fire a second request on every cold open.
+  const derivedAddress = earnAccount?.accountAddress;
+  const lastDerivedAddressRef = useRef(derivedAddress);
+  useEffect(() => {
+    const previous = lastDerivedAddressRef.current;
+    lastDerivedAddressRef.current = derivedAddress;
+    if (previous && derivedAddress && previous !== derivedAddress) {
+      void run();
+    }
+  }, [derivedAddress, run]);
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
     if (detailInfo?.subscriptionValue?.token) {

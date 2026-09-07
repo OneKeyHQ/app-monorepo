@@ -72,6 +72,7 @@ function PortfolioRow({
   tokenInfo,
   onPress,
   onRedeem,
+  onActionSuccess,
 }: {
   item: IPortfolioRow;
   networkId: string;
@@ -79,6 +80,7 @@ function PortfolioRow({
   tokenInfo?: IEarnTokenInfo;
   onPress?: () => void;
   onRedeem?: () => void;
+  onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
   return (
@@ -114,6 +116,7 @@ function PortfolioRow({
             protocolInfo={protocolInfo}
             tokenInfo={tokenInfo}
             token={item.token.info}
+            onActionSuccess={onActionSuccess}
           />
         ))}
         {/* Rewards the user cannot act on state their stage here instead of
@@ -148,6 +151,7 @@ export function PortfolioTab({
   vault,
   protocolInfo,
   tokenInfo,
+  onActionSuccess,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -156,6 +160,9 @@ export function PortfolioTab({
   vault?: string;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
+  // Claiming and redeeming both change the balances this tab renders, and both
+  // hand off to a modal; this is how they report back.
+  onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -172,6 +179,7 @@ export function PortfolioTab({
         vault,
         tab: 'withdraw',
         tokenImageUri: tokenInfo?.token?.logoURI,
+        onStakeWithdrawSuccess: onActionSuccess,
       },
     });
   }, [
@@ -181,6 +189,7 @@ export function PortfolioTab({
     provider,
     vault,
     tokenInfo?.token?.logoURI,
+    onActionSuccess,
   ]);
 
   // Only the distributed rows carry a history entry worth opening; the other
@@ -263,6 +272,7 @@ export function PortfolioTab({
                   ? openRedeem
                   : undefined
               }
+              onActionSuccess={onActionSuccess}
             />
           ))}
         </YStack>

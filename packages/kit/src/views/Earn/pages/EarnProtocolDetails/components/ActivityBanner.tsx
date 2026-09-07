@@ -62,6 +62,14 @@ export function ActivityBanner({ banner }: { banner: IEarnDetailPageBanner }) {
     handleDeepLinkUrl({ url: banner.href });
   }, [banner.href, banner.hrefType]);
 
+  // A campaign that ended while the page sat open — or that arrived on a
+  // persisted response — must stop being clickable, not merely lose its
+  // countdown. The server already filters expired banners out of a fresh
+  // request, so this only covers the stale cases.
+  if (banner.endTime && remainingMs <= 0) {
+    return null;
+  }
+
   return (
     <XStack
       ai="center"

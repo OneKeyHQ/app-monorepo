@@ -436,9 +436,16 @@ function ChartSection({
         timestamp: item.timestamp,
         apy: item.extraApy as string,
       }));
-    const extraApyKind = impliedApyHistory.find(
-      (item) => item.extraApyKind,
-    )?.extraApyKind;
+    // Campaign wins over reward, matching the rule the server applies per
+    // point ("a campaign present at all makes the line orange") and the
+    // headline's split. Taking the first point that happens to carry a kind
+    // would paint a window that starts with plain rewards and later gains a
+    // campaign entirely blue, and label it Rewards.
+    const extraApyKind = impliedApyHistory.some(
+      (item) => item.extraApyKind === 'campaign',
+    )
+      ? ('campaign' as const)
+      : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
 
     return {
       impliedApyHistory,
@@ -879,6 +886,7 @@ const DetailsPartComponent = ({
                       symbol={symbol}
                       provider={provider}
                       vault={detailInfo.protocol?.vault ?? vault}
+                      onActionSuccess={onRefresh}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
                     />
@@ -1221,11 +1229,16 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           vault: protocolVault,
           tab,
           tokenImageUri: tokenInfo?.token?.logoURI,
+          // Redeem leaves this page for the modal; without this the balances
+          // and rewards below would still show the pre-redeem numbers when it
+          // pops back.
+          onStakeWithdrawSuccess: refreshData,
         },
       });
     },
     [
       appNavigation,
+      refreshData,
       detailInfo?.protocol?.vault,
       networkId,
       symbol,
@@ -1339,8 +1352,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
       header={
-        // The phone layout carries the provider name in the token header
-        // instead, and lists every manager in the Protocol tab.
+        // Wide layouts only. The phone design drops this row and names the
+        // provider in the token header instead, so `managers` is deliberately
+        // not rendered there — ProtocolIntroSection reads protocolInfo alone
+        // and never these records.
         isMobileLayout ? null : (
           <XStack ml={gtSm ? 'auto' : '0'} pr="$2" pt={gtSm ? undefined : '$4'}>
             <ManagersSection managers={detailInfo?.managers} noPadding />

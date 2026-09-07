@@ -1194,7 +1194,11 @@ export const swrKeys = {
       vault ?? '',
       locale.toLowerCase(),
       currencyId.toLowerCase(),
-      accountScopeKey ?? '',
+      // Appended only when present. An unconditional '' would add a trailing
+      // colon to the account-less key, changing a shape that is already
+      // persisted on desktop/web — every existing entry would miss after an
+      // upgrade, for no gain in behavior.
+      ...(accountScopeKey ? [accountScopeKey] : []),
     ].join(':'),
   // Buy Crypto token list (tokens + networksMap + merge-derive flags). Cached
   // so re-opening the modal paints the previous list synchronously instead of
