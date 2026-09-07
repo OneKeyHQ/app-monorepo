@@ -1,6 +1,9 @@
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
-import { resolveMarketListingWatchlistIdentity } from './marketListingWatchlistIdentity';
+import {
+  acquireMarketListingWatchlistIdentity,
+  resolveMarketListingWatchlistIdentity,
+} from './marketListingWatchlistIdentity';
 
 const mockAssetDetail = jest.fn();
 const mockStockVariants = jest.fn();
@@ -17,11 +20,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockStockVariants(...args),
     },
   },
-}));
-
-jest.mock('p-limit', () => ({
-  __esModule: true,
-  default: () => (task: () => Promise<unknown>) => task(),
 }));
 
 const buildVariant = (
@@ -56,6 +54,11 @@ it('resolves native assets with an empty contract address', async () => {
     contractAddress: '',
     isNative: true,
     tokenSymbol: 'BTC',
+  });
+  expect(mockAssetDetail).toHaveBeenCalledWith({
+    assetId: 'bitcoin',
+    currency: 'usd',
+    autoHandleError: false,
   });
 });
 
@@ -157,4 +160,78 @@ it('allows retry after a failed request', async () => {
   await expect(
     resolveMarketListingWatchlistIdentity('stock', 'AAPL'),
   ).resolves.toMatchObject({ chainId: 'evm--1' });
+});
+
+it('skips abandoned queued rows and lets the new list load next', async () => {
+  let unblock: (() => void) | undefined;
+  const blocked = new Promise<void>((resolve) => {
+    unblock = resolve;
+  });
+  mockStockVariants.mockImplementation(async () => {
+    await blocked;
+    return { items: [buildVariant()] };
+  });
+  const active = Array.from({ length: 4 }, (_, index) =>
+    acquireMarketListingWatchlistIdentity('stock', `active-${index}`),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(mockStockVariants).toHaveBeenCalledTimes(4);
+  const abandoned = Array.from({ length: 100 }, (_, index) =>
+    acquireMarketListingWatchlistIdentity('stock', `old-${index}`),
+  );
+  abandoned.forEach((request) => request.release());
+  const visible = acquireMarketListingWatchlistIdentity('stock', 'visible');
+  unblock?.();
+  await Promise.all(
+    [...active, ...abandoned, visible].map((request) => request.promise),
+  );
+  expect(mockStockVariants).toHaveBeenCalledTimes(5);
+  expect(mockStockVariants).toHaveBeenLastCalledWith({ stockId: 'visible' });
+  active.forEach((request) => request.release());
+  visible.release();
+
+  const remounted = acquireMarketListingWatchlistIdentity('stock', 'old-0');
+  await expect(remounted.promise).resolves.toMatchObject({ chainId: 'evm--1' });
+  expect(mockStockVariants).toHaveBeenLastCalledWith({ stockId: 'old-0' });
+  remounted.release();
+});
+
+it('keeps a shared queued request when another row still needs it', async () => {
+  mockStockVariants.mockResolvedValue({ items: [buildVariant()] });
+  const first = acquireMarketListingWatchlistIdentity('stock', 'shared');
+  const second = acquireMarketListingWatchlistIdentity('stock', 'shared');
+  first.release();
+  first.release();
+  await expect(second.promise).resolves.toMatchObject({ chainId: 'evm--1' });
+  expect(mockStockVariants).toHaveBeenCalledTimes(1);
+  second.release();
+});
+
+it('can reacquire a listing before its abandoned queue entry drains', async () => {
+  mockStockVariants.mockResolvedValue({ items: [buildVariant()] });
+  const abandoned = acquireMarketListingWatchlistIdentity('stock', 'remount');
+  abandoned.release();
+  const remounted = acquireMarketListingWatchlistIdentity('stock', 'remount');
+  await expect(abandoned.promise).resolves.toBeUndefined();
+  await expect(remounted.promise).resolves.toMatchObject({ chainId: 'evm--1' });
+  expect(mockStockVariants).toHaveBeenCalledTimes(1);
+  remounted.release();
+});
+
+it('shares an in-flight request with a newly mounted row', async () => {
+  let unblock: (() => void) | undefined;
+  mockStockVariants.mockImplementation(async () => {
+    await new Promise<void>((resolve) => {
+      unblock = resolve;
+    });
+    return { items: [buildVariant()] };
+  });
+  const first = acquireMarketListingWatchlistIdentity('stock', 'in-flight');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  first.release();
+  const second = acquireMarketListingWatchlistIdentity('stock', 'in-flight');
+  unblock?.();
+  await expect(second.promise).resolves.toMatchObject({ chainId: 'evm--1' });
+  expect(mockStockVariants).toHaveBeenCalledTimes(1);
+  second.release();
 });

@@ -24,17 +24,36 @@ let mockResult:
     }
   | undefined;
 const mockRun = jest.fn();
+const mockAcquire = jest.fn<
+  {
+    promise: Promise<IMarketListingWatchlistIdentity | undefined>;
+    release: () => void;
+  },
+  unknown[]
+>();
+let mockFocused = true;
+let mockExecuteRequests = false;
 
 jest.mock('../utils/marketListingWatchlistIdentity', () => ({
-  resolveMarketListingWatchlistIdentity: jest.fn(),
+  acquireMarketListingWatchlistIdentity: (...args: unknown[]) =>
+    mockAcquire(...args),
 }));
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockResult,
-    isLoading: false,
-    run: mockRun,
-  }),
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockFocused,
 }));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    usePromiseResult: (callback: () => Promise<unknown>) => {
+      ReactModule.useEffect(() => {
+        if (mockExecuteRequests && mockFocused) {
+          void callback();
+        }
+      }, [callback]);
+      return { result: mockResult, isLoading: false, run: mockRun };
+    },
+  };
+});
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -76,6 +95,9 @@ jest.mock('./MarketStarV2', () => ({
 beforeEach(() => {
   mockResult = undefined;
   mockRun.mockReset();
+  mockAcquire.mockReset();
+  mockFocused = true;
+  mockExecuteRequests = false;
 });
 
 it('does not expose a previous row identity while resolving the new listing', () => {
@@ -155,4 +177,34 @@ it('passes the resolved identity to the Home renderer', () => {
   );
   expect(renderButton).toHaveBeenCalledWith(identity);
   expect(screen.getByText('Home favorite')).toBeDefined();
+});
+
+it('releases queued identity work on row reuse, blur, and unmount', () => {
+  mockExecuteRequests = true;
+  const firstRelease = jest.fn();
+  const secondRelease = jest.fn();
+  const thirdRelease = jest.fn();
+  const pending = new Promise<undefined>(jest.fn());
+  mockAcquire
+    .mockReturnValueOnce({ promise: pending, release: firstRelease })
+    .mockReturnValueOnce({ promise: pending, release: secondRelease })
+    .mockReturnValueOnce({ promise: pending, release: thirdRelease });
+  const row = (listingId: string) => (
+    <MarketListingStar
+      kind="asset"
+      listingId={listingId}
+      from={EWatchlistFrom.Homepage}
+    />
+  );
+  const { rerender, unmount } = render(row('bitcoin'));
+  rerender(row('ethereum'));
+  expect(firstRelease).toHaveBeenCalledTimes(1);
+  expect(secondRelease).not.toHaveBeenCalled();
+  mockFocused = false;
+  rerender(row('ethereum'));
+  expect(secondRelease).toHaveBeenCalledTimes(1);
+  mockFocused = true;
+  rerender(row('solana'));
+  unmount();
+  expect(thirdRelease).toHaveBeenCalledTimes(1);
 });

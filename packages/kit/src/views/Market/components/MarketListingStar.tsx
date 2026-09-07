@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { IconButton, Stack } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
-import { resolveMarketListingWatchlistIdentity } from '../utils/marketListingWatchlistIdentity';
+import { acquireMarketListingWatchlistIdentity } from '../utils/marketListingWatchlistIdentity';
 
 import { MarketStarV2 } from './MarketStarV2';
 
@@ -28,20 +30,32 @@ export function MarketListingStar({
   renderButton?: (identity: IMarketListingWatchlistIdentity) => ReactNode;
 }) {
   const intl = useIntl();
+  const isFocused = useRouteIsFocused();
+  const releasesRef = useRef(new Set<() => void>());
+  useEffect(() => {
+    const releases = releasesRef.current;
+    return () => {
+      releases.forEach((release) => release());
+      releases.clear();
+    };
+  }, [kind, listingId, isFocused]);
   const { result, isLoading, run } = usePromiseResult(
     async () => {
+      const request = acquireMarketListingWatchlistIdentity(kind, listingId);
+      const releases = releasesRef.current;
+      releases.add(request.release);
       try {
         return {
           kind,
           listingId,
-          identity: await resolveMarketListingWatchlistIdentity(
-            kind,
-            listingId,
-          ),
+          identity: await request.promise,
           failed: false,
         };
       } catch {
         return { kind, listingId, identity: undefined, failed: true };
+      } finally {
+        request.release();
+        releases.delete(request.release);
       }
     },
     [kind, listingId],
