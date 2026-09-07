@@ -288,7 +288,9 @@ describe('MarketTokenSelector stock default category', () => {
   it('preserves category label casing', () => {
     renderOpenStockSelector();
 
-    const topCoinsLabel = screen.getByText('Top Coins');
+    // The injected category name is bound to ETranslations.market_top_coins;
+    // the intl mock above renders the raw key id.
+    const topCoinsLabel = screen.getByText('market.top_coins');
     expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
     expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
   });

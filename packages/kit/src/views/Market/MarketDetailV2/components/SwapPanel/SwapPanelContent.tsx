@@ -639,7 +639,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             justifyContent="space-between"
             gap="$2"
           >
-            <SizableText size="$bodyMd">Shares</SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({ id: ETranslations.market_est_shares })}
+            </SizableText>
             {stockEstimatedSharesContent}
           </XStack>
         </YStack>

@@ -1,6 +1,6 @@
 const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1480;
 
-export const MARKET_DESKTOP_CHART_MIN_HEIGHT = 360;
+export const MARKET_DESKTOP_CHART_MIN_HEIGHT = 456;
 
 // The Market desktop design has 62px gutters inside its 1364px content area.
 // Keep those gutters stable through ordinary desktop widths, then cap the
