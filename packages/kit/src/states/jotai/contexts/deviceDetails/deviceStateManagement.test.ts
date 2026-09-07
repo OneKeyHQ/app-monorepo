@@ -1,8 +1,11 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
+import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+
 import { emptyMetaState } from './atoms';
 import {
   buildDeviceMetaStateFromState,
+  getDeviceManagementWallets,
   getDeviceMetaStaticDataFromState,
   getDeviceSecondaryIdentifier,
   getDeviceStateSnapshotFromEvent,
@@ -30,7 +33,7 @@ describe('device reset wallet isolation', () => {
     EDeviceType.Neo,
   ];
 
-  it('does not expose a deprecated hardware wallet to device details', () => {
+  it('keeps a deprecated hardware wallet available in device details', () => {
     expect(
       resolveUsableWalletWithDevice({
         wallet: {
@@ -45,7 +48,7 @@ describe('device reset wallet isolation', () => {
           },
         },
       } as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it('keeps an active mocked standard wallet as the hidden-only device proxy', () => {
@@ -69,7 +72,7 @@ describe('device reset wallet isolation', () => {
     );
   });
 
-  it('does not expose a deprecated mocked wallet after a firmware switch', () => {
+  it('keeps a deprecated mocked wallet after a firmware switch', () => {
     expect(
       resolveUsableWalletWithDevice({
         wallet: {
@@ -86,11 +89,11 @@ describe('device reset wallet isolation', () => {
           },
         },
       } as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it.each(firmwareTypeSwitchDeviceTypes)(
-    'does not expose a deprecated %s wallet after switching firmware type',
+    'keeps a deprecated %s wallet after switching firmware type',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -110,12 +113,12 @@ describe('device reset wallet isolation', () => {
 
       expect(
         resolveUsableWalletWithDevice(walletWithDevice as never),
-      ).toBeUndefined();
+      ).toBeDefined();
     },
   );
 
   it.each(unsupportedDeviceTypes)(
-    'does not expose a deprecated %s wallet without a firmware type switch action',
+    'keeps a deprecated %s wallet without a firmware type switch action',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -137,11 +140,11 @@ describe('device reset wallet isolation', () => {
 
       expect(
         resolveUsableWalletWithDevice(walletWithDevice as never),
-      ).toBeUndefined();
+      ).toBeDefined();
     },
   );
 
-  it('does not expose a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
+  it('keeps a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
     const walletWithDevice = {
       wallet: {
         id: 'hw-wallet-1',
@@ -159,10 +162,10 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
-  it('does not revive a deprecated Protocol V1 wallet from normalized firmwareType', () => {
+  it('keeps a deprecated Protocol V1 wallet from normalized firmwareType', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-classic1s-wallet',
@@ -181,10 +184,10 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
-  it('does not expose a deprecated legacy wallet without firmwareTypeAtCreated', () => {
+  it('keeps a deprecated legacy wallet without firmwareTypeAtCreated', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-hw-wallet-1',
@@ -203,7 +206,107 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
+  });
+});
+
+describe('device management after a wallet reset', () => {
+  const oldWallet = {
+    wallet: { id: 'hw-old', deprecated: true },
+    device: {
+      id: 'db-old',
+      uuid: 'SERIAL',
+      deviceId: 'old-seed',
+      connectId: '',
+    },
+  } as IHwQrWalletWithDevice;
+  const currentWallet = {
+    wallet: { id: 'hw-current', deprecated: false },
+    device: {
+      id: 'db-current',
+      uuid: 'SERIAL',
+      deviceId: 'new-seed',
+      connectId: 'BLE-ID',
+    },
+  } as IHwQrWalletWithDevice;
+  const otherWallet = {
+    wallet: { id: 'hw-other' },
+    device: {
+      id: 'db-other',
+      uuid: 'OTHER',
+      deviceId: 'other-seed',
+      connectId: 'BLE-ID',
+    },
+  } as IHwQrWalletWithDevice;
+
+  it('opens the current device from a deprecated wallet without reviving it', () => {
+    expect(
+      resolveUsableWalletWithDevice(oldWallet, [
+        oldWallet,
+        otherWallet,
+        currentWallet,
+      ]),
+    ).toBe(currentWallet);
+    expect(oldWallet.wallet.deprecated).toBe(true);
+  });
+
+  it('lists one entry per physical device and prefers the current wallet', () => {
+    expect(
+      getDeviceManagementWallets([oldWallet, otherWallet, currentWallet]),
+    ).toEqual([currentWallet, otherWallet]);
+  });
+
+  it('retains the device when only a deprecated wallet remains', () => {
+    expect(getDeviceManagementWallets([oldWallet, otherWallet])).toEqual([
+      oldWallet,
+      otherWallet,
+    ]);
+    expect(
+      resolveUsableWalletWithDevice(oldWallet, [oldWallet, otherWallet]),
+    ).toBe(oldWallet);
+  });
+
+  it('preserves separate QR entries and the mocked standard proxy for hidden wallets', () => {
+    const qrWallet = {
+      ...currentWallet,
+      wallet: { ...currentWallet.wallet, id: 'qr-current' },
+    };
+    const mockedWallet = {
+      ...currentWallet,
+      wallet: { ...currentWallet.wallet, isMocked: true },
+    };
+    const hiddenWallet = {
+      ...currentWallet,
+      wallet: {
+        ...currentWallet.wallet,
+        id: 'hw-hidden',
+        passphraseState: 'hidden',
+      },
+    };
+    expect(
+      getDeviceManagementWallets([
+        oldWallet,
+        hiddenWallet,
+        mockedWallet,
+        qrWallet,
+      ]),
+    ).toEqual([mockedWallet, qrWallet]);
+    expect(
+      resolveUsableWalletWithDevice(hiddenWallet, [
+        oldWallet,
+        hiddenWallet,
+        mockedWallet,
+      ]),
+    ).toBe(mockedWallet);
+  });
+
+  it('does not create management entries for missing wallets or devices', () => {
+    expect(resolveUsableWalletWithDevice(undefined)).toBeUndefined();
+    expect(
+      getDeviceManagementWallets([
+        { wallet: oldWallet.wallet, device: undefined },
+      ]),
+    ).toEqual([]);
   });
 });
 
