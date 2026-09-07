@@ -100,6 +100,7 @@ export type IWithHardwareProcessingOptions = {
 
 export type ICloseHardwareUiStateDialogParams = {
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+  deviceStageBurstId?: number;
   skipDeviceCancel?: boolean;
   immediateDeviceCancel?: boolean;
   delay?: number;
@@ -1059,6 +1060,12 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async closeHardwareUiStateDialog(params: ICloseHardwareUiStateDialogParams) {
+    if (
+      params.deviceStageBurstId !== undefined &&
+      params.deviceStageBurstId !== (await deviceStageAtom.get())?.burstId
+    ) {
+      return;
+    }
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     const ownedParams = {
       ...params,

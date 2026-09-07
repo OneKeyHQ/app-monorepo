@@ -1044,6 +1044,29 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
 });
 
 describe('ServiceHardwareUI delayed close ownership', () => {
+  it('ignores a stale close after a newer burst acquired the lease', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 2 } as never);
+    const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.closeHardwareUiStateDialog({
+          connectId: 'same-device',
+          deviceStageBurstId: 1,
+          immediateDeviceCancel: true,
+        });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it('does not attach an unowned delayed close to a newly acquired lease', async () => {
     jest.useFakeTimers({ doNotFake: ['performance'] });
     try {
