@@ -108,12 +108,14 @@ describe('DeviceStageContainerLazy chunk load fallback', () => {
     expect(mockDeviceStageUserClose).toHaveBeenCalledTimes(1);
     expect(mockDeviceStageUserClose).toHaveBeenCalledWith({
       connectId: 'connect-id-1',
-      skipDeviceCancel: false,
     });
     expect(mockToastError).toHaveBeenCalledTimes(1);
   });
 
-  it('skips the device cancel on an outcome step, as the close button does', async () => {
+  it('closes an outcome step the same way, leaving the cancel decision to bg', async () => {
+    // Whether the close cancels a device call is bg's call, read from the
+    // step at close time (shouldCancelDeviceOnStageClose) — the fallback
+    // sends nothing the close button would not.
     mockStage = {
       step: 'error',
       connectId: 'connect-id-2',
@@ -124,7 +126,6 @@ describe('DeviceStageContainerLazy chunk load fallback', () => {
 
     expect(mockDeviceStageUserClose).toHaveBeenCalledWith({
       connectId: 'connect-id-2',
-      skipDeviceCancel: true,
     });
   });
 
@@ -151,7 +152,6 @@ describe('DeviceStageContainerLazy chunk load fallback', () => {
     expect(mockDeviceStageUserClose).toHaveBeenCalledTimes(1);
     expect(mockDeviceStageUserClose).toHaveBeenCalledWith({
       connectId: 'connect-id-3',
-      skipDeviceCancel: false,
     });
   });
 
