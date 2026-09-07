@@ -137,7 +137,9 @@ describe('BackgroundApi lazy services', () => {
         expect(backgroundApi.serviceTravelMode).toBe(service);
         expect(mockTravelModeModuleLoadCount).toBe(1);
         expect(mockTravelModeConstructor).toHaveBeenCalledTimes(1);
-        expect(mockTravelModeConstructor).toHaveBeenCalledWith({ backgroundApi });
+        expect(mockTravelModeConstructor).toHaveBeenCalledWith({
+          backgroundApi,
+        });
       } else {
         expect(() => backgroundApi.serviceTravelMode).toThrow(
           'Travel Mode is only supported on mobile',
