@@ -51,6 +51,11 @@ export function ActivitySummaryRow({
   const sellUnavailable = isLoading || sellCount === undefined;
   const buyVolumeUnavailable = isLoading || buyVolume === undefined;
   const sellVolumeUnavailable = isLoading || sellVolume === undefined;
+  const noVolumeData =
+    totalVolume === undefined ||
+    totalVolume <= 0 ||
+    buyVolume === undefined ||
+    sellVolume === undefined;
 
   return (
     <XStack
@@ -125,7 +130,7 @@ export function ActivitySummaryRow({
           buyPercentage={buyPercentage}
           height={6}
           isLoading={isLoading}
-          noData={buyVolume === undefined || sellVolume === undefined}
+          noData={noVolumeData}
         />
       </Stack>
 

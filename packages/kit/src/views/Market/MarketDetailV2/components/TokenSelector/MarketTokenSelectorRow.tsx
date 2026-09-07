@@ -156,7 +156,8 @@ const MarketTokenSelectorRow = memo(
             </NumberSizeableText>
           );
         case 'change':
-          return item.priceChangeRaw === '-' ? (
+          return item.priceChangeRaw === undefined ||
+            item.priceChangeRaw === '-' ? (
             <MissingValue />
           ) : (
             <NumberSizeableText
