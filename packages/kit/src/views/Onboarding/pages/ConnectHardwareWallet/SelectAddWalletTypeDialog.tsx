@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { waitForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
+import { watchForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -95,15 +95,23 @@ export function useSelectAddWalletTypeDialog() {
     // firmware workflow) does not paint the card, and this dialog, with
     // the iOS layering hack below, remains for the legacy surface until
     // the cleanup pass.
-    if (
-      !isLegacyHardwareUiActive() &&
-      (await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType())
-    ) {
-      const fork = await waitForDeviceStageAnswer(
+    if (!isLegacyHardwareUiActive()) {
+      // Listening starts before the card is asked for: the paint is an
+      // RPC, and an exit the background announces while it is in flight
+      // would otherwise reach a main runtime that is not listening yet.
+      const fork = watchForDeviceStageAnswer(
         EAppEventBusNames.DeviceStageWalletTypeSelected,
         ({ walletType }) => (walletType === 'hidden' ? 'Hidden' : 'Standard'),
       );
-      return fork.closed ? undefined : fork.answer;
+      const painted =
+        await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType();
+      if (painted) {
+        const answered = await fork.answer;
+        return answered.closed ? undefined : answered.answer;
+      }
+      // A silenced stage (the firmware workflow) painted nothing: release
+      // the listeners and fall through to the legacy dialog below.
+      fork.cancel();
     }
     // iOS-only: dismiss the hardware-UI dialog before mounting this one.
     // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same

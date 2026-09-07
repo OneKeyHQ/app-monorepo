@@ -1,14 +1,14 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType, HardwareErrorCode } from "@onekeyfe/hd-shared";
-import { type RouteProp, useRoute } from "@react-navigation/core";
-import { get } from "lodash";
-import natsort from "natsort";
-import { useIntl } from "react-intl";
-import { StyleSheet } from "react-native";
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { type RouteProp, useRoute } from '@react-navigation/core';
+import { get } from 'lodash';
+import natsort from 'natsort';
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { ILottieViewProps } from "@onekeyhq/components";
+import type { ILottieViewProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -26,78 +26,78 @@ import {
   Toast,
   XStack,
   YStack,
-} from "@onekeyhq/components";
-import BluetoothSignalSpreading from "@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json";
-import ConnectByBluetoothAnim from "@onekeyhq/kit/assets/animations/connect_by_bluetooth.json";
-import ConnectByUSBAnim from "@onekeyhq/kit/assets/animations/connect_by_usb.json";
-import backgroundApiProxy from "@onekeyhq/kit/src/background/instance/backgroundApiProxy";
-import { AccountSelectorProviderMirror } from "@onekeyhq/kit/src/components/AccountSelector";
-import { useCreateQrWallet } from "@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet";
-import { ConnectionTroubleShootingAccordion } from "@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion";
+} from '@onekeyhq/components';
+import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
+import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
+import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
-} from "@onekeyhq/kit/src/components/Hardware/HardwareDialog";
-import { ListItem } from "@onekeyhq/kit/src/components/ListItem";
-import { MultipleClickStack } from "@onekeyhq/kit/src/components/MultipleClickStack";
-import type { ITutorialsListItem } from "@onekeyhq/kit/src/components/TutorialsList";
-import { TutorialsList } from "@onekeyhq/kit/src/components/TutorialsList";
-import useAppNavigation from "@onekeyhq/kit/src/hooks/useAppNavigation";
-import { useDeviceStageBurst } from "@onekeyhq/kit/src/hooks/useDeviceStageBurst";
-import { useHelpLink } from "@onekeyhq/kit/src/hooks/useHelpLink";
-import { useOnboardingDeviceScanErrorHandler } from "@onekeyhq/kit/src/hooks/useOnboardingDeviceScanErrorHandler";
-import { usePromptWebDeviceAccess } from "@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess";
-import { useRouteIsFocused as useIsFocused } from "@onekeyhq/kit/src/hooks/useRouteIsFocused";
-import { useUserWalletProfile } from "@onekeyhq/kit/src/hooks/useUserWalletProfile";
-import { hardwareUiStateDialogLifecycle } from "@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle";
-import { useAccountSelectorActions } from "@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions";
-import type { IDBCreateHwWalletParamsBase } from "@onekeyhq/kit-bg/src/dbs/local/types";
-import { useSettingsPersistAtom } from "@onekeyhq/kit-bg/src/states/jotai/atoms";
-import { ONEKEY_BUY_HARDWARE_URL } from "@onekeyhq/shared/src/config/appConfig";
-import { OneKeyLocalError } from "@onekeyhq/shared/src/errors";
-import { OneKeyHardwareError } from "@onekeyhq/shared/src/errors/errors/hardwareErrors";
-import { isOneKeyHardwareError } from "@onekeyhq/shared/src/errors/utils/deviceErrorUtils";
-import errorToastUtils from "@onekeyhq/shared/src/errors/utils/errorToastUtils";
-import bleManagerInstance from "@onekeyhq/shared/src/hardware/bleManager";
-import { checkBLEPermissions } from "@onekeyhq/shared/src/hardware/blePermissions";
-import { isLegacyHardwareUiActive } from "@onekeyhq/shared/src/hardware/deviceStageOwnership";
-import { projectLegacyDeviceFeaturesFromState } from "@onekeyhq/shared/src/hardware/deviceStateUtils";
-import { ETranslations } from "@onekeyhq/shared/src/locale";
-import { defaultLogger } from "@onekeyhq/shared/src/logger/logger";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import type { IOnboardingParamList } from "@onekeyhq/shared/src/routes";
-import { EOnboardingPages } from "@onekeyhq/shared/src/routes";
+} from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
+import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/useOnboardingDeviceScanErrorHandler';
+import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
+import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import {
   HwWalletAvatarImages,
   getDeviceAvatarImage,
-} from "@onekeyhq/shared/src/utils/avatarUtils";
-import deviceUtils from "@onekeyhq/shared/src/utils/deviceUtils";
-import { openUrlExternal } from "@onekeyhq/shared/src/utils/openUrlUtils";
+} from '@onekeyhq/shared/src/utils/avatarUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
-} from "@onekeyhq/shared/types";
-import { EConnectDeviceChannel } from "@onekeyhq/shared/types/connectDevice";
+} from '@onekeyhq/shared/types';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
   type IOneKeyDeviceFeatures,
   type IOneKeyDeviceState,
-} from "@onekeyhq/shared/types/device";
+} from '@onekeyhq/shared/types/device';
 
-import { useBuyOneKeyHeaderRightButton } from "../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton";
-import { useFirmwareUpdateActions } from "../../../FirmwareUpdate/hooks/useFirmwareUpdateActions";
+import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
+import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
-import { useFirmwareVerifyDialog } from "./FirmwareVerifyDialog";
-import { useSelectAddWalletTypeDialog } from "./SelectAddWalletTypeDialog";
+import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
+import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 import {
   EHardwareWalletCreationMode,
   getWalletCreationDeviceState,
   resolveAutomaticWalletCreationMode,
   shouldCheckExistingStandardWallet,
-} from "./walletCreationMode";
+} from './walletCreationMode';
 
-import type { Features, IDeviceType, SearchDevice } from "@onekeyfe/hd-core";
-import type { ImageSourcePropType } from "react-native";
+import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { ImageSourcePropType } from 'react-native';
 
 interface IConnectYourDeviceItem {
   title: string;
@@ -108,29 +108,29 @@ interface IConnectYourDeviceItem {
 }
 
 // Helper function to convert transport type enum to analytics string
-type IHardwareCommunicationType = "Bluetooth" | "WebUSB" | "USB" | "QRCode";
+type IHardwareCommunicationType = 'Bluetooth' | 'WebUSB' | 'USB' | 'QRCode';
 // TODO: update this function to use the new transport type
 function getHardwareCommunicationTypeString(
-  hardwareTransportType: EHardwareTransportType | undefined | "QRCode"
+  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
 ): IHardwareCommunicationType {
   if (
     hardwareTransportType === EHardwareTransportType.BLE ||
     hardwareTransportType === EHardwareTransportType.DesktopWebBle
   ) {
-    return "Bluetooth";
+    return 'Bluetooth';
   }
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-    return "WebUSB";
+    return 'WebUSB';
   }
-  if (hardwareTransportType === "QRCode") {
-    return "QRCode";
+  if (hardwareTransportType === 'QRCode') {
+    return 'QRCode';
   }
-  return platformEnv.isNative ? "Bluetooth" : "USB";
+  return platformEnv.isNative ? 'Bluetooth' : 'USB';
 }
 
 // Helper function to map user-selected channel to forced transport type
 async function getForceTransportType(
-  channel: EConnectDeviceChannel
+  channel: EConnectDeviceChannel,
 ): Promise<EHardwareTransportType | undefined> {
   switch (channel) {
     case EConnectDeviceChannel.bluetooth:
@@ -166,11 +166,11 @@ const trackHardwareWalletConnection = async ({
   features,
   hardwareTransportType,
 }: {
-  status: "success" | "failure";
+  status: 'success' | 'failure';
   deviceType: IDeviceType;
   isSoftwareWalletOnlyUser: boolean;
   features?: Features;
-  hardwareTransportType: EHardwareTransportType | undefined | "QRCode";
+  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode';
 }) => {
   const connectionType: IHardwareCommunicationType =
     getHardwareCommunicationTypeString(hardwareTransportType);
@@ -184,9 +184,9 @@ const trackHardwareWalletConnection = async ({
 
   defaultLogger.account.wallet.walletAdded({
     status,
-    addMethod: "ConnectHWWallet",
+    addMethod: 'ConnectHWWallet',
     details: {
-      hardwareWalletType: "Standard",
+      hardwareWalletType: 'Standard',
       communication: connectionType,
       deviceType,
       ...(firmwareVersions && { firmwareVersions }),
@@ -214,9 +214,9 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
       avatarProps={{
         source: item.src,
         fallbackProps: {
-          bg: "$bgStrong",
-          justifyContent: "center",
-          alignItems: "center",
+          bg: '$bgStrong',
+          justifyContent: 'center',
+          alignItems: 'center',
           children: <Icon name="QuestionmarkSolid" />,
         },
       }}
@@ -264,7 +264,7 @@ function ConnectByQrCode() {
         variant="primary"
         $md={
           {
-            size: "large",
+            size: 'large',
           } as any
         }
         onPress={async () => {
@@ -272,10 +272,10 @@ function ConnectByQrCode() {
             // qrHiddenCreateGuideDialog.showDialog();
             // return;
             defaultLogger.account.wallet.addWalletStarted({
-              addMethod: "ConnectHWWallet",
+              addMethod: 'ConnectHWWallet',
               details: {
-                hardwareWalletType: "Standard",
-                communication: "QRCode",
+                hardwareWalletType: 'Standard',
+                communication: 'QRCode',
               },
               isSoftwareWalletOnlyUser,
             });
@@ -288,20 +288,20 @@ function ConnectByQrCode() {
             });
 
             void trackHardwareWalletConnection({
-              status: "success",
+              status: 'success',
               deviceType: EDeviceType.Pro,
               isSoftwareWalletOnlyUser,
-              hardwareTransportType: "QRCode",
+              hardwareTransportType: 'QRCode',
             });
           } catch (error) {
             // Clear force transport type on QR wallet creation error
             void backgroundApiProxy.serviceHardware.clearForceTransportType();
             errorToastUtils.toastIfError(error);
             void trackHardwareWalletConnection({
-              status: "failure",
+              status: 'failure',
               deviceType: EDeviceType.Pro,
               isSoftwareWalletOnlyUser,
-              hardwareTransportType: "QRCode",
+              hardwareTransportType: 'QRCode',
             });
             throw error;
           }
@@ -342,9 +342,9 @@ function ConnectByQrCodeComingSoon() {
 }
 
 enum EConnectionStatus {
-  init = "init",
-  searching = "searching",
-  listing = "listing",
+  init = 'init',
+  searching = 'searching',
+  listing = 'listing',
 }
 
 // Common device connection logic
@@ -362,7 +362,7 @@ function useDeviceConnection({
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
-  const searchStateRef = useRef<"start" | "stop">("stop");
+  const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
   const currentTabValueRef = useRef(tabValue);
 
@@ -371,7 +371,7 @@ function useDeviceConnection({
       deviceUtils.getDeviceScanner({
         backgroundApi: backgroundApiProxy,
       }),
-    []
+    [],
   );
 
   // Handle tabValue changes - clear search results and stop scanning
@@ -380,11 +380,11 @@ function useDeviceConnection({
 
     if (previousTabValue !== tabValue) {
       console.log(
-        "🔍 Tab changed from",
+        '🔍 Tab changed from',
         previousTabValue,
-        "to",
+        'to',
         tabValue,
-        "- clearing search state"
+        '- clearing search state',
       );
 
       // Stop current scanning
@@ -401,7 +401,7 @@ function useDeviceConnection({
       deviceScanner
         .waitForCurrentSearchToComplete()
         .then(() => {
-          console.log("🔍 Previous search completed, results ignored");
+          console.log('🔍 Previous search completed, results ignored');
         })
         .catch(() => {
           // Ignore errors
@@ -448,8 +448,8 @@ function useDeviceConnection({
         const sortedDevices = response.payload.toSorted((a, b) =>
           natsort({ insensitive: true })(
             a.name || a.connectId || a.deviceId || a.uuid,
-            b.name || b.connectId || b.deviceId || b.uuid
-          )
+            b.name || b.connectId || b.deviceId || b.uuid,
+          ),
         );
 
         // Only set search results if tabValue hasn't changed
@@ -457,10 +457,10 @@ function useDeviceConnection({
           setSearchedDevices(
             tabValue === EConnectDeviceChannel.bluetooth
               ? sortedDevices.filter(deviceUtils.isBluetoothSearchDevice)
-              : sortedDevices
+              : sortedDevices,
           );
         } else {
-          console.log("🔍 Ignoring search results - tab changed during search");
+          console.log('🔍 Ignoring search results - tab changed during search');
         }
       },
       (state) => {
@@ -470,14 +470,14 @@ function useDeviceConnection({
       undefined, // pollInterval
       undefined, // maxTryCount
       undefined, // vendor
-      { onError: handleScanError }
+      { onError: handleScanError },
     );
   }, [deviceScanner, handleScanError, resetScanError, tabValue]);
 
   const ensureStopScan = useCallback(async () => {
     // Force stop scanning and wait for any ongoing search to complete
     console.log(
-      "ensureStopScan: Stopping device scan and waiting for completion"
+      'ensureStopScan: Stopping device scan and waiting for completion',
     );
     isSearchingRef.current = false;
 
@@ -485,10 +485,10 @@ function useDeviceConnection({
       // Use the new stopScanAndWait method that properly waits for ongoing searches
       await deviceScanner.stopScanAndWait();
       console.log(
-        "ensureStopScan: Device scan stopped and all ongoing searches completed"
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
       );
     } catch (error) {
-      console.error("ensureStopScan: Error while stopping scan:", error);
+      console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
     }
@@ -507,7 +507,7 @@ function useDeviceConnection({
         },
         opacity: 1,
       })),
-    [searchedDevices, onDeviceConnect, ensureStopScan]
+    [searchedDevices, onDeviceConnect, ensureStopScan],
   );
 
   return {
@@ -529,9 +529,9 @@ function AnimationView({
   connectStatus,
   connectionType,
 }: {
-  lottieSource: ILottieViewProps["source"];
+  lottieSource: ILottieViewProps['source'];
   connectStatus: EConnectionStatus;
-  connectionType: "usb" | "bluetooth";
+  connectionType: 'usb' | 'bluetooth';
 }) {
   const intl = useIntl();
   const [showHelper, setShowHelper] = useState(false);
@@ -655,7 +655,7 @@ function ConnectByUSBOrBLE({
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
     const checkState = await bleManagerInstance.checkState();
-    return checkState === "on";
+    return checkState === 'on';
   }, []);
 
   const listingDevice = useCallback(async () => {
@@ -675,11 +675,11 @@ function ConnectByUSBOrBLE({
 
   const RequireBlePermissionDialogRender = useCallback(
     ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
-    []
+    [],
   );
   const OpenBleSettingsDialogRender = useCallback(
     ({ ref }: { ref: any }) => <OpenBleSettingsDialog ref={ref} />,
-    []
+    [],
   );
 
   const startBLEConnection = useCallback(async () => {
@@ -736,7 +736,7 @@ function ConnectByUSBOrBLE({
         }
       }
     } catch (error) {
-      console.error("onConnectWebDevice error:", error);
+      console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     } finally {
       setIsChecking(false);
@@ -762,7 +762,7 @@ function ConnectByUSBOrBLE({
       () => {
         stopScan();
       },
-    [stopScan]
+    [stopScan],
   );
 
   return (
@@ -772,7 +772,7 @@ function ConnectByUSBOrBLE({
           platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
         }
         connectStatus={connectStatus}
-        connectionType={platformEnv.isNative ? "bluetooth" : "usb"}
+        connectionType={platformEnv.isNative ? 'bluetooth' : 'usb'}
       />
 
       {connectStatus === EConnectionStatus.init ? (
@@ -832,12 +832,12 @@ function ConnectByBluetooth({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [bluetoothStatus, setBluetoothStatus] = useState<
-    | "enabled"
-    | "disabledInSystem"
-    | "disabledInApp"
-    | "checking"
-    | "noSystemPermission"
-  >("checking");
+    | 'enabled'
+    | 'disabledInSystem'
+    | 'disabledInApp'
+    | 'checking'
+    | 'noSystemPermission'
+  >('checking');
 
   const nobleInitializedRef = useRef(false);
   const isConnectingRef = useRef(false);
@@ -849,13 +849,13 @@ function ConnectByBluetooth({
       if (!nobleInitializedRef.current) {
         try {
           console.log(
-            "onboarding checkBluetoothStatus: noble pre-initialization"
+            'onboarding checkBluetoothStatus: noble pre-initialization',
           );
           await globalThis?.desktopApi?.nobleBle?.checkAvailability();
         } catch (error) {
           console.log(
-            "Noble pre-initialization completed with expected error:",
-            error
+            'Noble pre-initialization completed with expected error:',
+            error,
           );
         }
         nobleInitializedRef.current = true;
@@ -865,36 +865,36 @@ function ConnectByBluetooth({
       const enableDesktopBluetoothInApp =
         await backgroundApiProxy.serviceSetting.getEnableDesktopBluetooth();
       if (!enableDesktopBluetoothInApp) {
-        console.log("onboarding checkBluetoothStatus: disabledInApp");
-        setBluetoothStatus("disabledInApp");
+        console.log('onboarding checkBluetoothStatus: disabledInApp');
+        setBluetoothStatus('disabledInApp');
         return;
       }
 
       const available =
         await globalThis?.desktopApi?.nobleBle?.checkAvailability();
-      if (available.state === "unknown") {
+      if (available.state === 'unknown') {
         return;
       }
-      if (available.state === "unauthorized") {
-        console.log("onboarding checkBluetoothStatus: noSystemPermission");
-        setBluetoothStatus("noSystemPermission");
+      if (available.state === 'unauthorized') {
+        console.log('onboarding checkBluetoothStatus: noSystemPermission');
+        setBluetoothStatus('noSystemPermission');
         return;
       }
       if (!available?.available) {
-        console.log("onboarding checkBluetoothStatus: disabledInSystem");
-        setBluetoothStatus("disabledInSystem");
+        console.log('onboarding checkBluetoothStatus: disabledInSystem');
+        setBluetoothStatus('disabledInSystem');
         return;
       }
 
-      console.log("onboarding checkBluetoothStatus: enabled");
+      console.log('onboarding checkBluetoothStatus: enabled');
       await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom({
         isRequestedPermission: true,
       });
       // All checks passed
-      setBluetoothStatus("enabled");
+      setBluetoothStatus('enabled');
     } catch (error) {
-      console.error("Desktop bluetooth check failed:", error);
-      setBluetoothStatus("disabledInSystem");
+      console.error('Desktop bluetooth check failed:', error);
+      setBluetoothStatus('disabledInSystem');
     }
   }, []);
 
@@ -942,7 +942,7 @@ function ConnectByBluetooth({
       stopBluetoothStatusPolling,
       startBluetoothStatusPolling,
       isFocused,
-    ]
+    ],
   );
 
   // Use shared device connection logic for Bluetooth
@@ -969,7 +969,7 @@ function ConnectByBluetooth({
       // Re-check bluetooth status after enabling
       void checkBluetoothStatus();
     } catch (error) {
-      console.error("Failed to enable desktop bluetooth:", error);
+      console.error('Failed to enable desktop bluetooth:', error);
     }
   }, [checkBluetoothStatus]);
 
@@ -998,7 +998,7 @@ function ConnectByBluetooth({
 
   // Start scanning when bluetooth is enabled and focused
   useEffect(() => {
-    if (isFocused && bluetoothStatus === "enabled") {
+    if (isFocused && bluetoothStatus === 'enabled') {
       void listingDevice();
     } else if (!isFocused) {
       stopScan();
@@ -1011,10 +1011,10 @@ function ConnectByBluetooth({
       stopScan();
       stopBluetoothStatusPolling();
     },
-    [stopScan, stopBluetoothStatusPolling]
+    [stopScan, stopBluetoothStatusPolling],
   );
 
-  if (bluetoothStatus === "disabledInApp") {
+  if (bluetoothStatus === 'disabledInApp') {
     return (
       <Empty
         flex={1}
@@ -1024,7 +1024,7 @@ function ConnectByBluetooth({
           id: ETranslations.bluetooth_enable_in_app_settings,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
@@ -1034,7 +1034,7 @@ function ConnectByBluetooth({
     );
   }
 
-  if (bluetoothStatus === "noSystemPermission") {
+  if (bluetoothStatus === 'noSystemPermission') {
     return (
       <Empty
         flex={1}
@@ -1046,7 +1046,7 @@ function ConnectByBluetooth({
           id: ETranslations.bluetooth_permission_prompt,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.global_go_to_settings,
           }),
@@ -1056,7 +1056,7 @@ function ConnectByBluetooth({
     );
   }
 
-  if (bluetoothStatus === "disabledInSystem") {
+  if (bluetoothStatus === 'disabledInSystem') {
     return (
       <Empty
         flex={1}
@@ -1066,7 +1066,7 @@ function ConnectByBluetooth({
           id: ETranslations.bluetooth_enable_in_system_settings,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
@@ -1116,7 +1116,7 @@ export function ConnectYourDevicePage() {
   const { channel } = route?.params ?? {};
 
   const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
-    channel ?? EConnectDeviceChannel.usbOrBle
+    channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
   const { headerRight } = useBuyOneKeyHeaderRightButton();
@@ -1136,29 +1136,29 @@ export function ConnectYourDevicePage() {
   const handleSetupNewWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       navigation.push(EOnboardingPages.ActivateDevice, {
-        tutorialType: "create",
+        tutorialType: 'create',
         deviceType,
       });
     },
-    [navigation]
+    [navigation],
   );
 
   const handleRestoreWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       navigation.push(EOnboardingPages.ActivateDevice, {
-        tutorialType: "restore",
+        tutorialType: 'restore',
         deviceType,
       });
     },
-    [navigation]
+    [navigation],
   );
 
-  const requestsUrl = useHelpLink({ path: "requests/new" });
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const handleNotActivatedDevicePress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       const dialog = Dialog.show({
-        icon: "WalletCryptoOutline",
+        icon: 'WalletCryptoOutline',
         title: intl.formatMessage({
           id: ETranslations.onboarding_activate_device,
         }),
@@ -1201,8 +1201,8 @@ export function ConnectYourDevicePage() {
               onPress={async () => {
                 await dialog.close();
                 const packageAlertDialog = Dialog.show({
-                  tone: "warning",
-                  icon: "PackageDeliveryOutline",
+                  tone: 'warning',
+                  icon: 'PackageDeliveryOutline',
                   title: intl.formatMessage({
                     id: ETranslations.onboarding_activate_device_by_restore_warning,
                   }),
@@ -1217,7 +1217,7 @@ export function ConnectYourDevicePage() {
                         testID="onboarding-package-alert-dialog-btn"
                         flex={1}
                         size="large"
-                        $gtMd={{ size: "medium" } as any}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={() => openUrlExternal(requestsUrl)}
                       >
                         {intl.formatMessage({
@@ -1229,7 +1229,7 @@ export function ConnectYourDevicePage() {
                         flex={1}
                         variant="primary"
                         size="large"
-                        $gtMd={{ size: "medium" } as any}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={async () => {
                           await packageAlertDialog.close();
                           handleRestoreWalletPress({ deviceType });
@@ -1255,7 +1255,7 @@ export function ConnectYourDevicePage() {
         showFooter: false,
       });
     },
-    [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl]
+    [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
   );
 
   const connectDevice = useCallback(async (device: SearchDevice) => {
@@ -1275,10 +1275,10 @@ export function ConnectYourDevicePage() {
           return;
         }
         Toast.error({
-          title: message || "DeviceConnectError",
+          title: message || 'DeviceConnectError',
         });
       } else {
-        console.error("connectDevice error:", get(error, "message", ""));
+        console.error('connectDevice error:', get(error, 'message', ''));
       }
     }
   }, []);
@@ -1287,24 +1287,24 @@ export function ConnectYourDevicePage() {
     async (device: SearchDevice, options: { skipDelayClose?: boolean }) => {
       setIsChecking(false);
       void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-        connectId: device.connectId ?? "",
+        connectId: device.connectId ?? '',
         hardClose: true,
         skipDelayClose: options.skipDelayClose,
       });
     },
-    []
+    [],
   );
 
   const determineWalletCreationStrategy = useCallback(
     async (
       deviceState: IOneKeyDeviceState,
-      device: SearchDevice
+      device: SearchDevice,
     ): Promise<EHardwareWalletCreationMode | null> => {
       const existsStandardWallet = shouldCheckExistingStandardWallet(
-        deviceState
+        deviceState,
       )
         ? await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
-            connectId: device.connectId ?? "",
+            connectId: device.connectId ?? '',
             deviceId:
               deviceState.identity.deviceId ??
               deviceUtils.getRawDeviceId({ device }),
@@ -1319,16 +1319,16 @@ export function ConnectYourDevicePage() {
       }
 
       const walletType = await showSelectAddWalletTypeDialog();
-      if (walletType === "Standard") {
+      if (walletType === 'Standard') {
         return EHardwareWalletCreationMode.Standard;
       }
-      if (walletType === "Hidden") {
+      if (walletType === 'Hidden') {
         return EHardwareWalletCreationMode.Hidden;
       }
 
       return null;
     },
-    [showSelectAddWalletTypeDialog]
+    [showSelectAddWalletTypeDialog],
   );
 
   const createHwWallet = useCallback(
@@ -1337,7 +1337,7 @@ export function ConnectYourDevicePage() {
       walletMode: EHardwareWalletCreationMode,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
-      deviceState?: IOneKeyDeviceState
+      deviceState?: IOneKeyDeviceState,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -1358,7 +1358,7 @@ export function ConnectYourDevicePage() {
         }
 
         await trackHardwareWalletConnection({
-          status: "success",
+          status: 'success',
           deviceType: device.deviceType,
           features,
           hardwareTransportType,
@@ -1366,7 +1366,7 @@ export function ConnectYourDevicePage() {
         });
 
         await actions.current.updateHwWalletsDeprecatedStatus({
-          connectId: device.connectId ?? "",
+          connectId: device.connectId ?? '',
           deviceId: deviceUtils.getRawDeviceId({
             device,
             features,
@@ -1377,7 +1377,7 @@ export function ConnectYourDevicePage() {
         errorToastUtils.toastIfError(error);
         navigation.pop();
         await trackHardwareWalletConnection({
-          status: "failure",
+          status: 'failure',
           deviceType: device.deviceType,
           features,
           hardwareTransportType,
@@ -1394,7 +1394,7 @@ export function ConnectYourDevicePage() {
       hardwareTransportType,
       isSoftwareWalletOnlyUser,
       navigation,
-    ]
+    ],
   );
 
   const selectAddWalletType = useCallback(
@@ -1427,14 +1427,14 @@ export function ConnectYourDevicePage() {
       try {
         const showDeviceProcessLoadingDialog = () =>
           backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
-            connectId: device.connectId ?? "",
+            connectId: device.connectId ?? '',
           });
         // The iOS wait is for the legacy Sheet's mount acknowledgement —
         // with the stage owning the surface no Sheet mounts, so waiting
         // can only time out and kill the flow (OK-59934).
         if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
           await hardwareUiStateDialogLifecycle.openAndWait(
-            showDeviceProcessLoadingDialog
+            showDeviceProcessLoadingDialog,
           );
         } else {
           void showDeviceProcessLoadingDialog();
@@ -1445,13 +1445,13 @@ export function ConnectYourDevicePage() {
 
         try {
           const connectProtocol =
-            connectedFeatures.protocol === "V1" ||
-            connectedFeatures.protocol === "V2"
+            connectedFeatures.protocol === 'V1' ||
+            connectedFeatures.protocol === 'V2'
               ? connectedFeatures.protocol
               : undefined;
           deviceState = await getWalletCreationDeviceState({
             serviceHardware: backgroundApiProxy.serviceHardware,
-            connectId: device.connectId ?? "",
+            connectId: device.connectId ?? '',
             connectProtocol,
           });
           features = projectLegacyDeviceFeaturesFromState(deviceState);
@@ -1462,7 +1462,7 @@ export function ConnectYourDevicePage() {
 
         const strategy = await determineWalletCreationStrategy(
           deviceState,
-          device
+          device,
         );
 
         if (!strategy) {
@@ -1475,7 +1475,7 @@ export function ConnectYourDevicePage() {
           strategy,
           features,
           isFirmwareVerified,
-          deviceState
+          deviceState,
         );
       } catch (error) {
         stageError = error;
@@ -1492,27 +1492,27 @@ export function ConnectYourDevicePage() {
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,
-    ]
+    ],
   );
 
   // Shared device connection handler
   const handleDeviceConnect = useCallback(
     async (device: SearchDevice) => {
       // Ensure all scanning and polling activities are stopped before connecting
-      console.log("handleDeviceConnect: Starting device connection process");
+      console.log('handleDeviceConnect: Starting device connection process');
 
       defaultLogger.account.wallet.addWalletStarted({
-        addMethod: "ConnectHWWallet",
+        addMethod: 'ConnectHWWallet',
         details: {
-          hardwareWalletType: "Standard",
+          hardwareWalletType: 'Standard',
           communication: getHardwareCommunicationTypeString(
-            hardwareTransportType
+            hardwareTransportType,
           ),
         },
         isSoftwareWalletOnlyUser,
       });
 
-      if (device.deviceType === "unknown") {
+      if (device.deviceType === 'unknown') {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.hardware_connect_unknown_device_error,
@@ -1523,7 +1523,7 @@ export function ConnectYourDevicePage() {
 
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: device.connectId ?? "",
+          connectId: device.connectId ?? '',
           deviceType: device.deviceType ?? undefined,
           deviceName: device.name ?? undefined,
         });
@@ -1533,8 +1533,8 @@ export function ConnectYourDevicePage() {
             connectId: device.connectId ?? undefined,
             existsFirmware,
           });
-          console.log("Device is in bootloader mode", device);
-          throw new OneKeyLocalError("Device is in bootloader mode");
+          console.log('Device is in bootloader mode', device);
+          throw new OneKeyLocalError('Device is in bootloader mode');
         };
 
         if (
@@ -1562,14 +1562,14 @@ export function ConnectYourDevicePage() {
 
         if (!features) {
           await trackHardwareWalletConnection({
-            status: "failure",
+            status: 'failure',
             isSoftwareWalletOnlyUser,
             deviceType: device.deviceType,
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
           throw new OneKeyHardwareError(
-            "connect device failed, no features returned"
+            'connect device failed, no features returned',
           );
         }
 
@@ -1584,7 +1584,7 @@ export function ConnectYourDevicePage() {
         let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
           features,
         });
-        if (deviceType === "unknown") {
+        if (deviceType === 'unknown') {
           deviceType = device.deviceType || deviceType;
         }
 
@@ -1594,14 +1594,14 @@ export function ConnectYourDevicePage() {
 
         if (deviceMode === EOneKeyDeviceMode.backupMode) {
           await trackHardwareWalletConnection({
-            status: "failure",
+            status: 'failure',
             deviceType,
             isSoftwareWalletOnlyUser,
             features,
             hardwareTransportType: forceTransportType || hardwareTransportType,
           });
           Toast.error({
-            title: "Device is in backup mode",
+            title: 'Device is in backup mode',
           });
           return;
         }
@@ -1616,7 +1616,7 @@ export function ConnectYourDevicePage() {
 
         if (shouldAuthenticateFirmware) {
           void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: device.connectId ?? "",
+            connectId: device.connectId ?? '',
             hardClose: false,
             skipDelayClose: true,
             deviceResetToHome: false,
@@ -1658,7 +1658,7 @@ export function ConnectYourDevicePage() {
         // it; a bootloader hand-off or a failed connect leaves nothing to
         // land its exit, so it would stand over the update dialog.
         void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
-        console.error("handleDeviceConnect error:", error);
+        console.error('handleDeviceConnect error:', error);
         throw error;
       }
     },
@@ -1672,7 +1672,7 @@ export function ConnectYourDevicePage() {
       showFirmwareVerifyDialog,
       handleNotActivatedDevicePress,
       selectAddWalletType,
-    ]
+    ],
   );
 
   return (
@@ -1689,14 +1689,14 @@ export function ConnectYourDevicePage() {
             fullWidth
             value={tabValue}
             onChange={(v) => {
-              console.log("🔍 Tab selected:", v);
+              console.log('🔍 Tab selected:', v);
               setTabValue(v as any);
             }}
             options={[
               {
                 label: platformEnv.isNative
                   ? intl.formatMessage({ id: ETranslations.global_bluetooth })
-                  : "USB",
+                  : 'USB',
                 value: EConnectDeviceChannel.usbOrBle,
               },
               ...(platformEnv.isSupportDesktopBle
@@ -1752,7 +1752,7 @@ export function ConnectYourDevicePage() {
             display="flex"
             color="$textInteractive"
             hoverStyle={{
-              color: "$textInteractiveHover",
+              color: '$textInteractiveHover',
             }}
             href={ONEKEY_BUY_HARDWARE_URL}
             target="_blank"

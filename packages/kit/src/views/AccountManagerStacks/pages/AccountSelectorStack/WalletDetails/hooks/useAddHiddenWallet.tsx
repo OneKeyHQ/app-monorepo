@@ -19,7 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { waitForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
+import { watchForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -219,6 +219,13 @@ export function useAddHiddenWallet() {
             deviceType: device?.deviceType,
             deviceName: stageDeviceName,
           });
+        // Listening starts before the card is asked for: the paint is an
+        // RPC, and an exit the background announces while it is in flight
+        // would otherwise reach a main runtime that is not listening yet.
+        const introWatch = watchForDeviceStageAnswer(
+          EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+          () => 'continue' as const,
+        );
         const introShown =
           await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
             {
@@ -230,12 +237,10 @@ export function useAddHiddenWallet() {
         // The person dismissing the stage ends the run just as well — and
         // a card a silenced stage declined to paint has no Continue to
         // wait for, so the run ends here rather than hanging on it.
-        const intro = introShown
-          ? await waitForDeviceStageAnswer(
-              EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-              () => 'continue' as const,
-            )
-          : ({ closed: true } as const);
+        if (!introShown) {
+          introWatch.cancel();
+        }
+        const intro = await introWatch.answer;
         if (intro.closed) {
           // Dismissed at the teaching: nothing was started, nothing to
           // land — the stage's own close already dropped the hold and
