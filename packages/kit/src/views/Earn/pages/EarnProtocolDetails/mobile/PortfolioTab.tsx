@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IBadgeType } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -24,7 +25,8 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
-import type { IBadgeType } from '@onekeyhq/components';
+import { EarnTestIDs } from '../../../testIDs';
+
 import type { GestureResponderEvent } from 'react-native';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
@@ -124,7 +126,12 @@ function PortfolioRow({
         {/* Rewards carry a Claim button, so the principal gets the matching
             action rather than leaving the footer as the only way to redeem. */}
         {onRedeem ? (
-          <Button size="small" variant="secondary" onPress={onRedeem}>
+          <Button
+            testID={EarnTestIDs.portfolioRedeemButton}
+            size="small"
+            variant="secondary"
+            onPress={onRedeem}
+          >
             {intl.formatMessage({ id: ETranslations.earn_redeem })}
           </Button>
         ) : null}
