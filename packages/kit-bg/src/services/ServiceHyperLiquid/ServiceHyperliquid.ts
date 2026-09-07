@@ -121,6 +121,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import type { IMarketPerpsInfo } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -1585,6 +1586,33 @@ export default class ServiceHyperliquid extends ServiceBase {
     const map = await this.getSymbolsMetaMap({ coins: [coin] });
     const meta = map[coin];
     return meta;
+  }
+
+  // Top Coins detail data comes from the self-maintained asset API, which
+  // carries no perps field. Resolve the Hyperliquid counterpart from the
+  // main-DEX universe so the market page can still offer a perps entry.
+  @backgroundMethod()
+  async resolveMarketPerpsInfoBySymbol({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<IMarketPerpsInfo | undefined> {
+    const coin = symbol?.trim().toUpperCase();
+    if (!coin) {
+      return undefined;
+    }
+    const findMainDexAsset = (universesByDex: IPerpsUniverse[][]) =>
+      universesByDex[0]?.find((item) => !item.isDelisted && item.name === coin);
+
+    let { universesByDex } = await this.getTradingUniverse();
+    if (!universesByDex[0]?.length) {
+      // Market is reachable without ever mounting Perps, so the positional
+      // universe cache can still be empty here on a cold start.
+      await this.refreshTradingMeta();
+      ({ universesByDex } = await this.getTradingUniverse());
+    }
+    const asset = findMainDexAsset(universesByDex);
+    return asset ? { hlTicker: asset.name } : undefined;
   }
 
   @backgroundMethod()
