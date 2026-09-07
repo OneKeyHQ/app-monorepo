@@ -49,6 +49,30 @@ describe('watchForDeviceStageAnswer', () => {
     expect(listenerCount()).toBe(0);
   });
 
+  it('releases the listeners when the paint call itself fails', async () => {
+    // The callers release in a `finally`, so a bridge call that threw
+    // leaves nothing on the bus: repeated failures would otherwise pile
+    // up abandoned runs, each waking on the next stage event.
+    const watch = watchForDeviceStageAnswer(answerEvent, ({ walletType }) =>
+      walletType === 'hidden' ? 'Hidden' : 'Standard',
+    );
+    let painted = false;
+    await expect(
+      (async () => {
+        try {
+          painted = await Promise.reject(new Error('bridge down'));
+        } finally {
+          if (!painted) {
+            watch.cancel();
+          }
+        }
+      })(),
+    ).rejects.toThrow('bridge down');
+
+    await expect(watch.answer).resolves.toEqual({ closed: true });
+    expect(listenerCount()).toBe(0);
+  });
+
   it('releases the listeners when the card never landed', async () => {
     const watch = watchForDeviceStageAnswer(answerEvent, ({ walletType }) =>
       walletType === 'hidden' ? 'Hidden' : 'Standard',

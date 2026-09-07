@@ -226,20 +226,27 @@ export function useAddHiddenWallet() {
           EAppEventBusNames.DeviceStagePassphraseIntroContinue,
           () => 'continue' as const,
         );
-        const introShown =
-          await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
-            {
-              connectId: device?.connectId,
-              deviceType: device?.deviceType,
-              deviceName: stageDeviceName,
-            },
-          );
+        let introShown = false;
+        try {
+          introShown =
+            await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
+              {
+                connectId: device?.connectId,
+                deviceType: device?.deviceType,
+                deviceName: stageDeviceName,
+              },
+            );
+        } finally {
+          // Released on anything but a card that landed: a silenced stage
+          // answering false, and a bridge call that threw — the listeners
+          // outlive the abandoned run either way.
+          if (!introShown) {
+            introWatch.cancel();
+          }
+        }
         // The person dismissing the stage ends the run just as well — and
         // a card a silenced stage declined to paint has no Continue to
         // wait for, so the run ends here rather than hanging on it.
-        if (!introShown) {
-          introWatch.cancel();
-        }
         const intro = await introWatch.answer;
         if (intro.closed) {
           // Dismissed at the teaching: nothing was started, nothing to

@@ -103,15 +103,24 @@ export function useSelectAddWalletTypeDialog() {
         EAppEventBusNames.DeviceStageWalletTypeSelected,
         ({ walletType }) => (walletType === 'hidden' ? 'Hidden' : 'Standard'),
       );
-      const painted =
-        await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType();
+      let painted = false;
+      try {
+        painted =
+          await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType();
+      } finally {
+        // Released on anything but a card that landed: a silenced stage
+        // (the firmware workflow) answering false, and a bridge call that
+        // threw — the listeners outlive the abandoned run either way, and
+        // a later stage event would resolve a promise nobody awaits.
+        if (!painted) {
+          fork.cancel();
+        }
+      }
       if (painted) {
         const answered = await fork.answer;
         return answered.closed ? undefined : answered.answer;
       }
-      // A silenced stage (the firmware workflow) painted nothing: release
-      // the listeners and fall through to the legacy dialog below.
-      fork.cancel();
+      // Nothing was painted: fall through to the legacy dialog below.
     }
     // iOS-only: dismiss the hardware-UI dialog before mounting this one.
     // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same
