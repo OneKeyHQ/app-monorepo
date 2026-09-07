@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
+import type {
+  IDeviceStageConnectionTypeValue,
+  IDeviceStageErrorI18n,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
@@ -105,7 +108,7 @@ export type IDeviceStageVendor = 'ledger' | 'trezor';
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
  * driver's knowledge, never looked up here. */
-export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+export type IDeviceStageConnectionType = IDeviceStageConnectionTypeValue;
 
 /** The wallet-creation fork's two answers — the live dialog's own pair:
  * a standard wallet (no passphrase) or a hidden one (passphrase or
@@ -234,13 +237,21 @@ export interface IDeviceStageProps {
    */
   connectionType?: IDeviceStageConnectionType;
   /**
+   * The current machine wait has stalled (the driver's stall clock,
+   * design hard rule #3). Only the connecting capsule wears it: its
+   * second line trades the device name for a hint — wake the device and
+   * keep it near, or check the cable — chosen by `connectionType`. The
+   * same clock grants the close, so hint and way out arrive together.
+   */
+  waitStalled?: boolean;
+  /**
    * The person's way out of the stage. Given, the surface wears its close
    * button and follows a downward drag; absent, it cannot be dismissed at
-   * all. When to grant it is the driver's policy — the live hardware flows
-   * arm it on a timer (a few seconds into an ask, longer into a wait) and
-   * keep it armed for the rest of the burst; the authenticity flow arms it
-   * from the start. The driver answers a dismissal by moving `step` to
-   * `off` — the exit is already under way when this fires.
+   * all. When to grant it is the driver's policy (design hard rule #3):
+   * an ask opens once the stage has settled after appearing, a wait on
+   * the machine only once it has stalled, an outcome or a decision at
+   * once. The driver answers a dismissal by moving `step` to `off` — the
+   * exit is already under way when this fires.
    */
   onClose?: () => void;
   /**
