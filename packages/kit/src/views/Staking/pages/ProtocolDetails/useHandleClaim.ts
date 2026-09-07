@@ -150,6 +150,9 @@ export const useHandleClaim = ({
           portfolioSymbol:
             portfolioSymbol || tokenInfo?.token?.symbol || undefined,
           portfolioRewardSymbol,
+          // Every other branch hands onSuccess on; these two dropped it, so a
+          // caller that passed one was never told the claim landed.
+          onSuccess,
         });
         return;
       }
@@ -181,6 +184,7 @@ export const useHandleClaim = ({
         portfolioSymbol:
           portfolioSymbol || tokenInfo?.token?.symbol || undefined,
         portfolioRewardSymbol,
+        onSuccess,
       });
     },
     [accountId, networkId, handleUniversalClaim, appNavigation],
