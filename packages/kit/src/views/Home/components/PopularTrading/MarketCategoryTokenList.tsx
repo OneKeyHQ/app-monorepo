@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Icon,
   IconButton,
   SizableText,
   Stack,
@@ -15,7 +14,9 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 import { RichTable } from '../RichTable';
 
@@ -59,10 +60,6 @@ function MarketCategoryTokenList({
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     const renderStarButton = (record: IFavoriteTokenDisplay) => {
-      if (record.marketAsset) {
-        return <Icon name="StarOutline" size="$5" color="$iconSubdued" />;
-      }
-
       const checked = isTokenInWatchList(record);
       return (
         <IconButton
@@ -97,7 +94,25 @@ function MarketCategoryTokenList({
     return getPopularTradingColumns({
       intl,
       shouldUseTableLayout,
-      renderStarButton,
+      renderStarButton: (record) =>
+        record.marketAsset ? (
+          <MarketListingStar
+            kind="asset"
+            listingId={record.marketAsset.assetId}
+            from={EWatchlistFrom.Homepage}
+            renderButton={(identity) =>
+              renderStarButton({
+                ...record,
+                marketAsset: undefined,
+                chainId: identity.chainId,
+                contractAddress: identity.contractAddress,
+                isNative: identity.isNative,
+              })
+            }
+          />
+        ) : (
+          renderStarButton(record)
+        ),
     });
   }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
 
