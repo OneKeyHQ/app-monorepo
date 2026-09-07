@@ -15,7 +15,7 @@ interface IInterestRateModelSectionProps {
   utilizationRatio?: string;
 }
 
-export function InterestRateModelSection({
+function InterestRateModelSectionContent({
   networkId,
   provider,
   marketAddress,
@@ -38,7 +38,6 @@ export function InterestRateModelSection({
     [networkId, provider, marketAddress, reserveAddress],
     {
       watchLoading: true,
-      undefinedResultIfReRun: true,
       revalidateOnFocus: true,
     },
   );
@@ -56,5 +55,17 @@ export function InterestRateModelSection({
         isLoading={isInitialLoading}
       />
     </DetailsSectionContainer>
+  );
+}
+
+export function InterestRateModelSection(
+  props: IInterestRateModelSectionProps,
+) {
+  const { networkId, provider, marketAddress, reserveAddress } = props;
+  return (
+    <InterestRateModelSectionContent
+      key={JSON.stringify([networkId, provider, marketAddress, reserveAddress])}
+      {...props}
+    />
   );
 }

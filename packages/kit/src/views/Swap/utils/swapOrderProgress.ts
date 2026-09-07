@@ -92,7 +92,7 @@ export function getSwapOrderProgressSteps({
   status?: ESwapTxHistoryStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): ISwapOrderProgressStep[] {
-  if (!crossChainStatus) {
+  if (!crossChainStatus || status === ESwapTxHistoryStatus.EXPIRED) {
     return getThreeStepProgress(status);
   }
 

@@ -258,11 +258,37 @@ export function InterestRateModelChart({
           : null;
 
       const localChart = chart;
+      const sampleTimes = Array.from(
+        new Set([
+          ...chartData.supplyData.map(({ time }) => time),
+          ...chartData.borrowData.map(({ time }) => time),
+        ]),
+      ).toSorted((a, b) => a - b);
       const updateVerticalLinePosition = () => {
         if (currentUtilTime !== null) {
-          const xCoord = localChart
-            .timeScale()
-            .timeToCoordinate(currentUtilTime as UTCTimestamp);
+          const timeScale = localChart.timeScale();
+          let xCoord: number | null = timeScale.timeToCoordinate(
+            currentUtilTime as UTCTimestamp,
+          );
+          // The chart API only resolves exact samples. Interpolate between
+          // neighbors so fractional utilization still has a current-value marker.
+          if (xCoord === null) {
+            const rightIndex = sampleTimes.findIndex(
+              (time) => time > currentUtilTime,
+            );
+            if (rightIndex > 0) {
+              const leftTime = sampleTimes[rightIndex - 1];
+              const rightTime = sampleTimes[rightIndex];
+              const leftX = timeScale.timeToCoordinate(leftTime);
+              const rightX = timeScale.timeToCoordinate(rightTime);
+              if (leftX !== null && rightX !== null) {
+                xCoord =
+                  leftX +
+                  ((currentUtilTime - leftTime) / (rightTime - leftTime)) *
+                    (rightX - leftX);
+              }
+            }
+          }
           setVerticalLineX(xCoord);
         } else {
           setVerticalLineX(null);

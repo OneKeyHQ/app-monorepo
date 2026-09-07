@@ -1621,7 +1621,10 @@ const SwapHistoryDetailModal = () => {
               compactAll
             />
             {renderSwapLongPendingWarning()}
-            {txHistory?.crossChainStatus ? (
+            {txHistory?.crossChainStatus &&
+            txHistory.status !== ESwapTxHistoryStatus.EXPIRED &&
+            (txHistory.status !== ESwapTxHistoryStatus.REFUNDED ||
+              txHistory.crossChainStatus === ESwapCrossChainStatus.REFUNDED) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_order_detail,

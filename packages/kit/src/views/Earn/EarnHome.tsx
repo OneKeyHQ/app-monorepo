@@ -200,22 +200,10 @@ function BasicEarnHome({
           list,
           isResolved: true,
         });
-        return;
       }
 
-      // Keep whatever is on screen — the cached list, or the previous
-      // response. An uncached failure resolves to no banner so the placeholder
-      // cannot remain indefinitely. The error stays local because rethrowing
-      // would abort the rest of the Earn refresh Promise.all.
-      setEarnPageBannerState((previous) =>
-        previous.theme === requestTheme && previous.isResolved
-          ? previous
-          : {
-              theme: requestTheme,
-              list: visibleList,
-              isResolved: true,
-            },
-      );
+      // Preserve the last successful layout. A cache miss followed by a network
+      // failure is still unresolved, so a later successful retry can show banners.
     },
     [earnBannerTheme, showContent],
     {
@@ -324,7 +312,7 @@ function BasicEarnHome({
       return filteredEarnings24h;
     }
 
-    if (portfolioData.cachedOverviewTotalFiatValue !== undefined) {
+    if (portfolioData.cachedOverviewEarnings24h !== undefined) {
       return portfolioData.cachedOverviewEarnings24h || '0';
     }
 
@@ -340,7 +328,6 @@ function BasicEarnHome({
     filteredEarnings24h,
     hasPortfolioRows,
     portfolioData.cachedOverviewEarnings24h,
-    portfolioData.cachedOverviewTotalFiatValue,
     portfolioData.investments,
   ]);
 

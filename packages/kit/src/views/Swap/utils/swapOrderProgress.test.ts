@@ -41,6 +41,20 @@ describe('getSwapOrderProgressSteps', () => {
     ]);
   });
 
+  it.each(Object.values(ESwapCrossChainStatus))(
+    'prioritizes expired over stale cross-chain status %s',
+    (crossChainStatus) => {
+      expect(
+        getSwapOrderProgressSteps({
+          status: ESwapTxHistoryStatus.EXPIRED,
+          crossChainStatus,
+        }),
+      ).toEqual(
+        getSwapOrderProgressSteps({ status: ESwapTxHistoryStatus.EXPIRED }),
+      );
+    },
+  );
+
   it('renders a same-chain refunded state without cross-chain steps', () => {
     expect(
       getSwapOrderProgressSteps({
