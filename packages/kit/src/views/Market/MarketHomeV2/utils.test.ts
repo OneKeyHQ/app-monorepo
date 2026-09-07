@@ -4,6 +4,7 @@ import {
   ensureMarketTopCoinsCategory,
   isMarketStockCategory,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -360,6 +361,19 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
       'holders',
       'tokenAge',
     ]);
+  });
+});
+
+describe('Trending-style Spot Category Tests', () => {
+  test('uses the trending desktop layout for trending and Robinhood meme', () => {
+    expect(isTrendingStyleSpotCategory('trending')).toBe(true);
+    expect(isTrendingStyleSpotCategory('robinhood_meme')).toBe(true);
+  });
+
+  test('keeps other categories on the default desktop layout', () => {
+    expect(isTrendingStyleSpotCategory('x_mentioned')).toBe(false);
+    expect(isTrendingStyleSpotCategory('stocks')).toBe(false);
+    expect(isTrendingStyleSpotCategory(undefined)).toBe(false);
   });
 });
 

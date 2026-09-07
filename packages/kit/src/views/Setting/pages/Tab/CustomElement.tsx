@@ -48,6 +48,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
+import { openTravelModeSettingsWithAdmission } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useAppUpdatePersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -726,7 +727,7 @@ function useAppVersionDetails() {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': version,
+      versionNum: version,
     },
   );
   const handleCopyVersion = useCallback(() => {
@@ -1151,6 +1152,41 @@ export function ResetPinListItem({
       setIsLoading(false);
     }
   }, [goToOneKeyIDLoginPageForKeylessWallet, logItemClick]);
+
+  return (
+    <TabSettingsListItem
+      {...props}
+      minHeight="$12"
+      onPress={onPress}
+      isLoading={isLoading}
+      drillIn
+    />
+  );
+}
+
+export function TravelModeListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const onPress = useCallback(async () => {
+    logItemClick?.();
+    setIsLoading(true);
+    try {
+      await openTravelModeSettingsWithAdmission({
+        openTravelModeSettings: ({ admissionId }) => {
+          navigation.push(EModalSettingRoutes.SettingTravelModeModal, {
+            admissionId,
+          });
+        },
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [logItemClick, navigation]);
 
   return (
     <TabSettingsListItem
