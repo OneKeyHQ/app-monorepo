@@ -101,6 +101,7 @@ const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
   'decimals',
   'price',
   'change24h',
+  'priceChangeRaw',
   'marketCap',
   'liquidity',
   'transactions',

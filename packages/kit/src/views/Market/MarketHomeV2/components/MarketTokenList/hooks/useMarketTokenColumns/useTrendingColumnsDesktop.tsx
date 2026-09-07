@@ -187,7 +187,10 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${timeRange} Change`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
         render: (value: number, record: IMarketToken) => {
@@ -218,9 +221,10 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={80} height={16} />,
       },
       {
-        title: `${timeRange} ${intl.formatMessage({
-          id: ETranslations.dexmarket_txns,
-        })}`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_txns_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'transactions',
         columnProps: { flex: 1 },
         render: (value: number, record: IMarketToken) => (
@@ -234,7 +238,10 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${timeRange} Volume`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'turnover',
         columnProps: { flex: 1 },
         render: (value: number) => <MarketValue value={value} currency />,
