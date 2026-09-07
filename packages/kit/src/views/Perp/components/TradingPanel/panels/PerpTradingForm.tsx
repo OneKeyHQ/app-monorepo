@@ -2216,6 +2216,9 @@ function PerpTradingForm({
                     id: ETranslations.Perps_BBO_button_desc,
                   })}
                   placement="top-end"
+                  // Tamagui 2 stops click propagation on the tooltip trigger, so
+                  // clicks on the label never reach the Badge onPress.
+                  onPress={isSubmitting ? undefined : handleBBOToggle}
                 />
               )}
             </Badge>
