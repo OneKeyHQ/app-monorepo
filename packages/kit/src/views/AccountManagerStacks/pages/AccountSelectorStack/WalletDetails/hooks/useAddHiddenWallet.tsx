@@ -24,6 +24,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -289,7 +290,7 @@ export function useAddHiddenWallet() {
         if (stageToken !== undefined) {
           await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
             token: stageToken,
-            error: stageError,
+            error: stageError ? toPlainErrorObject(stageError) : undefined,
           });
         }
         setIsLoading(false);

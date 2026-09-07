@@ -81,6 +81,7 @@ import {
   resolveBtcHighIndexSub,
   resolveCapsuleText,
   resolveDeviceNotFoundText,
+  resolveErrorMessage,
   resolveInstallText,
   resolvePairingCodeText,
   resolvePassphrasePanelText,
@@ -472,6 +473,7 @@ export function DeviceStage({
   onQrBack,
   errorReason,
   errorMessage,
+  errorI18n,
   authChecklist,
   authFailureReason,
   onAuthSupport,
@@ -1130,6 +1132,11 @@ export function DeviceStage({
   // while parked, as StepText animates on the active seat alone.
   const intl = useIntl();
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
+  const localizedErrorMessage = resolveErrorMessage(
+    intl,
+    errorMessage,
+    errorI18n,
+  );
   const stageText = resolveStageText(intl, stageWordsStep);
   const passphraseText = resolvePassphrasePanelText(intl, passphraseMode);
   const appStepSub = useMemo(
@@ -1281,7 +1288,7 @@ export function DeviceStage({
       deviceName,
       vendor,
       errorReason,
-      errorMessage,
+      localizedErrorMessage,
     );
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
@@ -1701,8 +1708,8 @@ export function DeviceStage({
               // Same rule as the notice: the failure's own words when no
               // reason claims it, the reason's considered wording when
               // one does.
-              !errorReason && errorMessage
-                ? errorMessage
+              !errorReason && localizedErrorMessage
+                ? localizedErrorMessage
                 : intl.formatMessage({ id: errorCopy.title })
             }
             sub={intl.formatMessage({ id: errorCopy.sub })}
@@ -1725,9 +1732,9 @@ export function DeviceStage({
     [
       errorAnimated,
       errorCopy,
-      errorMessage,
       errorReason,
       intl,
+      localizedErrorMessage,
       onErrorAction,
       panelMeasureHandlers,
     ],

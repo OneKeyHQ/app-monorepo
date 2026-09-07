@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
@@ -20,6 +21,21 @@ import type { IntlShape } from 'react-intl';
  * app's locale. Pure data and pure functions; how the stage plays them
  * is the engine's own business (see ./index).
  */
+
+export function resolveErrorMessage(
+  intl: IntlShape,
+  message?: string,
+  errorI18n?: IDeviceStageErrorI18n,
+): string | undefined {
+  const key = errorI18n?.key;
+  if (key && intl.messages[key]) {
+    return intl.formatMessage(
+      { id: key, defaultMessage: message },
+      errorI18n.info,
+    );
+  }
+  return message;
+}
 
 // `off` has no words of its own: searching is part of connecting, so the
 // copy is in place from the first frame and holds still while the screen

@@ -661,6 +661,34 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('does not generate accounts for a mocked standard hardware wallet', async () => {
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.addDefaultNetworkAccounts({
+          wallet: {
+            id: 'hw-standard-mocked',
+            isMocked: true,
+          } as IWallet,
+          indexedAccount: {
+            id: 'hw-standard-mocked--0',
+            walletId: 'hw-standard-mocked',
+          } as IIndexedAccount,
+          isCreateWallet: true,
+        }),
+      ).resolves.toEqual({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+    });
+
+    expect(mockAddDefaultNetworkAccountsService).not.toHaveBeenCalled();
+  });
+
   describe('createQrWallet onboarding network selection', () => {
     const qrWallet = { id: 'qr-1' } as IWallet;
     const qrIndexedAccount = {
