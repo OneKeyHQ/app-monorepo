@@ -30,6 +30,7 @@ import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
 } from '../utils';
 
@@ -227,7 +228,9 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
-      const isTrendingCategory = currentSpotCategoryId === 'trending';
+      const usesTrendingStyle = isTrendingStyleSpotCategory(
+        currentSpotCategoryId,
+      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -258,7 +261,7 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              {isTrendingCategory ? null : (
+              {usesTrendingStyle ? null : (
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
                   onChange={currentFilterBarProps.onTimeRangeChange}
@@ -364,7 +367,9 @@ export function DesktopLayout({
             />
           );
         } else {
-          const isTrendingCategory = item.categoryId === 'trending';
+          const usesTrendingStyle = isTrendingStyleSpotCategory(
+            item.categoryId,
+          );
           tabContent = (
             <MarketNormalTokenList
               networkId={selectedNetworkId}
@@ -379,10 +384,10 @@ export function DesktopLayout({
               onStockDataChange={handleStockDataChange}
               enableWebSocket={activeTabName === item.tabName}
               centerDesktopPortalContent
-              desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
-              useApiDefaultSort={isTrendingCategory}
+              desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
+              useApiDefaultSort={usesTrendingStyle}
               toolbar={
-                isTrendingCategory ? (
+                usesTrendingStyle ? (
                   <TrendingDesktopToolbar
                     timeRange={filterBarProps.timeRange}
                     onTimeRangeChange={filterBarProps.onTimeRangeChange}
