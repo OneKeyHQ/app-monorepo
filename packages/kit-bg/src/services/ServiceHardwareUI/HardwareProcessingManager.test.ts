@@ -45,38 +45,28 @@ describe('HardwareProcessingManager OneKey operation lease', () => {
     const manager = new HardwareProcessingManager();
     const cleanupError = new Error('cleanup failed');
     const operationError = new Error('operation failed');
-    const consoleError = jest.spyOn(console, 'error').mockImplementation();
 
-    try {
-      await expect(
-        manager.runExclusiveOneKeyOperation({
-          operation: async (lease) => {
-            void manager.runOneKeyOperationCleanup(lease, async () =>
-              Promise.reject(cleanupError),
-            );
-            return 'operation result';
-          },
-        }),
-      ).resolves.toBe('operation result');
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void manager.runOneKeyOperationCleanup(lease, async () =>
+            Promise.reject(cleanupError),
+          );
+          return 'operation result';
+        },
+      }),
+    ).resolves.toBe('operation result');
 
-      await expect(
-        manager.runExclusiveOneKeyOperation({
-          operation: async (lease) => {
-            void manager.runOneKeyOperationCleanup(lease, async () =>
-              Promise.reject(cleanupError),
-            );
-            throw operationError;
-          },
-        }),
-      ).rejects.toBe(operationError);
-      expect(consoleError).toHaveBeenCalledTimes(2);
-      expect(consoleError).toHaveBeenCalledWith(
-        'OneKey hardware operation cleanup failed',
-        cleanupError,
-      );
-    } finally {
-      consoleError.mockRestore();
-    }
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void manager.runOneKeyOperationCleanup(lease, async () =>
+            Promise.reject(cleanupError),
+          );
+          throw operationError;
+        },
+      }),
+    ).rejects.toBe(operationError);
   });
 
   it('allows only one OneKey operation to own SDK UI responses at a time', async () => {
