@@ -46,7 +46,7 @@ import {
   drainAccountSelectorPerfE2ETrace,
   isAccountSelectorPerfE2EAttributionEnabled,
   setAccountSelectorPerfE2EAttributionEnabled,
-} from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perf';
+} from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perfE2E';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

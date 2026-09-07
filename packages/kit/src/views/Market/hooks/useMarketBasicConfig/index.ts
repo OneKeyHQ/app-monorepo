@@ -72,6 +72,8 @@ export function useMarketBasicConfig() {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
+      // Keep the last configuration (or defaults) while the server recovers.
+      keepResultIfError: true,
     },
   );
 

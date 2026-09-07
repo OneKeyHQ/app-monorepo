@@ -23461,6 +23461,7 @@
     "packages/shared/src/logger/scopes/accountSelector/scenes/failure.ts": 3238,
     "packages/shared/src/logger/scopes/accountSelector/scenes/listData.ts": 8656,
     "packages/shared/src/logger/scopes/accountSelector/scenes/perf.ts": 5738,
+    "packages/shared/src/logger/scopes/accountSelector/scenes/perfE2E.ts": 24353,
     "packages/shared/src/logger/scopes/accountSelector/scenes/render.ts": 17637,
     "packages/shared/src/logger/scopes/accountSelector/scenes/staleDrop.ts": 19739,
     "packages/shared/src/logger/scopes/accountSelector/scenes/storage.ts": 7954,

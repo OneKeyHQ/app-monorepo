@@ -457,7 +457,10 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      // This only warms a cache; the page owns fallback and reconnect retries.
+      void backgroundApiProxy.serviceMarketV2
+        .fetchMarketBasicConfig()
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
       const timer = setTimeout(fetchMarketBasicConfig, 6000);

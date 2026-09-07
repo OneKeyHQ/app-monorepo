@@ -87,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 // eslint-disable-next-line import/no-relative-packages
@@ -120,6 +121,88 @@ describe('usePromiseResult', () => {
     globalNetInfo.listeners = [];
     globalNetInfo.state = { isInternetReachable: null };
     globalNetInfo.prevIsInternetReachable = false;
+  });
+
+  it('keeps optional data after a failed revalidation and can recover', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        watchLoading: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+
+    method.mockRejectedValueOnce(new Error('optional config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBe('cached');
+    expect(result.current.isLoading).toBe(false);
+
+    method.mockResolvedValueOnce('recovered');
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.result).toBe('recovered');
+  });
+
+  it('still rejects errors when keeping optional data was not requested', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() => usePromiseResult(method, []));
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    const failure = new Error('required data unavailable');
+    method.mockRejectedValueOnce(failure);
+    await act(async () => {
+      await expect(result.current.run()).rejects.toBe(failure);
+    });
+    expect(result.current.result).toBe('cached');
+  });
+
+  it('keeps defaults on a cold-start failure and retries on reconnect', async () => {
+    globalNetInfo.state = { isInternetReachable: false };
+    let recovered = false;
+    const method = jest.fn(async () => {
+      if (!recovered) {
+        throw new OneKeyLocalError('optional config unavailable');
+      }
+      return 'recovered';
+    });
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        initResult: 'default',
+        keepResultIfError: true,
+        watchLoading: true,
+        revalidateOnReconnect: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(method).toHaveBeenCalled();
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.result).toBe('default');
+
+    recovered = true;
+    act(() => {
+      globalNetInfo.updateState({ isInternetReachable: true });
+    });
+    await waitFor(() => expect(result.current.result).toBe('recovered'));
+  });
+
+  it('gives undefinedResultIfError precedence over keepResultIfError', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        undefinedResultIfError: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    method.mockRejectedValueOnce(new Error('config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBeUndefined();
   });
 
   it('does not rerender on netinfo updates when reconnect revalidation is disabled', async () => {

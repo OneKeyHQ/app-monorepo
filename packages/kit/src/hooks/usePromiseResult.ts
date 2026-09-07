@@ -32,6 +32,9 @@ export type IPromiseResultOptions<T> = {
   overrideIsFocused?: (isFocused: boolean) => boolean; // override the value of useIsFocused
   debounced?: number;
   undefinedResultIfError?: boolean;
+  // Optional background data may retain its last result without rethrowing.
+  // undefinedResultIfError takes precedence when both options are enabled.
+  keepResultIfError?: boolean;
   undefinedResultIfReRun?: boolean;
   pollingInterval?: number;
   alwaysSetState?: boolean;
@@ -349,7 +352,7 @@ export function usePromiseResult<T>(
             // silently keeps stale data and re-throws as an unhandled
             // rejection.
             setResult(undefined);
-          } else if (!isAbortError) {
+          } else if (!isAbortError && !optionsRef.current.keepResultIfError) {
             throw err;
           }
         } finally {
