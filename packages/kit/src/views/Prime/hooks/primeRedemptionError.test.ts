@@ -1,3 +1,4 @@
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getPrimeRedemptionErrorPresentation } from './primeRedemptionError';
@@ -66,6 +67,29 @@ describe('getPrimeRedemptionErrorPresentation', () => {
       errorCode: undefined,
       isExpiredSession: false,
       message: 'fallback',
+    });
+  });
+
+  it('reads translated copy and a numeric code after toPlainErrorObject', () => {
+    const plain = toPlainErrorObject({
+      code: 90_506,
+      message: 'server-message',
+      data: {
+        code: 90_506,
+        message: 'server-message',
+        translatedMessage: 'translated-message',
+      },
+    });
+
+    expect(
+      getPrimeRedemptionErrorPresentation({
+        error: plain,
+        fallbackMessage: 'fallback',
+      }),
+    ).toEqual({
+      errorCode: 90_506,
+      isExpiredSession: false,
+      message: 'translated-message',
     });
   });
 });
