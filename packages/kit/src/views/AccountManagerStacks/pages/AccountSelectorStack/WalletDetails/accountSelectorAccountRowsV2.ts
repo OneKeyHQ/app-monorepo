@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import type { RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -24,10 +25,6 @@ import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  IAccountSelectorDeFiItem,
-  IAccountSelectorValueItem,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,10 +35,11 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { AccountManagerTestIDs } from '../../../testIDs';
 import { accountSelectorAccountVisualV2 } from '../accountSelectorNativeListV2';
 
-import { formatAccountSelectorValueV2 } from './accountSelectorValueV2';
+import { createAccountSelectorValueRowsV2 } from './accountSelectorValueRowsV2';
 
 import type {
   IdentityRow,
+  NativeListRef,
   NativeListSnapshot,
   NativeListTheme,
   RowPatch,
@@ -291,87 +289,46 @@ export function useAccountSelectorAccountRowsV2({
       editable,
     ],
   );
-  // Each cache belongs to the formatting context; weak keys retain only live rows.
-  const getValueRow = useMemo(() => {
-    const cache = new WeakMap<
-      IdentityRow,
-      {
-        accountValue?: IAccountSelectorValueItem;
-        overview?: IAccountSelectorDeFiItem;
-        row: IdentityRow;
-      }
-    >();
-    return (
-      row: IdentityRow,
-      record: IAccountSelectorRowRecordV2,
-      accountValue?: IAccountSelectorValueItem,
-      overview?: IAccountSelectorDeFiItem,
-    ): IdentityRow => {
-      if (
-        platformEnv.isWebDappMode ||
-        platformEnv.isE2E ||
-        record.shouldShowCreateAddressButton
-      ) {
-        return row;
-      }
-      const cached = cache.get(row);
-      if (
-        cached &&
-        isEqual(cached.accountValue, accountValue) &&
-        isEqual(cached.overview, overview)
-      ) {
-        return cached.row;
-      }
-      const value = formatAccountSelectorValueV2({
-        accountValue,
-        activeAccountValue,
-        overview,
-        walletId: wallet?.id ?? '',
-        linkedAccountId:
-          record.indexedAccount?.associateAccount?.id ?? record.item.id,
-        linkedNetworkId: record.avatarNetworkId ?? network?.id,
-        mergeDeriveAssetsEnabled,
-        enabledNetworksCompatibleWithWalletId,
-        networkInfoMap,
-        currencyMap,
-        targetCurrency: currencyInfo.id,
-        hideValue: !!settingsValue.hideValue,
-      });
-      const subtitleSegments = [value, ...(row.subtitleSegments ?? [])];
-      const valueRow: IdentityRow = {
-        ...row,
-        subtitleSegments,
-        accessibilityLabel: [
-          row.title,
-          ...subtitleSegments.map((segment) => segment.text),
-        ].join(', '),
-      };
-      cache.set(row, { accountValue, overview, row: valueRow });
-      return valueRow;
-    };
-  }, [
-    activeAccountValue,
-    wallet?.id,
-    network?.id,
-    mergeDeriveAssetsEnabled,
-    enabledNetworksCompatibleWithWalletId,
-    networkInfoMap,
-    currencyMap,
-    currencyInfo.id,
-    settingsValue.hideValue,
-  ]);
-  // Balance batches must not rebuild avatars or other static row presentation.
+  // The cache owns only the current account set, not previous wallets.
+  const getValueRows = useMemo(() => createAccountSelectorValueRowsV2(), []);
+  const accountValues = valuesMap[num];
+  const accountDeFi = deFiMap[num];
   const rows = useMemo(
     () =>
-      staticRows.map((row, index) =>
-        getValueRow(
-          row,
-          records[index],
-          valuesMap[num]?.[row.key],
-          deFiMap[num]?.[row.key],
-        ),
-      ),
-    [staticRows, records, getValueRow, valuesMap, num, deFiMap],
+      getValueRows({
+        staticRows,
+        records,
+        accountValues,
+        accountDeFi,
+        activeAccountValue,
+        context: {
+          walletId: wallet?.id ?? '',
+          networkId: network?.id,
+          mergeDeriveAssetsEnabled,
+          enabledNetworksCompatibleWithWalletId,
+          networkInfoMap,
+          currencyMap,
+          targetCurrency: currencyInfo.id,
+          hideValue: !!settingsValue.hideValue,
+        },
+        skipValues: !!(platformEnv.isWebDappMode || platformEnv.isE2E),
+      }),
+    [
+      getValueRows,
+      staticRows,
+      records,
+      accountValues,
+      accountDeFi,
+      activeAccountValue,
+      wallet?.id,
+      network?.id,
+      mergeDeriveAssetsEnabled,
+      enabledNetworksCompatibleWithWalletId,
+      networkInfoMap,
+      currencyMap,
+      currencyInfo.id,
+      settingsValue.hideValue,
+    ],
   );
   return { records, rows };
 }
@@ -390,6 +347,7 @@ export function buildAccountSelectorRowPatchesV2(
   previous: NativeListSnapshot,
   next: NativeListSnapshot,
 ): RowPatch[] | undefined {
+  if (previous === next) return [];
   const { rows: previousRows, ...previousMetadata } = previous;
   const { rows: nextRows, ...nextMetadata } = next;
   if (
@@ -398,40 +356,81 @@ export function buildAccountSelectorRowPatchesV2(
   ) {
     return undefined;
   }
+  if (previousRows === nextRows) return [];
   const patches: RowPatch[] = [];
   for (let index = 0; index < nextRows.length; index += 1) {
     const row = nextRows[index];
     const previousRow = previousRows[index];
-    if (row.key !== previousRow.key || row.type !== previousRow.type) {
-      return undefined;
-    }
-    if (row.type !== 'identity' || previousRow.type !== 'identity') {
-      if (!isEqual(row, previousRow)) return undefined;
-    } else if (row !== previousRow) {
-      const fields = new Set([
-        ...Object.keys(previousRow),
-        ...Object.keys(row),
-      ] as (keyof IdentityRow)[]);
-      const changedFields: (keyof IdentityRow)[] = [];
-      for (const field of fields) {
-        if (!isEqual(row[field], previousRow[field])) {
-          // Undefined fields are omitted by JSON; a snapshot is needed to clear them.
-          if (!accountRowPatchFieldsV2.has(field) || row[field] === undefined) {
-            return undefined;
-          }
-          changedFields.push(field);
-        }
+    if (row !== previousRow) {
+      if (row.key !== previousRow.key || row.type !== previousRow.type) {
+        return undefined;
       }
-      if (changedFields.length) {
-        patches.push({
-          type: 'identity',
-          key: row.key,
-          changes: Object.fromEntries(
-            changedFields.map((field) => [field, row[field]]),
-          ) as Extract<RowPatch, { type: 'identity' }>['changes'],
-        });
+      if (row.type !== 'identity' || previousRow.type !== 'identity') {
+        if (!isEqual(row, previousRow)) return undefined;
+      } else {
+        const fields = new Set([
+          ...Object.keys(previousRow),
+          ...Object.keys(row),
+        ] as (keyof IdentityRow)[]);
+        const changedFields: (keyof IdentityRow)[] = [];
+        for (const field of fields) {
+          if (!isEqual(row[field], previousRow[field])) {
+            // Undefined fields are omitted by JSON; a snapshot is needed to clear them.
+            if (
+              !accountRowPatchFieldsV2.has(field) ||
+              row[field] === undefined
+            ) {
+              return undefined;
+            }
+            changedFields.push(field);
+          }
+        }
+        if (changedFields.length) {
+          patches.push({
+            type: 'identity',
+            key: row.key,
+            changes: Object.fromEntries(
+              changedFields.map((field) => [field, row[field]]),
+            ) as Extract<RowPatch, { type: 'identity' }>['changes'],
+          });
+        }
       }
     }
   }
   return patches;
+}
+
+// A structural change replaces the prop; field patches keep the mounted base stable.
+export function useAccountSelectorNativeSnapshotV2({
+  snapshot,
+  listRef,
+  listHeight,
+}: {
+  snapshot: NativeListSnapshot;
+  listRef: RefObject<NativeListRef | null>;
+  listHeight: number;
+}) {
+  const [nativeSnapshot, setNativeSnapshot] = useState(snapshot);
+  const appliedSnapshotRef = useRef<
+    { base: NativeListSnapshot; latest: NativeListSnapshot } | undefined
+  >(undefined);
+  const previousSnapshot =
+    appliedSnapshotRef.current?.base === nativeSnapshot
+      ? appliedSnapshotRef.current.latest
+      : nativeSnapshot;
+  const rowPatches = useMemo(
+    () => buildAccountSelectorRowPatchesV2(previousSnapshot, snapshot),
+    [previousSnapshot, snapshot],
+  );
+  if (rowPatches === undefined) setNativeSnapshot(snapshot);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) {
+      appliedSnapshotRef.current = undefined;
+      return;
+    }
+    if (rowPatches?.length) list.applyPatches(rowPatches);
+    appliedSnapshotRef.current = { base: nativeSnapshot, latest: snapshot };
+  }, [nativeSnapshot, snapshot, rowPatches, listHeight, listRef]);
+  return nativeSnapshot;
 }

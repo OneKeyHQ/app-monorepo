@@ -60,8 +60,8 @@ import { useAccountSelectorNativeListThemeV2 } from '../accountSelectorNativeLis
 
 import {
   type IAccountSelectorRowRecordV2,
-  buildAccountSelectorRowPatchesV2,
   useAccountSelectorAccountRowsV2,
+  useAccountSelectorNativeSnapshotV2,
 } from './accountSelectorAccountRowsV2';
 import {
   AccountSelectorCreateAddressActionV2,
@@ -69,7 +69,7 @@ import {
 } from './AccountSelectorActionV2';
 import { EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
-import { useAccountSelectorValuesLoader } from './useAccountSelectorValuesLoader';
+import { useAccountSelectorValuesLoaderV2 } from './useAccountSelectorValuesLoaderV2';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
@@ -321,7 +321,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   }, [sectionDataOriginal, searchText, accountAddressMap, addressMapLoading]);
 
   // Load account values asynchronously in batches via atoms, scoped by selector num
-  useAccountSelectorValuesLoader({
+  useAccountSelectorValuesLoaderV2({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
     linkedNetworkId,
@@ -498,30 +498,11 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     generation,
     theme,
   ]);
-  // Keep the native snapshot prop stable while balance batches update row fields.
-  const [nativeSnapshot, setNativeSnapshot] = useState(snapshot);
-  const appliedSnapshotRef = useRef<
-    { base: NativeListSnapshot; latest: NativeListSnapshot } | undefined
-  >(undefined);
-  if (
-    buildAccountSelectorRowPatchesV2(nativeSnapshot, snapshot) === undefined
-  ) {
-    setNativeSnapshot(snapshot);
-  }
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) {
-      appliedSnapshotRef.current = undefined;
-      return;
-    }
-    const previous =
-      appliedSnapshotRef.current?.base === nativeSnapshot
-        ? appliedSnapshotRef.current.latest
-        : nativeSnapshot;
-    const patches = buildAccountSelectorRowPatchesV2(previous, snapshot);
-    if (patches?.length) list.applyPatches(patches);
-    appliedSnapshotRef.current = { base: nativeSnapshot, latest: snapshot };
-  }, [nativeSnapshot, snapshot, listHeight]);
+  const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
+    snapshot,
+    listRef,
+    listHeight,
+  });
   const selectedKey = isOthersUniversal
     ? selectedAccount.othersWalletAccountId
     : selectedAccount.indexedAccountId;

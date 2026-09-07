@@ -76,7 +76,7 @@ index d8300e2..a129837 100644
    val isSelectable: Boolean
      get() = !json.optBoolean("disabled", false) && type in SELECTABLE_TYPES
 diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
-index db47e5e..efed94f 100644
+index db47e5e..4ef24aa 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 +++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 @@ -29,6 +29,12 @@ import android.widget.LinearLayout
@@ -333,7 +333,7 @@ index db47e5e..efed94f 100644
  
      when (item.type) {
        "walletGroup" -> bindWalletGroup(item, theme, layout, listOrientation, checkboxState)
-@@ -609,7 +738,16 @@ internal class NativeListRowView(
+@@ -609,7 +738,30 @@ internal class NativeListRowView(
        "system" -> bindSystem(item, theme)
      }
      applySize(item)
@@ -347,10 +347,32 @@ index db47e5e..efed94f 100644
 +    }
      applyListOrientation(item, listOrientation)
 +    applySelectorTypography(item)
++  }
++
++  // OneKey patch: keep a small idle member pool after reuse or a direct rebind.
++  // The compact proxy/expansion keeps every member until it leaves that state.
++  private fun trimWalletGroupRows(required: Int) {
++    val retained = maxOf(8, required)
++    while (walletGroupRows.size > retained) {
++      val row = walletGroupRows.removeAt(walletGroupRows.lastIndex)
++      (row.parent as? ViewGroup)?.removeView(row)
++      row.dispose()
++      row.onRowPress = null
++      row.onAction = null
++      row.onBindingInvalidated = null
++    }
    }
  
    fun recycle() {
-@@ -636,6 +774,8 @@ internal class NativeListRowView(
+@@ -625,6 +777,7 @@ internal class NativeListRowView(
+       row.alpha = 1f
+       row.recycle()
+     }
++    if (!reorderActive && walletGroupExpandAnimator?.isRunning != true) trimWalletGroupRows(0)
+   }
+ 
+   fun bindSelection(
+@@ -636,6 +789,8 @@ internal class NativeListRowView(
      checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String,
    ) {
      if (boundKey != item.key) return
@@ -359,7 +381,7 @@ index db47e5e..efed94f 100644
      if (item.type == "walletGroup") {
        val members = buildList {
          add(item.json.getJSONObject("parent"))
-@@ -669,7 +809,18 @@ internal class NativeListRowView(
+@@ -669,7 +824,18 @@ internal class NativeListRowView(
          ),
        )
      }
@@ -379,7 +401,7 @@ index db47e5e..efed94f 100644
    }
  
    fun bindStableSummary(item: NativeListItem) {
-@@ -684,10 +835,14 @@ internal class NativeListRowView(
+@@ -684,10 +850,14 @@ internal class NativeListRowView(
      contentDescription = item.json.optString("accessibilityLabel", item.json.optString("title"))
      title.text = item.json.optString("title")
      trailingViews[0].text = item.json.optString("value")
@@ -394,7 +416,7 @@ index db47e5e..efed94f 100644
      leadingImages.forEach(OneKeyImageReusableView::dispose)
      secondaryImage.dispose()
      mediaNetworkImage.dispose()
-@@ -699,7 +854,8 @@ internal class NativeListRowView(
+@@ -699,7 +869,8 @@ internal class NativeListRowView(
      sourceView: View,
      source: String,
      slot: Int? = null,
@@ -404,7 +426,7 @@ index db47e5e..efed94f 100644
  
    private fun emitAction(
      item: NativeListItem,
-@@ -712,13 +868,65 @@ internal class NativeListRowView(
+@@ -712,13 +883,65 @@ internal class NativeListRowView(
      onAction?.invoke(item, actionKey, target, actionOrigin(sourceView, source, slot))
    }
  
@@ -470,7 +492,19 @@ index db47e5e..efed94f 100644
      walletGroupRows.forEach { it.invalidateCurrentBinding() }
      walletGroupExpandAnimator?.removeAllListeners()
      walletGroupExpandAnimator?.cancel()
-@@ -801,6 +1009,7 @@ internal class NativeListRowView(
+@@ -736,6 +959,11 @@ internal class NativeListRowView(
+     activityContentRow.removeAllViews()
+     (actionLine.parent as? ViewGroup)?.removeView(actionLine)
+     removeAllViews()
++    // OneKey patch: the old animator is cancelled and old children are detached.
++    // Do not trim currently needed members when re-binding an expanded group.
++    val nextItem = tag as? NativeListItem
++    val required = if (nextItem?.type == "walletGroup") (nextItem.json.optJSONArray("children")?.length() ?: 0) + 1 else 0
++    trimWalletGroupRows(required)
+     orientation = HORIZONTAL
+     gravity = Gravity.CENTER_VERTICAL
+     minimumHeight = 0
+@@ -801,6 +1029,7 @@ internal class NativeListRowView(
      trailingColumn.layoutParams = wrap()
      trailingViews.forEach {
        it.visibility = GONE
@@ -478,7 +512,7 @@ index db47e5e..efed94f 100644
        it.gravity = Gravity.END
        it.maxLines = 1
        it.layoutParams = wrap()
-@@ -879,7 +1088,8 @@ internal class NativeListRowView(
+@@ -879,7 +1108,8 @@ internal class NativeListRowView(
      mainColumn.removeView(skeletonSecondary)
      setOnClickListener { view ->
        (view.tag as? NativeListItem)?.let { item ->
@@ -488,7 +522,7 @@ index db47e5e..efed94f 100644
        }
      }
    }
-@@ -1003,9 +1213,12 @@ internal class NativeListRowView(
+@@ -1003,9 +1233,12 @@ internal class NativeListRowView(
          members.add(children.getJSONObject(index))
        }
      }
@@ -502,7 +536,7 @@ index db47e5e..efed94f 100644
      walletGroupDragBadgeBackgroundPaint.color = color(
        theme,
        "inverseBackground",
-@@ -1048,8 +1261,11 @@ internal class NativeListRowView(
+@@ -1048,8 +1281,11 @@ internal class NativeListRowView(
          null,
          memberJson.optBoolean("selected", false),
          checkboxState,
@@ -515,7 +549,7 @@ index db47e5e..efed94f 100644
          if (index > 0) topMargin = dp(12)
        }
        addView(memberRow)
-@@ -1082,8 +1298,11 @@ internal class NativeListRowView(
+@@ -1082,8 +1318,11 @@ internal class NativeListRowView(
        titleLine.gravity = Gravity.CENTER
        titleLine.packsChildrenAtStart = false
        titleLine.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -528,7 +562,7 @@ index db47e5e..efed94f 100644
        showText(title, item.json.optString("title"), 1)
        title.setTextColor(
          color(
-@@ -1095,13 +1314,41 @@ internal class NativeListRowView(
+@@ -1095,13 +1334,41 @@ internal class NativeListRowView(
        addView(
          mainColumn,
          LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
@@ -572,7 +606,7 @@ index db47e5e..efed94f 100644
      }
      val leading = item.json.optJSONObject("leading")
      item.json.optJSONObject("leadingAction")?.let { action ->
-@@ -1136,6 +1383,13 @@ internal class NativeListRowView(
+@@ -1136,6 +1403,13 @@ internal class NativeListRowView(
          item.json.optString("presentation") == "accountSelector"
        ) 32 else 40,
      )
@@ -586,7 +620,7 @@ index db47e5e..efed94f 100644
      addView(mainColumn, weighted())
      titleLine.packsChildrenAtStart = true
      title.ellipsize = TextUtils.TruncateAt.END
-@@ -1144,6 +1398,43 @@ internal class NativeListRowView(
+@@ -1144,6 +1418,43 @@ internal class NativeListRowView(
        title.typeface = NativeListFonts.regular(context)
      }
      showText(subtitle, item.json.optString("subtitle"), item.json.optInt("subtitleLines", 2))
@@ -630,7 +664,7 @@ index db47e5e..efed94f 100644
      showText(tertiary, item.json.optString("tertiary"), 1)
      tertiary.setTextColor(
        color(
-@@ -1164,6 +1455,10 @@ internal class NativeListRowView(
+@@ -1164,6 +1475,10 @@ internal class NativeListRowView(
      }
      addView(trailingColumn, wrap())
      val accessories = item.json.optJSONArray("trailing")
@@ -641,7 +675,7 @@ index db47e5e..efed94f 100644
      if (accessories.hasAccessory("checkbox") && accessories.hasAccessory("value")) {
        trailingColumn.orientation = HORIZONTAL
        trailingColumn.gravity = Gravity.END or Gravity.CENTER_VERTICAL
-@@ -1847,10 +2142,15 @@ internal class NativeListRowView(
+@@ -1847,10 +2162,15 @@ internal class NativeListRowView(
      val isSummary = variant == "summary"
      val isGallery = variant == "gallery"
      val isTable = currentLayout == "table"
@@ -658,7 +692,7 @@ index db47e5e..efed94f 100644
        (item.json.optString("value").isNotEmpty() && item.json.optJSONObject("checkbox") != null)
      // Linear/sectioned snapshots reserve the ListItem mx=8 at RecyclerView
      // level, so header-local insets below are source px minus that outer inset.
-@@ -1870,7 +2170,8 @@ internal class NativeListRowView(
+@@ -1870,7 +2190,8 @@ internal class NativeListRowView(
        ),
      )
      if (isNetworkSelector) {
@@ -668,7 +702,7 @@ index db47e5e..efed94f 100644
        title.textSize = sp(14f)
        title.typeface = NativeListFonts.medium(context)
        TextViewCompat.setLineHeight(title, dp(20))
-@@ -1924,14 +2225,22 @@ internal class NativeListRowView(
+@@ -1924,14 +2245,22 @@ internal class NativeListRowView(
          item.json.optString("valueActionKey"),
          color(theme, "secondaryText", "#0000009B"),
        )
@@ -692,7 +726,7 @@ index db47e5e..efed94f 100644
        if (checkboxData != null && value.isNotEmpty()) {
          // Value and checkbox share the trailing edge as one compound accessory.
          trailingColumn.orientation = HORIZONTAL
-@@ -1966,6 +2275,27 @@ internal class NativeListRowView(
+@@ -1966,6 +2295,27 @@ internal class NativeListRowView(
        }
        checkboxData?.let { bindCheckbox(item, it, checkboxState) }
      }
@@ -720,7 +754,7 @@ index db47e5e..efed94f 100644
    }
  
    private fun bindAction(
-@@ -1978,12 +2308,13 @@ internal class NativeListRowView(
+@@ -1978,12 +2328,13 @@ internal class NativeListRowView(
        addLeading(icon, if (isAccountSelector) 32 else 40)
        leadingIcon.layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
        if (!icon.has("backgroundColor")) leadingFrame.background = null
@@ -736,7 +770,7 @@ index db47e5e..efed94f 100644
      } else if (item.json.optString("tone") == "danger") {
        title.setTextColor(color(theme, "negative", "#C40006D3"))
      }
-@@ -2003,6 +2334,17 @@ internal class NativeListRowView(
+@@ -2003,6 +2354,17 @@ internal class NativeListRowView(
  
    private fun bindSystem(item: NativeListItem, theme: JSONObject?) {
      val variant = item.json.optString("variant")
@@ -754,7 +788,7 @@ index db47e5e..efed94f 100644
      if (variant == "spacer") {
        minimumHeight = dp(item.json.optInt("height", 0))
        return
-@@ -2072,7 +2414,11 @@ internal class NativeListRowView(
+@@ -2072,7 +2434,11 @@ internal class NativeListRowView(
      spacingDp: Int = 12,
    ) {
      leadingFrame.visibility = VISIBLE
@@ -767,7 +801,7 @@ index db47e5e..efed94f 100644
      addView(leadingFrame)
      leadingFallback.layoutParams = FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
      if (visual == null) return
-@@ -2104,7 +2450,7 @@ internal class NativeListRowView(
+@@ -2104,7 +2470,7 @@ internal class NativeListRowView(
        leadingFrame.background = GradientDrawable().apply {
          setColor(visualBackground)
          setStroke(1, parseNativeListColor("#0000001F"))
@@ -776,7 +810,7 @@ index db47e5e..efed94f 100644
        }
        leadingIcon.iconName = visual.optString("name")
        leadingIcon.tintColor = safeColor(
-@@ -2161,7 +2507,89 @@ internal class NativeListRowView(
+@@ -2161,7 +2527,89 @@ internal class NativeListRowView(
          else -> leadingOutlineProvider(shape)
        }
        image.clipToOutline = true
@@ -867,7 +901,7 @@ index db47e5e..efed94f 100644
      }
    }
  
-@@ -2223,7 +2651,11 @@ internal class NativeListRowView(
+@@ -2223,7 +2671,11 @@ internal class NativeListRowView(
      for (index in 0 until minOf(2, accessories.length())) {
        val accessory = accessories.getJSONObject(index)
        when (accessory.optString("kind")) {
@@ -880,7 +914,7 @@ index db47e5e..efed94f 100644
          "valuePair" -> showTrailingValuePair(textIndex++, accessory, theme)
          "checkbox" -> bindCheckbox(item, accessory, checkboxState)
          "radio" -> showTrailing(
-@@ -2285,11 +2717,25 @@ internal class NativeListRowView(
+@@ -2285,11 +2737,25 @@ internal class NativeListRowView(
        return
      }
      checkbox.visibility = VISIBLE
@@ -910,7 +944,7 @@ index db47e5e..efed94f 100644
      }
      // Row-level disabled opacity already applies to this child. Only apply a
      // local 0.5 when the accessory alone is disabled, never 0.5 * 0.5.
-@@ -2330,6 +2776,8 @@ internal class NativeListRowView(
+@@ -2330,6 +2796,8 @@ internal class NativeListRowView(
      }
      val groupPosition = when {
        item.type == "identity" && item.json.optString("presentation") == "walletSidebar" -> "single"
@@ -919,7 +953,7 @@ index db47e5e..efed94f 100644
        else -> when (item.type) {
        "metricCard" -> "single"
        "rail" -> "rail"
-@@ -2337,7 +2785,7 @@ internal class NativeListRowView(
+@@ -2337,7 +2805,7 @@ internal class NativeListRowView(
        }
      }
      var backgroundGroupPosition = if (item.type == "mediaTile") "mediaTile" else groupPosition
@@ -928,7 +962,7 @@ index db47e5e..efed94f 100644
        // Selection in sectioned lists is represented by the OneKey checkbox,
        // matching iOS and the app-monorepo network selector.
        rowBackground = color(theme, "rowBackground", "#FFFFFF")
-@@ -2351,6 +2799,8 @@ internal class NativeListRowView(
+@@ -2351,6 +2819,8 @@ internal class NativeListRowView(
        rowBackground = color(theme, "subduedBackground", "#F9F9F9")
        backgroundGroupPosition = ""
      }
@@ -937,7 +971,7 @@ index db47e5e..efed94f 100644
      restingRowBackground = groupedBackground(backgroundGroupPosition, rowBackground)
      background = restingRowBackground
    }
-@@ -2466,7 +2916,26 @@ internal class NativeListRowView(
+@@ -2466,7 +2936,26 @@ internal class NativeListRowView(
      val icon = trailingIcons[index]
      icon.iconName = data.optString("name")
      icon.tintColor = safeColor(data.optString("tintColor"), iconSubduedColor)
@@ -965,7 +999,7 @@ index db47e5e..efed94f 100644
        icon.glyphSizeDp = null
        // ListItem.DrillIn is a 24dp icon with mx=-6, for a 12dp layout footprint.
        icon.layoutParams = LayoutParams(dp(24), dp(24)).apply {
-@@ -2516,7 +2985,7 @@ internal class NativeListRowView(
+@@ -2516,7 +3005,7 @@ internal class NativeListRowView(
          when (item.type) {
            "message" -> 14f
            "sectionHeader" -> when {
@@ -974,7 +1008,7 @@ index db47e5e..efed94f 100644
              item.json.optString("variant") == "gallery" -> 18f
              item.json.optString("variant") == "summary" -> 16f
              currentLayout == "table" -> 11f
-@@ -2530,11 +2999,14 @@ internal class NativeListRowView(
+@@ -2530,11 +3019,14 @@ internal class NativeListRowView(
          }
        },
      )
@@ -990,7 +1024,7 @@ index db47e5e..efed94f 100644
            isNetworkSelectorSection -> NativeListFonts.medium(context)
            currentLayout == "table" -> NativeListFonts.regular(context)
            item.json.optString("variant") == "summary" -> NativeListFonts.medium(context)
-@@ -2552,7 +3024,7 @@ internal class NativeListRowView(
+@@ -2552,7 +3044,7 @@ internal class NativeListRowView(
        else -> 14f
      })
      tertiary.textSize = sp(14f)
@@ -999,7 +1033,7 @@ index db47e5e..efed94f 100644
        TextViewCompat.setLineHeight(title, dp(20))
      } else if (item.type == "sectionHeader" && item.json.optString("variant") == "gallery") {
        TextViewCompat.setLineHeight(title, dp(24))
-@@ -2589,11 +3061,42 @@ internal class NativeListRowView(
+@@ -2589,11 +3081,42 @@ internal class NativeListRowView(
        column.typeface = NativeListFonts.medium(context)
        column.fontFeatureSettings = "tnum"
      }
@@ -1043,7 +1077,7 @@ index db47e5e..efed94f 100644
        }
        isNetworkSelectorIdentity -> 47
        else -> when (item.type) {
-@@ -2617,6 +3120,7 @@ internal class NativeListRowView(
+@@ -2617,6 +3140,7 @@ internal class NativeListRowView(
            else -> 36
          }
          "system" -> when (item.json.optString("variant")) {
@@ -1051,7 +1085,7 @@ index db47e5e..efed94f 100644
            "noMatch", "end" -> 36
            "retry" -> 44
            else -> 56
-@@ -2636,14 +3140,14 @@ internal class NativeListRowView(
+@@ -2636,14 +3160,14 @@ internal class NativeListRowView(
            56
          }
          else -> when {
@@ -1068,7 +1102,7 @@ index db47e5e..efed94f 100644
        0
      } else if (
        item.type == "sectionHeader" && item.json.optString("variant") in listOf("summary", "gallery")
-@@ -2713,7 +3217,12 @@ internal class NativeListRowView(
+@@ -2713,7 +3237,12 @@ internal class NativeListRowView(
      override fun getOutline(view: View, outline: Outline) {
        when (shape) {
          "square" -> outline.setRect(0, 0, view.width, view.height)
@@ -1082,7 +1116,7 @@ index db47e5e..efed94f 100644
          else -> outline.setOval(0, 0, view.width, view.height)
        }
      }
-@@ -2742,7 +3251,13 @@ internal class NativeListRowView(
+@@ -2742,7 +3271,13 @@ internal class NativeListRowView(
      token: String,
      slot: Int,
      variant: String,
@@ -1096,7 +1130,7 @@ index db47e5e..efed94f 100644
      val uri = source.optString("uri").trim().takeIf(String::isNotEmpty)
      imageView.configure(
        sourceUri = uri,
-@@ -2751,17 +3266,39 @@ internal class NativeListRowView(
+@@ -2751,17 +3286,39 @@ internal class NativeListRowView(
        contentFit = source.optString("contentFit", "cover"),
        cachePolicy = source.optString("cachePolicy", "memory-disk"),
        autoplay = source.optBoolean("autoplay", false),
@@ -1140,7 +1174,7 @@ index db47e5e..efed94f 100644
  
    private fun color(theme: JSONObject?, key: String, fallback: String): Int =
      safeColor(theme?.optString(key, fallback), parseNativeListColor(fallback))
-@@ -2774,30 +3311,30 @@ internal class NativeListRowView(
+@@ -2774,30 +3331,30 @@ internal class NativeListRowView(
  
    private fun roundedFill(color: Int, radiusDp: Float) = GradientDrawable().apply {
      setColor(color)
@@ -1177,7 +1211,7 @@ index db47e5e..efed94f 100644
        else -> FloatArray(8)
      }
    }
-@@ -2805,6 +3342,7 @@ internal class NativeListRowView(
+@@ -2805,6 +3362,7 @@ internal class NativeListRowView(
  }
  
  private class OneKeyIconView(context: android.content.Context) : View(context) {
@@ -1185,7 +1219,7 @@ index db47e5e..efed94f 100644
    var iconName: String = ""
      set(value) {
        field = value
-@@ -2828,9 +3366,11 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2828,9 +3386,11 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
      val pathData = iconPaths[iconName] ?: return
      val drawSize = minOf(
        minOf(width, height).toFloat(),
@@ -1199,7 +1233,7 @@ index db47e5e..efed94f 100644
      fill.color = tintColor
      canvas.save()
      canvas.translate((width - drawSize) / 2f, (height - drawSize) / 2f)
-@@ -2839,6 +3379,8 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2839,6 +3399,8 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
      pathData.forEachIndexed { index, data ->
        PathParser.createPathFromPathData(data)?.let { path ->
          path.fillType = sourceFillTypes?.getOrNull(index) ?: Path.FillType.EVEN_ODD
@@ -1208,7 +1242,7 @@ index db47e5e..efed94f 100644
          canvas.drawPath(path, fill)
        }
      }
-@@ -2846,10 +3388,42 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2846,10 +3408,42 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
    }
  
    companion object {
@@ -1251,7 +1285,7 @@ index db47e5e..efed94f 100644
        "ChevronRightSmallOutline" to listOf(Path.FillType.WINDING),
        "MinusCircleOutline" to listOf(Path.FillType.WINDING, Path.FillType.EVEN_ODD),
        "PlusCircleOutline" to listOf(Path.FillType.WINDING, Path.FillType.EVEN_ODD),
-@@ -2867,6 +3441,16 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2867,6 +3461,16 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
  
      // Exact 24x24 paths from app-monorepo packages/components Icon sources.
      private val iconPaths = mapOf(
@@ -1268,7 +1302,7 @@ index db47e5e..efed94f 100644
        "ArrowBottomOutline" to listOf("m13 17.586 5-5L19.414 14 12 21.414 4.586 14 6 12.586l5 5V3h2z"),
        "ArrowTopOutline" to listOf("M19.414 10 18 11.414l-5-5V21h-2V6.414l-5 5L4.586 10 12 2.586z"),
        "ChartTrendingUpOutline" to listOf("M22 13h-2V9.414l-7 7-4-4-6 6L1.586 17 9 9.586l4 4L18.586 8H15V6h7z"),
-@@ -2910,6 +3494,7 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2910,6 +3514,7 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
  }
  
  private class OneKeyCheckboxView(context: android.content.Context) : View(context) {
@@ -1276,7 +1310,7 @@ index db47e5e..efed94f 100644
    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
    private var state = "unchecked"
  
-@@ -2926,9 +3511,11 @@ private class OneKeyCheckboxView(context: android.content.Context) : View(contex
+@@ -2926,9 +3531,11 @@ private class OneKeyCheckboxView(context: android.content.Context) : View(contex
        "indeterminate" -> "M4 8a1 1 0 0 1 1-1h6a1 1 0 0 1 0 2H5a1 1 0 0 1-1-1"
        else -> return
      }
@@ -1652,7 +1686,7 @@ index f0af895..ec5c3fe 100644
 +  }
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
-index e0bf60b..c53c679 100644
+index e0bf60b..33bebb6 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 +++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 @@ -1,4 +1,6 @@
@@ -1816,7 +1850,7 @@ index e0bf60b..c53c679 100644
    private(set) var bindingEpoch = 0
  
    var onAction: ((NativeListItem, String, NativeSelectionTarget?, NativeListActionOrigin?) -> Void)?
-@@ -615,9 +691,23 @@ final class NativeListCell: UICollectionViewCell {
+@@ -615,12 +691,41 @@ final class NativeListCell: UICollectionViewCell {
  
    override func layoutSubviews() {
      super.layoutSubviews()
@@ -1837,10 +1871,37 @@ index e0bf60b..c53c679 100644
 +      let origin = button.convert(button.bounds, to: contentView).minY
 +      button.transform = CGAffineTransform(translationX: 0, y: 11 - origin)
 +    }
++  }
++
++  // OneKey patch: trim only detached/recycled members, never a live compact
++  // drag proxy or an expanding group. Small groups retain eight reusable cells.
++  private func trimWalletGroupCells(keeping required: Int) {
++    let retained = max(8, required)
++    while walletGroupCells.count > retained {
++      let cell = walletGroupCells.removeLast()
++      rootStack.removeArrangedSubview(cell)
++      cell.removeFromSuperview()
++      cell.prepareForReuse()
++      cell.onAction = nil
++      cell.onBindingInvalidated = nil
++    }
    }
  
    override func prepareForReuse() {
-@@ -664,6 +754,14 @@ final class NativeListCell: UICollectionViewCell {
++    let canTrimMembers = !walletGroupCompactAppearanceActive && (rootStack.layer.animationKeys()?.isEmpty ?? true)
+     super.prepareForReuse()
+     invalidateCurrentBinding()
+     isHighlighted = false
+@@ -632,6 +737,8 @@ final class NativeListCell: UICollectionViewCell {
+     walletGroupCompactContainer.alpha = 1
+     walletGroupCompactCell?.prepareForReuse()
+     walletGroupCells.forEach { $0.prepareForReuse() }
++    walletGroupMembers.removeAll()
++    if canTrimMembers { trimWalletGroupCells(keeping: 0) }
+     leadingImages.forEach { $0.prepareForReuse() }
+     secondaryImage.prepareForReuse()
+     mediaNetworkImage.prepareForReuse()
+@@ -664,6 +771,14 @@ final class NativeListCell: UICollectionViewCell {
      // Checkbox uses the literal neutral7 alpha token. Applying opacity to the
      // opaque primary text color produces a different RGB result.
      checkboxBorderColor = UIColor(nativeListHex: "#00000031", fallback: .lightGray)
@@ -1855,7 +1916,7 @@ index e0bf60b..c53c679 100644
      visualBackdropColor = nativeListColor(theme, "rowBackground", "#FFFFFF")
      titleLabel.textColor = primary
      subtitleLabel.textColor = secondary
-@@ -693,6 +791,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -693,6 +808,11 @@ final class NativeListCell: UICollectionViewCell {
        pressedBackgroundColor = restingBackgroundColor
      }
      updateBackgroundColor()
@@ -1867,7 +1928,7 @@ index e0bf60b..c53c679 100644
      if layout == "table" {
        if item.type == "dataRow" {
          rootLeadingConstraint.constant = 20
-@@ -707,8 +810,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -707,8 +827,12 @@ final class NativeListCell: UICollectionViewCell {
      }
      applyGroupPosition(item.data.string("groupPosition"))
      isUserInteractionEnabled = !item.data.bool("disabled")
@@ -1881,7 +1942,7 @@ index e0bf60b..c53c679 100644
  
      switch item.type {
      case "walletGroup": bindWalletGroup(item, theme: theme, layout: layout, checkboxState)
-@@ -724,6 +831,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -724,6 +848,14 @@ final class NativeListCell: UICollectionViewCell {
      case "system": bindSystem(item, theme: theme)
      default: break
      }
@@ -1896,7 +1957,7 @@ index e0bf60b..c53c679 100644
    }
  
    func updateSelection(
-@@ -732,6 +847,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -732,6 +864,8 @@ final class NativeListCell: UICollectionViewCell {
      checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String
    ) {
      guard currentItem?.key == item.key else { return }
@@ -1905,7 +1966,7 @@ index e0bf60b..c53c679 100644
      if item.type == "walletGroup" {
        currentItem = item
        let memberData = [item.data.dictionary("parent")].compactMap { $0 }
-@@ -777,6 +894,13 @@ final class NativeListCell: UICollectionViewCell {
+@@ -777,6 +911,13 @@ final class NativeListCell: UICollectionViewCell {
          selected ? "#FFFFFFED" : "#FFFFFFAF"
        )
      }
@@ -1919,7 +1980,7 @@ index e0bf60b..c53c679 100644
      guard let data = boundCheckboxData, let target = boundCheckboxTarget else { return }
      updateCheckboxPresentation(
        item,
-@@ -786,12 +910,55 @@ final class NativeListCell: UICollectionViewCell {
+@@ -786,12 +927,55 @@ final class NativeListCell: UICollectionViewCell {
      )
    }
  
@@ -1975,7 +2036,7 @@ index e0bf60b..c53c679 100644
      let valueButton = accessoryButtons[0]
      valueButton.isHidden = value.isEmpty
      if value.isEmpty {
-@@ -801,7 +968,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -801,7 +985,7 @@ final class NativeListCell: UICollectionViewCell {
        setButtonLine(
          valueButton,
          text: value,
@@ -1984,7 +2045,7 @@ index e0bf60b..c53c679 100644
          color: nativeListColor(currentTheme, "secondaryText", "#646464"),
          lineHeight: 24
        )
-@@ -826,7 +993,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -826,7 +1010,7 @@ final class NativeListCell: UICollectionViewCell {
        // Selection is communicated by the destination state for these source
        // components; neither has a persistent selected tile background.
        color = nativeListColor(theme, "rowBackground", "#FFFFFF")
@@ -1993,7 +2054,7 @@ index e0bf60b..c53c679 100644
        // Checkbox-backed section lists in app-monorepo keep rows on $bg;
        // selection is represented by the checkbox itself.
        color = nativeListColor(theme, "rowBackground", "#FFFFFF")
-@@ -836,10 +1003,27 @@ final class NativeListCell: UICollectionViewCell {
+@@ -836,10 +1020,27 @@ final class NativeListCell: UICollectionViewCell {
                !selected {
        color = nativeListColor(theme, "subduedBackground", "#F9F9F9")
      }
@@ -2021,7 +2082,18 @@ index e0bf60b..c53c679 100644
      walletGroupCompactCell?.invalidateCurrentBinding()
      walletGroupCells.forEach { $0.invalidateCurrentBinding() }
      isHighlighted = false
-@@ -978,11 +1162,13 @@ final class NativeListCell: UICollectionViewCell {
+@@ -848,6 +1049,10 @@ final class NativeListCell: UICollectionViewCell {
+       $0.removeFromSuperview()
+     }
+     walletGroupMembers.removeAll()
++    // OneKey patch: reset has detached the old hierarchy, including on direct
++    // large-to-small binds that do not pass through UICollectionView reuse.
++    let requiredMembers = currentItem?.type == "walletGroup" ? (currentItem?.data.dictionaries("children").count ?? 0) + 1 : 0
++    trimWalletGroupCells(keeping: requiredMembers)
+     walletGroupCompactAppearanceActive = false
+     walletGroupCompactContainer.isHidden = true
+     walletGroupCompactContainer.alpha = 1
+@@ -978,11 +1183,13 @@ final class NativeListCell: UICollectionViewCell {
        $0.backgroundColor = .clear
      }
      accessoryButtons.enumerated().forEach { index, button in
@@ -2035,7 +2107,7 @@ index e0bf60b..c53c679 100644
        button.setTitle(nil, for: .normal)
        button.setAttributedTitle(nil, for: .normal)
        button.setImage(nil, for: .normal)
-@@ -994,6 +1180,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -994,6 +1201,7 @@ final class NativeListCell: UICollectionViewCell {
        button.backgroundColor = .clear
        button.layer.cornerRadius = 0
        button.contentEdgeInsets = .zero
@@ -2043,7 +2115,7 @@ index e0bf60b..c53c679 100644
      }
      checkboxButton.isHidden = true
      checkboxButton.alpha = 1
-@@ -1028,6 +1215,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1028,6 +1236,7 @@ final class NativeListCell: UICollectionViewCell {
      contentView.clipsToBounds = false
      leadingContainer.alpha = 1
      titleLabel.showsDottedUnderline = false
@@ -2051,7 +2123,7 @@ index e0bf60b..c53c679 100644
      titleLabel.dottedUnderlineVerticalOffset = 0
    }
  
-@@ -1073,7 +1261,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1073,7 +1282,8 @@ final class NativeListCell: UICollectionViewCell {
      while walletGroupCells.count < walletGroupMembers.count {
        let memberCell = NativeListCell(frame: .zero)
        memberCell.translatesAutoresizingMaskIntoConstraints = false
@@ -2061,7 +2133,7 @@ index e0bf60b..c53c679 100644
        walletGroupCells.append(memberCell)
      }
      rootStack.axis = .vertical
-@@ -1083,8 +1272,18 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1083,8 +1293,18 @@ final class NativeListCell: UICollectionViewCell {
      rootTrailingConstraint.constant = 0
      rootTopConstraint.constant = 0
      rootBottomConstraint.constant = 0
@@ -2080,7 +2152,7 @@ index e0bf60b..c53c679 100644
        memberCell.onAction = { [weak self] source, action, target, origin in
          self?.onAction?(source, action, target, origin)
        }
-@@ -1140,7 +1339,10 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1140,7 +1360,10 @@ final class NativeListCell: UICollectionViewCell {
      let point = gesture.location(in: rootStack)
      for (index, cell) in walletGroupCells.prefix(walletGroupMembers.count).enumerated()
        where cell.frame.contains(point) {
@@ -2092,7 +2164,7 @@ index e0bf60b..c53c679 100644
        return
      }
    }
-@@ -1269,8 +1471,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1269,8 +1492,14 @@ final class NativeListCell: UICollectionViewCell {
        contentView.clipsToBounds = true
      } else {
        applyGroupPosition(currentItem?.data.string("groupPosition") ?? "")
@@ -2108,7 +2180,7 @@ index e0bf60b..c53c679 100644
        contentView.clipsToBounds = restingRadius > 0
      }
    }
-@@ -1299,6 +1507,17 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1299,6 +1528,17 @@ final class NativeListCell: UICollectionViewCell {
        fallbackLabel.font = nativeListFont(ofSize: 28)
        addLeading(item.data.dictionary("leading"), key: item.key)
        rootStack.addArrangedSubview(mainStack)
@@ -2126,7 +2198,7 @@ index e0bf60b..c53c679 100644
        show(titleLabel, item.data.string("title"), lines: 1)
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 16)
        titleLabel.textColor = nativeListColor(
-@@ -1306,6 +1525,32 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1306,6 +1546,32 @@ final class NativeListCell: UICollectionViewCell {
          selected ? "primaryText" : "secondaryText",
          selected ? "#FFFFFFED" : "#FFFFFFAF"
        )
@@ -2159,7 +2231,7 @@ index e0bf60b..c53c679 100644
        return
      }
      if item.data.string("presentation") == "accountSelector" {
-@@ -1344,6 +1589,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1344,6 +1610,12 @@ final class NativeListCell: UICollectionViewCell {
        rootStack.setCustomSpacing(5, after: leadingActionButton)
      }
      addLeading(item.data.dictionary("leading"), key: item.key)
@@ -2172,7 +2244,7 @@ index e0bf60b..c53c679 100644
      rootStack.addArrangedSubview(mainStack)
      show(titleLabel, item.data.string("title"), lines: item.data.int("titleLines", default: 1))
      show(subtitleLabel, item.data.string("subtitle"), lines: item.data.int("subtitleLines", default: 1))
-@@ -1353,6 +1604,77 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1353,6 +1625,77 @@ final class NativeListCell: UICollectionViewCell {
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 24)
        setLineHeight(subtitleLabel, text: item.data.string("subtitle"), lineHeight: 20)
      }
@@ -2250,7 +2322,7 @@ index e0bf60b..c53c679 100644
      tertiaryLabel.textColor = nativeListColor(
        theme,
        item.data.string("tertiaryTone") == "info" ? "info" : "secondaryText",
-@@ -1997,15 +2319,29 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1997,15 +2340,29 @@ final class NativeListCell: UICollectionViewCell {
    ) {
      rootStack.addArrangedSubview(mainStack)
      let variant = item.data.string("variant")
@@ -2280,7 +2352,7 @@ index e0bf60b..c53c679 100644
        : isNetworkSelector ? .medium
        : isGallery || layout == "sectioned" ? .semibold : .regular
      titleLabel.font = nativeListFont(
-@@ -2019,8 +2355,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2019,8 +2376,8 @@ final class NativeListCell: UICollectionViewCell {
      )
      show(titleLabel, item.data.string("title"), lines: 1)
      if isNetworkSelector {
@@ -2291,7 +2363,7 @@ index e0bf60b..c53c679 100644
        titleLabel.dottedUnderlineColor = nativeListColor(
          theme,
          "secondaryText",
-@@ -2028,8 +2364,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2028,8 +2385,9 @@ final class NativeListCell: UICollectionViewCell {
        )
        rootLeadingConstraint.constant = 12
        rootTrailingConstraint.constant = -12
@@ -2303,7 +2375,7 @@ index e0bf60b..c53c679 100644
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 20)
      } else if isHistory {
        rootLeadingConstraint.constant = 0
-@@ -2095,6 +2432,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2095,6 +2453,7 @@ final class NativeListCell: UICollectionViewCell {
        rootTopConstraint.constant = 24
        rootBottomConstraint.constant = -20
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 24)
@@ -2311,7 +2383,7 @@ index e0bf60b..c53c679 100644
        let valueActionKey = item.data.string("valueActionKey")
        let action: (String, NativeSelectionTarget?)? = valueActionKey.isEmpty
          ? nil
-@@ -2105,11 +2443,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2105,11 +2464,11 @@ final class NativeListCell: UICollectionViewCell {
          action: action,
          color: nativeListColor(theme, "secondaryText", "#646464")
        )
@@ -2325,7 +2397,7 @@ index e0bf60b..c53c679 100644
          color: nativeListColor(theme, "secondaryText", "#646464"),
          lineHeight: 24
        )
-@@ -2169,6 +2507,28 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2169,6 +2528,28 @@ final class NativeListCell: UICollectionViewCell {
          )
        }
      }
@@ -2354,7 +2426,7 @@ index e0bf60b..c53c679 100644
    }
  
    private func bindAction(
-@@ -2185,6 +2545,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2185,6 +2566,8 @@ final class NativeListCell: UICollectionViewCell {
        addLeading(icon, key: item.key)
        if isAccountSelector {
          leadingContainer.layer.cornerCurve = .continuous
@@ -2363,7 +2435,7 @@ index e0bf60b..c53c679 100644
        }
        if icon["backgroundColor"] == nil {
          leadingContainer.backgroundColor = .clear
-@@ -2195,8 +2557,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2195,8 +2578,9 @@ final class NativeListCell: UICollectionViewCell {
      rootStack.addArrangedSubview(mainStack)
      show(titleLabel, item.data.string("title"), lines: 1)
      if isAccountSelector {
@@ -2375,7 +2447,7 @@ index e0bf60b..c53c679 100644
      } else if item.data.string("tone") == "danger" {
        titleLabel.textColor = nativeListColor(theme, "negative", "#CE2C31")
      }
-@@ -2217,8 +2580,19 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2217,8 +2601,19 @@ final class NativeListCell: UICollectionViewCell {
      }
    }
  
@@ -2395,7 +2467,7 @@ index e0bf60b..c53c679 100644
      case "secondary": return nativeListColor(theme, "secondaryText", "#646464")
      case "positive": return nativeListColor(theme, "positive", "#218358")
      case "negative": return nativeListColor(theme, "negative", "#CE2C31")
-@@ -2230,6 +2604,36 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2230,6 +2625,36 @@ final class NativeListCell: UICollectionViewCell {
      rootStack.alignment = .center
      rootStack.distribution = .fill
      let variant = item.data.string("variant")
@@ -2432,7 +2504,7 @@ index e0bf60b..c53c679 100644
      if variant == "loading" {
        leadingWidth.constant = 40
        leadingHeight.constant = 40
-@@ -2357,7 +2761,105 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2357,7 +2782,105 @@ final class NativeListCell: UICollectionViewCell {
          tokenPair: tokenPair,
          shape: shape
        ))
@@ -2539,7 +2611,7 @@ index e0bf60b..c53c679 100644
      }
      NSLayoutConstraint.activate(leadingSlotConstraints)
    }
-@@ -2439,6 +2941,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2439,6 +2962,11 @@ final class NativeListCell: UICollectionViewCell {
        switch accessory.string("kind") {
        case "value":
          showAccessory(textIndex, accessory.string("text"))
@@ -2551,7 +2623,7 @@ index e0bf60b..c53c679 100644
          textIndex += 1
        case "valuePair":
          showValuePairAccessory(textIndex, accessory, theme: theme)
-@@ -2519,7 +3026,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2519,7 +3047,7 @@ final class NativeListCell: UICollectionViewCell {
        state == "unchecked" ? nil : nativeListIcon(named: glyphName),
        for: .normal
      )
@@ -2560,7 +2632,7 @@ index e0bf60b..c53c679 100644
      // A disabled ListItem already applies 0.5 to its complete content. Avoid
      // multiplying that opacity on the nested control a second time.
      checkboxButton.alpha = item.data.bool("disabled") ? 1 : accessoryDisabled ? 0.5 : 1
-@@ -2543,11 +3050,24 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2543,11 +3071,24 @@ final class NativeListCell: UICollectionViewCell {
      let paragraphStyle = NSMutableParagraphStyle()
      paragraphStyle.minimumLineHeight = lineHeight
      paragraphStyle.maximumLineHeight = lineHeight
@@ -2585,7 +2657,7 @@ index e0bf60b..c53c679 100644
      if letterSpacing != 0 { attributes[.kern] = letterSpacing }
      label.attributedText = NSAttributedString(string: text, attributes: attributes)
    }
-@@ -2563,7 +3083,20 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2563,7 +3104,20 @@ final class NativeListCell: UICollectionViewCell {
      let paragraphStyle = NSMutableParagraphStyle()
      paragraphStyle.minimumLineHeight = lineHeight
      paragraphStyle.maximumLineHeight = lineHeight
@@ -2607,7 +2679,7 @@ index e0bf60b..c53c679 100644
      button.setAttributedTitle(
        NSAttributedString(
          string: text,
-@@ -2571,6 +3104,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2571,6 +3125,7 @@ final class NativeListCell: UICollectionViewCell {
            .font: font,
            .foregroundColor: color,
            .paragraphStyle: paragraphStyle,
@@ -2615,7 +2687,7 @@ index e0bf60b..c53c679 100644
          ]
        ),
        for: .normal
-@@ -2671,6 +3205,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2671,6 +3226,9 @@ final class NativeListCell: UICollectionViewCell {
      switch tone.isEmpty ? defaultTone : tone {
      case "positive": return nativeListColor(theme, "positive", "#218358")
      case "negative": return nativeListColor(theme, "negative", "#CE2C31")
@@ -2625,7 +2697,7 @@ index e0bf60b..c53c679 100644
      case "secondary": return nativeListColor(theme, "secondaryText", "#646464")
      default: return nativeListColor(theme, "primaryText", "#202020")
      }
-@@ -2682,10 +3219,10 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2682,10 +3240,10 @@ final class NativeListCell: UICollectionViewCell {
      button.isHidden = false
      button.isEnabled = !data.bool("disabled")
      button.alpha = button.isEnabled ? 1 : 0.4
@@ -2640,7 +2712,7 @@ index e0bf60b..c53c679 100644
      button.tintColor = tintColor
      if let image = nativeListIcon(named: data.string("name")) {
        button.setImage(image, for: .normal)
-@@ -2695,7 +3232,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2695,7 +3253,12 @@ final class NativeListCell: UICollectionViewCell {
        )
      }
      let isDrillIn = data.string("kind") == "chevron"
@@ -2654,7 +2726,7 @@ index e0bf60b..c53c679 100644
      if !isDrillIn, !data.string("actionKey").isEmpty {
        // Reproduce the trailing edge of IconButton's m=-7 while keeping its
        // full 36-point frame for padding/highlight behavior.
-@@ -2726,8 +3268,15 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2726,8 +3289,15 @@ final class NativeListCell: UICollectionViewCell {
      into imageView: OneKeyImageReusableView,
      token: String,
      slot: Int,
@@ -2671,7 +2743,7 @@ index e0bf60b..c53c679 100644
      let headersJson: String?
      if let headers = source.dictionary("headers"),
         JSONSerialization.isValidJSONObject(headers),
-@@ -2743,10 +3292,27 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2743,10 +3313,27 @@ final class NativeListCell: UICollectionViewCell {
        contentFit: source.string("contentFit", default: "cover"),
        cachePolicy: source.string("cachePolicy", default: "memory-disk"),
        autoplay: source.bool("autoplay"),
@@ -2702,7 +2774,7 @@ index e0bf60b..c53c679 100644
      )
    }
  
-@@ -2837,12 +3403,17 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2837,12 +3424,17 @@ final class NativeListCell: UICollectionViewCell {
      source: String,
      slot: Int? = nil
    ) -> NativeListActionOrigin {
@@ -2722,7 +2794,7 @@ index e0bf60b..c53c679 100644
      )
    }
  
-@@ -2851,6 +3422,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2851,6 +3443,8 @@ final class NativeListCell: UICollectionViewCell {
    }
  
    private func invalidateCurrentBinding() {
@@ -3307,6 +3379,128 @@ index 0000000..893a7a3
 +      clip-rule="evenodd"
 +    />
 +  </svg>
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
+index a172bff..82ca339 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
+@@ -1,6 +1,8 @@
+ "use strict";
+ 
+-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
++import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
++import { OneKeyImageCache, OneKeyImageCachePolicy } from '@onekeyfe/react-native-image';
++import { NativeAvatarPrefetchModel, NativeAvatarPrefetchQueue } from "./avatarPrefetch.js";
+ import { callback, getHostComponent } from 'react-native-nitro-modules';
+ import { normalizeIndexScroll, normalizeKeyScroll, normalizePositionScroll, resolveLocationIndex, scrollFailure, validateOffset } from "./scrolling.js";
+ import { serializePatches, serializeSnapshot } from "./validation.js";
+@@ -10,7 +12,7 @@ const NativeListHost = getHostComponent('NativeList', () => NativeListConfig);
+ function parsePayload(payloadJson) {
+   return JSON.parse(payloadJson);
+ }
+-export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
++export const NativeList = forwardRef(function NativeList({
+   snapshot,
+   webVirtualizationEnabled: _webVirtualizationEnabled,
+   onRowAction,
+@@ -50,6 +52,46 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+   };
+   const snapshotRef = useRef(snapshot);
+   snapshotRef.current = snapshot;
++  // OneKey patch: range events already cross the bridge only when row indices
++  // change. Prefetch is optional work; scrolling and visible loads stay native.
++  const avatarQueueRef = useRef(null);
++  const avatarRangeRef = useRef(undefined);
++  // OneKey patch: a changed prop is a complete snapshot; unrelated renders must
++  // not erase image patches already dispatched through the imperative handle.
++  // const avatarPrefetchPaused = useRef(false);
++  const avatarModelRef = useRef(null);
++  const avatarPropSnapshotRef = useRef(snapshot);
++  const avatarLifecycle = useRef('pending');
++  if (!avatarModelRef.current) avatarModelRef.current = new NativeAvatarPrefetchModel(snapshot.rows);else if (avatarPropSnapshotRef.current !== snapshot) avatarModelRef.current.replaceSnapshot(snapshot.rows);
++  avatarPropSnapshotRef.current = snapshot;
++  const updateAvatarPrefetch = () => {
++    const range = avatarRangeRef.current;
++    if (!range) return;
++    avatarQueueRef.current?.update(avatarModelRef.current?.window(range.first, range.last, range.direction) ?? []);
++  };
++  const updateAvatarPrefetchRef = useRef(updateAvatarPrefetch);
++  updateAvatarPrefetchRef.current = updateAvatarPrefetch;
++  useEffect(() => {
++    avatarLifecycle.current = 'mounted';
++    const queue = new NativeAvatarPrefetchQueue(source => OneKeyImageCache.preload([{
++      uri: source.uri,
++      headers: source.headers,
++      resizeWidth: source.width,
++      resizeHeight: source.height,
++      optimizeTos: false,
++      cachePolicy: source.cachePolicy === 'memory' ? OneKeyImageCachePolicy.MEMORY : source.cachePolicy === 'disk' ? OneKeyImageCachePolicy.DISK : OneKeyImageCachePolicy.MEMORY_DISK
++    }]));
++    avatarQueueRef.current = queue;
++    updateAvatarPrefetchRef.current();
++    return () => {
++      queue.dispose();
++      avatarQueueRef.current = null;
++      avatarLifecycle.current = 'unmounted';
++    };
++  }, []);
++  useEffect(() => {
++    updateAvatarPrefetchRef.current();
++  }, [snapshot]);
+   const initialScrollRef = useRef(initialScrollIndex === undefined && initialScrollKey === undefined ? undefined : initialScrollIndex !== undefined ? normalizeIndexScroll({
+     index: initialScrollIndex,
+     animated: false,
+@@ -90,10 +132,26 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+   useImperativeHandle(forwardedRef, () => ({
+     applySnapshot(nextSnapshot) {
+       snapshotRef.current = nextSnapshot;
+-      nativeRef.current?.applySnapshot(serializeSnapshot(nextSnapshot));
++      const native = nativeRef.current;
++      if (native) {
++        native.applySnapshot(serializeSnapshot(nextSnapshot));
++        if (avatarLifecycle.current !== 'unmounted') {
++          avatarModelRef.current?.replaceSnapshot(nextSnapshot.rows);
++          updateAvatarPrefetchRef.current();
++        }
++      }
+     },
+     applyPatches(patches) {
+-      if (patches.length > 0) nativeRef.current?.applyPatches(serializePatches(patches));
++      // OneKey patch: image updates replace pending prefetch instead of disabling it.
++      // if (imageFieldsChanged) { avatarPrefetchPaused.current = true; avatarQueueRef.current?.update([]); }
++      if (!patches.length) return;
++      const native = nativeRef.current;
++      const dispatch = native ? () => native.applyPatches(serializePatches(patches)) : undefined;
++      if (avatarLifecycle.current === 'unmounted') {
++        dispatch?.();
++        return;
++      }
++      if (avatarModelRef.current?.applyPatches(patches, dispatch)) updateAvatarPrefetchRef.current();
+     },
+     reconcileSelection(selectedKeys) {
+       nativeRef.current?.reconcileSelection(JSON.stringify(selectedKeys));
+@@ -171,7 +229,15 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+       callbacksRef.current.onEndReached?.(parsePayload(payloadJson));
+     }),
+     onVisibleRangeChanged: callback(payloadJson => {
+-      callbacksRef.current.onVisibleRangeChanged?.(parsePayload(payloadJson));
++      const payload = parsePayload(payloadJson);
++      const previous = avatarRangeRef.current;
++      avatarRangeRef.current = {
++        first: payload.firstIndex,
++        last: payload.lastIndex,
++        direction: previous && payload.firstIndex !== previous.first ? Math.sign(payload.firstIndex - previous.first) : previous?.direction ?? 1
++      };
++      updateAvatarPrefetchRef.current();
++      callbacksRef.current.onVisibleRangeChanged?.(payload);
+     })
+   }), []);
+   return /*#__PURE__*/_jsx(NativeListHost, {
+@@ -180,4 +246,3 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+     snapshotJson: snapshotJson
+   });
+ });
+-//# sourceMappingURL=NativeList.js.map
+\ No newline at end of file
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js
 index ce0b82d..438d88b 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js
@@ -3376,6 +3570,183 @@ index ce0b82d..438d88b 100644
  });
 -//# sourceMappingURL=NativeList.web.js.map
 \ No newline at end of file
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/avatarPrefetch.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/avatarPrefetch.js
+new file mode 100644
+index 0000000..6501c8c
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/avatarPrefetch.js
+@@ -0,0 +1,171 @@
++"use strict";
++
++// OneKey patch: share a bounded URI-only window across renderers. No bitmap or
++// account-specific data enters list snapshots or the UI runtime.
++
++const PREFIX = 'onekey-avatar://blockie/v1/';
++const MAX_CANDIDATES = 64;
++const IMAGE_PATCH_FIELDS = ['leading', 'secondaryLeading', 'image', 'networkImage', 'thumbnail', 'visual'];
++export function avatarPrefetchWindow(rows, first, last, direction, resolveRow) {
++  if (first < 0 || last < first || first >= rows.length) return [];
++  last = Math.min(last, rows.length - 1);
++  const result = [];
++  const seen = new Set();
++  let limit = MAX_CANDIDATES;
++  const add = (source, priority) => {
++    if (!source?.uri.startsWith(PREFIX) || source.cachePolicy === 'none' || seen.has(source.uri) || result.length >= limit) return;
++    seen.add(source.uri);
++    result.push({
++      source,
++      priority
++    });
++  };
++  const visual = (value, priority) => {
++    if (!value) return;
++    if ('image' in value) add(value.image, priority);
++    if ('networkImage' in value) add(value.networkImage, priority);
++    if ('images' in value) value.images.forEach(image => add(image, priority));
++    if ('overlays' in value) value.overlays?.forEach(overlay => add(overlay.image, priority));
++  };
++  const row = (value, priority) => {
++    value = resolveRow?.(value) ?? value;
++    if ('leading' in value) visual(value.leading, priority);
++    if ('secondaryLeading' in value) visual(value.secondaryLeading, priority);
++    if ('image' in value) add(value.image, priority);
++    if ('networkImage' in value) add(value.networkImage, priority);
++    if ('thumbnail' in value) add(value.thumbnail, priority);
++    if (value.type === 'walletGroup') {
++      visual(value.parent.leading, priority);
++      for (const child of value.children.slice(0, MAX_CANDIDATES)) {
++        if (result.length >= limit) break;
++        visual(child.leading, priority);
++      }
++    }
++  };
++  // Bound row examination too: a giant non-avatar group must not scan all data.
++  for (let index = first; index <= last && index < first + 64; index += 1) row(rows[index], 0);
++  const span = Math.min(24, (last - first + 1) * 2);
++  const step = direction < 0 ? -1 : 1;
++  const aheadStart = step > 0 ? last + 1 : first - 1;
++  const aheadLimit = Math.min(MAX_CANDIDATES, result.length + 24);
++  limit = aheadLimit;
++  for (let distance = 0; distance < span && result.length < aheadLimit; distance += 1) {
++    const index = aheadStart + distance * step;
++    if (index < 0 || index >= rows.length) break;
++    row(rows[index], 1);
++  }
++  const behindStart = step > 0 ? first - 1 : last + 1;
++  const behindLimit = Math.min(MAX_CANDIDATES, result.length + 8);
++  limit = behindLimit;
++  for (let distance = 0; distance < Math.min(8, span) && result.length < behindLimit; distance += 1) {
++    const index = behindStart - distance * step;
++    if (index < 0 || index >= rows.length) break;
++    row(rows[index], 2);
++  }
++  return result;
++}
++
++// OneKey patch: imperative image patches update a sparse prefetch overlay, not
++// the readonly prop or a full cloned snapshot. The key index is rebuilt only for
++// a complete snapshot; ordinary balance patches retain no extra row copies.
++export class NativeAvatarPrefetchModel {
++  imageRows = new Map();
++  constructor(rows) {
++    this.rows = rows;
++    this.rowByKey = new Map(rows.map(row => [row.key, row]));
++  }
++  replaceSnapshot(rows) {
++    this.rows = rows;
++    this.rowByKey = new Map(rows.map(row => [row.key, row]));
++    this.imageRows.clear();
++  }
++  applyPatches(patches, dispatch) {
++    // Native methods have no acknowledgement. Mirror only dispatched batches;
++    // a missing host or a synchronous serialization/dispatch failure changes nothing.
++    if (!dispatch) return false;
++    dispatch();
++    const seen = new Set();
++    for (const patch of patches) {
++      const row = this.rowByKey.get(patch.key);
++      // Both native renderers reject the whole batch for an unknown key/type.
++      if (!row || row.type !== patch.type || seen.has(patch.key)) return false;
++      seen.add(patch.key);
++    }
++    let changed = false;
++    for (const patch of patches) {
++      const changes = patch.changes;
++      let imageChanges;
++      for (const key of IMAGE_PATCH_FIELDS) {
++        if (changes[key] !== undefined) {
++          imageChanges ??= {};
++          imageChanges[key] = changes[key];
++        }
++      }
++      // JSON.stringify omits undefined top-level fields. Native therefore keeps
++      // them unchanged; an explicit replacement visual without image clears it.
++      if (!imageChanges) continue;
++      const row = this.imageRows.get(patch.key) ?? this.rowByKey.get(patch.key);
++      // Preserve the validated row discriminant, matching applyRowPatches' shallow merge.
++      this.imageRows.set(patch.key, {
++        ...row,
++        ...imageChanges,
++        key: row.key,
++        type: row.type
++      });
++      changed = true;
++    }
++    return changed;
++  }
++  window(first, last, direction) {
++    return avatarPrefetchWindow(this.rows, first, last, direction, row => this.imageRows.get(row.key) ?? row);
++  }
++}
++
++// Native preload has no cancellation token. One in-flight source is the bound;
++// direction changes replace all not-yet-started work rather than appending it.
++export class NativeAvatarPrefetchQueue {
++  pending = [];
++  disposed = false;
++  recent = new Map();
++  constructor(preload) {
++    this.preload = preload;
++  }
++  update(candidates) {
++    if (this.disposed) return;
++    const now = Date.now();
++    this.pending = candidates.filter(({
++      source,
++      priority
++    }) => priority !== 0 && source.uri !== this.activeUri && now - (this.recent.get(source.uri) ?? 0) > 30_000).map(({
++      source
++    }) => source);
++    this.schedule();
++  }
++  dispose() {
++    this.disposed = true;
++    this.pending = [];
++    this.recent.clear();
++    if (this.timer !== undefined) clearTimeout(this.timer);
++    this.timer = undefined;
++  }
++  schedule() {
++    if (this.disposed || this.activeUri || this.timer !== undefined || !this.pending.length) return;
++    // Yield between short batches without imposing a frame-per-image throughput cap.
++    this.timer = setTimeout(() => {
++      this.timer = undefined;
++      const source = this.pending.shift();
++      if (!source || this.disposed) return;
++      this.activeUri = source.uri;
++      Promise.resolve().then(() => this.preload(source)).then(success => {
++        if (success && !this.disposed) {
++          this.recent.delete(source.uri);
++          this.recent.set(source.uri, Date.now());
++          if (this.recent.size > 128) this.recent.delete(this.recent.keys().next().value);
++        }
++      }).catch(() => {/* Visible loading retains its own failure/retry behavior. */}).finally(() => {
++        this.activeUri = undefined;
++        this.schedule();
++      });
++    }, 0);
++  }
++}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/models.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/models.js
 index ef38e33..eabec38 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/models.js
@@ -3481,10 +3852,10 @@ index f9ed44b..eae597c 100644
 \ No newline at end of file
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListAvatarWorker.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListAvatarWorker.js
 new file mode 100644
-index 0000000..fff4081
+index 0000000..5c27e23
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListAvatarWorker.js
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,443 @@
 +// OneKey patch: avatar generation and PNG bytes stay in this external worker.
 +// Algorithm ported from ethereum-blockies-base64 1.0.2 by MyCrypto (MIT):
 +// https://github.com/MyCryptoHQ/ethereum-blockies-base64
@@ -3515,6 +3886,128 @@ index 0000000..fff4081
 +const queue = [];
 +let activeLoads = 0;
 +let databasePromise;
++// OneKey patch: persistence never occupies either display-load slot. Pending bytes
++// bridge the last-lease/reacquire window until a bounded background write finishes.
++const MAX_PENDING_WRITES = 32;
++const MAX_PENDING_BYTES = 4 * 1024 * 1024;
++const WRITE_DEADLINE_MS = 32;
++const READ_BUDGET_MS = 8;
++const MAX_PENDING_READS = 2;
++const DISK_IDLE_MS = 100;
++const pendingBlobs = new Map();
++const diskQueue = [];
++const touches = new Map();
++const priorities = new Map();
++let pendingBytes = 0;
++let writing = false;
++let diskTimer;
++let lastAcquire = 0;
++let pendingReads = 0;
++
++function diskIsIdle() {
++  return !activeLoads && !queue.length && !pendingReads && Date.now() - lastAcquire >= DISK_IDLE_MS;
++}
++
++function scheduleDiskWork() {
++  if (writing || diskTimer !== undefined || activeLoads || queue.length || pendingReads || (!diskQueue.length && !touches.size)) return;
++  const delay = Math.max(0, DISK_IDLE_MS - (Date.now() - lastAcquire));
++  diskTimer = setTimeout(() => { diskTimer = undefined; void drainDiskQueue(); }, delay);
++}
++
++function persistLater(uri, blob) {
++  if (pendingBlobs.has(uri) || blob.size > MAX_PENDING_BYTES) return;
++  // OneKey patch: a long scroll retains the most recent bounded write window,
++  // rather than filling it once and dropping every later result. Never evict I/O in flight.
++  // if (pendingBlobs.size >= MAX_PENDING_WRITES || pendingBytes + blob.size > MAX_PENDING_BYTES) return;
++  while (pendingBlobs.size >= MAX_PENDING_WRITES || pendingBytes + blob.size > MAX_PENDING_BYTES) {
++    const oldest = diskQueue.shift();
++    if (!oldest) return;
++    if (pendingBlobs.get(oldest.uri) === oldest.blob) pendingBlobs.delete(oldest.uri);
++    pendingBytes -= oldest.blob.size;
++  }
++  pendingBlobs.set(uri, blob);
++  pendingBytes += blob.size;
++  diskQueue.push({ uri, blob });
++  scheduleDiskWork();
++}
++
++async function drainDiskQueue() {
++  // OneKey patch: a momentary empty load queue is not a scroll-idle window.
++  // if (writing || activeLoads || queue.length) return;
++  if (writing) return;
++  if (!diskIsIdle()) { scheduleDiskWork(); return; }
++  writing = true;
++  try {
++    if (diskQueue.length) {
++      const { uri, blob } = diskQueue.shift();
++      let result;
++      try { result = await writeDisk(uri, blob); } catch { /* Persistence remains best-effort. */ }
++      if (result === 'deferred') {
++        diskQueue.unshift({ uri, blob });
++      } else {
++        if (pendingBlobs.get(uri) === blob) pendingBlobs.delete(uri);
++        pendingBytes -= blob.size;
++        const image = images.get(uri);
++        if (result === true && image?.blob === blob) image.persisted = true;
++      }
++    } else if (touches.size) {
++      await flushTouches();
++    }
++  } finally {
++    writing = false;
++    scheduleDiskWork();
++  }
++}
++
++// OneKey patch: abort is a request, not a bounded browser store-lock release.
++// Display reads have their own budget below, even if this transaction is committing.
++function cacheWriteDeadline(transaction, resolve) {
++  let timer;
++  const check = () => {
++    if (!activeLoads && !queue.length && Date.now() - lastAcquire >= DISK_IDLE_MS) { timer = setTimeout(check, WRITE_DEADLINE_MS); return; }
++    try { transaction.abort(); } catch { /* The browser already started committing. */ }
++  };
++  timer = setTimeout(check, WRITE_DEADLINE_MS);
++  const finish = (success) => { clearTimeout(timer); resolve(success); };
++  transaction.oncomplete = () => finish(true);
++  transaction.onabort = () => finish(false);
++}
++
++function touchLater(uri) {
++  touches.delete(uri);
++  touches.set(uri, Date.now());
++  if (touches.size > 128) touches.delete(touches.keys().next().value);
++  // OneKey patch: touches share the same idle gate and writer as persistence.
++  // if (touchTimer === undefined) touchTimer = setTimeout(flushTouches, 250);
++  scheduleDiskWork();
++}
++
++async function flushTouches() {
++  const database = await openDatabase();
++  // Opening the database can yield across a new acquire; recheck before starting I/O.
++  if (!diskIsIdle()) return;
++  const batch = [...touches];
++  touches.clear();
++  if (database && batch.length) await new Promise((resolve) => {
++    try {
++      const transaction = database.transaction('images', 'readwrite');
++      cacheWriteDeadline(transaction, resolve);
++      const store = transaction.objectStore('images');
++      batch.forEach(([uri, accessed]) => {
++        const request = store.get(uri);
++        request.onsuccess = () => {
++          if (request.result) store.put({ ...request.result, accessed: Math.max(request.result.accessed || 0, accessed) });
++        };
++      });
++    } catch { resolve(false); }
++  });
++}
++
++function jobPriority(job) {
++  let priority = 2;
++  job.ids.forEach((id) => { priority = Math.min(priority, priorities.get(id) ?? 2); });
++  return priority;
++}
 +
 +function openDatabase() {
 +  if (!databasePromise) {
@@ -3543,33 +4036,71 @@ index 0000000..fff4081
 +}
 +
 +async function readDisk(uri) {
-+  const database = await openDatabase();
-+  if (!database) return undefined;
++  // OneKey patch: the cache is optional. A slow read must not retain a display
++  // load slot while abort/commit waits on browser I/O. Keep unfinished reads
++  // separately bounded, including an unresolved shared database open.
++  if (pendingReads >= MAX_PENDING_READS) return undefined;
++  pendingReads += 1;
 +  return new Promise((resolve) => {
-+    try {
-+      const transaction = database.transaction('images', 'readwrite');
-+      const store = transaction.objectStore('images');
-+      const request = store.get(uri);
-+      let blob;
-+      request.onsuccess = () => {
-+        const record = request.result;
-+        if (record?.blob instanceof Blob && record.blob.type === 'image/png' && record.blob.size <= MAX_DISK_BYTES) {
-+          blob = record.blob;
-+          store.put({ ...record, accessed: Date.now() });
-+        }
-+      };
-+      transaction.oncomplete = () => resolve(blob);
-+      transaction.onerror = transaction.onabort = () => resolve(undefined);
-+    } catch { resolve(undefined); }
++    let transaction;
++    let blob;
++    let settled = false;
++    let finished = false;
++    let abortRequested = false;
++    const finish = (success) => {
++      if (finished) return;
++      finished = true;
++      pendingReads -= 1;
++      clearTimeout(timer);
++      if (!settled) {
++        settled = true;
++        if (success && blob) touchLater(uri);
++        resolve(success ? blob : undefined);
++      }
++      scheduleDiskWork();
++    };
++    const timeout = () => {
++      if (finished) return;
++      if (!settled) { settled = true; resolve(undefined); }
++      // Do not release pendingReads here: an aborted IDB transaction can still
++      // hold its store lock for hundreds of milliseconds before onabort arrives.
++      if (transaction && !abortRequested) {
++        abortRequested = true;
++        try { transaction.abort(); } catch { /* Already committing; ignore late callbacks. */ }
++      }
++    };
++    const timer = setTimeout(timeout, READ_BUDGET_MS);
++    Promise.resolve().then(openDatabase).then((database) => {
++      if (settled || !database) { finish(false); return; }
++      try {
++        transaction = database.transaction('images', 'readonly');
++        transaction.oncomplete = () => finish(true);
++        transaction.onabort = () => finish(false);
++        transaction.onerror = timeout;
++        const request = transaction.objectStore('images').get(uri);
++        request.onsuccess = () => {
++          if (settled) return;
++          const record = request.result;
++          if (record?.blob instanceof Blob && record.blob.type === 'image/png' && record.blob.size <= MAX_DISK_BYTES) blob = record.blob;
++          // A completed readonly get can serve display before the transaction ends.
++          // Its physical permit still belongs to oncomplete/onabort.
++          settled = true;
++          if (blob) touchLater(uri);
++          resolve(blob);
++        };
++      } catch { if (transaction) timeout(); else finish(false); }
++    }).catch(() => finish(false));
 +  });
 +}
 +
 +async function writeDisk(uri, blob) {
 +  const database = await openDatabase();
-+  if (!database || blob.size > MAX_DISK_BYTES) return;
-+  await new Promise((resolve) => {
++  if (!database || blob.size > MAX_DISK_BYTES) return false;
++  if (!diskIsIdle()) return 'deferred';
++  return new Promise((resolve) => {
 +    try {
 +      const transaction = database.transaction(['images', 'metadata'], 'readwrite');
++      cacheWriteDeadline(transaction, resolve);
 +      const store = transaction.objectStore('images');
 +      const metadata = transaction.objectStore('metadata');
 +      const previous = store.get(uri);
@@ -3595,7 +4126,8 @@ index 0000000..fff4081
 +          };
 +        };
 +      };
-+      transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
++      // OneKey patch: completion/abort clears the deadline before releasing pending bytes.
++      // transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
 +    } catch { resolve(); }
 +  });
 +}
@@ -3658,6 +4190,7 @@ index 0000000..fff4081
 +function release(id) {
 +  const uri = requests.get(id);
 +  requests.delete(id);
++  priorities.delete(id);
 +  const image = images.get(uri);
 +  image?.references.delete(id);
 +  if (image && image.references.size === 0) {
@@ -3674,8 +4207,12 @@ index 0000000..fff4081
 +}
 +
 +async function runJob(job) {
-+  let blob = await readDisk(job.uri);
-+  if (blob) {
++  // OneKey patch: reuse generated bytes even if the last UI lease was released
++  // while persistence is still in flight; these bytes already passed generation.
++  const pending = pendingBlobs.get(job.uri);
++  let blob = pending ?? await readDisk(job.uri);
++  let persisted = !!blob && !pending;
++  if (blob && !pending) {
 +    try {
 +      const bitmap = await createImageBitmap(blob);
 +      const valid = bitmap.width === 128 && bitmap.height === 128;
@@ -3684,11 +4221,14 @@ index 0000000..fff4081
 +    } catch { blob = undefined; }
 +  }
 +  if (!blob && job.ids.size) {
++    persisted = false;
 +    blob = await generateBlob(job.seed);
-+    await writeDisk(job.uri, blob);
++    // OneKey patch: notify clients and free the load slot without awaiting I/O.
++    // await writeDisk(job.uri, blob);
++    persistLater(job.uri, blob);
 +  }
 +  if (!blob || !job.ids.size) return;
-+  const image = { url: URL.createObjectURL(blob), references: new Set() };
++  const image = { url: URL.createObjectURL(blob), blob, persisted, references: new Set() };
 +  images.set(job.uri, image);
 +  job.ids.forEach((id) => {
 +    if (requests.get(id) !== job.uri) return;
@@ -3700,7 +4240,13 @@ index 0000000..fff4081
 +
 +function pump() {
 +  while (activeLoads < MAX_CONCURRENT_LOADS && queue.length) {
-+    const job = queue.shift();
++    // OneKey patch: queued leases can be promoted without restarting their load.
++    // const job = queue.shift();
++    let next = 0;
++    for (let index = 1; index < queue.length; index += 1) {
++      if (jobPriority(queue[index]) < jobPriority(queue[next])) next = index;
++    }
++    const [job] = queue.splice(next, 1);
 +    if (jobs.get(job.uri) !== job || !job.ids.size) continue;
 +    job.active = true;
 +    activeLoads += 1;
@@ -3712,6 +4258,7 @@ index 0000000..fff4081
 +      if (jobs.get(job.uri) === job) jobs.delete(job.uri);
 +      activeLoads -= 1;
 +      pump();
++      void drainDiskQueue();
 +    });
 +  }
 +}
@@ -3719,16 +4266,25 @@ index 0000000..fff4081
 +onmessage = ({ data }) => {
 +  if (!data || !Number.isSafeInteger(data.id)) return;
 +  if (data.type === 'release') { release(data.id); return; }
++  if (data.type === 'priority') {
++    if (requests.has(data.id)) priorities.set(data.id, data.priority === 0 ? 0 : data.priority === 1 ? 1 : 2);
++    return;
++  }
 +  if (data.type !== 'acquire') return;
 +  release(data.id);
++  lastAcquire = Date.now();
++  scheduleDiskWork();
 +  try {
 +    if (typeof data.uri !== 'string' || !data.uri.startsWith(PREFIX)) throw new Error('Invalid avatar URI');
 +    const seed = decodeURIComponent(data.uri.slice(PREFIX.length)).toLowerCase();
 +    if (!seed) throw new Error('Empty avatar seed');
 +    const uri = PREFIX + encodeURIComponent(seed);
 +    requests.set(data.id, uri);
++    priorities.set(data.id, data.priority === 0 ? 0 : data.priority === 1 ? 1 : 2);
 +    const image = images.get(uri);
 +    if (image) {
++      // Reacquiring a live Blob can retry best-effort persistence after queue pressure.
++      if (!image.persisted) persistLater(uri, image.blob);
 +      image.references.add(data.id);
 +      postMessage({ type: 'resolved', id: data.id, url: image.url });
 +      return;
@@ -3745,10 +4301,10 @@ index 0000000..fff4081
 +};
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js
 new file mode 100644
-index 0000000..bbcc33a
+index 0000000..3e1fa51
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js
-@@ -0,0 +1,137 @@
+@@ -0,0 +1,162 @@
 +"use strict";
 +
 +// OneKey patch: avatar bytes stay in a worker and IndexedDB, outside list snapshots.
@@ -3767,7 +4323,7 @@ index 0000000..bbcc33a
 +  entries = new Map();
 +  requests = new Map();
 +  nextId = 0;
-+  acquire(uri, resolve, reject) {
++  acquire(uri, resolve, reject, priority = 2) {
 +    let entry = this.entries.get(uri);
 +    const isNew = !entry;
 +    if (!entry) {
@@ -3786,9 +4342,13 @@ index 0000000..bbcc33a
 +    current.references += 1;
 +    const listener = {
 +      resolve,
-+      reject
++      reject,
++      priority
 +    };
-+    if (current.url) resolve(current.url);else current.listeners.add(listener);
++    if (current.url) resolve(current.url);
++    // OneKey patch: keep lease priority after resolution as well as while queued.
++    // else current.listeners.add(listener);
++    current.listeners.add(listener);
 +    if (isNew) {
 +      try {
 +        if (!this.worker) {
@@ -3803,15 +4363,26 @@ index 0000000..bbcc33a
 +        this.worker.postMessage({
 +          type: 'acquire',
 +          id: current.id,
-+          uri
++          uri,
++          priority
 +        });
 +      } catch {
 +        queueMicrotask(this.handleFailure);
 +      }
 +    }
++    const updatePriority = () => {
++      if (current.url) return;
++      const priorities = [...current.listeners].map(value => value.priority);
++      this.worker?.postMessage({
++        type: 'priority',
++        id: current.id,
++        priority: Math.min(2, ...priorities)
++      });
++    };
++    updatePriority();
 +    this.trim();
 +    let disposed = false;
-+    return () => {
++    const release = () => {
 +      if (disposed) return;
 +      disposed = true;
 +      current.listeners.delete(listener);
@@ -3824,8 +4395,16 @@ index 0000000..bbcc33a
 +          id: current.id
 +        });
 +      }
++      updatePriority();
 +      this.trim();
 +    };
++    return Object.assign(release, {
++      setPriority: next => {
++        if (disposed || listener.priority === next) return;
++        listener.priority = next;
++        updatePriority();
++      }
++    });
 +  }
 +  handleMessage = event => {
 +    const response = event.data;
@@ -3850,14 +4429,16 @@ index 0000000..bbcc33a
 +      });
 +      entry.listeners.forEach(listener => listener.reject());
 +    }
-+    entry.listeners.clear();
++    // OneKey patch: retain resolved lease priorities until their explicit release.
++    // entry.listeners.clear();
++    if (!entry.url) entry.listeners.clear();
 +    this.trim();
 +  };
 +  handleFailure = () => {
 +    this.worker?.terminate();
 +    this.worker = undefined;
 +    this.requests.forEach(entry => {
-+      entry.listeners.forEach(listener => listener.reject());
++      if (!entry.url) entry.listeners.forEach(listener => listener.reject());
 +      entry.listeners.clear();
 +    });
 +    this.requests.clear();
@@ -3878,27 +4459,28 @@ index 0000000..bbcc33a
 +  }
 +}
 +const documentCaches = new WeakMap();
-+export function acquireNativeListAvatar(document, uri, resolve, reject) {
++export function acquireNativeListAvatar(document, uri, resolve, reject, priority = 2) {
 +  let cache = documentCaches.get(document);
 +  if (!cache) {
 +    cache = new NativeListWebAvatarCache();
 +    documentCaches.set(document, cache);
 +  }
-+  return cache.acquire(uri, resolve, reject);
++  return cache.acquire(uri, resolve, reject, priority);
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index 625a913..c1d40b4 100644
+index 625a913..0e702f6 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  import { checkboxStateForKeys, checkboxStateForSection, isSelectableRow, reduceSelection, selectionStateFromSnapshot } from "../selection.js";
  import { calculateAlignedScrollOffset, resolveLocationIndex, scrollFailure, validateOffset } from "../scrolling.js";
  import { applyRowPatches, validateSnapshot } from "../validation.js";
++import { avatarPrefetchWindow } from "../avatarPrefetch.js";
 +import { acquireNativeListAvatar, canonicalNativeListAvatarUri } from "./NativeListWebAvatarCache.js";
  const SECTION_INDEX_GUTTER = 44;
  const DEFAULT_VIEWPORT_WIDTH = 320;
  const DEFAULT_VIEWPORT_HEIGHT = 640;
-@@ -147,9 +148,22 @@ function approximateMessageHeight(row, availableWidth) {
+@@ -147,9 +149,22 @@ function approximateMessageHeight(row, availableWidth) {
    return 32 + titleLines * 20 + bodyLines * 20 + 22;
  }
  export function estimateWebRowHeight(row, snapshot, availableWidth) {
@@ -3924,7 +4506,7 @@ index 625a913..c1d40b4 100644
    if (row.type === 'identity' && row.presentation === 'networkSelector') return 47;
    if (row.type === 'identity' && row.presentation === 'accountSelector') return 58;
    let base;
-@@ -371,7 +385,10 @@ function rowWithoutSelectionState(row) {
+@@ -371,7 +386,10 @@ function rowWithoutSelectionState(row) {
  export function webRowRenderSignature(row) {
    return JSON.stringify(rowWithoutSelectionState(row));
  }
@@ -3935,7 +4517,7 @@ index 625a913..c1d40b4 100644
  .ok-native-list-root{--nl-bg:#f7f7f7;--nl-row:#fff;--nl-selected:#eaf2ff;--nl-pressed:#e8e8e8;--nl-subdued:#f9f9f9;--nl-strong:#0000000f;--nl-primary:#111;--nl-secondary:#6b7280;--nl-disabled:#8d8d8d;--nl-icon:#111;--nl-icon-subdued:#8d8d8d;--nl-separator:#e5e7eb;--nl-accent:#2f6bff;--nl-positive:#15803d;--nl-negative:#dc2626;--nl-critical:#feecec;--nl-inverse:#202020;--nl-inverse-text:#fcfcfc;--nl-info:#0d74ce;position:absolute;inset:0;display:flex;min-width:0;min-height:0;overflow:hidden;background:var(--nl-bg);color:var(--nl-primary);font-family:Roobert,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-synthesis:none}
  .ok-native-list-viewport-frame{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
  .ok-native-list-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-@@ -426,7 +443,27 @@ export const WEB_LIST_CSS = `
+@@ -426,7 +444,27 @@ export const WEB_LIST_CSS = `
  .ok-native-list-data{padding:6px 12px}.ok-native-list-index{flex:0 0 28px;color:var(--nl-secondary);font-size:13px}.ok-native-list-favorite{flex:0 0 24px;color:var(--nl-icon-subdued);font-size:22px}.ok-native-list-favorite[data-active="true"]{color:var(--nl-accent)}.ok-native-list-data-cell{display:flex;flex-direction:column;min-width:0}.ok-native-list-data-cell[data-align="center"]{align-items:center}.ok-native-list-data-cell[data-align="end"]{align-items:flex-end}.ok-native-list-data-primary{display:flex;align-items:center;gap:5px;max-width:100%;font-size:16px;font-weight:500;white-space:nowrap}.ok-native-list-unread{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--nl-accent)}.ok-native-list-thumbnail{width:64px;height:64px;border-radius:10px;object-fit:cover}
  .ok-native-list-footer{flex:0 0 auto;min-height:0}.ok-native-list-sticky{position:absolute;z-index:4;left:0;right:0;top:0;pointer-events:auto;box-shadow:0 1px 0 var(--nl-separator)}.ok-native-list-index-rail{position:absolute;z-index:6;top:0;right:0;bottom:0;width:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;touch-action:none}.ok-native-list-index-rail[hidden]{display:none}.ok-native-list-index-button{appearance:none;border:0;background:transparent;display:flex;flex:1;max-height:22px;min-height:12px;width:100%;align-items:center;justify-content:center;padding:0;color:var(--nl-secondary);font:600 11px/1 inherit;cursor:pointer}.ok-native-list-index-button[data-active="true"]{color:var(--nl-accent)}.ok-native-list-index-preview{position:absolute;z-index:8;left:50%;top:50%;display:flex;width:72px;height:72px;align-items:center;justify-content:center;transform:translate(-50%,-50%) scale(.92);border-radius:16px;background:var(--nl-inverse);color:var(--nl-inverse-text);font-size:28px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}.ok-native-list-index-preview[data-visible="true"]{opacity:1;transform:translate(-50%,-50%) scale(1)}
  .ok-native-list-refresh{position:absolute;z-index:7;left:50%;top:8px;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--nl-inverse);color:var(--nl-inverse-text);font-size:12px;opacity:0;transform:translate(-50%,-16px);transition:opacity .15s ease,transform .15s ease;pointer-events:none}.ok-native-list-refresh[data-visible="true"]{opacity:1;transform:translate(-50%,0)}
@@ -3963,7 +4545,7 @@ index 625a913..c1d40b4 100644
  `;
  function createElement(document, tag, className, text) {
    const element = document.createElement(tag);
-@@ -442,12 +479,105 @@ function safeImageUri(uri) {
+@@ -442,12 +480,105 @@ function safeImageUri(uri) {
    if (/^(https?:|data:image\/|blob:|file:)/i.test(trimmed) || trimmed.startsWith('/')) return trimmed;
    return undefined;
  }
@@ -4071,7 +4653,7 @@ index 625a913..c1d40b4 100644
    image.alt = '';
    image.draggable = false;
    image.loading = 'lazy';
-@@ -455,6 +585,247 @@ function createImage(context, source, className) {
+@@ -455,6 +586,247 @@ function createImage(context, source, className) {
    image.style.objectFit = source.contentFit === 'fill' ? 'fill' : source.contentFit ?? 'cover';
    return image;
  }
@@ -4319,7 +4901,7 @@ index 625a913..c1d40b4 100644
  function iconGlyph(name) {
    const normalized = name.toLocaleLowerCase();
    if (normalized.includes('chevron')) {
-@@ -484,7 +855,7 @@ function visualFromRow(row) {
+@@ -484,7 +856,7 @@ function visualFromRow(row) {
    if (row.type === 'metricCard') return row.visual;
    return undefined;
  }
@@ -4328,7 +4910,7 @@ index 625a913..c1d40b4 100644
    if (!visual) return undefined;
    if (visual.kind === 'stackedImages') {
      const stack = createElement(context.document, 'span', 'ok-native-list-stacked');
-@@ -500,6 +871,7 @@ function createVisual(context, visual) {
+@@ -500,6 +872,7 @@ function createVisual(context, visual) {
    if (visual.kind === 'icon') {
      frame.style.background = visual.backgroundColor ?? 'var(--nl-strong)';
      const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', iconGlyph(visual.name));
@@ -4336,7 +4918,7 @@ index 625a913..c1d40b4 100644
      if (visual.tintColor) fallback.style.color = visual.tintColor;
      frame.appendChild(fallback);
      return frame;
-@@ -510,6 +882,7 @@ function createVisual(context, visual) {
+@@ -510,6 +883,7 @@ function createVisual(context, visual) {
    if (image) {
      image.className = 'ok-native-list-visual-main';
      frame.appendChild(image);
@@ -4344,7 +4926,7 @@ index 625a913..c1d40b4 100644
    } else {
      frame.appendChild(createElement(context.document, 'span', 'ok-native-list-visual-fallback', 'fallbackText' in visual ? visual.fallbackText ?? '' : ''));
    }
-@@ -520,8 +893,64 @@ function createVisual(context, visual) {
+@@ -520,8 +894,64 @@ function createVisual(context, visual) {
      const corner = createElement(context.document, 'span', 'ok-native-list-visual-corner ok-native-list-visual-fallback', iconGlyph(visual.cornerIcon.name));
      if (visual.cornerIcon.tintColor) corner.style.color = visual.cornerIcon.tintColor;
      if (visual.cornerIcon.backgroundColor) corner.style.background = visual.cornerIcon.backgroundColor;
@@ -4409,7 +4991,7 @@ index 625a913..c1d40b4 100644
    return frame;
  }
  function toneColor(tone, fallback) {
-@@ -567,6 +996,19 @@ function createCheckbox(context, rowKey, accessory) {
+@@ -567,6 +997,19 @@ function createCheckbox(context, rowKey, accessory) {
    setData(element, 'checkboxFallback', accessory.state);
    setData(element, 'nativeListAction', accessory.actionKey ?? 'selection');
    setData(element, 'selectionScope', accessory.target?.scope ?? 'row');
@@ -4429,7 +5011,7 @@ index 625a913..c1d40b4 100644
    if (accessory.target?.scope === 'section') setData(element, 'selectionKey', accessory.target.sectionKey);else if (accessory.target?.scope === 'row') setData(element, 'selectionKey', rowKey);
    return element;
  }
-@@ -576,6 +1018,7 @@ function createIconAction(context, name, actionKey, disabled, tintColor) {
+@@ -576,6 +1019,7 @@ function createIconAction(context, name, actionKey, disabled, tintColor) {
      element.setAttribute('type', 'button');
      element.toggleAttribute('disabled', Boolean(disabled));
    }
@@ -4437,7 +5019,7 @@ index 625a913..c1d40b4 100644
    if (actionKey) setData(element, 'nativeListAction', actionKey);
    if (tintColor) element.style.color = tintColor;
    return element;
-@@ -584,6 +1027,23 @@ function markActionAnchorSource(element, source, slot) {
+@@ -584,6 +1028,23 @@ function markActionAnchorSource(element, source, slot) {
    setData(element, 'nativeListAnchorSource', source);
    if (slot !== undefined) setData(element, 'nativeListAnchorSlot', slot);
  }
@@ -4461,7 +5043,7 @@ index 625a913..c1d40b4 100644
  function createAccessory(context, rowKey, accessory, slot) {
    if (accessory.kind === 'checkbox') {
      const element = createCheckbox(context, rowKey, accessory);
-@@ -593,6 +1053,18 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -593,6 +1054,18 @@ function createAccessory(context, rowKey, accessory, slot) {
    if (accessory.kind === 'icon') {
      const element = createIconAction(context, accessory.name, accessory.actionKey, accessory.disabled, accessory.tintColor);
      markActionAnchorSource(element, 'trailingAccessory', slot);
@@ -4480,7 +5062,7 @@ index 625a913..c1d40b4 100644
      return element;
    }
    if (accessory.kind === 'spinner') {
-@@ -608,6 +1080,7 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -608,6 +1081,7 @@ function createAccessory(context, rowKey, accessory, slot) {
    switch (accessory.kind) {
      case 'value':
        element.textContent = accessory.text;
@@ -4488,7 +5070,7 @@ index 625a913..c1d40b4 100644
        if (accessory.secondary) element.classList.add('ok-native-list-accessory-secondary');
        break;
      case 'valuePair':
-@@ -646,6 +1119,13 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -646,6 +1120,13 @@ function createAccessory(context, rowKey, accessory, slot) {
  function appendAccessories(parent, context, rowKey, accessories) {
    if (!accessories?.length) return;
    const container = createElement(context.document, 'span', 'ok-native-list-accessories');
@@ -4502,7 +5084,7 @@ index 625a913..c1d40b4 100644
    accessories.forEach((accessory, slot) => container.appendChild(createAccessory(context, rowKey, accessory, slot)));
    parent.appendChild(container);
  }
-@@ -673,9 +1153,83 @@ function createSectionHeader(context, row) {
+@@ -673,9 +1154,83 @@ function createSectionHeader(context, row) {
      markActionAnchorSource(titleIcon, 'leadingAction');
      body.appendChild(titleIcon);
    }
@@ -4587,7 +5169,7 @@ index 625a913..c1d40b4 100644
      if (row.valueActionKey) {
        value.setAttribute('type', 'button');
        setData(value, 'nativeListAction', row.valueActionKey);
-@@ -696,6 +1250,7 @@ function createActionRow(context, row) {
+@@ -696,6 +1251,7 @@ function createActionRow(context, row) {
    if (row.icon) body.appendChild(createVisual(context, row.icon));
    const title = createElement(context.document, 'span', 'ok-native-list-action-title', row.title);
    setData(title, 'tone', row.tone);
@@ -4595,7 +5177,7 @@ index 625a913..c1d40b4 100644
    body.appendChild(title);
    if (row.checkbox) body.appendChild(createCheckbox(context, row.key, row.checkbox));
    appendAccessories(body, context, row.key, row.trailing);
-@@ -704,6 +1259,13 @@ function createActionRow(context, row) {
+@@ -704,6 +1260,13 @@ function createActionRow(context, row) {
  function createSystemRow(context, row) {
    const body = createElement(context.document, 'div', 'ok-native-list-row ok-native-list-system');
    setData(body, 'variant', row.variant);
@@ -4609,7 +5191,7 @@ index 625a913..c1d40b4 100644
    if (row.variant === 'loading') body.appendChild(createElement(context.document, 'span', 'ok-native-list-spinner'));
    const message = row.variant === 'spacer' ? '' : row.message ?? (row.variant === 'end' ? 'End' : '');
    if (message) body.appendChild(createElement(context.document, 'span', 'ok-native-list-secondary', message));
-@@ -852,12 +1414,31 @@ function createDataRow(context, row) {
+@@ -852,12 +1415,31 @@ function createDataRow(context, row) {
  function createIdentityActivityOrMessageRow(context, row) {
    const presentation = row.type === 'identity' ? row.presentation : undefined;
    const body = createElement(context.document, 'div', ['ok-native-list-row', 'ok-native-list-standard', row.type === 'identity' && !presentation ? 'ok-native-list-identity-row' : '', presentation === 'networkSelector' ? 'ok-native-list-network-row' : '', presentation === 'walletSidebar' ? 'ok-native-list-wallet-row' : '', presentation === 'accountSelector' ? 'ok-native-list-account-row' : ''].filter(Boolean).join(' '));
@@ -4642,7 +5224,7 @@ index 625a913..c1d40b4 100644
    if (visual) body.appendChild(visual);
    if (row.type === 'activity' && row.secondaryLeading) {
      const secondVisual = createVisual(context, row.secondaryLeading);
-@@ -866,7 +1447,46 @@ function createIdentityActivityOrMessageRow(context, row) {
+@@ -866,7 +1448,46 @@ function createIdentityActivityOrMessageRow(context, row) {
    if (row.type === 'message' && row.unread) body.appendChild(createElement(context.document, 'span', 'ok-native-list-unread'));
    const title = row.title;
    const subtitle = row.type === 'identity' ? row.subtitle : row.type === 'activity' ? row.description : row.body;
@@ -4690,7 +5272,7 @@ index 625a913..c1d40b4 100644
    if (row.type === 'activity' && row.status) column.appendChild(createElement(context.document, 'span', 'ok-native-list-secondary', row.status));
    if (row.type === 'activity' && row.footerActions?.length) {
      const actions = createElement(context.document, 'span', 'ok-native-list-actions');
-@@ -898,14 +1518,32 @@ function createIdentityActivityOrMessageRow(context, row) {
+@@ -898,14 +1519,32 @@ function createIdentityActivityOrMessageRow(context, row) {
    }
    return body;
  }
@@ -4724,7 +5306,18 @@ index 625a913..c1d40b4 100644
      body.appendChild(memberElement);
    });
    return body;
-@@ -953,6 +1591,8 @@ export class NativeListWebEngine {
+@@ -945,6 +1584,10 @@ export class NativeListWebEngine {
+   };
+   mounted = new Map();
+   pool = [];
++  // OneKey patch: URI leases outlive DOM overscan only inside this bounded window.
++  avatarLeases = new Map();
++  avatarOffset = 0;
++  avatarDirection = 1;
+   suppressClickUntil = 0;
+   pullDistance = 0;
+   actionAnchorInstanceId = String(++webNativeListInstanceCounter);
+@@ -953,6 +1596,8 @@ export class NativeListWebEngine {
    lastViewportWidth = -1;
    lastViewportHeight = -1;
    destroyed = false;
@@ -4733,7 +5326,7 @@ index 625a913..c1d40b4 100644
    constructor(host, snapshot, callbacks, virtualizationEnabled = true) {
      this.document = host.ownerDocument;
      this.snapshot = validateSnapshot(snapshot);
-@@ -991,6 +1631,9 @@ export class NativeListWebEngine {
+@@ -991,6 +1636,9 @@ export class NativeListWebEngine {
        passive: true
      });
      this.root.addEventListener('click', this.handleClick);
@@ -4743,7 +5336,7 @@ index 625a913..c1d40b4 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener('pointerdown', this.handleReorderPointerDown, {
        passive: false
-@@ -1125,7 +1768,7 @@ export class NativeListWebEngine {
+@@ -1125,7 +1773,7 @@ export class NativeListWebEngine {
    scrollToLocation(params, scroll) {
      const index = resolveLocationIndex(this.snapshot.rows, params);
      if (index === undefined) {
@@ -4752,7 +5345,7 @@ index 625a913..c1d40b4 100644
        this.emitScrollFailure(params.itemIndex, params.sectionIndex >= sectionCount ? 'section-out-of-range' : 'item-out-of-range');
        return;
      }
-@@ -1172,6 +1815,8 @@ export class NativeListWebEngine {
+@@ -1172,6 +1820,8 @@ export class NativeListWebEngine {
      this.document.defaultView?.removeEventListener('resize', this.handleWindowResize);
      this.viewport.removeEventListener('scroll', this.handleScroll);
      this.root.removeEventListener('click', this.handleClick);
@@ -4761,7 +5354,7 @@ index 625a913..c1d40b4 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener('pointerdown', this.handleReorderPointerDown);
-@@ -1189,6 +1834,8 @@ export class NativeListWebEngine {
+@@ -1189,14 +1839,19 @@ export class NativeListWebEngine {
      this.viewport.removeEventListener('pointerup', this.handlePullEnd);
      this.viewport.removeEventListener('pointercancel', this.handlePullEnd);
      const host = this.root.parentElement;
@@ -4770,15 +5363,18 @@ index 625a913..c1d40b4 100644
      this.root.remove();
      this.hideReorderPreview();
      this.reorderPreview.remove();
-@@ -1197,6 +1844,7 @@ export class NativeListWebEngine {
+     if (host) host.style.position = this.previousHostPosition;
+     this.mounted.clear();
      this.pool.length = 0;
++    this.avatarLeases.forEach(release => release());
++    this.avatarLeases.clear();
    }
    setSnapshot(snapshot, selectedKeys) {
 +    this.measuredWarningHeights.clear();
      this.snapshot = snapshot;
      this.rows = effectiveRows(snapshot);
      this.selectedKeys = selectedKeys ?? selectionStateFromSnapshot(snapshot).selectedKeys;
-@@ -1219,6 +1867,11 @@ export class NativeListWebEngine {
+@@ -1219,6 +1874,11 @@ export class NativeListWebEngine {
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
@@ -4790,7 +5386,7 @@ index 625a913..c1d40b4 100644
        '--nl-icon': theme.icon,
        '--nl-icon-subdued': theme.iconSubdued,
        '--nl-separator': theme.separator,
-@@ -1242,11 +1895,19 @@ export class NativeListWebEngine {
+@@ -1242,11 +1902,19 @@ export class NativeListWebEngine {
      const viewportHeight = this.viewport.clientHeight;
      if (this.lastViewportWidth >= 0 && (viewportWidth !== this.lastViewportWidth || viewportHeight !== this.lastViewportHeight)) {
        this.invalidateActionAnchor('layout');
@@ -4811,7 +5407,52 @@ index 625a913..c1d40b4 100644
      this.content.style.width = String(this.layout.contentWidth) + 'px';
      this.content.style.height = String(this.layout.contentHeight) + 'px';
      if (previousHorizontal !== this.layout.horizontal) {
-@@ -1264,6 +1925,7 @@ export class NativeListWebEngine {
+@@ -1256,7 +1924,44 @@ export class NativeListWebEngine {
+     this.renderWindow();
+     this.performPendingScroll();
+   };
++  updateAvatarWindow() {
++    const offset = this.currentOffset();
++    if (offset !== this.avatarOffset) this.avatarDirection = Math.sign(offset - this.avatarOffset);
++    this.avatarOffset = offset;
++    const visible = visibleWebLayoutItems(this.layout, offset, this.viewportLength(), 0);
++    const first = visible[0]?.index ?? -1;
++    const last = visible[visible.length - 1]?.index ?? -1;
++    const candidates = avatarPrefetchWindow(this.rows, first, last, this.avatarDirection);
++    const desired = new Set(candidates.map(({
++      source
++    }) => canonicalNativeListAvatarUri(source.uri)).filter(uri => uri !== undefined));
++    this.avatarLeases.forEach((release, uri) => {
++      if (!desired.has(uri)) {
++        release();
++        this.avatarLeases.delete(uri);
++      }
++    });
++    candidates.forEach(({
++      source,
++      priority
++    }) => {
++      const uri = canonicalNativeListAvatarUri(source.uri);
++      if (!uri) return;
++      const existing = this.avatarLeases.get(uri);
++      if (existing) existing.setPriority(priority);else {
++        let lease;
++        lease = acquireNativeListAvatar(this.document, uri, () => {}, () => {
++          if (this.avatarLeases.get(uri) === lease) {
++            lease?.();
++            this.avatarLeases.delete(uri);
++          }
++        }, priority);
++        this.avatarLeases.set(uri, lease);
++      }
++    });
++  }
+   renderWindow() {
++    this.updateAvatarWindow();
+     const viewportLength = this.viewportLength();
+     const visible = webLayoutItemsForMount(this.layout, this.currentOffset(), viewportLength, this.virtualizationEnabled, viewportLength * OVERSCAN_VIEWPORTS);
+     const desired = new Set(visible.map(item => item.index));
+@@ -1264,6 +1969,7 @@ export class NativeListWebEngine {
        if (!desired.has(index)) {
          this.invalidateActionAnchorForElement(element);
          this.mounted.delete(index);
@@ -4819,7 +5460,7 @@ index 625a913..c1d40b4 100644
          element.remove();
          this.pool.push(element);
        }
-@@ -1285,6 +1947,20 @@ export class NativeListWebEngine {
+@@ -1285,6 +1991,20 @@ export class NativeListWebEngine {
          element.dataset.renderSignature = signature;
        }
      });
@@ -4840,7 +5481,7 @@ index 625a913..c1d40b4 100644
      this.updateVisibleSelection();
      this.updateVisibleState();
    }
-@@ -1295,12 +1971,16 @@ export class NativeListWebEngine {
+@@ -1295,12 +2015,16 @@ export class NativeListWebEngine {
    }
    renderElement(element, index, row, overlay = false) {
      this.invalidateActionAnchorForElement(element);
@@ -4857,7 +5498,7 @@ index 625a913..c1d40b4 100644
      setData(element, 'nativeListReorderable', this.isReorderable(row));
      setData(element, 'nativeListDragging', this.pointerReorder?.active && this.pointerReorder.sourceKey === row.key);
      setData(element, 'separator', row.separator);
-@@ -1320,11 +2000,67 @@ export class NativeListWebEngine {
+@@ -1320,11 +2044,67 @@ export class NativeListWebEngine {
        selectedKeys: this.selectedKeys,
        itemIndex: index
      };
@@ -4926,7 +5567,7 @@ index 625a913..c1d40b4 100644
      this.footer.replaceChildren();
      if (!row) return;
      const element = createElement(this.document, 'div', 'ok-native-list-item');
-@@ -1357,7 +2093,9 @@ export class NativeListWebEngine {
+@@ -1357,7 +2137,9 @@ export class NativeListWebEngine {
    updateVisibleSelection() {
      const update = (element, row) => {
        if (!row) return;
@@ -4937,7 +5578,7 @@ index 625a913..c1d40b4 100644
        setData(element, 'nativeListSelected', selected);
        element.setAttribute('aria-selected', String(selected));
        element.querySelectorAll('.ok-native-list-checkbox').forEach(checkbox => {
-@@ -1396,7 +2134,9 @@ export class NativeListWebEngine {
+@@ -1396,7 +2178,9 @@ export class NativeListWebEngine {
      }
      this.checkEndReached(last?.index ?? -1);
      this.updateStickyHeader(first?.index ?? -1);
@@ -4948,7 +5589,7 @@ index 625a913..c1d40b4 100644
    }
    updateStickyHeader(firstVisibleIndex) {
      if (!this.snapshot.layout.stickyHeaders || this.layout.horizontal || firstVisibleIndex < 0) {
-@@ -1407,7 +2147,7 @@ export class NativeListWebEngine {
+@@ -1407,7 +2191,7 @@ export class NativeListWebEngine {
      let index = -1;
      for (let cursor = firstVisibleIndex; cursor >= 0; cursor -= 1) {
        const row = this.rows[cursor];
@@ -4957,7 +5598,7 @@ index 625a913..c1d40b4 100644
          index = cursor;
          break;
        }
-@@ -1433,7 +2173,7 @@ export class NativeListWebEngine {
+@@ -1433,7 +2217,7 @@ export class NativeListWebEngine {
      let nextIndex = -1;
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
@@ -4966,7 +5607,7 @@ index 625a913..c1d40b4 100644
          nextIndex = cursor;
          break;
        }
-@@ -1443,10 +2183,15 @@ export class NativeListWebEngine {
+@@ -1443,10 +2227,15 @@ export class NativeListWebEngine {
      this.sticky.style.transform = 'translate3d(0,' + String(translate) + 'px,0)';
      this.updateVisibleSelection();
    }
@@ -4984,7 +5625,7 @@ index 625a913..c1d40b4 100644
      });
      this.indexRail.querySelectorAll('[data-section-key]').forEach(button => setData(button, 'active', button.dataset.sectionKey === activeKey));
    }
-@@ -1539,7 +2284,14 @@ export class NativeListWebEngine {
+@@ -1539,7 +2328,14 @@ export class NativeListWebEngine {
      const bindingEpoch = rowElement.dataset.nativeListBindingEpoch;
      if (!source || !bindingEpoch || !rowElement.contains(actionElement)) return undefined;
      this.invalidateActionAnchor('rebind');
@@ -5000,7 +5641,7 @@ index 625a913..c1d40b4 100644
      const token = [this.actionAnchorInstanceId, this.snapshot.generation, ++this.actionAnchorCounter, bindingEpoch].join(':');
      const slotValue = actionElement.dataset.nativeListAnchorSlot;
      const direction = this.document.defaultView?.getComputedStyle(actionElement).direction === 'rtl' || actionElement.closest('[dir="rtl"]') ? 'rtl' : 'ltr';
-@@ -1577,7 +2329,9 @@ export class NativeListWebEngine {
+@@ -1577,7 +2373,9 @@ export class NativeListWebEngine {
      });
    }
    handleRowPress(row, rowElement, sourceElement = rowElement) {
@@ -5011,7 +5652,7 @@ index 625a913..c1d40b4 100644
      if (this.snapshot.selection?.rowPressToggles && this.snapshot.selection.mode !== 'none' && isSelectableRow(row)) {
        this.activateSelection({
          scope: 'row'
-@@ -1597,6 +2351,27 @@ export class NativeListWebEngine {
+@@ -1597,6 +2395,27 @@ export class NativeListWebEngine {
        this.emitRowAction(row, actionKey);
      }
    }
@@ -5039,7 +5680,7 @@ index 625a913..c1d40b4 100644
    handleClick = event => {
      if (Date.now() < this.suppressClickUntil) {
        event.preventDefault();
-@@ -1627,6 +2402,12 @@ export class NativeListWebEngine {
+@@ -1627,6 +2446,12 @@ export class NativeListWebEngine {
      this.handleRowPress(sourceRow, rowElement ?? undefined, memberElement ?? rowElement ?? undefined);
    };
    handleKeyDown = event => {
@@ -5052,7 +5693,19 @@ index 625a913..c1d40b4 100644
      if (event.key === 'Escape') {
        if (this.pointerReorder?.active) {
          event.preventDefault();
-@@ -1816,7 +2597,14 @@ export class NativeListWebEngine {
+@@ -1729,7 +2554,10 @@ export class NativeListWebEngine {
+     if (this.frameHandle !== undefined || this.destroyed) return;
+     this.frameHandle = this.requestFrame(() => {
+       this.frameHandle = undefined;
+-      if (this.virtualizationEnabled) this.renderWindow();else this.updateVisibleState();
++      if (this.virtualizationEnabled) this.renderWindow();else {
++        this.updateAvatarWindow();
++        this.updateVisibleState();
++      }
+     });
+   }
+   requestFrame(callback) {
+@@ -1816,7 +2644,14 @@ export class NativeListWebEngine {
      const index = Number(rowElement?.dataset.nativeListRowIndex);
      const row = this.rows[index];
      if (!row || !this.isReorderable(row)) return;
@@ -5068,7 +5721,7 @@ index 625a913..c1d40b4 100644
      const view = this.document.defaultView;
      const state = {
        pointerId: event.pointerId,
-@@ -1832,9 +2620,8 @@ export class NativeListWebEngine {
+@@ -1832,9 +2667,8 @@ export class NativeListWebEngine {
        active: false
      };
      this.pointerReorder = state;
@@ -5080,7 +5733,7 @@ index 625a913..c1d40b4 100644
        state.longPressTimer = view?.setTimeout(() => this.activatePointerReorder(state), REORDER_TOUCH_LONG_PRESS_MS);
      }
    };
-@@ -1935,6 +2722,20 @@ export class NativeListWebEngine {
+@@ -1935,6 +2769,20 @@ export class NativeListWebEngine {
      state.previewOffsetX = state.startX - rect.left;
      state.previewOffsetY = Math.min(previewHeight, Math.max(0, state.startY - rect.top));
      this.reorderPreview.replaceChildren(previewRow.cloneNode(true));
@@ -5101,7 +5754,7 @@ index 625a913..c1d40b4 100644
      const sourceRow = state.workingRows[state.currentIndex];
      const badgeText = sourceRow ? webWalletGroupReorderBadge(sourceRow) : undefined;
      if (badgeText) {
-@@ -1970,6 +2771,7 @@ export class NativeListWebEngine {
+@@ -1970,6 +2818,7 @@ export class NativeListWebEngine {
    }
    clearReorderPreviewVisual() {
      this.reorderPreview.hidden = true;
@@ -5109,12 +5762,55 @@ index 625a913..c1d40b4 100644
      this.reorderPreview.replaceChildren();
      this.reorderPreview.style.removeProperty('transform');
      this.reorderPreview.style.removeProperty('transition');
-@@ -2235,4 +3037,3 @@ export class NativeListWebEngine {
+@@ -2235,4 +3084,3 @@ export class NativeListWebEngine {
      });
    }
  }
 -//# sourceMappingURL=NativeListWebEngine.js.map
 \ No newline at end of file
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
+index 2d4d817..4226865 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
+@@ -15,4 +15,3 @@ export declare const NativeList: React.ForwardRefExoticComponent<NativeListProps
+     setActionAnchorState(state: import("./NativeList.types").ActionAnchorState): void;
+     setRefreshing(refreshing: boolean): void;
+ }>>>;
+-//# sourceMappingURL=NativeList.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/avatarPrefetch.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/avatarPrefetch.d.ts
+new file mode 100644
+index 0000000..261ab3c
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/avatarPrefetch.d.ts
+@@ -0,0 +1,27 @@
++import type { ImageSource, RowModel, RowPatch } from './models';
++export type AvatarCandidate = Readonly<{
++    source: ImageSource;
++    priority: 0 | 1 | 2;
++}>;
++export declare function avatarPrefetchWindow(rows: readonly RowModel[], first: number, last: number, direction: number, resolveRow?: (row: RowModel) => RowModel): AvatarCandidate[];
++export declare class NativeAvatarPrefetchModel {
++    private rows;
++    private rowByKey;
++    private readonly imageRows;
++    constructor(rows: readonly RowModel[]);
++    replaceSnapshot(rows: readonly RowModel[]): void;
++    applyPatches(patches: readonly RowPatch[], dispatch?: () => void): boolean;
++    window(first: number, last: number, direction: number): AvatarCandidate[];
++}
++export declare class NativeAvatarPrefetchQueue {
++    private readonly preload;
++    private pending;
++    private activeUri;
++    private timer;
++    private disposed;
++    private readonly recent;
++    constructor(preload: (source: ImageSource) => Promise<boolean>);
++    update(candidates: readonly AvatarCandidate[]): void;
++    dispose(): void;
++    private schedule;
++}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 index 60c6a5c..69829a5 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
@@ -5301,12 +5997,158 @@ index 60c6a5c..69829a5 100644
 \ No newline at end of file
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebAvatarCache.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebAvatarCache.d.ts
 new file mode 100644
-index 0000000..9cd9d65
+index 0000000..6c2ee1d
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebAvatarCache.d.ts
-@@ -0,0 +1,2 @@
+@@ -0,0 +1,5 @@
++export type AvatarLease = (() => void) & {
++    setPriority: (priority: number) => void;
++};
 +export declare function canonicalNativeListAvatarUri(uri: string): string | undefined;
-+export declare function acquireNativeListAvatar(document: Document, uri: string, resolve: (url: string) => void, reject: () => void): () => void;
++export declare function acquireNativeListAvatar(document: Document, uri: string, resolve: (url: string) => void, reject: () => void, priority?: number): AvatarLease;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebEngine.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebEngine.d.ts
+index 646b4b8..85d1bf0 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebEngine.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/web/NativeListWebEngine.d.ts
+@@ -77,6 +77,9 @@ export declare class NativeListWebEngine {
+     private resizeObserver;
+     private pendingScroll;
+     private lastVisibleSignature;
++    private readonly avatarLeases;
++    private avatarOffset;
++    private avatarDirection;
+     private reachedGeneration;
+     private stickyKey;
+     private previewTimer;
+@@ -100,6 +103,7 @@ export declare class NativeListWebEngine {
+     private lastViewportWidth;
+     private lastViewportHeight;
+     private destroyed;
++    private measuredWarningHeights;
+     constructor(host: HTMLElement, snapshot: NativeListSnapshot, callbacks: NativeListWebCallbacks, virtualizationEnabled?: boolean);
+     updateCallbacks(callbacks: NativeListWebCallbacks): void;
+     setVirtualizationEnabled(enabled: boolean): void;
+@@ -117,6 +121,7 @@ export declare class NativeListWebEngine {
+     private setSnapshot;
+     private applyTheme;
+     private recomputeLayout;
++    private updateAvatarWindow;
+     private renderWindow;
+     private positionElement;
+     private renderElement;
+@@ -145,6 +150,8 @@ export declare class NativeListWebEngine {
+     private invalidateActionAnchor;
+     private emitActionAnchorInvalidated;
+     private handleRowPress;
++    private handleTitlePointerOver;
++    private handleTitlePointerOut;
+     private handleClick;
+     private handleKeyDown;
+     private startKeyboardReorder;
+@@ -200,4 +207,3 @@ export declare class NativeListWebEngine {
+     private remapMountedRows;
+     private updateReorderVisualState;
+ }
+-//# sourceMappingURL=NativeListWebEngine.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
+index 8dc8672..7a67a3e 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
++++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
+@@ -1,4 +1,6 @@
+-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
++import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
++import { OneKeyImageCache, OneKeyImageCachePolicy } from '@onekeyfe/react-native-image';
++import { NativeAvatarPrefetchModel, NativeAvatarPrefetchQueue } from './avatarPrefetch';
+ import { callback, getHostComponent } from 'react-native-nitro-modules';
+ import type {
+   NativeListMethods,
+@@ -93,6 +95,40 @@ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
+     };
+     const snapshotRef = useRef(snapshot);
+     snapshotRef.current = snapshot;
++    // OneKey patch: range events already cross the bridge only when row indices
++    // change. Prefetch is optional work; scrolling and visible loads stay native.
++    const avatarQueueRef = useRef<NativeAvatarPrefetchQueue | null>(null);
++    const avatarRangeRef = useRef<{ first: number; last: number; direction: number } | undefined>(undefined);
++    // OneKey patch: a changed prop is a complete snapshot; unrelated renders must
++    // not erase image patches already dispatched through the imperative handle.
++    // const avatarPrefetchPaused = useRef(false);
++    const avatarModelRef = useRef<NativeAvatarPrefetchModel | null>(null);
++    const avatarPropSnapshotRef = useRef(snapshot);
++    const avatarLifecycle = useRef<'pending' | 'mounted' | 'unmounted'>('pending');
++    if (!avatarModelRef.current) avatarModelRef.current = new NativeAvatarPrefetchModel(snapshot.rows);
++    else if (avatarPropSnapshotRef.current !== snapshot) avatarModelRef.current.replaceSnapshot(snapshot.rows);
++    avatarPropSnapshotRef.current = snapshot;
++    const updateAvatarPrefetch = () => {
++      const range = avatarRangeRef.current;
++      if (!range) return;
++      avatarQueueRef.current?.update(avatarModelRef.current?.window(range.first, range.last, range.direction) ?? []);
++    };
++    const updateAvatarPrefetchRef = useRef(updateAvatarPrefetch);
++    updateAvatarPrefetchRef.current = updateAvatarPrefetch;
++    useEffect(() => {
++      avatarLifecycle.current = 'mounted';
++      const queue = new NativeAvatarPrefetchQueue((source) => OneKeyImageCache.preload([{
++        uri: source.uri, headers: source.headers, resizeWidth: source.width,
++        resizeHeight: source.height, optimizeTos: false,
++        cachePolicy: source.cachePolicy === 'memory' ? OneKeyImageCachePolicy.MEMORY : source.cachePolicy === 'disk' ? OneKeyImageCachePolicy.DISK : OneKeyImageCachePolicy.MEMORY_DISK,
++      }]));
++      avatarQueueRef.current = queue;
++      updateAvatarPrefetchRef.current();
++      return () => { queue.dispose(); avatarQueueRef.current = null; avatarLifecycle.current = 'unmounted'; };
++    }, []);
++    useEffect(() => {
++      updateAvatarPrefetchRef.current();
++    }, [snapshot]);
+     const initialScrollRef = useRef<
+       | Readonly<{
+           index?: number;
+@@ -180,11 +216,23 @@ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
+     useImperativeHandle(forwardedRef, () => ({
+       applySnapshot(nextSnapshot) {
+         snapshotRef.current = nextSnapshot;
+-        nativeRef.current?.applySnapshot(serializeSnapshot(nextSnapshot));
++        const native = nativeRef.current;
++        if (native) {
++          native.applySnapshot(serializeSnapshot(nextSnapshot));
++          if (avatarLifecycle.current !== 'unmounted') {
++            avatarModelRef.current?.replaceSnapshot(nextSnapshot.rows);
++            updateAvatarPrefetchRef.current();
++          }
++        }
+       },
+       applyPatches(patches) {
+-        if (patches.length > 0)
+-          nativeRef.current?.applyPatches(serializePatches(patches));
++        // OneKey patch: image updates replace pending prefetch instead of disabling it.
++        // if (imageFieldsChanged) { avatarPrefetchPaused.current = true; avatarQueueRef.current?.update([]); }
++        if (!patches.length) return;
++        const native = nativeRef.current;
++        const dispatch = native ? () => native.applyPatches(serializePatches(patches)) : undefined;
++        if (avatarLifecycle.current === 'unmounted') { dispatch?.(); return; }
++        if (avatarModelRef.current?.applyPatches(patches, dispatch)) updateAvatarPrefetchRef.current();
+       },
+       reconcileSelection(selectedKeys) {
+         nativeRef.current?.reconcileSelection(JSON.stringify(selectedKeys));
+@@ -279,9 +327,14 @@ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
+           );
+         }),
+         onVisibleRangeChanged: callback((payloadJson: string) => {
+-          callbacksRef.current.onVisibleRangeChanged?.(
+-            parsePayload<VisibleRangeChangedEvent>(payloadJson)
+-          );
++          const payload = parsePayload<VisibleRangeChangedEvent>(payloadJson);
++          const previous = avatarRangeRef.current;
++          avatarRangeRef.current = {
++            first: payload.firstIndex, last: payload.lastIndex,
++            direction: previous && payload.firstIndex !== previous.first ? Math.sign(payload.firstIndex - previous.first) : previous?.direction ?? 1,
++          };
++          updateAvatarPrefetchRef.current();
++          callbacksRef.current.onVisibleRangeChanged?.(payload);
+         }),
+       }),
+       []
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx
 index e4cca82..e15f896 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx
@@ -5379,12 +6221,223 @@ index e4cca82..e15f896 100644
          }
        },
        reconcileSelection(selectedKeys) {
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/__tests__/avatar-scheduling.cjs b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/avatar-scheduling.cjs
+new file mode 100644
+index 0000000..3510bc4
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/avatar-scheduling.cjs
+@@ -0,0 +1,205 @@
++// OneKey patch: exercise actual worker/broker code with controlled I/O completion.
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++const vm = require('node:vm');
++const { test } = require('node:test');
++const ts = require('typescript');
++const { IDBFactory } = require('fake-indexeddb');
++const prefix = 'onekey-avatar://blockie/v1/';
++const sourceRoot = path.resolve(__dirname, '..');
++const tick = () => new Promise((resolve) => setTimeout(resolve, 1));
++async function until(predicate) { for (let i = 0; i < 3000; i++) { if (predicate()) return; await tick(); } throw new Error('Timed out'); }
++function worker({ db = new IDBFactory(), size = 100 } = {}) {
++  const messages = [], generated = [], urls = new Map(), revoked = [];
++  const context = {
++    indexedDB: db, Blob, setTimeout, clearTimeout,
++    createImageBitmap: async () => ({ width: 128, height: 128, close() {} }),
++    URL: { createObjectURL(blob) { const url = `blob:${messages.length}:${urls.size}`; urls.set(url, blob); return url; }, revokeObjectURL(url) { revoked.push(url); urls.delete(url); } },
++    postMessage(message) { messages.push(message); }, onmessage: undefined,
++    generate: async (seed) => { generated.push(seed); return new Blob([new Uint8Array(size)], { type: 'image/png' }); },
++  };
++  vm.createContext(context);
++  vm.runInContext(fs.readFileSync(path.join(sourceRoot, 'web/NativeListAvatarWorker.js'), 'utf8'), context);
++  vm.runInContext('generateBlob = generate', context);
++  const read = (expression) => vm.runInContext(expression, context);
++  const send = (type, id, seed = String(id), priority = 2) => context.onmessage({ data: { type, id, uri: prefix + seed, priority } });
++  return { context, messages, generated, urls, revoked, read, send, db };
++}
++function loadTypeScript(name, globals = {}) {
++  const source = fs.readFileSync(path.join(sourceRoot, name), 'utf8').replaceAll('import.meta.url', "'https://unit.test/module.js'");
++  const result = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } });
++  const exports = {};
++  const context = vm.createContext({ exports, setTimeout, clearTimeout, ...globals });
++  vm.runInContext(result.outputText, context);
++  return exports;
++}
++test('display and subsequent load slots do not await disk; pending bytes deduplicate reacquire', async () => {
++  const w = worker();
++  let finishWrite;
++  w.context.blockedWrite = () => new Promise((resolve) => { finishWrite = resolve; });
++  w.read('readDisk = async () => undefined; writeDisk = blockedWrite');
++  w.send('acquire', 1, 'a');
++  await until(() => w.messages.length === 1);
++  assert.equal(w.read('activeLoads'), 0);
++  assert.equal(w.read('pendingBlobs.size'), 1);
++  w.send('release', 1, 'a');
++  w.send('acquire', 2, 'a');
++  await until(() => w.messages.length === 2);
++  assert.deepEqual(w.generated, ['a']);
++  w.send('acquire', 3, 'b');
++  await until(() => w.messages.length === 3);
++  assert.deepEqual(w.generated, ['a', 'b']);
++  // OneKey patch: background persistence starts after the shared quiet window.
++  await until(() => finishWrite);
++  // Quota/write failure remains best-effort, never a late display error.
++  w.read('writeDisk = async () => { throw new Error("quota"); }');
++  finishWrite();
++  await until(() => w.read('pendingBlobs.size') === 0);
++  assert(w.messages.every((message) => message.type === 'resolved'));
++});
++test('background persistence is bounded without blocking visible results', async () => {
++  const w = worker({ size: 200_000 });
++  let release;
++  w.context.blockedWrite = () => new Promise((resolve) => { release = resolve; });
++  w.read('readDisk = async () => undefined; writeDisk = blockedWrite');
++  for (let index = 0; index < 80; index++) {
++    w.send('acquire', index);
++    await until(() => w.messages.length === index + 1);
++    w.send('release', index);
++  }
++  assert(w.read('pendingBlobs.size') <= 32);
++  assert(w.read('pendingBytes') <= 4 * 1024 * 1024);
++  assert.equal(w.read('activeLoads'), 0);
++  assert.equal(w.urls.size, 0);
++  await until(() => release);
++  w.read('writeDisk = async () => {}');
++  release();
++  await until(() => w.read('pendingBytes') === 0);
++});
++test('queued visible promotion wins over FIFO prefetch without duplicate generation', async () => {
++  const w = worker();
++  const reads = [];
++  w.context.blockedRead = () => new Promise((resolve) => reads.push(resolve));
++  w.read('readDisk = blockedRead; writeDisk = async () => {}');
++  w.send('acquire', 1, 'active-a'); w.send('acquire', 2, 'active-b');
++  w.send('acquire', 3, 'earlier-prefetch'); w.send('acquire', 4, 'now-visible');
++  w.send('priority', 4, 'now-visible', 0);
++  reads[0]();
++  await until(() => reads.length === 3);
++  assert.equal(w.read('jobs.get("' + prefix + 'now-visible").active'), true);
++  assert.equal(w.read('jobs.get("' + prefix + 'earlier-prefetch").active'), false);
++  w.send('release', 3); // Drop stale opposite-direction work before it starts.
++  reads[1](); reads[2]();
++  await until(() => w.read('activeLoads') === 0);
++  assert(!w.generated.includes('earlier-prefetch'));
++  assert.equal(w.generated.filter((seed) => seed === 'now-visible').length, 1);
++});
++test('last-lease cancellation during generation never publishes or leaks a Blob URL', async () => {
++  const w = worker(); let finish;
++  w.context.slowGenerate = () => new Promise((resolve) => { finish = resolve; });
++  w.read('readDisk = async () => undefined; generateBlob = slowGenerate; writeDisk = async () => {}');
++  w.send('acquire', 1); await until(() => finish);
++  w.send('release', 1); finish(new Blob(['png'], { type: 'image/png' }));
++  await until(() => w.read('activeLoads') === 0);
++  assert.equal(w.messages.length, 0); assert.equal(w.urls.size, 0);
++});
++test('disk reopen avoids generation; readonly hits defer touch; corrupt cache regenerates', async () => {
++  const w = worker(); w.send('acquire', 1, 'cached');
++  await until(() => w.messages.length === 1 && w.read('pendingBlobs.size') === 0);
++  const reopened = worker({ db: w.db }); reopened.send('acquire', 1, 'cached');
++  await until(() => reopened.messages.length === 1);
++  assert.equal(reopened.generated.length, 0);
++  assert.equal(reopened.read('touches.size'), 1);
++  const corrupt = worker({ db: w.db });
++  corrupt.context.createImageBitmap = async () => { throw new Error('corrupt'); };
++  corrupt.send('acquire', 1, 'cached');
++  await until(() => corrupt.messages.length === 1);
++  assert.deepEqual(corrupt.generated, ['cached']);
++  const denied = worker({ db: { open() { throw new Error('denied'); } } });
++  denied.send('acquire', 1); await until(() => denied.messages.length === 1);
++  assert.equal(denied.generated.length, 1);
++});
++test('broker promotes a shared queued URI and release restores remaining priority', () => {
++  let instance;
++  class FakeWorker {
++    constructor() { instance = this; this.messages = []; }
++    addEventListener() {}
++    postMessage(message) { this.messages.push(message); }
++  }
++  const api = loadTypeScript('web/NativeListWebAvatarCache.ts', { Worker: FakeWorker, URL, queueMicrotask });
++  const document = {};
++  const prefetch = api.acquireNativeListAvatar(document, prefix + 'a', () => {}, () => {}, 2);
++  const visible = api.acquireNativeListAvatar(document, prefix + 'a', () => {}, () => {}, 0);
++  assert.equal(instance.messages.filter((m) => m.type === 'acquire').length, 1);
++  assert.equal(instance.messages.at(-1).priority, 0);
++  visible(); assert.equal(instance.messages.at(-1).priority, 2);
++  prefetch.setPriority(1); assert.equal(instance.messages.at(-1).priority, 1);
++  prefetch(); assert(instance.messages.some((m) => m.type === 'release'));
++});
++test('window prioritizes visibility, reverses ahead work and bounds large groups', () => {
++  const { avatarPrefetchWindow } = loadTypeScript('avatarPrefetch.ts');
++  const row = (i) => ({ type: 'identity', key: String(i), title: String(i), leading: { kind: 'account', image: { uri: prefix + i, width: 32, height: 32 } } });
++  const rows = Array.from({ length: 1000 }, (_, i) => row(i));
++  const forward = avatarPrefetchWindow(rows, 30, 39, 1);
++  assert.equal(forward[0].source.uri, prefix + '30');
++  assert.equal(forward.find((item) => item.priority === 1).source.uri, prefix + '40');
++  const reverse = avatarPrefetchWindow(rows, 30, 39, -1);
++  assert.equal(reverse.find((item) => item.priority === 1).source.uri, prefix + '29');
++  assert(forward.length <= 64); assert(reverse.length <= 64);
++  const large = avatarPrefetchWindow([{ type: 'walletGroup', key: '0', parent: row(0), children: rows.slice(1) }], 0, 0, 1);
++  assert(large.length <= 64);
++  assert.equal(avatarPrefetchWindow(rows, -1, -1, 1).length, 0);
++});
++test('native short batches replace stale pending direction, deduplicate and stop on unmount', async () => {
++  const { NativeAvatarPrefetchQueue } = loadTypeScript('avatarPrefetch.ts');
++  const started = [], finish = [];
++  const queue = new NativeAvatarPrefetchQueue((source) => { started.push(source.uri); return new Promise((resolve) => finish.push(resolve)); });
++  const candidates = (...values) => values.map((value) => ({ source: { uri: prefix + value, width: 32, height: 32 }, priority: 1 }));
++  queue.update(candidates('a', 'b', 'c')); await until(() => started.length === 1);
++  queue.update(candidates('x', 'y')); finish[0](true);
++  await until(() => started.length === 2);
++  assert.deepEqual(started, [prefix + 'a', prefix + 'x']);
++  queue.update(candidates('a', 'x', 'z')); queue.dispose(); finish[1](true);
++  await new Promise((resolve) => setTimeout(resolve, 25));
++  assert.equal(started.length, 2);
++});
++test('over-budget actual IDB write rolls back and unblocks a subsequent display miss', async () => {
++  const w = worker();
++  w.send('acquire', 1, 'prime');
++  await until(() => w.messages.length === 1 && w.read('pendingBlobs.size') === 0);
++  const database = await w.read('openDatabase()');
++  const originalTransaction = database.transaction.bind(database);
++  let blocked = false, aborted = false;
++  database.transaction = (...args) => {
++    const transaction = originalTransaction(...args);
++    if (args[1] === 'readwrite' && Array.isArray(args[0]) && !blocked) {
++      blocked = true;
++      // Keep the real readwrite transaction alive until the production deadline
++      // aborts it. A later readonly transaction really shares this store lock.
++      let alive = true;
++      transaction.addEventListener('abort', () => { alive = false; aborted = true; });
++      const store = transaction.objectStore('images');
++      const keepAlive = () => {
++        if (!alive) return;
++        try { const request = store.get('lock'); request.onsuccess = keepAlive; } catch {}
++      };
++      keepAlive();
++    }
++    return transaction;
++  };
++  w.send('acquire', 2, 'blocked-write');
++  await until(() => blocked && w.messages.length === 2);
++  w.send('acquire', 3, 'subsequent-miss');
++  await until(() => w.messages.length === 3 && aborted);
++  assert.equal(w.messages[2].type, 'resolved');
++  assert(w.generated.includes('subsequent-miss'));
++  await until(() => w.read('pendingBlobs.size') === 0);
++  // The aborted transaction must not leave a half-written row/metadata counter.
++  const check = originalTransaction(['images', 'metadata'], 'readonly');
++  const failed = check.objectStore('images').get(prefix + 'blocked-write');
++  const counter = check.objectStore('metadata').get('size');
++  await new Promise((resolve) => { check.oncomplete = resolve; });
++  assert.equal(failed.result, undefined);
++  assert.equal(counter.result.count, 2);
++});
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs
 new file mode 100644
-index 0000000..2ceb919
+index 0000000..3937d88
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs
-@@ -0,0 +1,431 @@
+@@ -0,0 +1,461 @@
 +// OneKey patch: focused regression checks for the serialized selector adapter contract.
 +const assert = require('node:assert/strict');
 +const fs = require('node:fs');
@@ -5396,7 +6449,7 @@ index 0000000..2ceb919
 +const originalLoader = require.extensions['.ts'];
 +require.extensions['.ts'] = (module, filename) => {
 +  if (!filename.startsWith(packageRoot)) return originalLoader?.(module, filename);
-+  const result = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
++  const result = ts.transpileModule(fs.readFileSync(filename, 'utf8').replaceAll('import.meta.url', "'https://unit.test/NativeList.js'"), {
 +    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
 +  });
 +  module._compile(result.outputText, filename);
@@ -5816,6 +6869,214 @@ index 0000000..2ceb919
 +  assert.ok(page.document.querySelector('.ok-native-list-visual-fallback svg'));
 +  page.close();
 +});
++test('URI prefetch extends beyond mounted DOM and releases leases when the engine is destroyed', () => {
++  const previousWorker = global.Worker;
++  const workers = [];
++  global.Worker = class {
++    constructor() { this.messages = []; workers.push(this); }
++    addEventListener() {}
++    postMessage(message) { this.messages.push(message); }
++  };
++  const dom = new JSDOM('<!doctype html><div id="host"></div>', { pretendToBeVisual: true });
++  const view = dom.window;
++  global.Element = view.Element; global.HTMLElement = view.HTMLElement; global.Node = view.Node;
++  view.HTMLElement.prototype.scrollTo = function ({ top = 0, left = 0 }) { this.scrollTop = top; this.scrollLeft = left; };
++  const rows = Array.from({ length: 1000 }, (_, index) => identity(String(index), {
++    presentation: 'accountSelector', height: 60,
++    leading: { kind: 'account', image: { uri: 'onekey-avatar://blockie/v1/' + index, width: 32, height: 32 } },
++  }));
++  const engine = new NativeListWebEngine(view.document.getElementById('host'), snapshot(rows), {}, true);
++  try {
++    const mountedKeys = [...view.document.querySelectorAll('[data-native-list-row-key]')].map((element) => Number(element.dataset.nativeListRowKey));
++    const messages = workers.flatMap((worker) => worker.messages);
++    const acquire = messages.filter((message) => message.type === 'acquire');
++    assert(acquire.length < 80);
++    assert(mountedKeys.length < 40);
++    assert(acquire.some((message) => Number(message.uri.split('/').at(-1)) > Math.max(...mountedKeys)));
++    assert.equal(acquire[0].priority, 0);
++    engine.destroy();
++    const released = new Set(workers.flatMap((worker) => worker.messages).filter((message) => message.type === 'release').map((message) => message.id));
++    assert(acquire.every((message) => released.has(message.id)));
++  } finally { engine.destroy(); view.close(); global.Worker = previousWorker; }
++});
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/avatarPrefetch.ts b/node_modules/@onekeyfe/react-native-native-list/src/avatarPrefetch.ts
+new file mode 100644
+index 0000000..1379de9
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/src/avatarPrefetch.ts
+@@ -0,0 +1,172 @@
++// OneKey patch: share a bounded URI-only window across renderers. No bitmap or
++// account-specific data enters list snapshots or the UI runtime.
++import type { ImageSource, LeadingVisual, RowModel, RowPatch } from './models';
++
++export type AvatarCandidate = Readonly<{ source: ImageSource; priority: 0 | 1 | 2 }>;
++const PREFIX = 'onekey-avatar://blockie/v1/';
++const MAX_CANDIDATES = 64;
++const IMAGE_PATCH_FIELDS = ['leading', 'secondaryLeading', 'image', 'networkImage', 'thumbnail', 'visual'] as const;
++
++export function avatarPrefetchWindow(
++  rows: readonly RowModel[], first: number, last: number, direction: number,
++  resolveRow?: (row: RowModel) => RowModel
++): AvatarCandidate[] {
++  if (first < 0 || last < first || first >= rows.length) return [];
++  last = Math.min(last, rows.length - 1);
++  const result: AvatarCandidate[] = [];
++  const seen = new Set<string>();
++  let limit = MAX_CANDIDATES;
++  const add = (source: ImageSource | undefined, priority: 0 | 1 | 2) => {
++    if (!source?.uri.startsWith(PREFIX) || source.cachePolicy === 'none' || seen.has(source.uri) || result.length >= limit) return;
++    seen.add(source.uri);
++    result.push({ source, priority });
++  };
++  const visual = (value: LeadingVisual | undefined, priority: 0 | 1 | 2) => {
++    if (!value) return;
++    if ('image' in value) add(value.image, priority);
++    if ('networkImage' in value) add(value.networkImage, priority);
++    if ('images' in value) value.images.forEach((image) => add(image, priority));
++    if ('overlays' in value) value.overlays?.forEach((overlay) => add(overlay.image, priority));
++  };
++  const row = (value: RowModel, priority: 0 | 1 | 2) => {
++    value = resolveRow?.(value) ?? value;
++    if ('leading' in value) visual(value.leading, priority);
++    if ('secondaryLeading' in value) visual(value.secondaryLeading, priority);
++    if ('image' in value) add(value.image, priority);
++    if ('networkImage' in value) add(value.networkImage, priority);
++    if ('thumbnail' in value) add(value.thumbnail, priority);
++    if (value.type === 'walletGroup') {
++      visual(value.parent.leading, priority);
++      for (const child of value.children.slice(0, MAX_CANDIDATES)) {
++        if (result.length >= limit) break;
++        visual(child.leading, priority);
++      }
++    }
++  };
++  // Bound row examination too: a giant non-avatar group must not scan all data.
++  for (let index = first; index <= last && index < first + 64; index += 1) row(rows[index], 0);
++  const span = Math.min(24, (last - first + 1) * 2);
++  const step = direction < 0 ? -1 : 1;
++  const aheadStart = step > 0 ? last + 1 : first - 1;
++  const aheadLimit = Math.min(MAX_CANDIDATES, result.length + 24);
++  limit = aheadLimit;
++  for (let distance = 0; distance < span && result.length < aheadLimit; distance += 1) {
++    const index = aheadStart + distance * step;
++    if (index < 0 || index >= rows.length) break;
++    row(rows[index], 1);
++  }
++  const behindStart = step > 0 ? first - 1 : last + 1;
++  const behindLimit = Math.min(MAX_CANDIDATES, result.length + 8);
++  limit = behindLimit;
++  for (let distance = 0; distance < Math.min(8, span) && result.length < behindLimit; distance += 1) {
++    const index = behindStart - distance * step;
++    if (index < 0 || index >= rows.length) break;
++    row(rows[index], 2);
++  }
++  return result;
++}
++
++// OneKey patch: imperative image patches update a sparse prefetch overlay, not
++// the readonly prop or a full cloned snapshot. The key index is rebuilt only for
++// a complete snapshot; ordinary balance patches retain no extra row copies.
++export class NativeAvatarPrefetchModel {
++  private rows: readonly RowModel[];
++  private rowByKey: Map<string, RowModel>;
++  private readonly imageRows = new Map<string, RowModel>();
++
++  constructor(rows: readonly RowModel[]) {
++    this.rows = rows;
++    this.rowByKey = new Map(rows.map((row) => [row.key, row]));
++  }
++
++  replaceSnapshot(rows: readonly RowModel[]) {
++    this.rows = rows;
++    this.rowByKey = new Map(rows.map((row) => [row.key, row]));
++    this.imageRows.clear();
++  }
++
++  applyPatches(patches: readonly RowPatch[], dispatch?: () => void): boolean {
++    // Native methods have no acknowledgement. Mirror only dispatched batches;
++    // a missing host or a synchronous serialization/dispatch failure changes nothing.
++    if (!dispatch) return false;
++    dispatch();
++    const seen = new Set<string>();
++    for (const patch of patches) {
++      const row = this.rowByKey.get(patch.key);
++      // Both native renderers reject the whole batch for an unknown key/type.
++      if (!row || row.type !== patch.type || seen.has(patch.key)) return false;
++      seen.add(patch.key);
++    }
++    let changed = false;
++    for (const patch of patches) {
++      const changes: Readonly<Record<string, unknown>> = patch.changes;
++      let imageChanges: Record<string, unknown> | undefined;
++      for (const key of IMAGE_PATCH_FIELDS) {
++        if (changes[key] !== undefined) {
++          imageChanges ??= {};
++          imageChanges[key] = changes[key];
++        }
++      }
++      // JSON.stringify omits undefined top-level fields. Native therefore keeps
++      // them unchanged; an explicit replacement visual without image clears it.
++      if (!imageChanges) continue;
++      const row = this.imageRows.get(patch.key) ?? this.rowByKey.get(patch.key)!;
++      // Preserve the validated row discriminant, matching applyRowPatches' shallow merge.
++      this.imageRows.set(patch.key, { ...row, ...imageChanges, key: row.key, type: row.type } as RowModel);
++      changed = true;
++    }
++    return changed;
++  }
++
++  window(first: number, last: number, direction: number): AvatarCandidate[] {
++    return avatarPrefetchWindow(this.rows, first, last, direction, (row) => this.imageRows.get(row.key) ?? row);
++  }
++}
++
++// Native preload has no cancellation token. One in-flight source is the bound;
++// direction changes replace all not-yet-started work rather than appending it.
++export class NativeAvatarPrefetchQueue {
++  private pending: ImageSource[] = [];
++  private activeUri: string | undefined;
++  private timer: ReturnType<typeof setTimeout> | undefined;
++  private disposed = false;
++  private readonly recent = new Map<string, number>();
++
++  constructor(private readonly preload: (source: ImageSource) => Promise<boolean>) {}
++
++  update(candidates: readonly AvatarCandidate[]) {
++    if (this.disposed) return;
++    const now = Date.now();
++    this.pending = candidates.filter(({ source, priority }) => priority !== 0 && source.uri !== this.activeUri && now - (this.recent.get(source.uri) ?? 0) > 30_000).map(({ source }) => source);
++    this.schedule();
++  }
++
++  dispose() {
++    this.disposed = true;
++    this.pending = [];
++    this.recent.clear();
++    if (this.timer !== undefined) clearTimeout(this.timer);
++    this.timer = undefined;
++  }
++
++  private schedule() {
++    if (this.disposed || this.activeUri || this.timer !== undefined || !this.pending.length) return;
++    // Yield between short batches without imposing a frame-per-image throughput cap.
++    this.timer = setTimeout(() => {
++      this.timer = undefined;
++      const source = this.pending.shift();
++      if (!source || this.disposed) return;
++      this.activeUri = source.uri;
++      Promise.resolve().then(() => this.preload(source)).then((success) => {
++        if (success && !this.disposed) {
++          this.recent.delete(source.uri);
++          this.recent.set(source.uri, Date.now());
++          if (this.recent.size > 128) this.recent.delete(this.recent.keys().next().value as string);
++        }
++      }).catch(() => { /* Visible loading retains its own failure/retry behavior. */ }).finally(() => {
++        this.activeUri = undefined;
++        this.schedule();
++      });
++    }, 0);
++  }
++}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 index 82ca2dd..5fed01c 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
@@ -6092,10 +7353,10 @@ index a64a0ec..10e9c48 100644
      (!Number.isSafeInteger(patch.changes.revision) ||
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListAvatarWorker.js b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListAvatarWorker.js
 new file mode 100644
-index 0000000..fff4081
+index 0000000..5c27e23
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListAvatarWorker.js
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,443 @@
 +// OneKey patch: avatar generation and PNG bytes stay in this external worker.
 +// Algorithm ported from ethereum-blockies-base64 1.0.2 by MyCrypto (MIT):
 +// https://github.com/MyCryptoHQ/ethereum-blockies-base64
@@ -6126,6 +7387,128 @@ index 0000000..fff4081
 +const queue = [];
 +let activeLoads = 0;
 +let databasePromise;
++// OneKey patch: persistence never occupies either display-load slot. Pending bytes
++// bridge the last-lease/reacquire window until a bounded background write finishes.
++const MAX_PENDING_WRITES = 32;
++const MAX_PENDING_BYTES = 4 * 1024 * 1024;
++const WRITE_DEADLINE_MS = 32;
++const READ_BUDGET_MS = 8;
++const MAX_PENDING_READS = 2;
++const DISK_IDLE_MS = 100;
++const pendingBlobs = new Map();
++const diskQueue = [];
++const touches = new Map();
++const priorities = new Map();
++let pendingBytes = 0;
++let writing = false;
++let diskTimer;
++let lastAcquire = 0;
++let pendingReads = 0;
++
++function diskIsIdle() {
++  return !activeLoads && !queue.length && !pendingReads && Date.now() - lastAcquire >= DISK_IDLE_MS;
++}
++
++function scheduleDiskWork() {
++  if (writing || diskTimer !== undefined || activeLoads || queue.length || pendingReads || (!diskQueue.length && !touches.size)) return;
++  const delay = Math.max(0, DISK_IDLE_MS - (Date.now() - lastAcquire));
++  diskTimer = setTimeout(() => { diskTimer = undefined; void drainDiskQueue(); }, delay);
++}
++
++function persistLater(uri, blob) {
++  if (pendingBlobs.has(uri) || blob.size > MAX_PENDING_BYTES) return;
++  // OneKey patch: a long scroll retains the most recent bounded write window,
++  // rather than filling it once and dropping every later result. Never evict I/O in flight.
++  // if (pendingBlobs.size >= MAX_PENDING_WRITES || pendingBytes + blob.size > MAX_PENDING_BYTES) return;
++  while (pendingBlobs.size >= MAX_PENDING_WRITES || pendingBytes + blob.size > MAX_PENDING_BYTES) {
++    const oldest = diskQueue.shift();
++    if (!oldest) return;
++    if (pendingBlobs.get(oldest.uri) === oldest.blob) pendingBlobs.delete(oldest.uri);
++    pendingBytes -= oldest.blob.size;
++  }
++  pendingBlobs.set(uri, blob);
++  pendingBytes += blob.size;
++  diskQueue.push({ uri, blob });
++  scheduleDiskWork();
++}
++
++async function drainDiskQueue() {
++  // OneKey patch: a momentary empty load queue is not a scroll-idle window.
++  // if (writing || activeLoads || queue.length) return;
++  if (writing) return;
++  if (!diskIsIdle()) { scheduleDiskWork(); return; }
++  writing = true;
++  try {
++    if (diskQueue.length) {
++      const { uri, blob } = diskQueue.shift();
++      let result;
++      try { result = await writeDisk(uri, blob); } catch { /* Persistence remains best-effort. */ }
++      if (result === 'deferred') {
++        diskQueue.unshift({ uri, blob });
++      } else {
++        if (pendingBlobs.get(uri) === blob) pendingBlobs.delete(uri);
++        pendingBytes -= blob.size;
++        const image = images.get(uri);
++        if (result === true && image?.blob === blob) image.persisted = true;
++      }
++    } else if (touches.size) {
++      await flushTouches();
++    }
++  } finally {
++    writing = false;
++    scheduleDiskWork();
++  }
++}
++
++// OneKey patch: abort is a request, not a bounded browser store-lock release.
++// Display reads have their own budget below, even if this transaction is committing.
++function cacheWriteDeadline(transaction, resolve) {
++  let timer;
++  const check = () => {
++    if (!activeLoads && !queue.length && Date.now() - lastAcquire >= DISK_IDLE_MS) { timer = setTimeout(check, WRITE_DEADLINE_MS); return; }
++    try { transaction.abort(); } catch { /* The browser already started committing. */ }
++  };
++  timer = setTimeout(check, WRITE_DEADLINE_MS);
++  const finish = (success) => { clearTimeout(timer); resolve(success); };
++  transaction.oncomplete = () => finish(true);
++  transaction.onabort = () => finish(false);
++}
++
++function touchLater(uri) {
++  touches.delete(uri);
++  touches.set(uri, Date.now());
++  if (touches.size > 128) touches.delete(touches.keys().next().value);
++  // OneKey patch: touches share the same idle gate and writer as persistence.
++  // if (touchTimer === undefined) touchTimer = setTimeout(flushTouches, 250);
++  scheduleDiskWork();
++}
++
++async function flushTouches() {
++  const database = await openDatabase();
++  // Opening the database can yield across a new acquire; recheck before starting I/O.
++  if (!diskIsIdle()) return;
++  const batch = [...touches];
++  touches.clear();
++  if (database && batch.length) await new Promise((resolve) => {
++    try {
++      const transaction = database.transaction('images', 'readwrite');
++      cacheWriteDeadline(transaction, resolve);
++      const store = transaction.objectStore('images');
++      batch.forEach(([uri, accessed]) => {
++        const request = store.get(uri);
++        request.onsuccess = () => {
++          if (request.result) store.put({ ...request.result, accessed: Math.max(request.result.accessed || 0, accessed) });
++        };
++      });
++    } catch { resolve(false); }
++  });
++}
++
++function jobPriority(job) {
++  let priority = 2;
++  job.ids.forEach((id) => { priority = Math.min(priority, priorities.get(id) ?? 2); });
++  return priority;
++}
 +
 +function openDatabase() {
 +  if (!databasePromise) {
@@ -6154,33 +7537,71 @@ index 0000000..fff4081
 +}
 +
 +async function readDisk(uri) {
-+  const database = await openDatabase();
-+  if (!database) return undefined;
++  // OneKey patch: the cache is optional. A slow read must not retain a display
++  // load slot while abort/commit waits on browser I/O. Keep unfinished reads
++  // separately bounded, including an unresolved shared database open.
++  if (pendingReads >= MAX_PENDING_READS) return undefined;
++  pendingReads += 1;
 +  return new Promise((resolve) => {
-+    try {
-+      const transaction = database.transaction('images', 'readwrite');
-+      const store = transaction.objectStore('images');
-+      const request = store.get(uri);
-+      let blob;
-+      request.onsuccess = () => {
-+        const record = request.result;
-+        if (record?.blob instanceof Blob && record.blob.type === 'image/png' && record.blob.size <= MAX_DISK_BYTES) {
-+          blob = record.blob;
-+          store.put({ ...record, accessed: Date.now() });
-+        }
-+      };
-+      transaction.oncomplete = () => resolve(blob);
-+      transaction.onerror = transaction.onabort = () => resolve(undefined);
-+    } catch { resolve(undefined); }
++    let transaction;
++    let blob;
++    let settled = false;
++    let finished = false;
++    let abortRequested = false;
++    const finish = (success) => {
++      if (finished) return;
++      finished = true;
++      pendingReads -= 1;
++      clearTimeout(timer);
++      if (!settled) {
++        settled = true;
++        if (success && blob) touchLater(uri);
++        resolve(success ? blob : undefined);
++      }
++      scheduleDiskWork();
++    };
++    const timeout = () => {
++      if (finished) return;
++      if (!settled) { settled = true; resolve(undefined); }
++      // Do not release pendingReads here: an aborted IDB transaction can still
++      // hold its store lock for hundreds of milliseconds before onabort arrives.
++      if (transaction && !abortRequested) {
++        abortRequested = true;
++        try { transaction.abort(); } catch { /* Already committing; ignore late callbacks. */ }
++      }
++    };
++    const timer = setTimeout(timeout, READ_BUDGET_MS);
++    Promise.resolve().then(openDatabase).then((database) => {
++      if (settled || !database) { finish(false); return; }
++      try {
++        transaction = database.transaction('images', 'readonly');
++        transaction.oncomplete = () => finish(true);
++        transaction.onabort = () => finish(false);
++        transaction.onerror = timeout;
++        const request = transaction.objectStore('images').get(uri);
++        request.onsuccess = () => {
++          if (settled) return;
++          const record = request.result;
++          if (record?.blob instanceof Blob && record.blob.type === 'image/png' && record.blob.size <= MAX_DISK_BYTES) blob = record.blob;
++          // A completed readonly get can serve display before the transaction ends.
++          // Its physical permit still belongs to oncomplete/onabort.
++          settled = true;
++          if (blob) touchLater(uri);
++          resolve(blob);
++        };
++      } catch { if (transaction) timeout(); else finish(false); }
++    }).catch(() => finish(false));
 +  });
 +}
 +
 +async function writeDisk(uri, blob) {
 +  const database = await openDatabase();
-+  if (!database || blob.size > MAX_DISK_BYTES) return;
-+  await new Promise((resolve) => {
++  if (!database || blob.size > MAX_DISK_BYTES) return false;
++  if (!diskIsIdle()) return 'deferred';
++  return new Promise((resolve) => {
 +    try {
 +      const transaction = database.transaction(['images', 'metadata'], 'readwrite');
++      cacheWriteDeadline(transaction, resolve);
 +      const store = transaction.objectStore('images');
 +      const metadata = transaction.objectStore('metadata');
 +      const previous = store.get(uri);
@@ -6206,7 +7627,8 @@ index 0000000..fff4081
 +          };
 +        };
 +      };
-+      transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
++      // OneKey patch: completion/abort clears the deadline before releasing pending bytes.
++      // transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
 +    } catch { resolve(); }
 +  });
 +}
@@ -6269,6 +7691,7 @@ index 0000000..fff4081
 +function release(id) {
 +  const uri = requests.get(id);
 +  requests.delete(id);
++  priorities.delete(id);
 +  const image = images.get(uri);
 +  image?.references.delete(id);
 +  if (image && image.references.size === 0) {
@@ -6285,8 +7708,12 @@ index 0000000..fff4081
 +}
 +
 +async function runJob(job) {
-+  let blob = await readDisk(job.uri);
-+  if (blob) {
++  // OneKey patch: reuse generated bytes even if the last UI lease was released
++  // while persistence is still in flight; these bytes already passed generation.
++  const pending = pendingBlobs.get(job.uri);
++  let blob = pending ?? await readDisk(job.uri);
++  let persisted = !!blob && !pending;
++  if (blob && !pending) {
 +    try {
 +      const bitmap = await createImageBitmap(blob);
 +      const valid = bitmap.width === 128 && bitmap.height === 128;
@@ -6295,11 +7722,14 @@ index 0000000..fff4081
 +    } catch { blob = undefined; }
 +  }
 +  if (!blob && job.ids.size) {
++    persisted = false;
 +    blob = await generateBlob(job.seed);
-+    await writeDisk(job.uri, blob);
++    // OneKey patch: notify clients and free the load slot without awaiting I/O.
++    // await writeDisk(job.uri, blob);
++    persistLater(job.uri, blob);
 +  }
 +  if (!blob || !job.ids.size) return;
-+  const image = { url: URL.createObjectURL(blob), references: new Set() };
++  const image = { url: URL.createObjectURL(blob), blob, persisted, references: new Set() };
 +  images.set(job.uri, image);
 +  job.ids.forEach((id) => {
 +    if (requests.get(id) !== job.uri) return;
@@ -6311,7 +7741,13 @@ index 0000000..fff4081
 +
 +function pump() {
 +  while (activeLoads < MAX_CONCURRENT_LOADS && queue.length) {
-+    const job = queue.shift();
++    // OneKey patch: queued leases can be promoted without restarting their load.
++    // const job = queue.shift();
++    let next = 0;
++    for (let index = 1; index < queue.length; index += 1) {
++      if (jobPriority(queue[index]) < jobPriority(queue[next])) next = index;
++    }
++    const [job] = queue.splice(next, 1);
 +    if (jobs.get(job.uri) !== job || !job.ids.size) continue;
 +    job.active = true;
 +    activeLoads += 1;
@@ -6323,6 +7759,7 @@ index 0000000..fff4081
 +      if (jobs.get(job.uri) === job) jobs.delete(job.uri);
 +      activeLoads -= 1;
 +      pump();
++      void drainDiskQueue();
 +    });
 +  }
 +}
@@ -6330,16 +7767,25 @@ index 0000000..fff4081
 +onmessage = ({ data }) => {
 +  if (!data || !Number.isSafeInteger(data.id)) return;
 +  if (data.type === 'release') { release(data.id); return; }
++  if (data.type === 'priority') {
++    if (requests.has(data.id)) priorities.set(data.id, data.priority === 0 ? 0 : data.priority === 1 ? 1 : 2);
++    return;
++  }
 +  if (data.type !== 'acquire') return;
 +  release(data.id);
++  lastAcquire = Date.now();
++  scheduleDiskWork();
 +  try {
 +    if (typeof data.uri !== 'string' || !data.uri.startsWith(PREFIX)) throw new Error('Invalid avatar URI');
 +    const seed = decodeURIComponent(data.uri.slice(PREFIX.length)).toLowerCase();
 +    if (!seed) throw new Error('Empty avatar seed');
 +    const uri = PREFIX + encodeURIComponent(seed);
 +    requests.set(data.id, uri);
++    priorities.set(data.id, data.priority === 0 ? 0 : data.priority === 1 ? 1 : 2);
 +    const image = images.get(uri);
 +    if (image) {
++      // Reacquiring a live Blob can retry best-effort persistence after queue pressure.
++      if (!image.persisted) persistLater(uri, image.blob);
 +      image.references.add(data.id);
 +      postMessage({ type: 'resolved', id: data.id, url: image.url });
 +      return;
@@ -6356,20 +7802,21 @@ index 0000000..fff4081
 +};
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts
 new file mode 100644
-index 0000000..d7fceab
+index 0000000..18ba311
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,158 @@
 +// OneKey patch: avatar bytes stay in a worker and IndexedDB, outside list snapshots.
 +const AVATAR_PREFIX = 'onekey-avatar://blockie/v1/';
 +const MAX_RETAINED_AVATARS = 128;
++export type AvatarLease = (() => void) & { setPriority: (priority: number) => void };
 +
 +type AvatarEntry = {
 +  id: number;
 +  uri: string;
 +  url?: string;
 +  references: number;
-+  listeners: Set<{ resolve: (url: string) => void; reject: () => void }>;
++  listeners: Set<{ resolve: (url: string) => void; reject: () => void; priority: number }>;
 +};
 +
 +type AvatarResponse =
@@ -6392,7 +7839,7 @@ index 0000000..d7fceab
 +  private nextId = 0;
 +  private worker: Worker | undefined;
 +
-+  acquire(uri: string, resolve: (url: string) => void, reject: () => void): () => void {
++  acquire(uri: string, resolve: (url: string) => void, reject: () => void, priority = 2): AvatarLease {
 +    let entry = this.entries.get(uri);
 +    const isNew = !entry;
 +    if (!entry) {
@@ -6404,9 +7851,11 @@ index 0000000..d7fceab
 +    this.entries.delete(uri);
 +    this.entries.set(uri, current);
 +    current.references += 1;
-+    const listener = { resolve, reject };
++    const listener = { resolve, reject, priority };
 +    if (current.url) resolve(current.url);
-+    else current.listeners.add(listener);
++    // OneKey patch: keep lease priority after resolution as well as while queued.
++    // else current.listeners.add(listener);
++    current.listeners.add(listener);
 +    if (isNew) {
 +      try {
 +        if (!this.worker) {
@@ -6418,14 +7867,20 @@ index 0000000..d7fceab
 +          this.worker.addEventListener('error', this.handleFailure);
 +          this.worker.addEventListener('messageerror', this.handleFailure);
 +        }
-+        this.worker.postMessage({ type: 'acquire', id: current.id, uri });
++        this.worker.postMessage({ type: 'acquire', id: current.id, uri, priority });
 +      } catch {
 +        queueMicrotask(this.handleFailure);
 +      }
 +    }
++    const updatePriority = () => {
++      if (current.url) return;
++      const priorities = [...current.listeners].map((value) => value.priority);
++      this.worker?.postMessage({ type: 'priority', id: current.id, priority: Math.min(2, ...priorities) });
++    };
++    updatePriority();
 +    this.trim();
 +    let disposed = false;
-+    return () => {
++    const release = () => {
 +      if (disposed) return;
 +      disposed = true;
 +      current.listeners.delete(listener);
@@ -6435,8 +7890,16 @@ index 0000000..d7fceab
 +        this.requests.delete(current.id);
 +        this.worker?.postMessage({ type: 'release', id: current.id });
 +      }
++      updatePriority();
 +      this.trim();
 +    };
++    return Object.assign(release, {
++      setPriority: (next: number) => {
++        if (disposed || listener.priority === next) return;
++        listener.priority = next;
++        updatePriority();
++      },
++    });
 +  }
 +
 +  private readonly handleMessage = (event: MessageEvent<AvatarResponse>) => {
@@ -6456,7 +7919,9 @@ index 0000000..d7fceab
 +      this.worker?.postMessage({ type: 'release', id: entry.id });
 +      entry.listeners.forEach((listener) => listener.reject());
 +    }
-+    entry.listeners.clear();
++    // OneKey patch: retain resolved lease priorities until their explicit release.
++    // entry.listeners.clear();
++    if (!entry.url) entry.listeners.clear();
 +    this.trim();
 +  };
 +
@@ -6464,7 +7929,7 @@ index 0000000..d7fceab
 +    this.worker?.terminate();
 +    this.worker = undefined;
 +    this.requests.forEach((entry) => {
-+      entry.listeners.forEach((listener) => listener.reject());
++      if (!entry.url) entry.listeners.forEach((listener) => listener.reject());
 +      entry.listeners.clear();
 +    });
 +    this.requests.clear();
@@ -6489,28 +7954,30 @@ index 0000000..d7fceab
 +  document: Document,
 +  uri: string,
 +  resolve: (url: string) => void,
-+  reject: () => void
-+): () => void {
++  reject: () => void,
++  priority = 2
++): AvatarLease {
 +  let cache = documentCaches.get(document);
 +  if (!cache) {
 +    cache = new NativeListWebAvatarCache();
 +    documentCaches.set(document, cache);
 +  }
-+  return cache.acquire(uri, resolve, reject);
++  return cache.acquire(uri, resolve, reject, priority);
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 11d57d1..1ff0801 100644
+index 11d57d1..80b8871 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-@@ -37,6 +37,7 @@ import {
+@@ -37,6 +37,8 @@ import {
    type NormalizedPositionScroll,
  } from '../scrolling';
  import { applyRowPatches, validateSnapshot } from '../validation';
-+import { acquireNativeListAvatar, canonicalNativeListAvatarUri } from './NativeListWebAvatarCache';
++import { avatarPrefetchWindow } from '../avatarPrefetch';
++import { acquireNativeListAvatar, canonicalNativeListAvatarUri, type AvatarLease } from './NativeListWebAvatarCache';
  
  const SECTION_INDEX_GUTTER = 44;
  const DEFAULT_VIEWPORT_WIDTH = 320;
-@@ -354,11 +355,23 @@ export function estimateWebRowHeight(
+@@ -354,11 +356,23 @@ export function estimateWebRowHeight(
    snapshot: NativeListSnapshot,
    availableWidth: number
  ): number {
@@ -6537,7 +8004,7 @@ index 11d57d1..1ff0801 100644
    if (row.type === 'identity' && row.presentation === 'networkSelector')
      return 47;
    if (row.type === 'identity' && row.presentation === 'accountSelector')
-@@ -699,7 +712,9 @@ export function webRowRenderSignature(row: RowModel): string {
+@@ -699,7 +713,9 @@ export function webRowRenderSignature(row: RowModel): string {
    return JSON.stringify(rowWithoutSelectionState(row));
  }
  
@@ -6547,7 +8014,7 @@ index 11d57d1..1ff0801 100644
  .ok-native-list-root{--nl-bg:#f7f7f7;--nl-row:#fff;--nl-selected:#eaf2ff;--nl-pressed:#e8e8e8;--nl-subdued:#f9f9f9;--nl-strong:#0000000f;--nl-primary:#111;--nl-secondary:#6b7280;--nl-disabled:#8d8d8d;--nl-icon:#111;--nl-icon-subdued:#8d8d8d;--nl-separator:#e5e7eb;--nl-accent:#2f6bff;--nl-positive:#15803d;--nl-negative:#dc2626;--nl-critical:#feecec;--nl-inverse:#202020;--nl-inverse-text:#fcfcfc;--nl-info:#0d74ce;position:absolute;inset:0;display:flex;min-width:0;min-height:0;overflow:hidden;background:var(--nl-bg);color:var(--nl-primary);font-family:Roobert,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-synthesis:none}
  .ok-native-list-viewport-frame{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
  .ok-native-list-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-@@ -754,7 +769,27 @@ export const WEB_LIST_CSS = `
+@@ -754,7 +770,27 @@ export const WEB_LIST_CSS = `
  .ok-native-list-data{padding:6px 12px}.ok-native-list-index{flex:0 0 28px;color:var(--nl-secondary);font-size:13px}.ok-native-list-favorite{flex:0 0 24px;color:var(--nl-icon-subdued);font-size:22px}.ok-native-list-favorite[data-active="true"]{color:var(--nl-accent)}.ok-native-list-data-cell{display:flex;flex-direction:column;min-width:0}.ok-native-list-data-cell[data-align="center"]{align-items:center}.ok-native-list-data-cell[data-align="end"]{align-items:flex-end}.ok-native-list-data-primary{display:flex;align-items:center;gap:5px;max-width:100%;font-size:16px;font-weight:500;white-space:nowrap}.ok-native-list-unread{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--nl-accent)}.ok-native-list-thumbnail{width:64px;height:64px;border-radius:10px;object-fit:cover}
  .ok-native-list-footer{flex:0 0 auto;min-height:0}.ok-native-list-sticky{position:absolute;z-index:4;left:0;right:0;top:0;pointer-events:auto;box-shadow:0 1px 0 var(--nl-separator)}.ok-native-list-index-rail{position:absolute;z-index:6;top:0;right:0;bottom:0;width:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;touch-action:none}.ok-native-list-index-rail[hidden]{display:none}.ok-native-list-index-button{appearance:none;border:0;background:transparent;display:flex;flex:1;max-height:22px;min-height:12px;width:100%;align-items:center;justify-content:center;padding:0;color:var(--nl-secondary);font:600 11px/1 inherit;cursor:pointer}.ok-native-list-index-button[data-active="true"]{color:var(--nl-accent)}.ok-native-list-index-preview{position:absolute;z-index:8;left:50%;top:50%;display:flex;width:72px;height:72px;align-items:center;justify-content:center;transform:translate(-50%,-50%) scale(.92);border-radius:16px;background:var(--nl-inverse);color:var(--nl-inverse-text);font-size:28px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}.ok-native-list-index-preview[data-visible="true"]{opacity:1;transform:translate(-50%,-50%) scale(1)}
  .ok-native-list-refresh{position:absolute;z-index:7;left:50%;top:8px;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--nl-inverse);color:var(--nl-inverse-text);font-size:12px;opacity:0;transform:translate(-50%,-16px);transition:opacity .15s ease,transform .15s ease;pointer-events:none}.ok-native-list-refresh[data-visible="true"]{opacity:1;transform:translate(-50%,0)}
@@ -6575,7 +8042,7 @@ index 11d57d1..1ff0801 100644
  `;
  
  function createElement(
-@@ -788,16 +823,114 @@ function safeImageUri(uri: string): string | undefined {
+@@ -788,16 +824,114 @@ function safeImageUri(uri: string): string | undefined {
    return undefined;
  }
  
@@ -6692,7 +8159,7 @@ index 11d57d1..1ff0801 100644
    image.alt = '';
    image.draggable = false;
    image.loading = 'lazy';
-@@ -807,6 +940,43 @@ function createImage(
+@@ -807,6 +941,43 @@ function createImage(
    return image;
  }
  
@@ -6736,7 +8203,7 @@ index 11d57d1..1ff0801 100644
  function iconGlyph(name: string): string {
    const normalized = name.toLocaleLowerCase();
    if (normalized.includes('chevron')) {
-@@ -841,7 +1011,8 @@ function visualFromRow(row: RowModel): LeadingVisual | undefined {
+@@ -841,7 +1012,8 @@ function visualFromRow(row: RowModel): LeadingVisual | undefined {
  
  function createVisual(
    context: RenderContext,
@@ -6746,7 +8213,7 @@ index 11d57d1..1ff0801 100644
  ): HTMLElement | undefined {
    if (!visual) return undefined;
    if (visual.kind === 'stackedImages') {
-@@ -873,6 +1044,7 @@ function createVisual(
+@@ -873,6 +1045,7 @@ function createVisual(
        'ok-native-list-visual-fallback',
        iconGlyph(visual.name)
      );
@@ -6754,7 +8221,7 @@ index 11d57d1..1ff0801 100644
      if (visual.tintColor) fallback.style.color = visual.tintColor;
      frame.appendChild(fallback);
      return frame;
-@@ -885,6 +1057,7 @@ function createVisual(
+@@ -885,6 +1058,7 @@ function createVisual(
    if (image) {
      image.className = 'ok-native-list-visual-main';
      frame.appendChild(image);
@@ -6762,7 +8229,7 @@ index 11d57d1..1ff0801 100644
    } else {
      frame.appendChild(
        createElement(
-@@ -913,8 +1086,51 @@ function createVisual(
+@@ -913,8 +1087,51 @@ function createVisual(
        corner.style.color = visual.cornerIcon.tintColor;
      if (visual.cornerIcon.backgroundColor)
        corner.style.background = visual.cornerIcon.backgroundColor;
@@ -6814,7 +8281,7 @@ index 11d57d1..1ff0801 100644
    return frame;
  }
  
-@@ -1022,6 +1238,16 @@ function createCheckbox(
+@@ -1022,6 +1239,16 @@ function createCheckbox(
    setData(element, 'checkboxFallback', accessory.state);
    setData(element, 'nativeListAction', accessory.actionKey ?? 'selection');
    setData(element, 'selectionScope', accessory.target?.scope ?? 'row');
@@ -6831,7 +8298,7 @@ index 11d57d1..1ff0801 100644
    if (accessory.target?.scope === 'section')
      setData(element, 'selectionKey', accessory.target.sectionKey);
    else if (accessory.target?.scope === 'row')
-@@ -1046,6 +1272,7 @@ function createIconAction(
+@@ -1046,6 +1273,7 @@ function createIconAction(
      element.setAttribute('type', 'button');
      element.toggleAttribute('disabled', Boolean(disabled));
    }
@@ -6839,7 +8306,7 @@ index 11d57d1..1ff0801 100644
    if (actionKey) setData(element, 'nativeListAction', actionKey);
    if (tintColor) element.style.color = tintColor;
    return element;
-@@ -1060,6 +1287,20 @@ function markActionAnchorSource(
+@@ -1060,6 +1288,20 @@ function markActionAnchorSource(
    if (slot !== undefined) setData(element, 'nativeListAnchorSlot', slot);
  }
  
@@ -6860,7 +8327,7 @@ index 11d57d1..1ff0801 100644
  function createAccessory(
    context: RenderContext,
    rowKey: string,
-@@ -1080,6 +1321,18 @@ function createAccessory(
+@@ -1080,6 +1322,18 @@ function createAccessory(
        accessory.tintColor
      );
      markActionAnchorSource(element, 'trailingAccessory', slot);
@@ -6879,7 +8346,7 @@ index 11d57d1..1ff0801 100644
      return element;
    }
    if (accessory.kind === 'spinner') {
-@@ -1099,6 +1352,7 @@ function createAccessory(
+@@ -1099,6 +1353,7 @@ function createAccessory(
    switch (accessory.kind) {
      case 'value':
        element.textContent = accessory.text;
@@ -6887,7 +8354,7 @@ index 11d57d1..1ff0801 100644
        if (accessory.secondary)
          element.classList.add('ok-native-list-accessory-secondary');
        break;
-@@ -1157,6 +1411,13 @@ function appendAccessories(
+@@ -1157,6 +1412,13 @@ function appendAccessories(
      'span',
      'ok-native-list-accessories'
    );
@@ -6901,7 +8368,7 @@ index 11d57d1..1ff0801 100644
    accessories.forEach((accessory, slot) =>
      container.appendChild(createAccessory(context, rowKey, accessory, slot))
    );
-@@ -1234,7 +1495,59 @@ function createSectionHeader(
+@@ -1234,7 +1496,59 @@ function createSectionHeader(
      markActionAnchorSource(titleIcon, 'leadingAction');
      body.appendChild(titleIcon);
    }
@@ -6962,7 +8429,7 @@ index 11d57d1..1ff0801 100644
    if (row.value) {
      const value = createElement(
        context.document,
-@@ -1244,6 +1557,15 @@ function createSectionHeader(
+@@ -1244,6 +1558,15 @@ function createSectionHeader(
          : 'ok-native-list-value ok-native-list-section-value',
        row.value
      );
@@ -6978,7 +8445,7 @@ index 11d57d1..1ff0801 100644
      if (row.valueActionKey) {
        value.setAttribute('type', 'button');
        setData(value, 'nativeListAction', row.valueActionKey);
-@@ -1292,6 +1614,7 @@ function createActionRow(
+@@ -1292,6 +1615,7 @@ function createActionRow(
      row.title
    );
    setData(title, 'tone', row.tone);
@@ -6986,7 +8453,7 @@ index 11d57d1..1ff0801 100644
    body.appendChild(title);
    if (row.checkbox)
      body.appendChild(createCheckbox(context, row.key, row.checkbox));
-@@ -1309,6 +1632,13 @@ function createSystemRow(
+@@ -1309,6 +1633,13 @@ function createSystemRow(
      'ok-native-list-row ok-native-list-system'
    );
    setData(body, 'variant', row.variant);
@@ -7000,7 +8467,7 @@ index 11d57d1..1ff0801 100644
    if (row.variant === 'loading')
      body.appendChild(
        createElement(context.document, 'span', 'ok-native-list-spinner')
-@@ -1703,6 +2033,11 @@ function createIdentityActivityOrMessageRow(
+@@ -1703,6 +2034,11 @@ function createIdentityActivityOrMessageRow(
        .filter(Boolean)
        .join(' ')
    );
@@ -7012,7 +8479,7 @@ index 11d57d1..1ff0801 100644
    if (row.type === 'identity' && row.leadingAction) {
      const action = createIconAction(
        context,
-@@ -1714,7 +2049,15 @@ function createIdentityActivityOrMessageRow(
+@@ -1714,7 +2050,15 @@ function createIdentityActivityOrMessageRow(
      markActionAnchorSource(action, 'leadingAction');
      body.appendChild(action);
    }
@@ -7029,7 +8496,7 @@ index 11d57d1..1ff0801 100644
    if (visual) body.appendChild(visual);
    if (row.type === 'activity' && row.secondaryLeading) {
      const secondVisual = createVisual(context, row.secondaryLeading);
-@@ -1737,8 +2080,44 @@ function createIdentityActivityOrMessageRow(
+@@ -1737,8 +2081,44 @@ function createIdentityActivityOrMessageRow(
      subtitle,
      row.type === 'identity' ? row.tertiary : undefined,
      row.type === 'identity' ? row.tertiaryTone : undefined,
@@ -7075,7 +8542,7 @@ index 11d57d1..1ff0801 100644
    if (row.type === 'activity' && row.status)
      column.appendChild(
        createElement(
-@@ -1814,6 +2193,13 @@ function createIdentityActivityOrMessageRow(
+@@ -1814,6 +2194,13 @@ function createIdentityActivityOrMessageRow(
    return body;
  }
  
@@ -7089,7 +8556,7 @@ index 11d57d1..1ff0801 100644
  function createWalletGroupRow(
    context: RenderContext,
    row: Extract<RowModel, { type: 'walletGroup' }>
-@@ -1830,11 +2216,18 @@ function createWalletGroupRow(
+@@ -1830,11 +2217,18 @@ function createWalletGroupRow(
        'ok-native-list-wallet-member'
      );
      setData(memberElement, 'nativeListGroupMemberKey', member.key);
@@ -7111,7 +8578,18 @@ index 11d57d1..1ff0801 100644
      body.appendChild(memberElement);
    });
    return body;
-@@ -1919,6 +2312,8 @@ export class NativeListWebEngine {
+@@ -1894,6 +2288,10 @@ export class NativeListWebEngine {
+   private resizeObserver: ResizeObserver | undefined;
+   private pendingScroll: PendingScroll | undefined;
+   private lastVisibleSignature: string | undefined;
++  // OneKey patch: URI leases outlive DOM overscan only inside this bounded window.
++  private readonly avatarLeases = new Map<string, AvatarLease>();
++  private avatarOffset = 0;
++  private avatarDirection = 1;
+   private reachedGeneration: number | undefined;
+   private stickyKey: string | undefined;
+   private previewTimer: number | undefined;
+@@ -1919,6 +2317,8 @@ export class NativeListWebEngine {
    private lastViewportWidth = -1;
    private lastViewportHeight = -1;
    private destroyed = false;
@@ -7120,7 +8598,7 @@ index 11d57d1..1ff0801 100644
  
    constructor(
      host: HTMLElement,
-@@ -2004,6 +2399,9 @@ export class NativeListWebEngine {
+@@ -2004,6 +2404,9 @@ export class NativeListWebEngine {
        passive: true,
      });
      this.root.addEventListener('click', this.handleClick);
@@ -7130,7 +8608,7 @@ index 11d57d1..1ff0801 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener(
        'pointerdown',
-@@ -2160,7 +2558,7 @@ export class NativeListWebEngine {
+@@ -2160,7 +2563,7 @@ export class NativeListWebEngine {
      const index = resolveLocationIndex(this.snapshot.rows, params);
      if (index === undefined) {
        const sectionCount = this.snapshot.rows.filter(
@@ -7139,7 +8617,7 @@ index 11d57d1..1ff0801 100644
        ).length;
        this.emitScrollFailure(
          params.itemIndex,
-@@ -2219,6 +2617,8 @@ export class NativeListWebEngine {
+@@ -2219,6 +2622,8 @@ export class NativeListWebEngine {
      );
      this.viewport.removeEventListener('scroll', this.handleScroll);
      this.root.removeEventListener('click', this.handleClick);
@@ -7148,7 +8626,7 @@ index 11d57d1..1ff0801 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener(
-@@ -2251,6 +2651,8 @@ export class NativeListWebEngine {
+@@ -2251,18 +2656,23 @@ export class NativeListWebEngine {
      this.viewport.removeEventListener('pointerup', this.handlePullEnd);
      this.viewport.removeEventListener('pointercancel', this.handlePullEnd);
      const host = this.root.parentElement;
@@ -7157,7 +8635,14 @@ index 11d57d1..1ff0801 100644
      this.root.remove();
      this.hideReorderPreview();
      this.reorderPreview.remove();
-@@ -2263,6 +2665,7 @@ export class NativeListWebEngine {
+     if (host) host.style.position = this.previousHostPosition;
+     this.mounted.clear();
+     this.pool.length = 0;
++    this.avatarLeases.forEach((release) => release());
++    this.avatarLeases.clear();
+   }
+ 
+   private setSnapshot(
      snapshot: NativeListSnapshot,
      selectedKeys?: ReadonlySet<string>
    ) {
@@ -7165,7 +8650,7 @@ index 11d57d1..1ff0801 100644
      this.snapshot = snapshot;
      this.rows = effectiveRows(snapshot);
      this.selectedKeys =
-@@ -2288,6 +2691,11 @@ export class NativeListWebEngine {
+@@ -2288,6 +2698,11 @@ export class NativeListWebEngine {
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
@@ -7177,7 +8662,7 @@ index 11d57d1..1ff0801 100644
        '--nl-icon': theme.icon,
        '--nl-icon-subdued': theme.iconSubdued,
        '--nl-separator': theme.separator,
-@@ -2316,12 +2724,17 @@ export class NativeListWebEngine {
+@@ -2316,12 +2731,17 @@ export class NativeListWebEngine {
          viewportHeight !== this.lastViewportHeight)
      ) {
        this.invalidateActionAnchor('layout');
@@ -7196,7 +8681,46 @@ index 11d57d1..1ff0801 100644
        viewportWidth,
        viewportHeight,
        this.reorderCompactKey
-@@ -2350,6 +2763,7 @@ export class NativeListWebEngine {
+@@ -2336,7 +2756,38 @@ export class NativeListWebEngine {
+     this.performPendingScroll();
+   };
+ 
++  private updateAvatarWindow() {
++    const offset = this.currentOffset();
++    if (offset !== this.avatarOffset) this.avatarDirection = Math.sign(offset - this.avatarOffset);
++    this.avatarOffset = offset;
++    const visible = visibleWebLayoutItems(this.layout, offset, this.viewportLength(), 0);
++    const first = visible[0]?.index ?? -1;
++    const last = visible[visible.length - 1]?.index ?? -1;
++    const candidates = avatarPrefetchWindow(this.rows, first, last, this.avatarDirection);
++    const desired = new Set(candidates.map(({ source }) => canonicalNativeListAvatarUri(source.uri)).filter((uri) => uri !== undefined));
++    this.avatarLeases.forEach((release, uri) => {
++      if (!desired.has(uri)) { release(); this.avatarLeases.delete(uri); }
++    });
++    candidates.forEach(({ source, priority }) => {
++      const uri = canonicalNativeListAvatarUri(source.uri);
++      if (!uri) return;
++      const existing = this.avatarLeases.get(uri);
++      if (existing) existing.setPriority(priority);
++      else {
++        let lease: AvatarLease | undefined;
++        lease = acquireNativeListAvatar(this.document, uri, () => {}, () => {
++          if (this.avatarLeases.get(uri) === lease) {
++            lease?.();
++            this.avatarLeases.delete(uri);
++          }
++        }, priority);
++        this.avatarLeases.set(uri, lease);
++      }
++    });
++  }
++
+   private renderWindow() {
++    this.updateAvatarWindow();
+     const viewportLength = this.viewportLength();
+     const visible = webLayoutItemsForMount(
+       this.layout,
+@@ -2350,6 +2801,7 @@ export class NativeListWebEngine {
        if (!desired.has(index)) {
          this.invalidateActionAnchorForElement(element);
          this.mounted.delete(index);
@@ -7204,7 +8728,7 @@ index 11d57d1..1ff0801 100644
          element.remove();
          this.pool.push(element);
        }
-@@ -2377,6 +2791,17 @@ export class NativeListWebEngine {
+@@ -2377,6 +2829,17 @@ export class NativeListWebEngine {
          element.dataset.renderSignature = signature;
        }
      });
@@ -7222,7 +8746,7 @@ index 11d57d1..1ff0801 100644
      this.updateVisibleSelection();
      this.updateVisibleState();
    }
-@@ -2395,6 +2820,7 @@ export class NativeListWebEngine {
+@@ -2395,6 +2858,7 @@ export class NativeListWebEngine {
      overlay = false
    ) {
      this.invalidateActionAnchorForElement(element);
@@ -7230,7 +8754,7 @@ index 11d57d1..1ff0801 100644
      const bindingEpoch = String(++this.bindingEpochCounter);
      element.className = overlay
        ? 'ok-native-list-item ok-native-list-sticky'
-@@ -2403,6 +2829,9 @@ export class NativeListWebEngine {
+@@ -2403,6 +2867,9 @@ export class NativeListWebEngine {
      setData(element, 'nativeListBindingEpoch', bindingEpoch);
      setData(element, 'nativeListRowIndex', index);
      setData(element, 'nativeListDisabled', Boolean(row.disabled));
@@ -7240,7 +8764,7 @@ index 11d57d1..1ff0801 100644
      setData(element, 'nativeListReorderable', this.isReorderable(row));
      setData(
        element,
-@@ -2435,12 +2864,48 @@ export class NativeListWebEngine {
+@@ -2435,12 +2902,48 @@ export class NativeListWebEngine {
        selectedKeys: this.selectedKeys,
        itemIndex: index,
      };
@@ -7290,7 +8814,7 @@ index 11d57d1..1ff0801 100644
      this.footer.replaceChildren();
      if (!row) return;
      const element = createElement(this.document, 'div', 'ok-native-list-item');
-@@ -2487,7 +2952,9 @@ export class NativeListWebEngine {
+@@ -2487,7 +2990,9 @@ export class NativeListWebEngine {
    private updateVisibleSelection() {
      const update = (element: HTMLElement, row: RowModel | undefined) => {
        if (!row) return;
@@ -7301,7 +8825,7 @@ index 11d57d1..1ff0801 100644
        setData(element, 'nativeListSelected', selected);
        element.setAttribute('aria-selected', String(selected));
        element
-@@ -2548,7 +3015,9 @@ export class NativeListWebEngine {
+@@ -2548,7 +3053,9 @@ export class NativeListWebEngine {
      }
      this.checkEndReached(last?.index ?? -1);
      this.updateStickyHeader(first?.index ?? -1);
@@ -7312,7 +8836,7 @@ index 11d57d1..1ff0801 100644
    }
  
    private updateStickyHeader(firstVisibleIndex: number) {
-@@ -2564,7 +3033,7 @@ export class NativeListWebEngine {
+@@ -2564,7 +3071,7 @@ export class NativeListWebEngine {
      let index = -1;
      for (let cursor = firstVisibleIndex; cursor >= 0; cursor -= 1) {
        const row = this.rows[cursor];
@@ -7321,7 +8845,7 @@ index 11d57d1..1ff0801 100644
          index = cursor;
          break;
        }
-@@ -2594,7 +3063,7 @@ export class NativeListWebEngine {
+@@ -2594,7 +3101,7 @@ export class NativeListWebEngine {
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
        if (
@@ -7330,7 +8854,7 @@ index 11d57d1..1ff0801 100644
          candidate.variant !== 'summary'
        ) {
          nextIndex = cursor;
-@@ -2610,12 +3079,15 @@ export class NativeListWebEngine {
+@@ -2610,12 +3117,15 @@ export class NativeListWebEngine {
      this.updateVisibleSelection();
    }
  
@@ -7349,7 +8873,7 @@ index 11d57d1..1ff0801 100644
          row.indexTitle
        )
          activeKey = row.key;
-@@ -2793,7 +3265,9 @@ export class NativeListWebEngine {
+@@ -2793,7 +3303,9 @@ export class NativeListWebEngine {
      if (!source || !bindingEpoch || !rowElement.contains(actionElement))
        return undefined;
      this.invalidateActionAnchor('rebind');
@@ -7360,7 +8884,7 @@ index 11d57d1..1ff0801 100644
      const token = [
        this.actionAnchorInstanceId,
        this.snapshot.generation,
-@@ -2866,7 +3340,9 @@ export class NativeListWebEngine {
+@@ -2866,7 +3378,9 @@ export class NativeListWebEngine {
      rowElement?: HTMLElement,
      sourceElement = rowElement
    ) {
@@ -7371,7 +8895,7 @@ index 11d57d1..1ff0801 100644
      if (
        this.snapshot.selection?.rowPressToggles &&
        this.snapshot.selection.mode !== 'none' &&
-@@ -2894,6 +3370,28 @@ export class NativeListWebEngine {
+@@ -2894,6 +3408,28 @@ export class NativeListWebEngine {
      }
    }
  
@@ -7400,7 +8924,7 @@ index 11d57d1..1ff0801 100644
    private handleClick = (event: Event) => {
      if (Date.now() < this.suppressClickUntil) {
        event.preventDefault();
-@@ -2944,6 +3442,12 @@ export class NativeListWebEngine {
+@@ -2944,6 +3480,12 @@ export class NativeListWebEngine {
    };
  
    private handleKeyDown = (event: KeyboardEvent) => {
@@ -7413,7 +8937,16 @@ index 11d57d1..1ff0801 100644
      if (event.key === 'Escape') {
        if (this.pointerReorder?.active) {
          event.preventDefault();
-@@ -3203,12 +3707,13 @@ export class NativeListWebEngine {
+@@ -3073,7 +3615,7 @@ export class NativeListWebEngine {
+     this.frameHandle = this.requestFrame(() => {
+       this.frameHandle = undefined;
+       if (this.virtualizationEnabled) this.renderWindow();
+-      else this.updateVisibleState();
++      else { this.updateAvatarWindow(); this.updateVisibleState(); }
+     });
+   }
+ 
+@@ -3203,12 +3745,13 @@ export class NativeListWebEngine {
      const index = Number(rowElement?.dataset.nativeListRowIndex);
      const row = this.rows[index];
      if (!row || !this.isReorderable(row)) return;
@@ -7433,7 +8966,7 @@ index 11d57d1..1ff0801 100644
  
      const view = this.document.defaultView;
      const state: PointerReorderState = {
-@@ -3225,9 +3730,8 @@ export class NativeListWebEngine {
+@@ -3225,9 +3768,8 @@ export class NativeListWebEngine {
        active: false,
      };
      this.pointerReorder = state;
@@ -7445,7 +8978,7 @@ index 11d57d1..1ff0801 100644
        state.longPressTimer = view?.setTimeout(
          () => this.activatePointerReorder(state),
          REORDER_TOUCH_LONG_PRESS_MS
-@@ -3363,6 +3867,18 @@ export class NativeListWebEngine {
+@@ -3363,6 +3905,18 @@ export class NativeListWebEngine {
        Math.max(0, state.startY - rect.top)
      );
      this.reorderPreview.replaceChildren(previewRow.cloneNode(true));
@@ -7464,7 +8997,7 @@ index 11d57d1..1ff0801 100644
      const sourceRow = state.workingRows[state.currentIndex];
      const badgeText = sourceRow
        ? webWalletGroupReorderBadge(sourceRow)
-@@ -3430,6 +3946,7 @@ export class NativeListWebEngine {
+@@ -3430,6 +3984,7 @@ export class NativeListWebEngine {
  
    private clearReorderPreviewVisual() {
      this.reorderPreview.hidden = true;

@@ -24,6 +24,7 @@ import { useNetworkTooltipV2 } from './useNetworkTooltipV2';
 
 import type {
   CheckboxState,
+  IdentityRow,
   NativeListRef,
   NativeListSnapshot,
   RowActionEvent,
@@ -71,7 +72,7 @@ export default function NetworksSectionListV2() {
     accountDeFiOverview,
   });
 
-  const { enabledNetworksWithoutAccount, run } =
+  const { enabledNetworksWithoutAccount } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId: walletId ?? '',
       indexedAccountId,
@@ -81,13 +82,6 @@ export default function NetworksSectionListV2() {
   useEffect(() => {
     setMissingAddressCount(enabledNetworksWithoutAccount.length);
   }, [enabledNetworksWithoutAccount.length, setMissingAddressCount]);
-  const enabledNetworkIds = useMemo(
-    () => enabledNetworks.map((network) => network.id).join(','),
-    [enabledNetworks],
-  );
-  useEffect(() => {
-    void run();
-  }, [enabledNetworkIds, run]);
 
   const selectedIds = useMemo(
     () =>
@@ -110,9 +104,60 @@ export default function NetworksSectionListV2() {
     [networks.mainNetworks],
   );
 
+  // Checking a network must not reformat balances or rebuild image descriptors.
+  const sectionRows = useMemo(
+    () =>
+      sections.map((section) => {
+        const sectionKey = section.totalValue
+          ? 'portfolio-assets'
+          : `portfolio-section-${section.title ?? 'search'}`;
+        return {
+          section,
+          sectionKey,
+          formattedValue: section.totalValue
+            ? formatCurrencyValue(section.totalValue)
+            : undefined,
+          rows: section.data.map((network): IdentityRow => {
+            const value = getNetworkValueV2({
+              network,
+              accountNetworkValues,
+              accountDeFiOverview,
+            });
+            const trailing: TrailingAccessory[] = [];
+            if (new BigNumber(value).gt(NETWORK_SHOW_VALUE_THRESHOLD_USD)) {
+              trailing.push({ kind: 'value', ...formatCurrencyValue(value) });
+            }
+            return {
+              type: 'identity',
+              presentation: 'networkSelector',
+              height: 48,
+              key: network.id,
+              testID: `all-networks-manager-item-${network.id}`,
+              sectionKey,
+              groupId: network.id,
+              groupPosition: 'single',
+              size: 'small',
+              title: network.name,
+              titleMatch: getNetworkTitleMatchV2(network),
+              leading: getNetworkLeading(network),
+              trailing,
+              accessibilityLabel: network.name,
+            };
+          }),
+        };
+      }),
+    [
+      accountDeFiOverview,
+      accountNetworkValues,
+      formatCurrencyValue,
+      getNetworkLeading,
+      sections,
+    ],
+  );
+
   const rows = useMemo<RowModel[]>(() => {
     const result: RowModel[] = [];
-    if (!sections.length) return result;
+    if (!sectionRows.length) return result;
     if (!searchKey.trim()) {
       result.push({
         type: 'sectionHeader',
@@ -146,105 +191,81 @@ export default function NetworksSectionListV2() {
         heightRounding: 'nearest',
       });
     }
-    sections.forEach((section, index) => {
-      const sectionKey = section.totalValue
-        ? 'portfolio-assets'
-        : `portfolio-section-${section.title ?? 'search'}`;
-      if (index) {
-        result.push({
-          type: 'system',
-          variant: 'spacer',
-          key: `${sectionKey}-spacer`,
-          sectionKey,
-          height: 20,
-          heightRounding: 'nearest',
-        });
-      }
-      if (section.title) {
-        if (section.totalValue) {
-          const formattedValue = formatCurrencyValue(section.totalValue);
-          const selectedCount = section.data.filter((network) =>
-            selectedIds.has(network.id),
-          ).length;
-          let state: CheckboxState = 'indeterminate';
-          if (!selectedCount) state = 'unchecked';
-          else if (selectedCount === section.data.length) state = 'checked';
+    sectionRows.forEach(
+      ({ section, sectionKey, formattedValue, rows: networkRows }, index) => {
+        if (index) {
           result.push({
-            type: 'sectionHeader',
-            presentation: 'networkSelector',
-            key: `${sectionKey}-header`,
+            type: 'system',
+            variant: 'spacer',
+            key: `${sectionKey}-spacer`,
             sectionKey,
-            height: 56,
-            backgroundColor: sectionBackground,
-            backgroundFullWidth: true,
-            title: section.title,
-            titleActionKey: 'network.tooltip.assets',
-            titleActionOnHover: true,
-            value: formattedValue.text,
-            valueSegments: formattedValue.textSegments,
-            checkbox: {
-              kind: 'checkbox',
-              state,
-              target: { scope: 'section', sectionKey },
-            },
-          });
-        } else {
-          result.push({
-            type: 'sectionHeader',
-            presentation: 'networkSelector',
-            key: `${sectionKey}-header`,
-            sectionKey,
-            title: section.title,
-            height: 36,
-            indexTitle: section.title.length === 1 ? section.title : undefined,
+            height: 20,
             heightRounding: 'nearest',
           });
         }
-      }
-      section.data.forEach((network) => {
-        const value = getNetworkValueV2({
-          network,
-          accountNetworkValues,
-          accountDeFiOverview,
-        });
-        const trailing: TrailingAccessory[] = [];
-        if (new BigNumber(value).gt(NETWORK_SHOW_VALUE_THRESHOLD_USD)) {
-          trailing.push({ kind: 'value', ...formatCurrencyValue(value) });
+        if (section.title) {
+          if (formattedValue) {
+            const selectedCount = section.data.filter((network) =>
+              selectedIds.has(network.id),
+            ).length;
+            let state: CheckboxState = 'indeterminate';
+            if (!selectedCount) state = 'unchecked';
+            else if (selectedCount === section.data.length) state = 'checked';
+            result.push({
+              type: 'sectionHeader',
+              presentation: 'networkSelector',
+              key: `${sectionKey}-header`,
+              sectionKey,
+              height: 56,
+              backgroundColor: sectionBackground,
+              backgroundFullWidth: true,
+              title: section.title,
+              titleActionKey: 'network.tooltip.assets',
+              titleActionOnHover: true,
+              value: formattedValue.text,
+              valueSegments: formattedValue.textSegments,
+              checkbox: {
+                kind: 'checkbox',
+                state,
+                target: { scope: 'section', sectionKey },
+              },
+            });
+          } else {
+            result.push({
+              type: 'sectionHeader',
+              presentation: 'networkSelector',
+              key: `${sectionKey}-header`,
+              sectionKey,
+              title: section.title,
+              height: 36,
+              indexTitle:
+                section.title.length === 1 ? section.title : undefined,
+              heightRounding: 'nearest',
+            });
+          }
         }
-        trailing.push({
-          kind: 'checkbox',
-          state: selectedIds.has(network.id) ? 'checked' : 'unchecked',
-          target: { scope: 'row' },
+        networkRows.forEach((row) => {
+          result.push({
+            ...row,
+            trailing: [
+              ...(row.trailing ?? []),
+              {
+                kind: 'checkbox',
+                state: selectedIds.has(row.key) ? 'checked' : 'unchecked',
+                target: { scope: 'row' },
+              },
+            ],
+          });
         });
-        result.push({
-          type: 'identity',
-          presentation: 'networkSelector',
-          height: 48,
-          key: network.id,
-          testID: `all-networks-manager-item-${network.id}`,
-          sectionKey,
-          groupId: network.id,
-          groupPosition: 'single',
-          size: 'small',
-          title: network.name,
-          titleMatch: getNetworkTitleMatchV2(network),
-          leading: getNetworkLeading(network),
-          trailing,
-          accessibilityLabel: network.name,
-        });
-      });
-    });
+      },
+    );
     return result;
   }, [
-    accountDeFiOverview,
-    accountNetworkValues,
     enabledNetworks.length,
-    formatCurrencyValue,
-    getNetworkLeading,
     intl,
     searchKey,
     sectionBackground,
-    sections,
+    sectionRows,
     selectedIds,
   ]);
 

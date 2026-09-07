@@ -10,11 +10,33 @@ The URI avatar/cache change passes the listed pixel and persistence checks. Stea
 - Wallet animal avatars retain their existing resource URIs. External-wallet logos retain their original image source, with numeric React Native assets resolved to a URI.
 - iOS resolves the URI in the native image loader, with at most two generation jobs and a dedicated SDImageCache: 8 MiB / 128 memory entries, 32 MiB / 30 days on disk. Cleanup follows cache policy rather than a strict instantaneous disk bound.
 - Android resolves it on the Glide source executor and stores the original PNG with `DiskCacheStrategy.DATA` in the existing shared disk LRU. Rendering sizes and other image cache policies are unchanged.
-- Desktop/Web use an external Worker for generation, PNG validation, and IndexedDB persistence (32 MiB / 2048 entries, two concurrent jobs). The list thread receives Blob URL strings, with at most 128 idle URLs retained; mounted image leases are protected from eviction.
+- Desktop/Web use an external Worker for generation, PNG validation, and IndexedDB persistence (32 MiB / 2048 entries, two concurrent jobs). The list thread receives Blob URL strings. The memory cache targets 128 total URLs; active leases are protected and may exceed that target.
 - Requests are coalesced, canceled when no longer needed, and guarded against stale results after row reuse. Corrupted persisted avatar images are regenerated. Web pre-mount row patches are retained against the matching snapshot, including imperative snapshot replacement.
 - The iOS index-bar gesture owns touches originating in the index rail; ordinary modal header dragging still dismisses the selector.
 
 iOS and Android main/background JS runtimes have separate heaps. Avatar generation and caching use process-owned native image resources; PNG bytes are not copied into list snapshots or between those JS runtimes. Desktop app main/background code shares one JS thread; the avatar Worker has its own execution context. Extension UI/background runtimes remain separate and use the same Web image adapter; actual extension runtime validation is still open.
+
+## Reuse boundaries
+
+NativeList remains a reusable list implementation. Virtualization, index navigation,
+row updates, image request scheduling, and reusable native cells belong to the
+module. Other screens can reuse them by supplying the supported row descriptors
+and stable keys/URIs; they do not need wallet services or the selector hooks.
+The generated-avatar cache specifically handles the `onekey-avatar://blockie/v1/`
+URI scheme. Ordinary image URLs continue through the existing image loaders.
+
+Balance loading, fiat/DeFi aggregation, account formatting dependencies, and
+enabled/missing-address network state belong to the selector business layer.
+These optimizations benefit both selectors' supported platforms, but are not
+generic list behavior. Existing selector-specific row presentations also remain
+optional module templates rather than a requirement for other list consumers.
+
+The `accSelList` cache namespace now retains at most three recently updated list
+scopes and 6 Mi serialized characters in total, under the unchanged global
+per-entry limit. A wallet/network/derive combination is one scope, not necessarily
+one wallet. V1/V2 use the same keys and revalidate evicted entries through the
+original service. Other namespaces retain their existing budgets. This bounds
+cache capacity; it is not evidence that the previous memory sample was a leak.
 
 ## Measurement conditions
 

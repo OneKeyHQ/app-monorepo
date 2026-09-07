@@ -3,6 +3,8 @@ import { defaultLogger } from '../logger/logger';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import {
+  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_KEY_CHARS,
@@ -159,8 +161,32 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
 
   const retained: ISerializedSWRCacheEntry<T>[] = [];
   let totalSerializedChars = 2;
-  for (const candidate of candidates) {
+  let accountSelectorEntries = 0;
+  let accountSelectorSerializedChars = 2;
+  const accountSelectorDrops: ISWRCacheCapacityDrop[] = [];
+  candidates.forEach((candidate) => {
     const separatorChars = retained.length > 0 ? 1 : 0;
+    const isAccountSelector = isAccountSelectorCacheKey(candidate.key);
+    const accountSeparatorChars = accountSelectorEntries > 0 ? 1 : 0;
+    if (
+      isAccountSelector &&
+      (accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES ||
+        accountSelectorSerializedChars +
+          accountSeparatorChars +
+          candidate.serializedChars >
+          SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS)
+    ) {
+      removedKeys.push(candidate.key);
+      accountSelectorDrops.push({
+        entrySerializedChars: candidate.entrySerializedChars,
+        key: candidate.key,
+        reason:
+          accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+            ? 'entryCountLimit'
+            : 'totalSizeLimit',
+      });
+      return;
+    }
     let reason: ISWRCacheCapacityLimitReason | undefined;
     if (retained.length >= maxEntries) {
       reason = 'entryCountLimit';
@@ -180,8 +206,13 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     } else {
       retained.push(candidate);
       totalSerializedChars += separatorChars + candidate.serializedChars;
+      if (isAccountSelector) {
+        accountSelectorEntries += 1;
+        accountSelectorSerializedChars +=
+          accountSeparatorChars + candidate.serializedChars;
+      }
     }
-  }
+  });
   retained.sort((left, right) => left.index - right.index);
 
   const retainedStore = {} as Record<string, T>;
@@ -200,6 +231,13 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     maxSerializedChars,
     retainedEntryCount: retained.length,
     retainedSerializedChars: totalSerializedChars,
+  });
+  reportSWRCacheCapacityDrops(accountSelectorDrops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: accountSelectorEntries,
+    retainedSerializedChars: accountSelectorSerializedChars,
   });
 
   return {
@@ -423,6 +461,52 @@ function evictOldestOverBudget(store: ISWRStore, removedAt: number) {
   });
 }
 
+function evictOldestAccountSelectorEntries(
+  store: ISWRStore,
+  removedAt: number,
+) {
+  const keys = Object.keys(store)
+    .filter(isAccountSelectorCacheKey)
+    .toSorted((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+  let count = keys.length;
+  let serializedChars =
+    2 +
+    Math.max(0, count - 1) +
+    keys.reduce(
+      (sum, key) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
+      0,
+    );
+  const drops: ISWRCacheCapacityDrop[] = [];
+  for (const key of keys) {
+    if (
+      count <= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES &&
+      serializedChars <= SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS
+    ) {
+      break;
+    }
+    drops.push({
+      key,
+      reason:
+        count > SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+          ? 'entryCountLimit'
+          : 'totalSizeLimit',
+    });
+    serializedChars -=
+      (_cacheEntrySerializedChars.get(key) ?? 0) + (count > 1 ? 1 : 0);
+    count -= 1;
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+    _removedKeysAt.set(key, removedAt);
+  }
+  reportSWRCacheCapacityDrops(drops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: count,
+    retainedSerializedChars: serializedChars,
+  });
+}
+
 function adoptPrunedStore(store: ISWRStore): ISWRStore {
   const result = pruneSWRCacheStore(store);
   resetCacheSerializedChars(result.store);
@@ -585,6 +669,9 @@ function set<T>(key: string, data: T): void {
   setCachedEntry(store, serializedEntry);
   _updatedKeys.add(key);
   _dirty = true;
+  if (isAccountSelectorCacheKey(key)) {
+    evictOldestAccountSelectorEntries(store, now);
+  }
   evictOldestOverBudget(store, now);
   scheduleFlush();
 }
@@ -697,6 +784,10 @@ const NS = {
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
 export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+function isAccountSelectorCacheKey(key: string) {
+  return key.startsWith(`${NS.accountSelectorList}:`);
+}
 
 const SWR_CACHE_SAFE_LOG_NAMESPACES = Object.values(NS);
 

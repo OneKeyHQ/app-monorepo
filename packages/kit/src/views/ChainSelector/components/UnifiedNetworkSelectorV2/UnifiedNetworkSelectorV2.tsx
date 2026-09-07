@@ -144,9 +144,6 @@ function UnifiedNetworkSelectorV2() {
   const [originalEnabledNetworks, setOriginalEnabledNetworks] = useState<
     IServerNetworkMatch[]
   >([]);
-  const [enabledNetworks, setEnabledNetworks] = useState<IServerNetworkMatch[]>(
-    [],
-  );
 
   const [missingAddressCount, setMissingAddressCount] = useState(0);
 
@@ -255,23 +252,25 @@ function UnifiedNetworkSelectorV2() {
     setNetworksState(networkMeta.allNetworksState);
   }, [networkMeta]);
 
-  // Derive the enabled subset from networks + state. Lives after the
-  // `networks` useMemo to keep declaration order clean.
+  // Keep the summary and checkboxes in the same render as the selection change.
+  const enabledNetworks = useMemo(
+    () =>
+      networks.mainNetworks.filter((network) =>
+        isEnabledNetworksInAllNetworks({
+          networkId: network.id,
+          enabledNetworks: networksState.enabledNetworks,
+          disabledNetworks: networksState.disabledNetworks,
+          isTestnet: network.isTestnet,
+        }),
+      ),
+    [networksState, networks.mainNetworks],
+  );
   useEffect(() => {
-    const result = networks.mainNetworks.filter((network) =>
-      isEnabledNetworksInAllNetworks({
-        networkId: network.id,
-        enabledNetworks: networksState.enabledNetworks,
-        disabledNetworks: networksState.disabledNetworks,
-        isTestnet: network.isTestnet,
-      }),
-    );
-    setEnabledNetworks(result);
     if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
-      setOriginalEnabledNetworks(result);
+      setOriginalEnabledNetworks(enabledNetworks);
       enabledNetworksInit.current = true;
     }
-  }, [networksState, networks.mainNetworks, networks.allNetworks]);
+  }, [enabledNetworks, networks.allNetworks.length]);
 
   const compatibleNetworks = networkMeta?.compatibleNetworks;
 
