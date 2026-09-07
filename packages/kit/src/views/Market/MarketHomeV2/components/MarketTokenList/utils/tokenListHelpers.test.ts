@@ -6,8 +6,65 @@ import {
   normalizeStockMetadataValue,
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  sortMarketTokenListData,
   transformApiItemToToken,
 } from './tokenListHelpers';
+
+function buildSortableToken(id: string, price: number) {
+  return { id, price };
+}
+
+describe('market token list sorting', () => {
+  test('sorts the latest token values without mutating the source list', () => {
+    const source = [
+      buildSortableToken('first', 10),
+      buildSortableToken('second', 20),
+    ];
+    const latest = source.map((token) =>
+      token.id === 'first' ? { ...token, price: 30 } : token,
+    );
+
+    const sorted = sortMarketTokenListData({
+      data: latest,
+      field: 'price',
+      order: 'desc',
+    });
+
+    expect(sorted.map((token) => token.id)).toEqual(['first', 'second']);
+    expect(latest.map((token) => token.id)).toEqual(['first', 'second']);
+  });
+
+  test('keeps the original list when sorting is inactive', () => {
+    const source = [buildSortableToken('first', 10)];
+
+    expect(sortMarketTokenListData({ data: source })).toBe(source);
+  });
+
+  test.each(['asc', 'desc'] as const)(
+    'keeps missing and invalid metrics last when sorting %s',
+    (order) => {
+      const source = [
+        { id: 'missing', price: undefined },
+        { id: 'high', price: 20 },
+        { id: 'invalid', price: Number.NaN },
+        { id: 'zero', price: 0 },
+        { id: 'low', price: 10 },
+      ];
+
+      const sorted = sortMarketTokenListData({
+        data: source,
+        field: 'price',
+        order,
+      });
+
+      expect(sorted.map((token) => token.id)).toEqual(
+        order === 'asc'
+          ? ['zero', 'low', 'high', 'missing', 'invalid']
+          : ['high', 'low', 'zero', 'missing', 'invalid'],
+      );
+    },
+  );
+});
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {

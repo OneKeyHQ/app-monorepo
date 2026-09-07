@@ -58,6 +58,7 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
+  swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -84,7 +85,9 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
+  swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -115,6 +118,14 @@ const mockFetchSwapTokenDetails: jest.MockedFunction<
     params: IFetchSwapTokenDetailsParams,
   ) => Promise<{ balanceParsed?: string; price?: string; fiatValue?: string }[]>
 > = jest.fn();
+const mockGetNativeTokenAddress = jest.fn<
+  Promise<string>,
+  [{ networkId: string }]
+>();
+const mockGetNetworkAccount = jest.fn<
+  Promise<INetworkAccount | undefined>,
+  [{ networkId: string }]
+>();
 const mockFetchQuotesEvents: jest.MockedFunction<
   (params: unknown) => Promise<void>
 > = jest.fn();
@@ -157,6 +168,13 @@ const mockFetchMarketTokenListBatch: jest.MockedFunction<
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceToken: {
+      getNativeTokenAddress: (params: { networkId: string }) =>
+        mockGetNativeTokenAddress(params),
+    },
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: async () => 'default',
+    },
     serviceSwap: {
       fetchSwapTokens: (params: unknown) => mockFetchSwapTokens(params),
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
@@ -184,6 +202,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
     },
     serviceAccount: {
+      getNetworkAccount: (params: { networkId: string }) =>
+        mockGetNetworkAccount(params),
       checkAccountNetworkNotSupported: (params: {
         walletId?: string;
         accountId?: string;
@@ -467,6 +487,11 @@ describe('useSwapActions', () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
+    mockGetNativeTokenAddress.mockResolvedValue('');
+    mockGetNetworkAccount.mockImplementation(async ({ networkId }) => ({
+      ...evmAccount,
+      addressDetail: { ...evmAccount.addressDetail, networkId },
+    }));
     mockGetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
@@ -749,6 +774,167 @@ describe('useSwapActions', () => {
     });
   });
 
+  it.each([ESwapDirectionType.FROM, ESwapDirectionType.TO])(
+    'resolves the Aptos native address for the %s display balance',
+    async (direction) => {
+      const nativeAddress = '0x1::aptos_coin::AptosCoin';
+      const aptosToken: ISwapToken = {
+        networkId: 'aptos--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'APT',
+        decimals: 8,
+      };
+      mockGetNativeTokenAddress.mockResolvedValue(nativeAddress);
+      mockFetchSwapTokenDetails.mockImplementation(async (params) => [
+        {
+          balanceParsed:
+            params.contractAddress === nativeAddress ? '6.6044' : '0',
+        },
+      ]);
+      const selectedTokenAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectFromTokenAtom
+          : swapSelectToTokenAtom;
+      const selectedBalanceAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectedFromTokenBalanceAtom
+          : swapSelectedToTokenBalanceAtom;
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(selectedTokenAtom(), aptosToken);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.loadSwapSelectTokenDetail(direction, {
+          ...fromAddressInfo,
+          networkId: aptosToken.networkId,
+        });
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: aptosToken.networkId,
+          contractAddress: nativeAddress,
+          direction,
+        }),
+      );
+      expect(store.get(selectedBalanceAtom())).toBe('6.6044');
+      expect(store.get(selectedTokenAtom())?.contractAddress).toBe('');
+    },
+  );
+
+  it.each(['token', 'account'] as const)(
+    'does not send a stale native balance request after switching %s during address resolution',
+    async (switchTarget) => {
+      const nativeAddress = '0x1::aptos_coin::AptosCoin';
+      const pendingAddress = createDeferred<string>();
+      const aptosToken: ISwapToken = {
+        networkId: 'aptos--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'APT',
+        decimals: 8,
+      };
+      mockGetNativeTokenAddress
+        .mockImplementationOnce(() => pendingAddress.promise)
+        .mockResolvedValue(nativeAddress);
+      mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '7' }]);
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapSelectFromTokenAtom(), aptosToken);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const addressInfo = {
+        ...fromAddressInfo,
+        networkId: aptosToken.networkId,
+      };
+      let pendingBalance: Promise<void> | undefined;
+      await act(async () => {
+        pendingBalance = result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          addressInfo,
+          true,
+        );
+      });
+      await act(async () => {
+        if (switchTarget === 'token') {
+          store.set(swapSelectFromTokenAtom(), {
+            ...aptosToken,
+            contractAddress: 'aptos-usdc',
+            isNative: false,
+            symbol: 'USDC',
+          });
+        }
+        await result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          {
+            ...addressInfo,
+            address: switchTarget === 'account' ? '0xdef' : addressInfo.address,
+          },
+          true,
+        );
+        pendingAddress.resolve(nativeAddress);
+        await pendingBalance;
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
+    },
+  );
+
+  it('keeps loading and balance owned by the latest account when responses arrive out of order', async () => {
+    const oldDetail = createDeferred<{ balanceParsed: string }[]>();
+    const newDetail = createDeferred<{ balanceParsed: string }[]>();
+    mockFetchSwapTokenDetails
+      .mockImplementationOnce(() => oldDetail.promise)
+      .mockImplementationOnce(() => newDetail.promise);
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    let oldRequest: Promise<void> | undefined;
+    let newRequest: Promise<void> | undefined;
+    await act(async () => {
+      oldRequest = result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+    await act(async () => {
+      newRequest = result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        { ...fromAddressInfo, address: '0xdef' },
+        true,
+      );
+    });
+    await act(async () => {
+      oldDetail.resolve([{ balanceParsed: '99' }]);
+      await oldRequest;
+    });
+    expect(store.get(swapSelectTokenDetailFetchingAtom()).from).toBe(true);
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapSelectFromTokenAtom())?.accountAddress).not.toBe(
+      '0xabc',
+    );
+    expect(store.get(swapBalanceDisplayCacheAtom()).entries).toHaveLength(0);
+
+    await act(async () => {
+      newDetail.resolve([{ balanceParsed: '7' }]);
+      await newRequest;
+    });
+    expect(store.get(swapSelectTokenDetailFetchingAtom()).from).toBe(false);
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
+    expect(store.get(swapSelectFromTokenAtom())?.accountAddress).toBe('0xdef');
+    expect(store.get(swapBalanceDisplayCacheAtom()).entries).toEqual([
+      expect.objectContaining({ accountAddress: '0xdef', balance: '7' }),
+    ]);
+  });
+
   it('does not persist an error fallback as a display balance', async () => {
     mockFetchSwapTokenDetails.mockRejectedValue(new Error('network error'));
 
@@ -778,6 +964,70 @@ describe('useSwapActions', () => {
     expect(result.current.balance).toBe('0.0');
     expect(result.current.balanceDisplayCache.entries).toEqual([]);
   });
+
+  it.each(['detail', 'recipient account'] as const)(
+    'does not replace a refresh with cached balance while %s is resolving',
+    async (stage) => {
+      const direction =
+        stage === 'detail' ? ESwapDirectionType.FROM : ESwapDirectionType.TO;
+      const selectedTokenAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectFromTokenAtom
+          : swapSelectToTokenAtom;
+      const selectedBalanceAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectedFromTokenBalanceAtom
+          : swapSelectedToTokenBalanceAtom;
+      const oldDetail = createDeferred<{ balanceParsed: string }[]>();
+      const oldAccount = createDeferred<INetworkAccount | undefined>();
+      if (stage === 'detail') {
+        mockFetchSwapTokenDetails
+          .mockImplementationOnce(() => oldDetail.promise)
+          .mockResolvedValueOnce([{ balanceParsed: '5' }]);
+      } else {
+        mockGetNetworkAccount.mockImplementationOnce(() => oldAccount.promise);
+        mockFetchSwapTokenDetails.mockResolvedValueOnce([
+          { balanceParsed: '5' },
+        ]);
+      }
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(selectedTokenAtom(), {
+          ...ethToken,
+          balanceParsed: '10',
+          accountAddress: fromAddressInfo.address,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      let refresh: Promise<void> | undefined;
+      await act(async () => {
+        refresh = result.current.loadSwapSelectTokenDetail(
+          direction,
+          fromAddressInfo,
+          true,
+        );
+      });
+      await act(async () => {
+        await result.current.loadSwapSelectTokenDetail(
+          direction,
+          fromAddressInfo,
+          false,
+        );
+        oldDetail.resolve([{ balanceParsed: '7' }]);
+        oldAccount.resolve(evmAccount);
+        await refresh;
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(
+        stage === 'detail' ? 2 : 1,
+      );
+      expect(store.get(selectedBalanceAtom())).toBe('5');
+      expect(store.get(swapSelectTokenDetailFetchingAtom())[direction]).toBe(
+        false,
+      );
+    },
+  );
 
   it('does not let the ordinary Swap balance loader run for Stock tokens', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
