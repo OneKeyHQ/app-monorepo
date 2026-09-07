@@ -36,8 +36,14 @@ export function InterestRateModelSection({
       return data;
     },
     [networkId, provider, marketAddress, reserveAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+      revalidateOnFocus: true,
+    },
   );
+
+  const isInitialLoading = curveData === undefined && isLoading !== false;
 
   return (
     <DetailsSectionContainer
@@ -47,7 +53,7 @@ export function InterestRateModelSection({
         borrowCurve={curveData?.borrowCurve ?? []}
         supplyCurve={curveData?.supplyCurve ?? []}
         utilizationRatio={utilizationRatio}
-        isLoading={isLoading}
+        isLoading={isInitialLoading}
       />
     </DetailsSectionContainer>
   );

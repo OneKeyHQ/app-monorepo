@@ -23,6 +23,7 @@ import {
   convertUtilizationToTime,
   normalizeApyToPercent,
   normalizeUtilization,
+  parseUtilizationRatio,
   useInterestRateModelLabels,
 } from './InterestRateModelChartShared';
 
@@ -63,6 +64,7 @@ export function InterestRateModelChart({
   const [hoverData, setHoverData] = useState<IHoverData | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [verticalLineX, setVerticalLineX] = useState<number | null>(null);
+  const normalizedUtilizationRatio = parseUtilizationRatio(utilizationRatio);
 
   const {
     utilizationRatioLabel,
@@ -250,11 +252,10 @@ export function InterestRateModelChart({
       });
 
       // Calculate current utilization vertical line x coordinate
-      const currentUtilTime = utilizationRatio
-        ? convertUtilizationToTime(
-            normalizeUtilization(parseFloat(utilizationRatio)),
-          )
-        : null;
+      const currentUtilTime =
+        normalizedUtilizationRatio !== null
+          ? convertUtilizationToTime(normalizedUtilizationRatio)
+          : null;
 
       const localChart = chart;
       const updateVerticalLinePosition = () => {
@@ -303,17 +304,16 @@ export function InterestRateModelChart({
     chartData,
     supplyTheme,
     borrowTheme,
-    utilizationRatio,
+    normalizedUtilizationRatio,
     theme.borderSubdued?.val,
     theme.iconSubdued?.val,
     handleCrosshairMove,
   ]);
 
-  const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
-    : '0.00%';
+  const utilizationPercentage =
+    normalizedUtilizationRatio !== null
+      ? `${(normalizedUtilizationRatio * 100).toFixed(2)}%`
+      : '0.00%';
 
   if (isLoading) {
     return (
