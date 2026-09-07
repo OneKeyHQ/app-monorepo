@@ -292,6 +292,24 @@ describe('PrimeRedeemLandingPage', () => {
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
   });
 
+  it('logs entry again after login with the current Prime status', () => {
+    const { rerender } = render(<PrimeRedeemLandingPage />);
+
+    expect(mockPrimeRedemptionEntryClick).toHaveBeenCalledTimes(1);
+    expect(mockPrimeRedemptionEntryClick).toHaveBeenCalledWith({
+      isPrimeActiveBeforeRedeem: false,
+    });
+
+    mockIsLoggedIn = true;
+    mockUser.primeSubscription = { isActive: true };
+    rerender(<PrimeRedeemLandingPage />);
+
+    expect(mockPrimeRedemptionEntryClick).toHaveBeenCalledTimes(2);
+    expect(mockPrimeRedemptionEntryClick).toHaveBeenLastCalledWith({
+      isPrimeActiveBeforeRedeem: true,
+    });
+  });
+
   it('reports OneKey ID login failures instead of swallowing them', async () => {
     const error = new Error('login failed');
     mockLoginOneKeyId.mockRejectedValue(error);

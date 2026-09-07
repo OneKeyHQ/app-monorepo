@@ -178,13 +178,13 @@ function PrimeRedeemFormSection({
     initialCode,
     isPrimeActiveBeforeRedeem,
   });
-  const hasLoggedEntryRef = useRef(false);
+  const lastLoggedPrimeActiveRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
-    if (hasLoggedEntryRef.current) {
+    if (lastLoggedPrimeActiveRef.current === isPrimeActiveBeforeRedeem) {
       return;
     }
-    hasLoggedEntryRef.current = true;
+    lastLoggedPrimeActiveRef.current = isPrimeActiveBeforeRedeem;
     defaultLogger.prime.subscription.primeRedemptionEntryClick({
       isPrimeActiveBeforeRedeem,
     });
