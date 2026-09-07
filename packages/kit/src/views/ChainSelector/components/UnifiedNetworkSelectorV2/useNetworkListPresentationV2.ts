@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { useTheme } from '@onekeyhq/components';
+import { Image, useTheme } from '@onekeyhq/components';
 import { buildOptimizedImageSource } from '@onekeyhq/components/src/primitives/Image/optimization';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
@@ -77,6 +77,33 @@ export function getNetworkTitleMatchV2(
     return best;
   }, undefined);
   return match ? [{ start: match[0], end: match[1] + 1 }] : undefined;
+}
+
+export async function preloadNetworkImagesV2(networks: IServerNetwork[]) {
+  if (!platformEnv.isNative) return true;
+  const uris = [
+    ...new Set(
+      networks
+        .filter(
+          (network) =>
+            !network.isAllNetworks &&
+            !network.isCustomNetwork &&
+            Boolean(network.logoURI),
+        )
+        .map((network) => network.logoURI),
+    ),
+  ];
+  if (!uris.length) return true;
+  return Image.preloadImages(
+    uris.map((uri) => ({
+      uri,
+      width: 32,
+      height: 32,
+      resizeWidth: 32,
+      optimize: false,
+      cachePolicy: 'memory-disk',
+    })),
+  );
 }
 
 export function useNetworkListPresentationV2(sourceCurrency?: string) {
@@ -187,7 +214,7 @@ export function useNetworkListPresentationV2(sourceCurrency?: string) {
           height: 32,
           contentFit: 'cover',
           cachePolicy: 'memory-disk',
-          loadingStrategy: 'none',
+          loadingStrategy: 'skeleton',
         },
         shape: 'circle',
         backgroundColor: theme.bgApp.val,

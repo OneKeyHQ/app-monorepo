@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
-import { Image } from 'react-native';
+import { Image, Platform } from 'react-native';
 
 import { useTheme } from '@onekeyhq/components';
 import { buildOptimizedImageSource } from '@onekeyhq/components/src/primitives/Image/optimization';
@@ -12,6 +12,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -60,7 +61,11 @@ export function accountSelectorAssetUriV2(
   source: ImageSourcePropType | string,
 ): string {
   if (typeof source === 'string') return source;
-  return Image.resolveAssetSource(source)?.uri ?? '';
+  const uri = Image.resolveAssetSource(source)?.uri ?? '';
+  if (Platform.OS === 'android' && uri && !uri.includes(':')) {
+    return `android.resource://${ANDROID_PACKAGE_NAME}/drawable/${uri}`;
+  }
+  return uri;
 }
 
 function accountSelectorRemoteImageV2(uri: string, size: number) {

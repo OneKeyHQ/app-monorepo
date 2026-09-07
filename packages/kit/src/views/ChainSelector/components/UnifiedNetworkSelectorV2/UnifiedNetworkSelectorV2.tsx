@@ -51,6 +51,7 @@ import { TabSwitcher } from '../UnifiedNetworkSelector/TabSwitcher';
 
 import { NetworkContentV2 } from './NetworkContentV2';
 import PortfolioContentV2 from './PortfolioContentV2';
+import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
@@ -244,6 +245,10 @@ function UnifiedNetworkSelectorV2() {
     }),
     [networkMeta],
   );
+
+  useEffect(() => {
+    void preloadNetworkImagesV2(networks.allNetworks);
+  }, [networks.allNetworks]);
 
   // Keep networksState in sync with revalidation. The seed above handles
   // first paint; this effect picks up later updates from the SWR fetch.
