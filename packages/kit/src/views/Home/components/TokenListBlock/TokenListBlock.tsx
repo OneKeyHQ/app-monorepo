@@ -542,25 +542,6 @@ function TokenListBlock({
   const syncTokenFilterToOverview = true;
 
   useEffect(() => {
-    const cancelPortfolioSync = () => {
-      const request = getCurrentPortfolioSyncRequest();
-      if (request) {
-        finishPortfolioSyncRequest(request.id);
-      }
-    };
-    appEventBus.on(
-      EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      cancelPortfolioSync,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        cancelPortfolioSync,
-      );
-    };
-  }, [finishPortfolioSyncRequest, getCurrentPortfolioSyncRequest]);
-
-  useEffect(() => {
     const request = portfolioSyncRequestRef.current;
     if (request && request.targetKey !== portfolioSyncTargetKey) {
       finishPortfolioSyncRequest(request.id);
@@ -896,8 +877,7 @@ function TokenListBlock({
             tokenMap: portfolioTokenMap,
             tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
             ...cellsIngestInputsRef.current.nonZeroInputs,
-            keepDefault:
-              cellsIngestInputsRef.current.nonZeroInputs.keepDefault ?? true,
+            keepDefault: false,
           });
           try {
             const portfolioSynced =
@@ -3292,6 +3272,7 @@ function TokenListBlock({
   const showPortfolioSyncButton = Boolean(
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet }) &&
     !accountUtils.isQrWallet({ walletId: wallet.id }) &&
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );

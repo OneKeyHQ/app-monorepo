@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { runInNewContext } from 'vm';
@@ -7,33 +6,22 @@ import { transformSync } from '@swc/core';
 
 function createPortfolioRequestHarness() {
   const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
-  const finish = source.slice(
-    source.indexOf('const finishPortfolioSyncRequest ='),
-    source.indexOf('const completePortfolioSyncRequest ='),
-  );
   const transition = source.slice(
     source.indexOf('const transitionPortfolioSyncRequest ='),
     source.indexOf('const syncTokenFilterToOverview ='),
   );
-  const closeCallbackIndex = source.indexOf('const cancelPortfolioSync =');
-  const closeEffect = source.slice(
-    source.lastIndexOf('useEffect(() => {', closeCallbackIndex),
-    source.indexOf('useEffect(() => {', closeCallbackIndex),
-  );
   const requestRef: {
     current: { id: number; targetKey: string; phase: string } | undefined;
   } = { current: { id: 1, targetKey: 'device-1', phase: 'refreshing' } };
-  const bus = new EventEmitter();
   const setPhase = jest.fn();
-  let cleanup: (() => void) | undefined;
   const module = {
     exports: {} as { transition: (id: number, phase: string) => boolean },
   };
-  // Execute the production callbacks, including their event subscription, without
-  // mounting the unrelated token list, wallet services and network polling.
+  // Execute the production callback without mounting the unrelated token list,
+  // wallet services and network polling.
   runInNewContext(
     transformSync(
-      `${finish}\n${transition}\n${closeEffect}\nmodule.exports = { transition: transitionPortfolioSyncRequest };`,
+      `${transition}\nmodule.exports = { transition: transitionPortfolioSyncRequest };`,
       {
         jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
       },
@@ -41,24 +29,15 @@ function createPortfolioRequestHarness() {
     {
       module,
       useCallback: (callback: unknown) => callback,
-      useEffect: (effect: () => () => void) => {
-        cleanup = effect();
-      },
       portfolioSyncRequestRef: requestRef,
-      getCurrentPortfolioSyncRequest: () => requestRef.current,
       setPortfolioSyncRequestPhase: setPhase,
       clearPortfolioSyncFallbackTimer: jest.fn(),
-      allowEmptyInteractivePortfolioSyncRequestIdRef: { current: undefined },
-      appEventBus: bus,
-      EAppEventBusNames: { CloseHardwareUiStateDialogManually: 'close' },
     },
   );
   return {
     requestRef,
-    bus,
     setPhase,
     transition: module.exports.transition,
-    cleanup: () => cleanup?.(),
   };
 }
 
@@ -69,16 +48,11 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(harness.transition(1, 'communicating')).toBe(false);
     expect(harness.transition(1, 'settled')).toBe(false);
     expect(harness.requestRef.current?.phase).toBe('communicating');
-    harness.cleanup();
   });
 
-  it('clears the request on user close and ignores a late refresh from that tap', () => {
+  it('does not let a stale refresh claim a newer request', () => {
     const harness = createPortfolioRequestHarness();
     expect(harness.transition(1, 'communicating')).toBe(true);
-    harness.bus.emit('close');
-    expect(harness.requestRef.current).toBeUndefined();
-    expect(harness.setPhase).toHaveBeenLastCalledWith(undefined);
-    expect(harness.transition(1, 'communicating')).toBe(false);
     harness.requestRef.current = {
       id: 2,
       targetKey: 'device-1',
@@ -86,8 +60,6 @@ describe('TokenListBlock portfolio sync producer', () => {
     };
     expect(harness.transition(1, 'communicating')).toBe(false);
     expect(harness.transition(2, 'communicating')).toBe(true);
-    harness.cleanup();
-    expect(harness.bus.listenerCount('close')).toBe(0);
   });
 
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {

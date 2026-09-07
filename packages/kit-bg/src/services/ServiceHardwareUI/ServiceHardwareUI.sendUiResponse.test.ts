@@ -1042,6 +1042,26 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
     expect(cancelOperation).toHaveBeenCalledWith('PRB09B0058A');
     expect(cancelDevice).toHaveBeenCalledTimes(1);
   });
+
+  it('does not cancel again after the stage has reached an error outcome', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'error', burstId: 1 } as never);
+    const { service, close, cancelDevice } = createService();
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({ connectId: 'PRB09B0058A' });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: true,
+    });
+    expect(cancelDevice).not.toHaveBeenCalled();
+  });
 });
 
 describe('ServiceHardwareUI delayed close ownership', () => {
