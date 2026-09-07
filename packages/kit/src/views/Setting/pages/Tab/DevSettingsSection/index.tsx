@@ -897,7 +897,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2483,6 +2483,38 @@ const BaseDevSettingsSection = () => {
                           );
                           Toast.success({
                             title: 'success',
+                          });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="WalletOutline"
+                        title="Create 1,000 Real HD Wallets × 1,000 Accounts"
+                        subtitle="创建可派生、可签名、可同步的真实 HD 钱包与账户"
+                        searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
+                        testID="create-large-wallet-account-data"
+                        onPress={() => {
+                          showDevOnlyPasswordDialog({
+                            title:
+                              'Danger Zone: Create 1,000 Real HD Wallets × 1,000 Accounts',
+                            description:
+                              'This generates and encrypts 1,000 independent recovery phrases, then creates 1,000 usable HD wallets, 1,000,000 indexed accounts, credentials, and standard cloud-sync records. Recovery phrases are never displayed or logged, and the wallets are marked as not backed up. Network addresses are derived normally when used. This may take a long time and make the app temporarily unresponsive. Each run creates another complete data set.',
+                            confirmButtonProps: {
+                              testID:
+                                'create-large-wallet-account-data-confirm',
+                            },
+                            onConfirm: async (params) => {
+                              const result =
+                                await backgroundApiProxy.serviceDemo.createLargeWalletsAndAccounts(
+                                  params,
+                                );
+                              Toast.success({
+                                title: 'Real HD wallet data ready',
+                                message: `${result.walletsCreated.toLocaleString()} wallet(s) and ${result.accountsCreated.toLocaleString()} account(s) created in ${(
+                                  result.durationMs / 1000
+                                ).toFixed(1)}s`,
+                              });
+                            },
                           });
                         }}
                       />
