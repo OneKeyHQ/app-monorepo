@@ -447,10 +447,6 @@ function TokenDetailsView() {
           title={intl.formatMessage({
             id: ETranslations.global_contract_address,
           })}
-          sheetProps={{
-            snapPoints: [92],
-            snapPointsMode: 'percent',
-          }}
           renderTrigger={
             <HeaderIconButton
               testID={AssetDetailsTestIDs.headerInfoBtn}
