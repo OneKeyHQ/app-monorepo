@@ -11,7 +11,12 @@ import PrimeDashboard from './PrimeDashboard';
 
 const mockLogin = jest.fn<Promise<void>, []>();
 const mockEnsureSubscription = jest.fn(async () => undefined);
-const mockNavigation = { push: jest.fn(), setParams: jest.fn() };
+const mockShowOneKeyIdLoginFailedToast = jest.fn();
+const mockNavigation = {
+  popStack: jest.fn(),
+  push: jest.fn(),
+  setParams: jest.fn(),
+};
 const mockAuth = {
   isReady: true,
   isLoggedIn: false,
@@ -19,9 +24,12 @@ const mockAuth = {
   user: {},
   loginOneKeyId: mockLogin,
 };
+const mockIntl = {
+  formatMessage: ({ id }: { id: string }) => id,
+};
 
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => mockIntl,
 }));
 jest.mock('@react-navigation/core', () => ({ useIsFocused: () => false }));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
@@ -42,7 +50,20 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     LinearGradient: () => null,
     NavCloseButton: () => null,
-    SizableText: Container,
+    SizableText: ({
+      children,
+      onPress,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+    }) =>
+      onPress ? (
+        <button type="button" onClick={onPress}>
+          {children}
+        </button>
+      ) : (
+        (children ?? null)
+      ),
     Spinner: () => null,
     Stack: Container,
     Theme: Container,
@@ -77,6 +98,11 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
+jest.mock('../../components/oneKeyIdLoginToastUtils', () => ({
+  showOneKeyIdLoginFailedToast: (...args: unknown[]) => {
+    mockShowOneKeyIdLoginFailedToast(...args);
+  },
+}));
 jest.mock('../../hooks/usePrimeRequirements', () => ({
   usePrimeRequirements: () => ({
     ensurePrimeSubscriptionActive: mockEnsureSubscription,
@@ -107,6 +133,16 @@ jest.mock('./primeSubscribeLoadingUtils', () => ({
   runPrimeSubscribeWithMinimumLoadingDuration: (run: () => Promise<void>) =>
     run(),
 }));
+
+const LOGIN_PROMPT = 'prime.already_subscribed_log_in';
+
+function clickSubscribe() {
+  fireEvent.click(screen.getAllByText('Subscribe')[0]);
+}
+
+function clickLogin() {
+  fireEvent.click(screen.getAllByRole('button', { name: LOGIN_PROMPT })[0]);
+}
 
 describe('PrimeDashboard subscription deep link', () => {
   let completeLogin: () => void;
@@ -176,21 +212,26 @@ describe('PrimeDashboard subscription deep link', () => {
   it('lets an explicit checkout replace the management handoff', async () => {
     const { rerender } = render(<PrimeDashboard route={route} />);
     await act(async () => {
-      fireEvent.click(screen.getAllByText('Subscribe')[0]);
+      clickSubscribe();
     });
     expect(mockNavigation.setParams).toHaveBeenCalledWith({
       fromDeepLink: undefined,
     });
+    expect(mockEnsureSubscription).not.toHaveBeenCalled();
+
+    await act(async () => {
+      completeLogin();
+    });
     expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).not.toHaveBeenCalled();
 
     route = { ...route, params: {} };
     mockAuth.isLoggedIn = true;
     rerender(<PrimeDashboard route={route} />);
     await act(async () => {
-      completeLogin();
       await jest.advanceTimersByTimeAsync(1000);
     });
-    expect(mockEnsureSubscription).toHaveBeenCalledTimes(2);
+    expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
     expect(mockNavigation.push).not.toHaveBeenCalled();
   });
 
@@ -212,5 +253,138 @@ describe('PrimeDashboard subscription deep link', () => {
       completeLogin();
     });
     expect(mockNavigation.push).not.toHaveBeenCalled();
+  });
+
+  it('toasts unexpected login errors and keeps a retryable management handoff', async () => {
+    const loginError = new Error('login failed');
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      cancelLogin(loginError);
+    });
+
+    expect(mockShowOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+      error: loginError,
+      intl: mockIntl,
+    });
+    expect(mockNavigation.setParams).not.toHaveBeenCalled();
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+
+    await act(async () => {
+      clickLogin();
+    });
+    expect(mockLogin).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      completeLogin();
+    });
+    expect(mockNavigation.push).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).toHaveBeenCalledWith(
+      EPrimePages.PrimeInfiniSubscription,
+    );
+  });
+
+  it('reuses the in-flight automatic login for a manual login press', async () => {
+    render(<PrimeDashboard route={route} />);
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      clickLogin();
+    });
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      completeLogin();
+    });
+    expect(mockNavigation.push).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).toHaveBeenCalledWith(
+      EPrimePages.PrimeInfiniSubscription,
+    );
+  });
+
+  it('awaits the pending automatic login before Subscribe checkout', async () => {
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickSubscribe();
+    });
+    expect(mockNavigation.setParams).toHaveBeenCalledWith({
+      fromDeepLink: undefined,
+    });
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(mockEnsureSubscription).not.toHaveBeenCalled();
+
+    await act(async () => {
+      completeLogin();
+    });
+    expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1000);
+    });
+    expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start checkout when the pending automatic login is cancelled', async () => {
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickSubscribe();
+    });
+    await act(async () => {
+      cancelLogin(new PrimeLoginDialogCancelError());
+    });
+
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(mockEnsureSubscription).not.toHaveBeenCalled();
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+    expect(mockShowOneKeyIdLoginFailedToast).not.toHaveBeenCalled();
+  });
+
+  it('does not start checkout or a second login when the pending automatic login fails', async () => {
+    const loginError = new Error('login failed');
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickSubscribe();
+    });
+    await act(async () => {
+      cancelLogin(loginError);
+    });
+
+    expect(mockLogin).toHaveBeenCalledTimes(1);
+    expect(mockEnsureSubscription).not.toHaveBeenCalled();
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+    expect(mockShowOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+      error: loginError,
+      intl: mockIntl,
+    });
+  });
+
+  it('keeps a manual login retry after unexpected failure when persisted login flags remain', async () => {
+    mockAuth.isLoggedIn = true;
+    const loginError = new Error('login failed');
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      cancelLogin(loginError);
+    });
+
+    expect(mockShowOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+      error: loginError,
+      intl: mockIntl,
+    });
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByRole('button', { name: LOGIN_PROMPT }).length,
+    ).toBeGreaterThan(0);
+
+    await act(async () => {
+      clickLogin();
+    });
+    expect(mockLogin).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      completeLogin();
+    });
+    expect(mockNavigation.push).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).toHaveBeenCalledWith(
+      EPrimePages.PrimeInfiniSubscription,
+    );
   });
 });

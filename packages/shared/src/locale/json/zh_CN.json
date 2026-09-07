@@ -2557,6 +2557,7 @@
   "market.number_minute_abbr": "{number}分",
   "market.number_month_abbr": "{number}月",
   "market.number_of_days": "{number} 天",
+  "market.number_tokens": "{number} 个代币",
   "market.number_week_abbr": "{number}周",
   "market.one_hour_percentage": "1 小时%",
   "market.open_abbr": "开",

@@ -2557,6 +2557,7 @@
   "market.number_minute_abbr": "{number}분",
   "market.number_month_abbr": "{number}개월",
   "market.number_of_days": "{number} 일",
+  "market.number_tokens": "{number} 토큰",
   "market.number_week_abbr": "{number}주",
   "market.one_hour_percentage": "1시간 %",
   "market.open_abbr": "시",

@@ -17,6 +17,8 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
+  PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
@@ -266,11 +268,16 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomePrimeSubscription}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
+    // pagePath() strips inner slashes, so these two-segment public URLs would
+    // not match getPathFromState. Keep the email paths as literal allowlist keys.
+    [PRIME_SUBSCRIPTION_LANDING_PATH]: {
+      showUrl: true,
+      showParams: false,
+    },
+    [PRIME_REDEEM_LANDING_PATH]: {
+      showUrl: true,
+      showParams: true,
+    },
     // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {

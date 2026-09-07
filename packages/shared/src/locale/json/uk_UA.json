@@ -2557,6 +2557,7 @@
   "market.number_minute_abbr": "{number}хв",
   "market.number_month_abbr": "{number}міс",
   "market.number_of_days": "{number} днів",
+  "market.number_tokens": "{number} жетони",
   "market.number_week_abbr": "{number}тиж",
   "market.one_hour_percentage": "1г %",
   "market.open_abbr": "Відкр",

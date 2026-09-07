@@ -2557,6 +2557,7 @@
   "market.number_minute_abbr": "{number}分",
   "market.number_month_abbr": "{number}ヶ月",
   "market.number_of_days": "{number}日間",
+  "market.number_tokens": "{number} トークン",
   "market.number_week_abbr": "{number}週",
   "market.one_hour_percentage": "1時間%",
   "market.open_abbr": "始",

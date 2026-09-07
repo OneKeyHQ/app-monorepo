@@ -11,11 +11,15 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeRedeemBitcoinVoucher = 'TabHomeRedeemBitcoinVoucher',
   TabHomePrimeSubscription = 'TabHomePrimeSubscription',
+  TabHomePrimeRedeem = 'TabHomePrimeRedeem',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
   TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
 }
+
+export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
+export const PRIME_SUBSCRIPTION_LANDING_PATH = '/prime/subscription';
 
 export type ITabHomeUrlAccountParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountPage]: {
@@ -49,6 +53,11 @@ export type ITabHomeParamList = {
       }
     | undefined;
   [ETabHomeRoutes.TabHomePrimeSubscription]: undefined;
+  [ETabHomeRoutes.TabHomePrimeRedeem]:
+    | {
+        code?: string;
+      }
+    | undefined;
   [ETabHomeRoutes.TabHomeBulkSendAddressesInput]: {
     networkId: string | undefined;
     accountId: string | undefined;

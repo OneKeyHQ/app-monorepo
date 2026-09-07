@@ -1,6 +1,10 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import HomePageContainer from '../pages/HomePageContainer';
@@ -39,6 +43,12 @@ const PrimeSubscriptionLanding = LazyLoadPage(async () => {
   return { default: PrimeSubscriptionLandingPage };
 });
 
+const PrimeRedeemLanding = LazyLoadPage(async () => {
+  const { PrimeRedeemLandingPage } =
+    await import('../../Prime/pages/PrimeRedeemLanding/PrimeRedeemLandingPage');
+  return { default: PrimeRedeemLandingPage };
+});
+
 const BulkSendAddressesInput = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
@@ -69,7 +79,8 @@ export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
-export const primeSubscriptionLandingRewrite = '/prime/subscription';
+export const primeSubscriptionLandingRewrite = PRIME_SUBSCRIPTION_LANDING_PATH;
+export const primeRedeemLandingRewrite = PRIME_REDEEM_LANDING_PATH;
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -129,6 +140,13 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomePrimeSubscription,
     component: PrimeSubscriptionLanding,
     rewrite: primeSubscriptionLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomePrimeRedeem,
+    component: PrimeRedeemLanding,
+    rewrite: primeRedeemLandingRewrite,
     exact: true,
     headerShown: false,
   },

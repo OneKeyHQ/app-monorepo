@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
@@ -139,7 +140,24 @@ export default function PrimeDashboard({
 
   const pendingSubscribeRef = useRef<IPrimePendingSubscribe | null>(null);
   const subscribeInFlightRef = useRef(false);
+  const loginInFlightRef = useRef<Promise<void> | null>(null);
+  const fromDeepLinkRef = useRef(Boolean(fromDeepLink));
+  const consumedDeepLinkHandoffRef = useRef(false);
+  const isMountedRef = useRef(true);
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
+  const [didDashboardLoginFail, setDidDashboardLoginFail] = useState(false);
+
+  if (fromDeepLink && !fromDeepLinkRef.current) {
+    consumedDeepLinkHandoffRef.current = false;
+  }
+  fromDeepLinkRef.current = Boolean(fromDeepLink);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   usePrimeSubscribeResume({
     ensurePrimeSubscriptionActive,
@@ -150,6 +168,66 @@ export default function PrimeDashboard({
     subscribeInFlightRef,
   });
 
+  const ensureDashboardLogin = useCallback(() => {
+    if (!loginInFlightRef.current) {
+      loginInFlightRef.current = loginOneKeyId().finally(() => {
+        loginInFlightRef.current = null;
+      });
+    }
+    return loginInFlightRef.current;
+  }, [loginOneKeyId]);
+
+  const handleDashboardLoginError = useCallback(
+    (error: unknown) => {
+      if (error instanceof PrimeLoginDialogCancelError) {
+        if (isMountedRef.current) {
+          setDidDashboardLoginFail(false);
+          if (fromDeepLinkRef.current) {
+            navigation.setParams({ fromDeepLink: undefined });
+          }
+        }
+        return;
+      }
+      if (isMountedRef.current) {
+        setDidDashboardLoginFail(true);
+        showOneKeyIdLoginFailedToast({ error, intl });
+      }
+    },
+    [intl, navigation],
+  );
+
+  const consumeDeepLinkHandoff = useCallback(() => {
+    if (
+      !isMountedRef.current ||
+      consumedDeepLinkHandoffRef.current ||
+      pendingSubscribeRef.current ||
+      subscribeInFlightRef.current ||
+      !fromDeepLinkRef.current
+    ) {
+      return;
+    }
+    consumedDeepLinkHandoffRef.current = true;
+    setDidDashboardLoginFail(false);
+    // Clear the route flag so a remount / pop-back cannot push Infini again.
+    navigation.setParams({ fromDeepLink: undefined });
+    navigation.push(EPrimePages.PrimeInfiniSubscription);
+  }, [navigation]);
+
+  const handleDashboardLogin = useCallback(async () => {
+    setDidDashboardLoginFail(false);
+    try {
+      // Checks the service token and resolves after the login dialog closes.
+      await ensureDashboardLogin();
+    } catch (error) {
+      handleDashboardLoginError(error);
+      return;
+    }
+    if (!isMountedRef.current) {
+      return;
+    }
+    consumeDeepLinkHandoff();
+  }, [consumeDeepLinkHandoff, ensureDashboardLogin, handleDashboardLoginError]);
+
   useEffect(() => {
     if (!fromDeepLink || !isAuthReady) {
       return;
@@ -158,32 +236,29 @@ export default function PrimeDashboard({
     const openInfiniSubscriptionFromDeepLink = async () => {
       try {
         // Checks the service token and resolves after the login dialog closes.
-        await loginOneKeyId();
+        await ensureDashboardLogin();
       } catch (error) {
-        if (error instanceof PrimeLoginDialogCancelError) {
-          if (!cancelled) {
-            navigation.setParams({ fromDeepLink: undefined });
-          }
-          return;
+        if (!cancelled) {
+          handleDashboardLoginError(error);
         }
-        throw error;
-      }
-      if (
-        cancelled ||
-        pendingSubscribeRef.current ||
-        subscribeInFlightRef.current
-      ) {
         return;
       }
-      // Clear the route flag so a remount / pop-back cannot push Infini again.
-      navigation.setParams({ fromDeepLink: undefined });
-      navigation.push(EPrimePages.PrimeInfiniSubscription);
+      if (cancelled) {
+        return;
+      }
+      consumeDeepLinkHandoff();
     };
     void openInfiniSubscriptionFromDeepLink();
     return () => {
       cancelled = true;
     };
-  }, [fromDeepLink, isAuthReady, loginOneKeyId, navigation]);
+  }, [
+    consumeDeepLinkHandoff,
+    ensureDashboardLogin,
+    fromDeepLink,
+    handleDashboardLoginError,
+    isAuthReady,
+  ]);
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {
@@ -293,8 +368,14 @@ export default function PrimeDashboard({
     subscribeInFlightRef.current = true;
     try {
       setIsSubscribeLazyLoading(true);
-      if (isLoggedIn) {
-        pendingSubscribeRef.current = null;
+      const pendingLogin = loginInFlightRef.current;
+      if (pendingLogin) {
+        try {
+          await pendingLogin;
+        } catch (error) {
+          handleDashboardLoginError(error);
+          return;
+        }
       }
 
       defaultLogger.prime.subscription.primeSubscribeButtonClick({
@@ -303,8 +384,9 @@ export default function PrimeDashboard({
         isLoggedIn,
       });
 
-      // If not logged in, store intent so we can resume after login.
-      if (!isLoggedIn) {
+      if (isLoggedIn || pendingLogin) {
+        pendingSubscribeRef.current = null;
+      } else {
         pendingSubscribeRef.current = {
           subscriptionPeriod: selectedSubscriptionPeriod,
           freeTrial: selectedPackage?.freeTrial,
@@ -325,6 +407,7 @@ export default function PrimeDashboard({
     }
   }, [
     ensurePrimeSubscriptionActive,
+    handleDashboardLoginError,
     navigation,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
@@ -347,7 +430,7 @@ export default function PrimeDashboard({
   // }, [isPrimeSubscriptionActive]);
 
   const renderLoginPrompt = useMemo(() => {
-    if (isLoggedInMaybe) {
+    if (isLoggedInMaybe && !didDashboardLoginFail) {
       return null;
     }
     const fullText = intl.formatMessage({
@@ -362,7 +445,7 @@ export default function PrimeDashboard({
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           onPress={() => {
-            void loginOneKeyId();
+            void handleDashboardLogin();
           }}
         >
           {fullText}
@@ -382,14 +465,14 @@ export default function PrimeDashboard({
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           onPress={() => {
-            void loginOneKeyId();
+            void handleDashboardLogin();
           }}
         >
           {action}
         </SizableText>
       </XStack>
     );
-  }, [isLoggedInMaybe, intl, loginOneKeyId]);
+  }, [didDashboardLoginFail, handleDashboardLogin, intl, isLoggedInMaybe]);
 
   return (
     <>

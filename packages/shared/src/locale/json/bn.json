@@ -2557,6 +2557,7 @@
   "market.number_minute_abbr": "{number}m",
   "market.number_month_abbr": "{number}M",
   "market.number_of_days": "{number} দিন",
+  "market.number_tokens": "{number} টোকেন",
   "market.number_week_abbr": "{number}W",
   "market.one_hour_percentage": "১ ঘণ্টা %",
   "market.open_abbr": "O",

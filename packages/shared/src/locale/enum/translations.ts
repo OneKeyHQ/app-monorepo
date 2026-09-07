@@ -2562,6 +2562,7 @@ export enum ETranslations {
   market_number_minute_abbr = 'market.number_minute_abbr',
   market_number_month_abbr = 'market.number_month_abbr',
   market_number_of_days = 'market.number_of_days',
+  market_number_tokens = 'market.number_tokens',
   market_number_week_abbr = 'market.number_week_abbr',
   market_one_hour_percentage = 'market.one_hour_percentage',
   market_open_abbr = 'market.open_abbr',
