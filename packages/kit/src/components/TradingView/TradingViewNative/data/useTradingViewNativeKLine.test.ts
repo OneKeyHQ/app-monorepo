@@ -2,7 +2,13 @@
  * @jest-environment jsdom
  */
 
-import { useLayoutEffect } from 'react';
+import {
+  Suspense,
+  createElement,
+  startTransition,
+  use,
+  useLayoutEffect,
+} from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
@@ -3886,6 +3892,85 @@ describe('TradingViewNative K-line data state machine', () => {
       t: 200,
     });
   });
+
+  it.each(['commit', 'cancel'] as const)(
+    'keeps the committed subscription live through a suspended source change and %s',
+    async (outcome) => {
+      mockFetchHistory.mockResolvedValue(buildResponse(100));
+      const currentPriceUpdate = jest.fn();
+      const pendingPriceUpdate = jest.fn();
+      const suspendedRender = jest.fn();
+      const suspension = createDeferred<void>();
+      const currentSource = buildMarketSource({ realtime: 'websocket' });
+      const pendingSource = buildMarketSource({
+        tokenAddress: '0x456',
+        realtime: 'websocket',
+      });
+      const currentProps = {
+        source: currentSource,
+        onRealtimePoint: currentPriceUpdate,
+        shouldSuspend: false,
+      };
+      const pendingProps = {
+        source: pendingSource,
+        onRealtimePoint: pendingPriceUpdate,
+        shouldSuspend: true,
+      };
+      const { result, rerender } = renderHook(
+        ({ source, onRealtimePoint, shouldSuspend }) => {
+          const chart = useTradingViewNativeKLine({ source, onRealtimePoint });
+          if (shouldSuspend) {
+            suspendedRender();
+            use(suspension.promise);
+          }
+          return chart;
+        },
+        {
+          initialProps: currentProps,
+          wrapper: ({ children }) =>
+            createElement(Suspense, { fallback: null }, children),
+        },
+      );
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      const currentSubscription = mockSubscribeRealtime.mock.calls[0][0];
+
+      await act(async () => {
+        startTransition(() => rerender(pendingProps));
+      });
+
+      expect(suspendedRender).toHaveBeenCalled();
+      expect(currentSubscription.signal.aborted).toBe(false);
+      expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1);
+      const currentPoint = { o: 100, h: 106, l: 99, c: 105, v: 12, t: 200 };
+      await act(async () => {
+        currentSubscription.onPoint(currentPoint);
+      });
+
+      expect(currentPriceUpdate).toHaveBeenCalledTimes(1);
+      expect(currentPriceUpdate).toHaveBeenLastCalledWith(currentPoint);
+      expect(pendingPriceUpdate).not.toHaveBeenCalled();
+      expect(result.current.points.at(-1)).toEqual(currentPoint);
+
+      const finalProps = outcome === 'commit' ? pendingProps : currentProps;
+      await act(async () => {
+        rerender({ ...finalProps, shouldSuspend: false });
+      });
+      await waitFor(() =>
+        expect(mockSubscribeRealtime).toHaveBeenCalledTimes(
+          outcome === 'commit' ? 2 : 1,
+        ),
+      );
+      expect(currentSubscription.signal.aborted).toBe(outcome === 'commit');
+      const nextPoint = { ...currentPoint, c: 110, h: 111, t: 300 };
+      await act(async () => {
+        realtimePointListener?.(nextPoint);
+      });
+
+      expect(finalProps.onRealtimePoint).toHaveBeenLastCalledWith(nextPoint);
+      expect(result.current.points.at(-1)).toEqual(nextPoint);
+    },
+  );
 
   it.each([
     { networkId: 'evm--1', tokenAddress: '0x456' },

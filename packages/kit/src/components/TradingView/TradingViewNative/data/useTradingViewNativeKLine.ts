@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   getCurrentVisibilityState,
@@ -1851,7 +1858,6 @@ export function useTradingViewNativeKLine({
   const intervalStorageNamespace =
     getTradingViewNativeIntervalStorageNamespace(source);
   const currentSeriesKeyRef = useRef(seriesKey);
-  currentSeriesKeyRef.current = seriesKey;
   const latestRequestIdRef = useRef(0);
   const viewportRequestIdRef = useRef(0);
   const initialHistoryAbortControllerRef = useRef<AbortController | null>(null);
@@ -1949,8 +1955,13 @@ export function useTradingViewNativeKLine({
     seriesKey,
   });
   const visiblePointRangeRef = useRef<IScopedVisiblePointRange | null>(null);
-  onRealtimePointRef.current = onRealtimePoint;
   chartDataRef.current = chartData;
+
+  useLayoutEffect(() => {
+    // Suspended renders must not change the active subscription's identity or callback.
+    currentSeriesKeyRef.current = seriesKey;
+    onRealtimePointRef.current = onRealtimePoint;
+  }, [onRealtimePoint, seriesKey]);
 
   useEffect(() => {
     emitTradingViewNativeDebugEvent({
