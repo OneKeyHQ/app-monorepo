@@ -1573,6 +1573,9 @@ navigations
 # OpenType tabular-figures feature tag
 tnum
 
+# Circle Cross-Chain Transfer Protocol
+cctp
+
 EXCLUDEFROMCAPTURE
 
 # KeyTag punch/verify domain terms

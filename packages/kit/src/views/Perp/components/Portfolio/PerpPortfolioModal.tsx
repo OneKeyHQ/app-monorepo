@@ -1,14 +1,21 @@
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalPerpRoutes,
+  IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpPortfolioContent } from './PerpPortfolioContent';
 
+import type { IPortfolioChartType } from './portfolioStats';
+import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
 
 export function getPortfolioTitle(intl: IntlShape) {
@@ -20,6 +27,11 @@ export function getPortfolioTitle(intl: IntlShape) {
 export function showPerpPortfolioDialog(
   dialogInTab: ReturnType<typeof useInTabDialog>,
   intl: IntlShape,
+  {
+    initialChartType,
+  }: {
+    initialChartType?: IPortfolioChartType;
+  } = {},
 ) {
   const dialogRef = dialogInTab.show({
     title: getPortfolioTitle(intl),
@@ -32,7 +44,10 @@ export function showPerpPortfolioDialog(
       // mirror the native page nesting for dialog flows started from this content.
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <PerpPortfolioContent isMobile={false} />
+          <PerpPortfolioContent
+            isMobile={false}
+            initialChartType={initialChartType}
+          />
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
     ),
@@ -42,13 +57,20 @@ export function showPerpPortfolioDialog(
 
 export function PerpPortfolioPage() {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePortfolioPage>
+    >();
   return (
     <Page>
       <Page.Header title={getPortfolioTitle(intl)} />
       <Page.Body>
         <ScrollView>
           <PerpsProviderMirror>
-            <PerpPortfolioContent isMobile />
+            <PerpPortfolioContent
+              isMobile
+              initialChartType={route.params?.initialChartType}
+            />
           </PerpsProviderMirror>
         </ScrollView>
       </Page.Body>

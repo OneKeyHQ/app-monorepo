@@ -127,6 +127,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.PassphraseStateMismatch:
       return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
 
+    case ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice:
+      return new ThirdPartyErrors.ThirdPartyPassphraseAlwaysOnDevice(props);
+
     case ThirdPartyHwErrorCode.PassphraseRejected:
       // User rejected the passphrase prompt on the device — surface a proper
       // user-reject error instead of falling through to the generic Unknown.

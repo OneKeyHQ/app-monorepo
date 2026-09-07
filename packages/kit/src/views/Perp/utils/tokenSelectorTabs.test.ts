@@ -14,6 +14,7 @@ import {
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorHotTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
@@ -344,6 +345,62 @@ describe('tokenSelectorTabs', () => {
         sortSource: 'default',
       }),
     ).toBe(true);
+  });
+
+  it('keeps the favorites drag order until a header sort is clicked on that tab', () => {
+    expect(
+      isPerpTokenSelectorFavoritesTabUserSort({
+        activeTab: 'favorites',
+        sortSource: 'default',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorFavoritesTabUserSort({
+        activeTab: 'favorites',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorFavoritesTabUserSort({
+        activeTab: 'favorites',
+        sortSource: 'user',
+        sortSourceTab: 'favorites',
+      }),
+    ).toBe(true);
+    expect(
+      isPerpTokenSelectorFavoritesTabUserSort({
+        activeTab: 'perps',
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'favorites',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'default',
+      }),
+    ).toBe(false);
+    expect(
+      getNextPerpTokenSelectorSortConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'desc',
+          activeTab: 'favorites',
+          sortSource: 'default',
+          sortSourceTab: undefined,
+        },
+        field: 'volume24h',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'desc',
+      activeTab: 'favorites',
+      sortSource: 'user',
+      sortSourceTab: 'favorites',
+    });
   });
 
   it('scopes dynamic tab user sorting to the clicked tab', () => {
