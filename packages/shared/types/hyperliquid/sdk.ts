@@ -103,6 +103,7 @@ export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
 export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IUserFunding = HL.UserFundingResponse[number];
 export type IRecentTrade = HL.RecentTradesResponse[number];
 export type IPerpAnnotation = HL.PerpAnnotationResponse;
 export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;

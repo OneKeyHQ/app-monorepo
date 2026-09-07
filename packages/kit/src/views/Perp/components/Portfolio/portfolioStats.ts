@@ -9,11 +9,12 @@ import type {
   IFill,
   IPortfolio,
   IPortfolioMetrics,
+  IUserFunding,
   IUserNonFundingLedgerUpdatesResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPortfolioTimePeriod = 'day' | 'week' | 'month' | 'allTime';
-export type IPortfolioChartType = 'accountValue' | 'pnl';
+export type IPortfolioChartType = 'accountValue' | 'pnl' | 'funding';
 export type IPortfolioPnlType = 'all' | 'perps' | 'spot';
 
 export type IPortfolioChartData = {
@@ -22,6 +23,27 @@ export type IPortfolioChartData = {
   perpsPnlHistory: [number, number][];
   nonPerpsPnlHistory: [number, number][];
   vlm: string;
+};
+
+export type IFundingDistributionRow = {
+  coin: string;
+  amount: number;
+};
+
+export type IFundingDirectionDistribution = {
+  paid: IFundingDistributionRow[];
+  received: IFundingDistributionRow[];
+};
+
+export type IFundingNetSummary = {
+  netAllTime: number;
+  net24h: number;
+  net7d: number;
+};
+
+export type IFundingHistogramStyle = {
+  barWidthRatio: number;
+  maxBarWidth: number;
 };
 
 export type IPerpPortfolioFillsStats = {
@@ -42,6 +64,13 @@ type IPortfolioData = IPortfolio[number][];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const ONE_MONTH_MS = 30 * ONE_DAY_MS;
+const FUNDING_HISTOGRAM_BUCKET_COUNT_MAP: Record<IPortfolioTimePeriod, number> =
+  {
+    day: 24,
+    week: 7,
+    month: 30,
+    allTime: 30,
+  };
 
 const COMBINED_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
   day: 'day',
@@ -99,6 +128,11 @@ function subtractHistory(
   return history.map(([ts, val]) => [ts, val - (subtrahendMap.get(ts) ?? 0)]);
 }
 
+function getFundingPayment(record: IUserFunding) {
+  const payment = new BigNumber(record.delta.usdc);
+  return payment.isFinite() ? payment : null;
+}
+
 export function buildPortfolioChartData({
   portfolioData,
   timePeriod,
@@ -128,6 +162,243 @@ export function buildPortfolioChartData({
     perpsPnlHistory,
     nonPerpsPnlHistory: subtractHistory(pnlHistory, perpsPnlHistory),
     vlm: combinedMetrics.vlm,
+  };
+}
+
+export function buildCumulativeFundingChartData({
+  records,
+  timePeriod,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+}): [number, number][] {
+  const startTime = getStartTimeForPeriod(timePeriod, now);
+  const fundingBySecond = new Map<number, BigNumber>();
+
+  records.forEach((record) => {
+    if (record.time < startTime || record.time > now) return;
+
+    const payment = getFundingPayment(record);
+    if (!payment) return;
+
+    const time = Math.floor(record.time / 1000);
+    fundingBySecond.set(
+      time,
+      (fundingBySecond.get(time) ?? new BigNumber(0)).plus(payment),
+    );
+  });
+
+  const fundingPoints = Array.from(fundingBySecond.entries()).toSorted(
+    ([timeA], [timeB]) => timeA - timeB,
+  );
+  const firstFundingTime = fundingPoints[0]?.[0];
+  if (firstFundingTime === undefined) {
+    return [];
+  }
+
+  const periodStartTime = Math.floor(startTime / 1000);
+  const baselineTime =
+    timePeriod === 'allTime'
+      ? Math.max(0, firstFundingTime - 1)
+      : Math.min(periodStartTime, firstFundingTime - 1);
+  const chartData: [number, number][] = [[baselineTime, 0]];
+  let cumulativeFunding = new BigNumber(0);
+
+  fundingPoints.forEach(([time, payment]) => {
+    cumulativeFunding = cumulativeFunding.plus(payment);
+    chartData.push([time, cumulativeFunding.toNumber()]);
+  });
+
+  const nowInSeconds = Math.floor(now / 1000);
+  if (chartData.at(-1)?.[0] !== nowInSeconds) {
+    chartData.push([nowInSeconds, cumulativeFunding.toNumber()]);
+  }
+
+  return chartData;
+}
+
+export function buildFundingHistogramChartData({
+  records,
+  timePeriod,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+}): [number, number][] {
+  const validRecords = records.flatMap((record) => {
+    if (!Number.isFinite(record.time) || record.time > now) {
+      return [];
+    }
+
+    const payment = getFundingPayment(record);
+    if (!payment) return [];
+
+    return [{ record, payment }];
+  });
+  const rangeStart =
+    timePeriod === 'allTime'
+      ? validRecords.reduce(
+          (minimum, { record }) => Math.min(minimum, record.time),
+          Infinity,
+        )
+      : getStartTimeForPeriod(timePeriod, now);
+  const periodRecords = validRecords.filter(
+    ({ record }) => record.time >= rangeStart,
+  );
+
+  if (periodRecords.length === 0 || !Number.isFinite(rangeStart)) {
+    return [];
+  }
+
+  const rangeDuration = Math.max(1, now - rangeStart);
+  const targetBucketCount = FUNDING_HISTOGRAM_BUCKET_COUNT_MAP[timePeriod];
+  const bucketCount = Math.min(
+    targetBucketCount,
+    Math.max(1, Math.floor(rangeDuration / 1000)),
+  );
+  const bucketValues = Array.from(
+    { length: bucketCount },
+    () => new BigNumber(0),
+  );
+
+  periodRecords.forEach(({ record, payment }) => {
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.floor(((record.time - rangeStart) / rangeDuration) * bucketCount),
+    );
+    bucketValues[bucketIndex] = bucketValues[bucketIndex].plus(payment);
+  });
+
+  return bucketValues.map((value, bucketIndex) => [
+    Math.floor(
+      (rangeStart + (rangeDuration * bucketIndex) / bucketCount) / 1000,
+    ),
+    value.toNumber(),
+  ]);
+}
+
+export function resolveFundingHistogramStyle({
+  chartData,
+  isMobile,
+}: {
+  chartData: [number, number][];
+  isMobile: boolean;
+}): IFundingHistogramStyle {
+  const activeBucketCount = chartData.reduce(
+    (count, [, value]) =>
+      count + (Number.isFinite(value) && value !== 0 ? 1 : 0),
+    0,
+  );
+
+  if (chartData.length <= 7 || activeBucketCount <= 2) {
+    return {
+      barWidthRatio: 0.45,
+      maxBarWidth: isMobile ? 8 : 12,
+    };
+  }
+
+  if (chartData.length <= 24 || activeBucketCount <= 5) {
+    return {
+      barWidthRatio: 0.4,
+      maxBarWidth: isMobile ? 7 : 10,
+    };
+  }
+
+  return {
+    barWidthRatio: 0.35,
+    maxBarWidth: isMobile ? 6 : 8,
+  };
+}
+
+export function buildFundingNetSummary({
+  records,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  now?: number;
+}): IFundingNetSummary {
+  const dayStart = getStartTimeForPeriod('day', now);
+  const weekStart = getStartTimeForPeriod('week', now);
+  let netAllTime = new BigNumber(0);
+  let net24h = new BigNumber(0);
+  let net7d = new BigNumber(0);
+
+  records.forEach((record) => {
+    const payment = getFundingPayment(record);
+    if (!payment || record.time > now) return;
+
+    netAllTime = netAllTime.plus(payment);
+    if (record.time < weekStart) return;
+    net7d = net7d.plus(payment);
+    if (record.time >= dayStart) {
+      net24h = net24h.plus(payment);
+    }
+  });
+
+  return {
+    netAllTime: netAllTime.toNumber(),
+    net24h: net24h.toNumber(),
+    net7d: net7d.toNumber(),
+  };
+}
+
+export function buildFundingDirectionDistribution({
+  records,
+  timePeriod,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+}): IFundingDirectionDistribution {
+  const startTime = getStartTimeForPeriod(timePeriod, now);
+  const maxBaseMarkets = 5;
+  const paidByMarket = new Map<string, BigNumber>();
+  const receivedByMarket = new Map<string, BigNumber>();
+
+  records.forEach((record) => {
+    if (record.time < startTime || record.time > now) return;
+
+    const payment = getFundingPayment(record);
+    if (!payment || payment.isZero()) return;
+
+    const targetMap = payment.isPositive() ? receivedByMarket : paidByMarket;
+    const amount = payment.abs();
+    targetMap.set(
+      record.delta.coin,
+      (targetMap.get(record.delta.coin) ?? new BigNumber(0)).plus(amount),
+    );
+  });
+
+  const buildRows = (
+    marketMap: Map<string, BigNumber>,
+  ): IFundingDistributionRow[] => {
+    const marketRows = Array.from(marketMap.entries())
+      .map(([coin, amount]) => ({ coin, amount: amount.toNumber() }))
+      .toSorted(
+        (rowA, rowB) =>
+          rowB.amount - rowA.amount || rowA.coin.localeCompare(rowB.coin),
+      );
+
+    if (marketRows.length <= maxBaseMarkets) return marketRows;
+
+    const visibleRows = marketRows.slice(0, maxBaseMarkets);
+    const otherRows = marketRows.slice(maxBaseMarkets);
+    return [
+      ...visibleRows,
+      {
+        coin: 'Other',
+        amount: otherRows.reduce((sum, row) => sum + row.amount, 0),
+      },
+    ];
+  };
+
+  return {
+    paid: buildRows(paidByMarket),
+    received: buildRows(receivedByMarket),
   };
 }
 
