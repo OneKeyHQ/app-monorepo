@@ -4,7 +4,7 @@ import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 
 const AccountSelectorStackPage = LazyLoadPage(
-  () => import('../pages/AccountSelectorStack'),
+  () => import('../pages/AccountSelectorStack/AccountSelectorStackV2'),
 );
 
 const ExportPrivateKeys = LazyLoadPage(
