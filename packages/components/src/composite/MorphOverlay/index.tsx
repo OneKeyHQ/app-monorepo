@@ -470,13 +470,16 @@ function PanelSeat({
 function CloseButton({
   onPress,
   testID,
+  label,
 }: {
   onPress: () => void;
   testID: string;
+  label?: string;
 }) {
   return (
     <IconButton
       testID={testID}
+      accessibilityLabel={label}
       icon="CrossedLargeOutline"
       variant="secondary"
       size="medium"
@@ -716,6 +719,11 @@ export interface IMorphOverlayProps<T> {
    */
   onDismiss?: () => void;
   /**
+   * What the close buttons say to a screen reader — the dismissal's
+   * meaning in the caller's words ("Cancel" for the hardware flows).
+   */
+  dismissLabel?: string;
+  /**
    * Whether the app behind is blocked while the shell is there. On, an
    * invisible wall takes every touch outside the shell — the person
    * stays with the overlay until it leaves; the wall itself never
@@ -770,6 +778,7 @@ export function MorphOverlay<T>({
   heightArrangeToken,
   onAim,
   onDismiss,
+  dismissLabel,
   onGeometrySettled,
   modal = false,
   scrim = false,
@@ -1252,6 +1261,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>
@@ -1283,6 +1293,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-capsule-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>

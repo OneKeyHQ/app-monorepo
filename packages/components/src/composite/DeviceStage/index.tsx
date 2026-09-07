@@ -459,6 +459,7 @@ export function DeviceStage({
   deviceType,
   deviceName,
   connectionType,
+  waitStalled,
   onClose,
   confirmDetails,
   confirmMessage,
@@ -1283,6 +1284,7 @@ export function DeviceStage({
       vendor,
       errorReason,
       errorMessage,
+      waitStalled ? (connectionType ?? 'usb') : undefined,
     );
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
@@ -2098,6 +2100,7 @@ export function DeviceStage({
       heightArrangeToken={shownPort}
       onAim={handleAim}
       onDismiss={onClose}
+      dismissLabel={intl.formatMessage({ id: ETranslations.global_cancel })}
       onGeometrySettled={handleGeometrySettled}
       modal
       capsuleKey={capsuleText.title}

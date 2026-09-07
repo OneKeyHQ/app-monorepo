@@ -196,6 +196,9 @@ export const {
 export type IDeviceStageState = {
   /** Monotonic id; a new burst resets the container's close-grant policy. */
   burstId: number;
+  /** Bumped on every beat, hardware call and SDK event: the container's
+   * idle clock reads it to tell a stalled wait from a busy one. */
+  activitySeq?: number;
   step: IDeviceStageStepValue;
   connectId?: string;
   deviceType?: IDeviceType;

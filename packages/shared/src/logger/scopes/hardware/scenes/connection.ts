@@ -1,4 +1,5 @@
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { IDeviceStageStepValue } from '@onekeyhq/shared/types/deviceStage';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
@@ -40,6 +41,46 @@ export class HardwareConnectionScene extends BaseScene {
     effectiveTransferRateBytesPerSecond?: number;
     tokenCount?: number;
     totalTokenCount?: number;
+  }) {
+    return params;
+  }
+
+  /**
+   * The person left the DeviceStage themselves (design hard rule #3):
+   * which step they left, by which route, and how long they had been
+   * waiting — the numbers the exit policy's thresholds are tuned on.
+   */
+  @LogToServer()
+  public deviceStageClosed(params: {
+    step: IDeviceStageStepValue;
+    via: 'close' | 'escape' | 'back';
+    transport: 'bluetooth' | 'usb';
+    vendor?: string;
+    /** Since the stage appeared for this burst. */
+    sinceAppearanceMs: number;
+    /** Since the current machine wait began; absent off a wait. */
+    sinceWaitMs?: number;
+    /** The wait had run past the stall threshold when they left. */
+    stalled: boolean;
+    /** The wait followed something they answered on a card. */
+    afterAnswer: boolean;
+  }) {
+    return params;
+  }
+
+  /**
+   * One continuous machine wait on the DeviceStage ended: how long it
+   * ran and whether it crossed the stall threshold first.
+   */
+  @LogToServer()
+  public deviceStageWaitEnded(params: {
+    step: IDeviceStageStepValue;
+    transport: 'bluetooth' | 'usb';
+    vendor?: string;
+    durationMs: number;
+    stalled: boolean;
+    afterAnswer: boolean;
+    endedBy: 'next' | 'off';
   }) {
     return params;
   }

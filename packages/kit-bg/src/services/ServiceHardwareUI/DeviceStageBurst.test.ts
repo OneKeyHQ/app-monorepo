@@ -568,6 +568,28 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('enterPassphrase');
   });
 
+  it('counts device activity so the container can tell a stalled wait from a busy one', async () => {
+    // Account creation runs many short calls inside one held burst with
+    // the capsule on `processing` throughout: each call's begin and end
+    // must register as activity, or the idle clock would call the busy
+    // wait stalled.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const painted = stage?.activitySeq ?? 0;
+    expect(painted).toBeGreaterThan(0);
+
+    await scope.begin({ connectId: CONNECT_ID });
+    expect(stage?.activitySeq).toBe(painted + 1);
+    await scope.end();
+    expect(stage?.activitySeq).toBe(painted + 2);
+    expect(stage?.step).toBe('connecting');
+
+    // A repainted wait counts too.
+    await scope.noteStep('processing', { connectId: CONNECT_ID });
+    expect(stage?.activitySeq).toBe(painted + 3);
+  });
+
   it('clears a painted stage the moment the firmware workflow takes the screen', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });

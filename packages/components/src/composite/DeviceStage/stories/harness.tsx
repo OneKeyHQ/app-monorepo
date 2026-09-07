@@ -12,6 +12,15 @@ import type {
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
+import {
+  DEVICE_STAGE_EXIT_SETTLE_MS,
+  attachDeviceStageEscapeOwner,
+  isDeviceStageAnsweredStep,
+  isDeviceStageMachineWaitStep,
+  resolveDeviceStageExitGrant,
+  resolveDeviceStageWaitStall,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import type { IDeviceStageKeyEventTargetLike } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 
 /**
  * The stage stories' shared scaffolding: one demo state machine (the
@@ -22,25 +31,12 @@ import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
  * family; the Console story runs the whole vocabulary for mid-flight
  * flips across families.
  *
- * The driver also plays the live flows' close policy, so the stories
- * show the way out the way the app will grant it: armed a few seconds
- * into an ask, longer into a wait (the device may simply be slow), at
- * once for the authenticity flow (its live dialog always has its
- * close), and once armed, kept for the rest of the burst.
+ * The driver also plays the live flows' exit policy (design hard rule
+ * #3, the same shared resolver the app uses), so the stories show the
+ * way out the way the app will grant it: an ask a second after the
+ * stage appears, a wait on the machine only once it has stalled, an
+ * outcome or a decision at once — and on web, Escape as the app owns it.
  */
-
-const CLOSE_ARM_ASK_MS = 3000;
-const CLOSE_ARM_WAIT_MS = 10_000;
-const WAIT_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
-  'connecting',
-  'processing',
-]);
-const AUTH_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
-  'genuineCheck',
-  'authVerifying',
-  'authSuccess',
-  'authFailure',
-]);
 
 /* The authenticity demo's checklist data, the design's own example rows.
  * The certificate row shows the device serial (no link); the firmware
@@ -217,32 +213,98 @@ export function useStageDriver(
   }, [authFailureReason, go]);
   const handleAuthSupport = useCallback(() => {}, []);
   const handleAuthContinueAnyway = useCallback(() => go('off'), [go]);
-  // The close grant, on the live policy above: every step change
-  // restarts the arming timer until the grant lands; `off` revokes it.
-  const [closable, setClosable] = useState(false);
+  // The exit policy's clocks, mirrored from the app's driver: the settle
+  // clock once per appearance, the stall clock once per continuous
+  // machine wait (a card in between starts the next). The demo has no
+  // device to report activity, so every step change while waiting stands
+  // in for it: connecting → processing restarts the idle clock, the cap
+  // keeps counting. Render-time ref writes on purpose, as in the driver.
+  const exitRef = useRef({
+    prevStep: 'off' as IDeviceStageStep,
+    appearance: 0,
+    waitRun: 0,
+    waitRunStartedAt: 0,
+    lastActivityAt: 0,
+    afterAnswer: false,
+  });
+  const exit = exitRef.current;
+  if (exit.prevStep !== step) {
+    const now = Date.now();
+    if (exit.prevStep === 'off') {
+      exit.appearance += 1;
+    }
+    const wasWaiting = isDeviceStageMachineWaitStep(exit.prevStep);
+    const isWaiting = isDeviceStageMachineWaitStep(step);
+    if (isWaiting && !wasWaiting) {
+      exit.waitRun += 1;
+      exit.waitRunStartedAt = now;
+      exit.afterAnswer = isDeviceStageAnsweredStep(exit.prevStep);
+    }
+    if (isWaiting) {
+      exit.lastActivityAt = now;
+    }
+    exit.prevStep = step;
+  }
+  const { appearance, waitRun, afterAnswer } = exit;
+  const stageOn = step !== 'off';
+  const machineWait = isDeviceStageMachineWaitStep(step);
+  const [settledAppearance, setSettledAppearance] = useState(0);
+  const [stalledWaitRun, setStalledWaitRun] = useState(0);
   useEffect(() => {
-    if (step === 'off') {
-      setClosable(false);
-      return undefined;
-    }
-    if (closable) return undefined;
-    // The notice means to leave by itself, and its exit rides the close
-    // grant — so a driver playing one grants close with it, at once.
-    if (AUTH_STEPS.has(step) || (step === 'error' && errorNotice)) {
-      setClosable(true);
-      return undefined;
-    }
+    if (!stageOn || settledAppearance === appearance) return undefined;
     const id = setTimeout(
-      () => setClosable(true),
-      WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
+      () => setSettledAppearance(appearance),
+      DEVICE_STAGE_EXIT_SETTLE_MS,
     );
     return () => clearTimeout(id);
-  }, [closable, errorNotice, step]);
+  }, [stageOn, appearance, settledAppearance]);
+  useEffect(() => {
+    if (!machineWait || stalledWaitRun === waitRun) return undefined;
+    const clocks = exitRef.current;
+    const { stalled: due, dueInMs } = resolveDeviceStageWaitStall({
+      now: Date.now(),
+      waitStartedAt: clocks.waitRunStartedAt,
+      lastActivityAt: clocks.lastActivityAt,
+    });
+    if (due) {
+      setStalledWaitRun(waitRun);
+      return undefined;
+    }
+    const id = setTimeout(() => setStalledWaitRun(waitRun), dueInMs);
+    return () => clearTimeout(id);
+  }, [machineWait, waitRun, stalledWaitRun, step]);
+  const stalled = machineWait && stalledWaitRun === waitRun;
+  const { closable, exitAllowed } = resolveDeviceStageExitGrant({
+    step,
+    settled: settledAppearance === appearance,
+    stalled,
+    afterAnswer,
+  });
   const close = useCallback(() => {
     // A dismissed form would otherwise leave its keyboard standing.
     Keyboard.dismiss();
     go('off');
   }, [go]);
+  // Web: Escape, owned the way the app's driver owns it — the stage is the
+  // surface, so the key is swallowed until the exit is allowed.
+  const stageOnRef = useRef(stageOn);
+  stageOnRef.current = stageOn;
+  const escapeRef = useRef({ exitAllowed, close });
+  escapeRef.current = { exitAllowed, close };
+  useEffect(() => {
+    if (typeof globalThis.addEventListener !== 'function') {
+      return undefined;
+    }
+    return attachDeviceStageEscapeOwner({
+      target: globalThis as unknown as IDeviceStageKeyEventTargetLike,
+      isStageOn: () => stageOnRef.current,
+      onEscape: () => {
+        if (escapeRef.current.exitAllowed) {
+          escapeRef.current.close();
+        }
+      },
+    });
+  }, []);
   return {
     step,
     go,
@@ -256,6 +318,7 @@ export function useStageDriver(
     stageProps: {
       step,
       onClose: closable ? close : undefined,
+      waitStalled: stalled && step === 'connecting',
       inputError,
       authChecklist: authRows,
       onAuthSupport: handleAuthSupport,

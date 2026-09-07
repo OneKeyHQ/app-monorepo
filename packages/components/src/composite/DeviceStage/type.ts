@@ -234,13 +234,21 @@ export interface IDeviceStageProps {
    */
   connectionType?: IDeviceStageConnectionType;
   /**
+   * The connecting wait has stalled (the driver's stall clock, design
+   * hard rule #3): the capsule's second line trades the device name for
+   * a hint — wake the device and keep it near, or check the cable —
+   * chosen by `connectionType`. The same clock grants the close, so the
+   * hint and the way out arrive together.
+   */
+  waitStalled?: boolean;
+  /**
    * The person's way out of the stage. Given, the surface wears its close
    * button and follows a downward drag; absent, it cannot be dismissed at
-   * all. When to grant it is the driver's policy — the live hardware flows
-   * arm it on a timer (a few seconds into an ask, longer into a wait) and
-   * keep it armed for the rest of the burst; the authenticity flow arms it
-   * from the start. The driver answers a dismissal by moving `step` to
-   * `off` — the exit is already under way when this fires.
+   * all. When to grant it is the driver's policy (design hard rule #3):
+   * an ask opens once the stage has settled after appearing, a wait on
+   * the machine only once it has stalled, an outcome or a decision at
+   * once. The driver answers a dismissal by moving `step` to `off` — the
+   * exit is already under way when this fires.
    */
   onClose?: () => void;
   /**

@@ -544,6 +544,9 @@ export class DeviceStageBurstScope {
       this.activeVendor = params.vendor;
     }
     await this.mergeDeviceIdentity(params);
+    // A call beginning inside the hold is the device at work: news for
+    // the container's idle clock, not a beat of its own.
+    await this.touchActivity();
     return true;
   }
 
@@ -638,6 +641,8 @@ export class DeviceStageBurstScope {
     }
     this.depth = Math.max(this.depth - 1, 0);
     if (this.depth > 0) {
+      // A call ending inside the hold: the device answered.
+      await this.touchActivity();
       return;
     }
     // The last layer is landing: any DeviceNotFound built after this
@@ -1095,6 +1100,20 @@ export class DeviceStageBurstScope {
     }
   }
 
+  /**
+   * Device activity that paints nothing — a nested call beginning or
+   * ending inside a held burst. The container's stall clock reads
+   * `activitySeq`: a wait with steady activity is busy, not stuck, and
+   * only an idle device (or a wait past its cap) earns the way out.
+   */
+  private async touchActivity() {
+    await deviceStageAtom.set((prev) =>
+      prev && prev.step !== 'off'
+        ? { ...prev, activitySeq: (prev.activitySeq ?? 0) + 1 }
+        : prev,
+    );
+  }
+
   /** Direct step feeds from ServiceHardwareUI's own show* methods. */
   async noteStep(
     step: IDeviceStageStepValue,
@@ -1485,6 +1504,7 @@ export class DeviceStageBurstScope {
       };
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
+        activitySeq: (prev?.activitySeq ?? 0) + 1,
         step,
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
