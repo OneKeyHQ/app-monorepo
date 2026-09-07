@@ -185,17 +185,31 @@ export function PortfolioTab({
 
   // Only the distributed rows carry a history entry worth opening; the other
   // rows describe live state that this page already shows in full.
-  const openPositionDetails = useCallback(() => {
+  //
+  // pushModal, not push: this page lives on the Earn tab stack while the target
+  // is registered in StakingModal, so a plain push resolves to nothing and the
+  // tap dies silently. (ProtocolDetails gets away with push because it already
+  // sits inside that modal stack.)
+  //
+  // HistoryList, not PortfolioDetails: the latter renders IBabylonPortfolioItem
+  // and is entered under an isBTCNetwork guard, so every other provider would
+  // land on an empty Babylon list. HistoryList is scoped by vault and works for
+  // any protocol; the row's own TransactionLink still opens the exact payout.
+  const openPayoutHistory = useCallback(() => {
     if (!accountId) {
       return;
     }
-    navigation.push(EModalStakingRoutes.PortfolioDetails, {
-      accountId,
-      networkId,
-      symbol,
-      provider,
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.HistoryList,
+      params: {
+        accountId,
+        networkId,
+        symbol,
+        provider,
+        protocolVault: vault,
+      },
     });
-  }, [navigation, accountId, networkId, symbol, provider]);
+  }, [navigation, accountId, networkId, symbol, provider, vault]);
 
   return (
     <YStack gap="$6">
@@ -241,7 +255,7 @@ export function PortfolioTab({
               tokenInfo={tokenInfo}
               onPress={
                 item.status === 'distributed' && accountId
-                  ? openPositionDetails
+                  ? openPayoutHistory
                   : undefined
               }
               onRedeem={

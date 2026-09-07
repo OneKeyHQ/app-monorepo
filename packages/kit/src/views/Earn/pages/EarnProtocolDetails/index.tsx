@@ -471,7 +471,9 @@ function ChartSection({
   const { primaryLabel, secondaryLabel } = useMemo(() => {
     if (isPendleProvider) {
       return {
-        primaryLabel: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
+        primaryLabel: intl.formatMessage({
+          id: ETranslations.earn_fixed_income,
+        }),
         secondaryLabel: intl.formatMessage({
           id: ETranslations.defi_underlying_apy,
         }),

@@ -622,13 +622,7 @@ export interface ISubscriptionAction {
 interface IEarnBadge {
   // Mirrors the server's EBadgeColor. 'danger' has no Badge variant on the
   // client and maps onto 'critical' at the render site.
-  badgeType:
-    | 'default'
-    | 'success'
-    | 'info'
-    | 'warning'
-    | 'critical'
-    | 'danger';
+  badgeType: 'default' | 'success' | 'info' | 'warning' | 'critical' | 'danger';
   badgeSize: 'sm' | 'lg';
   text: {
     text: string;
