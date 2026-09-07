@@ -14,10 +14,8 @@ import type {
   ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
+import { showMarketChartSettingsDialog } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
   type ITradingViewNativeAnyIndicator,
@@ -90,7 +88,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
-    const navigation = useAppNavigation();
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
@@ -110,11 +107,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     const indicatorsTitle = intl.formatMessage({
       id: ETranslations.market_indicators,
     });
-    const openChartSettingsModal = useCallback(() => {
-      navigation.pushModal(EModalRoutes.MarketModal, {
-        screen: EModalMarketRoutes.MarketChartSettings,
-      });
-    }, [navigation]);
     const handleFullscreenToggle = useCallback(() => {
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);
@@ -235,7 +227,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onPriceMarketCapModeChange={noop}
         onCalendarPanelOpen={onCalendarPanelOpen}
         onCalendarPanelSubmit={onCalendarPanelSubmit}
-        onSettingsPress={openChartSettingsModal}
+        onSettingsPress={showMarketChartSettingsDialog}
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
         }
