@@ -108,6 +108,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 const dogeAssetDetail: IMarketAssetDetailData = {
+  about: '',
   asset: {
     assetId: 'doge',
     name: 'Dogecoin',

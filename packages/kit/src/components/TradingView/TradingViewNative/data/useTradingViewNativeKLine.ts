@@ -44,6 +44,7 @@ import type { ITradingViewNativeIntervalStorageNamespace } from './tradingViewNa
 import type {
   ITradingViewNativeDataState,
   ITradingViewNativeSource,
+  ITradingViewNativeStorageNamespace,
 } from '../types';
 import type {
   ITradingViewNativeViewportRequest,
@@ -1615,9 +1616,11 @@ function getDataState({
 export function useTradingViewNativeKLine({
   onRealtimePoint,
   source,
+  storageNamespace,
 }: {
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
 }) {
   const sourceKind = source.kind;
   const assetId = source.kind === 'asset' ? source.assetId : '';
@@ -1848,8 +1851,10 @@ export function useTradingViewNativeKLine({
   const supportsRealtime = Boolean(
     realtimeProvider?.isReady && realtimeProvider.supportsRealtime,
   );
-  const intervalStorageNamespace =
-    getTradingViewNativeIntervalStorageNamespace(source);
+  const intervalStorageNamespace = getTradingViewNativeIntervalStorageNamespace(
+    source,
+    storageNamespace,
+  );
   const currentSeriesKeyRef = useRef(seriesKey);
   currentSeriesKeyRef.current = seriesKey;
   const latestRequestIdRef = useRef(0);
