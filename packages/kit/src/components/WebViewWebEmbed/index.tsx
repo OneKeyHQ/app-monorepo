@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { NativeModules } from 'react-native';
+
 import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -35,6 +37,31 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import type { WebViewErrorEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const initTop = '15%';
+const DEV_SESSION_ID_PATTERN =
+  /^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u;
+
+function getDevSessionWebEmbedUrl() {
+  if (process.env.NODE_ENV === 'production' || !platformEnv.isNative) {
+    return undefined;
+  }
+  const sourceCodeModule = NativeModules.SourceCode as
+    | { getConstants?: () => { scriptURL?: string } }
+    | undefined;
+  const scriptUrl = sourceCodeModule?.getConstants?.().scriptURL || '';
+  try {
+    const metroUrl = new URL(scriptUrl);
+    const sessionId = metroUrl.searchParams.get('resolver.devSessionId');
+    if (
+      !['http:', 'https:'].includes(metroUrl.protocol) ||
+      !DEV_SESSION_ID_PATTERN.test(sessionId || '')
+    ) {
+      return undefined;
+    }
+    return `${metroUrl.origin}/onekey-dev-session/web-embed/index.html`;
+  } catch {
+    return undefined;
+  }
+}
 
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
@@ -137,6 +164,7 @@ export function WebViewWebEmbed({
       if (config?.url) {
         return config?.url;
       }
+      return getDevSessionWebEmbedUrl();
     }
     return undefined;
   }, [config?.url, devSettingsPersistAtom.enabled]);

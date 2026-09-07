@@ -14,6 +14,7 @@
 		07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A02F08000000E00001 /* RecoveryViewController.swift */; };
 		07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */; };
 		07B1C3A52F08000000E00003 /* OneKeyNativeStorageMigration.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */; };
+		07B1C3A72F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A62F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m */; };
 		0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
@@ -76,6 +77,7 @@
 		07B1C3A02F08000000E00001 /* RecoveryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecoveryViewController.swift; path = OneKeyWallet/RecoveryViewController.swift; sourceTree = "<group>"; };
 		07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BootRecoveryKeys.swift; path = OneKeyWallet/BootRecoveryKeys.swift; sourceTree = "<group>"; };
 		07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyNativeStorageMigration.m; path = OneKeyWallet/OneKeyNativeStorageMigration.m; sourceTree = "<group>"; };
+		07B1C3A62F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyTravelModeLaunchEpoch.m; path = OneKeyWallet/OneKeyTravelModeLaunchEpoch.m; sourceTree = "<group>"; };
 		0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Regular.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 				07B1C3A02F08000000E00001 /* RecoveryViewController.swift */,
 				07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */,
 				07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */,
+				07B1C3A62F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m */,
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 				B443EFD976C5A3FE30F5AF8C /* Fonts */,
@@ -624,6 +627,7 @@
 				07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */,
 				07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */,
 				07B1C3A52F08000000E00003 /* OneKeyNativeStorageMigration.m in Sources */,
+				07B1C3A72F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);

@@ -419,6 +419,7 @@ final class RecoveryViewController: UIViewController {
   @objc private func tryAgainTapped() {
     setRecoveryButtonsEnabled(false)
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      _ = OneKeyForceDisableTravelModeForRecovery()
       let defaults = UserDefaults.standard
       defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
       defaults.set("try_again", forKey: BootRecoveryKeys.recoveryAction)
@@ -443,6 +444,7 @@ final class RecoveryViewController: UIViewController {
     setRecoveryButtonsEnabled(false)
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
       var errors: [String] = []
+      _ = OneKeyForceDisableTravelModeForRecovery()
       RecoveryNitroModuleBridge.clearUpdateBundleData()
 
       let fm = FileManager.default

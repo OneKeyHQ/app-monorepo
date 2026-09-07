@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKytIntroClaimResult } from '@onekeyhq/shared/types/kyt';
 
 import { KYTIntroOnMount } from './KYTIntroDialog';
@@ -215,6 +216,17 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isWeb: false,
+    isWebEmbed: false,
+    isDesktop: true,
+    isExtension: false,
+    isNative: false,
+  },
+}));
+
 jest.mock('./showKytNotificationPermissionDialog', () => ({
   promptKytNotificationPermissionIfNeeded: (params: unknown) =>
     mockPromptNotificationPermission(params),
@@ -236,9 +248,30 @@ function emitPurchaseSuccess(onekeyUserId = 'user-a', claimId?: string) {
   });
 }
 
+function setPlatformFlags({
+  isDesktop = false,
+  isExtension = false,
+  isNative = false,
+  isWeb = false,
+  isWebEmbed = false,
+}: {
+  isDesktop?: boolean;
+  isExtension?: boolean;
+  isNative?: boolean;
+  isWeb?: boolean;
+  isWebEmbed?: boolean;
+}) {
+  platformEnv.isDesktop = isDesktop;
+  platformEnv.isExtension = isExtension;
+  platformEnv.isNative = isNative;
+  platformEnv.isWeb = isWeb;
+  platformEnv.isWebEmbed = isWebEmbed;
+}
+
 describe('KYTIntroOnMount', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setPlatformFlags({ isDesktop: true });
     mockCurrentUserId = 'user-a';
     mockIsPrimeSubscriptionActive = false;
     mockAppUpdateInfo = { status: 'checking', firstLaunch: false };
@@ -570,4 +603,59 @@ describe('KYTIntroOnMount', () => {
 
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
   });
+
+  it('does not claim, show, or mark seen on standalone web after Prime refresh or purchase success', async () => {
+    setPlatformFlags({ isWeb: true });
+    mockIsPrimeSubscriptionActive = true;
+    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+
+    render(<KYTIntroOnMount />);
+
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+      mockTokensDoneCallback?.('tokensDone');
+      emitPurchaseSuccess();
+    });
+    await act(async () => Promise.resolve());
+
+    expect(mockTabFocusCallback).toBeUndefined();
+    expect(mockTokensDoneCallback).toBeUndefined();
+    expect(mockTryClaim).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(mockMarkClaimPresented).not.toHaveBeenCalled();
+    expect(mockCompleteClaim).not.toHaveBeenCalled();
+    expect(mockIntroShownLog).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: 'desktop',
+      flags: { isDesktop: true },
+    },
+    {
+      name: 'extension',
+      flags: { isExtension: true },
+    },
+    {
+      name: 'native',
+      flags: { isNative: true },
+    },
+    {
+      name: 'web-embed',
+      flags: { isWebEmbed: true },
+    },
+  ] as const)(
+    'still shows the purchase-success intro on $name',
+    async ({ flags }) => {
+      setPlatformFlags(flags);
+      render(<KYTIntroOnMount />);
+
+      act(() => {
+        emitPurchaseSuccess();
+      });
+
+      await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+      expect(mockTryClaim).toHaveBeenCalledTimes(1);
+    },
+  );
 });
