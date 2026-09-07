@@ -25,12 +25,14 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     width,
+    minWidth,
   }: {
     children?: ReactNode;
     testID?: string;
     width?: number | string;
+    minWidth?: number | string;
   }) => (
-    <div data-testid={testID} data-width={width}>
+    <div data-testid={testID} data-width={width} data-min-width={minWidth}>
       {children}
     </div>
   );
@@ -172,9 +174,11 @@ describe('StockChart', () => {
       />,
     );
 
-    expect(view.getByTestId('stock-chart-range-selector').dataset.width).toBe(
-      '214',
-    );
+    // The selector row carries a minimum (not fixed) width so wider CJK
+    // labels can grow the row instead of truncating.
+    expect(
+      view.getByTestId('stock-chart-range-selector').dataset.minWidth,
+    ).toBe('214');
 
     fireEvent.click(view.getByTestId('stock-chart-range-All'));
 

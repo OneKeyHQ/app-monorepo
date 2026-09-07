@@ -41,7 +41,7 @@ import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const MARKET_DETAIL_LAYOUT = {
-  chartHeight: 360,
+  chartHeight: 456,
   infoTabsHeight: 480,
 } as const;
 
