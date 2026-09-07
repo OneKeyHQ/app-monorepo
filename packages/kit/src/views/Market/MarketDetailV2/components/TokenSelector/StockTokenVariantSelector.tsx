@@ -91,7 +91,14 @@ function findVariantBalance({
       equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
     );
   });
-  const balance = new BigNumber(position?.amount ?? '');
+  // No position for this variant means the account holds none of it, which is
+  // a zero balance, not missing information. An amount that fails to parse
+  // still falls back — that is corrupt data, and reading it as zero would
+  // state something the payload never said.
+  if (!position) {
+    return '0';
+  }
+  const balance = new BigNumber(position.amount ?? '');
   return balance.isFinite() ? balance.toFixed() : undefined;
 }
 

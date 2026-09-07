@@ -269,6 +269,27 @@ describe('StockTokenVariantSelector', () => {
       },
     ];
 
+    it('reads a variant the account does not hold as zero', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // The portfolio queries every variant and drops zero amounts, so an
+      // empty payload means the account holds none of any of them.
+      render(<StockTokenVariantSelector portfolioData={[]} />);
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+    });
+
     it('never lends the fetched balance to a same-address variant on another chain', () => {
       mockStockDetailState.tokenVariants = sameAddressVariants;
       mockStockDetailState.selectedTokenId = 'aapl-ethereum';
@@ -285,11 +306,13 @@ describe('StockTokenVariantSelector', () => {
       expect(within(scopedRow).getByText('12.5')).toBeTruthy();
 
       // The Base row shares the contract address but not the chain, and the
-      // payload carries no networkId to tell them apart — so it must fall back
-      // to `--` rather than borrow the Ethereum balance.
+      // payload carries no networkId to tell them apart — so it must not
+      // borrow the Ethereum balance. It reads as zero: the portfolio queries
+      // every variant and drops zero amounts, so an absent position is a
+      // holding of none.
       const otherChainRow = screen.getByTestId('stock-token-variant-row-1');
       expect(within(otherChainRow).queryByText('12.5')).toBeNull();
-      expect(within(otherChainRow).getAllByText('--')).toHaveLength(1);
+      expect(within(otherChainRow).getAllByText('0')).toHaveLength(1);
     });
 
     it('shows balance only after the portfolio scope follows the selected variant', () => {
@@ -303,7 +326,7 @@ describe('StockTokenVariantSelector', () => {
 
       const ethereumRow = screen.getByTestId('stock-token-variant-row-0');
       expect(within(ethereumRow).queryByText('8.5')).toBeNull();
-      expect(within(ethereumRow).getAllByText('--')).toHaveLength(1);
+      expect(within(ethereumRow).getAllByText('0')).toHaveLength(1);
 
       const baseRow = screen.getByTestId('stock-token-variant-row-1');
       expect(within(baseRow).getByText('8.5')).toBeTruthy();
