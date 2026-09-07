@@ -1,6 +1,8 @@
 import type { IFirmwareTransferMetrics } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
+import type { IntlShape } from 'react-intl';
+
 const ETA_WARMUP_ELAPSED_MS = 2000;
 const ETA_WARMUP_TRANSFERRED_BYTES = 64 * 1024;
 
@@ -14,15 +16,32 @@ function formatBytes(bytes: number) {
   return `${Math.round(bytes)} B`;
 }
 
-function formatDuration(durationMs: number) {
+function formatDuration(
+  durationMs: number,
+  intl: Pick<IntlShape, 'formatNumber'>,
+) {
   const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  const secondsText = intl.formatNumber(seconds, {
+    style: 'unit',
+    unit: 'second',
+    unitDisplay: 'short',
+  });
+  if (minutes === 0) {
+    return secondsText;
+  }
+  const minutesText = intl.formatNumber(minutes, {
+    style: 'unit',
+    unit: 'minute',
+    unitDisplay: 'short',
+  });
+  return `${minutesText} ${secondsText}`;
 }
 
 export function getFirmwareTransferDisplayMetrics(
   metrics: IFirmwareTransferMetrics | undefined,
+  intl: Pick<IntlShape, 'formatNumber'>,
 ) {
   const transferredBytes = metrics?.transferredBytes;
   const totalBytes = metrics?.totalBytes;
@@ -60,11 +79,11 @@ export function getFirmwareTransferDisplayMetrics(
     transferredText: formatBytes(confirmedTransferredBytes),
     totalText: formatBytes(confirmedTotalBytes),
     speedText: `${formatBytes(confirmedRateBytesPerSecond)}/s`,
-    elapsedText: formatDuration(confirmedElapsedMs),
+    elapsedText: formatDuration(confirmedElapsedMs, intl),
     estimatedRemainingText:
       estimatedRemainingMs === undefined
         ? undefined
-        : formatDuration(estimatedRemainingMs),
+        : formatDuration(estimatedRemainingMs, intl),
   };
 }
 

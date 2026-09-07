@@ -871,8 +871,7 @@ function TokenListBlock({
             tokenMap: portfolioTokenMap,
             tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
             ...cellsIngestInputsRef.current.nonZeroInputs,
-            keepDefault:
-              cellsIngestInputsRef.current.nonZeroInputs.keepDefault ?? true,
+            keepDefault: false,
           });
           transitionPortfolioSyncRequest(
             portfolioSyncRequest.id,
@@ -3264,6 +3263,7 @@ function TokenListBlock({
   const showPortfolioSyncButton = Boolean(
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet }) &&
     !accountUtils.isQrWallet({ walletId: wallet.id }) &&
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
