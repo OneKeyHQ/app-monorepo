@@ -76,7 +76,7 @@ index d8300e2..a129837 100644
    val isSelectable: Boolean
      get() = !json.optBoolean("disabled", false) && type in SELECTABLE_TYPES
 diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
-index db47e5e..4ef24aa 100644
+index db47e5e..94a87ef 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 +++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 @@ -29,6 +29,12 @@ import android.widget.LinearLayout
@@ -188,7 +188,7 @@ index db47e5e..4ef24aa 100644
    private val leadingImages = List(3) { OneKeyImageReusableView(reactContext) }
    private val leadingOverlayBackground = View(context)
    private val leadingCornerIconFrame = FrameLayout(context)
-@@ -334,6 +392,8 @@ internal class NativeListRowView(
+@@ -334,16 +392,22 @@ internal class NativeListRowView(
    private var walletGroupExpandAnimator: ValueAnimator? = null
    private var isMediaTile = false
    private var boundKey: String? = null
@@ -197,7 +197,12 @@ index db47e5e..4ef24aa 100644
    var bindingEpoch: Long = 0
      private set
    private var boundCheckboxData: JSONObject? = null
-@@ -344,6 +404,8 @@ internal class NativeListRowView(
+   private var currentLayout = "linear"
+   private var restingRowBackground: Drawable? = null
+   private var pressedRowBackground: Drawable? = null
++  // OneKey patch: preserve a held row independently from RecyclerView snapshot rebinding.
++  private var touchPressed = false
+   private var reorderActive = false
    private var checkboxCheckedColor = Color.rgb(32, 32, 32)
    private var checkboxUncheckedColor = Color.rgb(252, 252, 252)
    private var checkboxBorderColor = Color.rgb(206, 206, 206)
@@ -206,7 +211,28 @@ index db47e5e..4ef24aa 100644
    private var iconSubduedColor = Color.rgb(141, 141, 141)
    private var visualBackdropColor = Color.WHITE
    private val circleOutlineProvider = object : ViewOutlineProvider() {
-@@ -462,7 +524,8 @@ internal class NativeListRowView(
+@@ -445,6 +509,7 @@ internal class NativeListRowView(
+     setOnTouchListener { _, event ->
+       when (event.actionMasked) {
+         MotionEvent.ACTION_DOWN -> if (isEnabled) {
++          touchPressed = true
+           if ((tag as? NativeListItem)?.type == "mediaTile") {
+             leadingFrame.alpha = 0.8f
+           } else {
+@@ -454,15 +519,20 @@ internal class NativeListRowView(
+         MotionEvent.ACTION_MOVE -> if (
+           event.x < 0 || event.y < 0 || event.x >= width || event.y >= height
+         ) {
++          touchPressed = false
++          restoreRestingBackground()
++        }
++        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
++          touchPressed = false
+           restoreRestingBackground()
+         }
+-        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> restoreRestingBackground()
+       }
+       false
      }
      setOnClickListener { view ->
        (view.tag as? NativeListItem)?.let { item ->
@@ -216,7 +242,7 @@ index db47e5e..4ef24aa 100644
        }
      }
      setWillNotDraw(false)
-@@ -509,13 +572,64 @@ internal class NativeListRowView(
+@@ -509,13 +579,64 @@ internal class NativeListRowView(
      }
    }
  
@@ -282,22 +308,24 @@ index db47e5e..4ef24aa 100644
    }
  
    fun bind(
-@@ -526,12 +640,14 @@ internal class NativeListRowView(
+@@ -526,12 +647,16 @@ internal class NativeListRowView(
      itemIndex: Int?,
      selected: Boolean,
      checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String,
 +    useSourceScale: Boolean = false,
    ) {
++    val shouldRestorePressed = touchPressed && boundKey == item.key
      invalidateCurrentBinding()
      bindingEpoch += 1
      boundKey = item.key
++    touchPressed = shouldRestorePressed
      currentLayout = layout
      tag = item
 +    selectorUsesSourceScale = item.usesSelectorSourceScale || useSourceScale
      reorderActive = false
      leadingImages.forEach(OneKeyImageReusableView::prepareForReuse)
      secondaryImage.prepareForReuse()
-@@ -544,12 +660,21 @@ internal class NativeListRowView(
+@@ -544,12 +669,21 @@ internal class NativeListRowView(
      val accent = color(theme, "accent", "#0D8200FC")
      checkboxCheckedColor = primary
      checkboxUncheckedColor = color(theme, "inverseText", "#FCFCFC")
@@ -319,11 +347,22 @@ index db47e5e..4ef24aa 100644
      iconSubduedColor = color(theme, "iconSubdued", "#00000072")
      visualBackdropColor = color(theme, "rowBackground", "#FFFFFF")
      unreadDot.background = roundedFill(
-@@ -592,8 +717,12 @@ internal class NativeListRowView(
+@@ -569,7 +703,7 @@ internal class NativeListRowView(
+         if (item.type == "rail") "#0000000F" else "#00000017",
+       ),
+     )
+-    background = restingRowBackground
++    background = if (touchPressed || reorderActive) pressedRowBackground else restingRowBackground
+     if (layout == "table") {
+       if (item.type == "dataRow") {
+         setPadding(dp(20), dp(10), dp(20), dp(10))
+@@ -592,8 +726,14 @@ internal class NativeListRowView(
      invalidate()
      trailingViews.forEach { it.setTextColor(primary) }
      isEnabled = !item.json.optBoolean("disabled", false)
 -    alpha = if (isEnabled) 1f else 0.5f
++    if (!isEnabled) touchPressed = false
++    background = if (touchPressed || reorderActive) pressedRowBackground else restingRowBackground
 +    // OneKey patch: deprecation dims the row without disabling menu controls.
 +    // alpha = if (isEnabled) 1f else 0.5f
 +    alpha = item.json.optDouble("opacity", 1.0).toFloat() * (if (isEnabled) 1f else 0.5f)
@@ -333,7 +372,7 @@ index db47e5e..4ef24aa 100644
  
      when (item.type) {
        "walletGroup" -> bindWalletGroup(item, theme, layout, listOrientation, checkboxState)
-@@ -609,7 +738,30 @@ internal class NativeListRowView(
+@@ -609,10 +749,34 @@ internal class NativeListRowView(
        "system" -> bindSystem(item, theme)
      }
      applySize(item)
@@ -364,7 +403,11 @@ index db47e5e..4ef24aa 100644
    }
  
    fun recycle() {
-@@ -625,6 +777,7 @@ internal class NativeListRowView(
++    touchPressed = false
+     restoreRestingBackground()
+     invalidateCurrentBinding()
+     boundKey = null
+@@ -625,6 +789,7 @@ internal class NativeListRowView(
        row.alpha = 1f
        row.recycle()
      }
@@ -372,7 +415,7 @@ index db47e5e..4ef24aa 100644
    }
  
    fun bindSelection(
-@@ -636,6 +789,8 @@ internal class NativeListRowView(
+@@ -636,6 +801,8 @@ internal class NativeListRowView(
      checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String,
    ) {
      if (boundKey != item.key) return
@@ -381,7 +424,7 @@ index db47e5e..4ef24aa 100644
      if (item.type == "walletGroup") {
        val members = buildList {
          add(item.json.getJSONObject("parent"))
-@@ -669,7 +824,18 @@ internal class NativeListRowView(
+@@ -669,7 +836,18 @@ internal class NativeListRowView(
          ),
        )
      }
@@ -401,7 +444,7 @@ index db47e5e..4ef24aa 100644
    }
  
    fun bindStableSummary(item: NativeListItem) {
-@@ -684,10 +850,14 @@ internal class NativeListRowView(
+@@ -684,10 +862,14 @@ internal class NativeListRowView(
      contentDescription = item.json.optString("accessibilityLabel", item.json.optString("title"))
      title.text = item.json.optString("title")
      trailingViews[0].text = item.json.optString("value")
@@ -416,7 +459,7 @@ index db47e5e..4ef24aa 100644
      leadingImages.forEach(OneKeyImageReusableView::dispose)
      secondaryImage.dispose()
      mediaNetworkImage.dispose()
-@@ -699,7 +869,8 @@ internal class NativeListRowView(
+@@ -699,7 +881,8 @@ internal class NativeListRowView(
      sourceView: View,
      source: String,
      slot: Int? = null,
@@ -426,7 +469,7 @@ index db47e5e..4ef24aa 100644
  
    private fun emitAction(
      item: NativeListItem,
-@@ -712,13 +883,65 @@ internal class NativeListRowView(
+@@ -712,13 +895,65 @@ internal class NativeListRowView(
      onAction?.invoke(item, actionKey, target, actionOrigin(sourceView, source, slot))
    }
  
@@ -492,7 +535,7 @@ index db47e5e..4ef24aa 100644
      walletGroupRows.forEach { it.invalidateCurrentBinding() }
      walletGroupExpandAnimator?.removeAllListeners()
      walletGroupExpandAnimator?.cancel()
-@@ -736,6 +959,11 @@ internal class NativeListRowView(
+@@ -736,6 +971,11 @@ internal class NativeListRowView(
      activityContentRow.removeAllViews()
      (actionLine.parent as? ViewGroup)?.removeView(actionLine)
      removeAllViews()
@@ -504,7 +547,7 @@ index db47e5e..4ef24aa 100644
      orientation = HORIZONTAL
      gravity = Gravity.CENTER_VERTICAL
      minimumHeight = 0
-@@ -801,6 +1029,7 @@ internal class NativeListRowView(
+@@ -801,6 +1041,7 @@ internal class NativeListRowView(
      trailingColumn.layoutParams = wrap()
      trailingViews.forEach {
        it.visibility = GONE
@@ -512,7 +555,7 @@ index db47e5e..4ef24aa 100644
        it.gravity = Gravity.END
        it.maxLines = 1
        it.layoutParams = wrap()
-@@ -879,7 +1108,8 @@ internal class NativeListRowView(
+@@ -879,7 +1120,8 @@ internal class NativeListRowView(
      mainColumn.removeView(skeletonSecondary)
      setOnClickListener { view ->
        (view.tag as? NativeListItem)?.let { item ->
@@ -522,7 +565,7 @@ index db47e5e..4ef24aa 100644
        }
      }
    }
-@@ -1003,9 +1233,12 @@ internal class NativeListRowView(
+@@ -1003,9 +1245,12 @@ internal class NativeListRowView(
          members.add(children.getJSONObject(index))
        }
      }
@@ -536,7 +579,7 @@ index db47e5e..4ef24aa 100644
      walletGroupDragBadgeBackgroundPaint.color = color(
        theme,
        "inverseBackground",
-@@ -1048,8 +1281,11 @@ internal class NativeListRowView(
+@@ -1048,8 +1293,11 @@ internal class NativeListRowView(
          null,
          memberJson.optBoolean("selected", false),
          checkboxState,
@@ -549,7 +592,7 @@ index db47e5e..4ef24aa 100644
          if (index > 0) topMargin = dp(12)
        }
        addView(memberRow)
-@@ -1082,8 +1318,11 @@ internal class NativeListRowView(
+@@ -1082,8 +1330,11 @@ internal class NativeListRowView(
        titleLine.gravity = Gravity.CENTER
        titleLine.packsChildrenAtStart = false
        titleLine.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -562,7 +605,7 @@ index db47e5e..4ef24aa 100644
        showText(title, item.json.optString("title"), 1)
        title.setTextColor(
          color(
-@@ -1095,13 +1334,41 @@ internal class NativeListRowView(
+@@ -1095,13 +1346,41 @@ internal class NativeListRowView(
        addView(
          mainColumn,
          LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
@@ -606,7 +649,7 @@ index db47e5e..4ef24aa 100644
      }
      val leading = item.json.optJSONObject("leading")
      item.json.optJSONObject("leadingAction")?.let { action ->
-@@ -1136,6 +1403,13 @@ internal class NativeListRowView(
+@@ -1136,6 +1415,13 @@ internal class NativeListRowView(
          item.json.optString("presentation") == "accountSelector"
        ) 32 else 40,
      )
@@ -620,7 +663,7 @@ index db47e5e..4ef24aa 100644
      addView(mainColumn, weighted())
      titleLine.packsChildrenAtStart = true
      title.ellipsize = TextUtils.TruncateAt.END
-@@ -1144,6 +1418,43 @@ internal class NativeListRowView(
+@@ -1144,6 +1430,43 @@ internal class NativeListRowView(
        title.typeface = NativeListFonts.regular(context)
      }
      showText(subtitle, item.json.optString("subtitle"), item.json.optInt("subtitleLines", 2))
@@ -664,7 +707,7 @@ index db47e5e..4ef24aa 100644
      showText(tertiary, item.json.optString("tertiary"), 1)
      tertiary.setTextColor(
        color(
-@@ -1164,6 +1475,10 @@ internal class NativeListRowView(
+@@ -1164,6 +1487,10 @@ internal class NativeListRowView(
      }
      addView(trailingColumn, wrap())
      val accessories = item.json.optJSONArray("trailing")
@@ -675,7 +718,7 @@ index db47e5e..4ef24aa 100644
      if (accessories.hasAccessory("checkbox") && accessories.hasAccessory("value")) {
        trailingColumn.orientation = HORIZONTAL
        trailingColumn.gravity = Gravity.END or Gravity.CENTER_VERTICAL
-@@ -1847,10 +2162,15 @@ internal class NativeListRowView(
+@@ -1847,10 +2174,15 @@ internal class NativeListRowView(
      val isSummary = variant == "summary"
      val isGallery = variant == "gallery"
      val isTable = currentLayout == "table"
@@ -692,7 +735,7 @@ index db47e5e..4ef24aa 100644
        (item.json.optString("value").isNotEmpty() && item.json.optJSONObject("checkbox") != null)
      // Linear/sectioned snapshots reserve the ListItem mx=8 at RecyclerView
      // level, so header-local insets below are source px minus that outer inset.
-@@ -1870,7 +2190,8 @@ internal class NativeListRowView(
+@@ -1870,7 +2202,8 @@ internal class NativeListRowView(
        ),
      )
      if (isNetworkSelector) {
@@ -702,7 +745,7 @@ index db47e5e..4ef24aa 100644
        title.textSize = sp(14f)
        title.typeface = NativeListFonts.medium(context)
        TextViewCompat.setLineHeight(title, dp(20))
-@@ -1924,14 +2245,22 @@ internal class NativeListRowView(
+@@ -1924,14 +2257,22 @@ internal class NativeListRowView(
          item.json.optString("valueActionKey"),
          color(theme, "secondaryText", "#0000009B"),
        )
@@ -726,7 +769,7 @@ index db47e5e..4ef24aa 100644
        if (checkboxData != null && value.isNotEmpty()) {
          // Value and checkbox share the trailing edge as one compound accessory.
          trailingColumn.orientation = HORIZONTAL
-@@ -1966,6 +2295,27 @@ internal class NativeListRowView(
+@@ -1966,6 +2307,27 @@ internal class NativeListRowView(
        }
        checkboxData?.let { bindCheckbox(item, it, checkboxState) }
      }
@@ -754,7 +797,7 @@ index db47e5e..4ef24aa 100644
    }
  
    private fun bindAction(
-@@ -1978,12 +2328,13 @@ internal class NativeListRowView(
+@@ -1978,12 +2340,13 @@ internal class NativeListRowView(
        addLeading(icon, if (isAccountSelector) 32 else 40)
        leadingIcon.layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
        if (!icon.has("backgroundColor")) leadingFrame.background = null
@@ -770,7 +813,7 @@ index db47e5e..4ef24aa 100644
      } else if (item.json.optString("tone") == "danger") {
        title.setTextColor(color(theme, "negative", "#C40006D3"))
      }
-@@ -2003,6 +2354,17 @@ internal class NativeListRowView(
+@@ -2003,6 +2366,17 @@ internal class NativeListRowView(
  
    private fun bindSystem(item: NativeListItem, theme: JSONObject?) {
      val variant = item.json.optString("variant")
@@ -788,7 +831,7 @@ index db47e5e..4ef24aa 100644
      if (variant == "spacer") {
        minimumHeight = dp(item.json.optInt("height", 0))
        return
-@@ -2072,7 +2434,11 @@ internal class NativeListRowView(
+@@ -2072,7 +2446,11 @@ internal class NativeListRowView(
      spacingDp: Int = 12,
    ) {
      leadingFrame.visibility = VISIBLE
@@ -801,7 +844,7 @@ index db47e5e..4ef24aa 100644
      addView(leadingFrame)
      leadingFallback.layoutParams = FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
      if (visual == null) return
-@@ -2104,7 +2470,7 @@ internal class NativeListRowView(
+@@ -2104,7 +2482,7 @@ internal class NativeListRowView(
        leadingFrame.background = GradientDrawable().apply {
          setColor(visualBackground)
          setStroke(1, parseNativeListColor("#0000001F"))
@@ -810,7 +853,7 @@ index db47e5e..4ef24aa 100644
        }
        leadingIcon.iconName = visual.optString("name")
        leadingIcon.tintColor = safeColor(
-@@ -2161,7 +2527,89 @@ internal class NativeListRowView(
+@@ -2161,7 +2539,89 @@ internal class NativeListRowView(
          else -> leadingOutlineProvider(shape)
        }
        image.clipToOutline = true
@@ -901,7 +944,7 @@ index db47e5e..4ef24aa 100644
      }
    }
  
-@@ -2223,7 +2671,11 @@ internal class NativeListRowView(
+@@ -2223,7 +2683,11 @@ internal class NativeListRowView(
      for (index in 0 until minOf(2, accessories.length())) {
        val accessory = accessories.getJSONObject(index)
        when (accessory.optString("kind")) {
@@ -914,7 +957,7 @@ index db47e5e..4ef24aa 100644
          "valuePair" -> showTrailingValuePair(textIndex++, accessory, theme)
          "checkbox" -> bindCheckbox(item, accessory, checkboxState)
          "radio" -> showTrailing(
-@@ -2285,11 +2737,25 @@ internal class NativeListRowView(
+@@ -2285,11 +2749,25 @@ internal class NativeListRowView(
        return
      }
      checkbox.visibility = VISIBLE
@@ -944,7 +987,7 @@ index db47e5e..4ef24aa 100644
      }
      // Row-level disabled opacity already applies to this child. Only apply a
      // local 0.5 when the accessory alone is disabled, never 0.5 * 0.5.
-@@ -2330,6 +2796,8 @@ internal class NativeListRowView(
+@@ -2330,6 +2808,8 @@ internal class NativeListRowView(
      }
      val groupPosition = when {
        item.type == "identity" && item.json.optString("presentation") == "walletSidebar" -> "single"
@@ -953,7 +996,7 @@ index db47e5e..4ef24aa 100644
        else -> when (item.type) {
        "metricCard" -> "single"
        "rail" -> "rail"
-@@ -2337,7 +2805,7 @@ internal class NativeListRowView(
+@@ -2337,7 +2817,7 @@ internal class NativeListRowView(
        }
      }
      var backgroundGroupPosition = if (item.type == "mediaTile") "mediaTile" else groupPosition
@@ -962,7 +1005,7 @@ index db47e5e..4ef24aa 100644
        // Selection in sectioned lists is represented by the OneKey checkbox,
        // matching iOS and the app-monorepo network selector.
        rowBackground = color(theme, "rowBackground", "#FFFFFF")
-@@ -2351,6 +2819,8 @@ internal class NativeListRowView(
+@@ -2351,6 +2831,8 @@ internal class NativeListRowView(
        rowBackground = color(theme, "subduedBackground", "#F9F9F9")
        backgroundGroupPosition = ""
      }
@@ -971,7 +1014,7 @@ index db47e5e..4ef24aa 100644
      restingRowBackground = groupedBackground(backgroundGroupPosition, rowBackground)
      background = restingRowBackground
    }
-@@ -2466,7 +2936,26 @@ internal class NativeListRowView(
+@@ -2466,7 +2948,26 @@ internal class NativeListRowView(
      val icon = trailingIcons[index]
      icon.iconName = data.optString("name")
      icon.tintColor = safeColor(data.optString("tintColor"), iconSubduedColor)
@@ -999,7 +1042,7 @@ index db47e5e..4ef24aa 100644
        icon.glyphSizeDp = null
        // ListItem.DrillIn is a 24dp icon with mx=-6, for a 12dp layout footprint.
        icon.layoutParams = LayoutParams(dp(24), dp(24)).apply {
-@@ -2516,7 +3005,7 @@ internal class NativeListRowView(
+@@ -2516,7 +3017,7 @@ internal class NativeListRowView(
          when (item.type) {
            "message" -> 14f
            "sectionHeader" -> when {
@@ -1008,7 +1051,7 @@ index db47e5e..4ef24aa 100644
              item.json.optString("variant") == "gallery" -> 18f
              item.json.optString("variant") == "summary" -> 16f
              currentLayout == "table" -> 11f
-@@ -2530,11 +3019,14 @@ internal class NativeListRowView(
+@@ -2530,11 +3031,14 @@ internal class NativeListRowView(
          }
        },
      )
@@ -1024,7 +1067,7 @@ index db47e5e..4ef24aa 100644
            isNetworkSelectorSection -> NativeListFonts.medium(context)
            currentLayout == "table" -> NativeListFonts.regular(context)
            item.json.optString("variant") == "summary" -> NativeListFonts.medium(context)
-@@ -2552,7 +3044,7 @@ internal class NativeListRowView(
+@@ -2552,7 +3056,7 @@ internal class NativeListRowView(
        else -> 14f
      })
      tertiary.textSize = sp(14f)
@@ -1033,7 +1076,7 @@ index db47e5e..4ef24aa 100644
        TextViewCompat.setLineHeight(title, dp(20))
      } else if (item.type == "sectionHeader" && item.json.optString("variant") == "gallery") {
        TextViewCompat.setLineHeight(title, dp(24))
-@@ -2589,11 +3081,42 @@ internal class NativeListRowView(
+@@ -2589,11 +3093,42 @@ internal class NativeListRowView(
        column.typeface = NativeListFonts.medium(context)
        column.fontFeatureSettings = "tnum"
      }
@@ -1077,7 +1120,7 @@ index db47e5e..4ef24aa 100644
        }
        isNetworkSelectorIdentity -> 47
        else -> when (item.type) {
-@@ -2617,6 +3140,7 @@ internal class NativeListRowView(
+@@ -2617,6 +3152,7 @@ internal class NativeListRowView(
            else -> 36
          }
          "system" -> when (item.json.optString("variant")) {
@@ -1085,7 +1128,7 @@ index db47e5e..4ef24aa 100644
            "noMatch", "end" -> 36
            "retry" -> 44
            else -> 56
-@@ -2636,14 +3160,14 @@ internal class NativeListRowView(
+@@ -2636,14 +3172,14 @@ internal class NativeListRowView(
            56
          }
          else -> when {
@@ -1102,7 +1145,7 @@ index db47e5e..4ef24aa 100644
        0
      } else if (
        item.type == "sectionHeader" && item.json.optString("variant") in listOf("summary", "gallery")
-@@ -2713,7 +3237,12 @@ internal class NativeListRowView(
+@@ -2713,7 +3249,12 @@ internal class NativeListRowView(
      override fun getOutline(view: View, outline: Outline) {
        when (shape) {
          "square" -> outline.setRect(0, 0, view.width, view.height)
@@ -1116,7 +1159,7 @@ index db47e5e..4ef24aa 100644
          else -> outline.setOval(0, 0, view.width, view.height)
        }
      }
-@@ -2742,7 +3271,13 @@ internal class NativeListRowView(
+@@ -2742,7 +3283,13 @@ internal class NativeListRowView(
      token: String,
      slot: Int,
      variant: String,
@@ -1130,7 +1173,7 @@ index db47e5e..4ef24aa 100644
      val uri = source.optString("uri").trim().takeIf(String::isNotEmpty)
      imageView.configure(
        sourceUri = uri,
-@@ -2751,17 +3286,39 @@ internal class NativeListRowView(
+@@ -2751,17 +3298,39 @@ internal class NativeListRowView(
        contentFit = source.optString("contentFit", "cover"),
        cachePolicy = source.optString("cachePolicy", "memory-disk"),
        autoplay = source.optBoolean("autoplay", false),
@@ -1174,7 +1217,7 @@ index db47e5e..4ef24aa 100644
  
    private fun color(theme: JSONObject?, key: String, fallback: String): Int =
      safeColor(theme?.optString(key, fallback), parseNativeListColor(fallback))
-@@ -2774,30 +3331,30 @@ internal class NativeListRowView(
+@@ -2774,30 +3343,30 @@ internal class NativeListRowView(
  
    private fun roundedFill(color: Int, radiusDp: Float) = GradientDrawable().apply {
      setColor(color)
@@ -1211,7 +1254,7 @@ index db47e5e..4ef24aa 100644
        else -> FloatArray(8)
      }
    }
-@@ -2805,6 +3362,7 @@ internal class NativeListRowView(
+@@ -2805,6 +3374,7 @@ internal class NativeListRowView(
  }
  
  private class OneKeyIconView(context: android.content.Context) : View(context) {
@@ -1219,7 +1262,7 @@ index db47e5e..4ef24aa 100644
    var iconName: String = ""
      set(value) {
        field = value
-@@ -2828,9 +3386,11 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2828,9 +3398,11 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
      val pathData = iconPaths[iconName] ?: return
      val drawSize = minOf(
        minOf(width, height).toFloat(),
@@ -1233,7 +1276,7 @@ index db47e5e..4ef24aa 100644
      fill.color = tintColor
      canvas.save()
      canvas.translate((width - drawSize) / 2f, (height - drawSize) / 2f)
-@@ -2839,6 +3399,8 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2839,6 +3411,8 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
      pathData.forEachIndexed { index, data ->
        PathParser.createPathFromPathData(data)?.let { path ->
          path.fillType = sourceFillTypes?.getOrNull(index) ?: Path.FillType.EVEN_ODD
@@ -1242,7 +1285,7 @@ index db47e5e..4ef24aa 100644
          canvas.drawPath(path, fill)
        }
      }
-@@ -2846,10 +3408,42 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2846,10 +3420,42 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
    }
  
    companion object {
@@ -1285,7 +1328,7 @@ index db47e5e..4ef24aa 100644
        "ChevronRightSmallOutline" to listOf(Path.FillType.WINDING),
        "MinusCircleOutline" to listOf(Path.FillType.WINDING, Path.FillType.EVEN_ODD),
        "PlusCircleOutline" to listOf(Path.FillType.WINDING, Path.FillType.EVEN_ODD),
-@@ -2867,6 +3461,16 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2867,6 +3473,16 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
  
      // Exact 24x24 paths from app-monorepo packages/components Icon sources.
      private val iconPaths = mapOf(
@@ -1302,7 +1345,7 @@ index db47e5e..4ef24aa 100644
        "ArrowBottomOutline" to listOf("m13 17.586 5-5L19.414 14 12 21.414 4.586 14 6 12.586l5 5V3h2z"),
        "ArrowTopOutline" to listOf("M19.414 10 18 11.414l-5-5V21h-2V6.414l-5 5L4.586 10 12 2.586z"),
        "ChartTrendingUpOutline" to listOf("M22 13h-2V9.414l-7 7-4-4-6 6L1.586 17 9 9.586l4 4L18.586 8H15V6h7z"),
-@@ -2910,6 +3514,7 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
+@@ -2910,6 +3526,7 @@ private class OneKeyIconView(context: android.content.Context) : View(context) {
  }
  
  private class OneKeyCheckboxView(context: android.content.Context) : View(context) {
@@ -1310,7 +1353,7 @@ index db47e5e..4ef24aa 100644
    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
    private var state = "unchecked"
  
-@@ -2926,9 +3531,11 @@ private class OneKeyCheckboxView(context: android.content.Context) : View(contex
+@@ -2926,9 +3543,11 @@ private class OneKeyCheckboxView(context: android.content.Context) : View(contex
        "indeterminate" -> "M4 8a1 1 0 0 1 1-1h6a1 1 0 0 1 0 2H5a1 1 0 0 1-1-1"
        else -> return
      }
@@ -1325,10 +1368,63 @@ index db47e5e..4ef24aa 100644
      PathParser.createPathFromPathData(pathData)?.let { canvas.drawPath(it, glyphPaint) }
      canvas.restore()
 diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-index f0af895..1294235 100644
+index f0af895..9629eee 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
 +++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-@@ -102,6 +102,7 @@ class NativeListView(
+@@ -14,6 +14,7 @@ import android.view.Choreographer
+ import android.view.Gravity
+ import android.view.MotionEvent
+ import android.view.View
++import android.view.ViewConfiguration
+ import android.view.accessibility.AccessibilityEvent
+ import android.view.accessibility.AccessibilityNodeInfo
+ import android.widget.FrameLayout
+@@ -31,6 +32,7 @@ import org.json.JSONArray
+ import org.json.JSONObject
+ import java.lang.ref.WeakReference
+ import java.util.UUID
++import kotlin.math.abs
+ import kotlin.math.ceil
+ import kotlin.math.cos
+ import kotlin.math.exp
+@@ -87,6 +89,36 @@ class NativeListView(
+   private val contentContainer = FrameLayout(context)
+   private val adapter = NativeListAdapter(reactContext)
+   private val layoutManager = GridLayoutManager(context, 1)
++  // OneKey patch: vertical lists retain vertical drags and leave horizontal drags to a parent pager.
++  private val pagerGestureTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
++  private val pagerGestureTouchListener = object : RecyclerView.SimpleOnItemTouchListener() {
++    private var downX = 0f
++    private var downY = 0f
++    private var directionResolved = false
++
++    override fun onInterceptTouchEvent(recyclerView: RecyclerView, event: MotionEvent): Boolean {
++      if (layoutManager.orientation != RecyclerView.VERTICAL) return false
++      when (event.actionMasked) {
++        MotionEvent.ACTION_DOWN -> {
++          downX = event.x
++          downY = event.y
++          directionResolved = false
++        }
++        MotionEvent.ACTION_MOVE -> if (!directionResolved) {
++          val deltaX = abs(event.x - downX)
++          val deltaY = abs(event.y - downY)
++          if (max(deltaX, deltaY) > pagerGestureTouchSlop) {
++            directionResolved = true
++            recyclerView.parent?.requestDisallowInterceptTouchEvent(deltaY >= deltaX)
++          }
++        }
++        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
++          recyclerView.parent?.requestDisallowInterceptTouchEvent(false)
++        }
++      }
++      return false
++    }
++  }
+   private val reorderPlaceholderDecoration = ReorderPlaceholderDecoration(
+     adapter = adapter,
+     insetPx = dp(REORDER_PLACEHOLDER_INSET_DP),
+@@ -102,6 +134,7 @@ class NativeListView(
    private val sectionIndexView = NativeListSectionIndexView(context)
    private val sectionIndexPreview = TextView(context)
    private var config: NativeListConfig? = null
@@ -1336,16 +1432,18 @@ index f0af895..1294235 100644
    private var stickyDecoration: StickySectionHeaderDecoration? = null
    private var spacingDecoration: ItemSpacingDecoration? = null
    private var itemTouchHelper: ItemTouchHelper? = null
-@@ -133,6 +134,8 @@ class NativeListView(
+@@ -132,7 +165,10 @@ class NativeListView(
+     recyclerView.adapter = adapter
      recyclerView.layoutManager = layoutManager
      recyclerView.itemAnimator = null
++    recyclerView.addOnItemTouchListener(pagerGestureTouchListener)
      recyclerView.addItemDecoration(reorderPlaceholderDecoration)
 +    // OneKey patch: full-width selector header backgrounds do not change row content insets.
 +    recyclerView.addItemDecoration(SelectorBackgroundDecoration(adapter))
      recyclerView.setHasFixedSize(false)
      layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
        override fun getSpanSize(position: Int): Int {
-@@ -158,11 +161,15 @@ class NativeListView(
+@@ -158,11 +194,15 @@ class NativeListView(
      )
      contentContainer.addView(
        sectionIndexView,
@@ -1363,7 +1461,7 @@ index f0af895..1294235 100644
        typeface = NativeListFonts.semibold(context)
        visibility = GONE
        alpha = 0f
-@@ -170,7 +177,13 @@ class NativeListView(
+@@ -170,7 +210,13 @@ class NativeListView(
      }
      contentContainer.addView(
        sectionIndexPreview,
@@ -1378,7 +1476,7 @@ index f0af895..1294235 100644
      )
      addView(contentContainer, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
      footerView.visibility = GONE
-@@ -244,17 +257,29 @@ class NativeListView(
+@@ -244,17 +290,29 @@ class NativeListView(
      invalidateActionAnchor("snapshot")
      val previous = config
      if (previous != null && canApplyStableContentUpdate(previous, next)) {
@@ -1408,7 +1506,7 @@ index f0af895..1294235 100644
          recyclerView.post {
            bindVisibleSelection(changedSummaryKeys)
            bindFooterSelection()
-@@ -264,6 +289,8 @@ class NativeListView(
+@@ -264,6 +322,8 @@ class NativeListView(
        return
      }
      config = next
@@ -1417,7 +1515,7 @@ index f0af895..1294235 100644
      endReachedGeneration = null
      pendingReorder = null
      adapter.theme = next.theme
-@@ -327,30 +354,98 @@ class NativeListView(
+@@ -327,30 +387,98 @@ class NativeListView(
        val newItem = next.items[index]
        oldItem.key == newItem.key &&
          oldItem.type == newItem.type &&
@@ -1531,7 +1629,7 @@ index f0af895..1294235 100644
    }
  
    fun applyPatches(patchesJson: String) {
-@@ -389,6 +484,8 @@ class NativeListView(
+@@ -389,6 +517,8 @@ class NativeListView(
      invalidateActionAnchor("snapshot")
      val next = current.copy(items = nextItems, selectedKeys = selected)
      config = next
@@ -1540,7 +1638,15 @@ index f0af895..1294235 100644
      adapter.selectedKeys = selected
      adapter.submitList(nextItems) { relayoutContents() }
      bindFooter(next)
-@@ -731,7 +828,8 @@ class NativeListView(
+@@ -714,6 +844,7 @@ class NativeListView(
+     reorderTouchHandler = null
+     reorderTouchListener?.let(recyclerView::removeOnItemTouchListener)
+     reorderTouchListener = null
++    recyclerView.removeOnItemTouchListener(pagerGestureTouchListener)
+     itemTouchHelper?.attachToRecyclerView(null)
+     itemTouchHelper = null
+     footerView.recycle()
+@@ -731,7 +862,8 @@ class NativeListView(
      val horizontalPadding = next.contentPaddingHorizontal ?: defaultPadding
      val topPadding = next.contentPaddingTop ?: defaultPadding
      val bottomPadding = next.contentPaddingBottom ?: defaultPadding
@@ -1550,7 +1656,7 @@ index f0af895..1294235 100644
      recyclerView.setPaddingRelative(
        dp(horizontalPadding),
        dp(topPadding),
-@@ -742,7 +840,7 @@ class NativeListView(
+@@ -742,7 +874,7 @@ class NativeListView(
      recyclerView.isVerticalScrollBarEnabled = sectionIndexEntries.isEmpty()
  
      spacingDecoration?.let(recyclerView::removeItemDecoration)
@@ -1559,7 +1665,7 @@ index f0af895..1294235 100644
      stickyDecoration?.let(recyclerView::removeItemDecoration)
      stickyDecoration = if (next.stickyHeaders && orientation == RecyclerView.VERTICAL) {
        StickySectionHeaderDecoration(adapter, context, next.theme, density).also(recyclerView::addItemDecoration)
-@@ -769,12 +867,13 @@ class NativeListView(
+@@ -769,12 +901,13 @@ class NativeListView(
        sectionIndexEntries.map { it.title },
        themeColor(next.theme, "secondaryText", "#646464"),
        themeColor(next.theme, "accent", "#108303"),
@@ -1574,7 +1680,7 @@ index f0af895..1294235 100644
      }
      sectionIndexView.setActiveIndex(
        previousKey?.let { key -> sectionIndexEntries.indexOfFirst { it.key == key }.takeIf { it >= 0 } },
-@@ -846,6 +945,7 @@ class NativeListView(
+@@ -846,6 +979,7 @@ class NativeListView(
          null,
          next.selectedKeys.contains(footer.key),
          ::resolveCheckboxState,
@@ -1582,7 +1688,7 @@ index f0af895..1294235 100644
        )
      }
    }
-@@ -898,15 +998,17 @@ class NativeListView(
+@@ -898,15 +1032,17 @@ class NativeListView(
      origin.sourceView.getLocationInWindow(location)
      val record = ActionAnchorRecord(token, origin)
      actionAnchor = record
@@ -1604,7 +1710,7 @@ index f0af895..1294235 100644
        )
        .put("source", origin.source)
        .put("generation", generation)
-@@ -1037,7 +1139,9 @@ class NativeListView(
+@@ -1037,7 +1173,9 @@ class NativeListView(
          current.theme,
          current.layout,
          position,
@@ -1615,7 +1721,7 @@ index f0af895..1294235 100644
          ::resolveCheckboxState,
        )
      }
-@@ -1297,12 +1401,14 @@ class NativeListView(
+@@ -1297,12 +1435,14 @@ class NativeListView(
                ?.let(recyclerView::getChildViewHolder)
                ?.takeIf { holder ->
                  adapter.itemAt(holder.bindingAdapterPosition)?.let { item ->
@@ -1636,7 +1742,7 @@ index f0af895..1294235 100644
                  } == true
                }
              if (candidate != null) handler.postDelayed(startDrag, REORDER_LONG_PRESS_MS)
-@@ -1460,9 +1566,13 @@ class NativeListView(
+@@ -1460,9 +1600,13 @@ class NativeListView(
      )
    }
  
@@ -1651,7 +1757,7 @@ index f0af895..1294235 100644
      private const val REORDER_LONG_PRESS_MS = 200L
      private const val REORDER_ALLOWABLE_MOVEMENT_DP = 10
      private const val REORDER_PLACEHOLDER_INSET_DP = 8
-@@ -1546,7 +1656,9 @@ private class NativeListSectionIndexView(
+@@ -1546,7 +1690,9 @@ private class NativeListSectionIndexView(
    private var titles: List<String> = emptyList()
    private var normalColor = Color.GRAY
    private var activeColor = Color.BLACK
@@ -1661,7 +1767,7 @@ index f0af895..1294235 100644
    private val normalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
      textAlign = Paint.Align.CENTER
      typeface = NativeListFonts.medium(context)
-@@ -1563,10 +1675,16 @@ private class NativeListSectionIndexView(
+@@ -1563,10 +1709,16 @@ private class NativeListSectionIndexView(
      contentDescription = ACCESSIBILITY_LABEL
    }
  
@@ -1679,7 +1785,7 @@ index f0af895..1294235 100644
      activeIndex = null
      updateContentDescription()
      invalidate()
-@@ -1590,8 +1708,30 @@ private class NativeListSectionIndexView(
+@@ -1590,8 +1742,30 @@ private class NativeListSectionIndexView(
      activePaint.color = activeColor
      activePaint.textSize = textSize
      titles.forEachIndexed { index, title ->
@@ -1711,7 +1817,7 @@ index f0af895..1294235 100644
        val baseline = centerY - (paint.descent() + paint.ascent()) / 2f
        canvas.drawText(title, width / 2f, baseline, paint)
      }
-@@ -1697,7 +1837,11 @@ private class NativeListSectionIndexView(
+@@ -1697,7 +1871,11 @@ private class NativeListSectionIndexView(
    }
  }
  
@@ -1724,7 +1830,7 @@ index f0af895..1294235 100644
    override fun getItemOffsets(
      outRect: android.graphics.Rect,
      view: View,
-@@ -1706,7 +1850,14 @@ private class ItemSpacingDecoration(private val spacing: Int) : RecyclerView.Ite
+@@ -1706,7 +1884,14 @@ private class ItemSpacingDecoration(private val spacing: Int) : RecyclerView.Ite
    ) {
      if (spacing <= 0) return
      val horizontal = (parent.layoutManager as? LinearLayoutManager)?.orientation == RecyclerView.HORIZONTAL
@@ -1740,7 +1846,7 @@ index f0af895..1294235 100644
    }
  }
  
-@@ -1733,22 +1884,32 @@ private class StickySectionHeaderDecoration(
+@@ -1733,22 +1918,32 @@ private class StickySectionHeaderDecoration(
      for (index in first downTo 0) {
        val candidate = adapter.itemAt(index)
        if (candidate?.type == "sectionHeader") {
@@ -1779,7 +1885,7 @@ index f0af895..1294235 100644
      val value = item.json.optString("title").let { if (isHistory) it.uppercase() else it }
      val isRightToLeft = parent.layoutDirection == View.LAYOUT_DIRECTION_RTL
      val textWidth = if (isHistory) {
-@@ -1789,6 +1950,29 @@ private class StickySectionHeaderDecoration(
+@@ -1789,6 +1984,29 @@ private class StickySectionHeaderDecoration(
  
  internal fun isSimpleStickySectionHeader(item: NativeListItem): Boolean =
    item.type == "sectionHeader" &&
@@ -1810,7 +1916,7 @@ index f0af895..1294235 100644
 +  }
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
-index e0bf60b..33bebb6 100644
+index e0bf60b..81836fa 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 +++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 @@ -1,4 +1,6 @@
@@ -2025,7 +2131,16 @@ index e0bf60b..33bebb6 100644
      leadingImages.forEach { $0.prepareForReuse() }
      secondaryImage.prepareForReuse()
      mediaNetworkImage.prepareForReuse()
-@@ -664,6 +771,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -645,6 +752,8 @@ final class NativeListCell: UICollectionViewCell {
+     selected: Bool,
+     checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String
+   ) {
++    // OneKey patch: a same-row snapshot refresh must not clear a touch that is still held.
++    let shouldRestoreHighlight = isHighlighted && currentItem?.key == item.key
+     invalidateCurrentBinding()
+     bindingEpoch &+= 1
+     currentLayout = layout
+@@ -664,6 +773,14 @@ final class NativeListCell: UICollectionViewCell {
      // Checkbox uses the literal neutral7 alpha token. Applying opacity to the
      // opaque primary text color produces a different RGB result.
      checkboxBorderColor = UIColor(nativeListHex: "#00000031", fallback: .lightGray)
@@ -2040,7 +2155,7 @@ index e0bf60b..33bebb6 100644
      visualBackdropColor = nativeListColor(theme, "rowBackground", "#FFFFFF")
      titleLabel.textColor = primary
      subtitleLabel.textColor = secondary
-@@ -693,6 +808,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -693,6 +810,11 @@ final class NativeListCell: UICollectionViewCell {
        pressedBackgroundColor = restingBackgroundColor
      }
      updateBackgroundColor()
@@ -2052,7 +2167,7 @@ index e0bf60b..33bebb6 100644
      if layout == "table" {
        if item.type == "dataRow" {
          rootLeadingConstraint.constant = 20
-@@ -707,8 +827,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -707,8 +829,12 @@ final class NativeListCell: UICollectionViewCell {
      }
      applyGroupPosition(item.data.string("groupPosition"))
      isUserInteractionEnabled = !item.data.bool("disabled")
@@ -2066,11 +2181,14 @@ index e0bf60b..33bebb6 100644
  
      switch item.type {
      case "walletGroup": bindWalletGroup(item, theme: theme, layout: layout, checkboxState)
-@@ -724,6 +848,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -724,6 +850,17 @@ final class NativeListCell: UICollectionViewCell {
      case "system": bindSystem(item, theme: theme)
      default: break
      }
 +    applySelectorTypography(item)
++    if shouldRestoreHighlight && isUserInteractionEnabled {
++      isHighlighted = true
++    }
 +    if item.type == "sectionHeader", item.data.string("presentation") == "networkSelector", item.data["height"] != nil, item.data.dictionary("checkbox") != nil, !item.data.string("value").isEmpty {
 +      // OneKey patch: UIKit must reserve only the total's intrinsic width before the checkbox.
 +      let valueWidth = accessoryButtons[0].intrinsicContentSize.width
@@ -2081,7 +2199,7 @@ index e0bf60b..33bebb6 100644
    }
  
    func updateSelection(
-@@ -732,6 +864,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -732,6 +869,8 @@ final class NativeListCell: UICollectionViewCell {
      checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String
    ) {
      guard currentItem?.key == item.key else { return }
@@ -2090,7 +2208,7 @@ index e0bf60b..33bebb6 100644
      if item.type == "walletGroup" {
        currentItem = item
        let memberData = [item.data.dictionary("parent")].compactMap { $0 }
-@@ -777,6 +911,13 @@ final class NativeListCell: UICollectionViewCell {
+@@ -777,6 +916,13 @@ final class NativeListCell: UICollectionViewCell {
          selected ? "#FFFFFFED" : "#FFFFFFAF"
        )
      }
@@ -2104,7 +2222,7 @@ index e0bf60b..33bebb6 100644
      guard let data = boundCheckboxData, let target = boundCheckboxTarget else { return }
      updateCheckboxPresentation(
        item,
-@@ -786,12 +927,55 @@ final class NativeListCell: UICollectionViewCell {
+@@ -786,12 +932,55 @@ final class NativeListCell: UICollectionViewCell {
      )
    }
  
@@ -2160,7 +2278,7 @@ index e0bf60b..33bebb6 100644
      let valueButton = accessoryButtons[0]
      valueButton.isHidden = value.isEmpty
      if value.isEmpty {
-@@ -801,7 +985,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -801,7 +990,7 @@ final class NativeListCell: UICollectionViewCell {
        setButtonLine(
          valueButton,
          text: value,
@@ -2169,7 +2287,7 @@ index e0bf60b..33bebb6 100644
          color: nativeListColor(currentTheme, "secondaryText", "#646464"),
          lineHeight: 24
        )
-@@ -826,7 +1010,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -826,7 +1015,7 @@ final class NativeListCell: UICollectionViewCell {
        // Selection is communicated by the destination state for these source
        // components; neither has a persistent selected tile background.
        color = nativeListColor(theme, "rowBackground", "#FFFFFF")
@@ -2178,7 +2296,7 @@ index e0bf60b..33bebb6 100644
        // Checkbox-backed section lists in app-monorepo keep rows on $bg;
        // selection is represented by the checkbox itself.
        color = nativeListColor(theme, "rowBackground", "#FFFFFF")
-@@ -836,10 +1020,27 @@ final class NativeListCell: UICollectionViewCell {
+@@ -836,10 +1025,27 @@ final class NativeListCell: UICollectionViewCell {
                !selected {
        color = nativeListColor(theme, "subduedBackground", "#F9F9F9")
      }
@@ -2206,7 +2324,7 @@ index e0bf60b..33bebb6 100644
      walletGroupCompactCell?.invalidateCurrentBinding()
      walletGroupCells.forEach { $0.invalidateCurrentBinding() }
      isHighlighted = false
-@@ -848,6 +1049,10 @@ final class NativeListCell: UICollectionViewCell {
+@@ -848,6 +1054,10 @@ final class NativeListCell: UICollectionViewCell {
        $0.removeFromSuperview()
      }
      walletGroupMembers.removeAll()
@@ -2217,7 +2335,7 @@ index e0bf60b..33bebb6 100644
      walletGroupCompactAppearanceActive = false
      walletGroupCompactContainer.isHidden = true
      walletGroupCompactContainer.alpha = 1
-@@ -978,11 +1183,13 @@ final class NativeListCell: UICollectionViewCell {
+@@ -978,11 +1188,13 @@ final class NativeListCell: UICollectionViewCell {
        $0.backgroundColor = .clear
      }
      accessoryButtons.enumerated().forEach { index, button in
@@ -2231,7 +2349,7 @@ index e0bf60b..33bebb6 100644
        button.setTitle(nil, for: .normal)
        button.setAttributedTitle(nil, for: .normal)
        button.setImage(nil, for: .normal)
-@@ -994,6 +1201,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -994,6 +1206,7 @@ final class NativeListCell: UICollectionViewCell {
        button.backgroundColor = .clear
        button.layer.cornerRadius = 0
        button.contentEdgeInsets = .zero
@@ -2239,7 +2357,7 @@ index e0bf60b..33bebb6 100644
      }
      checkboxButton.isHidden = true
      checkboxButton.alpha = 1
-@@ -1028,6 +1236,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1028,6 +1241,7 @@ final class NativeListCell: UICollectionViewCell {
      contentView.clipsToBounds = false
      leadingContainer.alpha = 1
      titleLabel.showsDottedUnderline = false
@@ -2247,7 +2365,7 @@ index e0bf60b..33bebb6 100644
      titleLabel.dottedUnderlineVerticalOffset = 0
    }
  
-@@ -1073,7 +1282,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1073,7 +1287,8 @@ final class NativeListCell: UICollectionViewCell {
      while walletGroupCells.count < walletGroupMembers.count {
        let memberCell = NativeListCell(frame: .zero)
        memberCell.translatesAutoresizingMaskIntoConstraints = false
@@ -2257,7 +2375,7 @@ index e0bf60b..33bebb6 100644
        walletGroupCells.append(memberCell)
      }
      rootStack.axis = .vertical
-@@ -1083,8 +1293,18 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1083,8 +1298,18 @@ final class NativeListCell: UICollectionViewCell {
      rootTrailingConstraint.constant = 0
      rootTopConstraint.constant = 0
      rootBottomConstraint.constant = 0
@@ -2276,7 +2394,7 @@ index e0bf60b..33bebb6 100644
        memberCell.onAction = { [weak self] source, action, target, origin in
          self?.onAction?(source, action, target, origin)
        }
-@@ -1140,7 +1360,10 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1140,7 +1365,10 @@ final class NativeListCell: UICollectionViewCell {
      let point = gesture.location(in: rootStack)
      for (index, cell) in walletGroupCells.prefix(walletGroupMembers.count).enumerated()
        where cell.frame.contains(point) {
@@ -2288,7 +2406,7 @@ index e0bf60b..33bebb6 100644
        return
      }
    }
-@@ -1269,8 +1492,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1269,8 +1497,14 @@ final class NativeListCell: UICollectionViewCell {
        contentView.clipsToBounds = true
      } else {
        applyGroupPosition(currentItem?.data.string("groupPosition") ?? "")
@@ -2304,7 +2422,7 @@ index e0bf60b..33bebb6 100644
        contentView.clipsToBounds = restingRadius > 0
      }
    }
-@@ -1299,6 +1528,17 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1299,6 +1533,17 @@ final class NativeListCell: UICollectionViewCell {
        fallbackLabel.font = nativeListFont(ofSize: 28)
        addLeading(item.data.dictionary("leading"), key: item.key)
        rootStack.addArrangedSubview(mainStack)
@@ -2322,7 +2440,7 @@ index e0bf60b..33bebb6 100644
        show(titleLabel, item.data.string("title"), lines: 1)
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 16)
        titleLabel.textColor = nativeListColor(
-@@ -1306,6 +1546,32 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1306,6 +1551,32 @@ final class NativeListCell: UICollectionViewCell {
          selected ? "primaryText" : "secondaryText",
          selected ? "#FFFFFFED" : "#FFFFFFAF"
        )
@@ -2355,7 +2473,7 @@ index e0bf60b..33bebb6 100644
        return
      }
      if item.data.string("presentation") == "accountSelector" {
-@@ -1344,6 +1610,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1344,6 +1615,12 @@ final class NativeListCell: UICollectionViewCell {
        rootStack.setCustomSpacing(5, after: leadingActionButton)
      }
      addLeading(item.data.dictionary("leading"), key: item.key)
@@ -2368,7 +2486,7 @@ index e0bf60b..33bebb6 100644
      rootStack.addArrangedSubview(mainStack)
      show(titleLabel, item.data.string("title"), lines: item.data.int("titleLines", default: 1))
      show(subtitleLabel, item.data.string("subtitle"), lines: item.data.int("subtitleLines", default: 1))
-@@ -1353,6 +1625,77 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1353,6 +1630,77 @@ final class NativeListCell: UICollectionViewCell {
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 24)
        setLineHeight(subtitleLabel, text: item.data.string("subtitle"), lineHeight: 20)
      }
@@ -2446,7 +2564,7 @@ index e0bf60b..33bebb6 100644
      tertiaryLabel.textColor = nativeListColor(
        theme,
        item.data.string("tertiaryTone") == "info" ? "info" : "secondaryText",
-@@ -1997,15 +2340,29 @@ final class NativeListCell: UICollectionViewCell {
+@@ -1997,15 +2345,29 @@ final class NativeListCell: UICollectionViewCell {
    ) {
      rootStack.addArrangedSubview(mainStack)
      let variant = item.data.string("variant")
@@ -2476,7 +2594,7 @@ index e0bf60b..33bebb6 100644
        : isNetworkSelector ? .medium
        : isGallery || layout == "sectioned" ? .semibold : .regular
      titleLabel.font = nativeListFont(
-@@ -2019,8 +2376,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2019,8 +2381,8 @@ final class NativeListCell: UICollectionViewCell {
      )
      show(titleLabel, item.data.string("title"), lines: 1)
      if isNetworkSelector {
@@ -2487,7 +2605,7 @@ index e0bf60b..33bebb6 100644
        titleLabel.dottedUnderlineColor = nativeListColor(
          theme,
          "secondaryText",
-@@ -2028,8 +2385,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2028,8 +2390,9 @@ final class NativeListCell: UICollectionViewCell {
        )
        rootLeadingConstraint.constant = 12
        rootTrailingConstraint.constant = -12
@@ -2499,7 +2617,7 @@ index e0bf60b..33bebb6 100644
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 20)
      } else if isHistory {
        rootLeadingConstraint.constant = 0
-@@ -2095,6 +2453,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2095,6 +2458,7 @@ final class NativeListCell: UICollectionViewCell {
        rootTopConstraint.constant = 24
        rootBottomConstraint.constant = -20
        setLineHeight(titleLabel, text: item.data.string("title"), lineHeight: 24)
@@ -2507,7 +2625,7 @@ index e0bf60b..33bebb6 100644
        let valueActionKey = item.data.string("valueActionKey")
        let action: (String, NativeSelectionTarget?)? = valueActionKey.isEmpty
          ? nil
-@@ -2105,11 +2464,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2105,11 +2469,11 @@ final class NativeListCell: UICollectionViewCell {
          action: action,
          color: nativeListColor(theme, "secondaryText", "#646464")
        )
@@ -2521,7 +2639,7 @@ index e0bf60b..33bebb6 100644
          color: nativeListColor(theme, "secondaryText", "#646464"),
          lineHeight: 24
        )
-@@ -2169,6 +2528,28 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2169,6 +2533,28 @@ final class NativeListCell: UICollectionViewCell {
          )
        }
      }
@@ -2550,7 +2668,7 @@ index e0bf60b..33bebb6 100644
    }
  
    private func bindAction(
-@@ -2185,6 +2566,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2185,6 +2571,8 @@ final class NativeListCell: UICollectionViewCell {
        addLeading(icon, key: item.key)
        if isAccountSelector {
          leadingContainer.layer.cornerCurve = .continuous
@@ -2559,7 +2677,7 @@ index e0bf60b..33bebb6 100644
        }
        if icon["backgroundColor"] == nil {
          leadingContainer.backgroundColor = .clear
-@@ -2195,8 +2578,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2195,8 +2583,9 @@ final class NativeListCell: UICollectionViewCell {
      rootStack.addArrangedSubview(mainStack)
      show(titleLabel, item.data.string("title"), lines: 1)
      if isAccountSelector {
@@ -2571,7 +2689,7 @@ index e0bf60b..33bebb6 100644
      } else if item.data.string("tone") == "danger" {
        titleLabel.textColor = nativeListColor(theme, "negative", "#CE2C31")
      }
-@@ -2217,8 +2601,19 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2217,8 +2606,19 @@ final class NativeListCell: UICollectionViewCell {
      }
    }
  
@@ -2591,7 +2709,7 @@ index e0bf60b..33bebb6 100644
      case "secondary": return nativeListColor(theme, "secondaryText", "#646464")
      case "positive": return nativeListColor(theme, "positive", "#218358")
      case "negative": return nativeListColor(theme, "negative", "#CE2C31")
-@@ -2230,6 +2625,36 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2230,6 +2630,36 @@ final class NativeListCell: UICollectionViewCell {
      rootStack.alignment = .center
      rootStack.distribution = .fill
      let variant = item.data.string("variant")
@@ -2628,7 +2746,7 @@ index e0bf60b..33bebb6 100644
      if variant == "loading" {
        leadingWidth.constant = 40
        leadingHeight.constant = 40
-@@ -2357,7 +2782,105 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2357,7 +2787,105 @@ final class NativeListCell: UICollectionViewCell {
          tokenPair: tokenPair,
          shape: shape
        ))
@@ -2735,7 +2853,7 @@ index e0bf60b..33bebb6 100644
      }
      NSLayoutConstraint.activate(leadingSlotConstraints)
    }
-@@ -2439,6 +2962,11 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2439,6 +2967,11 @@ final class NativeListCell: UICollectionViewCell {
        switch accessory.string("kind") {
        case "value":
          showAccessory(textIndex, accessory.string("text"))
@@ -2747,7 +2865,7 @@ index e0bf60b..33bebb6 100644
          textIndex += 1
        case "valuePair":
          showValuePairAccessory(textIndex, accessory, theme: theme)
-@@ -2519,7 +3047,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2519,7 +3052,7 @@ final class NativeListCell: UICollectionViewCell {
        state == "unchecked" ? nil : nativeListIcon(named: glyphName),
        for: .normal
      )
@@ -2756,7 +2874,7 @@ index e0bf60b..33bebb6 100644
      // A disabled ListItem already applies 0.5 to its complete content. Avoid
      // multiplying that opacity on the nested control a second time.
      checkboxButton.alpha = item.data.bool("disabled") ? 1 : accessoryDisabled ? 0.5 : 1
-@@ -2543,11 +3071,24 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2543,11 +3076,24 @@ final class NativeListCell: UICollectionViewCell {
      let paragraphStyle = NSMutableParagraphStyle()
      paragraphStyle.minimumLineHeight = lineHeight
      paragraphStyle.maximumLineHeight = lineHeight
@@ -2781,7 +2899,7 @@ index e0bf60b..33bebb6 100644
      if letterSpacing != 0 { attributes[.kern] = letterSpacing }
      label.attributedText = NSAttributedString(string: text, attributes: attributes)
    }
-@@ -2563,7 +3104,20 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2563,7 +3109,20 @@ final class NativeListCell: UICollectionViewCell {
      let paragraphStyle = NSMutableParagraphStyle()
      paragraphStyle.minimumLineHeight = lineHeight
      paragraphStyle.maximumLineHeight = lineHeight
@@ -2803,7 +2921,7 @@ index e0bf60b..33bebb6 100644
      button.setAttributedTitle(
        NSAttributedString(
          string: text,
-@@ -2571,6 +3125,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2571,6 +3130,7 @@ final class NativeListCell: UICollectionViewCell {
            .font: font,
            .foregroundColor: color,
            .paragraphStyle: paragraphStyle,
@@ -2811,7 +2929,7 @@ index e0bf60b..33bebb6 100644
          ]
        ),
        for: .normal
-@@ -2671,6 +3226,9 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2671,6 +3231,9 @@ final class NativeListCell: UICollectionViewCell {
      switch tone.isEmpty ? defaultTone : tone {
      case "positive": return nativeListColor(theme, "positive", "#218358")
      case "negative": return nativeListColor(theme, "negative", "#CE2C31")
@@ -2821,7 +2939,7 @@ index e0bf60b..33bebb6 100644
      case "secondary": return nativeListColor(theme, "secondaryText", "#646464")
      default: return nativeListColor(theme, "primaryText", "#202020")
      }
-@@ -2682,10 +3240,10 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2682,10 +3245,10 @@ final class NativeListCell: UICollectionViewCell {
      button.isHidden = false
      button.isEnabled = !data.bool("disabled")
      button.alpha = button.isEnabled ? 1 : 0.4
@@ -2836,7 +2954,7 @@ index e0bf60b..33bebb6 100644
      button.tintColor = tintColor
      if let image = nativeListIcon(named: data.string("name")) {
        button.setImage(image, for: .normal)
-@@ -2695,7 +3253,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2695,7 +3258,12 @@ final class NativeListCell: UICollectionViewCell {
        )
      }
      let isDrillIn = data.string("kind") == "chevron"
@@ -2850,7 +2968,7 @@ index e0bf60b..33bebb6 100644
      if !isDrillIn, !data.string("actionKey").isEmpty {
        // Reproduce the trailing edge of IconButton's m=-7 while keeping its
        // full 36-point frame for padding/highlight behavior.
-@@ -2726,8 +3289,15 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2726,8 +3294,15 @@ final class NativeListCell: UICollectionViewCell {
      into imageView: OneKeyImageReusableView,
      token: String,
      slot: Int,
@@ -2867,7 +2985,7 @@ index e0bf60b..33bebb6 100644
      let headersJson: String?
      if let headers = source.dictionary("headers"),
         JSONSerialization.isValidJSONObject(headers),
-@@ -2743,10 +3313,27 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2743,10 +3318,27 @@ final class NativeListCell: UICollectionViewCell {
        contentFit: source.string("contentFit", default: "cover"),
        cachePolicy: source.string("cachePolicy", default: "memory-disk"),
        autoplay: source.bool("autoplay"),
@@ -2898,7 +3016,7 @@ index e0bf60b..33bebb6 100644
      )
    }
  
-@@ -2837,12 +3424,17 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2837,12 +3429,17 @@ final class NativeListCell: UICollectionViewCell {
      source: String,
      slot: Int? = nil
    ) -> NativeListActionOrigin {
@@ -2918,7 +3036,7 @@ index e0bf60b..33bebb6 100644
      )
    }
  
-@@ -2851,6 +3443,8 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2851,6 +3448,8 @@ final class NativeListCell: UICollectionViewCell {
    }
  
    private func invalidateCurrentBinding() {
@@ -2971,7 +3089,7 @@ index 7dd7368..3f3b90a 100644
 +    .withRenderingMode(["GoogleIllus", "BotIllus", "AccountErrorCustom"].contains(name) ? .alwaysOriginal : .alwaysTemplate)
  }
 diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
-index d89c4c2..c852266 100644
+index d89c4c2..8d13e87 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
 +++ b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
 @@ -1,4 +1,5 @@
@@ -2980,15 +3098,16 @@ index d89c4c2..c852266 100644
  import UIKit
  import UniformTypeIdentifiers
  
-@@ -77,6 +78,7 @@ final class NativeListView: UIView {
+@@ -77,6 +78,8 @@ final class NativeListView: UIView {
      target: self,
      action: #selector(reorderLongPressChanged(_:))
    )
-+  private lazy var listBodyGestureGuard = UILongPressGestureRecognizer(target: nil, action: nil)
++  // OneKey patch: claim only vertical drags so held rows and ancestor pagers stay responsive.
++  private lazy var listBodyGestureGuard = UIPanGestureRecognizer(target: nil, action: nil)
    private var interactiveReorderSource: (key: String, index: Int)?
    private weak var interactiveReorderCell: NativeListCell?
    private var interactiveReorderCompactKey: String?
-@@ -92,7 +94,10 @@ final class NativeListView: UIView {
+@@ -92,7 +95,10 @@ final class NativeListView: UIView {
    private let actionAnchorInstanceID = UUID().uuidString
    private var actionAnchorCounter = 0
  
@@ -3000,22 +3119,19 @@ index d89c4c2..c852266 100644
  
    override init(frame: CGRect) {
      super.init(frame: frame)
-@@ -102,6 +107,14 @@ final class NativeListView: UIView {
+@@ -102,6 +108,11 @@ final class NativeListView: UIView {
      collectionView.dragDelegate = self
      collectionView.dropDelegate = self
      collectionView.alwaysBounceVertical = true
 +    // OneKey patch: keep list-body drags from being claimed by an ancestor modal sheet.
-+    listBodyGestureGuard.minimumPressDuration = 0
-+    listBodyGestureGuard.allowableMovement = .greatestFiniteMagnitude
 +    listBodyGestureGuard.cancelsTouchesInView = false
-+    listBodyGestureGuard.delaysTouchesEnded = false
 +    listBodyGestureGuard.isEnabled = false
 +    listBodyGestureGuard.delegate = self
 +    collectionView.addGestureRecognizer(listBodyGestureGuard)
      reorderLongPress.minimumPressDuration = ReorderAnimation.longPressDuration
      reorderLongPress.allowableMovement = ReorderAnimation.allowableMovement
      reorderLongPress.delegate = self
-@@ -136,11 +149,14 @@ final class NativeListView: UIView {
+@@ -136,11 +147,14 @@ final class NativeListView: UIView {
        sectionIndexView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
        sectionIndexView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
        sectionIndexView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
@@ -3034,7 +3150,7 @@ index d89c4c2..c852266 100644
      ])
  
      sectionIndexView.isHidden = true
-@@ -152,11 +168,11 @@ final class NativeListView: UIView {
+@@ -152,11 +166,11 @@ final class NativeListView: UIView {
      }
      sectionIndexPreview.isHidden = true
      sectionIndexPreview.alpha = 0
@@ -3048,7 +3164,7 @@ index d89c4c2..c852266 100644
      sectionIndexPreview.isAccessibilityElement = false
  
      footerCell.onAction = { [weak self] item, action, target, origin in
-@@ -472,7 +488,8 @@ final class NativeListView: UIView {
+@@ -472,7 +486,8 @@ final class NativeListView: UIView {
  
    private func configureLayout(_ config: NativeListConfig) {
      let isHorizontal = config.orientation == "horizontal"
@@ -3058,7 +3174,7 @@ index d89c4c2..c852266 100644
      let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
      flowLayout.scrollDirection = isHorizontal ? .horizontal : .vertical
      flowLayout.minimumLineSpacing = config.itemSpacing
-@@ -485,7 +502,7 @@ final class NativeListView: UIView {
+@@ -485,7 +500,7 @@ final class NativeListView: UIView {
      )
      flowLayout.stickyItemIndexes = config.stickyHeaders
        ? Set(config.items.enumerated().compactMap {
@@ -3067,7 +3183,7 @@ index d89c4c2..c852266 100644
              ? $0.offset
              : nil
          })
-@@ -493,6 +510,7 @@ final class NativeListView: UIView {
+@@ -493,6 +508,7 @@ final class NativeListView: UIView {
      flowLayout.invalidateLayout()
      collectionView.alwaysBounceHorizontal = isHorizontal
      collectionView.alwaysBounceVertical = !isHorizontal
@@ -3075,7 +3191,7 @@ index d89c4c2..c852266 100644
      collectionView.showsVerticalScrollIndicator = sectionIndexEntries.isEmpty
      collectionView.dragInteractionEnabled = false
      lastLayoutDirection = effectiveUserInterfaceLayoutDirection
-@@ -512,11 +530,12 @@ final class NativeListView: UIView {
+@@ -512,11 +528,12 @@ final class NativeListView: UIView {
          interactiveReorderCell = nil
          return
        }
@@ -3093,7 +3209,7 @@ index d89c4c2..c852266 100644
        interactiveReorderSource = (item.key, indexPath.item)
        interactiveReorderCell = cell
        interactiveReorderUsesAtomicTargeting = item.type == "identity" &&
-@@ -838,7 +857,8 @@ final class NativeListView: UIView {
+@@ -838,7 +855,8 @@ final class NativeListView: UIView {
      sectionIndexView.configure(
        titles: sectionIndexEntries.map(\.title),
        textColor: nativeListColor(config.theme, "secondaryText", "#646464"),
@@ -3103,7 +3219,7 @@ index d89c4c2..c852266 100644
      )
      sectionIndexView.isHidden = sectionIndexEntries.isEmpty
      sectionIndexPreview.backgroundColor = nativeListColor(
-@@ -932,7 +952,7 @@ final class NativeListView: UIView {
+@@ -932,7 +950,7 @@ final class NativeListView: UIView {
        theme: config.theme,
        layout: config.layout,
        itemIndex: itemIndex,
@@ -3112,7 +3228,7 @@ index d89c4c2..c852266 100644
        checkboxState: { [weak self] item, target, fallback in
          self?.resolveCheckboxState(item: item, target: target, fallback: fallback) ?? fallback
        }
-@@ -943,7 +963,8 @@ final class NativeListView: UIView {
+@@ -943,7 +961,8 @@ final class NativeListView: UIView {
    }
  
    private func handleRowPress(_ item: NativeListItem, origin: NativeListActionOrigin?) {
@@ -3122,7 +3238,7 @@ index d89c4c2..c852266 100644
      if config.rowPressToggles && item.isSelectable && config.selectionMode != "none" {
        updateSelection(target: NativeSelectionTarget(scope: "row", key: item.key), sourceKey: item.key)
        return
-@@ -1037,7 +1058,7 @@ final class NativeListView: UIView {
+@@ -1037,7 +1056,7 @@ final class NativeListView: UIView {
              let cell = collectionView.cellForItem(at: indexPath) as? NativeListCell else { continue }
        cell.updateSelection(
          item: item,
@@ -3131,7 +3247,7 @@ index d89c4c2..c852266 100644
          checkboxState: checkboxState
        )
      }
-@@ -1080,19 +1101,73 @@ final class NativeListView: UIView {
+@@ -1080,19 +1099,73 @@ final class NativeListView: UIView {
      return zip(current.items, next.items).allSatisfy { old, new in
        guard old.key == new.key, old.type == new.type else { return false }
        if old.content == new.content { return true }
@@ -3214,7 +3330,7 @@ index d89c4c2..c852266 100644
    private func dictionariesEqual(_ lhs: [String: Any]?, _ rhs: [String: Any]?) -> Bool {
      switch (lhs, rhs) {
      case (nil, nil): return true
-@@ -1107,16 +1182,36 @@ final class NativeListView: UIView {
+@@ -1107,16 +1180,36 @@ final class NativeListView: UIView {
    }
  
    private func rowHeight(_ item: NativeListItem) -> CGFloat {
@@ -3253,7 +3369,7 @@ index d89c4c2..c852266 100644
      }
      if item.type == "identity", item.data.string("presentation") == "networkSelector" {
        return 47
-@@ -1268,7 +1363,7 @@ final class NativeListView: UIView {
+@@ -1268,7 +1361,7 @@ final class NativeListView: UIView {
      actionAnchorCounter &+= 1
      let generation = config?.generation ?? 0
      let token = "\(actionAnchorInstanceID):\(generation):\(actionAnchorCounter):\(origin.bindingEpoch)"
@@ -3262,7 +3378,18 @@ index d89c4c2..c852266 100644
      let record = ActionAnchorRecord(token: token, origin: origin)
      actionAnchor = record
      var anchor: [String: Any] = [
-@@ -1375,6 +1470,7 @@ final class NativeListView: UIView {
+@@ -1371,10 +1464,18 @@ final class NativeListView: UIView {
+     if let lastKey = config.items.last?.key { payload["lastKey"] = lastKey }
+     emit(onEndReached, payload)
+   }
++
++  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
++    guard gestureRecognizer === listBodyGestureGuard,
++          let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
++    let velocity = pan.velocity(in: collectionView)
++    return abs(velocity.y) > abs(velocity.x)
++  }
+ }
  
  extension NativeListView: UIGestureRecognizerDelegate {
    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
@@ -3270,7 +3397,7 @@ index d89c4c2..c852266 100644
      var view = touch.view
      while let current = view, current !== footerCell {
        if current is UIControl { return false }
-@@ -1387,7 +1483,26 @@ extension NativeListView: UIGestureRecognizerDelegate {
+@@ -1387,7 +1488,26 @@ extension NativeListView: UIGestureRecognizerDelegate {
      _ gestureRecognizer: UIGestureRecognizer,
      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
    ) -> Bool {
@@ -3298,7 +3425,7 @@ index d89c4c2..c852266 100644
    }
  }
  
-@@ -1604,13 +1719,16 @@ private struct NativeListSectionIndexEntry {
+@@ -1604,13 +1724,16 @@ private struct NativeListSectionIndexEntry {
    let position: Int
  }
  
@@ -3316,7 +3443,7 @@ index d89c4c2..c852266 100644
    private var lastTouchIndex: Int?
    private(set) var activeIndex: Int?
  
-@@ -1620,16 +1738,43 @@ private final class NativeListSectionIndexView: UIControl {
+@@ -1620,16 +1743,43 @@ private final class NativeListSectionIndexView: UIControl {
      accessibilityLabel = "Section index"
      accessibilityTraits = [.adjustable]
      isExclusiveTouch = true
@@ -3361,7 +3488,7 @@ index d89c4c2..c852266 100644
      labels.forEach { $0.removeFromSuperview() }
      labels = titles.map { title in
        let label = UILabel()
-@@ -1660,9 +1805,9 @@ private final class NativeListSectionIndexView: UIControl {
+@@ -1660,9 +1810,9 @@ private final class NativeListSectionIndexView: UIControl {
      let originY = (bounds.height - height * CGFloat(labels.count)) / 2
      for (index, label) in labels.enumerated() {
        label.frame = CGRect(
@@ -3373,7 +3500,7 @@ index d89c4c2..c852266 100644
          height: height
        )
      }
-@@ -1718,7 +1863,10 @@ private final class NativeListSectionIndexView: UIControl {
+@@ -1718,7 +1868,10 @@ private final class NativeListSectionIndexView: UIControl {
    private func updateLabelStyles() {
      for (index, label) in labels.enumerated() {
        let active = index == activeIndex
@@ -4876,7 +5003,7 @@ index 0000000..f896e62
 +  return cache.acquire(uri, resolve, reject, priority);
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index 625a913..d742ddd 100644
+index 625a913..d93e221 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -3,7 +3,13 @@
@@ -4943,7 +5070,15 @@ index 625a913..d742ddd 100644
  .ok-native-list-root{--nl-bg:#f7f7f7;--nl-row:#fff;--nl-selected:#eaf2ff;--nl-pressed:#e8e8e8;--nl-subdued:#f9f9f9;--nl-strong:#0000000f;--nl-primary:#111;--nl-secondary:#6b7280;--nl-disabled:#8d8d8d;--nl-icon:#111;--nl-icon-subdued:#8d8d8d;--nl-separator:#e5e7eb;--nl-accent:#2f6bff;--nl-positive:#15803d;--nl-negative:#dc2626;--nl-critical:#feecec;--nl-inverse:#202020;--nl-inverse-text:#fcfcfc;--nl-info:#0d74ce;position:absolute;inset:0;display:flex;min-width:0;min-height:0;overflow:hidden;background:var(--nl-bg);color:var(--nl-primary);font-family:Roobert,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-synthesis:none}
  .ok-native-list-viewport-frame{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
  .ok-native-list-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-@@ -424,9 +447,29 @@ export const WEB_LIST_CSS = `
+@@ -382,6 +405,7 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-row{background:var(--nl-selected)}
+ .ok-native-list-item[data-native-list-disabled="true"]>.ok-native-list-row{opacity:.5;cursor:default}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):hover>.ok-native-list-row{background:var(--nl-pressed)}
++.ok-native-list-item:not([data-native-list-disabled="true"]):active>.ok-native-list-row{background:var(--nl-pressed)}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):not([data-native-list-selected="true"]):hover>.ok-native-list-wallet-row{background:var(--nl-strong)}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):not([data-native-list-selected="true"]):active>.ok-native-list-wallet-row{background:var(--nl-pressed)}
+ .ok-native-list-item[data-native-list-selected="true"]:hover>.ok-native-list-wallet-row{background:var(--nl-selected)}
+@@ -424,9 +448,29 @@ export const WEB_LIST_CSS = `
  .ok-native-list-media{display:block;padding:0 5px;background:transparent;border-radius:16px}.ok-native-list-media-image{display:block;width:100%;aspect-ratio:1;border-radius:10px;background:var(--nl-strong);object-fit:cover}.ok-native-list-media-image[data-state="empty"]{background:transparent}.ok-native-list-media-image[data-state="error"]{display:flex;align-items:center;justify-content:center;color:var(--nl-icon-subdued);font-size:24px}.ok-native-list-media-meta{padding-top:7px}.ok-native-list-media-subtitle-row{display:flex;align-items:center;gap:6px}.ok-native-list-media-subtitle{flex:1;min-width:0;font-size:12px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-media-network{width:14px;height:14px;border-radius:50%}.ok-native-list-media-title{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-media-close{position:absolute;right:9px;top:4px;border:0;background:color-mix(in srgb,var(--nl-inverse) 72%,transparent);color:var(--nl-inverse-text);width:24px;height:24px;border-radius:50%;font:18px/20px inherit;cursor:pointer}
  .ok-native-list-metric{display:flex;flex-direction:column;align-items:flex-start;padding:12px;border-radius:12px;gap:5px;background:var(--nl-row)}.ok-native-list-metric-value{font-size:22px;line-height:28px;font-weight:700}.ok-native-list-composite{display:flex;flex-direction:column;align-items:stretch;padding:14px;border-radius:12px;gap:12px;background:var(--nl-subdued)}.ok-native-list-composite-heading{font-size:14px;letter-spacing:1px;color:var(--nl-secondary)}.ok-native-list-composite-row{display:flex;gap:12px}.ok-native-list-composite-cell{flex:1;min-width:0}.ok-native-list-composite-cell[data-shaded="true"]{padding:10px;border-radius:10px;background:color-mix(in srgb,var(--nl-primary) 5%,transparent)}.ok-native-list-composite-value{font-size:18px;font-weight:600}.ok-native-list-divider{height:1px;background:var(--nl-separator)}.ok-native-list-progress{height:4px;border-radius:2px;overflow:hidden;background:var(--nl-negative)}.ok-native-list-progress>span{display:block;height:100%;border-radius:2px;background:var(--nl-positive)}
  .ok-native-list-data{padding:6px 12px}.ok-native-list-index{flex:0 0 28px;color:var(--nl-secondary);font-size:13px}.ok-native-list-favorite{flex:0 0 24px;color:var(--nl-icon-subdued);font-size:22px}.ok-native-list-favorite[data-active="true"]{color:var(--nl-accent)}.ok-native-list-data-cell{display:flex;flex-direction:column;min-width:0}.ok-native-list-data-cell[data-align="center"]{align-items:center}.ok-native-list-data-cell[data-align="end"]{align-items:flex-end}.ok-native-list-data-primary{display:flex;align-items:center;gap:5px;max-width:100%;font-size:16px;font-weight:500;white-space:nowrap}.ok-native-list-unread{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--nl-accent)}.ok-native-list-thumbnail{width:64px;height:64px;border-radius:10px;object-fit:cover}
@@ -4974,7 +5109,7 @@ index 625a913..d742ddd 100644
  `;
  function createElement(document, tag, className, text) {
    const element = document.createElement(tag);
-@@ -442,12 +485,105 @@ function safeImageUri(uri) {
+@@ -442,12 +486,105 @@ function safeImageUri(uri) {
    if (/^(https?:|data:image\/|blob:|file:)/i.test(trimmed) || trimmed.startsWith('/')) return trimmed;
    return undefined;
  }
@@ -5082,7 +5217,7 @@ index 625a913..d742ddd 100644
    image.alt = '';
    image.draggable = false;
    image.loading = 'lazy';
-@@ -455,6 +591,247 @@ function createImage(context, source, className) {
+@@ -455,6 +592,247 @@ function createImage(context, source, className) {
    image.style.objectFit = source.contentFit === 'fill' ? 'fill' : source.contentFit ?? 'cover';
    return image;
  }
@@ -5330,7 +5465,7 @@ index 625a913..d742ddd 100644
  function iconGlyph(name) {
    const normalized = name.toLocaleLowerCase();
    if (normalized.includes('chevron')) {
-@@ -484,7 +861,7 @@ function visualFromRow(row) {
+@@ -484,7 +862,7 @@ function visualFromRow(row) {
    if (row.type === 'metricCard') return row.visual;
    return undefined;
  }
@@ -5339,7 +5474,7 @@ index 625a913..d742ddd 100644
    if (!visual) return undefined;
    if (visual.kind === 'stackedImages') {
      const stack = createElement(context.document, 'span', 'ok-native-list-stacked');
-@@ -500,6 +877,7 @@ function createVisual(context, visual) {
+@@ -500,6 +878,7 @@ function createVisual(context, visual) {
    if (visual.kind === 'icon') {
      frame.style.background = visual.backgroundColor ?? 'var(--nl-strong)';
      const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', iconGlyph(visual.name));
@@ -5347,7 +5482,7 @@ index 625a913..d742ddd 100644
      if (visual.tintColor) fallback.style.color = visual.tintColor;
      frame.appendChild(fallback);
      return frame;
-@@ -510,6 +888,7 @@ function createVisual(context, visual) {
+@@ -510,6 +889,7 @@ function createVisual(context, visual) {
    if (image) {
      image.className = 'ok-native-list-visual-main';
      frame.appendChild(image);
@@ -5355,7 +5490,7 @@ index 625a913..d742ddd 100644
    } else {
      frame.appendChild(createElement(context.document, 'span', 'ok-native-list-visual-fallback', 'fallbackText' in visual ? visual.fallbackText ?? '' : ''));
    }
-@@ -520,8 +899,64 @@ function createVisual(context, visual) {
+@@ -520,8 +900,64 @@ function createVisual(context, visual) {
      const corner = createElement(context.document, 'span', 'ok-native-list-visual-corner ok-native-list-visual-fallback', iconGlyph(visual.cornerIcon.name));
      if (visual.cornerIcon.tintColor) corner.style.color = visual.cornerIcon.tintColor;
      if (visual.cornerIcon.backgroundColor) corner.style.background = visual.cornerIcon.backgroundColor;
@@ -5420,7 +5555,7 @@ index 625a913..d742ddd 100644
    return frame;
  }
  function toneColor(tone, fallback) {
-@@ -567,6 +1002,19 @@ function createCheckbox(context, rowKey, accessory) {
+@@ -567,6 +1003,19 @@ function createCheckbox(context, rowKey, accessory) {
    setData(element, 'checkboxFallback', accessory.state);
    setData(element, 'nativeListAction', accessory.actionKey ?? 'selection');
    setData(element, 'selectionScope', accessory.target?.scope ?? 'row');
@@ -5440,7 +5575,7 @@ index 625a913..d742ddd 100644
    if (accessory.target?.scope === 'section') setData(element, 'selectionKey', accessory.target.sectionKey);else if (accessory.target?.scope === 'row') setData(element, 'selectionKey', rowKey);
    return element;
  }
-@@ -576,6 +1024,7 @@ function createIconAction(context, name, actionKey, disabled, tintColor) {
+@@ -576,6 +1025,7 @@ function createIconAction(context, name, actionKey, disabled, tintColor) {
      element.setAttribute('type', 'button');
      element.toggleAttribute('disabled', Boolean(disabled));
    }
@@ -5448,7 +5583,7 @@ index 625a913..d742ddd 100644
    if (actionKey) setData(element, 'nativeListAction', actionKey);
    if (tintColor) element.style.color = tintColor;
    return element;
-@@ -584,6 +1033,23 @@ function markActionAnchorSource(element, source, slot) {
+@@ -584,6 +1034,23 @@ function markActionAnchorSource(element, source, slot) {
    setData(element, 'nativeListAnchorSource', source);
    if (slot !== undefined) setData(element, 'nativeListAnchorSlot', slot);
  }
@@ -5472,7 +5607,7 @@ index 625a913..d742ddd 100644
  function createAccessory(context, rowKey, accessory, slot) {
    if (accessory.kind === 'checkbox') {
      const element = createCheckbox(context, rowKey, accessory);
-@@ -593,6 +1059,18 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -593,6 +1060,18 @@ function createAccessory(context, rowKey, accessory, slot) {
    if (accessory.kind === 'icon') {
      const element = createIconAction(context, accessory.name, accessory.actionKey, accessory.disabled, accessory.tintColor);
      markActionAnchorSource(element, 'trailingAccessory', slot);
@@ -5491,7 +5626,7 @@ index 625a913..d742ddd 100644
      return element;
    }
    if (accessory.kind === 'spinner') {
-@@ -608,6 +1086,7 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -608,6 +1087,7 @@ function createAccessory(context, rowKey, accessory, slot) {
    switch (accessory.kind) {
      case 'value':
        element.textContent = accessory.text;
@@ -5499,7 +5634,7 @@ index 625a913..d742ddd 100644
        if (accessory.secondary) element.classList.add('ok-native-list-accessory-secondary');
        break;
      case 'valuePair':
-@@ -646,6 +1125,13 @@ function createAccessory(context, rowKey, accessory, slot) {
+@@ -646,6 +1126,13 @@ function createAccessory(context, rowKey, accessory, slot) {
  function appendAccessories(parent, context, rowKey, accessories) {
    if (!accessories?.length) return;
    const container = createElement(context.document, 'span', 'ok-native-list-accessories');
@@ -5513,7 +5648,7 @@ index 625a913..d742ddd 100644
    accessories.forEach((accessory, slot) => container.appendChild(createAccessory(context, rowKey, accessory, slot)));
    parent.appendChild(container);
  }
-@@ -673,9 +1159,83 @@ function createSectionHeader(context, row) {
+@@ -673,9 +1160,83 @@ function createSectionHeader(context, row) {
      markActionAnchorSource(titleIcon, 'leadingAction');
      body.appendChild(titleIcon);
    }
@@ -5598,7 +5733,7 @@ index 625a913..d742ddd 100644
      if (row.valueActionKey) {
        value.setAttribute('type', 'button');
        setData(value, 'nativeListAction', row.valueActionKey);
-@@ -696,6 +1256,7 @@ function createActionRow(context, row) {
+@@ -696,6 +1257,7 @@ function createActionRow(context, row) {
    if (row.icon) body.appendChild(createVisual(context, row.icon));
    const title = createElement(context.document, 'span', 'ok-native-list-action-title', row.title);
    setData(title, 'tone', row.tone);
@@ -5606,7 +5741,7 @@ index 625a913..d742ddd 100644
    body.appendChild(title);
    if (row.checkbox) body.appendChild(createCheckbox(context, row.key, row.checkbox));
    appendAccessories(body, context, row.key, row.trailing);
-@@ -704,6 +1265,13 @@ function createActionRow(context, row) {
+@@ -704,6 +1266,13 @@ function createActionRow(context, row) {
  function createSystemRow(context, row) {
    const body = createElement(context.document, 'div', 'ok-native-list-row ok-native-list-system');
    setData(body, 'variant', row.variant);
@@ -5620,7 +5755,7 @@ index 625a913..d742ddd 100644
    if (row.variant === 'loading') body.appendChild(createElement(context.document, 'span', 'ok-native-list-spinner'));
    const message = row.variant === 'spacer' ? '' : row.message ?? (row.variant === 'end' ? 'End' : '');
    if (message) body.appendChild(createElement(context.document, 'span', 'ok-native-list-secondary', message));
-@@ -852,12 +1420,31 @@ function createDataRow(context, row) {
+@@ -852,12 +1421,31 @@ function createDataRow(context, row) {
  function createIdentityActivityOrMessageRow(context, row) {
    const presentation = row.type === 'identity' ? row.presentation : undefined;
    const body = createElement(context.document, 'div', ['ok-native-list-row', 'ok-native-list-standard', row.type === 'identity' && !presentation ? 'ok-native-list-identity-row' : '', presentation === 'networkSelector' ? 'ok-native-list-network-row' : '', presentation === 'walletSidebar' ? 'ok-native-list-wallet-row' : '', presentation === 'accountSelector' ? 'ok-native-list-account-row' : ''].filter(Boolean).join(' '));
@@ -5653,7 +5788,7 @@ index 625a913..d742ddd 100644
    if (visual) body.appendChild(visual);
    if (row.type === 'activity' && row.secondaryLeading) {
      const secondVisual = createVisual(context, row.secondaryLeading);
-@@ -866,7 +1453,46 @@ function createIdentityActivityOrMessageRow(context, row) {
+@@ -866,7 +1454,46 @@ function createIdentityActivityOrMessageRow(context, row) {
    if (row.type === 'message' && row.unread) body.appendChild(createElement(context.document, 'span', 'ok-native-list-unread'));
    const title = row.title;
    const subtitle = row.type === 'identity' ? row.subtitle : row.type === 'activity' ? row.description : row.body;
@@ -5701,7 +5836,7 @@ index 625a913..d742ddd 100644
    if (row.type === 'activity' && row.status) column.appendChild(createElement(context.document, 'span', 'ok-native-list-secondary', row.status));
    if (row.type === 'activity' && row.footerActions?.length) {
      const actions = createElement(context.document, 'span', 'ok-native-list-actions');
-@@ -898,14 +1524,32 @@ function createIdentityActivityOrMessageRow(context, row) {
+@@ -898,14 +1525,32 @@ function createIdentityActivityOrMessageRow(context, row) {
    }
    return body;
  }
@@ -5735,7 +5870,7 @@ index 625a913..d742ddd 100644
      body.appendChild(memberElement);
    });
    return body;
-@@ -945,6 +1589,11 @@ export class NativeListWebEngine {
+@@ -945,6 +1590,11 @@ export class NativeListWebEngine {
    };
    mounted = new Map();
    pool = [];
@@ -5747,7 +5882,7 @@ index 625a913..d742ddd 100644
    suppressClickUntil = 0;
    pullDistance = 0;
    actionAnchorInstanceId = String(++webNativeListInstanceCounter);
-@@ -953,6 +1602,8 @@ export class NativeListWebEngine {
+@@ -953,6 +1603,8 @@ export class NativeListWebEngine {
    lastViewportWidth = -1;
    lastViewportHeight = -1;
    destroyed = false;
@@ -5756,7 +5891,7 @@ index 625a913..d742ddd 100644
    constructor(host, snapshot, callbacks, virtualizationEnabled = true) {
      this.document = host.ownerDocument;
      this.snapshot = validateSnapshot(snapshot);
-@@ -991,6 +1642,9 @@ export class NativeListWebEngine {
+@@ -991,6 +1643,9 @@ export class NativeListWebEngine {
        passive: true
      });
      this.root.addEventListener('click', this.handleClick);
@@ -5766,7 +5901,7 @@ index 625a913..d742ddd 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener('pointerdown', this.handleReorderPointerDown, {
        passive: false
-@@ -1125,7 +1779,7 @@ export class NativeListWebEngine {
+@@ -1125,7 +1780,7 @@ export class NativeListWebEngine {
    scrollToLocation(params, scroll) {
      const index = resolveLocationIndex(this.snapshot.rows, params);
      if (index === undefined) {
@@ -5775,7 +5910,7 @@ index 625a913..d742ddd 100644
        this.emitScrollFailure(params.itemIndex, params.sectionIndex >= sectionCount ? 'section-out-of-range' : 'item-out-of-range');
        return;
      }
-@@ -1172,6 +1826,8 @@ export class NativeListWebEngine {
+@@ -1172,6 +1827,8 @@ export class NativeListWebEngine {
      this.document.defaultView?.removeEventListener('resize', this.handleWindowResize);
      this.viewport.removeEventListener('scroll', this.handleScroll);
      this.root.removeEventListener('click', this.handleClick);
@@ -5784,7 +5919,7 @@ index 625a913..d742ddd 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener('pointerdown', this.handleReorderPointerDown);
-@@ -1189,19 +1845,23 @@ export class NativeListWebEngine {
+@@ -1189,19 +1846,23 @@ export class NativeListWebEngine {
      this.viewport.removeEventListener('pointerup', this.handlePullEnd);
      this.viewport.removeEventListener('pointercancel', this.handlePullEnd);
      const host = this.root.parentElement;
@@ -5809,7 +5944,7 @@ index 625a913..d742ddd 100644
      this.applyTheme();
      this.recomputeLayout();
      this.renderFooter();
-@@ -1219,6 +1879,11 @@ export class NativeListWebEngine {
+@@ -1219,6 +1880,11 @@ export class NativeListWebEngine {
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
@@ -5821,7 +5956,7 @@ index 625a913..d742ddd 100644
        '--nl-icon': theme.icon,
        '--nl-icon-subdued': theme.iconSubdued,
        '--nl-separator': theme.separator,
-@@ -1242,13 +1907,22 @@ export class NativeListWebEngine {
+@@ -1242,13 +1908,22 @@ export class NativeListWebEngine {
      const viewportHeight = this.viewport.clientHeight;
      if (this.lastViewportWidth >= 0 && (viewportWidth !== this.lastViewportWidth || viewportHeight !== this.lastViewportHeight)) {
        this.invalidateActionAnchor('layout');
@@ -5845,7 +5980,7 @@ index 625a913..d742ddd 100644
      if (previousHorizontal !== this.layout.horizontal) {
        this.viewport.scrollLeft = 0;
        this.viewport.scrollTop = 0;
-@@ -1256,7 +1930,44 @@ export class NativeListWebEngine {
+@@ -1256,7 +1931,44 @@ export class NativeListWebEngine {
      this.renderWindow();
      this.performPendingScroll();
    };
@@ -5890,7 +6025,7 @@ index 625a913..d742ddd 100644
      const viewportLength = this.viewportLength();
      const visible = webLayoutItemsForMount(this.layout, this.currentOffset(), viewportLength, this.virtualizationEnabled, viewportLength * OVERSCAN_VIEWPORTS);
      const desired = new Set(visible.map(item => item.index));
-@@ -1264,6 +1975,7 @@ export class NativeListWebEngine {
+@@ -1264,6 +1976,7 @@ export class NativeListWebEngine {
        if (!desired.has(index)) {
          this.invalidateActionAnchorForElement(element);
          this.mounted.delete(index);
@@ -5898,7 +6033,7 @@ index 625a913..d742ddd 100644
          element.remove();
          this.pool.push(element);
        }
-@@ -1285,6 +1997,20 @@ export class NativeListWebEngine {
+@@ -1285,6 +1998,20 @@ export class NativeListWebEngine {
          element.dataset.renderSignature = signature;
        }
      });
@@ -5919,7 +6054,7 @@ index 625a913..d742ddd 100644
      this.updateVisibleSelection();
      this.updateVisibleState();
    }
-@@ -1295,12 +2021,16 @@ export class NativeListWebEngine {
+@@ -1295,12 +2022,16 @@ export class NativeListWebEngine {
    }
    renderElement(element, index, row, overlay = false) {
      this.invalidateActionAnchorForElement(element);
@@ -5936,7 +6071,7 @@ index 625a913..d742ddd 100644
      setData(element, 'nativeListReorderable', this.isReorderable(row));
      setData(element, 'nativeListDragging', this.pointerReorder?.active && this.pointerReorder.sourceKey === row.key);
      setData(element, 'separator', row.separator);
-@@ -1320,11 +2050,67 @@ export class NativeListWebEngine {
+@@ -1320,11 +2051,67 @@ export class NativeListWebEngine {
        selectedKeys: this.selectedKeys,
        itemIndex: index
      };
@@ -6005,7 +6140,7 @@ index 625a913..d742ddd 100644
      this.footer.replaceChildren();
      if (!row) return;
      const element = createElement(this.document, 'div', 'ok-native-list-item');
-@@ -1335,20 +2121,52 @@ export class NativeListWebEngine {
+@@ -1335,20 +2122,52 @@ export class NativeListWebEngine {
      element.style.height = String(estimateWebRowHeight(row, this.snapshot, this.viewport.clientWidth || DEFAULT_VIEWPORT_WIDTH)) + 'px';
      this.footer.appendChild(element);
    }
@@ -6065,7 +6200,7 @@ index 625a913..d742ddd 100644
        fragment.appendChild(button);
      });
      this.indexRail.appendChild(fragment);
-@@ -1357,7 +2175,9 @@ export class NativeListWebEngine {
+@@ -1357,7 +2176,9 @@ export class NativeListWebEngine {
    updateVisibleSelection() {
      const update = (element, row) => {
        if (!row) return;
@@ -6076,7 +6211,7 @@ index 625a913..d742ddd 100644
        setData(element, 'nativeListSelected', selected);
        element.setAttribute('aria-selected', String(selected));
        element.querySelectorAll('.ok-native-list-checkbox').forEach(checkbox => {
-@@ -1396,7 +2216,9 @@ export class NativeListWebEngine {
+@@ -1396,7 +2217,9 @@ export class NativeListWebEngine {
      }
      this.checkEndReached(last?.index ?? -1);
      this.updateStickyHeader(first?.index ?? -1);
@@ -6087,7 +6222,7 @@ index 625a913..d742ddd 100644
    }
    updateStickyHeader(firstVisibleIndex) {
      if (!this.snapshot.layout.stickyHeaders || this.layout.horizontal || firstVisibleIndex < 0) {
-@@ -1407,7 +2229,7 @@ export class NativeListWebEngine {
+@@ -1407,7 +2230,7 @@ export class NativeListWebEngine {
      let index = -1;
      for (let cursor = firstVisibleIndex; cursor >= 0; cursor -= 1) {
        const row = this.rows[cursor];
@@ -6096,7 +6231,7 @@ index 625a913..d742ddd 100644
          index = cursor;
          break;
        }
-@@ -1433,7 +2255,7 @@ export class NativeListWebEngine {
+@@ -1433,7 +2256,7 @@ export class NativeListWebEngine {
      let nextIndex = -1;
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
@@ -6105,7 +6240,7 @@ index 625a913..d742ddd 100644
          nextIndex = cursor;
          break;
        }
-@@ -1443,10 +2265,15 @@ export class NativeListWebEngine {
+@@ -1443,10 +2266,15 @@ export class NativeListWebEngine {
      this.sticky.style.transform = 'translate3d(0,' + String(translate) + 'px,0)';
      this.updateVisibleSelection();
    }
@@ -6123,7 +6258,7 @@ index 625a913..d742ddd 100644
      });
      this.indexRail.querySelectorAll('[data-section-key]').forEach(button => setData(button, 'active', button.dataset.sectionKey === activeKey));
    }
-@@ -1539,7 +2366,14 @@ export class NativeListWebEngine {
+@@ -1539,7 +2367,14 @@ export class NativeListWebEngine {
      const bindingEpoch = rowElement.dataset.nativeListBindingEpoch;
      if (!source || !bindingEpoch || !rowElement.contains(actionElement)) return undefined;
      this.invalidateActionAnchor('rebind');
@@ -6139,7 +6274,7 @@ index 625a913..d742ddd 100644
      const token = [this.actionAnchorInstanceId, this.snapshot.generation, ++this.actionAnchorCounter, bindingEpoch].join(':');
      const slotValue = actionElement.dataset.nativeListAnchorSlot;
      const direction = this.document.defaultView?.getComputedStyle(actionElement).direction === 'rtl' || actionElement.closest('[dir="rtl"]') ? 'rtl' : 'ltr';
-@@ -1577,7 +2411,9 @@ export class NativeListWebEngine {
+@@ -1577,7 +2412,9 @@ export class NativeListWebEngine {
      });
    }
    handleRowPress(row, rowElement, sourceElement = rowElement) {
@@ -6150,7 +6285,7 @@ index 625a913..d742ddd 100644
      if (this.snapshot.selection?.rowPressToggles && this.snapshot.selection.mode !== 'none' && isSelectableRow(row)) {
        this.activateSelection({
          scope: 'row'
-@@ -1597,6 +2433,27 @@ export class NativeListWebEngine {
+@@ -1597,6 +2434,27 @@ export class NativeListWebEngine {
        this.emitRowAction(row, actionKey);
      }
    }
@@ -6178,7 +6313,7 @@ index 625a913..d742ddd 100644
    handleClick = event => {
      if (Date.now() < this.suppressClickUntil) {
        event.preventDefault();
-@@ -1627,6 +2484,12 @@ export class NativeListWebEngine {
+@@ -1627,6 +2485,12 @@ export class NativeListWebEngine {
      this.handleRowPress(sourceRow, rowElement ?? undefined, memberElement ?? rowElement ?? undefined);
    };
    handleKeyDown = event => {
@@ -6191,7 +6326,7 @@ index 625a913..d742ddd 100644
      if (event.key === 'Escape') {
        if (this.pointerReorder?.active) {
          event.preventDefault();
-@@ -1729,7 +2592,10 @@ export class NativeListWebEngine {
+@@ -1729,7 +2593,10 @@ export class NativeListWebEngine {
      if (this.frameHandle !== undefined || this.destroyed) return;
      this.frameHandle = this.requestFrame(() => {
        this.frameHandle = undefined;
@@ -6203,7 +6338,7 @@ index 625a913..d742ddd 100644
      });
    }
    requestFrame(callback) {
-@@ -1740,13 +2606,20 @@ export class NativeListWebEngine {
+@@ -1740,13 +2607,20 @@ export class NativeListWebEngine {
      const view = this.document.defaultView;
      if (view?.cancelAnimationFrame) view.cancelAnimationFrame(handle);else view?.clearTimeout(handle);
    }
@@ -6225,7 +6360,7 @@ index 625a913..d742ddd 100644
      this.indexPreview.textContent = title;
      setData(this.indexPreview, 'visible', true);
      if (this.previewTimer !== undefined) this.document.defaultView?.clearTimeout(this.previewTimer);
-@@ -1754,24 +2627,40 @@ export class NativeListWebEngine {
+@@ -1754,24 +2628,40 @@ export class NativeListWebEngine {
        setData(this.indexPreview, 'visible', false);
      }, 180);
    }
@@ -6275,7 +6410,7 @@ index 625a913..d742ddd 100644
    };
    handlePullStart = event => {
      if (this.pointerReorder?.pointerId === event.pointerId || !this.snapshot.capabilities?.pullToRefresh || this.viewport.scrollTop > 0 || event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-@@ -1816,7 +2705,14 @@ export class NativeListWebEngine {
+@@ -1816,7 +2706,14 @@ export class NativeListWebEngine {
      const index = Number(rowElement?.dataset.nativeListRowIndex);
      const row = this.rows[index];
      if (!row || !this.isReorderable(row)) return;
@@ -6291,7 +6426,7 @@ index 625a913..d742ddd 100644
      const view = this.document.defaultView;
      const state = {
        pointerId: event.pointerId,
-@@ -1832,9 +2728,8 @@ export class NativeListWebEngine {
+@@ -1832,9 +2729,8 @@ export class NativeListWebEngine {
        active: false
      };
      this.pointerReorder = state;
@@ -6303,7 +6438,7 @@ index 625a913..d742ddd 100644
        state.longPressTimer = view?.setTimeout(() => this.activatePointerReorder(state), REORDER_TOUCH_LONG_PRESS_MS);
      }
    };
-@@ -1935,6 +2830,20 @@ export class NativeListWebEngine {
+@@ -1935,6 +2831,20 @@ export class NativeListWebEngine {
      state.previewOffsetX = state.startX - rect.left;
      state.previewOffsetY = Math.min(previewHeight, Math.max(0, state.startY - rect.top));
      this.reorderPreview.replaceChildren(previewRow.cloneNode(true));
@@ -6324,7 +6459,7 @@ index 625a913..d742ddd 100644
      const sourceRow = state.workingRows[state.currentIndex];
      const badgeText = sourceRow ? webWalletGroupReorderBadge(sourceRow) : undefined;
      if (badgeText) {
-@@ -1970,6 +2879,7 @@ export class NativeListWebEngine {
+@@ -1970,6 +2880,7 @@ export class NativeListWebEngine {
    }
    clearReorderPreviewVisual() {
      this.reorderPreview.hidden = true;
@@ -6332,7 +6467,7 @@ index 625a913..d742ddd 100644
      this.reorderPreview.replaceChildren();
      this.reorderPreview.style.removeProperty('transform');
      this.reorderPreview.style.removeProperty('transition');
-@@ -2235,4 +3145,3 @@ export class NativeListWebEngine {
+@@ -2235,4 +3146,3 @@ export class NativeListWebEngine {
      });
    }
  }
@@ -7004,10 +7139,10 @@ index 0000000..3510bc4
 +});
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs
 new file mode 100644
-index 0000000..c6c3400
+index 0000000..820bffd
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/__tests__/selector-parity.cjs
-@@ -0,0 +1,554 @@
+@@ -0,0 +1,560 @@
 +// OneKey patch: focused regression checks for the serialized selector adapter contract.
 +const assert = require('node:assert/strict');
 +const fs = require('node:fs');
@@ -7403,6 +7538,12 @@ index 0000000..c6c3400
 +    assert.equal(body.style.fontVariantNumeric, 'tabular-nums');
 +    for (const text of body.querySelectorAll('span,button')) assert.equal(text.style.fontVariantNumeric, 'tabular-nums');
 +  }
++  page.close();
++});
++test('touch-active rows keep the pressed background rule', () => {
++  const page = mount([identity('network', { presentation: 'networkSelector' })]);
++  const css = page.document.querySelector('style').textContent;
++  assert.match(css, /native-list-disabled="true"\]\):active>\.ok-native-list-row\{background:var\(--nl-pressed\)\}/);
 +  page.close();
 +});
 +test('wallet hover anchors the complete child row without consuming normal selection taps', () => {
@@ -8734,7 +8875,7 @@ index 0000000..d921a4c
 +  return cache.acquire(uri, resolve, reject, priority);
 +}
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 11d57d1..3a4e04b 100644
+index 11d57d1..75364d7 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 @@ -37,8 +37,14 @@ import {
@@ -8806,7 +8947,15 @@ index 11d57d1..3a4e04b 100644
  .ok-native-list-root{--nl-bg:#f7f7f7;--nl-row:#fff;--nl-selected:#eaf2ff;--nl-pressed:#e8e8e8;--nl-subdued:#f9f9f9;--nl-strong:#0000000f;--nl-primary:#111;--nl-secondary:#6b7280;--nl-disabled:#8d8d8d;--nl-icon:#111;--nl-icon-subdued:#8d8d8d;--nl-separator:#e5e7eb;--nl-accent:#2f6bff;--nl-positive:#15803d;--nl-negative:#dc2626;--nl-critical:#feecec;--nl-inverse:#202020;--nl-inverse-text:#fcfcfc;--nl-info:#0d74ce;position:absolute;inset:0;display:flex;min-width:0;min-height:0;overflow:hidden;background:var(--nl-bg);color:var(--nl-primary);font-family:Roobert,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-synthesis:none}
  .ok-native-list-viewport-frame{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
  .ok-native-list-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-@@ -752,9 +776,29 @@ export const WEB_LIST_CSS = `
+@@ -710,6 +734,7 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-row{background:var(--nl-selected)}
+ .ok-native-list-item[data-native-list-disabled="true"]>.ok-native-list-row{opacity:.5;cursor:default}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):hover>.ok-native-list-row{background:var(--nl-pressed)}
++.ok-native-list-item:not([data-native-list-disabled="true"]):active>.ok-native-list-row{background:var(--nl-pressed)}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):not([data-native-list-selected="true"]):hover>.ok-native-list-wallet-row{background:var(--nl-strong)}
+ .ok-native-list-item:not([data-native-list-disabled="true"]):not([data-native-list-selected="true"]):active>.ok-native-list-wallet-row{background:var(--nl-pressed)}
+ .ok-native-list-item[data-native-list-selected="true"]:hover>.ok-native-list-wallet-row{background:var(--nl-selected)}
+@@ -752,9 +777,29 @@ export const WEB_LIST_CSS = `
  .ok-native-list-media{display:block;padding:0 5px;background:transparent;border-radius:16px}.ok-native-list-media-image{display:block;width:100%;aspect-ratio:1;border-radius:10px;background:var(--nl-strong);object-fit:cover}.ok-native-list-media-image[data-state="empty"]{background:transparent}.ok-native-list-media-image[data-state="error"]{display:flex;align-items:center;justify-content:center;color:var(--nl-icon-subdued);font-size:24px}.ok-native-list-media-meta{padding-top:7px}.ok-native-list-media-subtitle-row{display:flex;align-items:center;gap:6px}.ok-native-list-media-subtitle{flex:1;min-width:0;font-size:12px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-media-network{width:14px;height:14px;border-radius:50%}.ok-native-list-media-title{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-media-close{position:absolute;right:9px;top:4px;border:0;background:color-mix(in srgb,var(--nl-inverse) 72%,transparent);color:var(--nl-inverse-text);width:24px;height:24px;border-radius:50%;font:18px/20px inherit;cursor:pointer}
  .ok-native-list-metric{display:flex;flex-direction:column;align-items:flex-start;padding:12px;border-radius:12px;gap:5px;background:var(--nl-row)}.ok-native-list-metric-value{font-size:22px;line-height:28px;font-weight:700}.ok-native-list-composite{display:flex;flex-direction:column;align-items:stretch;padding:14px;border-radius:12px;gap:12px;background:var(--nl-subdued)}.ok-native-list-composite-heading{font-size:14px;letter-spacing:1px;color:var(--nl-secondary)}.ok-native-list-composite-row{display:flex;gap:12px}.ok-native-list-composite-cell{flex:1;min-width:0}.ok-native-list-composite-cell[data-shaded="true"]{padding:10px;border-radius:10px;background:color-mix(in srgb,var(--nl-primary) 5%,transparent)}.ok-native-list-composite-value{font-size:18px;font-weight:600}.ok-native-list-divider{height:1px;background:var(--nl-separator)}.ok-native-list-progress{height:4px;border-radius:2px;overflow:hidden;background:var(--nl-negative)}.ok-native-list-progress>span{display:block;height:100%;border-radius:2px;background:var(--nl-positive)}
  .ok-native-list-data{padding:6px 12px}.ok-native-list-index{flex:0 0 28px;color:var(--nl-secondary);font-size:13px}.ok-native-list-favorite{flex:0 0 24px;color:var(--nl-icon-subdued);font-size:22px}.ok-native-list-favorite[data-active="true"]{color:var(--nl-accent)}.ok-native-list-data-cell{display:flex;flex-direction:column;min-width:0}.ok-native-list-data-cell[data-align="center"]{align-items:center}.ok-native-list-data-cell[data-align="end"]{align-items:flex-end}.ok-native-list-data-primary{display:flex;align-items:center;gap:5px;max-width:100%;font-size:16px;font-weight:500;white-space:nowrap}.ok-native-list-unread{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--nl-accent)}.ok-native-list-thumbnail{width:64px;height:64px;border-radius:10px;object-fit:cover}
@@ -8837,7 +8986,7 @@ index 11d57d1..3a4e04b 100644
  `;
  
  function createElement(
-@@ -788,16 +832,114 @@ function safeImageUri(uri: string): string | undefined {
+@@ -788,16 +833,114 @@ function safeImageUri(uri: string): string | undefined {
    return undefined;
  }
  
@@ -8954,7 +9103,7 @@ index 11d57d1..3a4e04b 100644
    image.alt = '';
    image.draggable = false;
    image.loading = 'lazy';
-@@ -807,6 +949,43 @@ function createImage(
+@@ -807,6 +950,43 @@ function createImage(
    return image;
  }
  
@@ -8998,7 +9147,7 @@ index 11d57d1..3a4e04b 100644
  function iconGlyph(name: string): string {
    const normalized = name.toLocaleLowerCase();
    if (normalized.includes('chevron')) {
-@@ -841,7 +1020,8 @@ function visualFromRow(row: RowModel): LeadingVisual | undefined {
+@@ -841,7 +1021,8 @@ function visualFromRow(row: RowModel): LeadingVisual | undefined {
  
  function createVisual(
    context: RenderContext,
@@ -9008,7 +9157,7 @@ index 11d57d1..3a4e04b 100644
  ): HTMLElement | undefined {
    if (!visual) return undefined;
    if (visual.kind === 'stackedImages') {
-@@ -873,6 +1053,7 @@ function createVisual(
+@@ -873,6 +1054,7 @@ function createVisual(
        'ok-native-list-visual-fallback',
        iconGlyph(visual.name)
      );
@@ -9016,7 +9165,7 @@ index 11d57d1..3a4e04b 100644
      if (visual.tintColor) fallback.style.color = visual.tintColor;
      frame.appendChild(fallback);
      return frame;
-@@ -885,6 +1066,7 @@ function createVisual(
+@@ -885,6 +1067,7 @@ function createVisual(
    if (image) {
      image.className = 'ok-native-list-visual-main';
      frame.appendChild(image);
@@ -9024,7 +9173,7 @@ index 11d57d1..3a4e04b 100644
    } else {
      frame.appendChild(
        createElement(
-@@ -913,8 +1095,51 @@ function createVisual(
+@@ -913,8 +1096,51 @@ function createVisual(
        corner.style.color = visual.cornerIcon.tintColor;
      if (visual.cornerIcon.backgroundColor)
        corner.style.background = visual.cornerIcon.backgroundColor;
@@ -9076,7 +9225,7 @@ index 11d57d1..3a4e04b 100644
    return frame;
  }
  
-@@ -1022,6 +1247,16 @@ function createCheckbox(
+@@ -1022,6 +1248,16 @@ function createCheckbox(
    setData(element, 'checkboxFallback', accessory.state);
    setData(element, 'nativeListAction', accessory.actionKey ?? 'selection');
    setData(element, 'selectionScope', accessory.target?.scope ?? 'row');
@@ -9093,7 +9242,7 @@ index 11d57d1..3a4e04b 100644
    if (accessory.target?.scope === 'section')
      setData(element, 'selectionKey', accessory.target.sectionKey);
    else if (accessory.target?.scope === 'row')
-@@ -1046,6 +1281,7 @@ function createIconAction(
+@@ -1046,6 +1282,7 @@ function createIconAction(
      element.setAttribute('type', 'button');
      element.toggleAttribute('disabled', Boolean(disabled));
    }
@@ -9101,7 +9250,7 @@ index 11d57d1..3a4e04b 100644
    if (actionKey) setData(element, 'nativeListAction', actionKey);
    if (tintColor) element.style.color = tintColor;
    return element;
-@@ -1060,6 +1296,20 @@ function markActionAnchorSource(
+@@ -1060,6 +1297,20 @@ function markActionAnchorSource(
    if (slot !== undefined) setData(element, 'nativeListAnchorSlot', slot);
  }
  
@@ -9122,7 +9271,7 @@ index 11d57d1..3a4e04b 100644
  function createAccessory(
    context: RenderContext,
    rowKey: string,
-@@ -1080,6 +1330,18 @@ function createAccessory(
+@@ -1080,6 +1331,18 @@ function createAccessory(
        accessory.tintColor
      );
      markActionAnchorSource(element, 'trailingAccessory', slot);
@@ -9141,7 +9290,7 @@ index 11d57d1..3a4e04b 100644
      return element;
    }
    if (accessory.kind === 'spinner') {
-@@ -1099,6 +1361,7 @@ function createAccessory(
+@@ -1099,6 +1362,7 @@ function createAccessory(
    switch (accessory.kind) {
      case 'value':
        element.textContent = accessory.text;
@@ -9149,7 +9298,7 @@ index 11d57d1..3a4e04b 100644
        if (accessory.secondary)
          element.classList.add('ok-native-list-accessory-secondary');
        break;
-@@ -1157,6 +1420,13 @@ function appendAccessories(
+@@ -1157,6 +1421,13 @@ function appendAccessories(
      'span',
      'ok-native-list-accessories'
    );
@@ -9163,7 +9312,7 @@ index 11d57d1..3a4e04b 100644
    accessories.forEach((accessory, slot) =>
      container.appendChild(createAccessory(context, rowKey, accessory, slot))
    );
-@@ -1234,7 +1504,59 @@ function createSectionHeader(
+@@ -1234,7 +1505,59 @@ function createSectionHeader(
      markActionAnchorSource(titleIcon, 'leadingAction');
      body.appendChild(titleIcon);
    }
@@ -9224,7 +9373,7 @@ index 11d57d1..3a4e04b 100644
    if (row.value) {
      const value = createElement(
        context.document,
-@@ -1244,6 +1566,15 @@ function createSectionHeader(
+@@ -1244,6 +1567,15 @@ function createSectionHeader(
          : 'ok-native-list-value ok-native-list-section-value',
        row.value
      );
@@ -9240,7 +9389,7 @@ index 11d57d1..3a4e04b 100644
      if (row.valueActionKey) {
        value.setAttribute('type', 'button');
        setData(value, 'nativeListAction', row.valueActionKey);
-@@ -1292,6 +1623,7 @@ function createActionRow(
+@@ -1292,6 +1624,7 @@ function createActionRow(
      row.title
    );
    setData(title, 'tone', row.tone);
@@ -9248,7 +9397,7 @@ index 11d57d1..3a4e04b 100644
    body.appendChild(title);
    if (row.checkbox)
      body.appendChild(createCheckbox(context, row.key, row.checkbox));
-@@ -1309,6 +1641,13 @@ function createSystemRow(
+@@ -1309,6 +1642,13 @@ function createSystemRow(
      'ok-native-list-row ok-native-list-system'
    );
    setData(body, 'variant', row.variant);
@@ -9262,7 +9411,7 @@ index 11d57d1..3a4e04b 100644
    if (row.variant === 'loading')
      body.appendChild(
        createElement(context.document, 'span', 'ok-native-list-spinner')
-@@ -1703,6 +2042,11 @@ function createIdentityActivityOrMessageRow(
+@@ -1703,6 +2043,11 @@ function createIdentityActivityOrMessageRow(
        .filter(Boolean)
        .join(' ')
    );
@@ -9274,7 +9423,7 @@ index 11d57d1..3a4e04b 100644
    if (row.type === 'identity' && row.leadingAction) {
      const action = createIconAction(
        context,
-@@ -1714,7 +2058,15 @@ function createIdentityActivityOrMessageRow(
+@@ -1714,7 +2059,15 @@ function createIdentityActivityOrMessageRow(
      markActionAnchorSource(action, 'leadingAction');
      body.appendChild(action);
    }
@@ -9291,7 +9440,7 @@ index 11d57d1..3a4e04b 100644
    if (visual) body.appendChild(visual);
    if (row.type === 'activity' && row.secondaryLeading) {
      const secondVisual = createVisual(context, row.secondaryLeading);
-@@ -1737,8 +2089,44 @@ function createIdentityActivityOrMessageRow(
+@@ -1737,8 +2090,44 @@ function createIdentityActivityOrMessageRow(
      subtitle,
      row.type === 'identity' ? row.tertiary : undefined,
      row.type === 'identity' ? row.tertiaryTone : undefined,
@@ -9337,7 +9486,7 @@ index 11d57d1..3a4e04b 100644
    if (row.type === 'activity' && row.status)
      column.appendChild(
        createElement(
-@@ -1814,6 +2202,13 @@ function createIdentityActivityOrMessageRow(
+@@ -1814,6 +2203,13 @@ function createIdentityActivityOrMessageRow(
    return body;
  }
  
@@ -9351,7 +9500,7 @@ index 11d57d1..3a4e04b 100644
  function createWalletGroupRow(
    context: RenderContext,
    row: Extract<RowModel, { type: 'walletGroup' }>
-@@ -1830,11 +2225,18 @@ function createWalletGroupRow(
+@@ -1830,11 +2226,18 @@ function createWalletGroupRow(
        'ok-native-list-wallet-member'
      );
      setData(memberElement, 'nativeListGroupMemberKey', member.key);
@@ -9373,7 +9522,7 @@ index 11d57d1..3a4e04b 100644
      body.appendChild(memberElement);
    });
    return body;
-@@ -1894,9 +2296,18 @@ export class NativeListWebEngine {
+@@ -1894,9 +2297,18 @@ export class NativeListWebEngine {
    private resizeObserver: ResizeObserver | undefined;
    private pendingScroll: PendingScroll | undefined;
    private lastVisibleSignature: string | undefined;
@@ -9392,7 +9541,7 @@ index 11d57d1..3a4e04b 100644
    private pointerReorder: PointerReorderState | undefined;
    private keyboardReorder: KeyboardReorderState | undefined;
    private reorderMoveFrame: number | undefined;
-@@ -1919,6 +2330,8 @@ export class NativeListWebEngine {
+@@ -1919,6 +2331,8 @@ export class NativeListWebEngine {
    private lastViewportWidth = -1;
    private lastViewportHeight = -1;
    private destroyed = false;
@@ -9401,7 +9550,7 @@ index 11d57d1..3a4e04b 100644
  
    constructor(
      host: HTMLElement,
-@@ -2004,6 +2417,9 @@ export class NativeListWebEngine {
+@@ -2004,6 +2418,9 @@ export class NativeListWebEngine {
        passive: true,
      });
      this.root.addEventListener('click', this.handleClick);
@@ -9411,7 +9560,7 @@ index 11d57d1..3a4e04b 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener(
        'pointerdown',
-@@ -2160,7 +2576,7 @@ export class NativeListWebEngine {
+@@ -2160,7 +2577,7 @@ export class NativeListWebEngine {
      const index = resolveLocationIndex(this.snapshot.rows, params);
      if (index === undefined) {
        const sectionCount = this.snapshot.rows.filter(
@@ -9420,7 +9569,7 @@ index 11d57d1..3a4e04b 100644
        ).length;
        this.emitScrollFailure(
          params.itemIndex,
-@@ -2219,6 +2635,8 @@ export class NativeListWebEngine {
+@@ -2219,6 +2636,8 @@ export class NativeListWebEngine {
      );
      this.viewport.removeEventListener('scroll', this.handleScroll);
      this.root.removeEventListener('click', this.handleClick);
@@ -9429,7 +9578,7 @@ index 11d57d1..3a4e04b 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener(
-@@ -2251,25 +2669,29 @@ export class NativeListWebEngine {
+@@ -2251,25 +2670,29 @@ export class NativeListWebEngine {
      this.viewport.removeEventListener('pointerup', this.handlePullEnd);
      this.viewport.removeEventListener('pointercancel', this.handlePullEnd);
      const host = this.root.parentElement;
@@ -9460,7 +9609,7 @@ index 11d57d1..3a4e04b 100644
      this.applyTheme();
      this.recomputeLayout();
      this.renderFooter();
-@@ -2288,6 +2710,11 @@ export class NativeListWebEngine {
+@@ -2288,6 +2711,11 @@ export class NativeListWebEngine {
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
@@ -9472,7 +9621,7 @@ index 11d57d1..3a4e04b 100644
        '--nl-icon': theme.icon,
        '--nl-icon-subdued': theme.iconSubdued,
        '--nl-separator': theme.separator,
-@@ -2316,18 +2743,24 @@ export class NativeListWebEngine {
+@@ -2316,18 +2744,24 @@ export class NativeListWebEngine {
          viewportHeight !== this.lastViewportHeight)
      ) {
        this.invalidateActionAnchor('layout');
@@ -9498,7 +9647,7 @@ index 11d57d1..3a4e04b 100644
      if (previousHorizontal !== this.layout.horizontal) {
        this.viewport.scrollLeft = 0;
        this.viewport.scrollTop = 0;
-@@ -2336,7 +2769,38 @@ export class NativeListWebEngine {
+@@ -2336,7 +2770,38 @@ export class NativeListWebEngine {
      this.performPendingScroll();
    };
  
@@ -9537,7 +9686,7 @@ index 11d57d1..3a4e04b 100644
      const viewportLength = this.viewportLength();
      const visible = webLayoutItemsForMount(
        this.layout,
-@@ -2350,6 +2814,7 @@ export class NativeListWebEngine {
+@@ -2350,6 +2815,7 @@ export class NativeListWebEngine {
        if (!desired.has(index)) {
          this.invalidateActionAnchorForElement(element);
          this.mounted.delete(index);
@@ -9545,7 +9694,7 @@ index 11d57d1..3a4e04b 100644
          element.remove();
          this.pool.push(element);
        }
-@@ -2377,6 +2842,17 @@ export class NativeListWebEngine {
+@@ -2377,6 +2843,17 @@ export class NativeListWebEngine {
          element.dataset.renderSignature = signature;
        }
      });
@@ -9563,7 +9712,7 @@ index 11d57d1..3a4e04b 100644
      this.updateVisibleSelection();
      this.updateVisibleState();
    }
-@@ -2395,6 +2871,7 @@ export class NativeListWebEngine {
+@@ -2395,6 +2872,7 @@ export class NativeListWebEngine {
      overlay = false
    ) {
      this.invalidateActionAnchorForElement(element);
@@ -9571,7 +9720,7 @@ index 11d57d1..3a4e04b 100644
      const bindingEpoch = String(++this.bindingEpochCounter);
      element.className = overlay
        ? 'ok-native-list-item ok-native-list-sticky'
-@@ -2403,6 +2880,9 @@ export class NativeListWebEngine {
+@@ -2403,6 +2881,9 @@ export class NativeListWebEngine {
      setData(element, 'nativeListBindingEpoch', bindingEpoch);
      setData(element, 'nativeListRowIndex', index);
      setData(element, 'nativeListDisabled', Boolean(row.disabled));
@@ -9581,7 +9730,7 @@ index 11d57d1..3a4e04b 100644
      setData(element, 'nativeListReorderable', this.isReorderable(row));
      setData(
        element,
-@@ -2435,12 +2915,48 @@ export class NativeListWebEngine {
+@@ -2435,12 +2916,48 @@ export class NativeListWebEngine {
        selectedKeys: this.selectedKeys,
        itemIndex: index,
      };
@@ -9631,7 +9780,7 @@ index 11d57d1..3a4e04b 100644
      this.footer.replaceChildren();
      if (!row) return;
      const element = createElement(this.document, 'div', 'ok-native-list-item');
-@@ -2459,25 +2975,78 @@ export class NativeListWebEngine {
+@@ -2459,25 +2976,78 @@ export class NativeListWebEngine {
      this.footer.appendChild(element);
    }
  
@@ -9717,7 +9866,7 @@ index 11d57d1..3a4e04b 100644
        fragment.appendChild(button);
      });
      this.indexRail.appendChild(fragment);
-@@ -2487,7 +3056,9 @@ export class NativeListWebEngine {
+@@ -2487,7 +3057,9 @@ export class NativeListWebEngine {
    private updateVisibleSelection() {
      const update = (element: HTMLElement, row: RowModel | undefined) => {
        if (!row) return;
@@ -9728,7 +9877,7 @@ index 11d57d1..3a4e04b 100644
        setData(element, 'nativeListSelected', selected);
        element.setAttribute('aria-selected', String(selected));
        element
-@@ -2548,7 +3119,9 @@ export class NativeListWebEngine {
+@@ -2548,7 +3120,9 @@ export class NativeListWebEngine {
      }
      this.checkEndReached(last?.index ?? -1);
      this.updateStickyHeader(first?.index ?? -1);
@@ -9739,7 +9888,7 @@ index 11d57d1..3a4e04b 100644
    }
  
    private updateStickyHeader(firstVisibleIndex: number) {
-@@ -2564,7 +3137,7 @@ export class NativeListWebEngine {
+@@ -2564,7 +3138,7 @@ export class NativeListWebEngine {
      let index = -1;
      for (let cursor = firstVisibleIndex; cursor >= 0; cursor -= 1) {
        const row = this.rows[cursor];
@@ -9748,7 +9897,7 @@ index 11d57d1..3a4e04b 100644
          index = cursor;
          break;
        }
-@@ -2594,7 +3167,7 @@ export class NativeListWebEngine {
+@@ -2594,7 +3168,7 @@ export class NativeListWebEngine {
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
        if (
@@ -9757,7 +9906,7 @@ index 11d57d1..3a4e04b 100644
          candidate.variant !== 'summary'
        ) {
          nextIndex = cursor;
-@@ -2610,12 +3183,15 @@ export class NativeListWebEngine {
+@@ -2610,12 +3184,15 @@ export class NativeListWebEngine {
      this.updateVisibleSelection();
    }
  
@@ -9776,7 +9925,7 @@ index 11d57d1..3a4e04b 100644
          row.indexTitle
        )
          activeKey = row.key;
-@@ -2793,7 +3369,9 @@ export class NativeListWebEngine {
+@@ -2793,7 +3370,9 @@ export class NativeListWebEngine {
      if (!source || !bindingEpoch || !rowElement.contains(actionElement))
        return undefined;
      this.invalidateActionAnchor('rebind');
@@ -9787,7 +9936,7 @@ index 11d57d1..3a4e04b 100644
      const token = [
        this.actionAnchorInstanceId,
        this.snapshot.generation,
-@@ -2866,7 +3444,9 @@ export class NativeListWebEngine {
+@@ -2866,7 +3445,9 @@ export class NativeListWebEngine {
      rowElement?: HTMLElement,
      sourceElement = rowElement
    ) {
@@ -9798,7 +9947,7 @@ index 11d57d1..3a4e04b 100644
      if (
        this.snapshot.selection?.rowPressToggles &&
        this.snapshot.selection.mode !== 'none' &&
-@@ -2894,6 +3474,28 @@ export class NativeListWebEngine {
+@@ -2894,6 +3475,28 @@ export class NativeListWebEngine {
      }
    }
  
@@ -9827,7 +9976,7 @@ index 11d57d1..3a4e04b 100644
    private handleClick = (event: Event) => {
      if (Date.now() < this.suppressClickUntil) {
        event.preventDefault();
-@@ -2944,6 +3546,12 @@ export class NativeListWebEngine {
+@@ -2944,6 +3547,12 @@ export class NativeListWebEngine {
    };
  
    private handleKeyDown = (event: KeyboardEvent) => {
@@ -9840,7 +9989,7 @@ index 11d57d1..3a4e04b 100644
      if (event.key === 'Escape') {
        if (this.pointerReorder?.active) {
          event.preventDefault();
-@@ -3073,7 +3681,7 @@ export class NativeListWebEngine {
+@@ -3073,7 +3682,7 @@ export class NativeListWebEngine {
      this.frameHandle = this.requestFrame(() => {
        this.frameHandle = undefined;
        if (this.virtualizationEnabled) this.renderWindow();
@@ -9849,7 +9998,7 @@ index 11d57d1..3a4e04b 100644
      });
    }
  
-@@ -3090,13 +3698,27 @@ export class NativeListWebEngine {
+@@ -3090,13 +3699,27 @@ export class NativeListWebEngine {
      else view?.clearTimeout(handle);
    }
  
@@ -9878,7 +10027,7 @@ index 11d57d1..3a4e04b 100644
      this.indexPreview.textContent = title;
      setData(this.indexPreview, 'visible', true);
      if (this.previewTimer !== undefined)
-@@ -3106,37 +3728,69 @@ export class NativeListWebEngine {
+@@ -3106,37 +3729,69 @@ export class NativeListWebEngine {
      }, 180);
    }
  
@@ -9963,7 +10112,7 @@ index 11d57d1..3a4e04b 100644
      );
    };
  
-@@ -3203,12 +3857,13 @@ export class NativeListWebEngine {
+@@ -3203,12 +3858,13 @@ export class NativeListWebEngine {
      const index = Number(rowElement?.dataset.nativeListRowIndex);
      const row = this.rows[index];
      if (!row || !this.isReorderable(row)) return;
@@ -9983,7 +10132,7 @@ index 11d57d1..3a4e04b 100644
  
      const view = this.document.defaultView;
      const state: PointerReorderState = {
-@@ -3225,9 +3880,8 @@ export class NativeListWebEngine {
+@@ -3225,9 +3881,8 @@ export class NativeListWebEngine {
        active: false,
      };
      this.pointerReorder = state;
@@ -9995,7 +10144,7 @@ index 11d57d1..3a4e04b 100644
        state.longPressTimer = view?.setTimeout(
          () => this.activatePointerReorder(state),
          REORDER_TOUCH_LONG_PRESS_MS
-@@ -3363,6 +4017,18 @@ export class NativeListWebEngine {
+@@ -3363,6 +4018,18 @@ export class NativeListWebEngine {
        Math.max(0, state.startY - rect.top)
      );
      this.reorderPreview.replaceChildren(previewRow.cloneNode(true));
@@ -10014,7 +10163,7 @@ index 11d57d1..3a4e04b 100644
      const sourceRow = state.workingRows[state.currentIndex];
      const badgeText = sourceRow
        ? webWalletGroupReorderBadge(sourceRow)
-@@ -3430,6 +4096,7 @@ export class NativeListWebEngine {
+@@ -3430,6 +4097,7 @@ export class NativeListWebEngine {
  
    private clearReorderPreviewVisual() {
      this.reorderPreview.hidden = true;
