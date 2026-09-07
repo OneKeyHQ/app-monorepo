@@ -235,8 +235,8 @@ RCT_REMAP_METHOD(prepareRestart,
     [defaults removeObjectForKey:OneKeyTravelModePendingDeadlineKey];
     [defaults removeObjectForKey:OneKeyTravelModeMainAckEpochKey];
     [defaults removeObjectForKey:OneKeyTravelModeBackgroundAckEpochKey];
-    [defaults synchronize];
-    if ([[defaults objectForKey:OneKeyTravelModePendingEpochKey] unsignedLongLongValue] != epoch) {
+    if (![defaults synchronize] ||
+        [[defaults objectForKey:OneKeyTravelModePendingEpochKey] unsignedLongLongValue] != epoch) {
       reject(@"TRAVEL_MODE_LAUNCH_PREPARE_FAILED", @"Launch epoch commit failed", nil);
       return;
     }
@@ -293,14 +293,19 @@ RCT_REMAP_METHOD(acknowledgeRuntimeLaunch,
     NSString *acknowledgementKey = [runtime isEqualToString:@"main"]
         ? OneKeyTravelModeMainAckEpochKey
         : OneKeyTravelModeBackgroundAckEpochKey;
+    id previousAcknowledgement = [defaults objectForKey:acknowledgementKey];
+    id previousDeadline = [defaults objectForKey:OneKeyTravelModePendingDeadlineKey];
     if (deadlineAt <= 0) {
       deadlineAt = now + OneKeyTravelModeAcknowledgementTimeoutMs;
       [defaults setObject:@(deadlineAt) forKey:OneKeyTravelModePendingDeadlineKey];
     }
     [defaults setObject:@(pendingEpoch) forKey:acknowledgementKey];
-    [defaults synchronize];
-    if ([[defaults objectForKey:acknowledgementKey] unsignedLongLongValue] != pendingEpoch ||
+    if (![defaults synchronize] ||
+        [[defaults objectForKey:acknowledgementKey] unsignedLongLongValue] != pendingEpoch ||
         [[defaults objectForKey:OneKeyTravelModePendingDeadlineKey] doubleValue] <= 0) {
+      // Do not let the companion runtime observe a failed acknowledgement.
+      [defaults setObject:previousAcknowledgement forKey:acknowledgementKey];
+      [defaults setObject:previousDeadline forKey:OneKeyTravelModePendingDeadlineKey];
       reject(@"TRAVEL_MODE_LAUNCH_ACK_FAILED", @"Runtime acknowledgement commit failed", nil);
       return;
     }
