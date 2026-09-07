@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import Svg, {
   Circle,
   Defs,
@@ -12,12 +13,12 @@ import Svg, {
 import { SizableText, Stack, YStack, useTheme } from '@onekeyhq/components';
 import type { IMarketStockAnalystRatings } from '@onekeyhq/shared/types/marketV2';
 
-import { getStockAnalystConsensus } from '../../utils/stockPublicDataUtils';
+import { formatStockAnalystConsensus } from '../../utils/stockPublicDataUtils';
 
 import {
   STOCK_ANALYST_GAUGE_END_ANGLE,
   STOCK_ANALYST_GAUGE_START_ANGLE,
-  STOCK_ANALYST_GAUGE_ZONE_LABELS,
+  STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS,
   describeStockAnalystGaugeArc,
   getStockAnalystGaugeAngle,
   getStockAnalystGaugeScore,
@@ -80,25 +81,45 @@ const GRADIENT_SUCCESS_OFFSET = gaugeAngleToGradientOffset(45);
 const GRADIENT_END_OFFSET = gaugeAngleToGradientOffset(0);
 
 // Measured at $bodySmMedium (12/16) in the reference and re-fitted for
-// $bodyMdMedium (14/20): every `top` moves up by (20 - 16) / 2 so the glyphs
-// keep the reference's optical center, and the two outer labels widen from
-// their measured 12px boxes (x 7/6, rounded up) to stay on one line. Those two
-// grow inward from the gauge edges, which still leaves ~9px between the label
-// and the arc at the label's lowest point.
+// $bodyMdMedium (14/20): every anchor moves so the glyphs keep the reference's
+// optical center. English boxes were measured for the English copy; translated
+// extremes run much longer (German, Russian, Ukrainian), so:
+// - The outer boxes are capped by the arc, not the dial center: at the label
+//   line-box bottom (y = 112.6) the arc's edge sits at
+//   DIAL_CENTER_X - sqrt(DIAL_OUTER_RADIUS² - (DIAL_CENTER_Y - 112.6)²) ≈ 87,
+//   so 79 keeps ~8px of clearance. Long translations wrap onto a second line
+//   that grows UPWARD (bottom-anchored; the area above the label at x < 79 is
+//   outside the arc), so a single-line English label sits exactly where the
+//   reference put it.
+// - The middle box widens to 90 around its unchanged center (190): the
+//   Russian/Ukrainian "Neutral" label measures 81px and overflows the
+//   English-measured 80.
+const OUTER_ZONE_LABEL_WIDTH = 79;
+const OUTER_ZONE_LABEL_BOTTOM = STOCK_ANALYST_GAUGE_DIAL_HEIGHT - 112.6;
 const ZONE_LABEL_LAYOUT: {
-  left: number;
+  left?: number;
+  right?: number;
   width: number;
-  top: number;
+  top?: number;
+  bottom?: number;
+  maxLines: number;
   textAlign: 'left' | 'center' | 'right';
 }[] = [
-  { left: 0, width: 76, top: 92.6, textAlign: 'right' },
-  { left: 61.2, width: 80, top: 38, textAlign: 'center' },
-  { left: 150, width: 80, top: 9.2, textAlign: 'center' },
-  { left: 239.1, width: 80, top: 38, textAlign: 'center' },
   {
-    left: STOCK_ANALYST_GAUGE_WIDTH - 76,
-    width: 76,
-    top: 92.6,
+    left: 0,
+    width: OUTER_ZONE_LABEL_WIDTH,
+    bottom: OUTER_ZONE_LABEL_BOTTOM,
+    maxLines: 2,
+    textAlign: 'right',
+  },
+  { left: 61.2, width: 80, top: 38, maxLines: 1, textAlign: 'center' },
+  { left: 145, width: 90, top: 9.2, maxLines: 1, textAlign: 'center' },
+  { left: 239.1, width: 80, top: 38, maxLines: 1, textAlign: 'center' },
+  {
+    right: 0,
+    width: OUTER_ZONE_LABEL_WIDTH,
+    bottom: OUTER_ZONE_LABEL_BOTTOM,
+    maxLines: 2,
     textAlign: 'left',
   },
 ];
@@ -132,6 +153,7 @@ export function StockAnalystGauge({
   ratings,
   ratingCounts,
 }: IStockAnalystGaugeProps) {
+  const intl = useIntl();
   const theme = useTheme();
   // SVG gradient ids share one namespace per document on web, so the id has to
   // stay unique per instance. `useId` returns colon separated ids that url(#)
@@ -275,24 +297,26 @@ export function StockAnalystGauge({
             fill={theme.text.val}
           />
         </Svg>
-        {STOCK_ANALYST_GAUGE_ZONE_LABELS.map((label, index) => {
+        {STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.map((labelId, index) => {
           const layout = ZONE_LABEL_LAYOUT[index];
           return (
             <Stack
-              key={label}
+              key={labelId}
               position="absolute"
               left={layout.left}
+              right={layout.right}
               top={layout.top}
+              bottom={layout.bottom}
               width={layout.width}
               pointerEvents="none"
             >
               <SizableText
                 size="$bodyMdMedium"
                 textAlign={layout.textAlign}
-                numberOfLines={1}
+                numberOfLines={layout.maxLines}
                 color={getZoneLabelColor(index, index === activeZoneIndex)}
               >
-                {label}
+                {intl.formatMessage({ id: labelId })}
               </SizableText>
             </Stack>
           );
@@ -309,7 +333,7 @@ export function StockAnalystGauge({
           color={consensusColor}
           textAlign="center"
         >
-          {getStockAnalystConsensus(ratings)}
+          {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
         </SizableText>
       </YStack>
     </YStack>

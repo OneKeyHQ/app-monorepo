@@ -2,9 +2,17 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  ESwitchSize,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -210,10 +218,13 @@ export function BorrowMobilePositions({
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {labels.collateral}
                     </SizableText>
-                    <CollateralSwitchCell
-                      item={suppliedAsset}
-                      eModeId={eModeId}
-                    />
+                    <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+                      <CollateralSwitchCell
+                        item={suppliedAsset}
+                        eModeId={eModeId}
+                        size={ESwitchSize.extraSmall}
+                      />
+                    </Stack>
                   </>
                 ) : null
               }

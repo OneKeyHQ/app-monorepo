@@ -84,6 +84,7 @@ jest.mock('../utils/tokenListHelpers', () => {
     name: string;
     symbol: string;
     networkId?: string;
+    priceChange24hPercent?: string;
   };
   type ITransformOptions = {
     chainId: string;
@@ -129,7 +130,8 @@ jest.mock('../utils/tokenListHelpers', () => {
           address: item.address,
           decimals: 18,
           price: 1,
-          change24h: 0,
+          change24h: Number(item.priceChange24hPercent) || 0,
+          priceChangeRaw: item.priceChange24hPercent,
           marketCap: 0,
           liquidity: 0,
           transactions: 0,
@@ -162,9 +164,10 @@ function createResponse(
   address: string,
   name: string,
   symbol: string,
+  priceChange24hPercent?: string,
 ): IMarketTokenListResponse {
   return {
-    list: [{ address, name, symbol, decimals: 18 }],
+    list: [{ address, name, symbol, decimals: 18, priceChange24hPercent }],
     total: 1,
   };
 }
@@ -251,6 +254,37 @@ describe('useMarketTokenList initial data', () => {
     expect(swrCacheUtils.get<IMarketTokenListResponse>(cacheKey)).toMatchObject(
       remoteResponse,
     );
+  });
+
+  it('replaces a missing price change when a refresh returns zero', async () => {
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce(createResponse('0xtoken', 'Token', 'TOKEN', '-'))
+      .mockResolvedValueOnce(createResponse('0xtoken', 'Token', 'TOKEN', '0'));
+
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+
+    render(<Probe />);
+
+    await waitFor(() => {
+      expect(latestResult?.data[0]?.priceChangeRaw).toBe('-');
+    });
+
+    await act(async () => {
+      latestResult?.refresh();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(latestResult?.data[0]?.priceChangeRaw).toBe('0');
+    });
   });
 
   it('replays native SWR rows synchronously without using the web seed path', async () => {

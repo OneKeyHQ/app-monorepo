@@ -37,7 +37,7 @@ const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
 const TOKEN_DETAIL_TRADE_COLUMN_WIDTH = 384;
 const TOKEN_DETAIL_COLUMN_GAP = 24;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
-const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 752;
+const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
 const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
@@ -136,6 +136,7 @@ export function TokenPriceHeader() {
 export function TokenDesktopLayout({
   marketTradingView,
   swapToken,
+  swapInputDraftKey,
   portfolioData,
   isRefreshing,
   isBTCNetwork,
@@ -153,6 +154,7 @@ export function TokenDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapInputDraftKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isBTCNetwork: boolean;
@@ -229,10 +231,15 @@ export function TokenDesktopLayout({
               />
             </MarketDesktopChartContainer>
 
-            {isBTCMainnet ? null : <TokenActivityOverview px="$0" />}
+            {isBTCMainnet ? null : (
+              <YStack gap="$0">
+                <TokenActivityOverview px="$0" desktopRedesign />
+                <TokenSupplementaryInfo variant="overview" px="$0" />
+              </YStack>
+            )}
           </YStack>
 
-          <TokenSupplementaryInfo variant="overview" />
+          {isBTCMainnet ? <TokenSupplementaryInfo variant="overview" /> : null}
 
           <Stack minHeight={TOKEN_DETAIL_TABS_MIN_HEIGHT}>
             <InformationTabsComponent
@@ -249,7 +256,11 @@ export function TokenDesktopLayout({
           width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
           flexShrink={0}
         >
-          {disableTrade ? null : <MarketEmbeddedSwap swapToken={swapToken} />}
+          <MarketEmbeddedSwap
+            swapToken={swapToken}
+            inputDraftKey={swapInputDraftKey}
+            disabled={disableTrade}
+          />
         </YStack>
       </XStack>
     </YStack>

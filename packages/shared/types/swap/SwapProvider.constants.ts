@@ -21,7 +21,7 @@ export const swapServiceFeeDefault = 0.3;
 
 export const swapSlippageCustomDefaultList = [0.1, 0.5, 1];
 
-export const swapSlippageAutoValue = 0.5;
+export const swapSlippageAutoValue = 1;
 
 export const swapSlippageMaxValue = 50;
 
