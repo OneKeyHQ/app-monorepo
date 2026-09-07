@@ -99,7 +99,8 @@ export function TokenDetailChart({
     // 16px collects at the bottom of the block instead.
     <YStack
       width="100%"
-      height="100%"
+      flex={1}
+      minHeight={0}
       gap={isSimpleMode ? '$4' : '$0'}
       position="relative"
     >
