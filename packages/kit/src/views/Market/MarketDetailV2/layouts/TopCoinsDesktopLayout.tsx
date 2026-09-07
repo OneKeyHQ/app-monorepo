@@ -11,7 +11,6 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -46,7 +45,6 @@ import {
   formatStatValueWithFormatter,
 } from '../utils/statValue';
 
-import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import { TokenPriceHeader } from './TokenDesktopLayout';
@@ -622,27 +620,20 @@ export function TopCoinsDesktopLayout({
 
       <XStack width="100%" alignItems="flex-start" gap={TOP_COINS_COLUMN_GAP}>
         <YStack width={TOP_COINS_MAIN_COLUMN_WIDTH} flex={1} minWidth={0}>
-          <YStack px="$5" pt="$5" pb="$6" gap="$6">
+          <YStack px="$5" pt="$5" pb="$6" gap="$4">
             <TokenPriceHeader />
-            <MarketDesktopChartContainer
-              testID="market-top-coins-detail-chart"
-              isFullscreen={isChartFullscreen}
+            <TokenDetailChart
+              chartContainerTestID="market-top-coins-detail-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
-            >
-              {isChartFullscreen && platformEnv.isDesktop ? (
-                <Stack height={48} bg="$bgApp" flexShrink={0} />
-              ) : null}
-              <TokenDetailChart
-                marketAssetId={marketTokenId}
-                marketTradingView={marketTradingView}
-                isChartFullscreen={isChartFullscreen}
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onChartSwitch={onChartSwitch}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            </MarketDesktopChartContainer>
+              marketAssetId={marketTokenId}
+              marketTradingView={marketTradingView}
+              isChartFullscreen={isChartFullscreen}
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onEnterChartFullscreen={onEnterChartFullscreen}
+            />
           </YStack>
 
           <TopCoinsInformation

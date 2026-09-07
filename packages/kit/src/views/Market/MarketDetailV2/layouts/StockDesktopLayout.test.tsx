@@ -149,6 +149,21 @@ jest.mock('../components/StockSimpleChart', () => {
   };
 });
 
+jest.mock('./components/MarketDesktopChartContainer', () => ({
+  MarketDesktopChartContainer: ({
+    children,
+    footer,
+  }: {
+    children?: ReactNode;
+    footer?: ReactNode;
+  }) => (
+    <div>
+      {children}
+      {footer}
+    </div>
+  ),
+}));
+
 jest.mock('./components/MarketDetailProChartControls', () => ({
   MarketDetailProChartControls: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -164,6 +179,7 @@ describe('StockChart', () => {
   it('passes All through in token mode and sizes all six ranges', () => {
     const view = render(
       <StockChart
+        chartContainerTestID="stock-chart"
         marketTradingView={<div />}
         priceMode="token"
         chartMode="native"
@@ -178,7 +194,7 @@ describe('StockChart', () => {
     // labels can grow the row instead of truncating.
     expect(
       view.getByTestId('stock-chart-range-selector').dataset.minWidth,
-    ).toBe('214');
+    ).toBe('226');
 
     fireEvent.click(view.getByTestId('stock-chart-range-All'));
 

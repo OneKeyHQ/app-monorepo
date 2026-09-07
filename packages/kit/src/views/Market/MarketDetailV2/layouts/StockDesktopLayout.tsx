@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -73,9 +73,10 @@ import {
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
 import {
+  MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
   MARKET_SIMPLE_CHART_RANGE_GAP,
-  MARKET_SIMPLE_CHART_RANGE_WIDTHS,
+  MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
@@ -86,10 +87,6 @@ import {
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
-
-// Height of the whole chart block, and of the toolbar row that leads it in
-// Simple mode (Figma 25476:88857 / 25476:88858).
-const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 
 function StockPageHeader({
   showFavoriteButton,
@@ -463,17 +460,21 @@ function StockChartModeControl({
 }) {
   const intl = useIntl();
 
-  // Figma 25476:88969: Simple (62) and Pro (40) sit 2px apart, exactly like the
-  // range selector on the other end of the toolbar.
+  // Figma 26552:24685. The small button supplies the 18px leading icon $2
+  // from its label, but its $2.5 padding only survives on `secondary`:
+  // `tertiary` is hard-coded to $2 so it can sit inline like a link. The
+  // design wants both states on the same box, so px is set here — without it
+  // the pill jumps 2px per side as the selection moves.
   return (
-    <XStack height={32} alignItems="center" gap="$0.5">
+    <XStack alignItems="center" gap="$0.5" flexShrink={0}>
       <Button
         testID="stock-chart-mode-simple"
-        minWidth={62}
         height={32}
         m="$0"
-        px="$2"
+        px="$2.5"
         borderWidth={0}
+        flexShrink={0}
+        icon="TradingViewLineOutline"
         size="small"
         variant={mode === 'simple' ? 'secondary' : 'tertiary'}
         borderRadius="$full"
@@ -483,11 +484,12 @@ function StockChartModeControl({
       </Button>
       <Button
         testID="stock-chart-mode-pro"
-        minWidth={40}
         height={32}
         m="$0"
-        px="$2"
+        px="$2.5"
         borderWidth={0}
+        flexShrink={0}
+        icon="TradingViewCandlesOutline"
         size="small"
         variant={mode === 'pro' ? 'secondary' : 'tertiary'}
         borderRadius="$full"
@@ -500,6 +502,9 @@ function StockChartModeControl({
 }
 
 export function StockChart({
+  chartContainerTestID,
+  fullscreenStyle,
+  fullscreenZIndex,
   marketTradingView,
   priceMode,
   chartMode,
@@ -509,6 +514,9 @@ export function StockChart({
   isChartFullscreen,
   onEnterChartFullscreen,
 }: {
+  chartContainerTestID: string;
+  fullscreenStyle?: CSSProperties;
+  fullscreenZIndex?: number;
   marketTradingView: ReactNode;
   priceMode: IMarketPriceSource;
   chartMode: ITradingViewChartMode;
@@ -527,54 +535,45 @@ export function StockChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const rangeSelectorWidth = chartRanges.reduce(
-    (total, item, index) =>
-      total +
-      MARKET_SIMPLE_CHART_RANGE_WIDTHS[item] +
-      (index > 0 ? MARKET_SIMPLE_CHART_RANGE_GAP : 0),
-    0,
-  );
+  const rangeSelectorWidth =
+    chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
+    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
   };
 
-  // Keep the Pro controls on TradingView's interval row so switching modes
-  // does not shift the chart body; fullscreen restores the widget controls.
-  return (
-    <YStack
+  // The toolbar goes to the container's footer, under the resize handle: the
+  // handle's line has to sit on the chart's own clipping edge to read as the
+  // cut it makes while dragging, so nothing of ours may live below it inside
+  // the resizable box.
+  const toolbar = isChartFullscreen ? undefined : (
+    <XStack
+      testID="stock-chart-toolbar"
       width="100%"
-      flex={1}
-      minHeight={0}
-      gap={isSimpleMode ? '$4' : '$0'}
-      position="relative"
+      height={MARKET_CHART_TOOLBAR_HEIGHT}
+      py="$1"
+      gap="$3"
+      alignItems="center"
     >
-      {isSimpleMode ? (
-        <XStack
-          testID="stock-chart-toolbar"
-          width="100%"
-          height={STOCK_CHART_TOOLBAR_HEIGHT}
-          py="$1"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <XStack
-            testID="stock-chart-range-selector"
-            minWidth={rangeSelectorWidth}
-            alignItems="center"
-            gap="$0.5"
-          >
-            {chartRanges.map((item) => {
-              const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
+      <XStack
+        testID="stock-chart-range-selector"
+        flex={1}
+        minWidth={isSimpleMode ? rangeSelectorWidth : 0}
+        alignItems="center"
+        gap="$0.5"
+      >
+        {isSimpleMode
+          ? chartRanges.map((item) => {
               return (
                 <Stack
                   key={item}
-                  minWidth={itemWidth}
+                  minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
                   height={32}
                   flexShrink={0}
                 >
                   <Button
                     testID={`stock-chart-range-${item}`}
-                    minWidth={itemWidth}
+                    minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
                     height={32}
                     m="$0"
                     px="$2"
@@ -590,46 +589,61 @@ export function StockChart({
                   </Button>
                 </Stack>
               );
-            })}
-          </XStack>
-          <Stack testID="stock-chart-mode-control">
-            <StockChartModeControl mode={mode} onChange={handleModeChange} />
-          </Stack>
-        </XStack>
+            })
+          : null}
+      </XStack>
+      <Stack testID="stock-chart-mode-control">
+        <StockChartModeControl mode={mode} onChange={handleModeChange} />
+      </Stack>
+    </XStack>
+  );
+
+  return (
+    // Figma 26459:25760 / 26459:25981: the chart owns the resizable block and
+    // the toolbar sits under it. Pro keeps only the mode switch there —
+    // TradingView carries its own interval row, so an app-side range selector
+    // would be a second, disagreeing control.
+    <MarketDesktopChartContainer
+      testID={chartContainerTestID}
+      isFullscreen={isChartFullscreen}
+      fullscreenZIndex={fullscreenZIndex}
+      fullscreenStyle={fullscreenStyle}
+      footer={toolbar}
+    >
+      {/* Desktop keeps the draggable title bar clear of the fullscreen chart. */}
+      {isChartFullscreen && platformEnv.isDesktop ? (
+        <Stack height={48} bg="$bgApp" flexShrink={0} />
       ) : null}
-      {isSimpleMode ? (
-        <StockSimpleChart
-          range={range}
-          priceMode={priceMode}
-          onHoverChange={onHoverChange}
-        />
-      ) : (
-        <>
-          <Stack flex={1} minWidth={0} overflow="hidden">
-            {marketTradingView}
-          </Stack>
-          {isChartFullscreen ? null : (
-            <MarketDetailProChartControls
-              testID="stock-chart-mode-control-pro"
-              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
-              fullscreenTestID="stock-chart-fullscreen-toggle"
-              chartMode={chartMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onEnterChartFullscreen={onEnterChartFullscreen}
-            >
-              <StockChartModeControl mode={mode} onChange={handleModeChange} />
-            </MarketDetailProChartControls>
-          )}
-        </>
-      )}
-    </YStack>
+      <YStack width="100%" flex={1} minHeight={0} position="relative">
+        {isSimpleMode ? (
+          <StockSimpleChart
+            range={range}
+            priceMode={priceMode}
+            onHoverChange={onHoverChange}
+          />
+        ) : (
+          <>
+            <Stack flex={1} minWidth={0} overflow="hidden">
+              {marketTradingView}
+            </Stack>
+            {isChartFullscreen ? null : (
+              <MarketDetailProChartControls
+                testID="stock-chart-mode-control-pro"
+                top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
+                fullscreenTestID="stock-chart-fullscreen-toggle"
+                chartMode={chartMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+                onEnterChartFullscreen={onEnterChartFullscreen}
+              />
+            )}
+          </>
+        )}
+      </YStack>
+    </MarketDesktopChartContainer>
   );
 }
 
-// Design ships a 3 x 4 grid of twelve figures. The four financial metrics in
-// the last rows are not part of the public stock payload yet, so they fall back
-// to `--` until the backend requirement lands.
 function StockOverviewGrid() {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
@@ -1230,16 +1244,15 @@ export function StockDesktopLayout({
             px={STOCK_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
-            gap="$6"
+            gap="$4"
           >
             <StockPriceHeader
               priceMode={priceMode}
               onPriceModeChange={handlePriceModeChange}
               hoverPoint={chartHoverPoint}
             />
-            <MarketDesktopChartContainer
-              testID="stock-token-detail-tradingview"
-              isFullscreen={isChartFullscreen}
+            <StockChart
+              chartContainerTestID="stock-token-detail-tradingview"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={{
                 position: 'fixed',
@@ -1248,23 +1261,15 @@ export function StockDesktopLayout({
                 right: 0,
                 bottom: platformEnv.isWeb ? 40 : 0,
               }}
-            >
-              {/* Desktop keeps the draggable title bar clear of the
-                  fullscreen chart. */}
-              {isChartFullscreen && platformEnv.isDesktop ? (
-                <Stack height={48} bg="$bgApp" flexShrink={0} />
-              ) : null}
-              <StockChart
-                marketTradingView={marketTradingView}
-                priceMode={priceMode}
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onHoverChange={setChartHoverPoint}
-                onChartSwitch={onChartSwitch}
-                isChartFullscreen={isChartFullscreen}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            </MarketDesktopChartContainer>
+              marketTradingView={marketTradingView}
+              priceMode={priceMode}
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onHoverChange={setChartHoverPoint}
+              onChartSwitch={onChartSwitch}
+              isChartFullscreen={isChartFullscreen}
+              onEnterChartFullscreen={onEnterChartFullscreen}
+            />
           </YStack>
           {/* The tab owns the whole lower region: Overview carries the stat
               grid and the editorial sections, My position replaces all of

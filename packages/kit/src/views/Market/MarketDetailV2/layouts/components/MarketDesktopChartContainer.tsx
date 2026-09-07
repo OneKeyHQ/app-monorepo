@@ -8,7 +8,7 @@ import type {
 
 import { useWindowDimensions } from 'react-native';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import { Stack, YStack, useTheme } from '@onekeyhq/components';
 
 import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
 
@@ -27,12 +27,17 @@ export function MarketDesktopChartContainer({
   fullscreenStyle,
   fullscreenZIndex,
   isFullscreen,
+  footer,
   testID,
 }: {
   children: ReactNode;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
   isFullscreen: boolean;
+  // Rendered under the resize handle, outside the resizable box. The handle's
+  // line has to sit on the box's own clipping edge to read as the cut it makes
+  // while dragging, so anything that belongs below it lives out here.
+  footer?: ReactNode;
   testID: string;
 }) {
   const theme = useTheme();
@@ -154,7 +159,7 @@ export function MarketDesktopChartContainer({
     [],
   );
 
-  return (
+  const box = (
     <Stack
       testID={testID}
       width="100%"
@@ -211,5 +216,18 @@ export function MarketDesktopChartContainer({
         />
       ) : null}
     </Stack>
+  );
+
+  // Fullscreen drops the handle and the footer with it, so the box stands on
+  // its own there and keeps carrying the fullscreen frame styles itself.
+  if (isFullscreen || !footer) {
+    return box;
+  }
+
+  return (
+    <YStack width="100%" gap="$2">
+      {box}
+      {footer}
+    </YStack>
   );
 }
