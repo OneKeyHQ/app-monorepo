@@ -559,6 +559,7 @@ function TopCoinsInformation({
 export function TopCoinsDesktopLayout({
   marketTradingView,
   swapToken,
+  swapInputDraftKey,
   portfolioData,
   accountAddress,
   isRefreshing,
@@ -577,6 +578,7 @@ export function TopCoinsDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapInputDraftKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   accountAddress?: string;
   isRefreshing?: boolean;
@@ -661,9 +663,12 @@ export function TopCoinsDesktopLayout({
           <PerpetualTradingBanner px="$5" py="$5" />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
-          ) : (
-            <MarketEmbeddedSwap swapToken={swapToken} />
-          )}
+          ) : null}
+          <MarketEmbeddedSwap
+            swapToken={swapToken}
+            inputDraftKey={swapInputDraftKey}
+            disabled={disableTrade}
+          />
         </YStack>
       </XStack>
     </YStack>
