@@ -1,6 +1,7 @@
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
@@ -26,6 +27,8 @@ export function useMarketBannerList(): {
       checkIsFocused: !platformEnv.isWeb,
       watchLoading: true,
       revalidateOnReconnect: true,
+      revalidateOnFocus: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
 
