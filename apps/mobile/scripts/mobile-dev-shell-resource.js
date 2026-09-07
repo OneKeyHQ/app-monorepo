@@ -25,6 +25,7 @@ const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_ATTESTATION_BYTES = 32 * 1024 * 1024;
 const MAX_ARTIFACT_BYTES = 1536 * 1024 * 1024;
 const MAX_CACHED_SHELLS = 4;
+const SHELL_DOWNLOAD_MAX_ATTEMPTS = 3;
 const CACHE_LEASE_DIRECTORY = '.leases';
 const CURRENT_PROCESS_STARTED_AT_MS = Date.now() - process.uptime() * 1000;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
@@ -64,7 +65,6 @@ function assertCompatibility(compatibility) {
       `platform=${compatibility?.platform || ''}`,
       `architecture=${compatibility?.architecture || ''}`,
       `native-contract=${compatibility?.nativeContractKey || ''}`,
-      `web-embed=${compatibility?.webEmbedInputKey || ''}`,
     ],
   );
   if (
@@ -74,7 +74,6 @@ function assertCompatibility(compatibility) {
     !/^[0-9a-f]{64}$/.test(compatibility?.nativeContractKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellCompatibilityKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellInputKey || '') ||
-    !/^[0-9a-f]{64}$/.test(compatibility?.webEmbedInputKey || '') ||
     compatibility?.shellCompatibilityKey !== expectedShellCompatibilityKey ||
     !/^mobile-dev-shell-contract-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
       compatibility?.compatibilityTag || '',
@@ -137,6 +136,10 @@ function parseBearerChallenge(value) {
   return parameters;
 }
 
+function isRetryableHttpStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== 'function') {
     throw new Error(
@@ -191,9 +194,11 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!tokenResponse.ok) {
-      throw new Error(
+      const error = new Error(
         `[mobileDevShellResource] OCI token request failed: HTTP ${tokenResponse.status}.`,
       );
+      error.retryable = isRetryableHttpStatus(tokenResponse.status);
+      throw error;
     }
     const tokenBytes = await readResponseBody({
       fileName: 'OCI token',
@@ -302,6 +307,7 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
       `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
     );
     if (response.status === 404) error.code = 'SHELL_LOCATOR_NOT_FOUND';
+    error.retryable = isRetryableHttpStatus(response.status);
     throw error;
   }
   const manifestBytes = await readResponseBody({
@@ -332,7 +338,77 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   };
 }
 
-async function downloadLayerToFile({ client, descriptor, filePath, maxBytes }) {
+async function resolveExactMobileDevShell({
+  compatibility: inputCompatibility,
+  fetchImpl,
+  maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const resolved = await resolveOciShell({
+        compatibility,
+        fetchImpl,
+        locator: 'exact',
+        tag: compatibility.exactTag,
+      });
+      return {
+        exists: true,
+        ociDigest: resolved.ociDigest,
+        sourceCommit: resolved.sourceCommit,
+        tag: compatibility.exactTag,
+      };
+    } catch (error) {
+      if (error?.code === 'SHELL_LOCATOR_NOT_FOUND') {
+        return {
+          exists: false,
+          ociDigest: null,
+          sourceCommit: null,
+          tag: compatibility.exactTag,
+        };
+      }
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
+        throw error;
+      }
+      console.error(
+        `[mobileDevShellResource] Retrying exact shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
+  }
+  throw new Error('[mobileDevShellResource] Exact shell lookup exhausted.');
+}
+
+function isRetryableOciError(error) {
+  const retryableCodes = new Set([
+    'EAI_AGAIN',
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'ETIMEDOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_SOCKET',
+  ]);
+  let current = error;
+  while (current) {
+    if (
+      current.retryable === true ||
+      ['AbortError', 'TimeoutError'].includes(current.name) ||
+      retryableCodes.has(current.code)
+    ) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+async function downloadLayerOnce({ client, descriptor, filePath, maxBytes }) {
   if (descriptor.size > maxBytes) {
     throw new Error(
       `[mobileDevShellResource] Shell layer exceeds size limit: ${path.basename(filePath)}.`,
@@ -340,9 +416,15 @@ async function downloadLayerToFile({ client, descriptor, filePath, maxBytes }) {
   }
   const response = await client.fetchBlob(descriptor.digest);
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       `[mobileDevShellResource] Shell layer download failed: HTTP ${response.status}.`,
     );
+    error.retryable =
+      response.status === 408 ||
+      response.status === 425 ||
+      response.status === 429 ||
+      response.status >= 500;
+    throw error;
   }
   const file = await fs.promises.open(filePath, 'wx', 0o600);
   const hash = crypto.createHash('sha256');
@@ -370,6 +452,33 @@ async function downloadLayerToFile({ client, descriptor, filePath, maxBytes }) {
     throw new Error(
       `[mobileDevShellResource] Shell layer integrity mismatch: ${path.basename(filePath)}.`,
     );
+  }
+}
+
+async function downloadLayerToFile({
+  client,
+  descriptor,
+  filePath,
+  maxBytes,
+  maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await downloadLayerOnce({ client, descriptor, filePath, maxBytes });
+      return;
+    } catch (error) {
+      await fs.promises.rm(filePath, { force: true });
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
+        throw error;
+      }
+      console.error(
+        `[mobileDevShellResource] Retrying ${path.basename(filePath)} after a transient download failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
   }
 }
 
@@ -429,7 +538,7 @@ async function verifyArtifactManifest({
     (locator === 'exact' &&
       manifest.shellInputKey !== compatibility.shellInputKey) ||
     manifest.shellArtifactKey !== expectedArtifactKey ||
-    manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
+    !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.inputKey || '') ||
     !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
     (!hasRemoteWebEmbed && !hasLocalWebEmbed) ||
     manifest.artifact?.file !== compatibility.artifactFile ||
@@ -1069,25 +1178,27 @@ async function main() {
   });
 }
 
-if (require.main === module) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-}
-
 module.exports = {
   ATTESTATION_FILE,
   MAX_CACHED_SHELLS,
   assertDeviceId,
   createMobileShellCacheLease,
+  downloadLayerToFile,
   getCacheRoot,
   getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
   touchAndPruneMobileShellCache,
   verifyArtifactManifest,
   verifyOciManifest,
 };
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

@@ -5,9 +5,17 @@
 const { execFile, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const { builtinModules } = require('module');
 const os = require('os');
 const path = require('path');
 const { promisify } = require('util');
+
+const babelParser = require('@babel/parser');
+const enhancedResolve = require('enhanced-resolve');
+
+const {
+  createBaseResolveOptions,
+} = require('../../../development/rspack/rspack.resolve.config');
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -15,6 +23,7 @@ const WEB_EMBED_ROOT = path.resolve(__dirname, '..');
 const SCHEMA_VERSION = 2;
 const RELEASE_SCHEMA_VERSION = 1;
 const OCI_ARTIFACT_TYPE = 'application/vnd.onekey.web-embed-prebundle.v1';
+const OCI_MANIFEST_MEDIA_TYPE = 'application/vnd.oci.image.manifest.v1+json';
 const OCI_REGISTRY = 'ghcr.io';
 const OCI_REPOSITORY = 'onekeyhq/web-embed-prebundle';
 const SOURCE_REPOSITORY = 'OneKeyHQ/app-monorepo';
@@ -28,6 +37,8 @@ const MAX_ATTESTATION_BYTES = 8 * 1024 * 1024;
 const MAX_EXTRACTED_BYTES = 512 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 50_000;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
+const MAX_OCI_TOKEN_BYTES = 32 * 1024;
+const OCI_DOWNLOAD_MAX_ATTEMPTS = 3;
 const SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/web-embed-prebundle.yml';
 const TRUSTED_ROOT_PATH = path.join(
@@ -35,18 +46,14 @@ const TRUSTED_ROOT_PATH = path.join(
   'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
 );
 const INPUT_PATHS = [
-  '.env.version',
-  '.github/workflows/web-embed-prebundle.yml',
-  'apps/web-embed',
-  'development',
-  'package.json',
-  'packages/components',
-  'packages/core',
-  'packages/kit',
-  'packages/kit-bg',
-  'packages/shared',
-  'patches',
-  'yarn.lock',
+  'apps/ext/src/assets/preload-html-head.js',
+  'apps/web-embed/babel.config.js',
+  'apps/web-embed/index.js',
+  'apps/web-embed/public/static/images/icons/favicon/favicon.png',
+  'apps/web-embed/rspack.config.ts',
+  'apps/web-embed/scripts/finalize-production-assets.js',
+  'apps/web-embed/sentry.js',
+  'packages/shared/src/web/index.html.ejs',
 ];
 const EXCLUDED_DIRECTORY_NAMES = new Set([
   '.cache',
@@ -57,6 +64,52 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   'out-dir-bundle',
   'web-build',
 ]);
+const EXCLUDED_GENERATED_INPUT_PATHS = new Set([
+  'packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
+  'packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+  'packages/kit/src/components/WebView/injectedNative.js.txt',
+  'packages/kit/src/components/WebView/translateInject.text-js',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt',
+  'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+  'packages/shared/src/web/index.html',
+]);
+const SOURCE_EXTENSIONS = new Set([
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.ts',
+  '.tsx',
+]);
+const WEB_EMBED_RESOLVE_EXTENSIONS = [
+  '.web-embed.ts',
+  '.web-embed.tsx',
+  '.web-embed.js',
+  '.web-embed.jsx',
+  '.web-only.ts',
+  '.web-only.tsx',
+  '.web-only.mjs',
+  '.web-only.js',
+  '.web-only.jsx',
+  '.web.ts',
+  '.web.tsx',
+  '.web.mjs',
+  '.web.js',
+  '.web.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.json',
+  '.wasm',
+  '.d.ts',
+];
+const BUILTIN_MODULES = new Set(
+  builtinModules.flatMap((name) => [name, `node:${name}`]),
+);
+let cachedDefaultInputKey;
 const CANONICAL_EMPTY_ENV_KEYS = [
   'BUILD_APP_VERSION',
   'CI_BUILD_APP_VERSION',
@@ -94,6 +147,9 @@ function toRepoPath(absolutePath, root = REPO_ROOT) {
 function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   const files = [];
   const visit = (absolutePath) => {
+    if (EXCLUDED_GENERATED_INPUT_PATHS.has(toRepoPath(absolutePath, root))) {
+      return;
+    }
     const stat = fs.lstatSync(absolutePath);
     if (stat.isSymbolicLink() || stat.isFile()) {
       files.push(absolutePath);
@@ -124,6 +180,284 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   );
 }
 
+function parseModuleSpecifiers(filePath) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const commonPlugins = [
+    'classProperties',
+    'decorators-legacy',
+    'dynamicImport',
+    'importMeta',
+    'jsx',
+    'topLevelAwait',
+  ];
+  let ast;
+  try {
+    ast = babelParser.parse(source, {
+      errorRecovery: false,
+      plugins: [...commonPlugins, 'typescript'],
+      sourceType: 'unambiguous',
+    });
+  } catch {
+    try {
+      ast = babelParser.parse(source, {
+        errorRecovery: false,
+        plugins: [...commonPlugins, 'flow', 'flowComments'],
+        sourceType: 'unambiguous',
+      });
+    } catch {
+      const specifiers = new Set();
+      const importPattern =
+        /(?:\b(?:import|export)\b[\s\S]*?\bfrom\s*|\brequire(?:\.resolve)?\s*\(|\bimport\s*\()\s*['"]([^'"]+)['"]/gu;
+      for (const match of source.matchAll(importPattern)) {
+        specifiers.add(match[1]);
+      }
+      return [...specifiers].toSorted(compareStrings);
+    }
+  }
+  const specifiers = new Set();
+  const addSource = (sourceNode) => {
+    if (sourceNode?.type === 'StringLiteral') specifiers.add(sourceNode.value);
+  };
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type') {
+      addSource(node.source);
+    } else if (
+      ['ExportAllDeclaration', 'ExportNamedDeclaration'].includes(node.type) &&
+      node.exportKind !== 'type'
+    ) {
+      addSource(node.source);
+    } else if (node.type === 'ImportExpression') {
+      addSource(node.source);
+    } else if (node.type === 'CallExpression') {
+      const isRequire =
+        node.callee?.type === 'Identifier' && node.callee.name === 'require';
+      const isDynamicImport = node.callee?.type === 'Import';
+      const isRequireResolve =
+        node.callee?.type === 'MemberExpression' &&
+        node.callee.object?.type === 'Identifier' &&
+        node.callee.object.name === 'require' &&
+        node.callee.property?.type === 'Identifier' &&
+        node.callee.property.name === 'resolve';
+      if (isRequire || isDynamicImport || isRequireResolve) {
+        addSource(node.arguments?.[0]);
+      }
+    } else if (
+      node.type === 'NewExpression' &&
+      node.callee?.type === 'Identifier' &&
+      node.callee.name === 'URL'
+    ) {
+      addSource(node.arguments?.[0]);
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (!['comments', 'errors', 'loc', 'tokens'].includes(key)) visit(value);
+    }
+  };
+  visit(ast.program);
+  return [...specifiers].toSorted(compareStrings);
+}
+
+function createWebEmbedResolver(root, inputResolveOptions) {
+  const resolveOptions =
+    inputResolveOptions ||
+    createBaseResolveOptions({
+      basePath: path.join(root, 'apps/web-embed'),
+      enableSentryMinimalCompat: true,
+      extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
+    });
+  const { fallback = {}, ...resolverOptions } = resolveOptions;
+  return {
+    fallback,
+    resolve: enhancedResolve.create.sync({
+      ...resolverOptions,
+      conditionNames: ['browser', 'import', 'require', 'default'],
+      modules: [path.join(root, 'node_modules'), 'node_modules'],
+    }),
+  };
+}
+
+function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
+  if (BUILTIN_MODULES.has(specifier)) {
+    const builtinName = specifier.startsWith('node:')
+      ? specifier.slice('node:'.length)
+      : specifier;
+    const replacement = fallback[builtinName];
+    if (replacement === false || replacement === undefined) return false;
+    return resolve(context, replacement);
+  }
+  return resolve(context, specifier);
+}
+
+function findPackageRoot(filePath, root) {
+  let current = path.dirname(filePath);
+  while (current.startsWith(root) && current !== root) {
+    const packagePath = path.join(current, 'package.json');
+    if (fs.existsSync(packagePath)) {
+      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      if (
+        typeof packageJson.name === 'string' &&
+        typeof packageJson.version === 'string'
+      ) {
+        return { packageJson, packagePath, packageRoot: current };
+      }
+    }
+    current = path.dirname(current);
+  }
+  return undefined;
+}
+
+function readYarnLockResolutionRecords(root) {
+  const records = new Map();
+  let activeKey;
+  let activeRecord;
+  const flush = () => {
+    if (!activeRecord?.resolution || !activeRecord.version) return;
+    const key = `${activeRecord.resolution}\0${activeRecord.version}`;
+    records.set(key, {
+      checksum: activeRecord.checksum || null,
+      resolution: activeRecord.resolution,
+      version: activeRecord.version,
+    });
+  };
+  for (const line of fs
+    .readFileSync(path.join(root, 'yarn.lock'), 'utf8')
+    .split('\n')) {
+    if (line && !line.startsWith(' ') && line.endsWith(':')) {
+      flush();
+      activeKey = line.slice(0, -1);
+      activeRecord = activeKey === '__metadata' ? undefined : {};
+    } else if (activeRecord) {
+      const field = line.match(/^  (checksum|resolution|version): (.+)$/u);
+      if (field) {
+        activeRecord[field[1]] = field[2].startsWith('"')
+          ? JSON.parse(field[2])
+          : field[2];
+      }
+    }
+  }
+  flush();
+  return [...records.values()];
+}
+
+function getPackageResolutionRecords(packageJson, lockRecords) {
+  const exactNpmResolution = `${packageJson.name}@npm:${packageJson.version}`;
+  const matches = lockRecords.filter(
+    ({ resolution, version }) =>
+      version === packageJson.version &&
+      (resolution === exactNpmResolution ||
+        resolution.startsWith(`${packageJson.name}@`)),
+  );
+  if (matches.length === 0) {
+    throw new Error(
+      `[webEmbedPrebundle] Installed dependency is missing from yarn.lock: ${packageJson.name}@${packageJson.version}`,
+    );
+  }
+  return matches.toSorted((left, right) =>
+    compareStrings(JSON.stringify(left), JSON.stringify(right)),
+  );
+}
+
+function getWebEmbedInputDescriptor({
+  inputPaths = INPUT_PATHS,
+  resolveOptions,
+  root = REPO_ROOT,
+} = {}) {
+  const resolver = createWebEmbedResolver(root, resolveOptions);
+  const repoFiles = new Set(listFiles(inputPaths, root));
+  const pending = [...repoFiles];
+  const visited = new Set();
+  const externalPackages = new Map();
+  while (pending.length > 0) {
+    const filePath = pending.pop();
+    if (!visited.has(filePath)) {
+      visited.add(filePath);
+      if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
+        const specifiers = parseModuleSpecifiers(filePath);
+        for (const specifier of specifiers) {
+          let resolved;
+          try {
+            resolved = resolveWebEmbedSpecifier(
+              resolver,
+              path.dirname(filePath),
+              specifier,
+            );
+          } catch (error) {
+            const adjacentPath = path.resolve(
+              path.dirname(filePath),
+              specifier,
+            );
+            if (
+              fs.existsSync(adjacentPath) &&
+              fs.lstatSync(adjacentPath).isFile()
+            ) {
+              resolved = adjacentPath;
+            } else {
+              throw new Error(
+                `[webEmbedPrebundle] Unable to resolve ${specifier} from ${toRepoPath(filePath, root)}. Run yarn install first.`,
+                { cause: error },
+              );
+            }
+          }
+          if (resolved !== false && typeof resolved === 'string') {
+            const normalizedPath = resolved
+              .replaceAll('\0#', '#')
+              .replaceAll('\0?', '?');
+            const relativePath = toRepoPath(normalizedPath, root);
+            if (!relativePath.startsWith('node_modules/')) {
+              if (!repoFiles.has(normalizedPath)) {
+                repoFiles.add(normalizedPath);
+              }
+            } else {
+              const resolvedPackage = findPackageRoot(normalizedPath, root);
+              if (!resolvedPackage) {
+                throw new Error(
+                  `[webEmbedPrebundle] Unable to identify dependency for ${relativePath}.`,
+                );
+              }
+              externalPackages.set(
+                resolvedPackage.packageRoot,
+                resolvedPackage,
+              );
+            }
+            pending.push(normalizedPath);
+          }
+        }
+      }
+    }
+  }
+
+  const packages = [];
+  const lockRecords = readYarnLockResolutionRecords(root);
+  for (const dependency of externalPackages.values()) {
+    const { packageJson } = dependency;
+    packages.push({
+      browser: packageJson.browser ?? null,
+      dependencies: packageJson.dependencies || {},
+      exports: packageJson.exports ?? null,
+      main: packageJson.main ?? null,
+      module: packageJson.module ?? null,
+      name: packageJson.name,
+      optionalDependencies: packageJson.optionalDependencies || {},
+      peerDependencies: packageJson.peerDependencies || {},
+      resolutions: getPackageResolutionRecords(packageJson, lockRecords),
+      sideEffects: packageJson.sideEffects ?? null,
+      version: packageJson.version,
+    });
+  }
+
+  return {
+    files: [...repoFiles].toSorted((left, right) =>
+      compareStrings(toRepoPath(left, root), toRepoPath(right, root)),
+    ),
+    packages: packages.toSorted((left, right) =>
+      compareStrings(
+        `${left.name}@${left.version}`,
+        `${right.name}@${right.version}`,
+      ),
+    ),
+  };
+}
+
 function hashFiles(absolutePaths, root = REPO_ROOT) {
   const hash = crypto.createHash('sha256');
   for (const absolutePath of absolutePaths) {
@@ -146,11 +480,33 @@ function hashFiles(absolutePaths, root = REPO_ROOT) {
   return hash.digest('hex');
 }
 
-function getInputKey({ inputPaths = INPUT_PATHS, root = REPO_ROOT } = {}) {
+function getInputKey(options = {}) {
+  if (Object.keys(options).length === 0 && cachedDefaultInputKey) {
+    return cachedDefaultInputKey;
+  }
+  const {
+    inputPaths = INPUT_PATHS,
+    resolveOptions,
+    root = REPO_ROOT,
+    traceDependencies = inputPaths === INPUT_PATHS,
+  } = options;
   const hash = crypto.createHash('sha256');
   hash.update(`schema:${SCHEMA_VERSION}\0`);
-  hash.update(hashFiles(listFiles(inputPaths, root), root));
-  return hash.digest('hex');
+  if (traceDependencies) {
+    const descriptor = getWebEmbedInputDescriptor({
+      inputPaths,
+      resolveOptions,
+      root,
+    });
+    hash.update(hashFiles(descriptor.files, root));
+    hash.update('\0');
+    hash.update(JSON.stringify(descriptor.packages));
+  } else {
+    hash.update(hashFiles(listFiles(inputPaths, root), root));
+  }
+  const inputKey = hash.digest('hex');
+  if (Object.keys(options).length === 0) cachedDefaultInputKey = inputKey;
+  return inputKey;
 }
 
 function getReleaseTag() {
@@ -448,23 +804,148 @@ async function run(command, args, options = {}) {
   }
 }
 
-async function resolveOciDigest(reference) {
-  const { stdout } = await run('oras', [
-    'manifest',
-    'fetch',
-    '--descriptor',
-    reference,
-  ]);
-  const descriptor = JSON.parse(stdout);
-  if (!/^sha256:[0-9a-f]{64}$/.test(descriptor.digest || '')) {
-    throw new Error('[webEmbedPrebundle] Invalid OCI artifact digest.');
+async function readResponseBody({ fileName, maxBytes, response }) {
+  const declaredBytes = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
+    throw new Error(`[webEmbedPrebundle] Download is too large: ${fileName}.`);
   }
-  return descriptor.digest;
+  if (!response.body) {
+    throw new Error(
+      `[webEmbedPrebundle] Download has no response body: ${fileName}.`,
+    );
+  }
+  const chunks = [];
+  let receivedBytes = 0;
+  for await (const chunk of response.body) {
+    const bytes = Buffer.from(chunk);
+    receivedBytes += bytes.length;
+    if (receivedBytes > maxBytes) {
+      throw new Error(
+        `[webEmbedPrebundle] Download is too large: ${fileName}.`,
+      );
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks, receivedBytes);
 }
 
-async function verifyOciManifest(reference) {
-  const { stdout } = await run('oras', ['manifest', 'fetch', reference]);
-  const manifest = JSON.parse(stdout);
+function parseBearerChallenge(value) {
+  const scheme = value?.match(/^Bearer\s+(.+)$/iu);
+  if (!scheme) {
+    throw new Error(
+      '[webEmbedPrebundle] OCI registry returned an unsupported authentication challenge.',
+    );
+  }
+  const parameters = {};
+  const pattern = /(?:^|,)\s*([a-z][a-z0-9_-]*)="([^"]*)"/giu;
+  for (const match of scheme[1].matchAll(pattern)) {
+    parameters[match[1].toLowerCase()] = match[2];
+  }
+  if (!parameters.realm) {
+    throw new Error(
+      '[webEmbedPrebundle] OCI authentication challenge has no realm.',
+    );
+  }
+  return parameters;
+}
+
+function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('[webEmbedPrebundle] This Node.js runtime has no fetch.');
+  }
+  const baseUrl = `https://${OCI_REGISTRY}`;
+  const repositoryScope = `repository:${OCI_REPOSITORY}:pull`;
+  const repositoryUrl = `${baseUrl}/v2/${OCI_REPOSITORY}`;
+  let authorization;
+
+  async function fetchRegistry(url, { accept, timeoutMs }) {
+    const request = () =>
+      fetchImpl(url, {
+        headers: {
+          Accept: accept,
+          ...(authorization ? { Authorization: authorization } : {}),
+          'User-Agent': 'OneKey-Web-Embed-Prebundle',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    let response = await request();
+    if (response.status !== 401) return response;
+
+    const challenge = parseBearerChallenge(
+      response.headers.get('www-authenticate'),
+    );
+    if (challenge.scope && challenge.scope !== repositoryScope) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry requested an unexpected scope.',
+      );
+    }
+    const tokenUrl = new URL(challenge.realm);
+    if (
+      tokenUrl.protocol !== 'https:' ||
+      tokenUrl.username ||
+      tokenUrl.password ||
+      tokenUrl.origin !== baseUrl
+    ) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry returned an untrusted token realm.',
+      );
+    }
+    if (challenge.service) {
+      tokenUrl.searchParams.set('service', challenge.service);
+    }
+    tokenUrl.searchParams.set('scope', challenge.scope || repositoryScope);
+    const tokenResponse = await fetchImpl(tokenUrl, {
+      headers: { 'User-Agent': 'OneKey-Web-Embed-Prebundle' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!tokenResponse.ok) {
+      throw new Error(
+        `[webEmbedPrebundle] OCI token request failed: HTTP ${tokenResponse.status}.`,
+      );
+    }
+    const tokenBytes = await readResponseBody({
+      fileName: 'OCI token',
+      maxBytes: MAX_OCI_TOKEN_BYTES,
+      response: tokenResponse,
+    });
+    const tokenPayload = JSON.parse(tokenBytes.toString('utf8'));
+    const token = tokenPayload.token || tokenPayload.access_token;
+    if (
+      typeof token !== 'string' ||
+      token.length === 0 ||
+      token.length > 16_384
+    ) {
+      throw new Error(
+        '[webEmbedPrebundle] OCI registry returned an invalid token.',
+      );
+    }
+    authorization = `Bearer ${token}`;
+    response = await request();
+    return response;
+  }
+
+  return {
+    fetchBlob(digest) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
+        throw new Error('[webEmbedPrebundle] Invalid OCI blob digest.');
+      }
+      return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
+        accept: 'application/octet-stream',
+        timeoutMs: 180_000,
+      });
+    },
+    fetchManifest(tagName) {
+      return fetchRegistry(
+        `${repositoryUrl}/manifests/${encodeURIComponent(tagName)}`,
+        { accept: OCI_MANIFEST_MEDIA_TYPE, timeoutMs: 15_000 },
+      );
+    },
+  };
+}
+
+function verifyOciManifest(manifest) {
   const layers = manifest.layers;
   const titles = layers
     ?.map((layer) => layer.annotations?.['org.opencontainers.image.title'])
@@ -486,18 +967,179 @@ async function verifyOciManifest(reference) {
       limit !== undefined &&
       Number.isSafeInteger(layer.size) &&
       layer.size > 0 &&
-      layer.size <= limit
+      layer.size <= limit &&
+      typeof layer.mediaType === 'string' &&
+      layer.mediaType.length > 0 &&
+      /^sha256:[0-9a-f]{64}$/.test(layer.digest || '')
     );
   });
   if (
     manifest.schemaVersion !== 2 ||
+    manifest.mediaType !== OCI_MANIFEST_MEDIA_TYPE ||
     manifest.artifactType !== OCI_ARTIFACT_TYPE ||
+    typeof manifest.config?.mediaType !== 'string' ||
+    manifest.config.mediaType.length === 0 ||
+    !Number.isSafeInteger(manifest.config?.size) ||
+    manifest.config.size <= 0 ||
+    !/^sha256:[0-9a-f]{64}$/.test(manifest.config?.digest || '') ||
     manifest.annotations?.['org.opencontainers.image.source'] !==
       `https://github.com/${SOURCE_REPOSITORY}` ||
     JSON.stringify(titles) !== JSON.stringify(expectedTitles) ||
     !hasValidLayerSizes
   ) {
     throw new Error('[webEmbedPrebundle] Invalid OCI artifact manifest.');
+  }
+  return new Map(
+    layers.map((layer) => [
+      layer.annotations['org.opencontainers.image.title'],
+      layer,
+    ]),
+  );
+}
+
+async function resolveOciArtifact({ fetchImpl, tagName }) {
+  const client = createOciClient({ fetchImpl });
+  const response = await client.fetchManifest(tagName);
+  if (!response.ok) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI manifest download failed: HTTP ${response.status}.`,
+    );
+  }
+  const contentType = response.headers.get('content-type')?.split(';')[0];
+  if (contentType !== OCI_MANIFEST_MEDIA_TYPE) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI registry returned an unexpected manifest type: ${contentType || 'missing'}.`,
+    );
+  }
+  const manifestBytes = await readResponseBody({
+    fileName: 'OCI manifest',
+    maxBytes: MAX_MANIFEST_BYTES,
+    response,
+  });
+  const ociDigest = response.headers.get('docker-content-digest');
+  const actualDigest = `sha256:${sha256(manifestBytes)}`;
+  if (
+    !/^sha256:[0-9a-f]{64}$/.test(ociDigest || '') ||
+    ociDigest !== actualDigest
+  ) {
+    throw new Error('[webEmbedPrebundle] OCI manifest digest mismatch.');
+  }
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  return {
+    client,
+    layers: verifyOciManifest(manifest),
+    ociDigest,
+  };
+}
+
+function isRetryableDownloadError(error) {
+  const retryableCodes = new Set([
+    'EAI_AGAIN',
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'ETIMEDOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_SOCKET',
+  ]);
+  let current = error;
+  while (current) {
+    if (current.retryable === true || retryableCodes.has(current.code)) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+async function downloadOciLayerOnce({
+  client,
+  descriptor,
+  filePath,
+  maxBytes,
+}) {
+  if (descriptor.size > maxBytes) {
+    throw new Error(
+      `[webEmbedPrebundle] Download is too large: ${path.basename(filePath)}.`,
+    );
+  }
+  const response = await client.fetchBlob(descriptor.digest);
+  if (!response.ok) {
+    const error = new Error(
+      `[webEmbedPrebundle] OCI blob download failed: HTTP ${response.status}.`,
+    );
+    error.retryable =
+      response.status === 408 ||
+      response.status === 425 ||
+      response.status === 429 ||
+      response.status >= 500;
+    throw error;
+  }
+  if (!response.body) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI blob has no response body: ${path.basename(filePath)}.`,
+    );
+  }
+  const file = await fs.promises.open(filePath, 'wx', 0o600);
+  const hash = crypto.createHash('sha256');
+  let receivedBytes = 0;
+  try {
+    for await (const chunk of response.body) {
+      const bytes = Buffer.from(chunk);
+      receivedBytes += bytes.length;
+      if (receivedBytes > maxBytes || receivedBytes > descriptor.size) {
+        throw new Error(
+          `[webEmbedPrebundle] Download is too large: ${path.basename(filePath)}.`,
+        );
+      }
+      hash.update(bytes);
+      await file.write(bytes);
+    }
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  if (
+    receivedBytes !== descriptor.size ||
+    `sha256:${hash.digest('hex')}` !== descriptor.digest
+  ) {
+    throw new Error(
+      `[webEmbedPrebundle] OCI blob integrity mismatch: ${path.basename(filePath)}.`,
+    );
+  }
+}
+
+async function downloadOciLayer({
+  client,
+  descriptor,
+  filePath,
+  maxAttempts = OCI_DOWNLOAD_MAX_ATTEMPTS,
+  maxBytes,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await downloadOciLayerOnce({
+        client,
+        descriptor,
+        filePath,
+        maxBytes,
+      });
+      return;
+    } catch (error) {
+      await fs.promises.rm(filePath, { force: true });
+      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+        throw error;
+      }
+      console.error(
+        `[webEmbedPrebundle] Retrying ${path.basename(filePath)} after a transient download failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
   }
 }
 
@@ -614,17 +1256,32 @@ async function replaceDirectory({
   }
 }
 
-async function restoreRelease({ outputDirectory, receiptPath } = {}) {
+async function restoreRelease({
+  fetchImpl,
+  outputDirectory,
+  receiptPath,
+} = {}) {
   const tagName = getReleaseTag();
-  const tagReference = `${OCI_REGISTRY}/${OCI_REPOSITORY}:${tagName}`;
   const pullDirectory = await fs.promises.mkdtemp(
     path.join(os.tmpdir(), 'onekey-web-embed-prebundle-'),
   );
   try {
-    const ociDigest = await resolveOciDigest(tagReference);
+    const artifact = await resolveOciArtifact({ fetchImpl, tagName });
+    const { ociDigest } = artifact;
     const reference = `${OCI_REGISTRY}/${OCI_REPOSITORY}@${ociDigest}`;
-    await verifyOciManifest(reference);
-    await run('oras', ['pull', '--output', pullDirectory, reference]);
+    const layerLimits = {
+      [ARCHIVE_NAME]: MAX_ARCHIVE_BYTES,
+      [ATTESTATION_BUNDLE_NAME]: MAX_ATTESTATION_BYTES,
+      [RELEASE_MANIFEST_NAME]: MAX_MANIFEST_BYTES,
+    };
+    for (const [fileName, maxBytes] of Object.entries(layerLimits)) {
+      await downloadOciLayer({
+        client: artifact.client,
+        descriptor: artifact.layers.get(fileName),
+        filePath: path.join(pullDirectory, fileName),
+        maxBytes,
+      });
+    }
     const manifestPath = path.join(pullDirectory, RELEASE_MANIFEST_NAME);
     getFileMetadata(manifestPath, { maxBytes: MAX_MANIFEST_BYTES });
     getFileMetadata(path.join(pullDirectory, ATTESTATION_BUNDLE_NAME), {
@@ -742,6 +1399,7 @@ module.exports = {
   getCanonicalBuildEnvironment,
   getInputKey,
   getReleaseTag,
+  getWebEmbedInputDescriptor,
   hashFiles,
   listFiles,
   packageRelease,

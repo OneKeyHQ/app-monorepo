@@ -17,6 +17,8 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
 export const STOCK_SHARE_SIMPLE_CHART_RANGES =
   TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
 
+const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
   isNative: boolean;
@@ -70,7 +72,7 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   '1H': 60 * 60,
   '1D': 24 * 60 * 60,
   '1W': 7 * 24 * 60 * 60,
-  '1M': 30 * 24 * 60 * 60,
+  '1M': STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS,
   '1Y': 365 * 24 * 60 * 60,
   All: undefined,
 };
@@ -157,9 +159,6 @@ export async function fetchStockSimpleChartPoints(
     return [];
   }
 
-  const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
-  const timeTo = Math.floor(Date.now() / 1000);
-  const timeFrom = rangeSeconds ? timeTo - rangeSeconds : undefined;
   if (isSharePrice) {
     if (!stockId) {
       return [];
@@ -170,15 +169,30 @@ export async function fetchStockSimpleChartPoints(
         period: STOCK_SHARE_CHART_PERIODS[range],
         points: range === '1M' ? 180 : 100,
       });
-    return response.points
+    const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
-      .filter(([timestamp, price]) => {
-        const isValidPoint =
-          Number.isFinite(timestamp) && Number.isFinite(price);
-        return isValidPoint && (!timeFrom || timestamp >= timeFrom);
-      })
+      .filter(
+        ([timestamp, price]) =>
+          Number.isFinite(timestamp) && Number.isFinite(price),
+      )
       .toSorted((a, b) => a[0] - b[0]);
+
+    if (range !== '1M') {
+      return points;
+    }
+
+    const latestTimestamp = points.at(-1)?.[0];
+    if (latestTimestamp === undefined) {
+      return points;
+    }
+
+    const timeFrom = latestTimestamp - STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS;
+    return points.filter(([timestamp]) => timestamp >= timeFrom);
   }
+
+  const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
+  const timeTo = Math.floor(Date.now() / 1000);
+  const timeFrom = rangeSeconds ? timeTo - rangeSeconds : undefined;
 
   if (marketAssetId) {
     const response = await fetchMarketAssetKLineData({

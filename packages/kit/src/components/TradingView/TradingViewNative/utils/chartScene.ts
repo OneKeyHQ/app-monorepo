@@ -242,6 +242,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   hasVolume: boolean;
   height: number;
   indicatorSeries?: ITradingViewNativeIndicatorSeries[];
+  isMobileLayout?: boolean;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
@@ -276,6 +277,12 @@ const LATEST_PRICE_LABEL_PAINT_IDS = {
   up: 'chart.latestPrice.label.up',
 } as const;
 const BACKGROUND_PAINT_ID = 'chart.background';
+
+function getMainIndicatorPaintId(series: ITradingViewNativeIndicatorSeries) {
+  'worklet';
+
+  return `chart.mainIndicator.${series.indicator}.${series.key}`;
+}
 
 export interface ITradingViewNativeChartScene {
   autoPriceRange: ITradingViewNativePriceRange | null;
@@ -422,9 +429,12 @@ function appendIndicatorCommands({
 }) {
   'worklet';
 
-  for (const series of indicatorSeries) {
+  const visibleSeries = indicatorSeries.filter(
+    (series) => series.visible !== false,
+  );
+  for (const series of visibleSeries) {
     const customPaintId = series.style
-      ? `chart.mainIndicator.${series.indicator}.${series.key}`
+      ? getMainIndicatorPaintId(series)
       : undefined;
     if (customPaintId && series.style) {
       let dash: [number, number] | undefined;
@@ -440,6 +450,11 @@ function appendIndicatorCommands({
         opacity: series.style.opacity,
         strokeJoin: 'round',
         strokeWidth: series.style.lineWidth,
+      };
+      customPaintStyles[`${customPaintId}:legend`] = {
+        color: series.style.color,
+        drawStyle: 'fill',
+        opacity: series.style.opacity,
       };
     }
     const firstIndex = Math.max(startIndex - 1, 0);
@@ -491,6 +506,93 @@ function appendIndicatorCommands({
   }
 }
 
+function appendIndicatorFillCommands({
+  commands,
+  customPaintStyles,
+  endIndex,
+  getPointX,
+  indicatorSeries,
+  layout,
+  startIndex,
+}: {
+  commands: ITradingViewNativeChartSceneCommand[];
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  endIndex: number;
+  getPointX: (index: number) => number;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  layout: ITradingViewNativeChartLayout;
+  startIndex: number;
+}) {
+  'worklet';
+
+  for (const series of indicatorSeries) {
+    const fill = series.fill;
+    const toSeries = fill
+      ? indicatorSeries.find(({ key }) => key === fill.toSeriesKey)
+      : undefined;
+    if (fill && toSeries) {
+      const customPaintId = `${getMainIndicatorPaintId(series)}:fill`;
+      customPaintStyles[customPaintId] = {
+        color: fill.color,
+        drawStyle: 'fill',
+        opacity: fill.opacity,
+      };
+      const firstIndex = Math.max(startIndex - 1, 0);
+      const lastIndex = Math.min(
+        endIndex + 1,
+        series.values.length,
+        toSeries.values.length,
+      );
+      let fromPoints: { x: number; y: number }[] = [];
+      let toPoints: { x: number; y: number }[] = [];
+      const appendFill = () => {
+        if (fromPoints.length > 1 && fromPoints.length === toPoints.length) {
+          const points = fromPoints.slice();
+          for (let index = toPoints.length - 1; index >= 0; index -= 1) {
+            const point = toPoints[index];
+            if (point) {
+              points.push(point);
+            }
+          }
+          commands.push({
+            customPaintId,
+            kind: 'polygon',
+            paint: series.paint,
+            points,
+          });
+        }
+        fromPoints = [];
+        toPoints = [];
+      };
+      for (let index = firstIndex; index < lastIndex; index += 1) {
+        const fromValue = series.values[index];
+        const toValue = toSeries.values[index];
+        if (
+          fromValue !== null &&
+          fromValue !== undefined &&
+          Number.isFinite(fromValue) &&
+          toValue !== null &&
+          toValue !== undefined &&
+          Number.isFinite(toValue)
+        ) {
+          const x = getPointX(index);
+          fromPoints.push({
+            x,
+            y: getTradingViewNativePriceY(fromValue, layout),
+          });
+          toPoints.push({
+            x,
+            y: getTradingViewNativePriceY(toValue, layout),
+          });
+        } else {
+          appendFill();
+        }
+      }
+      appendFill();
+    }
+  }
+}
+
 function appendLegendCommands({
   commands,
   layout,
@@ -519,6 +621,9 @@ function appendLegendCommands({
     const textBaselineY = segment.textBaselineY ?? layout.textBaselineY;
     commands.push(
       {
+        ...(segment.customPaintId
+          ? { customPaintId: segment.customPaintId }
+          : {}),
         font: 'legend',
         kind: 'text',
         paint: 'axisText',
@@ -527,6 +632,9 @@ function appendLegendCommands({
         y: textBaselineY,
       },
       {
+        ...(segment.customPaintId
+          ? { customPaintId: segment.customPaintId }
+          : {}),
         font: 'legend',
         kind: 'text',
         paint:
@@ -550,6 +658,7 @@ export function buildTradingViewNativeChartScene({
   hasVolume,
   height,
   indicatorSeries = [],
+  isMobileLayout = false,
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
@@ -712,6 +821,7 @@ export function buildTradingViewNativeChartScene({
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
     canvasWidth: width,
+    isMobileLayout,
     mainChartBottom: subIndicatorPaneStackLayout.top,
   });
   if (watermarkRect) {
@@ -912,6 +1022,15 @@ export function buildTradingViewNativeChartScene({
       y: 0,
     },
   });
+  appendIndicatorFillCommands({
+    commands,
+    customPaintStyles,
+    endIndex: visiblePointRange.endIndex,
+    getPointX,
+    indicatorSeries,
+    layout,
+    startIndex: visiblePointRange.startIndex,
+  });
   appendTradingViewNativePrimarySeriesCommands({
     candleBodyWidth,
     chartSettings,
@@ -1105,19 +1224,52 @@ export function buildTradingViewNativeChartScene({
     }
   };
   if (showLegend) {
-    appendLegendRows(
-      getTradingViewNativeChartLegendRowLayouts({
-        items:
-          chartSettings?.options.priceChange === false
-            ? legend.priceItems.filter(
-                (item) => item.valueColorRole !== 'trend',
-              )
-            : legend.priceItems,
+    const priceLegendLayouts = getTradingViewNativeChartLegendRowLayouts({
+      items:
+        chartSettings?.options.priceChange === false
+          ? legend.priceItems.filter((item) => item.valueColorRole !== 'trend')
+          : legend.priceItems,
+      maxX: priceAxisX,
+      measureTextWidth: measureLegendTextWidth,
+      top: PRICE_LEGEND_TOP,
+    });
+    appendLegendRows(priceLegendLayouts);
+    let mainIndicatorLegendTop =
+      PRICE_LEGEND_TOP +
+      priceLegendLayouts.reduce(
+        (legendHeight, row) => legendHeight + row.backgroundRect.height,
+        0,
+      );
+    for (const indicator of ['MA', 'EMA'] as const) {
+      const items = indicatorSeries.flatMap((series) => {
+        const value = series.values[legendPointIndex];
+        return series.indicator === indicator &&
+          series.legendLabel &&
+          value !== null &&
+          value !== undefined &&
+          Number.isFinite(value) &&
+          series.style
+          ? [
+              {
+                customPaintId: `${getMainIndicatorPaintId(series)}:legend`,
+                label: series.legendLabel,
+                value: formatTradingViewNativePriceTick(value),
+              },
+            ]
+          : [];
+      });
+      const layouts = getTradingViewNativeChartLegendRowLayouts({
+        items,
         maxX: priceAxisX,
         measureTextWidth: measureLegendTextWidth,
-        top: PRICE_LEGEND_TOP,
-      }),
-    );
+        top: mainIndicatorLegendTop,
+      });
+      appendLegendRows(layouts);
+      mainIndicatorLegendTop += layouts.reduce(
+        (legendHeight, row) => legendHeight + row.backgroundRect.height,
+        0,
+      );
+    }
     if (hasVolume) {
       appendLegendRows(
         getTradingViewNativeChartLegendRowLayouts({

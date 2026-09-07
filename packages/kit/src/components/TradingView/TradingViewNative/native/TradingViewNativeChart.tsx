@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { Canvas, Picture, useFont, useSVG } from '@shopify/react-native-skia';
+import { Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
@@ -90,6 +91,12 @@ const PRICE_AXIS_FONT_SOURCE =
   require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
+const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
+  PRICE_AXIS_FONT_SOURCE,
+)?.uri;
+const ONEKEY_WATERMARK_URI = Image.resolveAssetSource(
+  ONEKEY_WATERMARK_SOURCE,
+)?.uri;
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
 export const TradingViewNativeChart = memo(
@@ -105,6 +112,7 @@ export const TradingViewNativeChart = memo(
     indicatorSeries,
     indicatorSeriesSettingsKey,
     initialRightOffset,
+    isMobileLayout = false,
     isSwitchingInterval,
     locale,
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -165,8 +173,11 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
-    const priceAxisFont = useFont(PRICE_AXIS_FONT_SOURCE, priceAxisFontSize);
-    const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
+    const priceAxisFont = useFont(
+      PRICE_AXIS_FONT_URI ?? null,
+      priceAxisFontSize,
+    );
+    const watermarkSvg = useSVG(ONEKEY_WATERMARK_URI ?? null);
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
     const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
@@ -339,6 +350,7 @@ export const TradingViewNativeChart = memo(
         height: runtime.size.height,
         candleLabels,
         indicatorSeries: runtime.indicatorSeries,
+        isMobileLayout,
         pinnedPriceRange: runtime.pinnedPriceRange,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
@@ -358,6 +370,7 @@ export const TradingViewNativeChart = memo(
     }, [
       candleLabels,
       extendTimeAxisBorderToCanvasEdge,
+      isMobileLayout,
       priceAxisFontSize,
       priceAxisTickCount,
       priceAxisWidth,

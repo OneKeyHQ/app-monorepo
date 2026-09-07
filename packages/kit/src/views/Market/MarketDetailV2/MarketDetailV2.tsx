@@ -49,6 +49,7 @@ import {
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
+import { buildMarketStockDetailPreview } from './utils/marketDetailPreview';
 
 import type { NavigationAction } from '@react-navigation/routers';
 
@@ -238,6 +239,21 @@ function MarketDetailV2(
   const { navigation } = props;
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
+  const stockPreview = buildMarketStockDetailPreview({
+    stockId,
+    symbol:
+      'stockPreviewSymbol' in props.route.params
+        ? props.route.params.stockPreviewSymbol
+        : undefined,
+    name:
+      'stockPreviewName' in props.route.params
+        ? props.route.params.stockPreviewName
+        : undefined,
+    logoUrl:
+      'stockPreviewLogoUrl' in props.route.params
+        ? props.route.params.stockPreviewLogoUrl
+        : undefined,
+  });
   const initialTokenAddress =
     'tokenAddress' in props.route.params
       ? props.route.params.tokenAddress
@@ -354,6 +370,7 @@ function MarketDetailV2(
           <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
           <StockDetailProvider
             stockId={stockId}
+            initialStockPreview={stockPreview}
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
           >

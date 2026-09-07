@@ -241,6 +241,8 @@ function MarketHomeTabBar({
       <YStack bg="$bgApp" height={44}>
         <Tabs.TabBar
           {...tabBarProps}
+          scrollable
+          keepFocusedTabVisible
           directTabPressAnimation
           directTabPressAnimationMode="instant"
         />

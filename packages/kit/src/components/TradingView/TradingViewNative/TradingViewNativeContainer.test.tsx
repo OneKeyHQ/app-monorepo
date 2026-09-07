@@ -1030,20 +1030,25 @@ describe('TradingViewNativeContainer', () => {
         onFullscreenChange: handleFullscreenChange,
       }),
     );
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({ isMobileLayout: false }),
+    );
   });
 
-  it('renders the mobile fullscreen control over the chart', () => {
+  it('renders the mobile fullscreen control after initial loading finishes', () => {
     const handleFullscreenChange = jest.fn();
+    mockDataState = { status: 'loading' };
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
 
-    render(
+    const { rerender } = render(
       <TradingViewNativeContainer
-        source={{
-          kind: 'market',
-          networkId: 'evm--1',
-          tokenAddress: '0xabc',
-          symbol: 'TOKEN',
-          realtime: 'disabled',
-        }}
+        source={source}
         nativeControlsLayoutMode="mobile"
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
@@ -1053,6 +1058,22 @@ describe('TradingViewNativeContainer', () => {
       expect.objectContaining({
         onFullscreenChange: undefined,
       }),
+    );
+    expect(
+      screen.queryByTestId('trading-view-native-fullscreen-toggle'),
+    ).toBeNull();
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({ isMobileLayout: true }),
+    );
+
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    rerender(
+      <TradingViewNativeContainer
+        source={{ ...source }}
+        nativeControlsLayoutMode="mobile"
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
     );
     expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -12,12 +12,14 @@ function PnlCellBase({
   isSupported,
   columnWidth,
   flex: flexValue,
+  emphasizedText = false,
 }: {
   usdValue: string;
   percent: string;
   isSupported: boolean;
   columnWidth?: number;
   flex?: number;
+  emphasizedText?: boolean;
 }) {
   const valueBN = new BigNumber(isSupported ? usdValue : 0);
   const isValid = isSupported && !valueBN.isNaN();
@@ -31,18 +33,29 @@ function PnlCellBase({
   let prefix = '';
   if (isPositive) prefix = '+';
   if (isNegative) prefix = '-';
+  const topTextSize = emphasizedText ? '$bodyMdMedium' : '$bodySmMedium';
 
   return (
-    <YStack w={columnWidth} flex={flexValue} alignItems="flex-end">
+    // Tamagui resolves `flex` to `flex-basis: auto`, so flexed PnL columns
+    // would size to their content and drift out of line with the header; the
+    // zero basis keeps every flexed column the same width.
+    <YStack
+      w={columnWidth}
+      flex={flexValue}
+      flexBasis={flexValue === undefined ? undefined : 0}
+      minWidth={flexValue === undefined ? undefined : 0}
+      gap={emphasizedText ? '$0.5' : undefined}
+      alignItems="flex-end"
+    >
       {isValid ? (
         <XStack alignItems="center">
           {prefix ? (
-            <SizableText size="$bodySmMedium" color={displayColor}>
+            <SizableText size={topTextSize} color={displayColor}>
               {prefix}
             </SizableText>
           ) : null}
           <Currency
-            size="$bodySmMedium"
+            size={topTextSize}
             color={displayColor}
             autoFormatter="price-marketCap"
             autoFormatterThreshold={1000}
@@ -52,7 +65,7 @@ function PnlCellBase({
           </Currency>
         </XStack>
       ) : (
-        <SizableText size="$bodySmMedium" color="$textSubdued">
+        <SizableText size={topTextSize} color="$textSubdued">
           --
         </SizableText>
       )}

@@ -228,6 +228,12 @@ describe('TradingViewNative sub-indicator scene', () => {
       pointIndex,
       priceAxisX: 280,
     });
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'rect' && command.paint === 'legendBackground',
+      ),
+    ).toBe(false);
     if (typeof paletteIndex === 'number' && histogram?.palette) {
       const palettePaintId = Object.keys(customPaintStyles).find((key) =>
         key.includes(`:series:histogram:palette:${paletteIndex}`),
@@ -235,7 +241,7 @@ describe('TradingViewNative sub-indicator scene', () => {
       const legendCommand = commands.find(
         (command) =>
           command.kind === 'text' &&
-          command.text === 'Histogram' &&
+          command.text === 'MACD' &&
           command.customPaintId === palettePaintId,
       );
       const legendPaint = palettePaintId
@@ -244,6 +250,20 @@ describe('TradingViewNative sub-indicator scene', () => {
       expect(legendCommand).toBeDefined();
       expect(legendPaint?.color).toBe(histogram.palette.colors[paletteIndex]);
     }
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'text' && command.text === 'MACD(12, 26, 9)',
+      ),
+    ).toBe(true);
+    expect(
+      commands.flatMap((command) =>
+        command.kind === 'text' &&
+        (command.text === 'DIF' || command.text === 'DEA')
+          ? [command.text]
+          : [],
+      ),
+    ).toEqual(['DIF', 'DEA']);
   });
 
   it('formats the active pane crosshair value', () => {
@@ -402,7 +422,7 @@ describe('TradingViewNative sub-indicator scene', () => {
         commands.some(
           (command) =>
             command.kind === 'text' &&
-            command.text === 'Histogram' &&
+            command.text === 'MACD' &&
             command.customPaintId === legendPaintId,
         ),
       ).toBe(true);

@@ -6,6 +6,7 @@ import type { ITradingViewNativeSource } from '../../../types';
 import type { ITradingViewNativeDataProvider } from '../types';
 
 const ASSET_HISTORY_REQUEST_CANDLE_COUNT = 2000;
+const ASSET_HISTORY_REFRESH_INTERVAL = 30_000;
 
 export function createTradingViewNativeAssetDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'asset' }>,
@@ -13,6 +14,7 @@ export function createTradingViewNativeAssetDataProvider(
   return {
     getHistoryRequestCandleCount: () => ASSET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: ({ receivedPointCount }) => receivedPointCount > 0,
+    historyRefreshInterval: ASSET_HISTORY_REFRESH_INTERVAL,
     isReady: Boolean(source.assetId.trim()),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: false,

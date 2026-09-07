@@ -9,9 +9,6 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const {
-  getInputKey: getWebEmbedInputKey,
-} = require('../../web-embed/scripts/web-embed-prebundle');
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeNativeContractKey,
@@ -22,9 +19,9 @@ const {
   verifyManifest,
 } = require('../plugins/devVendor');
 
-const { preparePlatform } = require('./build-dev-vendor');
 const {
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
 } = require('./mobile-dev-shell-resource');
@@ -39,6 +36,7 @@ const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
 const ANDROID_APP_STARTUP_TIMEOUT_MS = 10_000;
 const ANDROID_APP_STARTUP_POLL_INTERVAL_MS = 500;
 const NATIVE_APP_STARTUP_GRACE_MS = 1500;
+const NATIVE_RUNTIME_PREWARM_TIMEOUT_MS = 10 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
@@ -100,6 +98,87 @@ function parseMetroBaseUrl(value) {
     );
   }
   return metroUrl.toString().replace(/\/$/u, '');
+}
+
+function getNativeRuntimeBundleUrl({
+  fingerprint,
+  metroPort,
+  platform,
+  runtimeTarget,
+  sessionId,
+}) {
+  const targetPlatform = assertPlatform(platform);
+  if (!['main', 'background'].includes(runtimeTarget)) {
+    throw new Error('[nativeDevShell] Invalid runtime prewarm target.');
+  }
+  if (!/^[0-9a-f]{64}$/u.test(fingerprint || '')) {
+    throw new Error('[nativeDevShell] Invalid dev-vendor fingerprint.');
+  }
+  const url = new URL(
+    runtimeTarget === 'background'
+      ? `http://127.0.0.1:${String(metroPort)}/background.bundle`
+      : `http://127.0.0.1:${String(metroPort)}/.expo/.virtual-metro-entry.bundle`,
+  );
+  const values = {
+    platform: targetPlatform,
+    dev: 'true',
+    lazy: 'false',
+    minify: 'false',
+    inlineSourceMap: 'false',
+    modulesOnly: 'true',
+    runModule: 'true',
+    'resolver.devVendor': 'true',
+    'resolver.devVendorNative': 'true',
+    'resolver.devVendorFingerprint': fingerprint,
+    'resolver.devSessionId': sessionId,
+    'resolver.runtimeTarget': runtimeTarget,
+    unstable_transformProfile: 'hermes-stable',
+  };
+  for (const [name, value] of Object.entries(values)) {
+    url.searchParams.set(name, value);
+  }
+  return url;
+}
+
+async function prewarmNativeRuntimeBundles({
+  fetchImpl = globalThis.fetch,
+  fingerprint,
+  metroPort,
+  platform,
+  sessionId,
+  timeoutMs = NATIVE_RUNTIME_PREWARM_TIMEOUT_MS,
+}) {
+  for (const runtimeTarget of ['main', 'background']) {
+    const url = getNativeRuntimeBundleUrl({
+      fingerprint,
+      metroPort,
+      platform,
+      runtimeTarget,
+      sessionId,
+    });
+    let receivedBytes = 0;
+    try {
+      const response = await fetchImpl(url, {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${String(response.status)}`);
+      }
+      if (response.body) {
+        for await (const chunk of response.body) {
+          receivedBytes += Buffer.byteLength(chunk);
+        }
+      }
+    } catch (error) {
+      throw new Error(
+        `[nativeDevShell] Failed to prewarm the ${runtimeTarget} runtime bundle.`,
+        { cause: error },
+      );
+    }
+    console.log(
+      `[nativeDevShell] prewarmed runtime=${runtimeTarget} bytes=${String(receivedBytes)}`,
+    );
+  }
 }
 
 function getContractManifest(platform) {
@@ -436,11 +515,12 @@ function parseArgs(argv = process.argv.slice(2)) {
       'compatibility',
       'contract',
       'launch',
+      'resolve',
       'session',
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -503,25 +583,17 @@ function hashValues(namespace, values) {
   return hash.digest('hex');
 }
 
-function getShellCompatibility({
-  nativeContractKey,
-  platform,
-  webEmbedInputKey = getWebEmbedInputKey(),
-}) {
+function getShellCompatibility({ nativeContractKey, platform }) {
   const targetPlatform = assertPlatform(platform);
   const resolvedNativeContractKey =
     nativeContractKey ?? computeNativeContractKey(targetPlatform);
   if (!/^[0-9a-f]{64}$/.test(resolvedNativeContractKey)) {
     throw new Error('[nativeDevShell] Invalid native contract key.');
   }
-  if (!/^[0-9a-f]{64}$/.test(webEmbedInputKey)) {
-    throw new Error('[nativeDevShell] Invalid web-embed input key.');
-  }
   const platformArtifact = getPlatformArtifact(targetPlatform);
   const keyInputs = {
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
-    webEmbedInputKey,
   };
   const shellCompatibilityKey = computeShellCompatibilityKey(keyInputs);
   const shellInputKey = computeShellInputKey(keyInputs);
@@ -533,7 +605,6 @@ function getShellCompatibility({
     platform: targetPlatform,
     shellCompatibilityKey,
     shellInputKey,
-    webEmbedInputKey,
   };
 }
 
@@ -547,7 +618,7 @@ function getShellArtifactTag({ platform, shellArtifactKey }) {
 
 async function writeArtifactManifest({
   artifact,
-  expectedWebEmbedInputKey = getWebEmbedInputKey(),
+  expectedWebEmbedInputKey,
   output,
   platform,
   webEmbedReceipt,
@@ -562,6 +633,9 @@ async function writeArtifactManifest({
   const receipt = JSON.parse(
     fs.readFileSync(path.resolve(webEmbedReceipt), 'utf8'),
   );
+  const resolvedExpectedWebEmbedInputKey =
+    expectedWebEmbedInputKey ||
+    require('../../web-embed/scripts/web-embed-prebundle').getInputKey();
   const isRemoteReceipt = /^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '');
   const isLocalBuildReceipt =
     receipt.schemaVersion === 1 &&
@@ -574,7 +648,7 @@ async function writeArtifactManifest({
   ) {
     throw new Error('[nativeDevShell] Invalid web-embed preparation receipt.');
   }
-  if (receipt.inputKey !== expectedWebEmbedInputKey) {
+  if (receipt.inputKey !== resolvedExpectedWebEmbedInputKey) {
     throw new Error(
       '[nativeDevShell] Web-embed receipt does not match this checkout.',
     );
@@ -832,6 +906,105 @@ function runForOutput(command, args, options = {}) {
     );
   }
   return result.stdout.trim();
+}
+
+function getJavaMajorVersion(result) {
+  if (result.status !== 0 || result.error) return undefined;
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  const match = output.match(/\bversion\s+"(?:1\.)?(\d+)/u);
+  return match ? Number(match[1]) : undefined;
+}
+
+function getAndroidSdkRoot({ env, hostPlatform, spawnCommand }) {
+  const candidates = [env.ANDROID_HOME, env.ANDROID_SDK_ROOT].filter(Boolean);
+  const findAdb = spawnCommand(
+    hostPlatform === 'win32' ? 'where' : 'which',
+    ['adb'],
+    {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  if (findAdb.status === 0 && !findAdb.error) {
+    for (const adbPath of findAdb.stdout.split(/\r?\n/u).filter(Boolean)) {
+      const platformToolsDirectory = path.dirname(adbPath);
+      if (path.basename(platformToolsDirectory) === 'platform-tools') {
+        candidates.push(path.dirname(platformToolsDirectory));
+      }
+    }
+  }
+  candidates.push(
+    hostPlatform === 'darwin'
+      ? path.join(os.homedir(), 'Library/Android/sdk')
+      : path.join(os.homedir(), 'Android/Sdk'),
+  );
+  for (const candidate of new Set(candidates)) {
+    if (fs.existsSync(path.join(candidate, 'platform-tools'))) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    '[nativeDevShell] Android local shell builds require an Android SDK. Set ANDROID_HOME or make the SDK adb available on PATH.',
+  );
+}
+
+function getAndroidLocalBuildEnvironment({
+  env = process.env,
+  hostPlatform = process.platform,
+  spawnCommand = spawnSync,
+} = {}) {
+  const javaHomes = [env.JAVA_HOME, env.JAVA_HOME_17_X64].filter(Boolean);
+  let buildEnv;
+  if (hostPlatform === 'darwin') {
+    const javaHome = spawnCommand('/usr/libexec/java_home', ['-v', '17'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (javaHome.status === 0 && !javaHome.error && javaHome.stdout.trim()) {
+      javaHomes.push(javaHome.stdout.trim());
+    }
+  }
+  for (const javaHome of new Set(javaHomes)) {
+    const result = spawnCommand(path.join(javaHome, 'bin/java'), ['-version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (getJavaMajorVersion(result) === 17) {
+      buildEnv = {
+        ...env,
+        JAVA_HOME: javaHome,
+        PATH: `${path.join(javaHome, 'bin')}${path.delimiter}${env.PATH || ''}`,
+      };
+      break;
+    }
+  }
+  if (!buildEnv) {
+    const pathJava = spawnCommand('java', ['-version'], {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (getJavaMajorVersion(pathJava) === 17) {
+      buildEnv = { ...env };
+      delete buildEnv.JAVA_HOME;
+    }
+  }
+  if (!buildEnv) {
+    throw new Error(
+      '[nativeDevShell] Android local shell builds require Java 17. Install a Java 17 JDK or set JAVA_HOME_17_X64.',
+    );
+  }
+  const androidSdkRoot = getAndroidSdkRoot({
+    env: buildEnv,
+    hostPlatform,
+    spawnCommand,
+  });
+  return {
+    ...buildEnv,
+    ANDROID_HOME: androidSdkRoot,
+    ANDROID_SDK_ROOT: androidSdkRoot,
+  };
 }
 
 function parseAndroidDevices(output) {
@@ -1854,7 +2027,7 @@ async function stagePrivateSession(options) {
   }
 }
 
-async function prepareWebEmbedForLocalShell(report) {
+async function prepareWebEmbedForDevSession(report) {
   report.webEmbed = { status: 'restoring' };
   await writeRunReport(report);
   try {
@@ -1884,22 +2057,27 @@ async function prepareWebEmbedForLocalShell(report) {
   await writeRunReport(report);
 }
 
-async function buildLocalShell({ platform, report }) {
-  await prepareWebEmbedForLocalShell(report);
+async function buildLocalShell({ platform }) {
+  const buildEnv =
+    platform === 'android' ? getAndroidLocalBuildEnvironment() : process.env;
   const resultPath = path.join(
     REPO_ROOT,
     `node_modules/.cache/onekey-mobile-dev/build-shell-${platform}-${process.pid}.json`,
   );
   await fs.promises.mkdir(path.dirname(resultPath), { recursive: true });
   try {
-    runChecked('node', [
-      path.join(MOBILE_ROOT, 'scripts/build-mobile-dev-shell.js'),
-      'build',
-      '--platform',
-      platform,
-      '--result',
-      resultPath,
-    ]);
+    runChecked(
+      'node',
+      [
+        path.join(MOBILE_ROOT, 'scripts/build-mobile-dev-shell.js'),
+        'build',
+        '--platform',
+        platform,
+        '--result',
+        resultPath,
+      ],
+      { env: buildEnv },
+    );
     const result = JSON.parse(await fs.promises.readFile(resultPath, 'utf8'));
     if (
       typeof result.artifactPath !== 'string' ||
@@ -1934,7 +2112,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
-    artifactPath = await buildLocalShell({ platform, report });
+    artifactPath = await buildLocalShell({ platform });
   } else {
     report.shell = {
       requested: shell,
@@ -1967,7 +2145,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       report.shell.source = 'local-build';
       report.shell.status = 'building';
       await writeRunReport(report);
-      artifactPath = await buildLocalShell({ platform, report });
+      artifactPath = await buildLocalShell({ platform });
     }
   }
   await runWithCacheLeaseCleanup({
@@ -1985,6 +2163,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
 }
 
 async function prepareVendor({ platform, report, vendor }) {
+  const { preparePlatform } = require('./build-dev-vendor');
   if (vendor !== 'auto' && vendor !== 'local') {
     const expectedTag = getReleaseTag();
     if (vendor !== expectedTag) {
@@ -2083,6 +2262,7 @@ async function launchDevShell({
     });
     await writeRunReport(report);
     preparationLock = await acquireWorktreePreparationLock({ report });
+    await prepareWebEmbedForDevSession(report);
     await resolveAndInstallShell({
       deviceId: selectedDevice.id,
       platform,
@@ -2090,6 +2270,7 @@ async function launchDevShell({
       shell,
     });
     await prepareVendor({ platform, report, vendor });
+    const vendorManifest = loadVendorManifest(platform);
     let session = await stagePrivateSession({
       deviceId: selectedDevice.id,
       metroUrl: deviceMetroUrl,
@@ -2135,6 +2316,12 @@ async function launchDevShell({
     await waitForMetro(metroPort, child, () => metroSpawnError);
     preparationLock.release();
     preparationLock = undefined;
+    await prewarmNativeRuntimeBundles({
+      fingerprint: vendorManifest.fingerprint,
+      metroPort,
+      platform,
+      sessionId,
+    });
     const nativeLaunch = launchNativeApp(platform, selectedDevice.id);
     report.launchedAt = new Date().toISOString();
     await waitForNativeAppStartup({
@@ -2214,6 +2401,12 @@ async function main() {
   } else if (args.command === 'contract') {
     const manifest = await writeContractManifest(args);
     console.log(manifest.nativeContractKey);
+  } else if (args.command === 'resolve') {
+    const result = await resolveExactMobileDevShell({
+      compatibility: getShellCompatibility(args),
+    });
+    if (args.output) await writeJson(path.resolve(args.output), result);
+    console.log(String(result.exists));
   } else if (args.command === 'session') {
     const metroPort = parseMetroPort(args.metroPort) || 8081;
     const result = await writeDevSession({
@@ -2249,7 +2442,9 @@ module.exports = {
   createRunReport,
   getAndroidPrivateSessionInstallArgs,
   getAndroidPrivateSessionRenewalArgs,
+  getAndroidLocalBuildEnvironment,
   getContractManifest,
+  getNativeRuntimeBundleUrl,
   getPlatformArtifact,
   getShellArtifactTag,
   getShellCompatibility,
@@ -2260,6 +2455,7 @@ module.exports = {
   parseIosSimulators,
   parseMetroBaseUrl,
   parseMetroPort,
+  prewarmNativeRuntimeBundles,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,

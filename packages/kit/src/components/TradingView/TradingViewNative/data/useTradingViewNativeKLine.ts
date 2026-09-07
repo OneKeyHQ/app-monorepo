@@ -1844,6 +1844,7 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const providerIsReady = historyProvider.isReady;
+  const historyRefreshInterval = historyProvider.historyRefreshInterval;
   const supportsRealtime = Boolean(
     realtimeProvider?.isReady && realtimeProvider.supportsRealtime,
   );
@@ -3824,6 +3825,26 @@ export function useTradingViewNativeKLine({
     subscriberId,
     supportsRealtime,
   ]);
+
+  useInterval(
+    () => {
+      if (initialHistoryAbortControllerRef.current) {
+        emitTradingViewNativeDebugEvent({
+          details: { providerKey: seriesKey },
+          name: 'history.poll.skipped.in-flight',
+        });
+        return;
+      }
+      emitTradingViewNativeDebugEvent({
+        details: { providerKey: seriesKey },
+        name: 'history.poll.requested',
+      });
+      setHistoryRefreshRevision((current) => current + 1);
+    },
+    providerIsReady && isVisible && !supportsRealtime
+      ? historyRefreshInterval
+      : null,
+  );
 
   useInterval(
     () => {

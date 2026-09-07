@@ -106,6 +106,45 @@ describe('StockDetailProvider', () => {
     focusControl.__resetFocus();
   });
 
+  it('exposes a matching route preview before the stock detail request settles', () => {
+    const stockPreview = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/aapl.png',
+    };
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="aapl" initialStockPreview={stockPreview}>
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockDetail).toBeUndefined();
+    expect(result.current.stockPreview).toEqual(stockPreview);
+  });
+
+  it('ignores a route preview that belongs to another stock', () => {
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="MSFT"
+        initialStockPreview={{
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple Inc.',
+          logoUrl: 'https://example.com/aapl.png',
+        }}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockPreview).toBeUndefined();
+  });
+
   it('loads stock resources by stockId and selects the backend default token', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
       stockId: 'AAPL',

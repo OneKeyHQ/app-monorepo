@@ -19,15 +19,34 @@ import {
   PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
+import {
+  MARKET_CELL_PRIMARY_SIZE,
+  MARKET_CELL_SUBTITLE_SIZE,
+  MarketCellPrimary,
+  MarketIdentityCell,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
 
 import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
 
+// The metric columns share the row's remaining width evenly, on the same 8px
+// padding the other list pages use.
+const METRIC_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+} as const;
+
 export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
-  const { gtXl } = useMedia();
 
   return useMemo(
     () =>
@@ -35,15 +54,31 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         // Column 1: Star (perps watchlist)
         {
           title: (
-            <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
+            <SizableText
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              textAlign="center"
+              size="$bodySmMedium"
+              color="$textSubdued"
+            >
               #
             </SizableText>
           ) as any,
           dataIndex: 'star',
-          columnWidth: 50,
+          // The shared first-column frame: same star slot and 240px total as
+          // the other list pages.
+          columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+          columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <Stack pl="$2">
-              <MarketPerpsStarV2 perpsCoin={record.name} />
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <MarketPerpsStarV2
+                perpsCoin={record.name}
+                size="small"
+                customIconSize="$4"
+              />
             </Stack>
           ),
           renderSkeleton: () => (
@@ -55,35 +90,38 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_name }),
           dataIndex: 'name',
-          columnWidth: gtXl ? 340 : 260,
+          columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
+          columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
-              <Token
-                size="md"
-                borderRadius="$full"
-                tokenImageUri={record.tokenImageUrl}
-                fallbackIcon="CryptoCoinOutline"
-              />
-              <Stack flex={1} minWidth={0}>
+            <MarketIdentityCell
+              logo={
+                <Token
+                  size="lg"
+                  borderRadius="$full"
+                  tokenImageUri={record.tokenImageUrl}
+                  fallbackIcon="CryptoCoinOutline"
+                />
+              }
+              primary={
                 <XStack alignItems="center" gap="$1" minWidth={0}>
-                  <SizableText
-                    size="$bodyLgMedium"
-                    numberOfLines={1}
-                    maxWidth="$32"
-                    flexShrink={1}
-                    ellipsizeMode="tail"
-                    userSelect="none"
-                  >
+                  <MarketCellPrimary flexShrink={1} userSelect="none">
                     {record.displayName}
-                  </SizableText>
+                  </MarketCellPrimary>
                   <LeverageBadge leverage={record.maxLeverage} />
                   <PerpDexBadge dexLabel={record.dexLabel} />
                 </XStack>
-                {record.subtitle ? (
-                  <SubtitleText subtitle={record.subtitle} />
-                ) : null}
-              </Stack>
-            </XStack>
+              }
+              secondary={
+                record.subtitle ? (
+                  // The list tables run their subtitle at the row's own
+                  // secondary size rather than the badge default.
+                  <SubtitleText
+                    subtitle={record.subtitle}
+                    size={MARKET_CELL_SUBTITLE_SIZE}
+                  />
+                ) : null
+              }
+            />
           ),
           renderSkeleton: () => (
             <XStack alignItems="center" gap="$3">
@@ -102,10 +140,10 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_price }),
           dataIndex: 'price',
-          columnProps: { flex: 1 },
+          columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
-              size="$bodyMd"
+              size={MARKET_CELL_PRIMARY_SIZE}
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
@@ -117,11 +155,11 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 4: 24h Change (absolute / percent)
         {
-          title: `${intl.formatMessage({
-            id: ETranslations.dexmarket_token_change,
-          })}(%)`,
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_selector_24h_change,
+          }),
           dataIndex: 'change24h',
-          columnProps: { flex: 1.2 },
+          columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
             if (
               record.change24hPercent === undefined ||
@@ -129,7 +167,10 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               !record.prevDayPrice
             ) {
               return (
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText
+                  size={MARKET_CELL_PRIMARY_SIZE}
+                  color="$textSubdued"
+                >
                   --
                 </SizableText>
               );
@@ -141,7 +182,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             return (
               <XStack gap="$1" alignItems="center">
                 <NumberSizeableText
-                  size="$bodyMd"
+                  size={MARKET_CELL_PRIMARY_SIZE}
                   color={color}
                   formatter="price"
                   formatterOptions={{
@@ -151,11 +192,11 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                 >
                   {absChange}
                 </NumberSizeableText>
-                <SizableText size="$bodyMd" color={color}>
+                <SizableText size={MARKET_CELL_PRIMARY_SIZE} color={color}>
                   /
                 </SizableText>
                 <NumberSizeableText
-                  size="$bodyMd"
+                  size={MARKET_CELL_PRIMARY_SIZE}
                   color={color}
                   formatter="priceChange"
                   formatterOptions={{ showPlusMinusSigns: true }}
@@ -168,16 +209,47 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           renderSkeleton: () => <Skeleton width={100} height={16} />,
         },
 
-        // Column 5: 24h Volume
+        // Column 5: Funding
         {
           title: intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
+            id: ETranslations.perp_position_funding,
+          }),
+          dataIndex: 'fundingRate',
+          columnProps: METRIC_COLUMN_PROPS,
+          render: (_: unknown, record: IMarketPerpsToken) => {
+            if (record.fundingRate === undefined) {
+              return (
+                <SizableText
+                  size={MARKET_CELL_PRIMARY_SIZE}
+                  color="$textSubdued"
+                >
+                  --
+                </SizableText>
+              );
+            }
+            const rate = Number(record.fundingRate) * 100;
+            return (
+              <SizableText
+                size={MARKET_CELL_PRIMARY_SIZE}
+                color={rate >= 0 ? '$textSuccess' : '$textCritical'}
+              >
+                {`${rate >= 0 ? '+' : ''}${rate.toFixed(4)}%`}
+              </SizableText>
+            );
+          },
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        },
+
+        // Column 6: 24h Volume
+        {
+          title: intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
           }),
           dataIndex: 'volume24h',
-          columnProps: { flex: 1 },
+          columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
-              size="$bodyMd"
+              size={MARKET_CELL_PRIMARY_SIZE}
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
             >
@@ -187,16 +259,16 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           renderSkeleton: () => <Skeleton width={80} height={16} />,
         },
 
-        // Column 6: Open Interest
+        // Column 7: Open Interest
         {
           title: intl.formatMessage({
             id: ETranslations.perp_token_bar_open_Interest,
           }),
           dataIndex: 'openInterest',
-          columnProps: { flex: 1 },
+          columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
-              size="$bodyMd"
+              size={MARKET_CELL_PRIMARY_SIZE}
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
             >
@@ -205,38 +277,8 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           ),
           renderSkeleton: () => <Skeleton width={80} height={16} />,
         },
-
-        // Column 7: Funding Rate (only on larger screens)
-        gtXl
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.perp_position_funding,
-              }),
-              dataIndex: 'fundingRate',
-              columnProps: { flex: 0.8 },
-              render: (_: unknown, record: IMarketPerpsToken) => {
-                if (record.fundingRate === undefined) {
-                  return (
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      --
-                    </SizableText>
-                  );
-                }
-                const rate = Number(record.fundingRate) * 100;
-                return (
-                  <SizableText
-                    size="$bodyMd"
-                    color={rate >= 0 ? '$textSuccess' : '$textCritical'}
-                  >
-                    {`${rate >= 0 ? '+' : ''}${rate.toFixed(4)}%`}
-                  </SizableText>
-                );
-              },
-              renderSkeleton: () => <Skeleton width={60} height={16} />,
-            }
-          : undefined,
       ].filter(Boolean) as ITableColumn<IMarketPerpsToken>[],
-    [intl, gtXl],
+    [intl],
   );
 }
 

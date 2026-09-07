@@ -1,6 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -244,6 +248,9 @@ describe('DeviceStageBurstScope', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest
+      .spyOn(errorToastUtils, 'showToastOfError')
+      .mockImplementation(() => undefined);
     jest.useFakeTimers();
     stage = undefined;
     stageAtom.get.mockImplementation(async () => stage);
@@ -255,6 +262,7 @@ describe('DeviceStageBurstScope', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   /** Lets the deferred opening beat paint, so the stage is visibly on. */
@@ -263,6 +271,69 @@ describe('DeviceStageBurstScope', () => {
 
   /** Lets the scheduled exit run out. */
   const letTheExitRun = () => jest.advanceTimersByTimeAsync(OFF_GRACE_MS);
+
+  it.each([false, true])(
+    'closes skipped verification immediately without ending an outer flow (%s)',
+    async (hasOuterFlow) => {
+      const scope = new DeviceStageBurstScope();
+      const token = hasOuterFlow
+        ? await scope.beginExplicit({ connectId: CONNECT_ID })
+        : undefined;
+      await scope.begin({ connectId: CONNECT_ID });
+      await scope.noteStep('authFailure', {
+        authFailureReason: 'unknown',
+      });
+
+      await scope.noteAuthNarrativeResolved();
+      expect(stage?.step).toBe('off');
+      expect(stage?.authFailureReason).toBeUndefined();
+      expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+      await scope.end();
+
+      if (token !== undefined) {
+        expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+        await scope.noteStep('confirm', { connectId: CONNECT_ID });
+        expect(stage?.step).toBe('confirm');
+        await scope.endExplicit({ token });
+      }
+      expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+      await letTheExitRun();
+      expect(stage?.step).toBe('off');
+    },
+  );
+
+  it('does not close a newer ask when resolving an old verification failure', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    await scope.noteStep('pinOnApp', { connectId: CONNECT_ID });
+
+    await scope.noteAuthNarrativeResolved();
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
+  it('does not dismiss a newer failure while an earlier resolution is reading', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    let releaseRead: (() => void) | undefined;
+    stageAtom.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseRead = () => resolve(stage);
+        }),
+    );
+    const resolving = scope.noteAuthNarrativeResolved();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(releaseRead).toBeDefined();
+    await scope.noteStep('authFailure', {
+      authFailureReason: 'unofficialDevice',
+    });
+    releaseRead?.();
+    await resolving;
+    expect(stage?.step).toBe('authFailure');
+    expect(stage?.authFailureReason).toBe('unofficialDevice');
+  });
 
   it('releases the burst even when the firmware workflow silences the stage mid-flight', async () => {
     // startUpdateWorkflow raises the flag and only THEN waits for the
@@ -439,6 +510,171 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('error');
     expect(stage?.errorReason).toBe('rejected');
   });
+
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
+    HardwareErrorCode.DeviceNotOpenedPassphrase,
+    HardwareErrorCode.NewFirmwareForceUpdate,
+  ])('leaves the stage when recovery UI owns error %s', async (code) => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code,
+      },
+    });
+
+    expect(stage?.step).toBe('off');
+  });
+
+  it.each([
+    HardwareErrorCode.BleUnavailableWhileUsbConnected,
+    HardwareErrorCode.DeviceCheckUnlockTypeError,
+    HardwareErrorCode.DeviceCheckPassphraseStateError,
+    HardwareErrorCode.DeviceCheckDeviceIdError,
+  ])(
+    'preserves error details across an explicit holder RPC for %s',
+    async (code) => {
+      const isDeviceStillConnected = jest.fn(async () => false);
+      const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      const error = convertDeviceError({ code });
+      error.info = { version: '5.0.0' };
+      await scope.end({ error });
+      expect(stage?.step).toBe('connecting');
+
+      // Native requests JSON-encode their arguments. Error.message itself
+      // is non-enumerable, so the UI must send the plain error metadata.
+      const request = JSON.parse(
+        JSON.stringify({ token, error: toPlainErrorObject(error) }),
+      ) as { token: number; error: unknown };
+      await scope.endExplicit(request);
+
+      expect(stage).toMatchObject({
+        step: 'error',
+        errorMessage: error.message,
+        errorI18n: { key: error.key, info: { version: '5.0.0' } },
+      });
+      expect(stage?.errorReason).toBeUndefined();
+      expect(isDeviceStillConnected).not.toHaveBeenCalled();
+      await scope.userClose();
+      expect(stage?.errorI18n).toBeUndefined();
+    },
+  );
+
+  it('releases an explicit holder for the original enable-passphrase dialog', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    await scope.end({ error });
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    expect(stage?.step).toBe('off');
+  });
+
+  it.each([
+    ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+    ECustomOneKeyHardwareError.UnknownHardwareError,
+  ])(
+    'hands error %s to the existing action toast once the outer hold ends',
+    async (code) => {
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      const error = Object.assign(new Error('Firmware recovery detail'), {
+        $isHardwareError: true,
+        code,
+        autoToast: false,
+        payload: { connectId: CONNECT_ID },
+      });
+      await scope.end({ error });
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+
+      await scope.endExplicit({ token, error: toPlainErrorObject(error) });
+      expect(stage?.step).toBe('off');
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledTimes(1);
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: error.message,
+          code,
+          autoToast: true,
+          payload: { connectId: CONNECT_ID },
+        }),
+      );
+      expect(error.autoToast).toBe(false);
+    },
+  );
+
+  it('does not toast an old failure when a newer flow claims the stage during exit', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.get.mockImplementationOnce(async () => {
+      await scope.begin({ connectId: 'NEXT_DEVICE_ID' });
+      await scope.noteStep('pinOnApp', { connectId: 'NEXT_DEVICE_ID' });
+      return stage;
+    });
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code: ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+        message: 'Previous firmware error',
+      },
+    });
+
+    expect(stage).toMatchObject({
+      step: 'pinOnApp',
+      connectId: 'NEXT_DEVICE_ID',
+    });
+    expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unknown transport failure on the disconnected stage when unplugged', async () => {
+    const isDeviceStillConnected = jest.fn(async () => false);
+    const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.end({
+      error: convertDeviceError({
+        code: HardwareErrorCode.RuntimeError,
+        error: 'Protocol V2 USB read failed: transferIn',
+      }),
+    });
+    expect(stage?.step).toBe('error');
+    expect(stage?.errorReason).toBe('disconnected');
+    expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, CONNECT_ID])(
+    'hands bootloader errors to recovery only with a device (%s)',
+    async (connectId) => {
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.end({
+        error: convertDeviceError({
+          code: HardwareErrorCode.NotAllowInBootloaderMode,
+          connectId,
+        }),
+      });
+      expect(stage?.step).toBe(connectId ? 'off' : 'error');
+    },
+  );
 
   it('hands the stage over between explicit holders without leaking a layer', async () => {
     // The second holder supersedes the first: the first's layer has to

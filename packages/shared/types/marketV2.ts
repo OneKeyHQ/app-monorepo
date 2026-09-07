@@ -739,6 +739,18 @@ export interface IMarketBannerTokenListResponse {
 
 export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
 
+/**
+ * The tokens issued against a stock, as the list endpoint returns them — a
+ * summary, unlike the detail endpoint's richer `IMarketStockTokenVariant`.
+ */
+export interface IMarketStockListVariant {
+  tokenId: string;
+  issuer: string;
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+}
+
 export interface IMarketStockPublicItem {
   stockId: string;
   symbol: string;
@@ -754,7 +766,13 @@ export interface IMarketStockPublicItem {
   quoteUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
+  variants?: IMarketStockListVariant[];
 }
+
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
 
 export type IMarketStockPublicListSortBy =
   | 'default'

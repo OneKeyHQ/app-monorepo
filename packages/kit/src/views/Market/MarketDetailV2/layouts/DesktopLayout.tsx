@@ -41,7 +41,7 @@ import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const MARKET_DETAIL_LAYOUT = {
-  chartHeight: 360,
+  chartHeight: 456,
   infoTabsHeight: 480,
 } as const;
 
@@ -234,6 +234,9 @@ export function DesktopLayout({
       isNative,
     ],
   );
+  const swapInputDraftKey = `${routeNetworkId}:${
+    routeIsNative ? 'native' : routeTokenAddress
+  }:${marketTokenId ?? ''}`;
   const isSwapTokenReady =
     displayTokenDetail?.decimalsResolved !== false &&
     typeof displayTokenDetail?.decimals === 'number' &&
@@ -487,6 +490,7 @@ export function DesktopLayout({
         <TopCoinsDesktopLayout
           marketTradingView={marketTradingView}
           swapToken={swapToken}
+          swapInputDraftKey={swapInputDraftKey}
           portfolioData={portfolioData}
           accountAddress={accountAddress}
           isRefreshing={isRefreshing}
@@ -516,6 +520,7 @@ export function DesktopLayout({
       <TokenDesktopLayout
         marketTradingView={marketTradingView}
         swapToken={swapToken}
+        swapInputDraftKey={swapInputDraftKey}
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
         isBTCNetwork={isBTCNetwork}

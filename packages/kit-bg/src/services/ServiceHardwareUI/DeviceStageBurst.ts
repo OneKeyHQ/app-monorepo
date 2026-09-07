@@ -1,10 +1,17 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareErrorByCode,
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -87,6 +94,15 @@ const SILENT_CANCEL_CODES = [
 const USER_CANCEL_CODES = [
   HardwareErrorCode.PinCancelled,
   HardwareErrorCode.DeviceInterruptedFromUser,
+];
+
+/** These errors already open a recovery dialog outside DeviceStage. */
+const DEDICATED_DIALOG_ERROR_CODES = [
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
+  HardwareErrorCode.DeviceNotOpenedPassphrase,
+  HardwareErrorCode.NewFirmwareForceUpdate,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
@@ -709,6 +725,20 @@ export class DeviceStageBurstScope {
       await this.forceOff({ force: true });
       return;
     }
+    const error = params.error as
+      | IOneKeyError<IOneKeyErrorI18nInfo>
+      | undefined;
+    if (
+      isHardwareErrorByCode({ error, code: DEDICATED_DIALOG_ERROR_CODES }) ||
+      (error?.payload?.connectId &&
+        isHardwareErrorByCode({
+          error,
+          code: HardwareErrorCode.NotAllowInBootloaderMode,
+        }))
+    ) {
+      await this.forceOff({ force: true });
+      return;
+    }
     // A failure the hardware layer never claimed — a keyring or vault
     // OneKeyLocalError riding out through the very same finally — is not
     // this stage's news to land. The toast suppression only covers
@@ -746,6 +776,18 @@ export class DeviceStageBurstScope {
     if (
       reason === 'generic' &&
       !wasVendorBurst &&
+      // These failures identify the cause even when the transport tracker
+      // has already cleared the connection (for example USB blocking BLE).
+      !isHardwareErrorByCode({
+        error,
+        code: [
+          HardwareErrorCode.BleUnavailableWhileUsbConnected,
+          HardwareErrorCode.DeviceCheckUnlockTypeError,
+          HardwareErrorCode.DeviceCheckPassphraseStateError,
+          HardwareErrorCode.DeviceCheckDeviceIdError,
+          ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+        ],
+      }) &&
       this.isDeviceStillConnected
     ) {
       const stateAtLanding = await deviceStageAtom.get();
@@ -793,7 +835,31 @@ export class DeviceStageBurstScope {
         return;
       }
     }
-    if (params.error && reason !== 'silent') {
+    if (
+      reason === 'generic' &&
+      isHardwareErrorByCode({
+        error,
+        code: [
+          ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+          ECustomOneKeyHardwareError.UnknownHardwareError,
+        ],
+      })
+    ) {
+      // The existing toast carries a firmware-update action. The outermost
+      // burst owns this handoff; normal auto-toasts stay suppressed so nested
+      // calls and cross-runtime copies cannot show it before the stage exits.
+      const claim = this.claimSeq;
+      await this.forceOff({ force: true });
+      if (claim !== this.claimSeq) {
+        return;
+      }
+      errorToastUtils.showToastOfError({
+        ...toPlainErrorObject(error),
+        autoToast: true,
+      });
+      return;
+    }
+    if (error && reason !== 'silent') {
       await this.setStep('error', {
         errorReason: reason === 'generic' ? undefined : reason,
         // Only where no reason claims the failure. A mapped reason's
@@ -802,6 +868,10 @@ export class DeviceStageBurstScope {
         // unreadable — so they are never overwritten.
         errorMessage:
           reason === 'generic' ? pickErrorMessage(params.error) : undefined,
+        errorI18n:
+          reason === 'generic' && error.key
+            ? { key: error.key, info: error.info }
+            : undefined,
       });
       return;
     }
@@ -1162,6 +1232,7 @@ export class DeviceStageBurstScope {
       inputError?: string;
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
+      errorI18n?: IDeviceStageState['errorI18n'];
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
       authFailureMessage?: string;
@@ -1208,18 +1279,21 @@ export class DeviceStageBurstScope {
     await this.setStep(step, extras);
   }
 
-  /** The failure card's "Continue anyway": the verdict is taken and the
-   * narrative ends with it. No repaint here — inside a held flow the next
-   * call's beats take the stage over, and a runner-held burst ending
-   * right after this lands the exit itself. Without it, every later
-   * call-end close re-pins the failure card over whatever the flow does
-   * next. */
+  /** Retire the skipped failure immediately, without releasing the outer
+   * flow's burst or cancelling its next hardware interaction. */
   async noteAuthNarrativeResolved() {
+    const seq = this.authHoldSeq;
     if (!(await this.isEnabled())) {
+      return;
+    }
+    const current = await deviceStageAtom.get();
+    // A newer beat owns its own exit, even if it is another auth failure.
+    if (seq !== this.authHoldSeq || current?.step !== 'authFailure') {
       return;
     }
     this.authoredAuthStep = undefined;
     this.clearAuthHold();
+    await this.forceOff({ force: true });
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
@@ -1473,6 +1547,7 @@ export class DeviceStageBurstScope {
       payload?: IHardwareUiPayload;
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
+      errorI18n?: IDeviceStageState['errorI18n'];
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
@@ -1587,6 +1662,7 @@ export class DeviceStageBurstScope {
           step === 'authFailure' ? mergedExtras.authFailureCode : undefined,
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
+        errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
         qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
         qrSessionId: pickQrScoped(
           step,

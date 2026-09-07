@@ -4,10 +4,15 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { EAtomNames } from './atomNames';
 import {
   buildJotaiStorageKey,
+  getTravelModeCurrencyReferenceState,
+  getTravelModeManualLockControlState,
+  getTravelModePasswordControlState,
+  getTravelModeSettingsControlState,
   globalJotaiStorageReadyHandler,
   onekeyJotaiStorage,
 } from './jotaiStorage';
@@ -36,7 +41,28 @@ function checkAtomNameMatched(key: string, value: string) {
 }
 
 // Preload all atom storage values from IndexedDB
-async function preloadAtomStorageValues() {
+async function preloadAtomStorageValues(isTravelModeActive: boolean) {
+  if (isTravelModeActive) {
+    const passwordKey = buildJotaiStorageKey(EAtomNames.passwordPersistAtom);
+    const manualLockKey = buildJotaiStorageKey(
+      EAtomNames.passwordPersistManualLockStateAtom,
+    );
+    const settingsKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
+    const currencyKey = buildJotaiStorageKey(EAtomNames.currencyPersistAtom);
+    const [passwordState, manualLockState, settingsState, currencyState] =
+      await Promise.all([
+        getTravelModePasswordControlState(undefined),
+        getTravelModeManualLockControlState(undefined),
+        getTravelModeSettingsControlState(undefined),
+        getTravelModeCurrencyReferenceState(undefined),
+      ]);
+    return new Map([
+      [passwordKey, passwordState],
+      [manualLockKey, manualLockState],
+      [settingsKey, settingsState],
+      [currencyKey, currencyState],
+    ]);
+  }
   // Batch read: single IndexedDB transaction instead of 104 individual ones
   if ('getAllEntries' in onekeyJotaiStorage) {
     const batchMap = await onekeyJotaiStorage.getAllEntries();
@@ -91,16 +117,23 @@ async function jotaiInitImpl() {
     debugLandingLog('jotaiInit start');
   }
 
-  await initLocalDbForJotaiIfNeeded();
+  const runtimeProfile = await travelModeManager.getRuntimeProfile();
+  const isTravelModeActive = runtimeProfile.persistence === 'masked';
+
+  if (!isTravelModeActive) {
+    await initLocalDbForJotaiIfNeeded();
+  }
 
   // Native: proactively migrate AsyncStorage → MMKV per-key before reading.
   // Must complete before preloadAtomStorageValues() so MMKV has all data.
-  await migrateToMMKVIfNeeded();
+  if (!isTravelModeActive) {
+    await migrateToMMKVIfNeeded();
+  }
 
   // Parallelize: import atoms + preload all storage values at the same time
   const [allAtoms, preloadedStorage] = await Promise.all([
     import('./atoms'),
-    preloadAtomStorageValues(),
+    preloadAtomStorageValues(isTravelModeActive),
   ]);
 
   if (process.env.NODE_ENV !== 'production') {
@@ -147,10 +180,21 @@ async function jotaiInitImpl() {
 
       // Use preloaded storage value instead of individual reads
       let storageValue = preloadedStorage.get(storageKey);
+      if (
+        isTravelModeActive &&
+        storageKey !== buildJotaiStorageKey(EAtomNames.passwordPersistAtom) &&
+        storageKey !==
+          buildJotaiStorageKey(EAtomNames.passwordPersistManualLockStateAtom) &&
+        storageKey !== buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
+        storageKey !== buildJotaiStorageKey(EAtomNames.currencyPersistAtom)
+      ) {
+        storageValue = initValue;
+      }
       // save initValue to storage if storageValue is undefined
       if (isNil(storageValue)) {
         // initFrom backup (only for settingsPersistAtom on first launch)
         if (
+          !isTravelModeActive &&
           !platformEnv.isWeb &&
           isNil(storageValue) &&
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
@@ -202,8 +246,15 @@ async function jotaiInitImpl() {
           }
         }
 
-        await onekeyJotaiStorage.setItem(storageKey, initValue);
-        storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
+        if (isTravelModeActive) {
+          storageValue = initValue;
+        } else {
+          await onekeyJotaiStorage.setItem(storageKey, initValue);
+          storageValue = await onekeyJotaiStorage.getItem(
+            storageKey,
+            initValue,
+          );
+        }
       }
       const currentValue = await jotaiDefaultStore.get(atomObj);
       const nextValue =

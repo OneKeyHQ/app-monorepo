@@ -243,6 +243,7 @@ describe('TradingViewNative K-line data state machine', () => {
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
       getHistoryRequestCandleCount: () => mockHistoryRequestCandleCount,
       hasMoreHistory: mockHasMoreHistory,
+      historyRefreshInterval: source.kind === 'asset' ? 30_000 : undefined,
       isReady: true,
       key: buildProviderKey(source),
       supportsRealtime:
@@ -4466,6 +4467,77 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() =>
       expect(result.current.points.map((point) => point.c)).toEqual([100, 110]),
     );
+  });
+
+  it('polls Asset history while the chart stays visible', async () => {
+    jest.useFakeTimers();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100))
+      .mockResolvedValueOnce({
+        points: [
+          ...buildResponse(100, 100).points,
+          ...buildResponse(110, 200).points,
+        ],
+        total: 2,
+      });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: { kind: 'asset', assetId: 'doge' },
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.points[0]?.c).toBe(100);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    expect(result.current.points.map((point) => point.c)).toEqual([100, 110]);
+  });
+
+  it('does not replace a slow Asset history request with a polling request', async () => {
+    jest.useFakeTimers();
+    const initialRequest =
+      createDeferred<ITradingViewNativeHistoryResponse | null>();
+    mockFetchHistory
+      .mockReturnValueOnce(initialRequest.promise)
+      .mockResolvedValueOnce(buildResponse(110, 200));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: { kind: 'asset', assetId: 'doge' },
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      initialRequest.resolve(buildResponse(100, 100));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.points[0]?.c).toBe(100);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+    expect(result.current.points.map((point) => point.c)).toEqual([100, 110]);
   });
 
   it('keeps a quiet healthy subscription live without advancing price freshness', async () => {

@@ -5,11 +5,16 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
-import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketAssetDetailData,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 
-import { useTokenDetailActions } from './actions';
+import { useTokenDetailActions, useWatchListV2Actions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
+  marketV2StorageReadyAtom,
+  marketWatchListV2Atom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
@@ -32,7 +37,32 @@ const mockFetchTokenInfoOnly: jest.MockedFunction<
     tokenAddress: string;
   }) => Promise<{ info?: { decimals?: number } } | undefined>
 > = jest.fn();
+const mockGetMarketWatchListV2: jest.MockedFunction<
+  () => Promise<{ data: IMarketWatchListItemV2[] }>
+> = jest.fn();
+const mockAddMarketWatchListV2: jest.MockedFunction<
+  (params: unknown) => Promise<unknown>
+> = jest.fn();
+const mockRemoveMarketWatchListV2: jest.MockedFunction<
+  (params: unknown) => Promise<unknown>
+> = jest.fn();
+const mockSyncToPerpsAtom: jest.MockedFunction<
+  (params: unknown) => Promise<unknown>
+> = jest.fn();
+const mockRecordTaskCompleted: jest.MockedFunction<
+  (taskType: unknown) => Promise<unknown>
+> = jest.fn();
 const mockLogError = jest.fn();
+
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, reject, resolve };
+}
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -55,10 +85,19 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       ) => mockFetchMarketAssetDetail(...args),
     },
     serviceMarketV2: {
+      addMarketWatchListV2: (params: unknown) =>
+        mockAddMarketWatchListV2(params),
       fetchMarketTokenDetailByTokenAddress: (
         ...args: Parameters<typeof mockFetchMarketTokenDetailByTokenAddress>
       ) => mockFetchMarketTokenDetailByTokenAddress(...args),
-      getMarketWatchListV2: jest.fn(async () => ({ data: [] })),
+      getMarketWatchListV2: () => mockGetMarketWatchListV2(),
+      removeMarketWatchListV2: (params: unknown) =>
+        mockRemoveMarketWatchListV2(params),
+      syncToPerpsAtom: (params: unknown) => mockSyncToPerpsAtom(params),
+    },
+    serviceRookieGuide: {
+      recordTaskCompleted: (taskType: unknown) =>
+        mockRecordTaskCompleted(taskType),
     },
     serviceToken: {
       fetchTokenInfoOnly: (
@@ -195,7 +234,7 @@ describe('marketV2 asset token detail actions', () => {
     });
   });
 
-  it('keeps asset data when token decimals cannot be resolved', async () => {
+  it('uses local network decimals for a preview-less native asset', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
       () => {
@@ -229,23 +268,19 @@ describe('marketV2 asset token detail actions', () => {
       });
     });
 
-    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(2);
-    expect(mockFetchTokenInfoOnly).toHaveBeenCalledWith({
-      networkId: 'doge--0',
-      tokenAddress: '',
-    });
+    expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
     expect(store.get(tokenDetailAtom())).toMatchObject({
       address: '',
+      decimals: 8,
       networkId: 'doge--0',
-      decimals: 2,
-      decimalsResolved: false,
+      decimalsResolved: true,
       price: '0.25',
     });
     expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 
-  it('clears the matching preview when the Asset API fails', async () => {
+  it('preserves the matching preview when the initial Asset API request fails', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
       () => {
@@ -284,8 +319,413 @@ describe('marketV2 asset token detail actions', () => {
       ).rejects.toThrow('Asset API unavailable');
     });
 
-    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+    expect(store.get(tokenDetailPreviewAtom())).toMatchObject({
+      networkId: 'doge--0',
+      symbol: 'DOGE',
+    });
     expect(store.get(tokenDetailAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('preserves the last successful asset detail when polling fails', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      { wrapper: Wrapper },
+    );
+
+    act(() => {
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    const loadedDetail = store.get(tokenDetailAtom());
+    mockFetchMarketAssetDetail.mockRejectedValueOnce(new Error('poll failed'));
+
+    await act(async () => {
+      await expect(
+        result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        }),
+      ).rejects.toThrow('poll failed');
+    });
+
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('drops an Asset response after the same token identity changes owner', async () => {
+    const assetDetailDeferred = createDeferred<IMarketAssetDetailData>();
+    mockFetchMarketAssetDetail.mockReturnValueOnce(assetDetailDeferred.promise);
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: {
+        token: {
+          address: '',
+          decimals: 8,
+          logoUrl: '',
+          name: 'Dogecoin token detail',
+          price: '0.4',
+          symbol: 'DOGE',
+        },
+      },
+    });
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      { wrapper: Wrapper },
+    );
+
+    act(() => {
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    let assetRequest: Promise<IMarketAssetDetailData> | undefined;
+    await act(async () => {
+      assetRequest = result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.fetchTokenDetail('', 'doge--0');
+    });
+    await act(async () => {
+      assetDetailDeferred.resolve(dogeAssetDetail);
+      await expect(assetRequest).rejects.toThrow(
+        'Stale market asset detail request',
+      );
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      name: 'Dogecoin token detail',
+      price: '0.4',
+    });
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('drops a token response after the current request is canceled', async () => {
+    const tokenDetailDeferred = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      tokenDetailDeferred.promise,
+    );
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.setTokenAddress('0xabc');
+      result.current.setNetworkId('evm--1');
+    });
+    let tokenRequest: Promise<unknown> | undefined;
+    await act(async () => {
+      tokenRequest = result.current.fetchTokenDetail('0xabc', 'evm--1');
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.setTokenDetailLoading(false);
+    });
+    await act(async () => {
+      tokenDetailDeferred.resolve({
+        data: {
+          token: {
+            address: '0xabc',
+            decimals: 18,
+            logoUrl: '',
+            name: 'Canceled token',
+            price: '1',
+            symbol: 'CANCEL',
+          },
+        },
+      });
+      await tokenRequest;
+    });
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('does not reuse a fresh chart price from another network', async () => {
+    const { store, Wrapper } = createWrapper();
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: {
+        token: {
+          address: '',
+          decimals: 8,
+          name: 'Dogecoin',
+          price: '0.3',
+          symbol: 'DOGE',
+        },
+      },
+    });
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.setTokenDetail({
+        address: '',
+        chartPriceUpdatedAt: 1_788_332_400_000,
+        decimals: 8,
+        logoUrl: '',
+        name: 'Bitcoin',
+        networkId: 'btc--0',
+        price: '70_000',
+        symbol: 'BTC',
+      });
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail('', 'doge--0');
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      networkId: 'doge--0',
+      price: '0.3',
+      symbol: 'DOGE',
+    });
+  });
+});
+
+describe('marketV2 watchlist optimistic actions', () => {
+  const spotItem: IMarketWatchListItemV2 = {
+    chainId: 'evm--1',
+    contractAddress: '0xabc',
+    sortIndex: 100,
+  };
+  const perpsItem: IMarketWatchListItemV2 = {
+    chainId: '',
+    contractAddress: '',
+    perpsCoin: 'BTC',
+    sortIndex: 200,
+  };
+
+  function setupWatchList(initialData: IMarketWatchListItemV2[]) {
+    const { store, Wrapper } = createWrapper();
+    store.set(marketV2StorageReadyAtom(), true);
+    store.set(marketWatchListV2Atom(), { data: initialData });
+    mockGetMarketWatchListV2.mockResolvedValue({ data: initialData });
+    const hook = renderHook(() => useWatchListV2Actions().current, {
+      wrapper: Wrapper,
+    });
+    return { ...hook, store };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMarketWatchListV2.mockResolvedValue({ data: [] });
+    mockAddMarketWatchListV2.mockResolvedValue(undefined);
+    mockRemoveMarketWatchListV2.mockResolvedValue(undefined);
+    mockSyncToPerpsAtom.mockResolvedValue(undefined);
+    mockRecordTaskCompleted.mockResolvedValue(undefined);
+  });
+
+  test('restores the previous list when adding a spot token fails', async () => {
+    const initialData = [spotItem];
+    const { result, store } = setupWatchList(initialData);
+    mockAddMarketWatchListV2.mockRejectedValueOnce(new Error('add failed'));
+
+    await act(async () => {
+      await expect(
+        result.current.addIntoWatchListV2({
+          chainId: 'evm--1',
+          contractAddress: '0xdef',
+        }),
+      ).rejects.toThrow('add failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual(initialData);
+  });
+
+  test('restores the previous list when removing a spot token fails', async () => {
+    const initialData = [spotItem];
+    const { result, store } = setupWatchList(initialData);
+    mockRemoveMarketWatchListV2.mockRejectedValueOnce(
+      new Error('remove failed'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.removeFromWatchListV2(
+          spotItem.chainId,
+          spotItem.contractAddress,
+        ),
+      ).rejects.toThrow('remove failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual(initialData);
+  });
+
+  test('restores the previous list when adding a Perps token fails', async () => {
+    const initialData = [spotItem];
+    const { result, store } = setupWatchList(initialData);
+    mockAddMarketWatchListV2.mockRejectedValueOnce(
+      new Error('add Perps failed'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.addPerpsIntoWatchListV2('BTC'),
+      ).rejects.toThrow('add Perps failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual(initialData);
+  });
+
+  test('restores the previous list when removing a Perps token fails', async () => {
+    const initialData = [spotItem, perpsItem];
+    const { result, store } = setupWatchList(initialData);
+    mockRemoveMarketWatchListV2.mockRejectedValueOnce(
+      new Error('remove Perps failed'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.removePerpsFromWatchListV2('BTC'),
+      ).rejects.toThrow('remove Perps failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual(initialData);
+  });
+
+  test('keeps a newer successful addition when an older addition fails', async () => {
+    const olderRequest = createDeferred<unknown>();
+    const newerRequest = createDeferred<unknown>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockAddMarketWatchListV2
+      .mockReturnValueOnce(olderRequest.promise)
+      .mockReturnValueOnce(newerRequest.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({
+      data: [spotItem, newerItem],
+    });
+
+    let olderAction: Promise<void> | undefined;
+    let newerAction: Promise<void> | undefined;
+    act(() => {
+      olderAction = result.current.addIntoWatchListV2({
+        chainId: 'evm--1',
+        contractAddress: '0xdef',
+      });
+      newerAction = result.current.addIntoWatchListV2(newerItem);
+    });
+
+    await act(async () => {
+      newerRequest.resolve(undefined);
+      await newerAction;
+    });
+    await act(async () => {
+      olderRequest.reject(new Error('older add failed'));
+      await expect(olderAction).rejects.toThrow('older add failed');
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+  });
+
+  test('ignores an older watchlist refresh response', async () => {
+    const olderRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const newerRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockGetMarketWatchListV2
+      .mockReturnValueOnce(olderRefresh.promise)
+      .mockReturnValueOnce(newerRefresh.promise);
+
+    let olderAction: Promise<void> | undefined;
+    let newerAction: Promise<void> | undefined;
+    act(() => {
+      olderAction = result.current.refreshWatchListV2();
+      newerAction = result.current.refreshWatchListV2();
+    });
+
+    await act(async () => {
+      newerRefresh.resolve({ data: [spotItem, newerItem] });
+      await newerAction;
+    });
+    await act(async () => {
+      olderRefresh.resolve({ data: [spotItem] });
+      await olderAction;
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+  });
+
+  test('keeps an optimistic addition when an older refresh completes', async () => {
+    const olderRefresh = createDeferred<{ data: IMarketWatchListItemV2[] }>();
+    const pendingWrite = createDeferred<unknown>();
+    const newerItem: IMarketWatchListItemV2 = {
+      chainId: 'evm--1',
+      contractAddress: '0x123',
+      sortIndex: 300,
+    };
+    const { result, store } = setupWatchList([spotItem]);
+    mockGetMarketWatchListV2
+      .mockReturnValueOnce(olderRefresh.promise)
+      .mockResolvedValueOnce({ data: [spotItem, newerItem] });
+    mockAddMarketWatchListV2.mockReturnValueOnce(pendingWrite.promise);
+
+    let refreshAction: Promise<void> | undefined;
+    let addAction: Promise<void> | undefined;
+    act(() => {
+      refreshAction = result.current.refreshWatchListV2();
+      addAction = result.current.addIntoWatchListV2(newerItem);
+    });
+
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+
+    await act(async () => {
+      olderRefresh.resolve({ data: [spotItem] });
+      await refreshAction;
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([
+      spotItem,
+      newerItem,
+    ]);
+
+    await act(async () => {
+      pendingWrite.resolve(undefined);
+      await addAction;
+    });
   });
 });
