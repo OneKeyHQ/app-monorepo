@@ -2561,6 +2561,7 @@
   "market.number_week_abbr": "{number}W",
   "market.one_hour_percentage": "1h%",
   "market.open_abbr": "O",
+  "market.opens_in": "Opens in {time}",
   "market.pair_link": "Pair link:",
   "market.performance": "Performance",
   "market.plus_2_percent_depth": "+2% depth",
