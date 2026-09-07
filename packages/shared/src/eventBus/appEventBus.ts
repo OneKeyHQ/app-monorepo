@@ -16,7 +16,10 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
-import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyErrorI18nInfo,
+  IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -67,6 +70,7 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
+  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -105,6 +109,7 @@ export type IEventBusPayloadShowToast = {
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
 };
@@ -333,6 +338,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -654,9 +660,6 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
-  };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:

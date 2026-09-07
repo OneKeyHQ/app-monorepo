@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
@@ -20,6 +21,21 @@ import type { IntlShape } from 'react-intl';
  * app's locale. Pure data and pure functions; how the stage plays them
  * is the engine's own business (see ./index).
  */
+
+export function resolveErrorMessage(
+  intl: IntlShape,
+  message?: string,
+  errorI18n?: IDeviceStageErrorI18n,
+): string | undefined {
+  const key = errorI18n?.key;
+  if (key && intl.messages[key]) {
+    return intl.formatMessage(
+      { id: key, defaultMessage: message },
+      errorI18n.info,
+    );
+  }
+  return message;
+}
 
 // `off` has no words of its own: searching is part of connecting, so the
 // copy is in place from the first frame and holds still while the screen
@@ -68,8 +84,8 @@ export const ERROR_TEXT: Record<
 /**
  * The authenticity flow's failure copy, the live dialog's own keys (the
  * design drops the old error-code suffixes). `action` picks the card's
- * exits: 'support' is terminal — one Support button; 'retry' is
- * recoverable — Retry plus the Continue-anyway gate (see AUTH_NOTE_TEXT).
+ * exits: 'support' is terminal; 'retry' offers Retry and Support but never
+ * bypasses authenticity verification.
  * The icon fronts the card where the staged steps front the replica.
  */
 export const AUTH_FAILURE_TEXT: Record<
@@ -106,7 +122,7 @@ export const AUTH_FAILURE_TEXT: Record<
     action: 'retry',
   },
   unknown: {
-    title: ETranslations.global_unknown_error,
+    title: ETranslations.send_verification_failure,
     sub: ETranslations.global_unknown_error_retry_message,
     icon: 'ErrorSolid',
     action: 'retry',
@@ -117,18 +133,6 @@ export const AUTH_FAILURE_TEXT: Record<
     icon: 'ServerSolid',
     action: 'retry',
   },
-};
-
-/**
- * The Continue-anyway gate, one card shared by every recoverable
- * failure: the content swaps to this NOTE in place, I-understand is the
- * real exit, Back returns to the failure.
- */
-export const AUTH_NOTE_TEXT = {
-  title: ETranslations.device_stage_auth_note__title,
-  sub: ETranslations.device_auth_continue_anyway_warning_message,
-  confirm: ETranslations.global_i_understand,
-  back: ETranslations.global_back,
 };
 
 /**

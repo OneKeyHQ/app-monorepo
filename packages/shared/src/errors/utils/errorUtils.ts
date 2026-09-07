@@ -34,6 +34,7 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       name: e.name,
       constructorName: e.constructorName,
       className: e.className,
+      $isHardwareError: e.$isHardwareError,
       key: e.key,
       code: e.code,
       message: e.message,

@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,8 +13,9 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmTestIDs } from '../../testIDs';
-import { LaserBorder } from '../SignatureConfirmComponents/LaserBorder';
+import { ShimmerSignGuard } from '../SignatureConfirmComponents/ShimmerSignGuard';
 
+import { ConfirmCardFrame } from './ConfirmCardFrame';
 import {
   SIMULATION_GROUP_FALLBACK_ID,
   getShownSimulationAssetNetworkId,
@@ -23,19 +24,38 @@ import {
   getSimulationAssetIconProps,
   getSimulationAssetLabel,
   getSimulationAssetSign,
-  getSimulationAssets,
   getSimulationGroups,
 } from './utils';
 
 import type { ISimulationAsset, ISimulationGroup } from './utils';
 
+const DESKTOP_ASSET_LIST_STYLE = {
+  alignSelf: 'flex-start',
+  width: 'auto',
+} as const;
+const DESKTOP_ASSET_ROW_STYLE = { justifyContent: 'flex-start' } as const;
+const DESKTOP_NAME_SLOT_STYLE = { flexGrow: 0, flexShrink: 0 } as const;
+const DESKTOP_NAME_TEXT_STYLE = {
+  width: 56,
+  flexGrow: 0,
+  flexShrink: 0,
+} as const;
+const DESKTOP_AMOUNT_STYLE = { textAlign: 'left' } as const;
+
 type IProps = {
   simulationComponents?: IDisplayComponentSimulation[];
-  // When true, render only the asset rows (no LaserBorder frame) so a parent
-  // unified card can own the frame; SignGuard branding lives in the parent
-  // card's footer.
-  bare?: boolean;
 };
+
+function SignGuardMark() {
+  return (
+    <Stack
+      testID={SignatureConfirmTestIDs.TransactionPreviewSignGuard}
+      flexShrink={0}
+    >
+      <ShimmerSignGuard />
+    </Stack>
+  );
+}
 
 function SimulationAssetText({ asset }: { asset: ISimulationAsset }) {
   const amount = getSimulationAssetAmount(asset);
@@ -44,15 +64,15 @@ function SimulationAssetText({ asset }: { asset: ISimulationAsset }) {
   // numeric amount for non-ERC1155 NFTs — keep the lone '-'/'+' so an outgoing
   // unique NFT still reads as leaving the wallet.
   const sign = getSimulationAssetSign(asset);
-  // Match the original simulation card (Assets.tsx) scheme: incoming green, else
-  // default text ($text — Assets.tsx's '$textText' is a typo for the same color).
   const color = direction === ETransferDirection.In ? '$textSuccess' : '$text';
   return (
     <SizableText
-      size="$bodySmMedium"
+      size="$bodyMdMedium"
       color={color}
       numberOfLines={1}
       textAlign="right"
+      flexShrink={0}
+      $gtMd={DESKTOP_AMOUNT_STYLE}
     >
       {`${sign}${amount}`}
     </SizableText>
@@ -93,9 +113,9 @@ function SimulationAssetGroups({
   networkNameById: Record<string, string>;
 }) {
   return (
-    <YStack gap="$1.5">
+    <YStack gap="$2.5" width="100%" $gtMd={DESKTOP_ASSET_LIST_STYLE}>
       {simulationGroups.map((group) => (
-        <YStack key={group.id} gap="$1">
+        <YStack key={group.id} gap="$2.5">
           {simulationGroups.length > 1 &&
           group.label !== SIMULATION_GROUP_FALLBACK_ID ? (
             <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
@@ -108,18 +128,25 @@ function SimulationAssetGroups({
                 asset,
               )}-${getSimulationAssetAmount(asset)}-${index}`}
               justifyContent="space-between"
-              alignItems="center"
+              alignItems="flex-start"
               gap="$3"
+              $gtMd={DESKTOP_ASSET_ROW_STYLE}
             >
-              <XStack gap="$2" alignItems="center" flex={1} minWidth={0}>
+              <XStack
+                gap="$2"
+                alignItems="flex-start"
+                flex={1}
+                minWidth={0}
+                $gtMd={DESKTOP_NAME_SLOT_STYLE}
+              >
                 <Token
                   size="xs"
                   flexShrink={0}
                   {...getSimulationAssetIconProps(asset)}
                 />
-                <YStack flex={1} minWidth={0}>
+                <YStack flex={1} minWidth={0} $gtMd={DESKTOP_NAME_TEXT_STYLE}>
                   <SizableText
-                    size="$bodySmMedium"
+                    size="$bodyMdMedium"
                     color="$text"
                     numberOfLines={1}
                   >
@@ -140,14 +167,14 @@ function SimulationAssetGroups({
   );
 }
 
-function TransactionPreview({ simulationComponents, bare }: IProps) {
+function TransactionPreview({ simulationComponents }: IProps) {
   const intl = useIntl();
   const simulationGroups = useMemo(
     () => getSimulationGroups(simulationComponents),
     [simulationComponents],
   );
   const assets = useMemo(
-    () => getSimulationAssets(simulationGroups),
+    () => simulationGroups.flatMap((group) => group.assets),
     [simulationGroups],
   );
   const networkIds = useMemo(
@@ -165,51 +192,51 @@ function TransactionPreview({ simulationComponents, bare }: IProps) {
       if (!networkIds.length) {
         return {};
       }
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds,
-        });
-      return networks.reduce<Record<string, string>>((names, network) => {
-        names[network.id] = network.name;
-        return names;
-      }, {});
+      try {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+            networkIds,
+          });
+        return networks.reduce<Record<string, string>>((names, network) => {
+          names[network.id] = network.name;
+          return names;
+        }, {});
+      } catch {
+        return {};
+      }
     },
     [networkIds],
     {
       initResult: {},
     },
   );
+  const title = intl.formatMessage({
+    id: ETranslations.dapp_connect_transaction_preview_estimated_asset_changes__title,
+  });
   if (!assets.length) {
     return null;
   }
 
-  const content = (
-    <YStack
-      testID={SignatureConfirmTestIDs.TransactionPreview}
-      px={bare ? '$0' : '$3'}
-      py={bare ? '$0' : '$3'}
-      gap="$2"
-    >
-      <SizableText size="$bodyMdMedium" numberOfLines={1}>
-        {intl.formatMessage({
-          id: ETranslations.dapp_connect_transaction_preview_estimated_asset_changes__title,
-        })}
-      </SizableText>
-      <SimulationAssetGroups
-        simulationGroups={simulationGroups}
-        networkNameById={networkNameById}
-      />
-    </YStack>
-  );
-
-  if (bare) {
-    return content;
-  }
-
   return (
-    <LaserBorder borderRadius={12} borderColor="$neutral4">
-      {content}
-    </LaserBorder>
+    <ConfirmCardFrame glow>
+      <YStack
+        testID={SignatureConfirmTestIDs.TransactionPreview}
+        px="$4"
+        py="$3.5"
+        gap="$3"
+      >
+        <XStack alignItems="center" justifyContent="space-between" gap="$3">
+          <SizableText size="$headingSm" flex={1} minWidth={0}>
+            {title}
+          </SizableText>
+          <SignGuardMark />
+        </XStack>
+        <SimulationAssetGroups
+          simulationGroups={simulationGroups}
+          networkNameById={networkNameById}
+        />
+      </YStack>
+    </ConfirmCardFrame>
   );
 }
 
