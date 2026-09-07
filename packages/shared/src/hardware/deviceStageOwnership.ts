@@ -122,11 +122,12 @@ export function isLegacyHardwareUiActive(): boolean {
  *   double tap, a repeated key or a back press carried in from the
  *   screen before.
  * - Waiting on the MACHINE (the capsule waits, an app install): the
- *   close button appears only once THIS continuous wait has stalled — the
- *   device silent for DEVICE_STAGE_WAIT_STALL_MS (the legacy dialogs'
- *   own rule: their timer restarted with every call) or, whatever the
- *   chatter, the wait past DEVICE_STAGE_WAIT_CAP_MS (see
- *   resolveDeviceStageWaitStall). A busy wait shows nothing to tap, so a
+ *   close button appears only once THIS wait has stalled — the device
+ *   silent for DEVICE_STAGE_WAIT_STALL_MS (the legacy dialogs' own rule:
+ *   their timer restarted with every call) or, whatever the chatter, the
+ *   wait past DEVICE_STAGE_WAIT_CAP_MS (see resolveDeviceStageWaitStall).
+ *   A wait is one stretch on one wait step: moving to another wait step
+ *   starts the next, clocks and stall alike. A busy wait shows nothing to tap, so a
  *   "processing" pill can never be dismissed like a toast. Escape and
  *   back stay on the settle clock while nothing the person did is in
  *   flight (connecting, searching); after they answered a card (the
@@ -142,14 +143,9 @@ export const DEVICE_STAGE_EXIT_SETTLE_MS = 1000;
 export const DEVICE_STAGE_WAIT_STALL_MS = 10_000;
 export const DEVICE_STAGE_WAIT_CAP_MS = 30_000;
 
-/**
- * Whether a machine wait has stalled, and when to look again if not.
- * Stalled = the device has been silent for DEVICE_STAGE_WAIT_STALL_MS,
- * or the wait has run for DEVICE_STAGE_WAIT_CAP_MS whatever the chatter
- * — a transport that reconnects every few seconds must not keep the
- * way out shut forever. `dueInMs` is the time until the earlier of the
- * two deadlines (0 once stalled).
- */
+/** Whether a machine wait has stalled (device silent past the idle time,
+ * or the wait past its cap whatever the chatter), and `dueInMs` until the
+ * earlier of those two deadlines — 0 once stalled. */
 export function resolveDeviceStageWaitStall({
   now,
   waitStartedAt,
@@ -166,60 +162,89 @@ export function resolveDeviceStageWaitStall({
   return { stalled: now >= due, dueInMs: Math.max(0, due - now) };
 }
 
-const IMMEDIATE_EXIT_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
-  'genuineCheck',
-  'authVerifying',
-  'authSuccess',
-  'authFailure',
-  'error',
-  'passphraseIntro',
-  'selectWalletType',
-  'deviceNotFound',
-  'btcHighIndex',
-  'installConfirm',
-  'showQr',
-  'scanQr',
-]);
+type IDeviceStageExitClass = 'never' | 'immediate' | 'stall' | 'settle';
 
-const MACHINE_WAIT_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
-  'connecting',
-  'processing',
-  'searching',
-  'installing',
-  'installBatch',
-]);
+interface IDeviceStageExitRule {
+  /** never: cannot be closed; immediate: every exit at once; stall: the
+   * close waits for the machine wait to stall; settle: every exit once
+   * the stage has settled after appearing. */
+  exit: IDeviceStageExitClass;
+  /** Leaving this step means the person answered something — the wait
+   * that follows carries work they already did. */
+  answered: boolean;
+  /** A user close here leaves a device call to cancel. */
+  cancelsDevice: boolean;
+}
 
-/** The steps a person leaves by answering — a wait that follows one of
- * these carries work they already did. */
-const ANSWERED_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
-  'confirm',
-  'enterPin',
-  'pinOnApp',
-  'enterPassphrase',
-  'passphraseOnApp',
-  'showQr',
-  'scanQr',
-  'pairingCode',
-  'selectWalletType',
-  'btcHighIndex',
-  'installConfirm',
-  'unlockDevice',
-  'openApp',
-  'confirmOnDevice',
-]);
+const rule = (
+  exit: IDeviceStageExitClass,
+  answered = false,
+  cancelsDevice = true,
+): IDeviceStageExitRule => ({ exit, answered, cancelsDevice });
+
+/** Every step's exit rule — a Record, so a step added to the vocabulary
+ * cannot fall through to a default it was never given. */
+const EXIT_RULE: Record<IDeviceStageStepValue, IDeviceStageExitRule> = {
+  off: rule('never', false, false),
+  connecting: rule('stall'),
+  enterPin: rule('settle', true),
+  pinOnApp: rule('settle', true),
+  selectWalletType: rule('immediate', true, false),
+  // Continue on the teach card is an answer: the hidden-wallet call that
+  // follows carries it, so a stray Esc/back must not cancel that call.
+  passphraseIntro: rule('immediate', true, false),
+  enterPassphrase: rule('settle', true),
+  passphraseOnApp: rule('settle', true),
+  showQr: rule('immediate', true, false),
+  scanQr: rule('immediate', true, false),
+  confirm: rule('settle', true),
+  genuineCheck: rule('immediate'),
+  authVerifying: rule('immediate'),
+  authSuccess: rule('immediate'),
+  authFailure: rule('immediate'),
+  processing: rule('stall'),
+  error: rule('immediate', false, false),
+  searching: rule('stall'),
+  confirmOnDevice: rule('settle', true),
+  openApp: rule('settle', true),
+  unlockDevice: rule('settle', true),
+  done: rule('never', false, false),
+  pairingCode: rule('settle', true),
+  deviceNotFound: rule('immediate', false, false),
+  btcHighIndex: rule('immediate', true),
+  installConfirm: rule('immediate', true),
+  installing: rule('stall'),
+  installBatch: rule('stall'),
+};
 
 /** A capsule wait on the machine: its close arms on the stall clock. */
 export function isDeviceStageMachineWaitStep(
   step: IDeviceStageStepValue,
 ): boolean {
-  return MACHINE_WAIT_STEPS.has(step);
+  return EXIT_RULE[step].exit === 'stall';
 }
 
 /** Whether leaving `step` means the person answered something. */
 export function isDeviceStageAnsweredStep(
   step: IDeviceStageStepValue,
 ): boolean {
-  return ANSWERED_STEPS.has(step);
+  return EXIT_RULE[step].answered;
+}
+
+/**
+ * Whether a user close on `step` must cancel the device call behind it.
+ * Third-party bursts cancel through their adapter instead; outcomes,
+ * decisions, the teach card and the air-gap pair leave nothing on the
+ * device to cancel.
+ */
+export function shouldCancelDeviceOnStageClose({
+  step,
+  vendor,
+}: {
+  step: IDeviceStageStepValue;
+  vendor?: string;
+}): boolean {
+  return !vendor && EXIT_RULE[step].cancelsDevice;
 }
 
 export interface IDeviceStageExitGrant {
@@ -231,8 +256,8 @@ export interface IDeviceStageExitGrant {
 
 /**
  * The grant for the live step. `settled`: the stage has been up for the
- * settle time since it appeared. `stalled`: the current continuous
- * machine wait has run past the stall time. `afterAnswer`: that wait
+ * settle time since it appeared. `stalled`: the current machine wait has
+ * run past the stall time. `afterAnswer`: that wait
  * began right after the person answered a card.
  */
 export function resolveDeviceStageExitGrant({
@@ -246,19 +271,19 @@ export function resolveDeviceStageExitGrant({
   stalled: boolean;
   afterAnswer: boolean;
 }): IDeviceStageExitGrant {
-  if (step === 'off' || step === 'done') {
-    return { closable: false, exitAllowed: false };
+  switch (EXIT_RULE[step].exit) {
+    case 'never':
+      return { closable: false, exitAllowed: false };
+    case 'immediate':
+      return { closable: true, exitAllowed: true };
+    case 'stall':
+      return {
+        closable: stalled,
+        exitAllowed: afterAnswer ? stalled : settled || stalled,
+      };
+    default:
+      return { closable: settled, exitAllowed: settled };
   }
-  if (IMMEDIATE_EXIT_STEPS.has(step)) {
-    return { closable: true, exitAllowed: true };
-  }
-  if (MACHINE_WAIT_STEPS.has(step)) {
-    return {
-      closable: stalled,
-      exitAllowed: afterAnswer ? stalled : settled || stalled,
-    };
-  }
-  return { closable: settled, exitAllowed: settled };
 }
 
 export type IDeviceStageBackPressOutcome = 'close' | 'consume' | 'pass';

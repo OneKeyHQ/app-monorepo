@@ -52,6 +52,7 @@ export enum EAppEventBusNames {
   DeviceStageAuthAction = 'DeviceStageAuthAction',
   DeviceStagePassphraseIntroContinue = 'DeviceStagePassphraseIntroContinue',
   DeviceStageWalletTypeSelected = 'DeviceStageWalletTypeSelected',
+  DeviceStageOff = 'DeviceStageOff',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',

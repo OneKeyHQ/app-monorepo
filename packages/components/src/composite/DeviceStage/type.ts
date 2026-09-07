@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { IDeviceStageConnectionTypeValue } from '@onekeyhq/shared/types/deviceStage';
 
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
@@ -105,7 +106,7 @@ export type IDeviceStageVendor = 'ledger' | 'trezor';
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
  * driver's knowledge, never looked up here. */
-export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+export type IDeviceStageConnectionType = IDeviceStageConnectionTypeValue;
 
 /** The wallet-creation fork's two answers — the live dialog's own pair:
  * a standard wallet (no passphrase) or a hidden one (passphrase or
@@ -234,11 +235,11 @@ export interface IDeviceStageProps {
    */
   connectionType?: IDeviceStageConnectionType;
   /**
-   * The connecting wait has stalled (the driver's stall clock, design
-   * hard rule #3): the capsule's second line trades the device name for
-   * a hint — wake the device and keep it near, or check the cable —
-   * chosen by `connectionType`. The same clock grants the close, so the
-   * hint and the way out arrive together.
+   * The current machine wait has stalled (the driver's stall clock,
+   * design hard rule #3). Only the connecting capsule wears it: its
+   * second line trades the device name for a hint — wake the device and
+   * keep it near, or check the cable — chosen by `connectionType`. The
+   * same clock grants the close, so hint and way out arrive together.
    */
   waitStalled?: boolean;
   /**

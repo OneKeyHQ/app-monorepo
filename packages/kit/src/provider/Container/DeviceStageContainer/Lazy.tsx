@@ -100,12 +100,6 @@ function DeviceStageContainerLazyCmp() {
       }
       void backgroundApiProxy.serviceHardwareUI.deviceStageUserClose({
         connectId: current.connectId,
-        skipDeviceCancel:
-          Boolean(current.vendor) ||
-          current.step === 'error' ||
-          current.step === 'passphraseIntro' ||
-          current.step === 'selectWalletType' ||
-          current.step === 'deviceNotFound',
       });
       Toast.error({
         title: intlRef.current.formatMessage({

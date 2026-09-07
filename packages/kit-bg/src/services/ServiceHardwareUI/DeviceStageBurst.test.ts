@@ -1,6 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 
 import {
@@ -588,6 +592,69 @@ describe('DeviceStageBurstScope', () => {
     // A repainted wait counts too.
     await scope.noteStep('processing', { connectId: CONNECT_ID });
     expect(stage?.activitySeq).toBe(painted + 3);
+  });
+
+  it('leaves the stage to the call that took the device from an interrupted one', async () => {
+    // hd-core rejects the call ANOTHER call interrupts with
+    // DeviceInterruptedFromOutside. That victim is never the person: its
+    // end must not close the stage the new call is now waiting on — the
+    // wallet-type fork vanished mid-onboarding this way, and the flow hung
+    // on a card no one could answer.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code: HardwareErrorCode.DeviceInterruptedFromOutside,
+      },
+    });
+    expect(stage?.step).toBe('selectWalletType');
+
+    // On its own, the same error still lands no outcome — a silent exit.
+    await scope.noteWalletTypeSelected();
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code: HardwareErrorCode.DeviceInterruptedFromOutside,
+      },
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('keeps an app-authored card standing over a bystander call-end close', async () => {
+    // The device-state read that precedes the fork can deliver its close
+    // event after the card is painted; that close belongs to the call
+    // that is over, not to the card the person is reading.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.noteStep('selectWalletType', { connectId: CONNECT_ID });
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('selectWalletType');
+    await scope.noteWalletTypeSelected();
+    expect(stage?.step).toBe('processing');
+  });
+
+  it('announces every exit so a flow awaiting a card stops waiting', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.userClose();
+    expect(stage?.step).toBe('off');
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.DeviceStageOff,
+      undefined,
+    );
+    emit.mockRestore();
   });
 
   it('clears a painted stage the moment the firmware workflow takes the screen', async () => {

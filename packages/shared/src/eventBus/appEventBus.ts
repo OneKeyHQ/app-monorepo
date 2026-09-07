@@ -302,6 +302,10 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.DeviceStageWalletTypeSelected]: {
     walletType: IDeviceStageWalletTypeValue;
   };
+  // The stage left — by any route, the person's close included. A flow
+  // awaiting a card's answer ends its wait on this: a card that is gone
+  // can never be answered (OK-59934).
+  [EAppEventBusNames.DeviceStageOff]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };

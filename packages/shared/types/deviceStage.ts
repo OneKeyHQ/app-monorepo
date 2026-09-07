@@ -40,6 +40,13 @@ export type IDeviceStageStepValue =
 /** The wallet-creation fork's answer: the selectWalletType step's exit. */
 export type IDeviceStageWalletTypeValue = 'standard' | 'hidden';
 
+/** How the person left the stage: the close button or drag, Escape,
+ * Android back. */
+export type IDeviceStageExitViaValue = 'close' | 'escape' | 'back';
+
+/** The transport a burst rides — what the capsule's channel badge reads. */
+export type IDeviceStageConnectionTypeValue = 'bluetooth' | 'usb';
+
 export type IDeviceStageErrorReasonValue =
   | 'rejected'
   | 'pinInvalid'

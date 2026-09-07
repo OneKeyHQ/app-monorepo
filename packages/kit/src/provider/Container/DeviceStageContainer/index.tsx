@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
@@ -10,6 +10,11 @@ import type {
   IDeviceStageVendor,
   IDeviceStageWalletType,
 } from '@onekeyhq/components/src/composite/DeviceStage/type';
+import {
+  useDeviceStageEscapeOwner,
+  useDeviceStageExitPolicy,
+} from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
+import type { IDeviceStageWaitEnd } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,21 +30,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
-  DEVICE_STAGE_EXIT_SETTLE_MS,
-  attachDeviceStageEscapeOwner,
-  isDeviceStageAnsweredStep,
   isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
-  resolveDeviceStageExitGrant,
-  resolveDeviceStageWaitStall,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
-import type { IDeviceStageKeyEventTargetLike } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { IDeviceStageExitViaValue } from '@onekeyhq/shared/types/deviceStage';
 
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
@@ -51,21 +51,15 @@ import { DeviceStageQrScanner } from './DeviceStageQrScanner';
  * only `off` plays the exit — the burst scope in kit-bg guarantees `off`
  * never fires between consecutive requests of one burst.
  *
- * Exit policy (design hard rule #3, see resolveDeviceStageExitGrant): an
- * ask opens every exit once the stage has settled for a second after
- * appearing; a wait on the machine shows its close only once THIS wait
- * has stalled — the device silent for ten seconds, or the wait past
- * thirty whatever the chatter — and after the person answered a card the
- * keys wait for that stall too; outcomes and decisions open at once; the
- * ✓ never closes. `onClose` presence alone is the switch.
+ * Exit policy (design hard rule #3): the rule is resolveDeviceStageExitGrant
+ * in shared, its clocks run in useDeviceStageExitPolicy. `onClose`
+ * presence alone is the switch.
  *
  * Two tracks share the container: OneKey responses ride the hd-core
  * uiResponse channel; third-party (Trezor / Ledger) responses ride the
  * adapter channel, routed by the stage state's `vendor` +
  * `thirdPartyAction`.
  */
-
-type IDeviceStageExitVia = 'close' | 'escape' | 'back';
 
 const KNOWN_DEVICE_TYPES = new Set<IHardwareDeviceType>([
   'unknown',
@@ -112,7 +106,6 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
-  const isVendorTrack = Boolean(stage?.vendor);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -126,138 +119,24 @@ function DeviceStageContainerCmp() {
       ? 'bluetooth'
       : 'usb';
 
-  // The exit policy's clocks (design hard rule #3). The settle clock runs
-  // once per appearance of the stage — `appearance` counts the off → on
-  // crossings. The stall clock runs once per continuous machine wait —
-  // `waitRun` counts the entries into the capsule waits, so connecting →
-  // processing stays in one run while a card in between starts the next,
-  // and a run that begins right after an answered card is marked so the
-  // keys hold with the close. A wait stalls when the device has been
-  // silent for the idle time (every beat, hardware call and SDK event
-  // bumps the state's activitySeq) or, whatever the chatter, when the run
-  // has reached its cap — see resolveDeviceStageWaitStall. Render-time
-  // ref writes on purpose: the grant must read a crossing in the very
-  // render that shows the new step, or a close would flash for a frame.
-  const activitySeq = stage?.activitySeq ?? 0;
-  const exitRef = useRef({
-    prevStep: 'off' as IDeviceStageStep,
-    appearance: 0,
-    appearedAt: 0,
-    waitRun: 0,
-    waitRunStartedAt: 0,
-    waitRunStep: 'off' as IDeviceStageStep,
-    afterAnswer: false,
-    lastActivitySeq: 0,
-    lastActivityAt: 0,
-    endedWaitRun: undefined as
-      | {
-          waitRun: number;
-          step: IDeviceStageStep;
-          durationMs: number;
-          afterAnswer: boolean;
-          endedBy: 'next' | 'off';
-        }
-      | undefined,
-  });
-  const exit = exitRef.current;
-  if (exit.prevStep !== step) {
-    const now = Date.now();
-    if (exit.prevStep === 'off') {
-      exit.appearance += 1;
-      exit.appearedAt = now;
-    }
-    const wasWaiting = isDeviceStageMachineWaitStep(exit.prevStep);
-    const isWaiting = isDeviceStageMachineWaitStep(step);
-    if (wasWaiting && !isWaiting) {
-      exit.endedWaitRun = {
-        waitRun: exit.waitRun,
-        step: exit.waitRunStep,
-        durationMs: now - exit.waitRunStartedAt,
-        afterAnswer: exit.afterAnswer,
-        endedBy: step === 'off' ? 'off' : 'next',
-      };
-    }
-    if (isWaiting && !wasWaiting) {
-      exit.waitRun += 1;
-      exit.waitRunStartedAt = now;
-      exit.lastActivityAt = now;
-      exit.afterAnswer = isDeviceStageAnsweredStep(exit.prevStep);
-    }
-    if (isWaiting) {
-      exit.waitRunStep = step;
-    }
-    exit.prevStep = step;
-  }
-  if (activitySeq !== exit.lastActivitySeq) {
-    // The device spoke — a call began or ended, an SDK event landed: the
-    // idle clock starts over while the cap keeps counting.
-    exit.lastActivitySeq = activitySeq;
-    exit.lastActivityAt = Date.now();
-  }
-  const { appearance, waitRun, afterAnswer } = exit;
-  const stageOn = step !== 'off';
-  const machineWait = isDeviceStageMachineWaitStep(step);
-  const [settledAppearance, setSettledAppearance] = useState(0);
-  const [stalledWaitRun, setStalledWaitRun] = useState(0);
-  useEffect(() => {
-    if (!stageOn || settledAppearance === appearance) {
-      return undefined;
-    }
-    const timer = setTimeout(
-      () => setSettledAppearance(appearance),
-      Math.max(
-        0,
-        DEVICE_STAGE_EXIT_SETTLE_MS - (Date.now() - exitRef.current.appearedAt),
-      ),
-    );
-    return () => clearTimeout(timer);
-  }, [stageOn, appearance, settledAppearance]);
-  useEffect(() => {
-    if (!machineWait || stalledWaitRun === waitRun) {
-      return undefined;
-    }
-    // Re-armed on every sign of life (activitySeq): the idle deadline
-    // moves, the cap does not.
-    const clocks = exitRef.current;
-    const { stalled: due, dueInMs } = resolveDeviceStageWaitStall({
-      now: Date.now(),
-      waitStartedAt: clocks.waitRunStartedAt,
-      lastActivityAt: clocks.lastActivityAt,
+  // The exit policy's clocks, and the wait report that rides out of them
+  // with the numbers the grant saw.
+  const handleWaitEnded = useCallback(
+    (ended: IDeviceStageWaitEnd) => {
+      defaultLogger.hardware.connection.deviceStageWaitEnded({
+        ...ended,
+        transport: connectionType,
+        vendor: stageRef.current?.vendor,
+      });
+    },
+    [connectionType],
+  );
+  const { closable, exitAllowed, stalled, clocksRef } =
+    useDeviceStageExitPolicy({
+      step,
+      activitySeq: stage?.activitySeq,
+      onWaitEnded: handleWaitEnded,
     });
-    if (due) {
-      setStalledWaitRun(waitRun);
-      return undefined;
-    }
-    const timer = setTimeout(() => setStalledWaitRun(waitRun), dueInMs);
-    return () => clearTimeout(timer);
-  }, [machineWait, waitRun, stalledWaitRun, activitySeq]);
-  const settled = settledAppearance === appearance;
-  const stalled = machineWait && stalledWaitRun === waitRun;
-  const stalledRef = useRef(stalled);
-  stalledRef.current = stalled;
-  const { closable, exitAllowed } = resolveDeviceStageExitGrant({
-    step,
-    settled,
-    stalled,
-    afterAnswer,
-  });
-  // The wait that just ended, reported once its successor has rendered.
-  useEffect(() => {
-    const ended = exitRef.current.endedWaitRun;
-    if (!ended) {
-      return;
-    }
-    exitRef.current.endedWaitRun = undefined;
-    defaultLogger.hardware.connection.deviceStageWaitEnded({
-      step: ended.step,
-      transport: connectionType,
-      vendor: stageRef.current?.vendor,
-      durationMs: ended.durationMs,
-      stalled: stalledWaitRun === ended.waitRun,
-      afterAnswer: ended.afterAnswer,
-      endedBy: ended.endedBy,
-    });
-  }, [step, connectionType, stalledWaitRun]);
 
   /** Third-party answer path: build the adapter UI response from the
    * original action the stage state carries. Best-effort — the demo
@@ -293,10 +172,10 @@ function DeviceStageContainerCmp() {
   );
 
   const handleExit = useCallback(
-    (via: IDeviceStageExitVia) => {
+    (via: IDeviceStageExitViaValue) => {
       Keyboard.dismiss();
       const current = stageRef.current;
-      const clocks = exitRef.current;
+      const clocks = clocksRef.current;
       const onWait = isDeviceStageMachineWaitStep(current?.step ?? 'off');
       defaultLogger.hardware.connection.deviceStageClosed({
         step: current?.step ?? 'off',
@@ -304,8 +183,8 @@ function DeviceStageContainerCmp() {
         transport: connectionType,
         vendor: current?.vendor,
         sinceAppearanceMs: Date.now() - clocks.appearedAt,
-        sinceWaitMs: onWait ? Date.now() - clocks.waitRunStartedAt : undefined,
-        stalled: onWait && stalledRef.current,
+        sinceWaitMs: onWait ? Date.now() - clocks.waitStartedAt : undefined,
+        stalled,
         afterAnswer: onWait && clocks.afterAnswer,
       });
       if (current?.vendor && current.step !== 'error') {
@@ -313,31 +192,27 @@ function DeviceStageContainerCmp() {
         // takes a decline response, otherwise cancel the adapter call.
         sendVendorUiResponse(false);
       }
-      // On the error outcome the call is already over (the notice form's
-      // self-exit also lands here); on the teach card nothing has started
-      // yet; on the wallet-type fork the call that read the device is already
-      // over; on the Device-not-connected card there is no device at all.
-      // None of them leaves anything on the device to cancel.
+      // Whether a device call is left to cancel is decided behind the
+      // close, from the step it closes (shouldCancelDeviceOnStageClose).
       void serviceHardwareUI.deviceStageUserClose({
         connectId: current?.connectId,
-        skipDeviceCancel:
-          Boolean(current?.vendor) ||
-          current?.step === 'error' ||
-          current?.step === 'passphraseIntro' ||
-          current?.step === 'selectWalletType' ||
-          current?.step === 'deviceNotFound',
       });
     },
-    [connectionType, sendVendorUiResponse, serviceHardwareUI],
+    [
+      clocksRef,
+      connectionType,
+      stalled,
+      sendVendorUiResponse,
+      serviceHardwareUI,
+    ],
   );
   const handleClose = useCallback(() => handleExit('close'), [handleExit]);
 
-  // Android back (and Escape below) while the stage is up: the close once
-  // the exit is allowed, swallowed before that — never the screen
-  // underneath, which the stage's wall already hides. See
-  // resolveDeviceStageBackPress.
+  // Android back (and Escape) while the stage is up: the close once the
+  // exit is allowed, swallowed before that — never the screen underneath,
+  // which the stage's wall already hides. See resolveDeviceStageBackPress.
   const handleBackPress = useCallback(
-    (via: IDeviceStageExitVia = 'back') => {
+    (via: IDeviceStageExitViaValue) => {
       const outcome = resolveDeviceStageBackPress({
         stageIsOn: step !== 'off',
         exitAllowed,
@@ -352,31 +227,22 @@ function DeviceStageContainerCmp() {
     },
     [step, exitAllowed, handleExit],
   );
-  useBackHandler(handleBackPress, platformEnv.isNative && step !== 'off');
-  // Web / desktop: Escape, owned in the capture phase. The shared hook only
-  // calls back and never consumes the key, so the Dialog keydown handlers
-  // and the modal navigator's keyup handler underneath would still see the
-  // press and close what the stage covers. Attached once; the refs keep it
-  // reading the live step and the live decision.
-  const stageIsOnRef = useRef(step !== 'off');
-  stageIsOnRef.current = step !== 'off';
+  // One subscription for the stage's whole life; the ref hands the native
+  // BackHandler and the Escape owner the live decision.
   const handleBackPressRef = useRef(handleBackPress);
   handleBackPressRef.current = handleBackPress;
-  useEffect(() => {
-    if (
-      platformEnv.isNative ||
-      typeof globalThis.addEventListener !== 'function'
-    ) {
-      return undefined;
-    }
-    return attachDeviceStageEscapeOwner({
-      target: globalThis as unknown as IDeviceStageKeyEventTargetLike,
-      isStageOn: () => stageIsOnRef.current,
-      onEscape: () => {
-        handleBackPressRef.current('escape');
-      },
-    });
+  const handleNativeBackPress = useCallback(
+    () => handleBackPressRef.current('back'),
+    [],
+  );
+  useBackHandler(handleNativeBackPress, platformEnv.isNative && step !== 'off');
+  const handleEscape = useCallback(() => {
+    handleBackPressRef.current('escape');
   }, []);
+  useDeviceStageEscapeOwner({
+    stageOn: step !== 'off',
+    onEscape: handleEscape,
+  });
 
   const handlePinSubmit = useCallback(
     (pin: string) => {
@@ -633,7 +499,7 @@ function DeviceStageContainerCmp() {
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceName={stage?.deviceName}
       connectionType={connectionType}
-      waitStalled={stalled && step === 'connecting' && !isVendorTrack}
+      waitStalled={stalled}
       vendor={toStageVendor(stage?.vendor)}
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}

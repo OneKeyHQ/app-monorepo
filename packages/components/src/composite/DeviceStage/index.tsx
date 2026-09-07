@@ -1277,7 +1277,7 @@ export function DeviceStage({
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    capsuleTextRef.current = resolveCapsuleText(
+    const nextCapsuleText = resolveCapsuleText(
       intl,
       step,
       deviceName,
@@ -1286,6 +1286,14 @@ export function DeviceStage({
       errorMessage,
       waitStalled ? (connectionType ?? 'usb') : undefined,
     );
+    // Same words, same object: the capsule row's memo then bails on
+    // every render that changed nothing it shows.
+    if (
+      nextCapsuleText.title !== capsuleTextRef.current.title ||
+      nextCapsuleText.sub !== capsuleTextRef.current.sub
+    ) {
+      capsuleTextRef.current = nextCapsuleText;
+    }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
     } else if (vendor) {
@@ -2092,6 +2100,11 @@ export function DeviceStage({
     [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
+  const dismissLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_cancel }),
+    [intl],
+  );
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2100,7 +2113,7 @@ export function DeviceStage({
       heightArrangeToken={shownPort}
       onAim={handleAim}
       onDismiss={onClose}
-      dismissLabel={intl.formatMessage({ id: ETranslations.global_cancel })}
+      dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
       modal
       capsuleKey={capsuleText.title}

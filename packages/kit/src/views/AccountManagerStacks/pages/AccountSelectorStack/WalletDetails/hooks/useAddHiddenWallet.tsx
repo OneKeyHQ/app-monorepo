@@ -19,15 +19,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { waitForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -227,38 +225,12 @@ export function useAddHiddenWallet() {
             deviceName: stageDeviceName,
           },
         );
-        const intro = await new Promise<'continue' | 'closed'>((resolve) => {
-          // Reassigned once both handlers exist — each exit releases BOTH.
-          let cleanup = () => {};
-          const onContinue = () => {
-            cleanup();
-            resolve('continue');
-          };
-          // The person dismissing the stage ends the run just as well.
-          const onStageClosed = () => {
-            cleanup();
-            resolve('closed');
-          };
-          cleanup = () => {
-            appEventBus.off(
-              EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-              onContinue,
-            );
-            appEventBus.off(
-              EAppEventBusNames.CloseHardwareUiStateDialogManually,
-              onStageClosed,
-            );
-          };
-          appEventBus.on(
-            EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-            onContinue,
-          );
-          appEventBus.on(
-            EAppEventBusNames.CloseHardwareUiStateDialogManually,
-            onStageClosed,
-          );
-        });
-        if (intro === 'closed') {
+        // The person dismissing the stage ends the run just as well.
+        const intro = await waitForDeviceStageAnswer(
+          EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+          () => 'continue' as const,
+        );
+        if (intro.closed) {
           // Dismissed at the teaching: nothing was started, nothing to
           // land — the stage's own close already dropped the hold and
           // retired its token, so the release below is a no-op.

@@ -1,9 +1,11 @@
 import {
   attachDeviceStageEscapeOwner,
+  isDeviceStageAnsweredStep,
   resolveDeviceStageBackPress,
   resolveDeviceStageExitGrant,
   resolveDeviceStageWaitStall,
   setDeviceStageBurstActive,
+  shouldCancelDeviceOnStageClose,
   shouldEmitDeviceNotFoundDialogEvent,
 } from './deviceStageOwnership';
 
@@ -125,6 +127,17 @@ describe('resolveDeviceStageExitGrant', () => {
     ).toEqual({ closable: true, exitAllowed: true });
   });
 
+  it('counts every card the person answers, the teach card and the fork included', () => {
+    // The wait after Continue on the intro carries the hidden-wallet call
+    // the person just asked for: a stray Esc/back must not cancel it.
+    expect(isDeviceStageAnsweredStep('passphraseIntro')).toBe(true);
+    expect(isDeviceStageAnsweredStep('selectWalletType')).toBe(true);
+    expect(isDeviceStageAnsweredStep('confirm')).toBe(true);
+    // Nothing was asked on these: the wait after them opens on the settle.
+    expect(isDeviceStageAnsweredStep('connecting')).toBe(false);
+    expect(isDeviceStageAnsweredStep('error')).toBe(false);
+  });
+
   it('opens outcomes and decisions at once, and never the done beat', () => {
     expect(grant('error')).toEqual({ closable: true, exitAllowed: true });
     expect(grant('deviceNotFound')).toEqual({
@@ -147,6 +160,26 @@ describe('resolveDeviceStageExitGrant', () => {
       closable: false,
       exitAllowed: false,
     });
+  });
+});
+
+describe('shouldCancelDeviceOnStageClose', () => {
+  it('cancels the device call behind an ask or a wait, never behind an outcome', () => {
+    expect(shouldCancelDeviceOnStageClose({ step: 'confirm' })).toBe(true);
+    expect(shouldCancelDeviceOnStageClose({ step: 'processing' })).toBe(true);
+    expect(shouldCancelDeviceOnStageClose({ step: 'error' })).toBe(false);
+    expect(shouldCancelDeviceOnStageClose({ step: 'selectWalletType' })).toBe(
+      false,
+    );
+    expect(shouldCancelDeviceOnStageClose({ step: 'deviceNotFound' })).toBe(
+      false,
+    );
+  });
+
+  it('leaves third-party bursts to their adapter', () => {
+    expect(
+      shouldCancelDeviceOnStageClose({ step: 'confirm', vendor: 'ledger' }),
+    ).toBe(false);
   });
 });
 

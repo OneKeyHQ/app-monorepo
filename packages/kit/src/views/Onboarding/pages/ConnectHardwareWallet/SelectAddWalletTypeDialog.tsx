@@ -5,15 +5,12 @@ import { useIntl } from 'react-intl';
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { waitForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IDeviceStageWalletTypeValue } from '@onekeyhq/shared/types/deviceStage';
 
 export function SelectAddWalletTypeDialogContent({
   onAddStandardWalletPress,
@@ -83,62 +80,6 @@ export function SelectAddWalletTypeDialogContent({
   );
 }
 
-type IStageForkOutcome =
-  | { landed: false }
-  | { landed: true; walletType: 'Standard' | 'Hidden' | undefined };
-
-/**
- * The fork on the DeviceStage (OK-59934): the selectWalletType card
- * replaces this dialog while the stage owns the surface. The stage is
- * already up when the fork is reached (onboarding holds its burst across
- * the whole creation, the processing capsule on it), so the card morphs
- * in place and the answer rides back through the driver's event; the
- * person closing the stage cancels, the way this dialog's close did.
- * Does not land while the stage is silenced (the firmware workflow): the
- * caller keeps its legacy dialog for that.
- */
-async function selectWalletTypeOnDeviceStage(): Promise<IStageForkOutcome> {
-  const landed =
-    await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType();
-  if (!landed) {
-    return { landed: false };
-  }
-  return new Promise((resolve) => {
-    // Reassigned once both handlers exist: each exit releases BOTH.
-    let cleanup = () => {};
-    const onSelected = ({
-      walletType,
-    }: {
-      walletType: IDeviceStageWalletTypeValue;
-    }) => {
-      cleanup();
-      resolve({
-        landed: true,
-        walletType: walletType === 'hidden' ? 'Hidden' : 'Standard',
-      });
-    };
-    const onStageClosed = () => {
-      cleanup();
-      resolve({ landed: true, walletType: undefined });
-    };
-    cleanup = () => {
-      appEventBus.off(
-        EAppEventBusNames.DeviceStageWalletTypeSelected,
-        onSelected,
-      );
-      appEventBus.off(
-        EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        onStageClosed,
-      );
-    };
-    appEventBus.on(EAppEventBusNames.DeviceStageWalletTypeSelected, onSelected);
-    appEventBus.on(
-      EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      onStageClosed,
-    );
-  });
-}
-
 export function useSelectAddWalletTypeDialog() {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -147,13 +88,22 @@ export function useSelectAddWalletTypeDialog() {
     'Standard' | 'Hidden' | undefined
   > => {
     // OK-59934: while the stage owns the surface the fork plays as its
-    // selectWalletType card. This dialog, and the iOS layering hack
-    // below, remain for the legacy surface until the cleanup pass.
-    if (!isLegacyHardwareUiActive()) {
-      const onStage = await selectWalletTypeOnDeviceStage();
-      if (onStage.landed) {
-        return onStage.walletType;
-      }
+    // selectWalletType card — the stage is already up (onboarding holds
+    // its burst across the whole creation), so the card morphs in place
+    // and the answer rides back through the driver; closing the stage
+    // cancels, the way this dialog's close did. A silenced stage (the
+    // firmware workflow) does not paint the card, and this dialog, with
+    // the iOS layering hack below, remains for the legacy surface until
+    // the cleanup pass.
+    if (
+      !isLegacyHardwareUiActive() &&
+      (await backgroundApiProxy.serviceHardwareUI.deviceStageShowSelectWalletType())
+    ) {
+      const fork = await waitForDeviceStageAnswer(
+        EAppEventBusNames.DeviceStageWalletTypeSelected,
+        ({ walletType }) => (walletType === 'hidden' ? 'Hidden' : 'Standard'),
+      );
+      return fork.closed ? undefined : fork.answer;
     }
     // iOS-only: dismiss the hardware-UI dialog before mounting this one.
     // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same

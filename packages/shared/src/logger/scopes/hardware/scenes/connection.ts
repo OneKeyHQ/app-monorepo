@@ -1,5 +1,10 @@
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
-import type { IDeviceStageStepValue } from '@onekeyhq/shared/types/deviceStage';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceStageConnectionTypeValue,
+  IDeviceStageExitViaValue,
+  IDeviceStageStepValue,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
@@ -53,9 +58,9 @@ export class HardwareConnectionScene extends BaseScene {
   @LogToServer()
   public deviceStageClosed(params: {
     step: IDeviceStageStepValue;
-    via: 'close' | 'escape' | 'back';
-    transport: 'bluetooth' | 'usb';
-    vendor?: string;
+    via: IDeviceStageExitViaValue;
+    transport: IDeviceStageConnectionTypeValue;
+    vendor?: EHardwareVendor;
     /** Since the stage appeared for this burst. */
     sinceAppearanceMs: number;
     /** Since the current machine wait began; absent off a wait. */
@@ -69,14 +74,14 @@ export class HardwareConnectionScene extends BaseScene {
   }
 
   /**
-   * One continuous machine wait on the DeviceStage ended: how long it
-   * ran and whether it crossed the stall threshold first.
+   * One machine wait on the DeviceStage (a stretch on one wait step)
+   * ended: how long it ran and whether it crossed the stall threshold.
    */
   @LogToServer()
   public deviceStageWaitEnded(params: {
     step: IDeviceStageStepValue;
-    transport: 'bluetooth' | 'usb';
-    vendor?: string;
+    transport: IDeviceStageConnectionTypeValue;
+    vendor?: EHardwareVendor;
     durationMs: number;
     stalled: boolean;
     afterAnswer: boolean;

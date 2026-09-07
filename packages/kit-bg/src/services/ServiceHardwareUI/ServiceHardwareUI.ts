@@ -15,7 +15,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import {
+  isLegacyHardwareUiActive,
+  shouldCancelDeviceOnStageClose,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -779,8 +782,9 @@ class ServiceHardwareUI extends ServiceBase {
     skipDeviceCancel?: boolean;
   }) {
     // Read before the close settles the atom at off: which cancel a
-    // dismissed air-gap step maps to depends on where the person was.
-    const stepAtClose = (await deviceStageAtom.get())?.step;
+    // dismissed step maps to depends on where the person was.
+    const stateAtClose = await deviceStageAtom.get();
+    const stepAtClose = stateAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
     await this.deviceStageBurst.userClose();
     // Unconditional, keyed to session existence (a no-op without one):
@@ -809,11 +813,19 @@ class ServiceHardwareUI extends ServiceBase {
     // closed before the search resolved, the opening beat of a scan: with
     // no connectId there is nothing to cancel BY, so the device half is
     // skipped rather than let the missing id fall through to that global
-    // cancel.
+    // cancel. Left unsaid by the caller, the step decides (an outcome, a
+    // decision or the teach card leaves nothing to cancel; a third-party
+    // burst cancels through its adapter).
+    const cancelsDevice =
+      skipDeviceCancel === undefined
+        ? shouldCancelDeviceOnStageClose({
+            step: stepAtClose ?? 'off',
+            vendor: stateAtClose?.vendor,
+          })
+        : !skipDeviceCancel;
     await this.closeHardwareUiStateDialogFn({
       connectId,
-      skipDeviceCancel:
-        qrStepAtClose || !connectId ? true : (skipDeviceCancel ?? false),
+      skipDeviceCancel: qrStepAtClose || !connectId ? true : !cancelsDevice,
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });
