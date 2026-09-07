@@ -19,6 +19,7 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   LeverageBadge,
+  PerpDexBadge,
   StockSourceLogo,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
@@ -102,6 +103,10 @@ interface ITokenIdentityItemProps {
    */
   perpsSubtitle?: string;
   /**
+   * HIP-3 DEX source label for perpetual tokens (e.g. "xyz", "para").
+   */
+  perpsDexLabel?: string;
+  /**
    * Whether to show the stock subtitle. Defaults to true.
    */
   showStockSubtitle?: boolean;
@@ -125,6 +130,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   stock,
   maxLeverage,
   perpsSubtitle,
+  perpsDexLabel,
   showStockSubtitle = true,
   tokenSize = 'md',
   gap = MARKET_CELL_LOGO_GAP,
@@ -220,6 +226,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         <XStack alignItems="center" gap="$1">
           {symbolElement}
           {maxLeverage ? <LeverageBadge leverage={maxLeverage} /> : null}
+          <PerpDexBadge dexLabel={perpsDexLabel} />
           {gtMd ? (
             <>
               <StockSourceLogo stock={stock} />

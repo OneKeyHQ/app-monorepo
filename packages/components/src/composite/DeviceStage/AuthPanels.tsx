@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   Anchor,
@@ -15,7 +16,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import { AUTH_FAILURE_TEXT, AUTH_NOTE_TEXT } from './stepCopy';
+import { AUTH_FAILURE_TEXT } from './stepCopy';
 import { StepText } from './StepText';
 
 import type { IAuthChecklistItem, IAuthFailureReason } from './type';
@@ -27,11 +28,9 @@ import type { IAuthChecklistItem, IAuthFailureReason } from './type';
  * them: a row is pending (dim ring), in progress (spinner + label),
  * verified (green check, the result value — linked to its release page
  * when one exists), or failed (red cross + Failed). The failure card
- * fronts a critical icon where the staged steps front the replica, and
- * its recoverable shape gates Continue-anyway behind the NOTE beat: the
- * card's content swaps in place — per the ratified design, a
- * replacement, not the old in-place expansion — and Back returns
- * without leaving the step.
+ * fronts a critical icon where the staged steps front the replica. A
+ * failed authenticity check allows an unverified developer override.
+ * Outside developer mode, only unofficial verdicts keep the hidden entry.
  */
 
 function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
@@ -109,74 +108,40 @@ export function AuthChecklist({ items }: { items: IAuthChecklistItem[] }) {
 export function AuthFailureCard({
   reason = 'unknown',
   checklist,
-  failureMessage,
-  failureCode,
   onSupport,
   onRetry,
+  allowDevSkip = false,
   onContinueAnyway,
   resetSignal,
 }: {
   reason?: IAuthFailureReason;
   /** The rows that ended in failure — the unofficial-firmware shape. */
   checklist?: IAuthChecklistItem[];
-  /** The fallback failure's real words (v6.5.0 dialog parity) — they
-   * stand in for the generic unknown title. Display-ready. */
-  failureMessage?: string;
-  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
-  failureCode?: string;
   onSupport?: () => void;
   onRetry?: () => void;
+  allowDevSkip?: boolean;
   onContinueAnyway?: () => void;
-  /** Fresh-visit signal, the app inputs' own: parked presenters bump it
-   * per activation so a revisit opens on the failure, not a stale NOTE. */
   resetSignal?: number;
 }) {
   const intl = useIntl();
   const copy = AUTH_FAILURE_TEXT[reason];
-  const baseTitle = failureMessage ?? intl.formatMessage({ id: copy.title });
-  const failureTitle = failureCode
-    ? `${baseTitle} (${failureCode})`
-    : baseTitle;
-  const [noteShown, setNoteShown] = useState(false);
-  useEffect(() => {
-    setNoteShown(false);
-  }, [resetSignal]);
-  const showNote = useCallback(() => setNoteShown(true), []);
-  const hideNote = useCallback(() => setNoteShown(false), []);
+  const failureTitle = intl.formatMessage({ id: copy.title });
+  const clickCountRef = useRef(0);
+  const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
+  const allowsDevSkip =
+    reason === 'unofficialDevice' || reason === 'unofficialFirmware';
+  const handleDevSkipTrigger = useCallback(() => {
+    if (!allowsDevSkip) return;
+    clickCountRef.current += 1;
+    if (clickCountRef.current >= 10) {
+      setDevSkipUnlocked(true);
+    }
+  }, [allowsDevSkip]);
 
-  if (noteShown) {
-    return (
-      <YStack>
-        {/* The NOTE beat carries no icon; its warning line wears
-            critical on the words' own metrics. The words block's own
-            bottom padding is the gap to the buttons. */}
-        <StepText
-          title={intl.formatMessage({ id: AUTH_NOTE_TEXT.title })}
-          sub={intl.formatMessage({ id: AUTH_NOTE_TEXT.sub })}
-          subColor="$textCritical"
-          animated={false}
-        />
-        <YStack gap="$2">
-          <Button
-            testID="device-stage-auth-continue-anyway"
-            variant="secondary"
-            size="large"
-            onPress={onContinueAnyway}
-          >
-            {intl.formatMessage({ id: AUTH_NOTE_TEXT.confirm })}
-          </Button>
-          <Button
-            testID="device-stage-auth-note-back"
-            variant="secondary"
-            size="large"
-            onPress={hideNote}
-          >
-            {intl.formatMessage({ id: AUTH_NOTE_TEXT.back })}
-          </Button>
-        </YStack>
-      </YStack>
-    );
-  }
+  useEffect(() => {
+    clickCountRef.current = 0;
+    setDevSkipUnlocked(false);
+  }, [reason, resetSignal]);
 
   return (
     <YStack gap="$6">
@@ -186,45 +151,65 @@ export function AuthFailureCard({
       {/* The words block's own bottom padding is its gap to what
           follows; the blocks after it keep the card's 24. */}
       <YStack>
-        <StepText
-          title={failureTitle}
-          sub={intl.formatMessage({ id: copy.sub })}
-          animated={false}
-        />
+        <Stack
+          testID="device-stage-auth-dev-skip-trigger"
+          onPress={allowsDevSkip ? handleDevSkipTrigger : undefined}
+        >
+          <StepText
+            title={failureTitle}
+            sub={intl.formatMessage({ id: copy.sub })}
+            animated={false}
+          />
+        </Stack>
         <YStack gap="$6">
           {checklist?.length ? <AuthChecklist items={checklist} /> : null}
-          {copy.action === 'support' && onSupport ? (
-            <Button
-              testID="device-stage-auth-support"
-              variant="primary"
-              size="large"
-              onPress={onSupport}
-            >
-              {intl.formatMessage({ id: ETranslations.global_support })}
-            </Button>
-          ) : null}
-          {copy.action === 'retry' ? (
-            <YStack gap="$2">
+          <YStack gap="$2">
+            {copy.action === 'support' && onSupport ? (
               <Button
-                testID="device-stage-auth-retry"
+                testID="device-stage-auth-support"
                 variant="primary"
                 size="large"
-                onPress={onRetry}
+                onPress={onSupport}
               >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
+                {intl.formatMessage({ id: ETranslations.global_support })}
               </Button>
+            ) : null}
+            {copy.action === 'retry' ? (
+              <>
+                <Button
+                  testID="device-stage-auth-retry"
+                  variant="primary"
+                  size="large"
+                  onPress={onRetry}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+                {onSupport ? (
+                  <Button
+                    testID="device-stage-auth-support"
+                    variant="secondary"
+                    size="large"
+                    onPress={onSupport}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_support })}
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+            {(platformEnv.isDev ||
+              allowDevSkip ||
+              (allowsDevSkip && devSkipUnlocked)) &&
+            onContinueAnyway ? (
               <Button
-                testID="device-stage-auth-note-open"
-                variant="secondary"
+                testID="device-stage-auth-dev-skip"
                 size="large"
-                onPress={showNote}
+                variant="secondary"
+                onPress={onContinueAnyway}
               >
-                {intl.formatMessage({
-                  id: ETranslations.global_continue_anyway,
-                })}
+                Skip it And Create Wallet(Only in Dev)
               </Button>
-            </YStack>
-          ) : null}
+            ) : null}
+          </YStack>
         </YStack>
       </YStack>
     </YStack>
