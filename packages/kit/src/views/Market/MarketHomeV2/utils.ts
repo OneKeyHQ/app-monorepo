@@ -5,6 +5,10 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import type { IMarketCategoryItem } from './types';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
+const TRENDING_STYLE_SPOT_CATEGORY_IDS = new Set([
+  'trending',
+  'robinhood_meme',
+]);
 
 export const COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
@@ -139,6 +143,11 @@ export const shouldHideSpotExtendedStats = (
   const normalizedCategory = selectedCategory || 'trending';
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
+
+export const isTrendingStyleSpotCategory = (
+  categoryId: string | undefined,
+): boolean =>
+  Boolean(categoryId && TRENDING_STYLE_SPOT_CATEGORY_IDS.has(categoryId));
 
 export const isMarketStockCategory = (
   category?: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
