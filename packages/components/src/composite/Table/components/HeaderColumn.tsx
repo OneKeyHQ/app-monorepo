@@ -45,6 +45,10 @@ function HeaderColumn<T>({
     }
   }, [dataIndex, selectedColumnName]);
 
+  useEffect(() => {
+    setSortOrder(events?.initialSortOrder);
+  }, [events?.initialSortOrder]);
+
   const handleColumnPress = useCallback(() => {
     events?.onPress?.();
     if (!enableSortType) {
@@ -73,7 +77,7 @@ function HeaderColumn<T>({
   const cursor = enableSortType ? 'pointer' : undefined;
   const showSortIcon = enableSortType && !renderTitle;
   const currentSortOrder =
-    dataIndex === selectedColumnName ? sortOrder : undefined;
+    dataIndex === selectedColumnName ? sortOrder : events?.initialSortOrder;
 
   const { renderSortIcon: renderInlineSortIcon } = useSortIcon({
     showSortIcon: enableSortType && !!renderTitle,
