@@ -102,6 +102,7 @@ const ManageSectionShell = ({
   defaultTab,
   fallbackTokenImageUri,
   hasProtocolSwitch,
+  shouldReserveCompactSummary,
   isInModalContext,
 }: {
   type: EManagePositionType;
@@ -111,6 +112,7 @@ const ManageSectionShell = ({
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
+  shouldReserveCompactSummary?: boolean;
   // In the modal the action button lives in Page.Footer (bottom-right), so the
   // shell must not render an inline full-width button there.
   isInModalContext?: boolean;
@@ -259,15 +261,24 @@ const ManageSectionShell = ({
               </XStack>
             </XStack>
 
-            {/* Trade / buy card — static content, not loading. Render the real
-                (disabled) labels so it matches the loaded state exactly. The
-                loaded card holds only this row, so its padding is symmetric. */}
+            {/* Compact summary / trade-buy card. Stakefish adds its delayed
+                "earn starts" row above the divider; other protocols render
+                only the static trade-buy row with symmetric padding. */}
             <YStack
               p="$3.5"
+              pt={shouldReserveCompactSummary ? '$5' : '$3.5'}
               borderRadius="$3"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
+              {shouldReserveCompactSummary ? (
+                <>
+                  <YStack mt="$1.5">
+                    <Skeleton.BodyLg w={160} />
+                  </YStack>
+                  <Divider my="$5" />
+                </>
+              ) : null}
               <XStack jc="space-between" ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
@@ -816,6 +827,10 @@ export function ManagePositionContent({
         defaultTab={defaultTab}
         fallbackTokenImageUri={fallbackTokenImageUri}
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
+        shouldReserveCompactSummary={
+          Boolean(stakeProtocolSwitchConfig) &&
+          earnUtils.isStakefishProvider({ providerName: provider })
+        }
         isInModalContext={isInModalContext}
       />
     );
