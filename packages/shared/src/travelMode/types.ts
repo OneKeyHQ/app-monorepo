@@ -7,8 +7,10 @@ export type ITravelModeControlRecord = {
 export interface ITravelModeControlStorage {
   getItem(): Promise<string | null | undefined>;
   getItemSync?(): string | null | undefined;
+  getRuntimeGenerationSync?(): number | undefined;
   removeItem(): Promise<void>;
   setItem(value: string): Promise<void>;
+  setRuntimeGenerationSync?(generation: number): void;
 }
 
 export type ITravelModeRuntimeState =

@@ -52,6 +52,8 @@ export type IRuntimeEnvironment = Readonly<{
 
 export const TRAVEL_MODE_GATE_REJECTION_DELAY_MS = 600;
 
+type IRuntimeTransitionGate = () => boolean;
+
 export async function runAfterTravelModeGateDelay<T>(
   onBlocked: () => T | Promise<T>,
 ): Promise<T> {
@@ -94,12 +96,15 @@ class RuntimePersistenceCapability implements IRuntimePersistenceCapability {
 class RuntimeEffectCapability implements IRuntimeEffectCapability {
   readonly kind: 'enabled' | 'suppressed';
 
-  constructor(kind: 'enabled' | 'suppressed') {
+  constructor(
+    kind: 'enabled' | 'suppressed',
+    private readonly isTransitionBlocked: IRuntimeTransitionGate,
+  ) {
     this.kind = kind;
   }
 
   get isSuppressed(): boolean {
-    return this.kind === 'suppressed';
+    return this.kind === 'suppressed' || this.isTransitionBlocked();
   }
 
   run<T>({ operation, onBlocked }: IRuntimeOperation<T>): Promise<T> {
@@ -124,12 +129,15 @@ class RuntimeEffectCapability implements IRuntimeEffectCapability {
 class RuntimeCommandCapability implements IRuntimeCommandCapability {
   readonly kind: 'allowed' | 'control-plane-only';
 
-  constructor(kind: 'allowed' | 'control-plane-only') {
+  constructor(
+    kind: 'allowed' | 'control-plane-only',
+    private readonly isTransitionBlocked: IRuntimeTransitionGate,
+  ) {
     this.kind = kind;
   }
 
   get isBlocked(): boolean {
-    return this.kind === 'control-plane-only';
+    return this.kind === 'control-plane-only' || this.isTransitionBlocked();
   }
 
   async run<T>(operation: () => Promise<T>): Promise<T> {
@@ -151,19 +159,26 @@ class RuntimeCommandCapability implements IRuntimeCommandCapability {
 }
 
 export class RuntimeEnvironment {
-  static create(profile: ITravelModeRuntimeProfile): IRuntimeEnvironment {
+  static create(
+    profile: ITravelModeRuntimeProfile,
+    isTransitionBlocked: IRuntimeTransitionGate = () => false,
+  ): IRuntimeEnvironment {
     const persistence = new RuntimePersistenceCapability(profile.persistence);
     const walletEffects = new RuntimeEffectCapability(
       profile.walletEffects === 'enabled' ? 'enabled' : 'suppressed',
+      isTransitionBlocked,
     );
     const notifications = new RuntimeEffectCapability(
       profile.walletEffects === 'enabled' ? 'enabled' : 'suppressed',
+      isTransitionBlocked,
     );
     const commands = new RuntimeCommandCapability(
       profile.kind === 'standard' ? 'allowed' : 'control-plane-only',
+      isTransitionBlocked,
     );
     const dappRequests = new RuntimeCommandCapability(
       profile.dappRequests === 'allowed' ? 'allowed' : 'control-plane-only',
+      isTransitionBlocked,
     );
 
     Object.freeze(persistence);

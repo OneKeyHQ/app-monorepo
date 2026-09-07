@@ -6,6 +6,7 @@ import type { ITravelModeControlStorage } from './types';
 
 function buildStorage(initialValue?: string | null) {
   let value = initialValue;
+  let generation = 0;
   const storage: ITravelModeControlStorage = {
     async getItem() {
       return value;
@@ -15,6 +16,10 @@ function buildStorage(initialValue?: string | null) {
     },
     async setItem(nextValue) {
       value = nextValue;
+    },
+    getRuntimeGenerationSync: () => generation,
+    setRuntimeGenerationSync(nextGeneration) {
+      generation = nextGeneration;
     },
   };
   return {
@@ -212,5 +217,130 @@ describe('TravelModeManager', () => {
         persistence: 'masked',
       },
     );
+  });
+
+  test('blocks cached main/bg capabilities through activation and restart failure', async () => {
+    const { storage } = buildStorage(null);
+    const main = new TravelModeManager(storage, true);
+    const background = new TravelModeManager(storage, true);
+    const environments = await Promise.all([
+      main.getRuntimeEnvironment(),
+      background.getRuntimeEnvironment(),
+    ]);
+    const operation = jest.fn(async () => 'started');
+    for (const environment of environments) {
+      await expect(
+        environment.walletEffects.runOrReject(operation),
+      ).resolves.toBe('started');
+    }
+    operation.mockClear();
+
+    await background.transition({
+      enabled: true,
+      verifyString: '|VS|verifier',
+    });
+    background.markRestartFailed();
+
+    for (const environment of environments) {
+      expect(environment.profile.kind).toBe('standard');
+      expect(environment.persistence.kind).toBe('real');
+      expect(environment.walletEffects.isSuppressed).toBe(true);
+      expect(environment.notifications.isSuppressed).toBe(true);
+      await expect(environment.commands.run(operation)).rejects.toThrow(
+        'Unknown error',
+      );
+      await expect(environment.dappRequests.run(operation)).rejects.toThrow(
+        'Unknown error',
+      );
+      await expect(
+        environment.walletEffects.runOrReject(operation),
+      ).rejects.toThrow('Unknown error');
+    }
+    expect(operation).not.toHaveBeenCalled();
+    await expect(main.getRuntimeState()).resolves.toBe('transition-recovery');
+
+    const travelBackground = new TravelModeManager(storage, true);
+    await travelBackground.transition({ enabled: false });
+    const standardBackground = new TravelModeManager(storage, true);
+    const standardEnvironment =
+      await standardBackground.getRuntimeEnvironment();
+    await expect(
+      standardEnvironment.walletEffects.runOrReject(operation),
+    ).resolves.toBe('started');
+    expect(environments[0].walletEffects.isSuppressed).toBe(true);
+    expect(environments[1].walletEffects.isSuppressed).toBe(true);
+  });
+
+  test('blocks a runtime initialized while the new control record is being written', async () => {
+    const { storage } = buildStorage(null);
+    const background = new TravelModeManager(storage, true);
+    const write = storage.setItem.bind(storage);
+    let concurrentMain: TravelModeManager | undefined;
+    storage.setItem = async (value) => {
+      concurrentMain = new TravelModeManager(storage, true);
+      await concurrentMain.ready;
+      await write(value);
+    };
+
+    await background.transition({
+      enabled: true,
+      verifyString: '|VS|verifier',
+    });
+
+    expect(concurrentMain).toBeDefined();
+    const environment = await concurrentMain?.getRuntimeEnvironment();
+    expect(environment?.profile.kind).toBe('standard');
+    expect(environment?.walletEffects.isSuppressed).toBe(true);
+  });
+
+  test.each([false, true])(
+    'releases the transition gate only after verified rollback (failed=%s)',
+    async (rollbackFails) => {
+      const { storage } = buildStorage(null);
+      const main = new TravelModeManager(storage, true);
+      const background = new TravelModeManager(storage, true);
+      const environment = await main.getRuntimeEnvironment();
+      storage.setItem = async () => {
+        expect(environment.walletEffects.isSuppressed).toBe(true);
+        throw new OneKeyLocalError('write failed');
+      };
+      if (rollbackFails) {
+        storage.removeItem = async () => {
+          throw new OneKeyLocalError('rollback failed');
+        };
+      }
+
+      await expect(
+        background.transition({ enabled: true, verifyString: '|VS|verifier' }),
+      ).rejects.toThrow('write failed');
+
+      expect(environment.walletEffects.isSuppressed).toBe(rollbackFails);
+      await expect(background.getRuntimeState()).resolves.toBe(
+        rollbackFails ? 'transition-recovery' : 'inactive',
+      );
+    },
+  );
+
+  test('keeps effects blocked when the native generation cannot be read', async () => {
+    const { storage } = buildStorage(null);
+    const manager = new TravelModeManager(storage, true);
+    const environment = await manager.getRuntimeEnvironment();
+    storage.getRuntimeGenerationSync = () => undefined;
+    expect(environment.walletEffects.isSuppressed).toBe(true);
+    storage.getRuntimeGenerationSync = () => {
+      throw new OneKeyLocalError('native store unavailable');
+    };
+    expect(environment.commands.isBlocked).toBe(true);
+  });
+
+  test('leaves unsupported platforms independent of the native transition gate', async () => {
+    const { storage } = buildStorage(null);
+    storage.getRuntimeGenerationSync = () => {
+      throw new OneKeyLocalError('native store unavailable');
+    };
+    const manager = new TravelModeManager(storage, false);
+    const environment = await manager.getRuntimeEnvironment();
+    expect(environment.walletEffects.isSuppressed).toBe(false);
+    expect(environment.commands.isBlocked).toBe(false);
   });
 });

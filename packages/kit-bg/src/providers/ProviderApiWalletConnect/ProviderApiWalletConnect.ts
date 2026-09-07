@@ -18,6 +18,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
+import { travelModeDappRequestIngress } from '../../apis/TravelModeDappRequestIngress';
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
 
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
@@ -82,23 +83,23 @@ class ProviderApiWalletConnect {
     }
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_proposal,
-      this.handleSessionProposal,
+      this.gatedHandleSessionProposal,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_request,
-      this.handleSessionRequest,
+      this.gatedHandleSessionRequest,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_delete,
-      this.handleSessionDelete,
+      this.gatedHandleSessionDelete,
     );
     this.web3Wallet.engine.signClient.events.on(
       EWalletConnectSessionEvents.session_ping,
-      this.handleSessionPing,
+      this.gatedHandleSessionPing,
     );
     this.web3Wallet.on(
       EWalletConnectSessionEvents.session_authenticate,
-      this.handleAuthRequest,
+      this.gatedHandleAuthRequest,
     );
     // this.web3Wallet.on(
     //   EWalletConnectSessionEvents.session_connect,
@@ -116,23 +117,23 @@ class ProviderApiWalletConnect {
     }
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_proposal,
-      this.handleSessionProposal,
+      this.gatedHandleSessionProposal,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_request,
-      this.handleSessionRequest,
+      this.gatedHandleSessionRequest,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_delete,
-      this.handleSessionDelete,
+      this.gatedHandleSessionDelete,
     );
     this.web3Wallet.engine.signClient.events.off(
       EWalletConnectSessionEvents.session_ping,
-      this.handleSessionPing,
+      this.gatedHandleSessionPing,
     );
     this.web3Wallet.off(
       EWalletConnectSessionEvents.session_authenticate,
-      this.handleAuthRequest,
+      this.gatedHandleAuthRequest,
     );
   }
 
@@ -352,6 +353,36 @@ class ProviderApiWalletConnect {
   private handleSessionPing = async () => {
     console.log('ping');
   };
+
+  private gateSessionEvent<TArgs extends unknown[]>(
+    operation: (...args: TArgs) => Promise<void>,
+  ) {
+    return travelModeDappRequestIngress.wrap({
+      operation,
+      // Suppressed sessions must not start another outbound response.
+      onBlocked: async () => {},
+    });
+  }
+
+  private gatedHandleSessionProposal = this.gateSessionEvent(
+    this.handleSessionProposal,
+  );
+
+  private gatedHandleSessionRequest = this.gateSessionEvent(
+    this.handleSessionRequest,
+  );
+
+  private gatedHandleSessionDelete = this.gateSessionEvent(
+    this.handleSessionDelete,
+  );
+
+  private gatedHandleSessionPing = this.gateSessionEvent(
+    this.handleSessionPing,
+  );
+
+  private gatedHandleAuthRequest = this.gateSessionEvent(
+    this.handleAuthRequest,
+  );
 
   @backgroundMethod()
   async switchNetwork({

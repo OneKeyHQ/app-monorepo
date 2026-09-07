@@ -57,6 +57,8 @@ export class TravelModeManager {
 
   private runtimeEnvironment: IRuntimeEnvironment;
 
+  private bootRuntimeGeneration = 0;
+
   private transitionPromise: Promise<void> = Promise.resolve();
 
   readonly ready: Promise<void>;
@@ -76,6 +78,7 @@ export class TravelModeManager {
     }
     if (storage.getItemSync) {
       try {
+        this.bootRuntimeGeneration = storage.getRuntimeGenerationSync?.() ?? 0;
         this.applyInitialValue(storage.getItemSync());
       } catch (error) {
         this.initializationError = error;
@@ -89,6 +92,8 @@ export class TravelModeManager {
 
   private async initialize() {
     try {
+      this.bootRuntimeGeneration =
+        this.storage.getRuntimeGenerationSync?.() ?? 0;
       this.applyInitialValue(await this.storage.getItem());
     } catch (error) {
       this.initializationError = error;
@@ -121,7 +126,30 @@ export class TravelModeManager {
 
   async getRuntimeState(): Promise<ITravelModeRuntimeState> {
     await this.ready;
+    if (
+      (this.runtimeState === 'inactive' || this.runtimeState === 'active') &&
+      this.isTransitionBlockedSync()
+    ) {
+      return 'transition-recovery';
+    }
     return this.runtimeState;
+  }
+
+  private isTransitionBlockedSync(): boolean {
+    if (!this.supported) {
+      return false;
+    }
+    if (this.runtimeState !== 'inactive' && this.runtimeState !== 'active') {
+      return true;
+    }
+    try {
+      return Boolean(
+        this.storage.getRuntimeGenerationSync &&
+        this.storage.getRuntimeGenerationSync() !== this.bootRuntimeGeneration,
+      );
+    } catch {
+      return true;
+    }
   }
 
   async getRuntimeProfile(): Promise<ITravelModeRuntimeProfile> {
@@ -177,7 +205,7 @@ export class TravelModeManager {
   }): Promise<void> {
     await this.runSerialized(async () => {
       await this.ready;
-      if (this.runtimeState === 'transition-recovery') {
+      if ((await this.getRuntimeState()) === 'transition-recovery') {
         throw new OneKeyLocalError(
           'Travel Mode restart is required before another transition',
         );
@@ -204,13 +232,23 @@ export class TravelModeManager {
           verifyString: nextVerifyString,
           version: 1,
         };
+        this.storage.setRuntimeGenerationSync?.(this.bootRuntimeGeneration + 1);
         await this.persistAndVerify(nextRecord);
+        // Invalidate both old heaps, including one initialized during the write.
+        // Replacement runtimes capture this generation before reading the profile.
+        this.storage.setRuntimeGenerationSync?.(this.bootRuntimeGeneration + 2);
         this.controlRecord = nextRecord;
-        // The boot profile stays active until replacement main/bg runtimes
-        // initialize from the newly persisted profile.
+        // Keep persistence bound to the boot profile until both runtimes restart.
         this.runtimeState = 'transition-recovery';
       } catch (error) {
-        const restored = await this.tryRestoreRecord(priorRecord);
+        let restored = await this.tryRestoreRecord(priorRecord);
+        if (restored) {
+          try {
+            this.storage.setRuntimeGenerationSync?.(this.bootRuntimeGeneration);
+          } catch {
+            restored = false;
+          }
+        }
         if (!restored) {
           this.runtimeState = 'transition-recovery';
         } else {
@@ -281,6 +319,8 @@ export class TravelModeManager {
   }
 
   private buildRuntimeEnvironment(): IRuntimeEnvironment {
-    return RuntimeEnvironment.create(this.runtimeProfile);
+    return RuntimeEnvironment.create(this.runtimeProfile, () =>
+      this.isTransitionBlockedSync(),
+    );
   }
 }
