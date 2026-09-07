@@ -414,17 +414,18 @@ function StockPriceHeader({
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      {/* Figma widths are minimums: Spanish/Italian labels outgrow the
-          English boxes, and a fixed width would truncate both options into
-          the same truncated string. */}
-      <XStack minWidth={191} height={38} py="$1" gap="$0.5" alignItems="center">
+      {/* Both options hug their label, per Figma: the widths this used to
+          carry were read off the English boxes, which left the shorter CJK
+          labels sitting in half-empty pills. flexShrink keeps a longer
+          translation from being squeezed by the price beside it instead. */}
+      <XStack height={38} py="$1" gap="$0.5" alignItems="center" flexShrink={0}>
         <Button
           testID="stock-price-mode-share"
-          minWidth={94}
           height={30}
           m="$0"
           px="$2.5"
           borderWidth={0}
+          flexShrink={0}
           textEllipsis
           size="small"
           variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
@@ -435,11 +436,11 @@ function StockPriceHeader({
         </Button>
         <Button
           testID="stock-price-mode-token"
-          minWidth={95}
           height={30}
           m="$0"
           px="$2.5"
           borderWidth={0}
+          flexShrink={0}
           textEllipsis
           size="small"
           variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
