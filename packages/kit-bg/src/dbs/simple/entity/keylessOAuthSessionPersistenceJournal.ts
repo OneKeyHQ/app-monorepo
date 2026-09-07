@@ -35,7 +35,7 @@ export async function setKeylessOAuthSessionPersistenceJournal(
       keylessOAuthSessionPersistenceJournal: journal,
     };
   });
-  const journal = persisted.keylessOAuthSessionPersistenceJournal;
+  const journal = persisted?.keylessOAuthSessionPersistenceJournal;
   if (!journal || journal.operationId !== preparation.operationId) {
     throw new OneKeyLocalError(
       'Failed to prepare the Keyless OAuth session persistence journal.',

@@ -28,7 +28,7 @@ import Animated, {
 
 import {
   TamaguiTheme as Theme,
-  useTheme,
+  getTokenValue,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -470,13 +470,16 @@ function PanelSeat({
 function CloseButton({
   onPress,
   testID,
+  label,
 }: {
   onPress: () => void;
   testID: string;
+  label?: string;
 }) {
   return (
     <IconButton
       testID={testID}
+      accessibilityLabel={label}
       icon="CrossedLargeOutline"
       variant="secondary"
       size="medium"
@@ -716,6 +719,11 @@ export interface IMorphOverlayProps<T> {
    */
   onDismiss?: () => void;
   /**
+   * What the close buttons say to a screen reader — the dismissal's
+   * meaning in the caller's words ("Cancel" for the hardware flows).
+   */
+  dismissLabel?: string;
+  /**
    * Whether the app behind is blocked while the shell is there. On, an
    * invisible wall takes every touch outside the shell — the person
    * stays with the overlay until it leaves; the wall itself never
@@ -770,6 +778,7 @@ export function MorphOverlay<T>({
   heightArrangeToken,
   onAim,
   onDismiss,
+  dismissLabel,
   onGeometrySettled,
   modal = false,
   scrim = false,
@@ -796,13 +805,12 @@ export function MorphOverlay<T>({
   const { width: screenWidth } = useWindowDimensions();
   const keyboard = useAnimatedKeyboard();
   const themeName = useThemeName();
-  const theme = useTheme();
-  // The shell's edge definition, resolved from the ambient theme (the
-  // dark pin only starts inside the face): the native ring's hairline
-  // border, the web outline.
-  const shellEdgeColor = platformEnv.isNative
-    ? theme.borderDisabled.val
-    : theme.neutral3.val;
+  // The shell's edge definition — the native ring's hairline border, the
+  // web outline — is the dark theme's neutral3 whatever the app's theme:
+  // the shell is committed dark, and a light-theme edge on it read as a
+  // pale halo. (borderDisabled maps to neutral3 in both themes, so the
+  // native ring and the web outline are one value.)
+  const shellEdgeColor = getTokenValue('$neutral3Dark', 'color');
   const media = useMedia();
   // The posture switch, on the Dialog's own sheet↔panel line (md, a
   // phone-class window): phone posture rests the shell on the bottom
@@ -1252,6 +1260,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>
@@ -1283,6 +1292,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-capsule-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>

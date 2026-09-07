@@ -1,5 +1,8 @@
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenFromServer,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildHomeMarketCategories,
@@ -8,8 +11,24 @@ import {
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   mapMarketAssetToDisplay,
+  mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
+
+function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
+  return {
+    name,
+    displayName: 'UNITREE',
+    maxLeverage: 10,
+    tokenImageUrl: 'unitree.png',
+    markPrice: '90.38',
+    prevDayPrice: '72.58',
+    change24hPercent: 24.52,
+    volume24h: '10940000',
+    openInterest: '6660000',
+    fundingRate: '0.000008',
+  };
+}
 
 describe('PopularTrading market token display utils', () => {
   test('normalizes placeholder market values instead of returning NaN', () => {
@@ -118,5 +137,29 @@ describe('PopularTrading market token display utils', () => {
     expect(categories.filter((item) => item.id === 'top_coins')).toEqual([
       { id: 'top_coins', name: 'Mainstream Coins', icon: undefined },
     ]);
+  });
+  test.each([
+    ['xyz:UNITREE', 'xyz'],
+    ['para:UNITREE', 'para'],
+  ])('preserves the %s perps DEX source label', (name, dexLabel) => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken(name),
+        subtitle: 'Unitree Robotics',
+      }),
+    ).toMatchObject({
+      symbol: 'UNITREE',
+      perpsCoin: name,
+      perpsSubtitle: 'Unitree Robotics',
+      perpsDexLabel: dexLabel,
+    });
+  });
+
+  test('does not add a DEX source label to main DEX perps', () => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken('BTC'),
+      }).perpsDexLabel,
+    ).toBeUndefined();
   });
 });

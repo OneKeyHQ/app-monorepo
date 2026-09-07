@@ -5,6 +5,7 @@ import * as consts from '../consts';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import { EIndexedDBBucketNames } from '../types';
 
+import { IndexedDBAgent } from './IndexedDBAgent';
 import { LocalDbIndexed } from './LocalDbIndexed';
 
 import type { IDBDevice, IDBWallet } from '../types';
@@ -143,6 +144,12 @@ describeIfIndexedDB('LocalDbIndexed tests', () => {
     const context = await db.getContext();
     expect(context.id).toEqual(DB_MAIN_CONTEXT_ID);
     expect(context.backupUUID).toEqual('fake-uuid');
+    expect(db0).toBeInstanceOf(IndexedDBAgent);
+    if (!(db0 instanceof IndexedDBAgent)) {
+      throw new OneKeyLocalError(
+        'Expected the standard runtime IndexedDB adapter',
+      );
+    }
     expect(db0.buckets?.[EIndexedDBBucketNames.account].version).toEqual(
       consts.INDEXED_DB_VERSION,
     );
@@ -162,6 +169,12 @@ describeIfIndexedDB('LocalDbIndexed tests', () => {
     const db = new LocalDbIndexed();
     // @ts-ignore
     const db0 = await db.readyDb;
+    expect(db0).toBeInstanceOf(IndexedDBAgent);
+    if (!(db0 instanceof IndexedDBAgent)) {
+      throw new OneKeyLocalError(
+        'Expected the standard runtime IndexedDB adapter',
+      );
+    }
     expect(
       db0.buckets?.[EIndexedDBBucketNames.account].objectStoreNames,
     ).not.toContain('hello');
