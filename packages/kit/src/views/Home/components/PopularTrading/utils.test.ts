@@ -87,7 +87,7 @@ describe('PopularTrading market token display utils', () => {
     expect(getTokenKey(displayToken)).toBe('market:bitcoin');
   });
 
-  test('inserts Top Coins before stocks in the wallet home tabs', () => {
+  test('inserts Top Coins after stocks in the wallet home tabs', () => {
     const categories = buildHomeMarketCategories({
       apiHomeTabs: [
         { type: 'watchlist', name: '自选' },
@@ -116,8 +116,8 @@ describe('PopularTrading market token display utils', () => {
         iconOnly: true,
       },
       { id: 'trending', name: '热门', icon: undefined },
-      { id: 'top_coins', name: 'Top Coins' },
       { id: 'stocks', name: '股票', icon: undefined },
+      { id: 'top_coins', name: 'Top Coins' },
       { id: 'home-perps-hot', name: '合约' },
     ]);
   });
