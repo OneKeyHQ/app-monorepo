@@ -254,12 +254,14 @@ class AppDelegate: ExpoAppDelegate {
 
     store?.setValue(launchOptions, forKey: "launchOptions")
 
-    // JPUSHService Register
     let tBeforeJPush = CFAbsoluteTimeGetCurrent()
     let entity = JPUSHRegisterEntity()
     entity.types = 0
     JPUSHService.setDebugMode()
     JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
+    if OneKeyIsTravelModeMaskingData() {
+      application.unregisterForRemoteNotifications()
+    }
     let tAfterJPush = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo(
       "StartupTiming",
@@ -332,6 +334,10 @@ class AppDelegate: ExpoAppDelegate {
 
   // Register APNS & Upload DeviceToken
   override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    if OneKeyIsTravelModeMaskingData() {
+      application.unregisterForRemoteNotifications()
+      return
+    }
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
@@ -345,6 +351,10 @@ class AppDelegate: ExpoAppDelegate {
 
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    if OneKeyIsTravelModeMaskingData() {
+      completionHandler(.noData)
+      return
+    }
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
@@ -1093,6 +1103,10 @@ extension AppDelegate:JPUSHRegisterDelegate {
   @available(iOS 10.0, *)
   func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
+    if OneKeyIsTravelModeMaskingData() {
+      completionHandler(0)
+      return
+    }
     let userInfo = notification.request.content.userInfo
 
     if (notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
@@ -1109,6 +1123,10 @@ extension AppDelegate:JPUSHRegisterDelegate {
 
   @available(iOS 10.0, *)
   func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
+    if OneKeyIsTravelModeMaskingData() {
+      completionHandler()
+      return
+    }
 
     let userInfo = response.notification.request.content.userInfo
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
@@ -1135,6 +1153,9 @@ extension AppDelegate:JPUSHRegisterDelegate {
 
   // //MARK - 自定义消息
   func networkDidReceiveMessage(_ notification: NSNotification) {
+    if OneKeyIsTravelModeMaskingData() {
+      return
+    }
     let userInfo = notification.userInfo!
     NotificationCenter.default.post(name: NSNotification.Name(J_CUSTOM_NOTIFICATION_EVENT), object: userInfo)
   }

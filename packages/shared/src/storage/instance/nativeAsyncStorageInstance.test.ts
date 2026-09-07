@@ -75,4 +75,11 @@ describe('nativeAsyncStorageInstance', () => {
     await expect(Promise.resolve(storage)).resolves.toBe(storage);
     expect(mockReportUnsupportedAsyncStorageApi).not.toHaveBeenCalled();
   });
+
+  it('allows React element type metadata probes', () => {
+    expect(
+      (storage as unknown as Record<string, unknown>).$$typeof,
+    ).toBeUndefined();
+    expect(mockReportUnsupportedAsyncStorageApi).not.toHaveBeenCalled();
+  });
 });
