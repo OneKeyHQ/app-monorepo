@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   ERootRoutes,
@@ -846,4 +847,13 @@ function BasicKYTIntroOnMount() {
   return null;
 }
 
-export const KYTIntroOnMount = memo(BasicKYTIntroOnMount);
+function KYTIntroOnMountGate() {
+  // Standalone web only. Native, desktop, extension, and web-embed keep the
+  // automatic intro; this gate must not call hooks itself.
+  if (platformEnv.isWeb) {
+    return null;
+  }
+  return <BasicKYTIntroOnMount />;
+}
+
+export const KYTIntroOnMount = memo(KYTIntroOnMountGate);
