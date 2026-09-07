@@ -564,16 +564,17 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           gap="$2"
         >
           <StockTokenVariantSelector portfolioData={portfolioData} />
-          <XStack alignItems="center" justifyContent="flex-end" gap="$3">
-            <BaseMarketTokenPrice
-              price={currentMarketToken?.price || '--'}
-              tokenName={currentMarketToken?.name || ''}
-              tokenSymbol={currentMarketToken?.symbol || ''}
-              currency="$"
-              size="$bodyLgMedium"
-            />
-            <StockTokenInfoPopover />
-          </XStack>
+          <StockTokenInfoPopover
+            label={
+              <BaseMarketTokenPrice
+                price={currentMarketToken?.price || '--'}
+                tokenName={currentMarketToken?.name || ''}
+                tokenSymbol={currentMarketToken?.symbol || ''}
+                currency="$"
+                size="$bodyLgMedium"
+              />
+            }
+          />
         </XStack>
 
         <TokenInputSection
