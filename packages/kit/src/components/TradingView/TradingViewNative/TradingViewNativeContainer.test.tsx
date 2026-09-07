@@ -7,9 +7,10 @@ import type { ReactNode, SetStateAction } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
-import type {
-  ITradingViewNativeChartSettings,
-  ITradingViewNativeIndicatorSettings,
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
@@ -78,6 +79,10 @@ let mockVisibleTimeRange: { from: number; to: number } | undefined;
 let mockViewportRequest: unknown;
 let mockInitialChartSettings: ITradingViewNativeChartSettings | undefined;
 let mockPersistedChartSettings: ITradingViewNativeChartSettings | undefined;
+let mockPersistedSwapChartSettings: ITradingViewNativeChartSettings | undefined;
+let mockPersistedSwapIndicatorSettings:
+  | ITradingViewNativeIndicatorSettings
+  | undefined;
 let mockInitialIndicatorSettings:
   | ITradingViewNativeIndicatorSettings
   | undefined;
@@ -189,6 +194,48 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   >('@onekeyhq/shared/types/tradingViewNative');
 
   return {
+    useSwapTradingViewChartSettingsPersistAtom: () => {
+      const [settings, setSettings] = React.useState(
+        () =>
+          mockPersistedSwapChartSettings ??
+          tradingViewNative.createTradingViewNativeChartSettings(),
+      );
+      const setTrackedSettings = React.useCallback(
+        (nextSettings: SetStateAction<ITradingViewNativeChartSettings>) => {
+          setSettings((currentSettings) => {
+            const resolvedSettings =
+              typeof nextSettings === 'function'
+                ? nextSettings(currentSettings)
+                : nextSettings;
+            mockPersistedSwapChartSettings = resolvedSettings;
+            return resolvedSettings;
+          });
+        },
+        [],
+      );
+      return [settings, setTrackedSettings] as const;
+    },
+    useSwapTradingViewIndicatorSettingsPersistAtom: () => {
+      const [settings, setSettings] = React.useState(
+        () =>
+          mockPersistedSwapIndicatorSettings ??
+          tradingViewNative.createTradingViewNativeIndicatorSettings(),
+      );
+      const setTrackedSettings = React.useCallback(
+        (nextSettings: SetStateAction<ITradingViewNativeIndicatorSettings>) => {
+          setSettings((currentSettings) => {
+            const resolvedSettings =
+              typeof nextSettings === 'function'
+                ? nextSettings(currentSettings)
+                : nextSettings;
+            mockPersistedSwapIndicatorSettings = resolvedSettings;
+            return resolvedSettings;
+          });
+        },
+        [],
+      );
+      return [settings, setTrackedSettings] as const;
+    },
     useMarketTradingViewChartSettingsPersistAtom: () => {
       const [settings, setSettings] = React.useState(
         () =>
@@ -284,12 +331,94 @@ describe('TradingViewNativeContainer', () => {
     mockChartAreaOnLayout = undefined;
     mockInitialChartSettings = undefined;
     mockPersistedChartSettings = undefined;
+    mockPersistedSwapChartSettings = undefined;
+    mockPersistedSwapIndicatorSettings = undefined;
     mockInitialIndicatorSettings = undefined;
     mockPersistedIndicatorSettings = undefined;
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('isolates Swap chart settings and indicators from Market across remounts', () => {
+    mockInitialChartSettings = {
+      ...createTradingViewNativeChartSettings(),
+      chartType: 'line',
+    };
+    const marketIndicators = createTradingViewNativeIndicatorSettingsValue();
+    marketIndicators.indicators.forEach((indicator) => {
+      indicator.active = indicator.id === 'RSI';
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(marketIndicators);
+    const source = {
+      kind: 'hyperliquid',
+      coin: 'ETH',
+      environment: 'mainnet',
+    } as const;
+    const { rerender } = render(<TradingViewNativeContainer source={source} />);
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activeChartType: 'line',
+        activeIndicatorValues: new Set(['RSI']),
+      }),
+    );
+
+    rerender(
+      <TradingViewNativeContainer source={source} storageNamespace="swap" />,
+    );
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activeChartType: 'candlestick',
+        activeIndicatorValues: new Set(),
+      }),
+    );
+    expect(mockUseTradingViewNativeKLine).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storageNamespace: 'swap' }),
+    );
+    const swapControls =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onChartTypeChange: (chartType: ITradingViewNativeChartType) => void;
+        onIndicatorChange: (indicator: 'EMA', active: boolean) => void;
+      };
+    act(() => {
+      swapControls.onChartTypeChange('bars');
+      swapControls.onIndicatorChange('EMA', true);
+    });
+    expect(mockPersistedSwapChartSettings?.chartType).toBe('bars');
+    expect(
+      mockPersistedSwapIndicatorSettings?.mainIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['EMA']);
+    expect(mockPersistedChartSettings).toBeUndefined();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+
+    rerender(<TradingViewNativeContainer source={source} />);
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activeChartType: 'line',
+        activeIndicatorValues: new Set(['RSI']),
+      }),
+    );
+    rerender(
+      <TradingViewNativeContainer source={source} storageNamespace="swap" />,
+    );
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activeChartType: 'bars',
+        activeIndicatorValues: new Set(['EMA']),
+      }),
+    );
   });
 
   it('shows the loading animation until the initial K-line points arrive', () => {
