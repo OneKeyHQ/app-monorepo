@@ -7423,140 +7423,173 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     isRemoveToMocked,
   }: IDBRemoveWalletParams): Promise<void> {
-    const wallet = await this.getWallet({
-      walletId,
-    });
-    const isHardware =
-      accountUtils.isHwWallet({
-        walletId,
-      }) || accountUtils.isQrWallet({ walletId });
-    const isKeyless = wallet.isKeyless;
-    const isHdWallet = accountUtils.isHdWallet({ walletId });
+    return this.removeWallets({ walletIds: [walletId], isRemoveToMocked });
+  }
 
-    const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
-      associatedDevice: wallet.associatedDevice,
-    });
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+  async removeWallets({
+    walletIds,
+    isRemoveToMocked,
+  }: {
+    walletIds: string[];
+    isRemoveToMocked?: boolean;
+  }): Promise<void> {
+    const removals = await Promise.all(
+      walletIds.map(async (walletId) => {
+        const wallet = await this.getWallet({
+          walletId,
+        });
+        const isHardware =
+          accountUtils.isHwWallet({
+            walletId,
+          }) || accountUtils.isQrWallet({ walletId });
+        const isKeyless = wallet.isKeyless;
+        const isHdWallet = accountUtils.isHdWallet({ walletId });
 
-    const target = await syncManagers.wallet.buildSyncTargetByDBQuery({
-      dbRecord: wallet,
-    });
-    // TODO buildSyncKeyAndPayloadSafe
-    let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
-    if (!isKeyless) {
-      syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
-        target,
-      });
-    }
+        const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
+          associatedDevice: wallet.associatedDevice,
+        });
+        const syncManagers =
+          this.backgroundApi.servicePrimeCloudSync.syncManagers;
+
+        const target = await syncManagers.wallet.buildSyncTargetByDBQuery({
+          dbRecord: wallet,
+        });
+        // TODO buildSyncKeyAndPayloadSafe
+        let syncKeyInfo: ICloudSyncKeyInfoWallet | undefined;
+        if (!isKeyless) {
+          syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
+            target,
+          });
+        }
+
+        return {
+          walletId,
+          wallet,
+          isHardware,
+          isHdWallet,
+          walletsInSameDevice,
+          syncKeyInfo,
+        };
+      }),
+    );
 
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
-        // call remove account & indexed account
-        // remove credential
-        // remove wallet
-        // remove address
+        for (const {
+          walletId,
+          wallet,
+          isHardware,
+          isHdWallet,
+          walletsInSameDevice,
+        } of removals) {
+          // call remove account & indexed account
+          // remove credential
+          // remove wallet
+          // remove address
 
-        if (isHardware) {
-          if (
-            !isRemoveToMocked &&
-            wallet.associatedDevice &&
-            !accountUtils.isHwHiddenWallet({ wallet })
-          ) {
-            // remove device
+          if (isHardware) {
             if (
-              walletsInSameDevice.length === 1 &&
-              walletsInSameDevice[0].id === wallet.id
+              !isRemoveToMocked &&
+              wallet.associatedDevice &&
+              !accountUtils.isHwHiddenWallet({ wallet })
             ) {
-              await this.txRemoveRecords({
-                tx,
-                name: ELocalDBStoreNames.Device,
-                ids: [wallet.associatedDevice],
-                ignoreNotFound: true,
-              });
-            }
+              // remove device
+              if (
+                walletsInSameDevice.every((item) => walletIds.includes(item.id))
+              ) {
+                await this.txRemoveRecords({
+                  tx,
+                  name: ELocalDBStoreNames.Device,
+                  ids: [wallet.associatedDevice],
+                  ignoreNotFound: true,
+                });
+              }
 
-            // remove all hidden wallets
-            const { recordPairs } = await this.txGetAllRecords({
-              tx,
-              name: ELocalDBStoreNames.Wallet,
-            });
-            const allWallets = recordPairs.filter(Boolean);
-            const matchedHiddenWallets = allWallets
-              .filter(
-                ([hiddenWallet]) =>
-                  hiddenWallet &&
-                  accountUtils.isHwHiddenWallet({ wallet: hiddenWallet }) &&
-                  hiddenWallet.id.startsWith(wallet.id) &&
-                  hiddenWallet.associatedDevice === wallet.associatedDevice,
-              )
-              ?.filter(Boolean);
-            if (matchedHiddenWallets?.length) {
-              await this.txRemoveRecords({
+              // remove all hidden wallets
+              const { recordPairs } = await this.txGetAllRecords({
+                tx,
                 name: ELocalDBStoreNames.Wallet,
-                tx,
-                recordPairs: matchedHiddenWallets,
               });
+              const allWallets = recordPairs.filter(Boolean);
+              const matchedHiddenWallets = allWallets
+                .filter(
+                  ([hiddenWallet]) =>
+                    hiddenWallet &&
+                    accountUtils.isHwHiddenWallet({ wallet: hiddenWallet }) &&
+                    hiddenWallet.id.startsWith(wallet.id) &&
+                    hiddenWallet.associatedDevice === wallet.associatedDevice,
+                )
+                ?.filter(Boolean);
+              if (matchedHiddenWallets?.length) {
+                await this.txRemoveRecords({
+                  name: ELocalDBStoreNames.Wallet,
+                  tx,
+                  recordPairs: matchedHiddenWallets,
+                });
+              }
             }
-          }
-        } else if (isHdWallet) {
-          await this.txRemoveRecords({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            ids: [walletId],
-          });
-        }
-
-        if (
-          isHardware &&
-          !accountUtils.isHwHiddenWallet({ wallet }) &&
-          isRemoveToMocked
-        ) {
-          await this.txUpdateWallet({
-            tx,
-            walletId,
-            updater: (item) => {
-              item.isMocked = true;
-              return item;
-            },
-          });
-        } else {
-          await this.txRemoveRecords({
-            tx,
-            name: ELocalDBStoreNames.Wallet,
-            ids: [walletId],
-          });
-        }
-
-        if (accountUtils.isHdWallet({ walletId }) || isHardware) {
-          const { recordPairs } = await this.txGetAllRecords({
-            tx,
-            name: ELocalDBStoreNames.IndexedAccount,
-          });
-          const allIndexedAccounts = recordPairs.filter(Boolean);
-          const indexedAccounts = allIndexedAccounts
-            .filter((item) => item[0].walletId === walletId)
-            .filter(Boolean);
-          if (indexedAccounts) {
+          } else if (isHdWallet) {
             await this.txRemoveRecords({
               tx,
-              name: ELocalDBStoreNames.IndexedAccount,
-              recordPairs: indexedAccounts,
+              name: ELocalDBStoreNames.Credential,
+              ids: [walletId],
             });
+          }
+
+          if (
+            isHardware &&
+            !accountUtils.isHwHiddenWallet({ wallet }) &&
+            isRemoveToMocked
+          ) {
+            await this.txUpdateWallet({
+              tx,
+              walletId,
+              updater: (item) => {
+                item.isMocked = true;
+                return item;
+              },
+            });
+          } else {
+            await this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.Wallet,
+              ids: [walletId],
+            });
+          }
+
+          if (accountUtils.isHdWallet({ walletId }) || isHardware) {
+            const { recordPairs } = await this.txGetAllRecords({
+              tx,
+              name: ELocalDBStoreNames.IndexedAccount,
+            });
+            const allIndexedAccounts = recordPairs.filter(Boolean);
+            const indexedAccounts = allIndexedAccounts
+              .filter((item) => item[0].walletId === walletId)
+              .filter(Boolean);
+            if (indexedAccounts) {
+              await this.txRemoveRecords({
+                tx,
+                name: ELocalDBStoreNames.IndexedAccount,
+                recordPairs: indexedAccounts,
+              });
+            }
           }
         }
       },
     );
 
-    if (syncKeyInfo) {
-      await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+    for (const { walletId, syncKeyInfo } of removals) {
+      if (syncKeyInfo) {
+        await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
+      }
+
+      delete this.tempWallets[walletId];
+
+      appEventBus.emit(EAppEventBusNames.WalletRemove, {
+        walletId,
+      });
     }
-
-    delete this.tempWallets[walletId];
-
-    appEventBus.emit(EAppEventBusNames.WalletRemove, {
-      walletId,
-    });
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {

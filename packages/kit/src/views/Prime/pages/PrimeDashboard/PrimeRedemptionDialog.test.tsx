@@ -340,6 +340,7 @@ describe('PrimeRedemptionDialog', () => {
     });
     expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionAccountChip)).toBeNull();
     expect(
       screen.getByText(ETranslations.prime_redemption_codes_cumulative__desc),
     ).toBeTruthy();
