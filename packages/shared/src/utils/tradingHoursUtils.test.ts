@@ -3,6 +3,7 @@ import {
   EUSMarketStatusVariant,
   approximateNyOffsetMinutes,
   getDeviceUtcOffsetLabel,
+  getUSMarketNextOpenCountdown,
   getUSMarketTradingHours,
   resolveUSMarketStatusVariant,
   resolveUSTradingHoursActiveRow,
@@ -584,5 +585,55 @@ describe('resolveUSTradingHoursActiveRow', () => {
         now: cycleEdgeGapNow,
       }),
     ).toBe(EUSMarketSessionKey.PreMarket);
+  });
+});
+
+describe('getUSMarketNextOpenCountdown', () => {
+  const now = Date.parse('2026-09-07T13:38:00.000Z');
+
+  it('measures from the timestamp rather than the aged minute count', () => {
+    // A response built 30 minutes ago still says 622; the timestamp does not.
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: '2026-09-08T00:00:00.000Z',
+        nextOpenMinutes: 622,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 10, minutes: 22, totalMinutes: 622 });
+  });
+
+  it('falls back to the minute count when no timestamp is given', () => {
+    expect(
+      getUSMarketNextOpenCountdown({ nextOpenMinutes: 1500, now }),
+    ).toEqual({ days: 1, hours: 1, minutes: 0, totalMinutes: 1500 });
+  });
+
+  it('ignores an unparseable timestamp', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: 'not-a-date',
+        nextOpenMinutes: 90,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 1, minutes: 30, totalMinutes: 90 });
+  });
+
+  it('rounds the final partial minute up so it never reads as open', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: new Date(now + 1000).toISOString(),
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 0, minutes: 1, totalMinutes: 1 });
+  });
+
+  it('returns nothing once the open moment has passed', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: new Date(now - 60_000).toISOString(),
+        now,
+      }),
+    ).toBeUndefined();
+    expect(getUSMarketNextOpenCountdown({ now })).toBeUndefined();
   });
 });
