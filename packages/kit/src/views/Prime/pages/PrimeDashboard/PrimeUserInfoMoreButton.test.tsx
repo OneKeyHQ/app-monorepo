@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeInfiniSubscription } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeTestIDs } from '../../testIDs';
@@ -182,9 +183,16 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: false }],
 }));
 
+const mockPlatformEnv = platformEnv as {
+  isNative: boolean;
+  isNativeAndroidGooglePlay: boolean;
+  isNativeIOS: boolean;
+};
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isNative: false,
     isNativeAndroidGooglePlay: false,
     isNativeIOS: false,
   },
@@ -231,6 +239,8 @@ jest.mock('./PrimeRedemptionDialog', () => ({
 describe('PrimeUserInfoMoreButton redemption entry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isNativeIOS = false;
     mockUser.primeSubscription = undefined;
     mockUser.subscriptionManageUrl = undefined;
     mockManagementResolution = undefined;
@@ -255,11 +265,33 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
       expect(mockActionListClose).toHaveBeenCalled();
     },
   );
+
+  it('hides the redemption entry on native iOS', () => {
+    mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isNativeIOS = true;
+    mockUser.primeSubscription = { isActive: true };
+    render(<PrimeUserInfoMoreButton />);
+
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionMenuItem)).toBeNull();
+    expect(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    ).toBeTruthy();
+  });
+
+  it('keeps the redemption entry on native Android', () => {
+    mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isNativeIOS = false;
+    render(<PrimeUserInfoMoreButton />);
+
+    expect(screen.getByTestId(PrimeTestIDs.redemptionMenuItem)).toBeTruthy();
+  });
 });
 
 describe('PrimeUserInfoMoreButton manage subscription', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPlatformEnv.isNative = false;
+    mockPlatformEnv.isNativeIOS = false;
     mockUser.primeSubscription = {
       isActive: true,
       subscriptions: [{ channel: 'redemption' }],

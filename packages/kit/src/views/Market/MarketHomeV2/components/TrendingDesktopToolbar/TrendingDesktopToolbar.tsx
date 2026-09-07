@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { MARKET_LIST_TOOLBAR_ITEM_HEIGHT } from '../../../marketDesktopLayoutConstants';
 import { TIME_RANGE_OPTIONS } from '../TimeRangeSelector';
 
 import type { IMarketTimeRangeValue } from '../../types';
@@ -41,7 +42,7 @@ function TrendingDesktopToolbarImpl({
   return (
     <XStack
       width="100%"
-      minHeight={40}
+      height={MARKET_LIST_TOOLBAR_ITEM_HEIGHT}
       alignItems="center"
       justifyContent="space-between"
       testID="market-trending-desktop-toolbar"
