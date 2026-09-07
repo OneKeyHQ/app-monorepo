@@ -6,7 +6,11 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { getInstanceId } from '../../modules3rdParty/intercom/utils';
-import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+  type IOneKeyErrorI18nInfo,
+} from '../types/errorTypes';
 
 import {
   type ILocalSecretEnvelopeCredentialErrorData,
@@ -168,7 +172,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   // LSE recovery dialog, so credential key loss surfaces both the detailed
   // recovery guidance and the original operation-level error.
   showLocalSecretEnvelopeErrorDialogIfNeeded(error);
-  const err = error as IOneKeyError | undefined;
+  const err = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
   if (
     isUserCancelStyleError(err) ||
     (err?.className &&
@@ -242,6 +246,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         requestId: err?.requestId,
         diagnosticText,
         i18nKey: err?.key as ETranslations | undefined,
+        i18nInfo: err?.info,
       };
 
       appEventBus.emit(EAppEventBusNames.ShowToast, toastPayload);
