@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -8,7 +10,6 @@ import {
   LottieView,
   SizableText,
   Stack,
-  UnOrderedList,
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
@@ -64,8 +65,10 @@ function PrimeRedemptionSuccessSummary({
 }
 
 export function PrimeRedemptionFormView({
+  accountSlot,
   form,
 }: {
+  accountSlot?: ReactNode;
   form: UseFormReturn<IPrimeRedemptionFormValues>;
 }) {
   const intl = useIntl();
@@ -75,30 +78,39 @@ export function PrimeRedemptionFormView({
   });
 
   return (
-    <YStack alignItems="center" width="100%">
+    <YStack alignItems="center" width="100%" gap="$5">
       <Icon name={primeIconName} size="$12" />
-      <SizableText size="$headingXl" textAlign="center" mt="$5" mb="$5">
+      <SizableText size="$headingXl" textAlign="center">
         {intl.formatMessage({
           id: ETranslations.prime_redeem__action,
         })}
       </SizableText>
+      {accountSlot}
       <YStack width="100%">
         <Form form={form}>
           <Form.Field
             name="code"
+            errorMessagePaddingHorizontal={15}
             description={
-              <UnOrderedList width="100%" mt="$3">
-                <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
+              <YStack
+                width="100%"
+                mt="$3"
+                p="$3.5"
+                gap="$2"
+                bg="$bgSubdued"
+                borderRadius="$3"
+              >
+                <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.prime_redemption_codes_cumulative__desc,
                   })}
-                </UnOrderedList.Item>
-                <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.prime_redemption_paid_subscription_blocked__desc,
                   })}
-                </UnOrderedList.Item>
-              </UnOrderedList>
+                </SizableText>
+              </YStack>
             }
           >
             <Input

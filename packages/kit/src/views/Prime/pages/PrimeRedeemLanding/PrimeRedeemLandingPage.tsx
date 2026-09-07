@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Button,
   Icon,
   Page,
@@ -18,11 +19,15 @@ import {
   Theme,
   XStack,
   YStack,
+  useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
+import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -34,6 +39,7 @@ import {
   type ETabHomeRoutes as ETabHomeRoutesType,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
@@ -42,6 +48,7 @@ import {
 } from '../../components/PrimeRedemptionViews';
 import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
 import { PrimeTestIDs } from '../../testIDs';
+import { PRIME_FEATURE_INTROS } from '../PrimeFeatures/primeFeatureIntroUtils';
 
 const LANDING_ACTION_BUTTON = {
   variant: 'accent' as const,
@@ -49,6 +56,31 @@ const LANDING_ACTION_BUTTON = {
   size: 'large' as const,
   $gtMd: { size: 'medium' as const },
 };
+
+function RedeemLandingAction({ children }: { children: ReactNode }) {
+  const { gtMd } = useMedia();
+  const { bottom } = useSafeAreaInsets();
+
+  if (gtMd) {
+    return children;
+  }
+
+  return (
+    <Page.Footer>
+      <YStack
+        bg="$bgApp"
+        px="$4"
+        py="$4"
+        alignItems="center"
+        paddingBottom={16 + (platformEnv.isNative ? 0 : bottom)}
+      >
+        <YStack width="100%" maxWidth={360}>
+          {children}
+        </YStack>
+      </YStack>
+    </Page.Footer>
+  );
+}
 
 function getStringQueryParam(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -74,53 +106,214 @@ function RedeemLandingContent({
   testID?: string;
 }) {
   return (
-    <YStack
-      w="100%"
-      maxWidth={360}
-      gap="$5"
-      $gtMd={{
-        maxWidth: 320,
-      }}
-      testID={testID}
-    >
+    <YStack w="100%" gap="$5" testID={testID}>
       {children}
     </YStack>
   );
 }
 
-function RedeemLandingEmailChip({
-  displayEmail,
+function maskRedeemLandingEmail(displayEmail: string | undefined) {
+  if (!displayEmail) {
+    return undefined;
+  }
+  const separatorIndex = displayEmail.indexOf('@');
+  if (separatorIndex <= 0) {
+    return displayEmail;
+  }
+  return `${displayEmail.slice(0, 1)}***${displayEmail.slice(separatorIndex)}`;
+}
+
+function openOneKeyDownload() {
+  openUrlUtils.openUrlExternal(DOWNLOAD_URL);
+}
+
+function RedeemLandingBenefitsPanel({
+  showDownload,
 }: {
-  displayEmail: string | undefined;
+  showDownload: boolean;
 }) {
   const intl = useIntl();
+  const [expanded, setExpanded] = useState(false);
+  const features = PRIME_FEATURE_INTROS.filter(
+    (feature) => !feature.isComingSoon,
+  );
+
   return (
-    <XStack
-      alignSelf="center"
-      maxWidth="100%"
-      alignItems="center"
-      gap="$1.5"
-      px="$2.5"
-      py="$1.5"
-      bg="$bgSubdued"
+    <YStack
+      w="100%"
       borderWidth="$px"
       borderColor="$borderSubdued"
-      borderRadius="$full"
+      borderRadius="$3"
+      overflow="hidden"
     >
-      <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
-      <SizableText
-        size="$bodySmMedium"
-        color="$text"
-        numberOfLines={1}
-        ellipsizeMode="middle"
-        flexShrink={1}
+      <Button
+        testID={PrimeTestIDs.redemptionBenefitsToggle}
+        variant="tertiary"
+        size="medium"
+        height="auto"
+        width="100%"
+        mx={0}
+        my={0}
+        borderWidth={0}
+        borderRadius={0}
+        px="$3.5"
+        py="$3"
+        justifyContent="space-between"
+        aria-expanded={expanded}
+        accessibilityLabel={`OneKey Prime · ${intl.formatMessage({
+          id: expanded
+            ? ETranslations.global_show_less
+            : ETranslations.global_show_more,
+        })}`}
+        iconAfter={
+          expanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+        }
+        onPress={() => setExpanded((current) => !current)}
       >
-        {getDisplayEmailOrUnknown({
-          intl,
-          displayEmail,
-        })}
-      </SizableText>
-    </XStack>
+        OneKey Prime
+      </Button>
+      {expanded ? (
+        <YStack
+          gap="$3"
+          p="$3.5"
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+        >
+          {features.map((feature) => (
+            <XStack key={feature.id} gap="$3" alignItems="flex-start">
+              <Icon name={feature.listIcon} size="$5" color="$iconSubdued" />
+              <SizableText size="$bodyMd" flex={1} minWidth={0}>
+                {intl.formatMessage({ id: feature.title })}
+              </SizableText>
+            </XStack>
+          ))}
+        </YStack>
+      ) : null}
+      {showDownload ? (
+        <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
+          <Button
+            testID={PrimeTestIDs.redemptionDownloadBtn}
+            variant="tertiary"
+            size="medium"
+            height="auto"
+            width="100%"
+            mx={0}
+            my={0}
+            childrenAsText={false}
+            borderWidth={0}
+            borderRadius={0}
+            px="$3.5"
+            py="$3"
+            justifyContent="space-between"
+            iconAfter="ArrowTopRightOutline"
+            onPress={openOneKeyDownload}
+          >
+            <YStack flex={1} minWidth={0} gap="$1" alignItems="flex-start">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.global_download_onekey_wallet,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                iOS / Android / macOS / Windows / Linux
+              </SizableText>
+            </YStack>
+          </Button>
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function RedeemLandingLayout({
+  children,
+  showDownload = true,
+}: {
+  children: ReactNode;
+  showDownload?: boolean;
+}) {
+  return (
+    <YStack
+      w="100%"
+      maxWidth={360}
+      gap="$6"
+      alignItems="center"
+      $gtMd={{ maxWidth: 320 }}
+    >
+      {children}
+      <RedeemLandingBenefitsPanel showDownload={showDownload} />
+    </YStack>
+  );
+}
+
+function RedeemLandingEmailChip({
+  disabled,
+  displayEmail,
+  onLogout,
+}: {
+  disabled?: boolean;
+  displayEmail: string | undefined;
+  onLogout: () => void;
+}) {
+  const intl = useIntl();
+  const renderItems = useCallback(
+    ({ handleActionListClose }: { handleActionListClose: () => void }) => (
+      <ActionList.Item
+        icon="LogoutOutline"
+        label={intl.formatMessage({ id: ETranslations.prime_log_out })}
+        onClose={handleActionListClose}
+        onPress={onLogout}
+      />
+    ),
+    [intl, onLogout],
+  );
+
+  return (
+    <ActionList
+      title="OneKey ID"
+      placement="bottom"
+      disabled={disabled}
+      floatingPanelProps={{ w: '$64' }}
+      renderItems={renderItems}
+      renderTrigger={
+        <XStack
+          testID={PrimeTestIDs.redemptionAccountChip}
+          render="button"
+          onPress={() => undefined}
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          cursor={disabled ? 'default' : 'pointer'}
+          opacity={disabled ? 0.5 : 1}
+          maxWidth="100%"
+          alignItems="center"
+          gap="$1.5"
+          px="$2.5"
+          py="$1.5"
+          bg="$bgSubdued"
+          borderWidth="$px"
+          borderColor="$borderSubdued"
+          borderRadius="$full"
+          hoverStyle={disabled ? undefined : { opacity: 0.8 }}
+          pressStyle={disabled ? undefined : { opacity: 0.6 }}
+          focusable={!disabled}
+        >
+          <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
+          <SizableText
+            size="$bodySmMedium"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            flexShrink={1}
+          >
+            {getDisplayEmailOrUnknown({
+              intl,
+              displayEmail,
+            })}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
+      }
+    />
   );
 }
 
@@ -178,9 +371,19 @@ function PrimeRedeemFormSection({
     initialCode,
     isPrimeActiveBeforeRedeem,
   });
+  const handleLogoutSuccess = useCallback(() => {
+    form.clearErrors('code');
+  }, [form]);
+  const handleLogout = useConfirmOneKeyIdLogout({
+    reason: 'PrimeRedeemLanding Logout Button',
+    onSuccess: handleLogoutSuccess,
+  });
   const lastLoggedPrimeActiveRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
+    if (redemptionResult) {
+      return;
+    }
     if (lastLoggedPrimeActiveRef.current === isPrimeActiveBeforeRedeem) {
       return;
     }
@@ -188,57 +391,98 @@ function PrimeRedeemFormSection({
     defaultLogger.prime.subscription.primeRedemptionEntryClick({
       isPrimeActiveBeforeRedeem,
     });
-  }, [isPrimeActiveBeforeRedeem]);
+  }, [isPrimeActiveBeforeRedeem, redemptionResult]);
+
+  const maskedEmail = maskRedeemLandingEmail(displayEmail);
 
   if (redemptionResult) {
     return (
-      <RedeemLandingContent testID={PrimeTestIDs.redemptionSuccess}>
-        <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
-        <Button
-          {...LANDING_ACTION_BUTTON}
-          testID={PrimeTestIDs.redemptionDoneBtn}
-          onPress={goToWebHome}
-        >
-          {intl.formatMessage({
-            id: ETranslations.redemption_done_button,
-          })}
-        </Button>
-      </RedeemLandingContent>
+      <RedeemLandingLayout showDownload={false}>
+        <RedeemLandingContent testID={PrimeTestIDs.redemptionSuccess}>
+          <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
+          <YStack gap="$1.5" width="100%">
+            {maskedEmail ? (
+              <SizableText size="$bodyMd" textAlign="center">
+                {maskedEmail}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.prime_onekeyid_continue_description,
+              })}
+            </SizableText>
+          </YStack>
+          <RedeemLandingAction>
+            <Button
+              {...LANDING_ACTION_BUTTON}
+              testID={PrimeTestIDs.redemptionDownloadBtn}
+              onPress={openOneKeyDownload}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_download_onekey_wallet,
+              })}
+            </Button>
+          </RedeemLandingAction>
+          <Button
+            variant="tertiary"
+            testID={PrimeTestIDs.redemptionDoneBtn}
+            onPress={goToWebHome}
+          >
+            {intl.formatMessage({
+              id: ETranslations.redemption_done_button,
+            })}
+          </Button>
+        </RedeemLandingContent>
+      </RedeemLandingLayout>
     );
   }
 
   return (
-    <RedeemLandingContent>
-      {canRedeem ? (
-        <RedeemLandingEmailChip displayEmail={displayEmail} />
-      ) : null}
-      <PrimeRedemptionFormView form={form} />
-      <Button
-        {...LANDING_ACTION_BUTTON}
-        testID={
-          canRedeem
-            ? PrimeTestIDs.redemptionSubmitBtn
-            : PrimeTestIDs.redemptionLoginBtn
-        }
-        disabled={canRedeem ? !codeValue?.trim() || isSubmitting : undefined}
-        loading={canRedeem ? isSubmitting : isLoginLoading}
-        onPress={() => {
-          if (!canRedeem) {
-            onLogin();
-            return;
+    <RedeemLandingLayout>
+      <RedeemLandingContent>
+        <PrimeRedemptionFormView
+          form={form}
+          accountSlot={
+            canRedeem ? (
+              <RedeemLandingEmailChip
+                disabled={isSubmitting}
+                displayEmail={displayEmail}
+                onLogout={handleLogout}
+              />
+            ) : undefined
           }
-          void runWithSubmittingLock(() =>
-            submitRedemption({ onExpiredSession: onLogin }),
-          );
-        }}
-      >
-        {intl.formatMessage({
-          id: canRedeem
-            ? ETranslations.redemption_redeem_button
-            : ETranslations.sign_in_to_onekey_id__title,
-        })}
-      </Button>
-    </RedeemLandingContent>
+        />
+        <RedeemLandingAction>
+          <Button
+            {...LANDING_ACTION_BUTTON}
+            testID={
+              canRedeem
+                ? PrimeTestIDs.redemptionSubmitBtn
+                : PrimeTestIDs.redemptionLoginBtn
+            }
+            disabled={
+              canRedeem ? !codeValue?.trim() || isSubmitting : undefined
+            }
+            loading={canRedeem ? isSubmitting : isLoginLoading}
+            onPress={() => {
+              if (!canRedeem) {
+                onLogin();
+                return;
+              }
+              void runWithSubmittingLock(() =>
+                submitRedemption({ onExpiredSession: onLogin }),
+              );
+            }}
+          >
+            {intl.formatMessage({
+              id: canRedeem
+                ? ETranslations.redemption_redeem_button
+                : ETranslations.sign_in_to_onekey_id__title,
+            })}
+          </Button>
+        </RedeemLandingAction>
+      </RedeemLandingContent>
+    </RedeemLandingLayout>
   );
 }
 
@@ -305,13 +549,16 @@ function PrimeRedeemLandingPage() {
               flex={1}
               w="100%"
               alignItems="center"
-              justifyContent="center"
+              justifyContent="flex-start"
               px="$4"
-              py="$8"
+              pt="$8"
+              pb="$8"
               $gtMd={{
                 px: '$8',
-                py: '$20',
+                pt: '$20',
+                pb: '$20',
               }}
+              testID={PrimeTestIDs.redemptionLandingBody}
             >
               <PrimeRedeemFormSection
                 canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
