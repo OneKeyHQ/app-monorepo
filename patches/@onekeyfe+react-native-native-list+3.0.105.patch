@@ -4301,10 +4301,10 @@ index 0000000..5c27e23
 +};
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js
 new file mode 100644
-index 0000000..3e1fa51
+index 0000000..f896e62
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebAvatarCache.js
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,266 @@
 +"use strict";
 +
 +// OneKey patch: avatar bytes stay in a worker and IndexedDB, outside list snapshots.
@@ -4323,6 +4323,8 @@ index 0000000..3e1fa51
 +  entries = new Map();
 +  requests = new Map();
 +  nextId = 0;
++  // OneKey patch: one cancellable startup serves every pending avatar lease.
++  workerGeneration = 0;
 +  acquire(uri, resolve, reject, priority = 2) {
 +    let entry = this.entries.get(uri);
 +    const isNew = !entry;
@@ -4350,24 +4352,25 @@ index 0000000..3e1fa51
 +    // else current.listeners.add(listener);
 +    current.listeners.add(listener);
 +    if (isNew) {
-+      try {
-+        if (!this.worker) {
-+          // Deliberately avoid *.worker.js and its inline Blob-worker loader.
-+          this.worker = new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
-+            name: 'onekey-native-list-avatar'
-+          });
-+          this.worker.addEventListener('message', this.handleMessage);
-+          this.worker.addEventListener('error', this.handleFailure);
-+          this.worker.addEventListener('messageerror', this.handleFailure);
-+        }
-+        this.worker.postMessage({
-+          type: 'acquire',
-+          id: current.id,
-+          uri,
-+          priority
-+        });
-+      } catch {
-+        queueMicrotask(this.handleFailure);
++      // OneKey patch: file workers need async asset loading; keep pending requests in this cache.
++      // try {
++      //   if (!this.worker) {
++      //     // Deliberately avoid *.worker.js and its inline Blob-worker loader.
++      //     this.worker = new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
++      //       name: 'onekey-native-list-avatar',
++      //     });
++      //     this.worker.addEventListener('message', this.handleMessage);
++      //     this.worker.addEventListener('error', this.handleFailure);
++      //     this.worker.addEventListener('messageerror', this.handleFailure);
++      //   }
++      //   this.worker.postMessage({ type: 'acquire', id: current.id, uri, priority });
++      // } catch {
++      //   queueMicrotask(this.handleFailure);
++      // }
++      if (this.worker) {
++        this.sendAcquire(current);
++      } else {
++        this.startWorker();
 +      }
 +    }
 +    const updatePriority = () => {
@@ -4394,6 +4397,12 @@ index 0000000..3e1fa51
 +          type: 'release',
 +          id: current.id
 +        });
++        if (this.requests.size === 0 && this.startingWorker) {
++          const starting = this.startingWorker;
++          this.startingWorker = undefined;
++          this.workerGeneration += 1;
++          starting.controller?.abort();
++        }
 +      }
 +      updatePriority();
 +      this.trim();
@@ -4405,6 +4414,86 @@ index 0000000..3e1fa51
 +        updatePriority();
 +      }
 +    });
++  }
++
++  // OneKey patch: HTTP/extension keeps the bundler's original Worker entry. Electron's
++  // file interceptor can serve the same self-contained source as an asset for a Blob worker.
++  startWorker() {
++    if (this.worker || this.startingWorker) return;
++    const starting = {
++      generation: ++this.workerGeneration
++    };
++    this.startingWorker = starting;
++    const assetURL = new URL('./NativeListAvatarWorker.js', import.meta.url);
++    if (assetURL.protocol === 'file:') {
++      starting.controller = new AbortController();
++      void (async () => {
++        const response = await fetch(assetURL, {
++          signal: starting.controller?.signal
++        });
++        if (!response.ok) throw new Error('NativeList avatar worker asset failed to load');
++        const source = await response.blob();
++        if (this.startingWorker !== starting) return;
++        const sourceURL = URL.createObjectURL(source);
++        try {
++          this.activateWorker(new Worker(sourceURL, {
++            name: 'onekey-native-list-avatar'
++          }), starting);
++        } finally {
++          // Worker construction captures the script URL; the document must not retain its bytes.
++          URL.revokeObjectURL(sourceURL);
++        }
++      })().catch(() => {
++        if (this.startingWorker === starting || this.workerGeneration === starting.generation) {
++          this.handleFailure();
++        }
++      });
++      return;
++    }
++    try {
++      this.activateWorker(new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
++        name: 'onekey-native-list-avatar'
++      }), starting);
++    } catch {
++      queueMicrotask(() => {
++        if (this.workerGeneration === starting.generation) this.handleFailure();
++      });
++    }
++  }
++  activateWorker(worker, starting) {
++    if (this.startingWorker !== starting) {
++      worker.terminate();
++      return;
++    }
++    this.startingWorker = undefined;
++    this.worker = worker;
++    // OneKey patch: queued events from a failed instance cannot affect its replacement.
++    worker.addEventListener('message', event => {
++      if (this.worker === worker) this.handleMessage(event);
++    });
++    const failed = () => {
++      if (this.worker === worker) this.handleFailure();
++    };
++    worker.addEventListener('error', failed);
++    worker.addEventListener('messageerror', failed);
++    this.requests.forEach(entry => {
++      if (entry.references > 0 && !entry.url) this.sendAcquire(entry);
++    });
++  }
++  sendAcquire(entry) {
++    const worker = this.worker;
++    try {
++      worker?.postMessage({
++        type: 'acquire',
++        id: entry.id,
++        uri: entry.uri,
++        priority: Math.min(2, ...[...entry.listeners].map(listener => listener.priority))
++      });
++    } catch {
++      queueMicrotask(() => {
++        if (this.worker === worker) this.handleFailure();
++      });
++    }
 +  }
 +  handleMessage = event => {
 +    const response = event.data;
@@ -4435,14 +4524,29 @@ index 0000000..3e1fa51
 +    this.trim();
 +  };
 +  handleFailure = () => {
++    // OneKey patch: detach the failed generation before callbacks can acquire a replacement.
++    // this.worker?.terminate();
++    // this.worker = undefined;
++    // this.requests.forEach((entry) => {
++    //   if (!entry.url) entry.listeners.forEach((listener) => listener.reject());
++    //   entry.listeners.clear();
++    // });
++    // this.requests.clear();
++    // this.entries.clear();
++    const failedEntries = [...this.requests.values()];
++    const starting = this.startingWorker;
++    this.startingWorker = undefined;
++    this.workerGeneration += 1;
++    starting?.controller?.abort();
 +    this.worker?.terminate();
 +    this.worker = undefined;
-+    this.requests.forEach(entry => {
-+      if (!entry.url) entry.listeners.forEach(listener => listener.reject());
-+      entry.listeners.clear();
-+    });
 +    this.requests.clear();
 +    this.entries.clear();
++    failedEntries.forEach(entry => {
++      const listeners = [...entry.listeners];
++      entry.listeners.clear();
++      if (!entry.url) listeners.forEach(listener => listener.reject());
++    });
 +  };
 +  trim() {
 +    for (const [uri, entry] of this.entries) {
@@ -7802,10 +7906,10 @@ index 0000000..5c27e23
 +};
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts
 new file mode 100644
-index 0000000..18ba311
+index 0000000..d921a4c
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebAvatarCache.ts
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,264 @@
 +// OneKey patch: avatar bytes stay in a worker and IndexedDB, outside list snapshots.
 +const AVATAR_PREFIX = 'onekey-avatar://blockie/v1/';
 +const MAX_RETAINED_AVATARS = 128;
@@ -7838,6 +7942,9 @@ index 0000000..18ba311
 +  private readonly requests = new Map<number, AvatarEntry>();
 +  private nextId = 0;
 +  private worker: Worker | undefined;
++  // OneKey patch: one cancellable startup serves every pending avatar lease.
++  private workerGeneration = 0;
++  private startingWorker: { generation: number; controller?: AbortController } | undefined;
 +
 +  acquire(uri: string, resolve: (url: string) => void, reject: () => void, priority = 2): AvatarLease {
 +    let entry = this.entries.get(uri);
@@ -7857,19 +7964,25 @@ index 0000000..18ba311
 +    // else current.listeners.add(listener);
 +    current.listeners.add(listener);
 +    if (isNew) {
-+      try {
-+        if (!this.worker) {
-+          // Deliberately avoid *.worker.js and its inline Blob-worker loader.
-+          this.worker = new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
-+            name: 'onekey-native-list-avatar',
-+          });
-+          this.worker.addEventListener('message', this.handleMessage);
-+          this.worker.addEventListener('error', this.handleFailure);
-+          this.worker.addEventListener('messageerror', this.handleFailure);
-+        }
-+        this.worker.postMessage({ type: 'acquire', id: current.id, uri, priority });
-+      } catch {
-+        queueMicrotask(this.handleFailure);
++      // OneKey patch: file workers need async asset loading; keep pending requests in this cache.
++      // try {
++      //   if (!this.worker) {
++      //     // Deliberately avoid *.worker.js and its inline Blob-worker loader.
++      //     this.worker = new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
++      //       name: 'onekey-native-list-avatar',
++      //     });
++      //     this.worker.addEventListener('message', this.handleMessage);
++      //     this.worker.addEventListener('error', this.handleFailure);
++      //     this.worker.addEventListener('messageerror', this.handleFailure);
++      //   }
++      //   this.worker.postMessage({ type: 'acquire', id: current.id, uri, priority });
++      // } catch {
++      //   queueMicrotask(this.handleFailure);
++      // }
++      if (this.worker) {
++        this.sendAcquire(current);
++      } else {
++        this.startWorker();
 +      }
 +    }
 +    const updatePriority = () => {
@@ -7889,6 +8002,12 @@ index 0000000..18ba311
 +        this.entries.delete(uri);
 +        this.requests.delete(current.id);
 +        this.worker?.postMessage({ type: 'release', id: current.id });
++        if (this.requests.size === 0 && this.startingWorker) {
++          const starting = this.startingWorker;
++          this.startingWorker = undefined;
++          this.workerGeneration += 1;
++          starting.controller?.abort();
++        }
 +      }
 +      updatePriority();
 +      this.trim();
@@ -7900,6 +8019,82 @@ index 0000000..18ba311
 +        updatePriority();
 +      },
 +    });
++  }
++
++  // OneKey patch: HTTP/extension keeps the bundler's original Worker entry. Electron's
++  // file interceptor can serve the same self-contained source as an asset for a Blob worker.
++  private startWorker() {
++    if (this.worker || this.startingWorker) return;
++    const starting: NonNullable<NativeListWebAvatarCache['startingWorker']> = {
++      generation: ++this.workerGeneration,
++    };
++    this.startingWorker = starting;
++    const assetURL = new URL('./NativeListAvatarWorker.js', import.meta.url);
++    if (assetURL.protocol === 'file:') {
++      starting.controller = new AbortController();
++      void (async () => {
++        const response = await fetch(assetURL, {
++          signal: starting.controller?.signal,
++        });
++        if (!response.ok) throw new Error('NativeList avatar worker asset failed to load');
++        const source = await response.blob();
++        if (this.startingWorker !== starting) return;
++        const sourceURL = URL.createObjectURL(source);
++        try {
++          this.activateWorker(new Worker(sourceURL, { name: 'onekey-native-list-avatar' }), starting);
++        } finally {
++          // Worker construction captures the script URL; the document must not retain its bytes.
++          URL.revokeObjectURL(sourceURL);
++        }
++      })().catch(() => {
++        if (this.startingWorker === starting || this.workerGeneration === starting.generation) {
++          this.handleFailure();
++        }
++      });
++      return;
++    }
++    try {
++      this.activateWorker(new Worker(new URL('./NativeListAvatarWorker.js', import.meta.url), {
++        name: 'onekey-native-list-avatar',
++      }), starting);
++    } catch {
++      queueMicrotask(() => {
++        if (this.workerGeneration === starting.generation) this.handleFailure();
++      });
++    }
++  }
++
++  private activateWorker(worker: Worker, starting: NonNullable<NativeListWebAvatarCache['startingWorker']>) {
++    if (this.startingWorker !== starting) {
++      worker.terminate();
++      return;
++    }
++    this.startingWorker = undefined;
++    this.worker = worker;
++    // OneKey patch: queued events from a failed instance cannot affect its replacement.
++    worker.addEventListener('message', (event: MessageEvent<AvatarResponse>) => {
++      if (this.worker === worker) this.handleMessage(event);
++    });
++    const failed = () => { if (this.worker === worker) this.handleFailure(); };
++    worker.addEventListener('error', failed);
++    worker.addEventListener('messageerror', failed);
++    this.requests.forEach((entry) => {
++      if (entry.references > 0 && !entry.url) this.sendAcquire(entry);
++    });
++  }
++
++  private sendAcquire(entry: AvatarEntry) {
++    const worker = this.worker;
++    try {
++      worker?.postMessage({
++        type: 'acquire', id: entry.id, uri: entry.uri,
++        priority: Math.min(2, ...[...entry.listeners].map((listener) => listener.priority)),
++      });
++    } catch {
++      queueMicrotask(() => {
++        if (this.worker === worker) this.handleFailure();
++      });
++    }
 +  }
 +
 +  private readonly handleMessage = (event: MessageEvent<AvatarResponse>) => {
@@ -7926,14 +8121,29 @@ index 0000000..18ba311
 +  };
 +
 +  private readonly handleFailure = () => {
++    // OneKey patch: detach the failed generation before callbacks can acquire a replacement.
++    // this.worker?.terminate();
++    // this.worker = undefined;
++    // this.requests.forEach((entry) => {
++    //   if (!entry.url) entry.listeners.forEach((listener) => listener.reject());
++    //   entry.listeners.clear();
++    // });
++    // this.requests.clear();
++    // this.entries.clear();
++    const failedEntries = [...this.requests.values()];
++    const starting = this.startingWorker;
++    this.startingWorker = undefined;
++    this.workerGeneration += 1;
++    starting?.controller?.abort();
 +    this.worker?.terminate();
 +    this.worker = undefined;
-+    this.requests.forEach((entry) => {
-+      if (!entry.url) entry.listeners.forEach((listener) => listener.reject());
-+      entry.listeners.clear();
-+    });
 +    this.requests.clear();
 +    this.entries.clear();
++    failedEntries.forEach((entry) => {
++      const listeners = [...entry.listeners];
++      entry.listeners.clear();
++      if (!entry.url) listeners.forEach((listener) => listener.reject());
++    });
 +  };
 +
 +  private trim() {

@@ -2,7 +2,7 @@
 
 Measured on 2026-09-07. The account and network selectors use NativeList V2 while preserving the V1 components and existing route names/parameters. The four migrated lists are the wallet sidebar, accounts, all networks, and single networks.
 
-The latest Desktop development-mode foreground samples sustain approximately 60 JS rAF FPS, with no unready avatar observations across the tested continuous-scroll matrix. **Native cold opening and first-scroll stalls remain above the frame budget.** Android main-thread profiling identifies repeated SWR cache serialization as a hotspot. Production Desktop avatar readiness has not passed; investigation is ongoing. Earlier URI-only pixel/persistence results are retained below with their original provenance.
+The latest Desktop development-mode foreground samples sustain approximately 60 JS rAF FPS, with no unready avatar observations across the tested continuous-scroll matrix. **Native cold opening and first-scroll stalls remain above the frame budget.** Android main-thread profiling identifies repeated SWR cache serialization as a hotspot. Production Desktop avatar readiness now passes after repairing file-origin Worker startup; two account/wallet scrolling samples record approximately 120 JS rAF FPS, while opening/switching still exceeds the frame budget. Earlier URI-only pixel/persistence results are retained below with their original provenance.
 
 ## Implementation
 
@@ -42,7 +42,7 @@ cache capacity; it is not evidence that the previous memory sample was a leak.
 
 The follow-up changes address four areas: repeated account-list work, duplicate network-selection work, avatar display waiting on disk operations, and retained account/group capacity. V1 components and existing route names/parameters remain available. Source provenance for this follow-up is `52fdb1bbee3681a5c9176d1aa9535905870edb40`; sample files retain their own capture timestamps. This source reference does not retroactively change the build provenance of older results.
 
-| Current patch | SHA-256 |
+| Patch used for the following native/development samples | SHA-256 |
 | --- | --- |
 | `@onekeyfe+react-native-native-list+3.0.105.patch` | `0648ad8087a9e092c1390c78942cccf9d40b0d09eccbc3237b6b34c8f948f5f1` |
 | `@onekeyfe+react-native-image+3.0.105.patch` | `323181a9086abfc26a33e531333eeb8b341c765600128871bbcb759e24f36f08` |
@@ -185,9 +185,34 @@ Web avatar limits also need distinct ownership labels: 128 is the document cache
 
 Sources: `evidence/perf-fixes/desktop-memory.json`, `evidence/cold-init-analysis/desktop-memory.json`, `desktop-swr-counts.json`, and `evidence/perf-fixes/ios-group-before.log`, `ios-group-after.log`, `ios-group-drag.json`.
 
+### Production Desktop: file-origin Worker repair
+
+Direct Worker construction from the packaged `file:` URL succeeded synchronously but subsequently aborted script loading. Fetching the same script through Electron's existing file interceptor succeeded. The NativeList patch now fetches the packaged script asynchronously and starts a Blob Worker only for `file:` assets. HTTP and extension URLs retain the existing bundler-recognized Worker entry. Startup coalesces pending leases, honors cancellation and current priority, guards failed generations, and revokes the temporary script URL. Image generation, cache formats, native sources, public declarations, CSP and Electron security settings are unchanged.
+
+The resulting NativeList patch SHA-256 is `cc47d17108763b047db4619a8c64aa21a9d59386d6e2696213a322653124b4bf`. Relative to `0648…f5f1`, only the Web avatar broker's TypeScript source and published JavaScript changed. The earlier native evidence therefore retains its original build label. Eight startup behavior tests pass against each broker entry, the existing nine scheduling tests and strict TypeScript checks pass, and pristine patch replay matches 207 installed files with no build artifacts. An independent real file-origin probe verifies IndexedDB write, read from a new Blob Worker, and deletion; it does not establish that every application avatar has been persisted.
+
+Production renderer build `7863b1f557b28d0a` completed with zero errors and 16 existing warnings; all 26 initial-script integrity values matched. A stale dependency-cache build was rejected before acceptance, then rebuilt with persistent cache disabled in a temporary wrapper. Neither tracked build scripts nor either Electron main build changed. No Sentry upload or `ONEKEY_USER_NOTICE` was emitted by this renderer build. These runtime results use app source `105e3f8c99` plus the `cc47…b4bf` patch. The remote branch subsequently merged `x` at `2bc29eac64`; the final combined branch has not been rebuilt for these measurements.
+
+The actual production Electron used an isolated QA profile, the normal production renderer and normal password verification. Main/background business code shares one renderer JS thread; the avatar Worker and Electron main process are separate. Geometry was 1200 × 675 CSS pixels, DPR 2. The owned Electron process was the system foreground application before and after every sample. No CPU profiler ran during these samples.
+
+| Production trigger | rAF intervals | Maximum interval (ms) | JS long tasks | Readiness / steady result |
+| --- | ---: | ---: | --- | --- |
+| First modal mouse-open in this harness | 7 | 42.0 | One, 50 ms | Visible avatars ready at the first successful poll, 81.8 ms after input; two real QA accounts and 1000 fixture wallets |
+| Fresh 1000-account wallet switch 1 | 8 | 40.9 | One, 50 ms | Visible avatars, amounts and target identity ready at 96.6 ms |
+| Fresh 1000-account wallet switch 2 | 8 | 32.7 | None | Ready at 85.4 ms |
+| Fresh 1000-account wallet switch 3 | 6 | 33.4 | None | Ready at 76.1 ms |
+| Accounts, three scroll round trips | 954 | 9.4 | None | 120.005 rAF FPS; P95 9.3 ms; zero intervals >16.8 ms |
+| Wallet sidebar, three scroll round trips | 954 | 9.4 | None | 119.989 rAF FPS; P95 9.2 ms; zero intervals >16.8 ms |
+
+Scrolling uses real CDP mouse gestures at 1400 CSS px/s, 1800 px per leg. Image readiness is checked at gesture checkpoints, not every raster frame. The measured rAF cadence is approximately 120 Hz; this is not panel presentation proof and must not be compared directly with the earlier development client's 60 Hz cadence or different geometry. Short opening samples are reported as intervals/tasks rather than misleading average FPS. Readiness polling is every 100 ms, and the measured first modal was already code/image-warmed by preceding diagnosis. Fresh service build counts were zero before each synthetic wallet switch, but avatar disk keys were not preflighted; none of these samples establishes process cold-start or a disk-cold avatar result.
+
+All 15 recorded console errors have the same digest, independently identified as the unsupported `sentry-ipc` URL-scheme error. No page error was recorded. The report remains `MEASURED_WITH_CONSOLE_ERRORS`; the trace does not attribute the remaining 50 ms tasks to Sentry or any other subsystem. Real-account screenshots and DOM checks confirm ready Blob-backed account avatars and unchanged file-backed wallet images. The fixture, original selected account/network and closed-modal state were restored, and QA globals were removed. The earlier readiness/cleanup failures remain saved and are not counted as successful samples.
+
+Sources under `evidence/production-measurement/`: `file-worker-fix/verification.json`, `file-worker-fix/production-renderer-result.json`, `production-file-worker-fixed-cc47-ready.json`, and `production-file-worker-repaired-ui.json` with its screenshot. Production network-list, continuous-avatar, memory and process cold-start measurements are not supplied by these two account/wallet scrolling samples.
+
 ### Remaining acceptance boundary
 
-The corrected Desktop steady/continuous-avatar matrix is complete within the stated environment and speeds. Android's approximately 213 ms scroll-window stall, iOS's approximately 70 ms sampled account stall, and cold-opening long tasks remain unresolved. Production Desktop was launched with the normal production renderer and an isolated file-origin QA profile. Wallet resource images load, but NativeList account avatars show the error state, so the first-modal readiness gate failed and no valid production performance sample was produced. The fixture was restored; the separate development-mode client remains running. This loading failure is under investigation. Building a renderer alone does not establish production UI/performance acceptance. First production modal opening, a fresh service wallet switch, and a cold avatar disk lookup are separate triggers/cache states; file-origin storage cannot be assumed equivalent to the copied HTTP profile.
+The corrected Desktop development steady/continuous-avatar matrix is complete within the stated environment and speeds. Android's approximately 213 ms scroll-window stall, iOS's approximately 70 ms sampled account stall, and cold-opening long tasks remain unresolved. Production account-avatar loading is repaired and the account/wallet samples above are complete, but 33–42 ms opening/switching intervals and two 50 ms tasks remain. Shared-storage changes await scope confirmation. The separate development-mode client remains running. First production modal opening, a fresh service wallet switch, and a cold avatar disk lookup are separate triggers/cache states; file-origin storage cannot be assumed equivalent to the copied HTTP profile.
 
 Actual installed extension behavior, Release physical-device results, 120 Hz/compositor presentation, arbitrary cold index jumps, hardware SDK communication and transaction/derivation work are not established by this follow-up. Do not merge a blanket “all platforms full-frame” or “no memory leak” conclusion from these samples.
 
