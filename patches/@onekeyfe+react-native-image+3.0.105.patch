@@ -1,3 +1,18 @@
+diff --git a/node_modules/@onekeyfe/react-native-image/OneKeyImage.podspec b/node_modules/@onekeyfe/react-native-image/OneKeyImage.podspec
+index a8befa8..50b91c3 100644
+--- a/node_modules/@onekeyfe/react-native-image/OneKeyImage.podspec
++++ b/node_modules/@onekeyfe/react-native-image/OneKeyImage.podspec
+@@ -12,8 +12,9 @@ Pod::Spec.new do |s|
+   s.platforms    = { :ios => min_ios_version_supported }
+   s.source       = { :git => "https://github.com/OneKeyHQ/app-modules.git", :tag => "#{s.version}" }
+ 
+-  s.source_files = ["ios/**/*.{swift,m,mm}", "cpp/**/*.{hpp,cpp}"]
++  s.source_files = ["ios/**/*.{h,swift,m,mm}", "cpp/**/*.{hpp,cpp}"]
+   s.exclude_files = "ios/tests/**/*"
++  s.public_header_files = ["ios/OneKeyImageCoderBridge.h"]
+ 
+   s.dependency "React-jsi"
+   s.dependency "React-callinvoker"
 diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyBlockieAvatar.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyBlockieAvatar.kt
 new file mode 100644
 index 0000000..88f0152
@@ -1107,7 +1122,7 @@ index 0000000..7b81e86
 +}
 diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift
 new file mode 100644
-index 0000000..9b67732
+index 0000000..f4588c6
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift
 @@ -0,0 +1,217 @@
@@ -1130,14 +1145,14 @@ index 0000000..9b67732
 +
 +  private final class Subscription: NSObject, SDWebImageOperation {
 +    let id = UUID()
-+    let options: SDWebImageOptions
++    let options: SDWebImage.SDWebImageOptions
 +    let context: [SDWebImageContextOption: Any]?
 +    private let lock = NSLock()
 +    private var completion: SDImageLoaderCompletedBlock?
 +    private var cancellation: (() -> Void)?
 +    private var terminal = false
 +
-+    init(options: SDWebImageOptions, context: [SDWebImageContextOption: Any]?,
++    init(options: SDWebImage.SDWebImageOptions, context: [SDWebImageContextOption: Any]?,
 +      completion: SDImageLoaderCompletedBlock?) {
 +      self.options = options; self.context = context; self.completion = completion
 +    }
@@ -1208,7 +1223,7 @@ index 0000000..9b67732
 +
 +  func shouldBlockFailedURL(with url: URL, error: Error) -> Bool { false }
 +
-+  func requestImage(with url: URL?, options: SDWebImageOptions,
++  func requestImage(with url: URL?, options: SDWebImage.SDWebImageOptions,
 +    context: [SDWebImageContextOption: Any]?, progress: SDImageLoaderProgressBlock?,
 +    completed: SDImageLoaderCompletedBlock?) -> SDWebImageOperation? {
 +    let subscriber = Subscription(options: options, context: context, completion: completed)
@@ -1518,11 +1533,102 @@ index 8517d8a..00f0f20 100644
      )
      return await load(url: url, context: context, safetyHandle: safetyHandle)
    }
+diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.h b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.h
+new file mode 100644
+index 0000000..e28d6cf
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.h
+@@ -0,0 +1,14 @@
++#import <Foundation/Foundation.h>
++
++NS_ASSUME_NONNULL_BEGIN
++
++// Keep optional coder modules out of the Swift compilation unit so SDWebImage
++// Objective-C types are imported under a single Swift module identity.
++@interface OneKeyImageCoderBridge : NSObject
++
+++ (void)addCodersToManager:(id)manager NS_SWIFT_NAME(addCoders(to:));
+++ (void)ensureWebPCoderRegistered;
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.m b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.m
+new file mode 100644
+index 0000000..beec851
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageCoderBridge.m
+@@ -0,0 +1,25 @@
++#import "OneKeyImageCoderBridge.h"
++
++#import <SDWebImage/SDWebImage.h>
++#import <SDWebImageSVGCoder/SDImageSVGCoder.h>
++#import <SDWebImageWebPCoder/SDImageWebPCoder.h>
++
++@implementation OneKeyImageCoderBridge
++
+++ (void)addCodersToManager:(id)manager {
++  SDImageCodersManager *coderManager = (SDImageCodersManager *)manager;
++  [coderManager addCoder:SDImageSVGCoder.sharedCoder];
++  [coderManager addCoder:SDImageWebPCoder.sharedCoder];
++}
++
+++ (void)ensureWebPCoderRegistered {
++  SDImageCodersManager *manager = SDImageCodersManager.sharedManager;
++  for (id<SDImageCoder> coder in manager.coders) {
++    if (coder == SDImageWebPCoder.sharedCoder) {
++      return;
++    }
++  }
++  [manager addCoder:SDImageWebPCoder.sharedCoder];
++}
++
++@end
 diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageRequestContext.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageRequestContext.swift
-index 393660a..2a29939 100644
+index 393660a..5439929 100644
 --- a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageRequestContext.swift
 +++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageRequestContext.swift
-@@ -697,7 +697,10 @@ enum OneKeyImageRequestContext {
+@@ -2,8 +2,6 @@ import CryptoKit
+ import Foundation
+ import ImageIO
+ import SDWebImage
+-import SDWebImageSVGCoder
+-import SDWebImageWebPCoder
+ import UIKit
+ 
+ enum OneKeyImageSafetyViolation: LocalizedError, Equatable, Sendable {
+@@ -467,28 +465,18 @@ enum OneKeyImageSafetyPolicy {
+ }
+ 
+ enum OneKeyImageCoderRegistry {
+-  private static let svgCoder = SDImageSVGCoder.shared
+-  private static let webPCoder = SDImageWebPCoder.shared
+-
+   static let coder: SDImageCodersManager = {
+     // Keep OneKey's decoder set independent from Expo's global registrations.
+     // SDImageCodersManager starts with ImageIO, GIF and APNG coders.
+     let manager = SDImageCodersManager()
+-    manager.addCoder(svgCoder)
+-    manager.addCoder(webPCoder)
++    OneKeyImageCoderBridge.addCoders(to: manager)
+     return manager
+   }()
+ 
+   private static let globalRegistration: Void = {
+     // SDAnimatedImage resolves its animated coder through the global manager,
+     // even when a request-local coder is provided in the SDWebImage context.
+-    let global = SDImageCodersManager.shared
+-    let isAlreadyRegistered = (global.coders ?? []).contains {
+-      ($0 as AnyObject) === webPCoder
+-    }
+-    if !isAlreadyRegistered {
+-      global.addCoder(webPCoder)
+-    }
++    OneKeyImageCoderBridge.ensureWebPCoderRegistered()
+   }()
+ 
+   static func ensureWebPRegistered() {
+@@ -697,7 +685,10 @@ enum OneKeyImageRequestContext {
      cachePolicy: OneKeyImageCachePolicy,
      thumbnailPixelSize: CGSize?,
      safetyTracker: OneKeyImageSafetyTracker?,
@@ -1534,7 +1640,7 @@ index 393660a..2a29939 100644
    ) -> [SDWebImageContextOption: Any] {
      var context = baseContext
      context[.customManager] = manager
-@@ -728,6 +731,14 @@ enum OneKeyImageRequestContext {
+@@ -728,6 +719,14 @@ enum OneKeyImageRequestContext {
      context[.storeCacheType] = cacheType.rawValue
      context[.originalQueryCacheType] = cacheType.rawValue
      context[.originalStoreCacheType] = cacheType.rawValue
