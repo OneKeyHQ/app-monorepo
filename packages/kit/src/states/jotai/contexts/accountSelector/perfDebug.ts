@@ -1,7 +1,7 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
-import { isAccountSelectorPerfE2EAttributionEnabled } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perf';
+import { isAccountSelectorPerfE2EAttributionEnabled } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perfE2E';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IAccountSelectorActiveAccountInfo } from './atoms';

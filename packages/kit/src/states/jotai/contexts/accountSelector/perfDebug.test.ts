@@ -1,4 +1,4 @@
-import { setAccountSelectorPerfE2EAttributionEnabled } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perf';
+import { setAccountSelectorPerfE2EAttributionEnabled } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perfE2E';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isAccountSelectorPerfDebugEnabled } from './perfDebug';
