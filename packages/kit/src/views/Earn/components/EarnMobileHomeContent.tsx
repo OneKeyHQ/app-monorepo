@@ -26,7 +26,6 @@ import { Recommended } from './Recommended';
 
 function EarnMobileHomeContentComponent({
   bannerList,
-  isBannerLoading,
   faqList,
   isFaqLoading,
   isActive,
@@ -43,7 +42,6 @@ function EarnMobileHomeContentComponent({
   onHeaderHorizontalSwipe,
 }: {
   bannerList: IEarnPageBannerListItem[];
-  isBannerLoading: boolean;
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading: boolean;
   isActive: boolean;
@@ -63,7 +61,7 @@ function EarnMobileHomeContentComponent({
   onOpenPortfolio: () => void;
   onOpenTokens: () => void;
   onOpenProtocols: () => void;
-  onHeaderHorizontalSwipe: (direction: 'left' | 'right') => void;
+  onHeaderHorizontalSwipe?: (direction: 'left' | 'right') => void;
 }) {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
@@ -114,7 +112,7 @@ function EarnMobileHomeContentComponent({
             onOpenTokens={onOpenTokens}
             onOpenProtocols={onOpenProtocols}
           />
-          <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
+          <EarnHomeBanner banners={bannerList} />
         </YStack>
       </HeaderScrollGestureWrapper>
 

@@ -8,8 +8,11 @@ import type {
   IAuthChecklistItem,
   IDeviceStageProps,
   IDeviceStageStep,
-  IDeviceStageWalletType,
 } from '@onekeyhq/components/src/composite/DeviceStage';
+import {
+  useDeviceStageEscapeOwner,
+  useDeviceStageExitPolicy,
+} from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
@@ -23,25 +26,9 @@ import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
  * family; the Console story runs the whole vocabulary for mid-flight
  * flips across families.
  *
- * The driver also plays the live flows' close policy, so the stories
- * show the way out the way the app will grant it: armed a few seconds
- * into an ask, longer into a wait (the device may simply be slow), at
- * once for the authenticity flow (its live dialog always has its
- * close), and once armed, kept for the rest of the burst.
+ * The driver also plays the live flows' exit policy through the same hook
+ * the app's driver uses (useDeviceStageExitPolicy), Escape included.
  */
-
-const CLOSE_ARM_ASK_MS = 3000;
-const CLOSE_ARM_WAIT_MS = 10_000;
-const WAIT_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
-  'connecting',
-  'processing',
-]);
-const AUTH_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
-  'genuineCheck',
-  'authVerifying',
-  'authSuccess',
-  'authFailure',
-]);
 
 /* The authenticity demo's checklist data, the design's own example rows.
  * The certificate row shows the device serial (no link); the firmware
@@ -155,13 +142,11 @@ export function useStageDriver(
     () => go('passphraseOnApp'),
     [go],
   );
-  // The fork answered: standard heads straight into the create burst,
-  // hidden opens the teach-first intro — the live flow's own next beats.
-  const handleSelectWalletType = useCallback(
-    (walletType: IDeviceStageWalletType) =>
-      go(walletType === 'hidden' ? 'passphraseIntro' : 'processing'),
-    [go],
-  );
+  // The fork answered: either way the stage returns to its wait while the
+  // flow creates the chosen wallet. The live flow teaches nothing here (the
+  // intro belongs to the account selector's Add-hidden-wallet alone); a
+  // hidden wallet's next beat is the device's own passphrase request.
+  const handleSelectWalletType = useCallback(() => go('processing'), [go]);
   const handleSwitchToDevice = useCallback(() => {
     setInputError(undefined);
     setStep((current) =>
@@ -220,32 +205,26 @@ export function useStageDriver(
   }, [authFailureReason, go]);
   const handleAuthSupport = useCallback(() => {}, []);
   const handleAuthContinueAnyway = useCallback(() => go('off'), [go]);
-  // The close grant, on the live policy above: every step change
-  // restarts the arming timer until the grant lands; `off` revokes it.
-  const [closable, setClosable] = useState(false);
-  useEffect(() => {
-    if (step === 'off') {
-      setClosable(false);
-      return undefined;
-    }
-    if (closable) return undefined;
-    // The notice means to leave by itself, and its exit rides the close
-    // grant — so a driver playing one grants close with it, at once.
-    if (AUTH_STEPS.has(step) || (step === 'error' && errorNotice)) {
-      setClosable(true);
-      return undefined;
-    }
-    const id = setTimeout(
-      () => setClosable(true),
-      WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
-    );
-    return () => clearTimeout(id);
-  }, [closable, errorNotice, step]);
+  // The demo has no device to report activity between steps; a step
+  // change onto a wait starts a fresh wait in the hook itself, so the
+  // gallery's stall clock still restarts the way a real call's would.
+  const { closable, exitAllowed, stalled } = useDeviceStageExitPolicy({
+    step,
+  });
   const close = useCallback(() => {
     // A dismissed form would otherwise leave its keyboard standing.
     Keyboard.dismiss();
     go('off');
   }, [go]);
+  const handleEscape = useCallback(() => {
+    if (exitAllowed) {
+      close();
+    }
+  }, [exitAllowed, close]);
+  useDeviceStageEscapeOwner({
+    stageOn: step !== 'off',
+    onEscape: handleEscape,
+  });
   return {
     step,
     go,
@@ -259,6 +238,7 @@ export function useStageDriver(
     stageProps: {
       step,
       onClose: closable ? close : undefined,
+      waitStalled: stalled,
       inputError,
       authChecklist: authRows,
       onAuthSupport: handleAuthSupport,

@@ -13,6 +13,11 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -71,13 +76,24 @@ const OFF_GRACE_MS = 600;
  */
 const CONFIRM_PAYLOAD_HIDDEN = true;
 
-/** Error codes that mean the user themselves ended the flow — the stage
- * simply leaves, no error outcome card. */
+/** Cancels that land no outcome: the person's own, and the ones our
+ * side raised (a queued call cancelled, a call another call interrupted). */
 const SILENT_CANCEL_CODES = [
   HardwareErrorCode.PinCancelled,
   HardwareErrorCode.CallQueueActionCancelled,
   HardwareErrorCode.DeviceInterruptedFromUser,
   HardwareErrorCode.DeviceInterruptedFromOutside,
+];
+/** The person ending the run on the device. Only these close the stage
+ * outright from a call's end. `DeviceInterruptedFromOutside` is raised on
+ * the call ANOTHER call took the device from — housekeeping, a sync, the
+ * previous step's straggler — never by the person, and closing the stage
+ * over it took down the card the new call was waiting on (the wallet-type
+ * fork vanished mid-onboarding). `CallQueueActionCancelled` is our own
+ * cancel: when it is the person's, their close already ran. */
+const USER_CANCEL_CODES = [
+  HardwareErrorCode.PinCancelled,
+  HardwareErrorCode.DeviceInterruptedFromUser,
 ];
 
 /** These errors already open a recovery dialog outside DeviceStage. */
@@ -234,9 +250,18 @@ const ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'confirm',
   'enterPin',
   'pinOnApp',
+  'selectWalletType',
   'passphraseIntro',
   'passphraseOnApp',
   'enterPassphrase',
+]);
+
+/** The asks the app paints itself, with no device call behind them. A
+ * call ending while one stands is a bystander's — the previous step's
+ * straggling close, housekeeping — and must not wipe the card. */
+const APP_AUTHORED_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'passphraseIntro',
+  'selectWalletType',
 ]);
 
 /**
@@ -558,7 +583,10 @@ export class DeviceStageBurstScope {
     if (params.vendor && !this.activeVendor) {
       this.activeVendor = params.vendor;
     }
-    await this.mergeDeviceIdentity(params);
+    // A call beginning inside the hold is the device at work: news for
+    // the container's idle clock, folded into the identity write so a
+    // split-runtime target pays one bridge hop, not two.
+    await this.mergeDeviceIdentity(params, { activity: true });
     return true;
   }
 
@@ -636,7 +664,7 @@ export class DeviceStageBurstScope {
       params.error &&
       (isHardwareErrorByCode({
         error: params.error as any,
-        code: SILENT_CANCEL_CODES,
+        code: USER_CANCEL_CODES,
       }) ||
         // A device-side cancel (ActionCancelled) during an authored
         // narrative is the person ending that run on the device — the
@@ -653,6 +681,8 @@ export class DeviceStageBurstScope {
     }
     this.depth = Math.max(this.depth - 1, 0);
     if (this.depth > 0) {
+      // A call ending inside the hold: the device answered.
+      await this.touchActivity();
       return;
     }
     // The last layer is landing: any DeviceNotFound built after this
@@ -917,6 +947,24 @@ export class DeviceStageBurstScope {
         // wait the person can make nothing of.
         return;
       }
+      if (current && APP_AUTHORED_ASK_STEPS.has(current.step)) {
+        // A question the person has not answered yet. No device call
+        // stands behind it, so the one ending here is a bystander's —
+        // the previous step's straggler, housekeeping — and nothing it
+        // reports can retire the question.
+        //
+        // Ahead of BOTH branches below on purpose. Ahead of the depth
+        // split, because a flow that paints the card without holding a
+        // burst (legacy onboarding) would otherwise lose it to that
+        // straggler's scheduleOff and wait for an answer the person can
+        // no longer give. Ahead of the narrative re-assert, because an
+        // authored auth beat outlives its own card here: an ASK painted
+        // over it never clears `authoredAuthStep`, and the narrative's
+        // resolver declines to clear it once something else stands on
+        // stage — so the next close would put the verification beat back
+        // over a question the person is still reading.
+        return;
+      }
       if (this.authoredAuthStep) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
@@ -960,6 +1008,25 @@ export class DeviceStageBurstScope {
     // resolveDeviceNotFoundLanding reads. Recorded before the repaint
     // gates below: whether the event wins the stage is beside the point.
     this.sawDeviceEventThisBurst = true;
+    if (current && APP_AUTHORED_ASK_STEPS.has(current.step)) {
+      // An app-authored card is a question with no device call behind it,
+      // so nothing that merely narrates progress may paint over it — not
+      // the ticks, not the narrative re-assert, and above all not the
+      // `askCompleted` beat. That beat is a real PIN window's close,
+      // rewritten by the event pipeline into progress (see the close
+      // branch above), and the PIN it completes belongs to the call that
+      // ran BEFORE this card — the device-state read that decided to ask
+      // the question. Letting it through put Connecting over an
+      // unanswered fork, and with the stage still on, no exit was
+      // announced for the flow waiting on the answer.
+      //
+      // Only another ask outranks the card: that means the device itself
+      // is now waiting on the person, and a request nobody can answer
+      // would strand the call that made it.
+      if (!ASK_STEPS.has(step)) {
+        return;
+      }
+    }
     if (outcomeOnStage && !ASK_STEPS.has(step)) {
       return;
     }
@@ -1039,15 +1106,48 @@ export class DeviceStageBurstScope {
    * and the flow's own beats (connecting, the real entry ask) take over
    * from here. */
   async notePassphraseIntroDone() {
+    await this.noteCardAnswered('passphraseIntro', {
+      passphraseMode: 'create',
+    });
+  }
+
+  /** The wallet-creation fork was answered. The flow that asked goes on to
+   * create the wallet it chose (a standard wallet's own beats, or the
+   * device's passphrase request for a hidden one), so the stage returns to
+   * its wait. Only the fork's own answer moves it: a late wait note never
+   * repaints an ask, and any other step on stage is not this fork. */
+  async noteWalletTypeSelected() {
+    await this.noteCardAnswered('selectWalletType');
+  }
+
+  /** An app-authored card was answered: back to the wait while the flow
+   * that asked carries on. Only that card's own answer moves the stage —
+   * whatever else is on it is not this card. */
+  private async noteCardAnswered(
+    card: IDeviceStageStepValue,
+    extras: { passphraseMode?: IDeviceStageState['passphraseMode'] } = {},
+  ) {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
       return;
     }
     const prev = await deviceStageAtom.get();
-    if (prev?.step !== 'passphraseIntro') {
+    if (prev?.step !== card) {
+      return;
+    }
+    if (dismissal !== this.dismissSeq) {
       return;
     }
     this.clearOffTimer();
-    await this.setStep('processing', { passphraseMode: 'create' });
+    await this.setStep('processing', extras);
+    if (this.depth <= 0) {
+      // Nothing holds the stage: the flow that asked starts its hardware
+      // call next, and that begin() rejoins inside the grace. Should it
+      // never come — a flow that throws before touching the device — the
+      // grace takes the stage off rather than leave a processing capsule
+      // standing with nothing behind it.
+      this.scheduleOff();
+    }
   }
 
   /**
@@ -1147,6 +1247,22 @@ export class DeviceStageBurstScope {
     }
   }
 
+  /**
+   * Device activity that paints nothing — a nested call beginning or
+   * ending inside a held burst. The container's stall clock reads
+   * `activitySeq`: a wait with steady activity is busy, not stuck, and
+   * only an idle device (or a wait past its cap) earns the way out.
+   */
+  private async touchActivity() {
+    // Only a machine wait reads the counter; returning `prev` unchanged
+    // elsewhere keeps the write off the bridge on split-runtime targets.
+    await deviceStageAtom.set((prev) =>
+      prev && isDeviceStageMachineWaitStep(prev.step)
+        ? { ...prev, activitySeq: (prev.activitySeq ?? 0) + 1 }
+        : prev,
+    );
+  }
+
   /** Direct step feeds from ServiceHardwareUI's own show* methods. */
   async noteStep(
     step: IDeviceStageStepValue,
@@ -1169,9 +1285,10 @@ export class DeviceStageBurstScope {
       authFailureCode?: string;
       passphraseMode?: IDeviceStageState['passphraseMode'];
     } = {},
-  ) {
+  ): Promise<boolean> {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
-      return;
+      return false;
     }
     if (PROGRESS_WRITABLE_STEPS.has(step)) {
       // An app-authored wait obeys the rule an SDK progress tick obeys
@@ -1182,8 +1299,17 @@ export class DeviceStageBurstScope {
       // PIN card down while the device still waited for its PIN.
       const current = await deviceStageAtom.get();
       if (current && ASK_STEPS.has(current.step)) {
-        return;
+        return false;
       }
+    }
+    // Same rule as the SDK events and the third-party feed: a beat
+    // decided before the stage was taken away is not news any more. The
+    // firmware workflow can claim the screen across either await above,
+    // and its forceOff has already run — writing the step here would put
+    // the card back over the update page, and answering `true` would
+    // leave the caller waiting on it.
+    if (dismissal !== this.dismissSeq) {
+      return false;
     }
     this.clearOffTimer();
     // Any newer beat cancels a pending handover: a Retry's authFailure,
@@ -1207,6 +1333,7 @@ export class DeviceStageBurstScope {
       this.armAuthSuccessHold();
     }
     await this.setStep(step, extras);
+    return true;
   }
 
   /** Retire the skipped failure immediately, without releasing the outer
@@ -1356,7 +1483,10 @@ export class DeviceStageBurstScope {
 
   /** Refreshes who is on stage without touching the step or the beat —
    * the device often becomes known after the stage is already up. */
-  async mergeDeviceIdentity(params: IDeviceStageBurstBeginParams) {
+  async mergeDeviceIdentity(
+    params: IDeviceStageBurstBeginParams,
+    options?: { activity?: boolean },
+  ) {
     if (this.pendingOpen) {
       this.pendingOpen = {
         ...this.pendingOpen,
@@ -1389,6 +1519,9 @@ export class DeviceStageBurstScope {
       params.vendorModel ||
       params.vendorModelName;
     if (!hasIdentity) {
+      if (options?.activity) {
+        await this.touchActivity();
+      }
       return;
     }
     await deviceStageAtom.set((prev) => {
@@ -1397,6 +1530,10 @@ export class DeviceStageBurstScope {
       }
       return {
         ...prev,
+        activitySeq:
+          options?.activity && isDeviceStageMachineWaitStep(prev.step)
+            ? (prev.activitySeq ?? 0) + 1
+            : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
@@ -1453,6 +1590,9 @@ export class DeviceStageBurstScope {
       vendorModel: prev.vendorModel,
       vendorModelName: prev.vendorModelName,
     });
+    // Every exit announces itself: a flow awaiting a card's answer must
+    // stop waiting on a card that is gone, whichever route took it.
+    appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);
   }
 
   private async setStep(
@@ -1542,6 +1682,7 @@ export class DeviceStageBurstScope {
       };
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
+        activitySeq: (prev?.activitySeq ?? 0) + 1,
         step,
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
