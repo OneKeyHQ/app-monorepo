@@ -107,6 +107,7 @@ export interface IMarketAssetPerformance {
 }
 
 export interface IMarketAssetDetailData {
+  about: string;
   asset: IMarketAssetIdentity;
   variants: IMarketAssetVariant[];
   selectedVariant: IMarketAssetVariant;

@@ -74,17 +74,28 @@ type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 type IEarnPageBannerState = {
   theme: IEarnBannerTheme;
   list: IEarnPageBannerListItem[];
+  isResolved: boolean;
 };
 
 function BasicEarnHome({
   showHeader,
   showContent,
+  isVisible,
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
 }: {
   showHeader?: boolean;
+  /** Owns data fetching: only the committed tab requests. */
   showContent?: boolean;
+  /**
+   * Owns painting. The outer pager reveals the neighboring page as soon as the
+   * finger moves, but showContent only flips once the swipe commits, so the
+   * body stayed display:none for the whole gesture and the user swiped onto a
+   * blank page (OK-60300). Deliberately separate from showContent so following
+   * the swipe never triggers a request for a tab the user is only passing over.
+   */
+  isVisible?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -106,24 +117,22 @@ function BasicEarnHome({
   const themeName = useThemeName();
   const earnBannerTheme: IEarnBannerTheme =
     themeName === 'dark' ? 'dark' : 'light';
-  // Banner list is plain state rather than usePromiseResult's result, because
-  // it has two independent writers and the later one must not be able to
-  // resurrect an older value:
-  //   1. simpleDb, read once on mount. The list a cold start paints comes from
-  //      the previous session, so the banner is already at its real height
-  //      instead of occupying 0pt and expanding when the network answers
-  //      (OK-60299). Mirrors how the wallet home seeds its own banners.
-  //   2. the network, on every switch onto the DeFi tab. Overwrites the cached
-  //      value, including with an empty list once the account genuinely has no
-  //      banners. State also survives the re-runs that showContent triggers,
-  //      so a re-entry starts from what is already on screen.
   const [earnPageBannerState, setEarnPageBannerState] =
-    useState<IEarnPageBannerState>();
-  const earnPageBannerList =
-    earnPageBannerState?.theme === earnBannerTheme
-      ? earnPageBannerState.list
-      : [];
-  const hasNetworkBannerThemesRef = useRef(new Set<IEarnBannerTheme>());
+    useState<IEarnPageBannerState>(() => ({
+      theme: earnBannerTheme,
+      list: [],
+      isResolved: false,
+    }));
+  if (earnPageBannerState.theme !== earnBannerTheme) {
+    setEarnPageBannerState({
+      theme: earnBannerTheme,
+      list: [],
+      isResolved: false,
+    });
+  }
+  const earnPageBannerStateRef = useRef(earnPageBannerState);
+  earnPageBannerStateRef.current = earnPageBannerState;
+  const earnPageBannerList = earnPageBannerState.list;
   // usePromiseResult guards its own setResult against stale responses with a
   // nonce, but that guard runs after the method body returns — a setState made
   // inside the body is not covered by it. This hook has three triggers that do
@@ -132,32 +141,6 @@ function BasicEarnHome({
   // once and the result would otherwise be decided by whichever resolves last.
   const bannerRequestSeqRef = useRef(0);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
-    let isCurrentTheme = true;
-    void (async () => {
-      const cached =
-        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache({
-          theme: earnBannerTheme,
-        });
-      // The request can win this race on a warm start; its answer is the
-      // current one and must not be replaced by what we read from disk.
-      if (
-        !isCurrentTheme ||
-        hasNetworkBannerThemesRef.current.has(earnBannerTheme) ||
-        cached.length === 0
-      ) {
-        return;
-      }
-      setEarnPageBannerState({ theme: earnBannerTheme, list: cached });
-    })();
-    return () => {
-      isCurrentTheme = false;
-    };
-  }, [earnBannerTheme]);
-
   const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
       if (!platformEnv.isNative || showContent === false) {
@@ -165,26 +148,62 @@ function BasicEarnHome({
       }
       const requestTheme = earnBannerTheme;
       const requestSeq = (bannerRequestSeqRef.current += 1);
-      try {
-        const list =
-          await backgroundApiProxy.serviceStaking.getEarnPageBannerList({
-            theme: requestTheme,
-          });
-        // Set outside the staleness check: its job is to stop the simpleDb
-        // seed from backfilling once the network has spoken at all, and a
-        // newer request is already on its way to write the real value.
-        hasNetworkBannerThemesRef.current.add(requestTheme);
+      const networkResultPromise = backgroundApiProxy.serviceStaking
+        .getEarnPageBannerList({
+          theme: requestTheme,
+        })
+        .then((list) => ({ list }))
+        .catch(() => ({ list: undefined }));
+      const currentBannerState = earnPageBannerStateRef.current;
+      let hasResolvedLayout =
+        currentBannerState.theme === requestTheme &&
+        currentBannerState.isResolved;
+      let visibleList = hasResolvedLayout ? currentBannerState.list : [];
+      if (!hasResolvedLayout) {
+        try {
+          const cachedState =
+            await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache(
+              {
+                theme: requestTheme,
+              },
+            );
+          visibleList = cachedState.list;
+          hasResolvedLayout = cachedState.isCacheHit;
+        } catch {
+          // Cache failures must not block the authoritative network request.
+        }
         if (requestSeq !== bannerRequestSeqRef.current) {
           return;
         }
-        setEarnPageBannerState({ theme: requestTheme, list });
-      } catch {
-        // Keep whatever is on screen — the cached list, or the previous
-        // response. Rethrowing would take the whole Earn refresh down with it:
-        // usePromiseResult re-throws non-abort errors, and refreshEarnData
-        // awaits this inside a Promise.all with no catch, so a flaky banner
-        // request would skip the balance and portfolio refresh behind it.
+        if (hasResolvedLayout) {
+          setEarnPageBannerState({
+            theme: requestTheme,
+            list: visibleList,
+            isResolved: true,
+          });
+        }
       }
+
+      const { list } = await networkResultPromise;
+      if (requestSeq !== bannerRequestSeqRef.current) {
+        return;
+      }
+      if (list) {
+        const preservesLayout =
+          !hasResolvedLayout ||
+          Boolean(visibleList.length) === Boolean(list.length);
+        if (!preservesLayout) {
+          return;
+        }
+        setEarnPageBannerState({
+          theme: requestTheme,
+          list,
+          isResolved: true,
+        });
+      }
+
+      // Preserve the last successful layout. A cache miss followed by a network
+      // failure is still unresolved, so a later successful retry can show banners.
     },
     [earnBannerTheme, showContent],
     {
@@ -267,6 +286,12 @@ function BasicEarnHome({
       return filteredTotalFiatValue;
     }
 
+    // Keep the last account-scoped aggregate stable while individual
+    // investments refresh. A first load without this cache remains progressive.
+    if (portfolioData.cachedOverviewTotalFiatValue !== undefined) {
+      return portfolioData.cachedOverviewTotalFiatValue || '0';
+    }
+
     return portfolioData.investments
       .reduce((sum, inv) => {
         if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
@@ -275,11 +300,20 @@ function BasicEarnHome({
         return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
       }, new BigNumber(0))
       .toFixed();
-  }, [filteredTotalFiatValue, hasPortfolioRows, portfolioData.investments]);
+  }, [
+    filteredTotalFiatValue,
+    hasPortfolioRows,
+    portfolioData.cachedOverviewTotalFiatValue,
+    portfolioData.investments,
+  ]);
 
   const displayEarnings24h = useMemo(() => {
     if (filteredEarnings24h !== undefined || !hasPortfolioRows) {
       return filteredEarnings24h;
+    }
+
+    if (portfolioData.cachedOverviewEarnings24h !== undefined) {
+      return portfolioData.cachedOverviewEarnings24h || '0';
     }
 
     return portfolioData.investments
@@ -290,7 +324,12 @@ function BasicEarnHome({
         return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
       }, new BigNumber(0))
       .toFixed();
-  }, [filteredEarnings24h, hasPortfolioRows, portfolioData.investments]);
+  }, [
+    filteredEarnings24h,
+    hasPortfolioRows,
+    portfolioData.cachedOverviewEarnings24h,
+    portfolioData.investments,
+  ]);
 
   const prefetchEarnAvailableAssets = useCallback(async () => {
     const types = [
@@ -568,6 +607,8 @@ function BasicEarnHome({
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
 
+  // Compensating swipe for hosts with no outer pager. Gating happens at the
+  // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (direction === 'right') {
@@ -624,11 +665,10 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={false}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
-          showContent={showContent !== false}
+          showContent={(isVisible ?? showContent) !== false}
           isRefreshing={isOverviewRefreshing}
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
@@ -638,7 +678,19 @@ function BasicEarnHome({
           onOpenPortfolio={handleOpenPortfolio}
           onOpenTokens={handleOpenTokens}
           onOpenProtocols={handleOpenAllProtocols}
-          onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
+          // OK-60606: withholding the handler is what matters, not making it
+          // a no-op. HeaderScrollGestureWrapper only builds its horizontal pan
+          // when a handler exists, and that pan is Race'd rather than
+          // Simultaneous with the native gesture (simultaneousWithNativeGesture
+          // defaults to false) and cancels child touches — so it claims the
+          // drag and blocks the pager underneath. With a handler present but
+          // inert, the header swallowed swipes in both directions; with it
+          // absent, horizontal drags fall through to OuterTabPagerView, which
+          // already reaches Market and Browser on its own. Hosts without an
+          // outer pager still get the compensating switch.
+          onHeaderHorizontalSwipe={
+            useSwipePager ? undefined : handleHeaderHorizontalSwipe
+          }
         />
 
         {showHeader && showContent && (useSwipePager || media.md) ? (
@@ -720,6 +772,7 @@ function BasicEarnHome({
 export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
+  isVisible,
   defaultTab,
   tabsRef,
   useSwipePager,
@@ -727,6 +780,7 @@ export function EarnHomeWithProvider({
 }: {
   showHeader?: boolean;
   showContent?: boolean;
+  isVisible?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -744,6 +798,7 @@ export function EarnHomeWithProvider({
         <BasicEarnHome
           showHeader={showHeader}
           showContent={showContent}
+          isVisible={isVisible}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
           useSwipePager={useSwipePager}

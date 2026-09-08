@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -16,7 +15,9 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
@@ -140,16 +141,17 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         // to the name group, so the next column starts its logo flush.
         columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
         columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
-        // Not a `MarketStarV2`: this list is served by the legacy CoinGecko
-        // category endpoint, whose items carry no chain/contract pair, and the
-        // V2 watchlist is keyed by one. Plain icon on the shared slot.
-        render: () => (
+        render: (_: unknown, record: IMarketAssetListItem) => (
           <Stack
             width={MARKET_LIST_STAR_SLOT_WIDTH}
             alignItems="center"
             justifyContent="center"
           >
-            <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+            <MarketListingStar
+              kind="asset"
+              listingId={record.assetId}
+              from={EWatchlistFrom.Homepage}
+            />
           </Stack>
         ),
         renderSkeleton: () => (

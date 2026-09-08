@@ -11,7 +11,9 @@ import {
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-import MarketChartSettingsModal from './MarketChartSettingsModal';
+import MarketChartSettingsModal, {
+  showMarketChartSettingsDialog,
+} from './MarketChartSettingsModal';
 
 type IChartSettingsUpdater = (
   currentSettings: ITradingViewNativeChartSettings,
@@ -31,6 +33,11 @@ const mockGetTradingViewNativeChartSettings = jest.fn<
   [IGetNativeSettingsParams]
 >();
 const mockPanelValue = {} as ITradingViewChartSettingsValue;
+const mockCloseDialog = jest.fn();
+const mockShowTradingViewChartSettingsDialog = jest.fn<
+  void,
+  [{ renderContent: (closeDialog: () => void) => ReactNode }]
+>();
 let mockIsMobileLayout = false;
 let mockIsNative = false;
 let mockChartSettings = createTradingViewNativeChartSettings();
@@ -66,6 +73,9 @@ jest.mock(
   () => ({
     TradingViewChartSettings: (props: ITradingViewChartSettingsProps) =>
       mockTradingViewChartSettings(props),
+    showTradingViewChartSettingsDialog: (options: {
+      renderContent: (closeDialog: () => void) => ReactNode;
+    }) => mockShowTradingViewChartSettingsDialog(options),
   }),
 );
 
@@ -140,6 +150,38 @@ describe('MarketChartSettingsModal', () => {
     });
 
     expect(mockSetChartSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps dialog edits in a draft and saves them only on confirmation', async () => {
+    showMarketChartSettingsDialog();
+    render(
+      mockShowTradingViewChartSettingsDialog.mock.calls[0][0].renderContent(
+        mockCloseDialog,
+      ),
+    );
+
+    const props = mockTradingViewChartSettings.mock.calls[0][0];
+    expect(props.usePageFooter).toBe(false);
+    expect(props.mobileLayout).toBe(false);
+    expect(props.onChange).toBeUndefined();
+    expect(props.hiddenOptionIds).toContain('clickInteraction');
+
+    act(() => {
+      props.onCancel?.();
+    });
+    expect(mockCloseDialog).toHaveBeenCalledTimes(1);
+    expect(mockSetChartSettings).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await props.onConfirm?.(mockPanelValue);
+      await props.onConfirmSuccess?.();
+    });
+    expect(mockSetChartSettings).toHaveBeenCalledTimes(1);
+    expect(mockGetTradingViewNativeChartSettings).toHaveBeenCalledWith({
+      currentSettings: mockChartSettings,
+      value: mockPanelValue,
+    });
+    expect(mockCloseDialog).toHaveBeenCalledTimes(2);
   });
 
   it('exposes the implemented click interaction only on native platforms', () => {

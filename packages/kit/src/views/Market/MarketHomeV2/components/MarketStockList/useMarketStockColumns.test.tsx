@@ -26,6 +26,13 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/components/MarketListingStar',
+  () => ({
+    MarketListingStar: () => null,
+  }),
+);
+
 jest.mock('./StockSparkline', () => ({
   StockSparkline: () => null,
 }));
