@@ -4,7 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
@@ -92,12 +95,15 @@ export type IWithHardwareProcessingOptions = {
   debugMethodName?: string;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
+  onCancel?: () => void;
   /** DeviceStage confirm channel (OK-59934): what the confirm card shows
    * when this operation asks for a device confirmation. */
   stageConfirmContent?: IDeviceStageConfirmContent;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+  deviceStageBurstId?: number;
   skipDeviceCancel?: boolean;
   immediateDeviceCancel?: boolean;
   delay?: number;
@@ -785,11 +791,36 @@ class ServiceHardwareUI extends ServiceBase {
     connectId?: string;
     skipDeviceCancel?: boolean;
   }) {
+    const lease =
+      this.hardwareProcessingManager.getActiveOneKeyOperationLease();
     // Read before the close settles the atom at off: which cancel a
     // dismissed step maps to depends on where the person was.
     const stateAtClose = await deviceStageAtom.get();
     const stepAtClose = stateAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
+    const cancelsDevice =
+      skipDeviceCancel === undefined
+        ? shouldCancelDeviceOnStageClose({
+            step: stepAtClose ?? 'off',
+            vendor: stateAtClose?.vendor,
+          })
+        : !skipDeviceCancel;
+    let deviceCancelStarted = false;
+    if (
+      lease !== this.hardwareProcessingManager.getActiveOneKeyOperationLease()
+    )
+      return;
+    if (lease && cancelsDevice)
+      this.hardwareProcessingManager.cancelOneKeyOperation(lease);
+    if (lease && connectId && !qrStepAtClose && cancelsDevice) {
+      this.hardwareProcessingManager.cancelOperation(connectId);
+      deviceCancelStarted = true;
+      void this.backgroundApi.serviceHardware.cancel({
+        connectId,
+        oneKeyOperationLease: lease,
+        immediate: true,
+      });
+    }
     await this.deviceStageBurst.userClose();
     // Unconditional, keyed to session existence (a no-op without one):
     // a pending air-gap scan must reject on ANY stage close, even where
@@ -820,16 +851,13 @@ class ServiceHardwareUI extends ServiceBase {
     // cancel. Left unsaid by the caller, the step decides (an outcome, a
     // decision or the teach card leaves nothing to cancel; a third-party
     // burst cancels through its adapter).
-    const cancelsDevice =
-      skipDeviceCancel === undefined
-        ? shouldCancelDeviceOnStageClose({
-            step: stepAtClose ?? 'off',
-            vendor: stateAtClose?.vendor,
-          })
-        : !skipDeviceCancel;
     await this.closeHardwareUiStateDialogFn({
       connectId,
-      skipDeviceCancel: qrStepAtClose || !connectId ? true : !cancelsDevice,
+      oneKeyOperationLease: lease,
+      skipDeviceCancel:
+        deviceCancelStarted || qrStepAtClose || !connectId
+          ? true
+          : !cancelsDevice,
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });
@@ -1069,26 +1097,50 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async closeHardwareUiStateDialog(params: ICloseHardwareUiStateDialogParams) {
+    if (
+      params.deviceStageBurstId !== undefined &&
+      params.deviceStageBurstId !== (await deviceStageAtom.get())?.burstId
+    ) {
+      return;
+    }
     clearTimeout(this.closeHardwareUiStateDialogTimer);
+    const ownedParams = {
+      ...params,
+      oneKeyOperationLease:
+        params.oneKeyOperationLease ??
+        this.hardwareProcessingManager.getActiveOneKeyOperationLease(),
+    };
 
     if (!params.skipDelayClose) {
-      this.closeHardwareUiStateDialogTimer = setTimeout(
-        () =>
-          this.closeHardwareUiStateDialogFn({
-            ...params,
-            skipDeviceCancel: true,
-          }),
-        600,
-      );
+      this.closeHardwareUiStateDialogTimer = setTimeout(() => {
+        if (
+          ownedParams.oneKeyOperationLease !==
+          this.hardwareProcessingManager.getActiveOneKeyOperationLease()
+        )
+          return;
+        void this.closeHardwareUiStateDialogFn({
+          ...ownedParams,
+          skipDeviceCancel: true,
+        });
+      }, 600);
     }
 
-    await this.closeHardwareUiStateDialogFn(params);
+    await this.closeHardwareUiStateDialogFn(ownedParams);
   }
 
   @backgroundMethod()
   async closeHardwareUiStateDialogFn(
     params: ICloseHardwareUiStateDialogParams,
   ) {
+    const lease =
+      params.oneKeyOperationLease ??
+      this.hardwareProcessingManager.getActiveOneKeyOperationLease();
+    const isCurrent = () =>
+      lease === this.hardwareProcessingManager.getActiveOneKeyOperationLease();
+    if (!isCurrent()) return;
+    if (lease && !params.skipDeviceCancel && params.immediateDeviceCancel) {
+      this.hardwareProcessingManager.cancelOneKeyOperation(lease);
+    }
     /* eslint-disable prefer-const */
     let {
       skipDeviceCancel = true,
@@ -1115,9 +1167,10 @@ class ServiceHardwareUI extends ServiceBase {
       if (delay) {
         await timerUtils.wait(delay);
       }
+      if (!isCurrent()) return;
       await this.cleanHardwareUiState({ hardClose });
 
-      if (!skipDeviceCancel) {
+      if (!skipDeviceCancel && isCurrent()) {
         if (connectId) {
           this.hardwareProcessingManager.cancelOperation(connectId);
         }
@@ -1125,6 +1178,7 @@ class ServiceHardwareUI extends ServiceBase {
         // do not wait cancel, may cause caller stuck
         void this.backgroundApi.serviceHardware.cancel({
           connectId,
+          oneKeyOperationLease: lease,
           forceDeviceResetToHome: deviceResetToHome,
           immediate: immediateDeviceCancel,
           deviceType,
@@ -1231,7 +1285,7 @@ class ServiceHardwareUI extends ServiceBase {
               }
               return fn(lease);
             },
-            params,
+            { ...params, oneKeyOperationLease: lease },
           );
           if (platformEnv.isDesktop && device?.id) {
             successfulTransportType = await this.backgroundApi.serviceHardware
@@ -1325,13 +1379,19 @@ class ServiceHardwareUI extends ServiceBase {
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
+    const signal = params.oneKeyOperationLease?.signal;
+    const assertActive = () => {
+      if (signal?.aborted) throw new UserCancelFromOutside();
+    };
+    assertActive();
     clearTimeout(this.closeHardwareUiStateDialogTimer);
-    clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
+    this.backgroundApi.serviceHardware.invalidatePendingCancel();
     // Every log sink below prints this copy instead of params: the real
     // stageConfirmContent stays untouched because it is the only channel
     // feeding deviceStageBurst.begin({ confirmContent }).
     const paramsForLog: IWithHardwareProcessingOptions = {
       ...params,
+      oneKeyOperationLease: undefined,
       stageConfirmContent: params.stageConfirmContent
         ? DEVICE_STAGE_CONFIRM_CONTENT_REDACTED
         : undefined,
@@ -1361,6 +1421,8 @@ class ServiceHardwareUI extends ServiceBase {
     ).isThirdParty;
     let deviceResetToHome = true;
     let isBusy = false;
+    if (params.onCancel)
+      signal?.addEventListener('abort', params.onCancel, { once: true });
     try {
       if (this.processingNestedNum <= 0) {
         this.processingNestedNum = 0;
@@ -1389,6 +1451,7 @@ class ServiceHardwareUI extends ServiceBase {
         // }
 
         await this.cleanHardwareUiState();
+        assertActive();
         await this.deviceStageBurst.begin({
           connectId,
           deviceType: device?.deviceType,
@@ -1408,6 +1471,7 @@ class ServiceHardwareUI extends ServiceBase {
           confirmContent: params.stageConfirmContent,
         });
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+          assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
           // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
@@ -1415,6 +1479,7 @@ class ServiceHardwareUI extends ServiceBase {
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+          assertActive();
           await this.showCheckingDeviceDialog({
             connectId,
           });
@@ -1482,7 +1547,9 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFn();
+      assertActive();
       const r = await fn();
+      assertActive();
       defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFnDone();
 
       deviceResetToHome = false;
@@ -1569,12 +1636,15 @@ class ServiceHardwareUI extends ServiceBase {
         })
       ) {
         deviceResetToHome = false;
+        skipDeviceCancelAfterError = true;
       } else if (!isHardwareError({ error: error as any })) {
         // not hardware error, reset to home
         deviceResetToHome = false;
       }
       throw error;
     } finally {
+      if (params.onCancel)
+        signal?.removeEventListener('abort', params.onCancel);
       console.log('withHardwareProcessing FINALLY:', {
         processingNestedNum: this.processingNestedNum,
         skipCloseHardwareUiStateDialog,
@@ -1599,6 +1669,7 @@ class ServiceHardwareUI extends ServiceBase {
             }
             await this.closeHardwareUiStateDialog({
               connectId,
+              oneKeyOperationLease: params.oneKeyOperationLease,
               skipDeviceCancel: closeDialogParams.skipDeviceCancel,
               deviceResetToHome: closeDialogParams.deviceResetToHome,
               deviceType: device?.deviceType,

@@ -44,6 +44,17 @@ export function showTradingViewNativeIndicatorSettingsDialog({
     showHeader: false,
     showFooter: false,
     testID: 'trading-view-native-indicator-settings-dialog',
+    onOpenAutoFocus: (event) => {
+      const container = event.currentTarget;
+      if (
+        typeof HTMLElement !== 'undefined' &&
+        container instanceof HTMLElement
+      ) {
+        event.preventDefault();
+        container.tabIndex = -1;
+        container.focus({ preventScroll: true });
+      }
+    },
     contentContainerProps: {
       p: '$0',
     },
