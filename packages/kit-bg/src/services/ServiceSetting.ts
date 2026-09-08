@@ -1010,6 +1010,7 @@ class ServiceSetting extends ServiceBase {
         aggregateTokenSymbolMap,
         configSyncMeta: {
           appVersion: platformEnv.version ?? '',
+          bundleVersion: platformEnv.bundleVersion ?? '',
           syncedAt: Date.now(),
         },
       }),
@@ -1034,14 +1035,17 @@ class ServiceSetting extends ServiceBase {
         await this.backgroundApi.simpleDb.aggregateToken.getRawData();
       const configSyncMeta = rawData?.configSyncMeta;
       const appVersion = platformEnv.version ?? '';
-      // Re-sync when the config has never been synced, when the app version
-      // changed (the bundled preset network list may differ, leaving stale
-      // networks in the cached aggregate-token maps), or when the cache is
-      // older than the TTL.
+      const bundleVersion = platformEnv.bundleVersion ?? '';
+      // Re-sync when the config has never been synced, when the app or
+      // hot-update bundle version changed (the bundled preset network list may
+      // differ, leaving stale networks in the cached aggregate-token maps), or
+      // when the cache is older than the TTL. Hot updates keep
+      // platformEnv.version, so bundleVersion is what tells them apart.
       const shouldSync =
         !rawData?.aggregateTokenConfigMap ||
         !configSyncMeta ||
         configSyncMeta.appVersion !== appVersion ||
+        (configSyncMeta.bundleVersion ?? '') !== bundleVersion ||
         Date.now() - configSyncMeta.syncedAt >
           timerUtils.getTimeDurationMs({ day: 1 });
       if (shouldSync) {

@@ -36,9 +36,12 @@ export interface ISimpleDBAggregateToken {
   >;
   allAggregateTokens?: IAccountToken[];
   // Tracks the last successful wallet-config sync so stale caches written by
-  // older app versions (with a different preset network list) get refreshed.
+  // older builds (with a different preset network list) get refreshed. Hot
+  // updates keep appVersion but change bundleVersion, so both are tracked.
   configSyncMeta?: {
     appVersion: string;
+    // Absent on caches written before bundle tracking was added.
+    bundleVersion?: string;
     syncedAt: number;
   };
   tokenDetails?: Record<
@@ -202,6 +205,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
     configSyncMeta?: {
       appVersion: string;
+      bundleVersion?: string;
       syncedAt: number;
     };
     merge?: boolean;
