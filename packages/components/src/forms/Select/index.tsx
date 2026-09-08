@@ -371,6 +371,7 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       keepChildrenMounted={!platformEnv.isNative}
+      mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
       floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
