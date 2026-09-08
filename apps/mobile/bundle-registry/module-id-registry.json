@@ -21626,6 +21626,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.ts": 921,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.utils.ts": 8392,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData.ts": 2206,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useStockPriceSource.ts": 5374,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useStockSecurityStats.ts": 19955,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail.ts": 21686,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useTopCoinsDetail.ts": 22071,

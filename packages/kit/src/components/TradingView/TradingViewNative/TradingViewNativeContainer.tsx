@@ -854,7 +854,9 @@ const TradingViewNativeContent = memo(
               </Button>
             </YStack>
           ) : null}
-          {isMobileControlsLayout && enableNativeChartSettings ? (
+          {isMobileControlsLayout &&
+          enableNativeChartSettings &&
+          !isNativeChartFullscreen ? (
             <TradingViewNativeChartSettingsButton
               priceAxisWidth={priceAxisWidth}
               isChartSwitchDisabled={isChartSwitchDisabled}

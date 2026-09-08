@@ -38,4 +38,20 @@ describe('showTradingViewChartSettingsDialog', () => {
       mockShowDialog.mock.calls[0][0].renderContent.props.hiddenOptionIds,
     ).toEqual(['previousClose']);
   });
+
+  it('lets custom settings content close its own dialog', () => {
+    const renderContent = jest.fn((closeDialog: () => void) => (
+      <button onClick={closeDialog} type="button">
+        Close
+      </button>
+    ));
+
+    showTradingViewChartSettingsDialog({ renderContent });
+
+    expect(mockShowDialog.mock.calls[0][0].renderContent).toBe(
+      renderContent.mock.results[0].value,
+    );
+    renderContent.mock.calls[0][0]();
+    expect(mockCloseDialog).toHaveBeenCalledTimes(1);
+  });
 });
