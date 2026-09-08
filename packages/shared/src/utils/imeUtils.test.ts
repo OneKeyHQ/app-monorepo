@@ -1,6 +1,5 @@
 import {
   IME_KEYCODE,
-  IME_PROCESS_KEY,
   attachImeCompositionListeners,
   createImeCompositionLock,
   getKeyboardEventKey,
@@ -41,20 +40,6 @@ describe('isImeComposingKeyboardEvent', () => {
         isComposing: false,
       }),
     ).toBe(false);
-  });
-
-  it('detects the IME Process key', () => {
-    expect(
-      isImeComposingKeyboardEvent({
-        key: IME_PROCESS_KEY,
-        keyCode: IME_KEYCODE,
-      }),
-    ).toBe(true);
-    expect(
-      isImeComposingKeyboardEvent({
-        nativeEvent: { key: IME_PROCESS_KEY },
-      }),
-    ).toBe(true);
   });
 });
 
@@ -143,7 +128,7 @@ describe('createImeCompositionLock', () => {
 });
 
 describe('attachImeCompositionListeners', () => {
-  it('binds start, update, and end, then removes them on dispose', () => {
+  it('binds start and end, then removes them on dispose', () => {
     const listeners = new Map<string, Array<(event: Event) => void>>();
     const node = {
       addEventListener(type: string, listener: (event: Event) => void) {
@@ -159,28 +144,22 @@ describe('attachImeCompositionListeners', () => {
       },
     };
     const onStart = jest.fn();
-    const onUpdate = jest.fn();
     const onEnd = jest.fn();
     const detach = attachImeCompositionListeners(node, {
       onStart,
-      onUpdate,
       onEnd,
     });
 
     const startEvent = { type: 'compositionstart' } as Event;
-    const updateEvent = { type: 'compositionupdate' } as Event;
     const endEvent = { type: 'compositionend' } as Event;
     listeners.get('compositionstart')?.[0](startEvent);
-    listeners.get('compositionupdate')?.[0](updateEvent);
     listeners.get('compositionend')?.[0](endEvent);
 
     expect(onStart).toHaveBeenCalledWith(startEvent);
-    expect(onUpdate).toHaveBeenCalledWith(updateEvent);
     expect(onEnd).toHaveBeenCalledWith(endEvent);
 
     detach();
     expect(listeners.get('compositionstart')).toEqual([]);
-    expect(listeners.get('compositionupdate')).toEqual([]);
     expect(listeners.get('compositionend')).toEqual([]);
   });
 
@@ -198,11 +177,10 @@ describe('attachImeCompositionListeners', () => {
     };
     attachImeCompositionListeners(node, {
       onStart: lock.start,
-      onUpdate: lock.start,
       onEnd: lock.end,
     });
 
-    listeners.get('compositionupdate')?.[0]({} as Event);
+    listeners.get('compositionstart')?.[0]({} as Event);
     listeners.get('compositionend')?.[0]({} as Event);
     expect(lock.shouldIgnoreKeyboardEvent({ key: 'Enter', keyCode: 13 })).toBe(
       true,

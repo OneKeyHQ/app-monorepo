@@ -92,8 +92,6 @@ export type IInputProps = {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
     /** Web only */
-    onCompositionUpdate?: CompositionEventHandler<any>;
-    /** Web only */
     onCompositionEnd?: CompositionEventHandler<any>;
   };
 
@@ -254,11 +252,10 @@ export const useOnWebPaste = platformEnv.isNative
 
 type IWebImeCompositionHandlers = {
   onCompositionStart?: CompositionEventHandler<any>;
-  onCompositionUpdate?: CompositionEventHandler<any>;
   onCompositionEnd?: CompositionEventHandler<any>;
 };
 
-export const useOnWebImeComposition = platformEnv.isNative
+const useOnWebImeComposition = platformEnv.isNative
   ? noop
   : (
       inputRef: RefObject<TextInput | null> | null,
@@ -271,17 +268,13 @@ export const useOnWebImeComposition = platformEnv.isNative
         if (!node || typeof node.addEventListener !== 'function') {
           return;
         }
-        const { onCompositionStart, onCompositionUpdate, onCompositionEnd } =
-          handlersRef.current;
-        if (!onCompositionStart && !onCompositionUpdate && !onCompositionEnd) {
+        const { onCompositionStart, onCompositionEnd } = handlersRef.current;
+        if (!onCompositionStart && !onCompositionEnd) {
           return;
         }
         return attachImeCompositionListeners(node, {
           onStart: (event) => {
             handlersRef.current.onCompositionStart?.(event as any);
-          },
-          onUpdate: (event) => {
-            handlersRef.current.onCompositionUpdate?.(event as any);
           },
           onEnd: (event) => {
             handlersRef.current.onCompositionEnd?.(event as any);
@@ -327,7 +320,6 @@ function BaseInput(
     onSecureTextEntryChange,
     children: _children,
     onCompositionStart,
-    onCompositionUpdate,
     onCompositionEnd,
     ...props
   } = useProps(inputProps) as IInputProps;
@@ -474,7 +466,6 @@ function BaseInput(
   // RN-web TextInput drops React onComposition* from its prop allowlist.
   useOnWebImeComposition(inputRef, {
     onCompositionStart,
-    onCompositionUpdate,
     onCompositionEnd,
   });
 

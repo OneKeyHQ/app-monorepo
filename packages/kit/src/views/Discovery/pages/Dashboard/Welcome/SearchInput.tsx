@@ -91,7 +91,6 @@ export function SearchInput({ tabId }: { tabId?: string }) {
     handleInputBlur,
     handleKeyDown,
     handleCompositionStart,
-    handleCompositionUpdate,
     handleCompositionEnd,
     handleSearchBarPress,
     isPopoverOpen,
@@ -205,9 +204,7 @@ export function SearchInput({ tabId }: { tabId?: string }) {
               // @ts-expect-error
               onKeyPress={handleKeyDown}
               onCompositionStart={handleCompositionStart}
-              onCompositionUpdate={handleCompositionUpdate}
               onCompositionEnd={handleCompositionEnd}
-              autoCapitalize="none"
               testID="search-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.browser_search_dapp_or_enter_url,

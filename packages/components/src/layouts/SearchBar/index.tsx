@@ -168,14 +168,12 @@ export function SearchBar({
       placeholder={intl.formatMessage({
         id: ETranslations.global_search,
       })}
-      autoCapitalize="none"
       {...rest}
       {...(value?.length &&
         !rest.addOns?.length && {
           addOns: clearAddOns,
         })}
       onCompositionStart={compositionLock.start}
-      onCompositionUpdate={compositionLock.start}
       onCompositionEnd={handleCompositionEnd}
       onSubmitEditing={handleSubmitEditing}
       containerProps={resolvedContainerProps}

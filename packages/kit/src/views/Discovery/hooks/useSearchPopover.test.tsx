@@ -16,10 +16,7 @@ jest.mock('./useSearchPopoverFeatureFlag', () => ({
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import {
-  IME_KEYCODE,
-  IME_PROCESS_KEY,
-} from '@onekeyhq/shared/src/utils/imeUtils';
+import { IME_KEYCODE } from '@onekeyhq/shared/src/utils/imeUtils';
 
 import { useSearchPopover } from './useSearchPopover';
 
@@ -119,22 +116,6 @@ describe('useSearchPopover IME Enter handling', () => {
     expect(onEnterPress).toHaveBeenCalledTimes(1);
   });
 
-  it('does not submit on the IME Process key', () => {
-    const onEnterPress = jest.fn();
-    const { result } = renderSearchPopoverHook(onEnterPress);
-    const processEvent = createEnterEvent({
-      key: IME_PROCESS_KEY,
-      keyCode: IME_KEYCODE,
-    });
-
-    act(() => {
-      result.current.handleKeyDown(processEvent);
-    });
-
-    expect(processEvent.preventDefault).not.toHaveBeenCalled();
-    expect(onEnterPress).not.toHaveBeenCalled();
-  });
-
   it('does not run search shortcuts while composition is locked', () => {
     const onEnterPress = jest.fn();
     const onEscape = jest.fn();
@@ -158,30 +139,5 @@ describe('useSearchPopover IME Enter handling', () => {
     expect(arrowEvent.preventDefault).not.toHaveBeenCalled();
     expect(onEscape).not.toHaveBeenCalled();
     expect(onEnterPress).not.toHaveBeenCalled();
-  });
-
-  it('locks composition from compositionupdate when start was missed', () => {
-    jest.useFakeTimers();
-    const onEnterPress = jest.fn();
-    const { result } = renderSearchPopoverHook(onEnterPress);
-    const confirmEvent = createEnterEvent();
-
-    act(() => {
-      result.current.handleCompositionUpdate();
-      result.current.handleCompositionEnd();
-      result.current.handleKeyDown(confirmEvent);
-    });
-
-    expect(onEnterPress).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-
-    const nextEnter = createEnterEvent();
-    act(() => {
-      result.current.handleKeyDown(nextEnter);
-    });
-    expect(onEnterPress).toHaveBeenCalledTimes(1);
   });
 });

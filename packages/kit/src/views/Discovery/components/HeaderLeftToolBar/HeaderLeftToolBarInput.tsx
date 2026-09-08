@@ -110,7 +110,6 @@ function HeaderLeftToolBarInput({
     selectedIndex,
     handleKeyDown,
     handleCompositionStart,
-    handleCompositionUpdate,
     handleCompositionEnd,
     handleInputBlur,
     isPopoverVisible,
@@ -190,9 +189,7 @@ function HeaderLeftToolBarInput({
         // @ts-expect-error
         onKeyPress={handleKeyDown}
         onCompositionStart={handleCompositionStart}
-        onCompositionUpdate={handleCompositionUpdate}
         onCompositionEnd={handleCompositionEnd}
-        autoCapitalize="none"
         addOns={[
           ...(isPrimeAvailable
             ? [
