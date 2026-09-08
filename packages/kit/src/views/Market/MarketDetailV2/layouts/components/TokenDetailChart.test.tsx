@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useContext } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
+
+import { TradingViewDesktopToolbarContext } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext';
 
 import { TokenDetailChart } from './TokenDetailChart';
 
@@ -44,6 +46,7 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button,
+    ScrollView: Stack,
     Stack,
     XStack: Stack,
     YStack: Stack,
@@ -87,12 +90,20 @@ jest.mock('./MarketDetailProChartControls', () => ({
   ),
 }));
 
-function renderTokenDetailChart(marketAssetId?: string) {
+function MockProChart() {
+  const toolbar = useContext(TradingViewDesktopToolbarContext);
+  return <div data-testid="market-token-pro-chart">{toolbar}</div>;
+}
+
+function renderTokenDetailChart(
+  marketAssetId?: string,
+  marketTradingView: ReactNode = <MockProChart />,
+) {
   return render(
     <TokenDetailChart
       chartContainerTestID="market-token-chart"
       marketAssetId={marketAssetId}
-      marketTradingView={<div data-testid="market-token-pro-chart" />}
+      marketTradingView={marketTradingView}
       isChartFullscreen={false}
       chartMode="native"
       onChartSwitch={jest.fn()}
@@ -172,6 +183,25 @@ describe('TokenDetailChart', () => {
     fireEvent.click(view.getByTestId('market-token-chart-mode-simple'));
 
     expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'simple' });
+  });
+
+  it('allows returning to Simple mode when the Pro chart is unavailable', () => {
+    mockChartDisplayMode = 'pro';
+    const view = renderTokenDetailChart('bitcoin', null);
+
+    expect(view.queryByTestId('market-token-pro-chart')).toBeNull();
+    fireEvent.click(view.getByTestId('market-token-chart-mode-simple'));
+
+    expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'simple' });
+  });
+
+  it('renders only one mode switch when the Pro chart is available', () => {
+    mockChartDisplayMode = 'pro';
+    const view = renderTokenDetailChart('bitcoin');
+
+    expect(view.getAllByTestId('market-token-chart-mode-simple')).toHaveLength(
+      1,
+    );
   });
 
   it('localizes All and passes it to the simple chart', () => {

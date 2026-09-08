@@ -14,6 +14,7 @@ export function MarketDetailProChartControls({
   testID,
   fullscreenTestID,
   top,
+  inline = false,
   chartMode,
   isChartSwitchDisabled,
   onChartSwitch,
@@ -23,6 +24,7 @@ export function MarketDetailProChartControls({
   testID: string;
   fullscreenTestID: string;
   top: number;
+  inline?: boolean;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch: () => void;
@@ -33,9 +35,10 @@ export function MarketDetailProChartControls({
   return (
     <XStack
       testID={testID}
-      position="absolute"
-      top={top}
-      right={0}
+      position={inline ? 'relative' : 'absolute'}
+      top={inline ? undefined : top}
+      right={inline ? undefined : 0}
+      flexShrink={0}
       alignItems="center"
       gap="$2"
       bg="$bgApp"

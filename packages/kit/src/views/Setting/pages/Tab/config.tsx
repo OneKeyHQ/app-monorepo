@@ -57,7 +57,6 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
-import { TRAVEL_MODE_COPY } from '../TravelMode/copy';
 
 import {
   AutoLockListItem,
@@ -793,7 +792,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ? {
                       id: 'travel-mode',
                       icon: 'LuggagePackageOutline',
-                      title: TRAVEL_MODE_COPY.title,
+                      title: intl.formatMessage({
+                        id: ETranslations.travel_mode__title,
+                      }),
                       searchable: false,
                       testID: SettingTestIDs.travelModeItem,
                       renderElement: <TravelModeListItem />,

@@ -28,7 +28,7 @@ export function MarketDesktopChartContainer({
   fullscreenZIndex,
   isFullscreen,
   footer,
-  testID,
+  testID = 'market-desktop-chart',
 }: {
   children: ReactNode;
   fullscreenStyle?: CSSProperties;
@@ -38,7 +38,10 @@ export function MarketDesktopChartContainer({
   // line has to sit on the box's own clipping edge to read as the cut it makes
   // while dragging, so anything that belongs below it lives out here.
   footer?: ReactNode;
-  testID: string;
+  // Defaulted rather than required: the handle and the drag shield derive
+  // their own ids from it, so a caller that has no need to name the container
+  // must not leave them reading `undefined-resize-handle`.
+  testID?: string;
 }) {
   const theme = useTheme();
   const { height: viewportHeight } = useWindowDimensions();

@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  ScrollView,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import { TradingViewDesktopToolbarContext } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext';
 import {
   type IMarketDetailChartDisplayMode,
   useMarketDetailChartDisplayModePersistAtom,
@@ -25,6 +32,19 @@ import {
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
   MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
 } from './marketSimpleChartConstants';
+
+const TOOLBAR_CONTENT_STYLE = {
+  flexGrow: 1,
+  alignItems: 'center',
+  gap: '$3',
+} as const;
+
+const FALLBACK_TOOLBAR_CONTENT_STYLE = {
+  flexGrow: 1,
+  py: '$1',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+} as const;
 
 function TokenChartModeControl({
   mode,
@@ -88,7 +108,7 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
-  chartContainerTestID: string;
+  chartContainerTestID?: string;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
   marketAssetId?: string;
@@ -104,21 +124,55 @@ export function TokenDetailChart({
     useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
-  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
-    setChartDisplayMode({ mode: nextMode });
-  };
+  const handleModeChange = useCallback(
+    (nextMode: IMarketDetailChartDisplayMode) => {
+      setChartDisplayMode({ mode: nextMode });
+    },
+    [setChartDisplayMode],
+  );
+
+  // Rides inside TradingView's own desktop toolbar instead of floating over
+  // the chart, so the controls never sit on top of the candles. No children:
+  // the Simple/Pro switch belongs to the toolbar under the chart, and passing
+  // it here as well would render a second one.
+  const proToolbar = useMemo(
+    () =>
+      isChartFullscreen ? null : (
+        <MarketDetailProChartControls
+          inline
+          testID="market-token-chart-mode-control-pro"
+          top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
+          fullscreenTestID="trading-view-native-fullscreen-toggle"
+          chartMode={chartMode}
+          isChartSwitchDisabled={isChartSwitchDisabled}
+          onChartSwitch={onChartSwitch}
+          onEnterChartFullscreen={onEnterChartFullscreen}
+        />
+      ),
+    [
+      chartMode,
+      isChartFullscreen,
+      isChartSwitchDisabled,
+      onChartSwitch,
+      onEnterChartFullscreen,
+    ],
+  );
 
   // The toolbar goes to the container's footer, under the resize handle: the
   // handle's line has to sit on the chart's own clipping edge to read as the
   // cut it makes while dragging, so nothing of ours may live below it inside
-  // the resizable box.
+  // the resizable box. It scrolls horizontally so a narrow chart clips no
+  // range button.
   const toolbar = isChartFullscreen ? undefined : (
-    <XStack
+    <ScrollView
       testID="market-token-chart-toolbar"
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      width="100%"
       height={MARKET_CHART_TOOLBAR_HEIGHT}
-      py="$1"
-      gap="$3"
-      alignItems="center"
+      flexGrow={0}
+      flexShrink={0}
+      contentContainerStyle={TOOLBAR_CONTENT_STYLE}
     >
       <XStack flex={1} minWidth={0} alignItems="center" gap="$0.5">
         {isSimpleMode
@@ -152,7 +206,7 @@ export function TokenDetailChart({
           : null}
       </XStack>
       <TokenChartModeControl mode={mode} onChange={handleModeChange} />
-    </XStack>
+    </ScrollView>
   );
 
   return (
@@ -180,20 +234,27 @@ export function TokenDetailChart({
           />
         ) : (
           <>
-            <Stack flex={1} minWidth={0} overflow="hidden">
-              {marketTradingView}
-            </Stack>
-            {isChartFullscreen ? null : (
-              <MarketDetailProChartControls
-                testID="market-token-chart-mode-control-pro"
-                top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
-                fullscreenTestID="trading-view-native-fullscreen-toggle"
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onChartSwitch={onChartSwitch}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            )}
+            {/* Nothing hosts these controls when the Pro chart is missing, so
+                they take a row of their own rather than vanishing with it. */}
+            {marketTradingView === null || marketTradingView === undefined ? (
+              <ScrollView
+                testID="market-token-chart-fallback-toolbar"
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                width="100%"
+                height={MARKET_CHART_TOOLBAR_HEIGHT}
+                flexGrow={0}
+                flexShrink={0}
+                contentContainerStyle={FALLBACK_TOOLBAR_CONTENT_STYLE}
+              >
+                {proToolbar}
+              </ScrollView>
+            ) : null}
+            <TradingViewDesktopToolbarContext.Provider value={proToolbar}>
+              <Stack flex={1} minWidth={0} overflow="hidden">
+                {marketTradingView}
+              </Stack>
+            </TradingViewDesktopToolbarContext.Provider>
           </>
         )}
       </YStack>

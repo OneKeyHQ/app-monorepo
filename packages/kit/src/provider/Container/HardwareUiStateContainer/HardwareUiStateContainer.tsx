@@ -36,7 +36,6 @@ import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
   useDeviceStageAtom,
-  useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -485,10 +484,11 @@ function HardwareUiStateContainerCmpControlled() {
 
   // OK-59934: the DeviceStage plays the interactions it owns, so this
   // container renders only what is left to it — bluetooth pairing, the
-  // firmware-update surfaces, and the permission popups below (whose
-  // listeners always stay live). One shared table decides, so an action
-  // is never shown twice or by nobody.
-  const [firmwareUpdateRunning] = useFirmwareUpdateWorkflowRunningAtom();
+  // firmware update's own narration (the tips that are not the install
+  // confirm; the device's asks during an update play on the stage since
+  // OK-62087), and the permission popups below (whose listeners always
+  // stay live). One shared table decides, so an action is never shown
+  // twice or by nobody.
   // Whether the stage is on stage right now — the failure it is mid-flow
   // on is the failure it will land.
   const [deviceStage] = useDeviceStageAtom();
@@ -500,7 +500,7 @@ function HardwareUiStateContainerCmpControlled() {
     isDeviceStageOwnedHardwareUiAction({
       action: state?.action,
       eventType: state?.payload?.eventType,
-      firmwareUpdateRunning,
+      firmwareTipMessage: state?.payload?.firmwareTipData?.message,
     });
 
   const { serviceHardwareUI } = backgroundApiProxy;

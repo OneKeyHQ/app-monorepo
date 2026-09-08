@@ -5,7 +5,6 @@
 const { execFile } = require('child_process');
 const { randomUUID } = require('crypto');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
@@ -24,6 +23,8 @@ const {
 } = require('../plugins/devVendor');
 const { REPO_ROOT, loadRegistry } = require('../plugins/moduleIdRegistry');
 
+const { getSharedCacheRoot } = require('./dev-cache-paths');
+
 const MOBILE_DIR = path.resolve(__dirname, '..');
 const execFileAsync = promisify(execFile);
 const RELEASE_MANIFEST_NAME = 'metro-dev-prebundle-release.json';
@@ -35,7 +36,6 @@ const RELEASE_SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml';
 const RELEASE_SOURCE_REF = 'refs/heads/x';
 const SHARED_CACHE_SCHEMA_VERSION = 2;
-const SHARED_CACHE_ENV = 'ONEKEY_METRO_PREBUNDLE_CACHE_DIR';
 const MAX_CACHED_RELEASES = 5;
 const CACHE_LOCK_OWNER_NAME = 'owner.json';
 const CACHE_LOCK_RECLAIM_DIRECTORY_NAME = '.reclaim';
@@ -92,32 +92,6 @@ async function readJsonFile(filePath, maxBytes = MAX_RELEASE_MANIFEST_BYTES) {
     );
   }
   return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
-}
-
-function getSharedCacheRoot(
-  env = process.env,
-  platform = process.platform,
-  homeDirectory = os.homedir(),
-) {
-  if (env[SHARED_CACHE_ENV]) {
-    return path.resolve(env[SHARED_CACHE_ENV]);
-  }
-  if (platform === 'darwin') {
-    return path.join(
-      homeDirectory,
-      'Library/Caches/OneKey/metro-dev-prebundle',
-    );
-  }
-  if (platform === 'win32') {
-    return path.join(
-      env.LOCALAPPDATA || path.join(homeDirectory, 'AppData/Local'),
-      'OneKey/metro-dev-prebundle',
-    );
-  }
-  return path.join(
-    env.XDG_CACHE_HOME || path.join(homeDirectory, '.cache'),
-    'onekey/metro-dev-prebundle',
-  );
 }
 
 function getCacheVersionRoot(cacheRoot) {
