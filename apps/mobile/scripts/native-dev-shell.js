@@ -1096,8 +1096,10 @@ function assertTargetDeviceArchitecture({
           runForOutputCommand('xcrun', [
             'simctl',
             'spawn',
+            // Simulator PATH may lack uname; select the required host binary slice explicitly.
+            `--arch=${requiredArchitecture}`,
             deviceId,
-            'uname',
+            '/usr/bin/uname',
             '-m',
           ]).trim(),
         ].filter(Boolean);
