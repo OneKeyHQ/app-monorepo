@@ -43,6 +43,11 @@ type ITokenSelectorImageItem = {
 
 const REMOTE_IMAGE_URI_RE = /^https?:\/\//i;
 const COLD_START_IMAGE_PRELOAD_LIMIT = 96;
+// Logical size of the image inside a home wallet banner card. WalletBanner
+// renders with this exact size, so the cold-start prewarm below produces the
+// same resize URL + decode thumbnail as the first paint (cache-key match).
+export const WALLET_BANNER_IMAGE_SIZE = 56;
+const WALLET_BANNER_IMAGE_LIMIT = 8;
 const WALLET_TOKEN_OWNER_LIMIT = 2;
 const WALLET_TOKEN_LIMIT_PER_OWNER = 24;
 const SWAP_POSITION_OWNER_LIMIT = 3;
@@ -179,6 +184,41 @@ function getUpdatedAt(value: unknown) {
   return isRecord(value) && typeof value.updatedAt === 'number'
     ? value.updatedAt
     : Number.MIN_SAFE_INTEGER;
+}
+
+// Wallet banner cards render their text from the cold-start snapshot on the
+// first frame; without a warm image cache the 56pt image shows a skeleton on
+// every launch (OK-61505). Prewarm them at the banner size, ahead of the
+// token logos, so the first paint hits the memory cache.
+function collectWalletBannerImageItems({
+  items,
+  snapshot,
+}: {
+  items: IImagePreloadItem[];
+  snapshot: IColdStartSnapshot;
+}) {
+  const seen = new Set<string>();
+  for (const value of getSnapshotValuesByColdStartKey({
+    snapshot,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom,
+  })) {
+    const banners =
+      isRecord(value) && Array.isArray(value.banners) ? value.banners : [];
+    for (const banner of banners) {
+      if (seen.size >= WALLET_BANNER_IMAGE_LIMIT) {
+        return;
+      }
+      const uri = isRecord(banner) ? banner.src : undefined;
+      if (
+        typeof uri === 'string' &&
+        REMOTE_IMAGE_URI_RE.test(uri) &&
+        !seen.has(uri)
+      ) {
+        seen.add(uri);
+        items.push({ uri, resizeWidth: WALLET_BANNER_IMAGE_SIZE });
+      }
+    }
+  }
 }
 
 function collectWalletTokenImageUris({
@@ -337,17 +377,19 @@ function collectPerpsImageUris({
 export function getColdStartImageUrisFromSnapshot(
   snapshot = getColdStartSnapshot(),
   limit = COLD_START_IMAGE_PRELOAD_LIMIT,
-) {
+): IImagePreloadInput[] {
+  const bannerItems: IImagePreloadItem[] = [];
   const uris = new Set<string>();
   if (!snapshot) {
     return [];
   }
 
+  collectWalletBannerImageItems({ items: bannerItems, snapshot });
   collectWalletTokenImageUris({ uris, snapshot });
   collectSwapImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
 
-  return [...uris].slice(0, limit);
+  return [...bannerItems, ...uris].slice(0, limit);
 }
 
 export function getPerpsTokenSelectorImageUrisFromItems({
