@@ -902,6 +902,11 @@ function StockPosition({
 }
 
 const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
+// The track has to stay readable as a bar, so the distribution column claims a
+// floor wide enough for label + track + percentage. Below that the row wraps
+// and the column sits under the dial instead of being squeezed beside it.
+const STOCK_ANALYST_BAR_MIN_WIDTH = 96;
+const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
 
 function StockAnalystRatings() {
   const intl = useIntl();
@@ -947,6 +952,7 @@ function StockAnalystRatings() {
       {isLoading ? (
         <XStack
           testID="stock-detail-analyst-ratings-skeleton"
+          flexWrap="wrap"
           gap="$8"
           alignItems="center"
           py="$2"
@@ -957,16 +963,24 @@ function StockAnalystRatings() {
           />
           {/* Three 24px bars with 12px gaps add up to the 96px the loaded
           bars occupy, so the section does not jump when data lands. */}
-          <YStack flex={1} gap="$3">
+          <YStack
+            flex={1}
+            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+            gap="$3"
+          >
             <Skeleton width="100%" height={24} />
             <Skeleton width="100%" height={24} />
             <Skeleton width="100%" height={24} />
           </YStack>
         </XStack>
       ) : (
-        <XStack gap="$8" alignItems="center" py="$2" pr="$2">
+        <XStack flexWrap="wrap" gap="$8" alignItems="center" py="$2" pr="$2">
           <StockAnalystGauge ratings={ratings} ratingCounts={ratingCounts} />
-          <YStack flex={1} minWidth={0} justifyContent="center">
+          <YStack
+            flex={1}
+            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+            justifyContent="center"
+          >
             {[
               {
                 key: 'buy',
@@ -1000,12 +1014,16 @@ function StockAnalystRatings() {
                   alignItems="center"
                   gap="$3"
                 >
-                  <SizableText size="$bodyMdMedium" width={32}>
+                  <SizableText
+                    size="$bodyMdMedium"
+                    minWidth={32}
+                    flexShrink={0}
+                  >
                     {item.label}
                   </SizableText>
                   <Stack
                     flex={1}
-                    minWidth={0}
+                    minWidth={STOCK_ANALYST_BAR_MIN_WIDTH}
                     height={4}
                     borderRadius="$full"
                     bg="$neutral5"
