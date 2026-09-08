@@ -7,6 +7,7 @@ import {
   Carousel,
   Image,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -319,8 +320,10 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
 
 export function EarnHomeBanner({
   banners,
+  isLoading,
 }: {
   banners: IEarnPageBannerListItem[];
+  isLoading: boolean;
 }) {
   const validBanners = useMemo(
     () =>
@@ -337,6 +340,18 @@ export function EarnHomeBanner({
     ),
     [],
   );
+
+  if (isLoading && validBanners.length === 0) {
+    return (
+      <YStack
+        h={EARN_HOME_BANNER_BLOCK_HEIGHT}
+        px={BANNER_CONTAINER_PADDING}
+        pb="$4"
+      >
+        <Skeleton h={BANNER_HEIGHT} mx={BANNER_SHADOW_ROOM} borderRadius="$3" />
+      </YStack>
+    );
+  }
 
   if (validBanners.length === 0) {
     return null;
