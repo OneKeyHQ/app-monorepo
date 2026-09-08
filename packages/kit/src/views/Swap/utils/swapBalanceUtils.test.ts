@@ -7,6 +7,7 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapRequiredNativeBalanceAmount,
+  getSwapTokenBalanceContractAddress,
   validateSwapBtcOutputs,
 } from './swapBalanceUtils';
 
@@ -100,6 +101,39 @@ const aptosToken = {
   decimals: 8,
   isNative: true,
 } as ISwapToken;
+
+describe('getSwapTokenBalanceContractAddress', () => {
+  beforeEach(() => {
+    mockGetNativeTokenAddress.mockReset();
+  });
+
+  it.each([usdcToken, { ...aptosToken, contractAddress: aptosNativeAddress }])(
+    'preserves an explicit $symbol address',
+    async (token) => {
+      await expect(getSwapTokenBalanceContractAddress(token)).resolves.toBe(
+        token.contractAddress,
+      );
+      expect(mockGetNativeTokenAddress).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['evm--1', 'sol--101'])(
+    'preserves the empty native address supported by %s',
+    async (networkId) => {
+      mockGetNativeTokenAddress.mockResolvedValue('');
+      await expect(
+        getSwapTokenBalanceContractAddress({ ...ethToken, networkId }),
+      ).resolves.toBe('');
+    },
+  );
+
+  it('falls back without failing the balance request when lookup is unavailable', async () => {
+    mockGetNativeTokenAddress.mockRejectedValue(new Error('unavailable'));
+    await expect(getSwapTokenBalanceContractAddress(aptosToken)).resolves.toBe(
+      '',
+    );
+  });
+});
 
 describe('checkSwapLatestBalanceSufficient', () => {
   beforeEach(() => {

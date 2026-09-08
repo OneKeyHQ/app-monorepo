@@ -38,6 +38,7 @@ import type {
   IProtocolSummary,
 } from '../../types/defi';
 import type { EHardwareVendor } from '../../types/device';
+import type { IDeviceStageWalletTypeValue } from '../../types/deviceStage';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
@@ -306,6 +307,16 @@ export interface IAppEventBusPayload {
   // back to the flow that primed the card before its hardware call
   // (the account selector's Add-hidden-wallet, OK-59934).
   [EAppEventBusNames.DeviceStagePassphraseIntroContinue]: undefined;
+  // The wallet-creation fork's answer, from the DeviceStage driver back to
+  // the flow that put the selectWalletType card on stage (onboarding's
+  // hardware wallet creation, OK-59934).
+  [EAppEventBusNames.DeviceStageWalletTypeSelected]: {
+    walletType: IDeviceStageWalletTypeValue;
+  };
+  // The stage left — by any route, the person's close included. A flow
+  // awaiting a card's answer ends its wait on this: a card that is gone
+  // can never be answered (OK-59934).
+  [EAppEventBusNames.DeviceStageOff]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
@@ -662,6 +673,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
   [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
+  [EAppEventBusNames.DevLargeWalletDataCreationProgress]: {
+    isRunning: boolean;
+    walletIndex: number;
+    walletsCreated: number;
+    walletsTotal: number;
+    accountsCreatedInWallet: number;
+    accountsPerWallet: number;
+    accountsCreated: number;
+    accountsTotal: number;
+  };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;

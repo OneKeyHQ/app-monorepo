@@ -404,3 +404,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The guard bypass in `reloadActiveAccountInfo` branched on `transitionMeta?.reason === 'removeAccountSelectionClear'`, but that reason travels through the perfDebug WeakMap attribution channel, which is only populated when `isAccountSelectorPerfDebugEnabled()` (isE2E or dev+logger) — empty in production, so `shouldKeepNetworkOnlySelection` kept the stale active account. This violated the perfDebug contract "Diagnostics only — never branch on these entries", and E2E could not catch it because `isE2E` keeps perf attribution permanently on.
 **Fix**: Added a formal `forceIncompleteSelectionReload` payload flag to `reloadActiveAccountInfo`, removed the perf-reason inference, and made the `autoSelectNextAccount` clear branch call the reload directly with the flag after a committed clear; added a regression test asserting perf metadata alone cannot bypass the guard.
 **Catchable by**: NEW — control flow must never depend on diagnostics-only channels (perf WeakMaps, trace metadata); test-mode-only wiring needs a perf-off regression path
+
+## Case: Prime web redeem URL rewritten off `/prime/redeem`
+**Date**: 2026-09-06 | **Platforms**: Web
+**Symptom**: Email link `https://app.onekey.so/prime/redeem?code=` would not stay in the address bar after navigation sync; refresh landed on Home (or Market in dapp mode).
+**Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
+**Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
+**Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path

@@ -5,6 +5,10 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import type { IMarketCategoryItem } from './types';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
+const TRENDING_STYLE_SPOT_CATEGORY_IDS = new Set([
+  'trending',
+  'robinhood_meme',
+]);
 
 export const COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
@@ -140,6 +144,11 @@ export const shouldHideSpotExtendedStats = (
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
 
+export const isTrendingStyleSpotCategory = (
+  categoryId: string | undefined,
+): boolean =>
+  Boolean(categoryId && TRENDING_STYLE_SPOT_CATEGORY_IDS.has(categoryId));
+
 export const isMarketStockCategory = (
   category?: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
 ): boolean => {
@@ -188,17 +197,8 @@ export const ensureMarketTopCoinsCategory = (
     id: MARKET_TOP_COINS_CATEGORY_ID,
     name: fallbackName,
   };
-  const firstStockCategoryIndex = categories.findIndex((category) =>
-    isMarketStockCategory(category),
-  );
 
-  if (firstStockCategoryIndex < 0) {
-    return [...categories, topCoinsCategory];
-  }
-
-  return [
-    ...categories.slice(0, firstStockCategoryIndex),
-    topCoinsCategory,
-    ...categories.slice(firstStockCategoryIndex),
-  ];
+  // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps. Perps is
+  // appended after every spot category, so Top coins goes last among them.
+  return [...categories, topCoinsCategory];
 };

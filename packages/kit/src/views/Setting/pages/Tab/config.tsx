@@ -57,6 +57,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
+import { TRAVEL_MODE_COPY } from '../TravelMode/copy';
 
 import {
   AutoLockListItem,
@@ -76,6 +77,7 @@ import {
   ResetPinListItem,
   SplitViewListItem,
   ThemeListItem,
+  TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -127,6 +129,7 @@ interface ISubSettingConfigBase {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  searchable?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -782,6 +785,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           EModalSettingRoutes.SettingFloatingIconModal,
                         );
                       },
+                    }
+                  : undefined,
+              ],
+              [
+                platformEnv.isNative
+                  ? {
+                      id: 'travel-mode',
+                      icon: 'LuggagePackageOutline',
+                      title: TRAVEL_MODE_COPY.title,
+                      searchable: false,
+                      testID: SettingTestIDs.travelModeItem,
+                      renderElement: <TravelModeListItem />,
                     }
                   : undefined,
               ],

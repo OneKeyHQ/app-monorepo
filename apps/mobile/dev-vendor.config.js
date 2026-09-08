@@ -87,6 +87,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-image',
     '@onekeyfe/react-native-keychain-module',
     '@onekeyfe/react-native-lite-card',
+    '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
@@ -190,17 +191,15 @@ const nativeContractFiles = {
     'apps/mobile/ios/Podfile.lock',
     'apps/mobile/ios/Podfile.properties.json',
   ],
-  shared: ['apps/mobile/package.json', 'yarn.lock'],
+  shared: [],
 };
 
 const nativeContractDirectories = {
   android: [
-    'apps/mobile/android/app-update-noop/src/main',
-    'apps/mobile/android/app/src/debug',
     'apps/mobile/android/app/src/main',
-    'apps/mobile/android/app/src/prod',
+    'apps/mobile/android/app-update-noop/src/main',
   ],
-  ios: ['apps/mobile/ios/OneKeyWallet', 'apps/mobile/ios/ServiceExtension'],
+  ios: ['apps/mobile/ios/OneKeyWallet'],
   shared: [],
 };
 

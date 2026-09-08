@@ -35,6 +35,8 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
+import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
+import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { getTradingViewNativeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -72,6 +74,7 @@ import { MobileInformationTabs } from '../components/InformationTabs/layout/Mobi
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -205,6 +208,7 @@ function MobileMarketTradingView({
   decimal,
   dataSource,
   storageNamespace,
+  intervalStorageNamespace,
   pageWidth,
   onChartSwitch,
   onNativeIndicatorQuickBarChange,
@@ -220,6 +224,7 @@ function MobileMarketTradingView({
   decimal: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
+  intervalStorageNamespace: ITradingViewNativeIntervalStorageNamespace;
   pageWidth?: number;
   onChartSwitch: () => void;
   onNativeIndicatorQuickBarChange: (
@@ -249,6 +254,7 @@ function MobileMarketTradingView({
       decimal={decimal}
       dataSource={dataSource}
       storageNamespace={storageNamespace}
+      intervalStorageNamespace={intervalStorageNamespace}
       pageWidth={pageWidth}
       nativeControlsLayoutMode="mobile"
       onChartSwitch={onChartSwitch}
@@ -311,6 +317,10 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
+  const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
+    networkId,
+    tokenAddress,
+  });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
     networkId,
@@ -806,6 +816,7 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      onPriceUpdate={handleNativeChartPriceUpdate}
                       enableNativeChartSettings
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
@@ -836,6 +847,9 @@ export function MobileLayout({
                       decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
+                      intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+                        tradingViewNativeSource,
+                      )}
                       pageWidth={layoutPageWidth}
                       onChartSwitch={onChartSwitch}
                       onNativeIndicatorQuickBarChange={
@@ -857,6 +871,9 @@ export function MobileLayout({
                 }
                 return (
                   <LazyMobileMarketTradingView
+                    intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+                      tradingViewNativeSource,
+                    )}
                     tokenAddress={marketTradingViewParams.tokenAddress}
                     networkId={marketTradingViewParams.networkId}
                     tokenSymbol={marketTradingViewParams.tokenSymbol}
@@ -892,6 +909,7 @@ export function MobileLayout({
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
+    handleNativeChartPriceUpdate,
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isChartFullscreen,
