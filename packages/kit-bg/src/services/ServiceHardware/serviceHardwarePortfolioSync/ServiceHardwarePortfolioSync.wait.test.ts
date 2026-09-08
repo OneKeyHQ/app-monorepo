@@ -6,6 +6,10 @@ import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -17,6 +21,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
+import { HardwareProcessingManager } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
   validatePortfolioPackageBase64,
@@ -38,8 +43,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     AllNetworksTokenListSettled: 'AllNetworksTokenListSettled',
+    CloseHardwareUiStateDialogManually: 'CloseHardwareUiStateDialogManually',
   },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
+  appEventBus: new (jest.requireActual<typeof import('events')>(
+    'events',
+  ).EventEmitter)(),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -542,7 +550,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       },
     );
     const withHardwareProcessing = jest.fn(
-      async (operation: (lease: object) => Promise<unknown>) =>
+      async (
+        operation: (lease: object) => Promise<unknown>,
+        _options: { onCancel?: () => void },
+      ) =>
         operation({ deviceKey: 'db-device-1', owner: Symbol('interactive') }),
     );
     const service = new ServiceHardwarePortfolioSync({
@@ -1311,6 +1322,312 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
     expect(getDeviceStateWithUnlock.mock.invocationCallOrder[0]).toBeLessThan(
       uploadPortfolioPackage.mock.invocationCallOrder[0],
+    );
+  });
+
+  test('does not enqueue another interactive sync while the first is unlocking', async () => {
+    const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false] });
+    let resolveUnlock!: () => void;
+    let notifyStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+          notifyStarted();
+        }),
+    );
+    const first = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await started;
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    resolveUnlock();
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(false);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records local lifecycle metadata without raw device or portfolio data', async () => {
+    const log = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'log')
+      .mockImplementation(() => '');
+    const environment = jest.replaceProperty(
+      process.env,
+      'NODE_ENV',
+      'production',
+    );
+    try {
+      const { service } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+      await service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      const events = log.mock.calls.filter(([label]) =>
+        label.startsWith('[PRO2-PORTFOLIO-SYNC] '),
+      );
+      expect(events.map(([label]) => label)).toEqual(
+        expect.arrayContaining([
+          '[PRO2-PORTFOLIO-SYNC] queued',
+          '[PRO2-PORTFOLIO-SYNC] unlock-started',
+          '[PRO2-PORTFOLIO-SYNC] unlock-completed',
+          '[PRO2-PORTFOLIO-SYNC] pack-started',
+          '[PRO2-PORTFOLIO-SYNC] upload-started',
+          '[PRO2-PORTFOLIO-SYNC] result',
+        ]),
+      );
+      const records = events.map(
+        ([, value]) => JSON.parse(String(value)) as Record<string, unknown>,
+      );
+      expect(new Set(records.map((record) => record.syncId)).size).toBe(1);
+      expect(records[0]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        connectIdSuffix: '***T_ID',
+        transportType: EHardwareTransportType.BLE,
+        syncId: expect.any(String),
+      });
+      expect(records[records.length - 1]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        status: 'success',
+        queueDurationMs: expect.any(Number),
+        unlockDurationMs: expect.any(Number),
+        hardwareDurationMs: expect.any(Number),
+        packageBytes: 3,
+      });
+      const text = JSON.stringify(records);
+      for (const sensitiveValue of [
+        'PRO2_DEVICE_ID',
+        'PRO2_CONNECT_ID',
+        'NNECT_ID',
+        '0x1234567890abcdef',
+        '0.00007276',
+        'AQID',
+      ]) {
+        expect(text).not.toContain(sensitiveValue);
+      }
+    } finally {
+      environment.restore();
+      log.mockRestore();
+    }
+  });
+
+  test('cancels an owned interactive sync before starting device unlock', async () => {
+    const {
+      service,
+      withHardwareProcessing,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    let releaseQueue!: () => void;
+    let notifyQueued!: () => void;
+    const queued = new Promise<void>((resolve) => {
+      notifyQueued = resolve;
+    });
+    const queue = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    withHardwareProcessing.mockImplementationOnce(async (operation) => {
+      notifyQueued();
+      await queue;
+      return operation({ deviceKey: 'db-device-1', owner: Symbol('queued') });
+    });
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await queued;
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    releaseQueue();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(getDeviceStateWithUnlock).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test.each(['unlock', 'pack', 'upload'] as const)(
+    'does not resume after user close during %s',
+    async (stage) => {
+      const {
+        getDeviceStateWithUnlock,
+        withHardwareProcessing,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({ busyResults: [false] });
+      let release!: () => void;
+      let notifyStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        notifyStarted = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let operation = getDeviceStateWithUnlock;
+      if (stage === 'pack') {
+        operation = serviceInternals.submitPortfolioJsonToServer;
+      } else if (stage === 'upload') {
+        operation = uploadPortfolioPackage;
+      }
+      const original = operation.getMockImplementation();
+      operation.mockImplementationOnce(async () => {
+        notifyStarted();
+        await pending;
+        const value: unknown = await original?.();
+        return value;
+      });
+      const first = service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      // Attach a rejection handler before delivering the close event.
+      const result = first.catch((error: unknown) => error);
+      await started;
+      withHardwareProcessing.mock.calls[0][1].onCancel?.();
+      await service.notifyAllNetworksTokenListSettled(buildHardwarePayload());
+      release();
+      await expect(result).resolves.toMatchObject({
+        code: HardwareErrorCode.DeviceInterruptedFromOutside,
+      });
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 1 : 0,
+      );
+      expect(
+        (
+          service as unknown as {
+            pendingInteractivePayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingInteractivePayloadByTargetKey.size,
+      ).toBe(0);
+      expect(
+        appEventBus.listenerCount(
+          EAppEventBusNames.CloseHardwareUiStateDialogManually,
+        ),
+      ).toBe(0);
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).resolves.toBe(true);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 2 : 1,
+      );
+    },
+  );
+
+  test('accepts a new tap while the cancelled operation is still draining', async () => {
+    const {
+      service,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({ busyResults: [false] });
+    const manager = new HardwareProcessingManager();
+    withHardwareProcessing.mockImplementation(async (operation, options) =>
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          const onCancel = options.onCancel!;
+          lease.signal?.addEventListener('abort', onCancel);
+          try {
+            return await operation(lease);
+          } finally {
+            lease.signal?.removeEventListener('abort', onCancel);
+          }
+        },
+      }),
+    );
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const first = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    const oldLease = manager.getActiveOneKeyOperationLease()!;
+    manager.cancelOneKeyOperation(oldLease);
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    // A repeated close from A must not cancel the queued B.
+    manager.cancelOneKeyOperation(oldLease);
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
+    release();
+    await expect(first).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    await expect(second).resolves.toBe(true);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('persists an acknowledged upload when closed during local bookkeeping', async () => {
+    const { service, updateTargetState, withHardwareProcessing } =
+      prepareHardwareSync({ busyResults: [false] });
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    updateTargetState.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    // The device ACK settles in this turn while attempt persistence is held.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    release();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(updateTargetState).toHaveBeenLastCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastContentHash: expect.any(String) }),
     );
   });
 
