@@ -45,7 +45,6 @@ export type IBorrowPositionCardProps = {
   actions: IBorrowPositionCardAction[];
   isExpanded?: boolean;
   onToggleExpand?: () => void;
-  expandLabel?: string;
   testID?: string;
   actionsTestID?: string;
 };
@@ -62,7 +61,6 @@ export function BorrowPositionCard({
   actions,
   isExpanded = false,
   onToggleExpand,
-  expandLabel,
   testID,
   actionsTestID,
 }: IBorrowPositionCardProps) {
@@ -77,15 +75,18 @@ export function BorrowPositionCard({
   // point instead. It deliberately takes no onPress — that would make tamagui
   // attach press handling and claim the native touch responder, which would
   // stop the card's own pressStyle from ever firing.
+  //
+  // No explicit label: `accessible` merges the row's children into one node,
+  // and a label would replace their text, so the balance and fiat value would
+  // stop being announced. Letting it compose reads out the asset and both
+  // amounts, then the button role and expanded state.
   const disclosureProps = isPressable
     ? ({
         role: 'button',
         'aria-expanded': isExpanded,
-        'aria-label': expandLabel,
         tabIndex: 0,
         accessible: true,
         accessibilityRole: 'button',
-        accessibilityLabel: expandLabel,
         accessibilityState: { expanded: isExpanded },
         onAccessibilityTap: onToggleExpand,
         focusStyle: {
