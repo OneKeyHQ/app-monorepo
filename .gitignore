@@ -112,11 +112,13 @@ apps/mobile/android/.kotlin/
 apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/**/*.class
 /apps/mobile/out-dir-bundle
 /apps/mobile/out-dir-bundle-zip
+/apps/mobile/out-dir-smoke-*/
 /apps/mobile/ios/go-install
 /apps/mobile/ios/tmp-oc-test
 /apps/mobile/ios/OneKeyWallet/Fonts
 
 debug.log
+*.log
 
 # Perf monitor local sessions
 /development/output/perf-sessions/
