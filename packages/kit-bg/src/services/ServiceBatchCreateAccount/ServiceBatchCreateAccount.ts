@@ -3,6 +3,7 @@ import {
   ORPHAN_ELIGIBLE_ERROR_CODES,
   HardwareErrorCode as ThirdPartyHwErrorCode,
 } from '@onekeyfe/hwk-adapter-core/errors';
+import { Semaphore } from 'async-mutex';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -265,6 +266,8 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
 
 @backgroundClass()
 class ServiceBatchCreateAccount extends ServiceBase {
+  private readonly batchCreateFlowMutex = new Semaphore(1);
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -378,6 +381,24 @@ class ServiceBatchCreateAccount extends ServiceBase {
         }
       | {
           mode: 'normal'; // selected indexes mode
+          saveToCache?: boolean;
+          params: IBatchBuildAccountsNormalFlowParams;
+        },
+  ) {
+    return this.batchCreateFlowMutex.runExclusive(() =>
+      this.startBatchCreateAccountsFlowInternal(payload),
+    );
+  }
+
+  private async startBatchCreateAccountsFlowInternal(
+    payload:
+      | {
+          mode: 'advanced';
+          saveToCache?: boolean;
+          params: IBatchBuildAccountsAdvancedFlowParams;
+        }
+      | {
+          mode: 'normal';
           saveToCache?: boolean;
           params: IBatchBuildAccountsNormalFlowParams;
         },
@@ -1305,6 +1326,24 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startBatchCreateAccountsFlowForAllNetwork(
+    params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams,
+  ): Promise<{
+    addedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    failedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+      error: IOneKeyError;
+    }[];
+  }> {
+    return this.batchCreateFlowMutex.runExclusive(() =>
+      this.startBatchCreateAccountsFlowForAllNetworkInternal(params),
+    );
+  }
+
+  private async startBatchCreateAccountsFlowForAllNetworkInternal(
     params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams,
   ): Promise<{
     addedAccounts: {

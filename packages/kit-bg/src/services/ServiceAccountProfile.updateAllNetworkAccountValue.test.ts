@@ -162,14 +162,22 @@ const TRON_ACCOUNT_B = "hd-1--m/44'/195'/0'/0/0";
 
 function makeService({
   accountsInSameIndexedAccountId = {},
+  allAccounts = [],
 }: {
   accountsInSameIndexedAccountId?: Record<
     string,
     Array<{ id: string; address?: string; xpub?: string }>
   >;
+  allAccounts?: Array<{
+    id: string;
+    indexedAccountId?: string;
+    address?: string;
+    xpub?: string;
+  }>;
 } = {}) {
   const backgroundApi = {
     serviceAccount: {
+      getAllAccounts: jest.fn(async () => ({ accounts: allAccounts })),
       getAccountXpub: jest.fn(async () => undefined),
       getAccountAddressForApi: jest.fn(async () => 'mock-address'),
       getAccountsInSameIndexedAccountId: jest.fn(
@@ -185,6 +193,83 @@ function makeService({
   };
   return new ServiceAccountProfile({ backgroundApi } as any);
 }
+
+describe('ServiceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetAllNetworkAccountsValue.mockReset();
+  });
+
+  it('indexes one account-table snapshot instead of querying it per account', async () => {
+    const importedAccountId = 'imported--evm--1--0xImported';
+    mockGetAllNetworkAccountsValue.mockResolvedValue([
+      { value: { [TRON_ID]: '4.17' }, currency: 'usd' },
+      { value: { [EVM_ID]: '55' }, currency: 'usd' },
+      { value: { [EVM_ID]: '8' }, currency: 'usd' },
+    ]);
+    const service = makeService({
+      allAccounts: [
+        {
+          id: TRON_ACCOUNT_A,
+          indexedAccountId: INDEXED_A,
+          address: 'TAddrA',
+        },
+        {
+          id: EVM_ACCOUNT_A,
+          indexedAccountId: INDEXED_A,
+          address: '0xA',
+        },
+        {
+          id: importedAccountId,
+          address: '0xImported',
+        },
+      ],
+    });
+
+    const result = await service.getAllNetworkAccountsValueByAccountIdBatch({
+      accounts: [{ accountId: INDEXED_A }, { accountId: importedAccountId }],
+    });
+    const serviceAccount = (
+      service as unknown as {
+        backgroundApi: {
+          serviceAccount: {
+            getAllAccounts: jest.Mock;
+            getAccountsInSameIndexedAccountId: jest.Mock;
+            getDBAccountSafe: jest.Mock;
+          };
+        };
+      }
+    ).backgroundApi.serviceAccount;
+
+    expect(serviceAccount.getAllAccounts).toHaveBeenCalledTimes(1);
+    expect(
+      serviceAccount.getAccountsInSameIndexedAccountId,
+    ).not.toHaveBeenCalled();
+    expect(serviceAccount.getDBAccountSafe).not.toHaveBeenCalled();
+    expect(mockGetAllNetworkAccountsValue).toHaveBeenCalledWith({
+      items: [
+        { accountAddress: 'TAddrA', xpub: undefined },
+        { accountAddress: '0xA', xpub: undefined },
+        { accountAddress: '0xImported', xpub: undefined },
+      ],
+    });
+    expect(result).toEqual([
+      {
+        accountId: INDEXED_A,
+        value: {
+          [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17',
+          [`${EVM_ACCOUNT_A}_${EVM_ID}`]: '55',
+        },
+        currency: 'usd',
+      },
+      {
+        accountId: importedAccountId,
+        value: { [`${importedAccountId}_${EVM_ID}`]: '8' },
+        currency: 'usd',
+      },
+    ]);
+  });
+});
 
 describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
   beforeEach(() => {

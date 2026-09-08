@@ -36,6 +36,8 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { runAddAccountFlowOnce } from './addAccountFlowGuard';
+
 function resetAddressCreationState() {
   void indexedAccountAddressCreationStateAtom.set(undefined);
 }
@@ -99,87 +101,91 @@ export function useAddAccount({
         return;
       }
 
-      let isNavigationPopped = false;
-      const popNavigation = () => {
-        if (isNavigationPopped) {
-          return;
-        }
-        isNavigationPopped = true;
-        resetAccountManagerStacksModal();
-      };
+      return runAddAccountFlowOnce(async () => {
+        let isNavigationPopped = false;
+        const popNavigation = () => {
+          if (isNavigationPopped) {
+            return;
+          }
+          isNavigationPopped = true;
+          resetAccountManagerStacksModal();
+        };
 
-      try {
-        const focusedWallet = focusedWalletInfo?.wallet;
-        const focusedWalletId = focusedWallet?.id;
+        try {
+          const focusedWallet = focusedWalletInfo?.wallet;
+          const focusedWalletId = focusedWallet?.id;
 
-        await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
-          walletId: focusedWalletId || '',
-        });
-        const c = await serviceAccount.addHDNextIndexedAccount({
-          walletId: focusedWalletId || '',
-        });
-        await actions.current.updateSelectedAccountForHdOrHwAccount({
-          num,
-          walletId: focusedWalletId,
-          indexedAccountId: c.indexedAccountId,
-        });
-        const indexedAccount = await serviceAccount.getIndexedAccountSafe({
-          id: c.indexedAccountId,
-        });
-        if (indexedAccount && focusedWallet) {
-          const walletIdFromIndexedId = accountUtils.getWalletIdFromAccountId({
-            accountId: indexedAccount?.id,
+          await serviceAccount.generateWalletsMissingMetaWithUserInteraction({
+            walletId: focusedWalletId || '',
           });
-          if (walletIdFromIndexedId === focusedWalletId) {
-            addBeforeUnloadListener();
-            await indexedAccountAddressCreationStateAtom.set({
-              walletId: focusedWalletId,
-              indexedAccountId: indexedAccount?.id,
-            });
-            await timerUtils.wait(1500);
-            popNavigation();
-            const addDefaultNetworkAccounts = async () =>
-              actions.current.addDefaultNetworkAccounts({
-                wallet: focusedWallet,
-                indexedAccount,
-                autoHandleExitError: true,
-              });
-            const result = await addDefaultNetworkAccounts();
-            const isQrWallet = accountUtils.isQrWallet({
-              walletId: focusedWalletId,
-            });
-            if (
-              isQrWallet &&
-              (activeAccount?.network?.id !== getNetworkIdsMap().onekeyall
-                ? result?.failedAccounts?.find(
-                    (account) =>
-                      account.networkId === activeAccount?.network?.id,
-                  )
-                : result?.failedAccounts?.length)
-            ) {
-              await createQrWalletAccount({
+          const c = await serviceAccount.addHDNextIndexedAccount({
+            walletId: focusedWalletId || '',
+          });
+          await actions.current.updateSelectedAccountForHdOrHwAccount({
+            num,
+            walletId: focusedWalletId,
+            indexedAccountId: c.indexedAccountId,
+          });
+          const indexedAccount = await serviceAccount.getIndexedAccountSafe({
+            id: c.indexedAccountId,
+          });
+          if (indexedAccount && focusedWallet) {
+            const walletIdFromIndexedId = accountUtils.getWalletIdFromAccountId(
+              {
+                accountId: indexedAccount?.id,
+              },
+            );
+            if (walletIdFromIndexedId === focusedWalletId) {
+              addBeforeUnloadListener();
+              await indexedAccountAddressCreationStateAtom.set({
                 walletId: focusedWalletId,
-                networkId:
-                  activeAccount?.network?.id || getNetworkIdsMap().onekeyall,
-                indexedAccountId: indexedAccount.id,
+                indexedAccountId: indexedAccount?.id,
               });
-              await addDefaultNetworkAccounts();
+              await timerUtils.wait(1500);
+              popNavigation();
+              const addDefaultNetworkAccounts = async () =>
+                actions.current.addDefaultNetworkAccounts({
+                  wallet: focusedWallet,
+                  indexedAccount,
+                  autoHandleExitError: true,
+                });
+              const result = await addDefaultNetworkAccounts();
+              const isQrWallet = accountUtils.isQrWallet({
+                walletId: focusedWalletId,
+              });
+              if (
+                isQrWallet &&
+                (activeAccount?.network?.id !== getNetworkIdsMap().onekeyall
+                  ? result?.failedAccounts?.find(
+                      (account) =>
+                        account.networkId === activeAccount?.network?.id,
+                    )
+                  : result?.failedAccounts?.length)
+              ) {
+                await createQrWalletAccount({
+                  walletId: focusedWalletId,
+                  networkId:
+                    activeAccount?.network?.id || getNetworkIdsMap().onekeyall,
+                  indexedAccountId: indexedAccount.id,
+                });
+                await addDefaultNetworkAccounts();
+              }
             }
           }
+        } finally {
+          resetAddressCreationState();
+          if (focusedWalletInfo.device?.connectId) {
+            await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+              {
+                connectId: focusedWalletInfo.device?.connectId,
+                hardClose: true,
+              },
+            );
+          }
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+          popNavigation();
         }
-      } finally {
-        resetAddressCreationState();
-        if (focusedWalletInfo.device?.connectId) {
-          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-            {
-              connectId: focusedWalletInfo.device?.connectId,
-              hardClose: true,
-            },
-          );
-        }
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-        popNavigation();
-      }
+      });
     },
     300,
     {

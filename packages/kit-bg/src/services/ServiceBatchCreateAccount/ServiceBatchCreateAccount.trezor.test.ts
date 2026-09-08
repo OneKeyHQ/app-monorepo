@@ -89,6 +89,48 @@ describe('ServiceBatchCreateAccount Trezor all-network', () => {
     ).toBeUndefined();
   });
 
+  it('serializes the normal and all-network create flows with one lock', async () => {
+    const service = new ServiceBatchCreateAccount({ backgroundApi: {} });
+    const callOrder: string[] = [];
+    let finishFirstFlow: (() => void) | undefined;
+    const firstFlow = jest.fn(async () => {
+      callOrder.push('normal:start');
+      await new Promise<void>((resolve) => {
+        finishFirstFlow = resolve;
+      });
+      callOrder.push('normal:end');
+    });
+    const secondFlow = jest.fn(async () => {
+      callOrder.push('all-network:start');
+    });
+    Object.assign(service, {
+      startBatchCreateAccountsFlowInternal: firstFlow,
+      startBatchCreateAccountsFlowForAllNetworkInternal: secondFlow,
+    });
+    const publicService = service as unknown as {
+      startBatchCreateAccountsFlow: (payload: unknown) => Promise<void>;
+      startBatchCreateAccountsFlowForAllNetwork: (
+        payload: unknown,
+      ) => Promise<void>;
+    };
+
+    const first = publicService.startBatchCreateAccountsFlow({});
+    await Promise.resolve();
+    const second = publicService.startBatchCreateAccountsFlowForAllNetwork({});
+    await Promise.resolve();
+
+    expect(firstFlow).toHaveBeenCalledTimes(1);
+    expect(secondFlow).not.toHaveBeenCalled();
+
+    finishFirstFlow?.();
+    await Promise.all([first, second]);
+    expect(callOrder).toEqual([
+      'normal:start',
+      'normal:end',
+      'all-network:start',
+    ]);
+  });
+
   it('binds third-party all-network get-address to preserve SDK adapter this context', async () => {
     const thirdPartyHw = {
       deviceId: 'FEATURES_DEVICE_ID',
