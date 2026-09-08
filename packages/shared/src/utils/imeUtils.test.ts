@@ -1,6 +1,5 @@
 import {
   IME_KEYCODE,
-  attachImeCompositionListeners,
   createImeCompositionLock,
   getKeyboardEventKey,
   isImeComposingKeyboardEvent,
@@ -124,73 +123,5 @@ describe('createImeCompositionLock', () => {
         isComposing: false,
       }),
     ).toBe(false);
-  });
-});
-
-describe('attachImeCompositionListeners', () => {
-  it('binds start and end, then removes them on dispose', () => {
-    const listeners = new Map<string, Array<(event: Event) => void>>();
-    const node = {
-      addEventListener(type: string, listener: (event: Event) => void) {
-        const current = listeners.get(type) ?? [];
-        current.push(listener);
-        listeners.set(type, current);
-      },
-      removeEventListener(type: string, listener: (event: Event) => void) {
-        listeners.set(
-          type,
-          (listeners.get(type) ?? []).filter((item) => item !== listener),
-        );
-      },
-    };
-    const onStart = jest.fn();
-    const onEnd = jest.fn();
-    const detach = attachImeCompositionListeners(node, {
-      onStart,
-      onEnd,
-    });
-
-    const startEvent = { type: 'compositionstart' } as Event;
-    const endEvent = { type: 'compositionend' } as Event;
-    listeners.get('compositionstart')?.[0](startEvent);
-    listeners.get('compositionend')?.[0](endEvent);
-
-    expect(onStart).toHaveBeenCalledWith(startEvent);
-    expect(onEnd).toHaveBeenCalledWith(endEvent);
-
-    detach();
-    expect(listeners.get('compositionstart')).toEqual([]);
-    expect(listeners.get('compositionend')).toEqual([]);
-  });
-
-  it('drives the composition lock from DOM events', () => {
-    jest.useFakeTimers();
-    const lock = createImeCompositionLock();
-    const listeners = new Map<string, Array<(event: Event) => void>>();
-    const node = {
-      addEventListener(type: string, listener: (event: Event) => void) {
-        const current = listeners.get(type) ?? [];
-        current.push(listener);
-        listeners.set(type, current);
-      },
-      removeEventListener() {},
-    };
-    attachImeCompositionListeners(node, {
-      onStart: lock.start,
-      onEnd: lock.end,
-    });
-
-    listeners.get('compositionstart')?.[0]({} as Event);
-    listeners.get('compositionend')?.[0]({} as Event);
-    expect(lock.shouldIgnoreKeyboardEvent({ key: 'Enter', keyCode: 13 })).toBe(
-      true,
-    );
-
-    jest.runOnlyPendingTimers();
-    expect(lock.shouldIgnoreKeyboardEvent({ key: 'Enter', keyCode: 13 })).toBe(
-      false,
-    );
-    lock.dispose();
-    jest.useRealTimers();
   });
 });

@@ -83,40 +83,6 @@ export function createImeCompositionLock(): IImeCompositionLock {
   };
 }
 
-export type IImeCompositionDomNode = {
-  addEventListener: (type: string, listener: (event: Event) => void) => void;
-  removeEventListener: (type: string, listener: (event: Event) => void) => void;
-};
-
-export type IImeCompositionDomHandlers = {
-  onStart?: (event: Event) => void;
-  onEnd?: (event: Event) => void;
-};
-
-/**
- * RN-web TextInput's prop allowlist drops React `onComposition*` handlers.
- * Bind the DOM events on the host input instead.
- */
-export function attachImeCompositionListeners(
-  node: IImeCompositionDomNode,
-  handlers: IImeCompositionDomHandlers,
-): () => void {
-  const handleStart = (event: Event) => {
-    handlers.onStart?.(event);
-  };
-  const handleEnd = (event: Event) => {
-    handlers.onEnd?.(event);
-  };
-
-  node.addEventListener('compositionstart', handleStart);
-  node.addEventListener('compositionend', handleEnd);
-
-  return () => {
-    node.removeEventListener('compositionstart', handleStart);
-    node.removeEventListener('compositionend', handleEnd);
-  };
-}
-
 export function useImeCompositionLock(): IImeCompositionLock {
   const lockRef = useRef<IImeCompositionLock | undefined>(undefined);
   if (!lockRef.current) {

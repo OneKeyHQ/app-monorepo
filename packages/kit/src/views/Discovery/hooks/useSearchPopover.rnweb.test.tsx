@@ -14,25 +14,33 @@ jest.mock('./useSearchPopoverFeatureFlag', () => ({
   useSearchPopoverUIFeatureFlag: () => true,
 }));
 
-import { useEffect, useRef } from 'react';
+import type {
+  ComponentType,
+  CompositionEvent as ReactCompositionEvent,
+} from 'react';
+import { useRef } from 'react';
 
 import { act, render } from '@testing-library/react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  IME_KEYCODE,
-  attachImeCompositionListeners,
-} from '@onekeyhq/shared/src/utils/imeUtils';
+import { IME_KEYCODE } from '@onekeyhq/shared/src/utils/imeUtils';
 
 import { useSearchPopover } from './useSearchPopover';
 
-const TextInput = jest.requireActual<typeof import('react-native').TextInput>(
-  'react-native-web/dist/cjs/exports/TextInput',
-);
+import type { TextInputProps } from 'react-native';
+
+type IWebTextInputProps = TextInputProps & {
+  onCompositionStart?: (event: ReactCompositionEvent<HTMLInputElement>) => void;
+  onCompositionEnd?: (event: ReactCompositionEvent<HTMLInputElement>) => void;
+};
+
+// The repository's RN-web ESM patch forwards these React composition props.
+const TextInput = jest.requireActual<{
+  default: ComponentType<IWebTextInputProps>;
+}>('react-native-web/dist/exports/TextInput').default;
 
 function ImeSearchInput({ onEnterPress }: { onEnterPress: () => void }) {
-  const hostRef = useRef<React.ElementRef<typeof TextInput>>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const { handleKeyDown, handleCompositionStart, handleCompositionEnd } =
     useSearchPopover({
@@ -45,24 +53,31 @@ function ImeSearchInput({ onEnterPress }: { onEnterPress: () => void }) {
       displayHistoryList: false,
     });
 
-  useEffect(() => {
-    const node = hostRef.current as unknown as HTMLInputElement | null;
-    if (!node) {
-      return undefined;
-    }
-    return attachImeCompositionListeners(node, {
-      onStart: handleCompositionStart,
-      onEnd: handleCompositionEnd,
-    });
-  }, [handleCompositionStart, handleCompositionEnd]);
-
   return (
     <TextInput
-      ref={hostRef}
       accessible
       defaultValue="four"
       blurOnSubmit={false}
       onKeyPress={handleKeyDown}
+      onCompositionStart={handleCompositionStart}
+      onCompositionEnd={handleCompositionEnd}
+    />
+  );
+}
+
+function LateBoundCompositionInput({
+  onCompositionStart,
+  onCompositionEnd,
+}: {
+  onCompositionStart?: (event: ReactCompositionEvent<HTMLInputElement>) => void;
+  onCompositionEnd?: (event: ReactCompositionEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <TextInput
+      accessible
+      defaultValue="four"
+      onCompositionStart={onCompositionStart}
+      onCompositionEnd={onCompositionEnd}
     />
   );
 }
@@ -158,22 +173,58 @@ describe('useSearchPopover RN-web IME Enter', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('removes composition listeners on unmount', () => {
-    const { container, unmount } = render(
-      <ImeSearchInput onEnterPress={jest.fn()} />,
-    );
+  it('forwards React composition events with nativeEvent once, including late-added callbacks', () => {
+    const onCompositionStart = jest.fn();
+    const onCompositionEnd = jest.fn();
+    const { container, rerender } = render(<LateBoundCompositionInput />);
     const input = getHostInput(container);
-    const removeSpy = jest.spyOn(input, 'removeEventListener');
 
-    unmount();
+    act(() => {
+      input.dispatchEvent(
+        new CompositionEvent('compositionstart', {
+          bubbles: true,
+          data: 'four',
+        }),
+      );
+      input.dispatchEvent(
+        new CompositionEvent('compositionend', {
+          bubbles: true,
+          data: 'four',
+        }),
+      );
+    });
+    expect(onCompositionStart).not.toHaveBeenCalled();
+    expect(onCompositionEnd).not.toHaveBeenCalled();
 
-    expect(removeSpy).toHaveBeenCalledWith(
-      'compositionstart',
-      expect.any(Function),
+    rerender(
+      <LateBoundCompositionInput
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
+      />,
     );
-    expect(removeSpy).toHaveBeenCalledWith(
-      'compositionend',
-      expect.any(Function),
+
+    act(() => {
+      input.dispatchEvent(
+        new CompositionEvent('compositionstart', {
+          bubbles: true,
+          data: 'four',
+        }),
+      );
+      input.dispatchEvent(
+        new CompositionEvent('compositionend', {
+          bubbles: true,
+          data: 'four',
+        }),
+      );
+    });
+
+    expect(onCompositionStart).toHaveBeenCalledTimes(1);
+    expect(onCompositionEnd).toHaveBeenCalledTimes(1);
+    expect(onCompositionStart.mock.calls[0][0].nativeEvent).toBeInstanceOf(
+      CompositionEvent,
+    );
+    expect(onCompositionEnd.mock.calls[0][0].nativeEvent).toBeInstanceOf(
+      CompositionEvent,
     );
   });
 });
