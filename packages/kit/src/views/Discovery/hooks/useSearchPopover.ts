@@ -146,6 +146,7 @@ export function useSearchPopover({
     selectedIndex,
     handleKeyDown,
     handleCompositionStart: imeCompositionLock.start,
+    handleCompositionUpdate: imeCompositionLock.start,
     handleCompositionEnd: imeCompositionLock.end,
     resetSelectedIndex,
     isPopoverVisible,

@@ -6,6 +6,11 @@ import { useEffect, useRef } from 'react';
  */
 export const IME_KEYCODE = 229;
 
+/**
+ * UI Events `KeyboardEvent.key` while an IME is processing input (Windows / Chromium).
+ */
+export const IME_PROCESS_KEY = 'Process';
+
 export type IImeKeyboardEventLike = {
   isComposing?: boolean;
   key?: string;
@@ -27,15 +32,21 @@ export type IImeCompositionLock = {
   dispose: () => void;
 };
 
+function isImeProcessKey(key: string | undefined): boolean {
+  return key === IME_PROCESS_KEY;
+}
+
 export function isImeComposingKeyboardEvent(
   event: IImeKeyboardEventLike,
 ): boolean {
   const nativeEvent = event.nativeEvent;
   return (
     event.isComposing === true ||
+    isImeProcessKey(event.key) ||
     event.keyCode === IME_KEYCODE ||
     event.which === IME_KEYCODE ||
     nativeEvent?.isComposing === true ||
+    isImeProcessKey(nativeEvent?.key) ||
     nativeEvent?.keyCode === IME_KEYCODE ||
     nativeEvent?.which === IME_KEYCODE
   );
@@ -80,6 +91,46 @@ export function createImeCompositionLock(): IImeCompositionLock {
       clearUnlockTimer();
       locked = false;
     },
+  };
+}
+
+export type IImeCompositionDomNode = {
+  addEventListener: (type: string, listener: (event: Event) => void) => void;
+  removeEventListener: (type: string, listener: (event: Event) => void) => void;
+};
+
+export type IImeCompositionDomHandlers = {
+  onStart?: (event: Event) => void;
+  onUpdate?: (event: Event) => void;
+  onEnd?: (event: Event) => void;
+};
+
+/**
+ * RN-web TextInput's prop allowlist drops React `onComposition*` handlers.
+ * Bind the DOM events on the host input instead.
+ */
+export function attachImeCompositionListeners(
+  node: IImeCompositionDomNode,
+  handlers: IImeCompositionDomHandlers,
+): () => void {
+  const handleStart = (event: Event) => {
+    handlers.onStart?.(event);
+  };
+  const handleUpdate = (event: Event) => {
+    handlers.onUpdate?.(event);
+  };
+  const handleEnd = (event: Event) => {
+    handlers.onEnd?.(event);
+  };
+
+  node.addEventListener('compositionstart', handleStart);
+  node.addEventListener('compositionupdate', handleUpdate);
+  node.addEventListener('compositionend', handleEnd);
+
+  return () => {
+    node.removeEventListener('compositionstart', handleStart);
+    node.removeEventListener('compositionupdate', handleUpdate);
+    node.removeEventListener('compositionend', handleEnd);
   };
 }
 

@@ -20,6 +20,7 @@ import {
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { attachImeCompositionListeners } from '@onekeyhq/shared/src/utils/imeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
@@ -90,6 +91,8 @@ export type IInputProps = {
 } & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
+    /** Web only */
+    onCompositionUpdate?: CompositionEventHandler<any>;
     /** Web only */
     onCompositionEnd?: CompositionEventHandler<any>;
   };
@@ -249,6 +252,44 @@ export const useOnWebPaste = platformEnv.isNative
       }, [inputRef, onPaste]);
     };
 
+type IWebImeCompositionHandlers = {
+  onCompositionStart?: CompositionEventHandler<any>;
+  onCompositionUpdate?: CompositionEventHandler<any>;
+  onCompositionEnd?: CompositionEventHandler<any>;
+};
+
+export const useOnWebImeComposition = platformEnv.isNative
+  ? noop
+  : (
+      inputRef: RefObject<TextInput | null> | null,
+      handlers: IWebImeCompositionHandlers,
+    ) => {
+      const handlersRef = useRef(handlers);
+      handlersRef.current = handlers;
+      useEffect(() => {
+        const node = inputRef?.current as unknown as HTMLInputElement | null;
+        if (!node || typeof node.addEventListener !== 'function') {
+          return;
+        }
+        const { onCompositionStart, onCompositionUpdate, onCompositionEnd } =
+          handlersRef.current;
+        if (!onCompositionStart && !onCompositionUpdate && !onCompositionEnd) {
+          return;
+        }
+        return attachImeCompositionListeners(node, {
+          onStart: (event) => {
+            handlersRef.current.onCompositionStart?.(event as any);
+          },
+          onUpdate: (event) => {
+            handlersRef.current.onCompositionUpdate?.(event as any);
+          },
+          onEnd: (event) => {
+            handlersRef.current.onCompositionEnd?.(event as any);
+          },
+        });
+      }, [inputRef]);
+    };
+
 function BaseInput(
   inputProps: IInputProps,
   forwardedRef: ForwardedRef<IInputRef>,
@@ -285,6 +326,9 @@ function BaseInput(
     secureTextEntry,
     onSecureTextEntryChange,
     children: _children,
+    onCompositionStart,
+    onCompositionUpdate,
+    onCompositionEnd,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -427,6 +471,12 @@ function BaseInput(
   ]);
 
   useOnWebPaste(inputRef, onPaste);
+  // RN-web TextInput drops React onComposition* from its prop allowlist.
+  useOnWebImeComposition(inputRef, {
+    onCompositionStart,
+    onCompositionUpdate,
+    onCompositionEnd,
+  });
 
   useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 

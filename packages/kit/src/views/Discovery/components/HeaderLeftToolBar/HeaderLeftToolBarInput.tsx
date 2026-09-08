@@ -110,6 +110,7 @@ function HeaderLeftToolBarInput({
     selectedIndex,
     handleKeyDown,
     handleCompositionStart,
+    handleCompositionUpdate,
     handleCompositionEnd,
     handleInputBlur,
     isPopoverVisible,
@@ -185,10 +186,13 @@ function HeaderLeftToolBarInput({
         selectTextOnFocus
         testID="explore-index-search-input"
         onFocus={() => setIsPopoverOpen(true)}
+        // RN-web maps onKeyPress to keydown; do not also bind onKeyDown.
         // @ts-expect-error
         onKeyPress={handleKeyDown}
         onCompositionStart={handleCompositionStart}
+        onCompositionUpdate={handleCompositionUpdate}
         onCompositionEnd={handleCompositionEnd}
+        autoCapitalize="none"
         addOns={[
           ...(isPrimeAvailable
             ? [

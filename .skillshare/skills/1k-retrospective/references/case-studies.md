@@ -365,5 +365,5 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Date**: 2026-09-08 | **Platforms**: desktop, web, extension
 **Symptom**: In Discovery search, using a Chinese IME to type English and pressing Enter once committed the letters and immediately started a Google search (e.g. query `fou r`).
 **Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
-**Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter; wired on dashboard search, address bar, and SearchBar submit.
+**Fix**: Shared IME composition lock ignores composing / keyCode 229 / `Process` events and holds the lock until after the confirming Enter. RN-web drops React `onComposition*`, so Input binds DOM composition listeners; compositionupdate also locks; search inputs set `autoCapitalize="none"`.
 **Catchable by**: NEW â€” web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter)
