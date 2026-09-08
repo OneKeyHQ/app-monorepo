@@ -348,6 +348,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         setIntervalConfig({
           intervals: data.intervals,
           activeInterval: data.activeInterval,
+          // Control snapshots do not acknowledge an interval change.
+          persist: false,
           timestamp: data.timestamp,
         });
         handleCurrentKLineResolutionChange(data.activeInterval);

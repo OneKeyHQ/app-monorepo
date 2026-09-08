@@ -39,6 +39,7 @@ function config(
 
 describe('chart mode interval synchronization', () => {
   beforeEach(() => mockStorage.clear());
+  afterEach(() => jest.useRealTimers());
 
   it('keeps the TradingView default when no shared preference exists', () => {
     const onIntervalChange = jest.fn();
@@ -203,5 +204,92 @@ describe('chart mode interval synchronization', () => {
     );
     expect(onIntervalChange).not.toHaveBeenCalled();
     expect(readTradingViewNativeActiveInterval('token')).toBe('30');
+  });
+
+  it('releases a rejected restoration without saving its automatic fallback', async () => {
+    jest.useFakeTimers();
+    await saveTradingViewNativeActiveInterval({
+      interval: '1',
+      namespace: 'token',
+    });
+    const onIntervalChange = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ intervalConfig }) =>
+        useTradingViewIntervalSync({
+          namespace: 'token',
+          intervalConfig,
+          isReady: true,
+          onIntervalChange,
+        }),
+      { initialProps: { intervalConfig: config('60', false) } },
+    );
+    expect(onIntervalChange).toHaveBeenCalledWith('1');
+    rerender({ intervalConfig: config('1', false) });
+    rerender({ intervalConfig: config('1D', false) });
+    act(() => jest.advanceTimersByTime(4999));
+    expect(result.current.isRestoringInterval).toBe(true);
+    // Further fallback messages must not extend the deadline.
+    rerender({ intervalConfig: config('1D', false) });
+    act(() => jest.advanceTimersByTime(1));
+    expect(result.current.isRestoringInterval).toBe(false);
+    expect(result.current.displayedIntervalConfig?.activeInterval).toBe('1D');
+    expect(readTradingViewNativeActiveInterval('token')).toBe('1');
+    expect(onIntervalChange).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('gives a new selection its own deadline and cancels it on acknowledgement', () => {
+    jest.useFakeTimers();
+    const { result, rerender } = renderHook(
+      ({ intervalConfig }) =>
+        useTradingViewIntervalSync({
+          namespace: 'token',
+          intervalConfig,
+          isReady: true,
+          onIntervalChange: jest.fn(),
+        }),
+      { initialProps: { intervalConfig: config('60') } },
+    );
+    act(() => result.current.saveInterval('1'));
+    rerender({ intervalConfig: config('1D', false) });
+    act(() => jest.advanceTimersByTime(4000));
+    act(() => result.current.saveInterval('15'));
+    act(() => jest.advanceTimersByTime(1000));
+    expect(result.current.isRestoringInterval).toBe(true);
+    expect(result.current.displayedIntervalConfig?.activeInterval).toBe('15');
+    expect(readTradingViewNativeActiveInterval('token')).toBe('15');
+    rerender({ intervalConfig: config('15') });
+    expect(result.current.isRestoringInterval).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('waits for layout readiness after a reload and cleans up on unmount', async () => {
+    jest.useFakeTimers();
+    await saveTradingViewNativeActiveInterval({
+      interval: '15',
+      namespace: 'token',
+    });
+    const { result, rerender, unmount } = renderHook(
+      ({ intervalConfig, isReady }) =>
+        useTradingViewIntervalSync({
+          namespace: 'token',
+          intervalConfig,
+          isReady,
+          onIntervalChange: jest.fn(),
+        }),
+      { initialProps: { intervalConfig: config('60', false), isReady: true } },
+    );
+    act(() => jest.advanceTimersByTime(4000));
+    act(() => result.current.reset());
+    rerender({ intervalConfig: config('60', false), isReady: false });
+    act(() => jest.advanceTimersByTime(10_000));
+    expect(result.current.isRestoringInterval).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+    rerender({ intervalConfig: config('60', false), isReady: true });
+    act(() => jest.advanceTimersByTime(1000));
+    expect(result.current.isRestoringInterval).toBe(true);
+    unmount();
+    expect(jest.getTimerCount()).toBe(0);
+    expect(readTradingViewNativeActiveInterval('token')).toBe('15');
   });
 });

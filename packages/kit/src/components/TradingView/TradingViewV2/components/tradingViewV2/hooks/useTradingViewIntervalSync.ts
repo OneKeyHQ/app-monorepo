@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { getTradingViewNativeKLineInterval } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervals';
 import {
@@ -8,6 +8,8 @@ import {
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 
 import type { ITradingViewIntervalConfigData } from '../../../types';
+
+const INTERVAL_SYNC_TIMEOUT_MS = 5000;
 
 function getSharedInterval(interval: string) {
   const hourMatch = interval.match(/^(\d+)H$/);
@@ -36,8 +38,10 @@ export function useTradingViewIntervalSync({
       lastSavedInterval: initialInterval,
       pendingInterval: initialInterval,
       requested: false,
+      requestId: 0,
     };
   }, [namespace]);
+  const [, refresh] = useReducer((value: number) => value + 1, 0);
   const onIntervalChangeRef = useRef(onIntervalChange);
   onIntervalChangeRef.current = onIntervalChange;
 
@@ -47,6 +51,8 @@ export function useTradingViewIntervalSync({
       : undefined;
     syncState.lastSavedInterval = syncState.pendingInterval;
     syncState.requested = false;
+    syncState.requestId += 1;
+    refresh();
   }, [namespace, syncState]);
 
   const saveInterval = useCallback(
@@ -56,6 +62,8 @@ export function useTradingViewIntervalSync({
         syncState.pendingInterval = sharedInterval;
         syncState.lastSavedInterval = sharedInterval;
         syncState.requested = isReady;
+        syncState.requestId += 1;
+        refresh();
         void saveTradingViewNativeActiveInterval({
           interval: sharedInterval,
           namespace,
@@ -81,17 +89,18 @@ export function useTradingViewIntervalSync({
       if (!target) {
         return;
       }
-      if (sharedInterval !== syncState.pendingInterval) {
+      if (
+        sharedInterval !== syncState.pendingInterval ||
+        intervalConfig.persist === false
+      ) {
         if (!syncState.requested) {
           syncState.requested = true;
           onIntervalChangeRef.current(target.value);
         }
         return;
       }
-      if (intervalConfig.persist === false) {
-        return;
-      }
       syncState.pendingInterval = undefined;
+      refresh();
     }
     if (
       sharedInterval &&
@@ -113,6 +122,21 @@ export function useTradingViewIntervalSync({
           getSharedInterval(option.value) === syncState.pendingInterval,
       )
     : undefined;
+  const pendingInterval = pendingOption?.value;
+  const { requestId } = syncState;
+  useEffect(() => {
+    if (!namespace || !isReady || !pendingInterval) {
+      return;
+    }
+    // Rejected requests and automatic fallbacks may never acknowledge the
+    // preferred interval. Release the mask without saving the fallback.
+    const timeout = setTimeout(() => {
+      syncState.pendingInterval = undefined;
+      refresh();
+    }, INTERVAL_SYNC_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [isReady, namespace, pendingInterval, requestId, syncState]);
+
   const displayedIntervalConfig =
     intervalConfig && pendingOption
       ? { ...intervalConfig, activeInterval: pendingOption.value }
