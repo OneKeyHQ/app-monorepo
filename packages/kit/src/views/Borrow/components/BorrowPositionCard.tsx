@@ -3,12 +3,15 @@ import { StyleSheet } from 'react-native';
 import {
   Badge,
   Button,
+  Icon,
   Image,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -165,29 +168,48 @@ export function BorrowPositionCard({
               </XStack>
             ) : null}
           </YStack>
-          <YStack ai="flex-end" flexShrink={0}>
-            {fiatValue ? (
-              <EarnText
-                text={fiatValue}
-                size="$bodyLg"
-                color="$text"
-                numberOfLines={1}
-              />
-            ) : null}
-            {tokenAmount ? (
-              <XStack ai="center" gap="$1">
+          <XStack ai="center" gap="$2" flexShrink={0}>
+            <YStack ai="flex-end">
+              {fiatValue ? (
                 <EarnText
-                  text={tokenAmount}
-                  size={amountSize}
-                  color={amountColor}
+                  text={fiatValue}
+                  size="$bodyLg"
+                  color="$text"
                   numberOfLines={1}
                 />
-                <SizableText size={amountSize} color={amountColor}>
-                  {token.symbol}
-                </SizableText>
-              </XStack>
+              ) : null}
+              {tokenAmount ? (
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={tokenAmount}
+                    size={amountSize}
+                    color={amountColor}
+                    numberOfLines={1}
+                  />
+                  <SizableText size={amountSize} color={amountColor}>
+                    {token.symbol}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </YStack>
+            {isPressable ? (
+              // Following the disclosure-triangle convention: points inward from
+              // the leading edge while collapsed, down once expanded. The row
+              // already carries role="button" and an Icon takes no focus, so
+              // this stays a signifier and not a second tap target.
+              <Stack
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={isExpanded ? '0deg' : '-90deg'}
+              >
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </Stack>
             ) : null}
-          </YStack>
+          </XStack>
         </XStack>
       </YStack>
 

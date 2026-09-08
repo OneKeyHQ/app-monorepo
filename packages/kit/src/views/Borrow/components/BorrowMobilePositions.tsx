@@ -69,10 +69,13 @@ function PositionCardSkeleton() {
         <YStack flex={1} gap="$1">
           <Skeleton w={80} h="$4" borderRadius="$2" />
         </YStack>
-        <YStack ai="flex-end" gap="$1">
-          <Skeleton w={70} h="$5" borderRadius="$2" />
-          <Skeleton w={50} h="$4" borderRadius="$2" />
-        </YStack>
+        <XStack ai="center" gap="$2">
+          <YStack ai="flex-end" gap="$1">
+            <Skeleton w={70} h="$5" borderRadius="$2" />
+            <Skeleton w={50} h="$4" borderRadius="$2" />
+          </YStack>
+          <Skeleton w="$5" h="$5" borderRadius="$2" />
+        </XStack>
       </XStack>
     </YStack>
   );

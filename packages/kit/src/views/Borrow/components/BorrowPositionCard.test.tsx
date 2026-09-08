@@ -33,6 +33,7 @@ jest.mock('@onekeyhq/components', () => {
       disabled,
       variant,
       badgeType,
+      rotate,
       ...rest
     }: IMockProps) {
       return React.createElement(
@@ -41,6 +42,7 @@ jest.mock('@onekeyhq/components', () => {
           'data-testid': testID,
           'data-variant': variant,
           'data-badge-type': badgeType,
+          'data-rotate': rotate,
           'aria-expanded': rest['aria-expanded'],
           'aria-label': rest['aria-label'],
           role,
@@ -57,10 +59,20 @@ jest.mock('@onekeyhq/components', () => {
     return MockStack;
   };
 
+  function MockIcon({ name }: { name?: string }) {
+    return <span data-icon={name} />;
+  }
+  MockIcon.displayName = 'MockIcon';
+
   return {
     __esModule: true,
+    // jest.config.js maps the bare substring '@onekeyhq/components', so the
+    // deep animationConstants path resolves to this same module and cannot be
+    // mocked separately.
+    ANIMATE_ONLY_TRANSFORM: ['transform'],
     Badge: asDom('div'),
     Button: asDom('button'),
+    Icon: MockIcon,
     Image: asDom('div'),
     SizableText: asDom('span'),
     Stack: asDom('div'),
@@ -241,6 +253,49 @@ describe('BorrowPositionCard expand behaviour', () => {
     fireEvent.keyDown(disclosure, { key: 'a' });
 
     expect(onToggleExpand).toHaveBeenCalledTimes(2);
+  });
+
+  it('signals the collapsed card with a chevron pointing at the hidden content', () => {
+    const { container } = renderCard({
+      onToggleExpand: jest.fn(),
+      isExpanded: false,
+    });
+    const chevron = container.querySelector(
+      '[data-icon="ChevronDownSmallOutline"]',
+    );
+
+    expect(chevron).not.toBeNull();
+    expect(chevron?.parentElement?.getAttribute('data-rotate')).toBe('-90deg');
+  });
+
+  it('turns the chevron down once the card is expanded', () => {
+    const { container } = renderCard({
+      onToggleExpand: jest.fn(),
+      isExpanded: true,
+    });
+
+    expect(
+      container
+        .querySelector('[data-icon="ChevronDownSmallOutline"]')
+        ?.parentElement?.getAttribute('data-rotate'),
+    ).toBe('0deg');
+  });
+
+  // A chevron on a card that cannot expand is a false affordance.
+  it('omits the chevron when the card cannot expand', () => {
+    const { container } = render(
+      <BorrowPositionCard
+        testID="position-card"
+        token={token}
+        statusLabel="Supplied"
+        statusBadgeType="success"
+        actions={buildActions()}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-icon="ChevronDownSmallOutline"]'),
+    ).toBeNull();
   });
 
   it('leaves the amounts in the accessible name instead of labelling over them', () => {
