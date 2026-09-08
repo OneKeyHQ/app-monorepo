@@ -31,6 +31,7 @@ function createTravelModeManager(): ITravelModeManager {
     async getRuntimeState() {
       return 'inactive';
     },
+    getRuntimeStateSync: () => 'inactive',
     async getRuntimeProfile() {
       return environment.profile;
     },
