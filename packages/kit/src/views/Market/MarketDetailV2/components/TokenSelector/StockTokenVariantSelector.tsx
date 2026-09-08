@@ -27,6 +27,7 @@ import {
   isStockTokenVariantTradable,
   useStockDetail,
 } from '../../hooks/StockDetailContext';
+import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
 
 // Figma 25497:17813 (Select): the panel is 384 wide and its header/rows share a
 // four-slot layout - a 32 avatar slot followed by three equal-width columns
@@ -45,6 +46,13 @@ const VALUE_FALLBACK = '--';
 
 const StockTokenVariantPortfolioContext = createContext<
   IMarketAccountPortfolioDisplayItem[] | undefined
+>(undefined);
+
+// Variants whose balance could not be established: no account, the first fetch
+// still in flight, or a request that failed with nothing cached. Their absence
+// from the portfolio says nothing, so they render the fallback.
+const StockTokenVariantUnresolvedContext = createContext<
+  Set<string> | undefined
 >(undefined);
 
 const ISSUER_LABELS: Record<string, string> = {
@@ -68,10 +76,12 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
 }
 
 function findVariantBalance({
+  isBalanceResolved,
   portfolioData,
   variant,
   isPortfolioScope,
 }: {
+  isBalanceResolved: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   variant: IMarketStockTokenVariant;
   isPortfolioScope: boolean;
@@ -91,12 +101,12 @@ function findVariantBalance({
       equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
     );
   });
-  // No position for this variant means the account holds none of it, which is
-  // a zero balance, not missing information. An amount that fails to parse
-  // still falls back — that is corrupt data, and reading it as zero would
-  // state something the payload never said.
+  // Once the lookup is known to have run, no position means the account holds
+  // none of it, which is a zero balance rather than missing information. An
+  // amount that fails to parse still falls back — that is corrupt data, and
+  // reading it as zero would state something the payload never said.
   if (!position) {
-    return '0';
+    return isBalanceResolved ? '0' : undefined;
   }
   const balance = new BigNumber(position.amount ?? '');
   return balance.isFinite() ? balance.toFixed() : undefined;
@@ -117,7 +127,12 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
+  const unresolvedVariantKeys = useContext(StockTokenVariantUnresolvedContext);
   const balance = findVariantBalance({
+    isBalanceResolved: Boolean(
+      unresolvedVariantKeys &&
+      !unresolvedVariantKeys.has(getStockPortfolioVariantKey(variant)),
+    ),
     portfolioData,
     variant,
     isPortfolioScope,
@@ -308,8 +323,10 @@ function StockTokenVariantSelectorContent({
 
 export function StockTokenVariantSelector({
   portfolioData,
+  unresolvedVariantKeys,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  unresolvedVariantKeys?: string[];
 }) {
   const intl = useIntl();
   const {
@@ -324,6 +341,12 @@ export function StockTokenVariantSelector({
   const selectedIndex = useMemo(
     () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
     [selectedTokenId, tokenVariants],
+  );
+  // Left undefined when the caller supplies nothing: that is no evidence the
+  // balances were read, so the rows fall back rather than claim a zero.
+  const unresolvedKeySet = useMemo(
+    () => (unresolvedVariantKeys ? new Set(unresolvedVariantKeys) : undefined),
+    [unresolvedVariantKeys],
   );
 
   if (!selectedTokenVariant) {
@@ -417,7 +440,9 @@ export function StockTokenVariantSelector({
 
   return (
     <StockTokenVariantPortfolioContext.Provider value={portfolioData}>
-      {popover}
+      <StockTokenVariantUnresolvedContext.Provider value={unresolvedKeySet}>
+        {popover}
+      </StockTokenVariantUnresolvedContext.Provider>
     </StockTokenVariantPortfolioContext.Provider>
   );
 }

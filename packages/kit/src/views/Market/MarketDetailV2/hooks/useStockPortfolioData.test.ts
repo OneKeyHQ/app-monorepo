@@ -5,6 +5,8 @@ import type {
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { getStockPortfolioVariantKey } from '../utils/stockTokenVariant';
+
 import {
   fetchStockPortfolioData,
   resolveStockPortfolioDeriveType,
@@ -113,7 +115,7 @@ describe('fetchStockPortfolioData', () => {
       fetchPortfolio,
     });
 
-    expect(result).toEqual([
+    expect(result.items).toEqual([
       expect.objectContaining({
         tokenId: 'aapl-ondo-ethereum',
         issuer: 'Ondo',
@@ -158,7 +160,7 @@ describe('fetchStockPortfolioData', () => {
         }),
     });
 
-    expect(result.map((item) => [item.networkId, item.amount])).toEqual([
+    expect(result.items.map((item) => [item.networkId, item.amount])).toEqual([
       ['evm--1', '1'],
       ['evm--8453', '3'],
     ]);
@@ -210,7 +212,9 @@ describe('fetchStockPortfolioData', () => {
       },
     });
 
-    expect(result.map((item) => item.amount)).toEqual(['1', '4']);
+    expect(result.items.map((item) => item.amount)).toEqual(['1', '4']);
+    // The failed variant still has a cached row, so its balance is known.
+    expect(result.unresolvedVariantKeys).toEqual([]);
   });
 
   it('does not render zero-balance variants', async () => {
@@ -230,7 +234,53 @@ describe('fetchStockPortfolioData', () => {
         }),
     });
 
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
+    expect(result.unresolvedVariantKeys).toEqual([]);
+  });
+
+  it('reports a variant whose account cannot be resolved as unresolved', async () => {
+    const result = await fetchStockPortfolioData({
+      stockId: 'AAPL',
+      tokenVariants: [ondoVariant, xStocksVariant],
+      successfulPortfolioCache: createPortfolioCache(),
+      resolveNetworkAccount: async (networkId) =>
+        networkId === 'evm--1'
+          ? { id: 'account-1', address: 'address-1' }
+          : undefined,
+      fetchPortfolio: async (params) =>
+        buildPortfolioResponse({
+          ...params,
+          symbol: 'AAPLon',
+          amount: '5',
+        }),
+    });
+
+    expect(result.items.map((item) => item.amount)).toEqual(['5']);
+    // Nothing was read for the Solana variant, so its balance stays unknown
+    // rather than being reported as a zero holding.
+    expect(result.unresolvedVariantKeys).toEqual([
+      getStockPortfolioVariantKey(xStocksVariant),
+    ]);
+  });
+
+  it('reports a failed variant with nothing cached as unresolved', async () => {
+    const result = await fetchStockPortfolioData({
+      stockId: 'AAPL',
+      tokenVariants: [ondoVariant],
+      successfulPortfolioCache: createPortfolioCache(),
+      resolveNetworkAccount: async () => ({
+        id: 'account-1',
+        address: 'address-1',
+      }),
+      fetchPortfolio: async () => {
+        throw new OneKeyLocalError('cold failure');
+      },
+    });
+
+    expect(result.items).toEqual([]);
+    expect(result.unresolvedVariantKeys).toEqual([
+      getStockPortfolioVariantKey(ondoVariant),
+    ]);
   });
 });
 

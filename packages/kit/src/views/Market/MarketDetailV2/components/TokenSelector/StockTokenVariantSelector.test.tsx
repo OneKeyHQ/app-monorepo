@@ -6,6 +6,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
+import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
+
 import { StockTokenVariantSelector } from './StockTokenVariantSelector';
 
 const setSelectedTokenIdMock = jest.fn();
@@ -276,7 +278,12 @@ describe('StockTokenVariantSelector', () => {
 
       // The portfolio queries every variant and drops zero amounts, so an
       // empty payload means the account holds none of any of them.
-      render(<StockTokenVariantSelector portfolioData={[]} />);
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          unresolvedVariantKeys={[]}
+        />,
+      );
 
       expect(
         within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
@@ -290,6 +297,55 @@ describe('StockTokenVariantSelector', () => {
       ).toHaveLength(1);
     });
 
+    it('falls back when the portfolio has not been read yet', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // No account, a first fetch still in flight, or a failed request all
+      // arrive as an empty payload. Reading that as a zero holding would claim
+      // a balance nobody looked up.
+      render(<StockTokenVariantSelector portfolioData={[]} />);
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '--',
+        ).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it('keeps a variant whose own lookup failed out of the zero reading', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // Ethereum resolved and holds none; Base never resolved at all.
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          unresolvedVariantKeys={[
+            getStockPortfolioVariantKey(sameAddressVariants[1]),
+          ]}
+        />,
+      );
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+    });
+
     it('never lends the fetched balance to a same-address variant on another chain', () => {
       mockStockDetailState.tokenVariants = sameAddressVariants;
       mockStockDetailState.selectedTokenId = 'aapl-ethereum';
@@ -298,6 +354,7 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={position('0xSAME', '12.5')}
+          unresolvedVariantKeys={[]}
         />,
       );
 
@@ -321,7 +378,10 @@ describe('StockTokenVariantSelector', () => {
       mockStockDetailState.portfolioNetworkId = 'evm--8453';
 
       render(
-        <StockTokenVariantSelector portfolioData={position('0xSAME', '8.5')} />,
+        <StockTokenVariantSelector
+          portfolioData={position('0xSAME', '8.5')}
+          unresolvedVariantKeys={[]}
+        />,
       );
 
       const ethereumRow = screen.getByTestId('stock-token-variant-row-0');
@@ -339,7 +399,10 @@ describe('StockTokenVariantSelector', () => {
       mockStockDetailState.portfolioNetworkId = 'evm--56';
 
       render(
-        <StockTokenVariantSelector portfolioData={position('0x01', '0.001')} />,
+        <StockTokenVariantSelector
+          portfolioData={position('0x01', '0.001')}
+          unresolvedVariantKeys={[]}
+        />,
       );
 
       expect(screen.queryByText('0.001')).toBeNull();

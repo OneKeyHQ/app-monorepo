@@ -125,6 +125,7 @@ export type ISwapPanelContentProps = {
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
   stockDetailDesktopLayout?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
+  unresolvedVariantKeys?: string[];
 };
 
 function StockTradePanelSkeleton() {
@@ -188,6 +189,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onCloseDialog,
     stockDetailDesktopLayout,
     portfolioData,
+    unresolvedVariantKeys,
   } = props;
 
   const {
@@ -563,7 +565,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           justifyContent="space-between"
           gap="$2"
         >
-          <StockTokenVariantSelector portfolioData={portfolioData} />
+          <StockTokenVariantSelector
+            portfolioData={portfolioData}
+            unresolvedVariantKeys={unresolvedVariantKeys}
+          />
           <StockTokenInfoPopover
             label={
               <BaseMarketTokenPrice

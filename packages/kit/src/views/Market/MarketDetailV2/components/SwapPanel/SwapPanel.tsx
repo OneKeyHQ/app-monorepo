@@ -96,12 +96,14 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  unresolvedVariantKeys,
   onShowSwapDialog,
   stockDetailDesktopLayout,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  unresolvedVariantKeys?: string[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   stockDetailDesktopLayout?: boolean;
 }) {
@@ -284,6 +286,7 @@ export function SwapPanel({
             <SwapPanelWrap
               stockDetailDesktopLayout={stockDetailDesktopLayout}
               portfolioData={portfolioData}
+              unresolvedVariantKeys={unresolvedVariantKeys}
             />
           </MarketWatchListProviderMirrorV2>
         )}

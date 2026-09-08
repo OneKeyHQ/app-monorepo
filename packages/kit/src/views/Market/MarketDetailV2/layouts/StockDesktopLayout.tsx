@@ -1301,6 +1301,7 @@ export function StockDesktopLayout({
 }) {
   const {
     portfolioData: stockPortfolioData,
+    unresolvedVariantKeys: unresolvedStockVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
@@ -1380,6 +1381,7 @@ export function StockDesktopLayout({
             swapToken={swapToken}
             disableTrade={disableTrade}
             portfolioData={stockPortfolioData}
+            unresolvedVariantKeys={unresolvedStockVariantKeys}
             stockDetailDesktopLayout
           />
         </Stack>
