@@ -59,6 +59,7 @@ import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPan
 import { PerpTestIDs } from '../../../testIDs';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -364,34 +365,10 @@ function TwapEmptyState({
 
   if (isMobile) {
     return (
-      <YStack flex={1} alignItems="center" p="$6">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-            mt="$2"
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        <SizableText
-          testID={PerpTestIDs.TwapEmptyGuideButton}
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          textDecorationLine="underline"
-          mt="$2"
-          onPress={handleGuidePress}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </YStack>
+      <PerpMobileEmptyState
+        contentOffsetY={-96}
+        title={intl.formatMessage({ id: titleId })}
+      />
     );
   }
 

@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   type IDebugRenderTrackerProps,
-  SizableText,
   Toast,
   YStack,
 } from '@onekeyhq/components';
@@ -35,19 +34,18 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
-import { PerpTestIDs } from '../../../testIDs';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
-import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import { useChasingOrderTask } from '../hooks/useChasingOrderTask';
 import { canChasePerpsOrder } from '../utils';
 
@@ -71,34 +69,6 @@ type IOpenOrdersDisplayRow =
       type: 'twap';
       order: IPerpsActiveTwapOrder;
     };
-
-function MobileTwapEmptyState() {
-  const intl = useIntl();
-  const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/15442238'));
-  }, []);
-
-  return (
-    <YStack flex={1} alignItems="center" p="$6">
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
-      </SizableText>
-      <SizableText
-        testID={PerpTestIDs.TwapEmptyGuideButton}
-        size="$bodySm"
-        color="$textSubdued"
-        textAlign="center"
-        textDecorationLine="underline"
-        mt="$2"
-        onPress={handleGuidePress}
-      >
-        {intl.formatMessage({
-          id: ETranslations.perp_twap_trading_guide__action,
-        })}
-      </SizableText>
-    </YStack>
-  );
-}
 
 function useOpenOrdersColumnsConfig({
   openOrdersLength,
@@ -755,8 +725,11 @@ function PerpOpenOrdersList({
       />
     </YStack>
   ) : null;
-  const listEmptyComponent =
-    activeOpenOrdersSubTab === 'twap' ? <MobileTwapEmptyState /> : undefined;
+  const listEmptyComponent = isMobile ? (
+    <PerpMobileEmptyState
+      title={intl.formatMessage({ id: ETranslations.perp_open_order_empty })}
+    />
+  ) : undefined;
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: 'PerpOpenOrdersList',

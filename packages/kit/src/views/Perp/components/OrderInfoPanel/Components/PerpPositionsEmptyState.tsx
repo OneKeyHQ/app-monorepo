@@ -152,13 +152,15 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
         </YStack>
 
         <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
+          size={isMobile ? '$headingSm' : '$bodySm'}
+          color={isMobile ? '$text' : '$textSubdued'}
           textAlign="center"
           maxWidth={isMobile ? 280 : 360}
         >
           {intl.formatMessage({
-            id: ETranslations.perp_position_empty_desc,
+            id: isMobile
+              ? ETranslations.perp_position_empty
+              : ETranslations.perp_position_empty_desc,
           })}
         </SizableText>
 
