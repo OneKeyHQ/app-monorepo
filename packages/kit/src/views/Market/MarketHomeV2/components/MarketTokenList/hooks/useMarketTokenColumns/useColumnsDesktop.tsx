@@ -365,7 +365,7 @@ export const useColumnsDesktop = (
           return (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               color={changeColor}
               formatterOptions={{
                 showPlusMinusSigns,

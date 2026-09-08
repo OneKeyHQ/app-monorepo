@@ -272,7 +272,7 @@ export function useMarketStockColumns({
           return (
             <NumberSizeableText
               size={metricTextSize}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               color={changeColor}
               formatterOptions={{ showPlusMinusSigns }}
             >

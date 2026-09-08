@@ -200,7 +200,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                 <NumberSizeableText
                   size={MARKET_CELL_PRIMARY_SIZE}
                   color={color}
-                  formatter="priceChange"
+                  formatter="priceChangeCapped"
                   formatterOptions={{ showPlusMinusSigns: true }}
                 >
                   {record.change24hPercent}

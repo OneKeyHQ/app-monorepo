@@ -378,7 +378,7 @@ export function useTrendingColumnsDesktop({
             <NumberSizeableText
               size="$bodyLgMedium"
               color={changeColor}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
             >
               {value}
