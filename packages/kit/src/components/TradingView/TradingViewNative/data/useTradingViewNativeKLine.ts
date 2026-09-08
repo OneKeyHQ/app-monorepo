@@ -2131,9 +2131,13 @@ export function useTradingViewNativeKLine({
           };
         }
         setActiveInterval(nextInterval.value);
+        void saveTradingViewNativeActiveInterval({
+          interval: nextInterval.value,
+          namespace: intervalStorageNamespace,
+        });
       }
     },
-    [seriesKey, setActiveInterval],
+    [intervalStorageNamespace, seriesKey, setActiveInterval],
   );
 
   const handleRetry = useCallback(() => {
