@@ -277,14 +277,18 @@ function RawPopover({
   const handleSheetHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     setSheetHeaderHeight(Math.ceil(event.nativeEvent.layout.height));
   }, []);
+  const keyboardHeight = useKeyboardHeight();
   const isFitSheet =
     !sheetProps?.snapPointsMode || sheetProps.snapPointsMode === 'fit';
+  // The sheet frame pads its bottom by the keyboard height, so reserve that
+  // space here too or the frame grows past the cap while the keyboard is open.
   const sheetScrollViewMaxHeight = isFitSheet
     ? Math.max(
         0,
         Math.floor(viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO) -
           sheetHeaderHeight -
-          (bottom || SHEET_BOTTOM_MARGIN),
+          (bottom || SHEET_BOTTOM_MARGIN) -
+          keyboardHeight,
       )
     : undefined;
   const triggerRef = useRef<View | null>(null);
@@ -383,7 +387,6 @@ function RawPopover({
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
   const shouldAnimateContent = !keepChildrenMounted;
-  const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
     <ModalPortalProvider>
