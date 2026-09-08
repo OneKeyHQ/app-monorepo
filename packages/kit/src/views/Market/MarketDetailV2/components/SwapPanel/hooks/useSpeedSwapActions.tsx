@@ -428,6 +428,7 @@ export function useSpeedSwapActions(props: {
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
+  executionReady?: boolean;
   onCloseDialog?: () => void;
   /**
    * Live per-stock open state from the token detail. Flips refresh the current
@@ -446,6 +447,7 @@ export function useSpeedSwapActions(props: {
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
+    executionReady = true,
     // onCloseDialog,
     stockIsOpen,
   } = props;
@@ -870,6 +872,7 @@ export function useSpeedSwapActions(props: {
   };
 
   const forceRefreshMarketQuote = useCallback(() => {
+    if (!executionReady) return;
     const userAddress = fromNetworkAccount?.addressDetail.address;
     const accountId = fromNetworkAccount?.id;
     const receivingAddress = receivingNetworkAccount?.addressDetail.address;
@@ -900,6 +903,7 @@ export function useSpeedSwapActions(props: {
       },
     );
   }, [
+    executionReady,
     fromToken,
     fromTokenAmountDebounced,
     fromNetworkAccount?.addressDetail.address,
@@ -1869,6 +1873,9 @@ export function useSpeedSwapActions(props: {
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee,
     } = {}) => {
+      if (!executionReady) {
+        throw new OneKeyLocalError('Market trade pair is not ready.');
+      }
       if (quoteResult && reviewExecutionSnapshotRef.current) {
         return buildMarketReviewStateFromSnapshot(
           reviewExecutionSnapshotRef.current,
@@ -1998,6 +2005,7 @@ export function useSpeedSwapActions(props: {
     },
     [
       antiMEV,
+      executionReady,
       buildMarketReviewStateFromSnapshot,
       buildSpeedSwapTxData,
       buildWrappedSwapData,
@@ -3658,6 +3666,7 @@ export function useSpeedSwapActions(props: {
     // for whether trading is available.
     void stockIsOpen;
     if (
+      executionReady &&
       !fromTokenAmountDebouncedBN.isNaN() &&
       fromTokenAmountDebouncedBN.gt(0) &&
       userAddress &&
@@ -3695,6 +3704,7 @@ export function useSpeedSwapActions(props: {
     }
   }, [
     closeQuoteEvent,
+    executionReady,
     fromToken.contractAddress,
     fromToken.networkId,
     fromTokenAmountDebounced,
