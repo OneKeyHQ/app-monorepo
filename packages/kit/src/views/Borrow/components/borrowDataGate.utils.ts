@@ -1,3 +1,19 @@
+import { EBorrowDataStatus } from '../borrowDataStatus';
+
+export function shouldPublishBorrowMarketChange({
+  isMarketChangePending,
+  dataStatus,
+}: {
+  isMarketChangePending: boolean;
+  dataStatus: EBorrowDataStatus;
+}): boolean {
+  return (
+    !isMarketChangePending ||
+    dataStatus === EBorrowDataStatus.Ready ||
+    dataStatus === EBorrowDataStatus.Error
+  );
+}
+
 export function isCurrentBorrowReservesRequest({
   requestKey,
   currentKey,
