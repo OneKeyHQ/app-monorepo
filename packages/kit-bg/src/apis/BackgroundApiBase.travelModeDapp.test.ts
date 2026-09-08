@@ -383,6 +383,31 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it.each([
+    EAtomNames.perpsActiveAssetCtxAtom,
+    EAtomNames.perpsActiveAssetCtxDisplayAtom,
+    EAtomNames.perpsActiveAssetDataAtom,
+    EAtomNames.spotActiveAssetCtxAtom,
+  ] as const)(
+    'resets %s after the native JSON bridge encodes undefined',
+    async (atomName) => {
+      const { backgroundApi, resettablePerpsAtoms } = buildBackgroundApi();
+      const [transportAtomName, transportValue]: [EAtomNames, null] =
+        JSON.parse(JSON.stringify([atomName, undefined]));
+
+      expect(transportValue).toBeNull();
+      await backgroundApi.setAtomValue(transportAtomName, transportValue);
+
+      expect(resettablePerpsAtoms[atomName].set).toHaveBeenCalledWith(
+        undefined,
+      );
+      await expect(
+        backgroundApi.setAtomValue(atomName, { coin: 'BTC' }),
+      ).rejects.toThrow('Unknown error');
+      expect(resettablePerpsAtoms[atomName].set).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('writes only the four supported preferences', async () => {
     const { backgroundApi, settingsAtom } = buildBackgroundApi();
 

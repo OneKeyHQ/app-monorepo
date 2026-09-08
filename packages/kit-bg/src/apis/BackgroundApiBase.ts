@@ -739,7 +739,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           }
           nextValue = value;
         } else if (TRAVEL_MODE_RESETTABLE_PERPS_ATOMS.has(atomName)) {
-          if (value !== undefined) {
+          // The native JSON bridge encodes undefined array arguments as null.
+          if (value !== undefined && value !== null) {
             await rejectTravelModeUnknownError();
           }
           nextValue = undefined;
