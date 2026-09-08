@@ -289,14 +289,24 @@ function RemainingDebtChangeRow({
     <ProtocolPositionActionAnchor
       label={label}
       valueNode={
-        <XStack alignItems="center" gap="$2" flexShrink={0}>
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          gap="$2"
+          maxWidth="65%"
+          flexShrink={1}
+          minWidth={0}
+          flexWrap="wrap"
+        >
           <LendingAmountValue
             amount={currentDebt}
             symbol={symbol}
             color="$textSubdued"
           />
-          <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
-          <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
+            <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+            <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          </XStack>
         </XStack>
       }
     />
