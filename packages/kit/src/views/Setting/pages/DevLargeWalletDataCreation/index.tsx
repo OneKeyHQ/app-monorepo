@@ -20,11 +20,11 @@ const INITIAL_PROGRESS: ILargeWalletDataCreationProgress = {
   isRunning: false,
   walletIndex: 0,
   walletsCreated: 0,
-  walletsTotal: 1000,
+  walletsTotal: 10,
   accountsCreatedInWallet: 0,
-  accountsPerWallet: 1000,
+  accountsPerWallet: 100,
   accountsCreated: 0,
-  accountsTotal: 1_000_000,
+  accountsTotal: 1000,
 };
 
 function getErrorMessage(error: unknown) {
@@ -60,31 +60,40 @@ export default function DevLargeWalletDataCreation() {
     };
   }, []);
 
-  const handleCreate = useCallback(async () => {
-    if (isRunning) {
-      return;
-    }
+  const handleCreate = useCallback(
+    async (walletCount: 10 | 100) => {
+      if (isRunning) {
+        return;
+      }
 
-    setProgress(INITIAL_PROGRESS);
-    setIsRunning(true);
-    try {
-      const result =
-        await backgroundApiProxy.serviceDemo.createLargeWalletsAndAccounts();
-      Toast.success({
-        title: 'Real HD wallet data ready',
-        message: `${result.walletsCreated.toLocaleString()} wallet(s) and ${result.accountsCreated.toLocaleString()} account(s) created in ${(
-          result.durationMs / 1000
-        ).toFixed(1)}s`,
+      setProgress({
+        ...INITIAL_PROGRESS,
+        walletsTotal: walletCount,
+        accountsTotal: walletCount * INITIAL_PROGRESS.accountsPerWallet,
       });
-    } catch (error) {
-      Toast.error({
-        title: 'Failed to create real HD wallet data',
-        message: getErrorMessage(error),
-      });
-    } finally {
-      setIsRunning(false);
-    }
-  }, [isRunning]);
+      setIsRunning(true);
+      try {
+        const result =
+          await backgroundApiProxy.serviceDemo.createLargeWalletsAndAccounts({
+            walletCount,
+          });
+        Toast.success({
+          title: 'Real HD wallet data ready',
+          message: `${result.walletsCreated.toLocaleString()} wallet(s) and ${result.accountsCreated.toLocaleString()} account(s) created in ${(
+            result.durationMs / 1000
+          ).toFixed(1)}s`,
+        });
+      } catch (error) {
+        Toast.error({
+          title: 'Failed to create real HD wallet data',
+          message: getErrorMessage(error),
+        });
+      } finally {
+        setIsRunning(false);
+      }
+    },
+    [isRunning],
+  );
 
   const progressPercent = Math.min(
     100,
@@ -97,12 +106,10 @@ export default function DevLargeWalletDataCreation() {
       <Page.Body>
         <YStack px="$5" py="$4" gap="$5">
           <YStack gap="$2">
-            <SizableText size="$headingLg">
-              Create 1,000 Real HD Wallets × 1,000 Accounts
-            </SizableText>
+            <SizableText size="$headingLg">Create Real HD Wallets</SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
-              Creates 1,000 independent HD wallets with encrypted recovery
-              phrases and 1,000 indexed accounts in each wallet. The wallets
+              Choose 10 or 100 independent HD wallets with encrypted recovery
+              phrases and 100 indexed accounts in each wallet. The wallets
               support normal address derivation, signing, wallet operations, and
               cloud sync.
             </SizableText>
@@ -140,18 +147,23 @@ export default function DevLargeWalletDataCreation() {
             </YStack>
           </YStack>
 
-          <Button
-            variant="destructive"
-            size="large"
-            loading={isRunning}
-            disabled={isRunning}
-            testID="create-large-wallet-account-data-start"
-            onPress={() => {
-              void handleCreate();
-            }}
-          >
-            {isRunning ? 'Creating…' : 'Start Creation'}
-          </Button>
+          <YStack gap="$3">
+            {([10, 100] as const).map((walletCount) => (
+              <Button
+                key={walletCount}
+                variant="destructive"
+                size="large"
+                loading={isRunning && progress.walletsTotal === walletCount}
+                disabled={isRunning}
+                testID={`create-large-wallet-account-data-start-${walletCount}`}
+                onPress={() => {
+                  void handleCreate(walletCount);
+                }}
+              >
+                {walletCount} Wallets × 100 Accounts
+              </Button>
+            ))}
+          </YStack>
         </YStack>
       </Page.Body>
     </Page>

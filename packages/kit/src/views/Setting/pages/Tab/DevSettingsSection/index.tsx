@@ -2489,8 +2489,8 @@ const BaseDevSettingsSection = () => {
 
                       <SectionPressItem
                         icon="WalletOutline"
-                        title="Create 1,000 Real HD Wallets × 1,000 Accounts"
-                        subtitle="创建可派生、可签名、可同步的真实 HD 钱包与账户"
+                        title="Create Real HD Wallets: 10 × 100 / 100 × 100"
+                        subtitle="创建 1,000 或 10,000 个可派生、可签名、可同步的真实账户"
                         searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
                         testID="create-large-wallet-account-data"
                         onPress={() => {

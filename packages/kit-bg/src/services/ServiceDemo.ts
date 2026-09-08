@@ -58,8 +58,7 @@ import type { IDBExternalAccount } from '../dbs/local/types';
 import type { ITransferInfo } from '../vaults/types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
-const LARGE_WALLET_DATA_WALLET_COUNT = 1000;
-const LARGE_WALLET_DATA_ACCOUNT_COUNT = 1000;
+const LARGE_WALLET_DATA_ACCOUNT_COUNT = 100;
 const LARGE_WALLET_DATA_ACCOUNT_BATCH_SIZE = 100;
 
 @backgroundClass()
@@ -145,10 +144,17 @@ class ServiceDemo extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createLargeWalletsAndAccounts() {
+  async createLargeWalletsAndAccounts({
+    walletCount,
+  }: {
+    walletCount: 10 | 100;
+  }) {
     const devSettings = await devSettingsPersistAtom.get();
     if (!devSettings.enabled) {
       throw new OneKeyLocalError('Developer mode is required');
+    }
+    if (walletCount !== 10 && walletCount !== 100) {
+      throw new OneKeyLocalError('Choose either 10 or 100 wallets');
     }
     if (this.isCreatingLargeWalletData) {
       throw new OneKeyLocalError(
@@ -163,14 +169,13 @@ class ServiceDemo extends ServiceBase {
     let currentWalletIndex = 0;
     let accountsCreatedInCurrentWallet = 0;
     let password = '';
-    const accountsTotal =
-      LARGE_WALLET_DATA_WALLET_COUNT * LARGE_WALLET_DATA_ACCOUNT_COUNT;
+    const accountsTotal = walletCount * LARGE_WALLET_DATA_ACCOUNT_COUNT;
     const emitProgress = () => {
       appEventBus.emit(EAppEventBusNames.DevLargeWalletDataCreationProgress, {
         isRunning: this.isCreatingLargeWalletData,
         walletIndex: currentWalletIndex,
         walletsCreated,
-        walletsTotal: LARGE_WALLET_DATA_WALLET_COUNT,
+        walletsTotal: walletCount,
         accountsCreatedInWallet: accountsCreatedInCurrentWallet,
         accountsPerWallet: LARGE_WALLET_DATA_ACCOUNT_COUNT,
         accountsCreated,
@@ -181,11 +186,7 @@ class ServiceDemo extends ServiceBase {
     try {
       emitProgress();
 
-      for (
-        let walletIndex = 0;
-        walletIndex < LARGE_WALLET_DATA_WALLET_COUNT;
-        walletIndex += 1
-      ) {
+      for (let walletIndex = 0; walletIndex < walletCount; walletIndex += 1) {
         currentWalletIndex = walletIndex + 1;
         accountsCreatedInCurrentWallet = 0;
         let createdWalletId = '';
@@ -282,11 +283,10 @@ class ServiceDemo extends ServiceBase {
 
     return {
       accountsCreated,
-      accountsRequested:
-        LARGE_WALLET_DATA_WALLET_COUNT * LARGE_WALLET_DATA_ACCOUNT_COUNT,
+      accountsRequested: accountsTotal,
       durationMs: Date.now() - startedAt,
       walletsCreated,
-      walletsRequested: LARGE_WALLET_DATA_WALLET_COUNT,
+      walletsRequested: walletCount,
     };
   }
 
