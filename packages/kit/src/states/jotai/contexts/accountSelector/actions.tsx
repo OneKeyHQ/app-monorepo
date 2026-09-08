@@ -425,6 +425,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
+  // OK-62330: within RECENT_ACCOUNT_SWITCH_COLD_START_MS a recent-selection
+  // cache written by confirmAccountSelect outranks simpleDb on the next cold
+  // start. Any later in-memory change (network / derive type switch) must be
+  // mirrored into that cache, or a restart resurrects the pre-switch selection
+  // and writes it back over the newer simpleDb record. Only an existing, still
+  // valid entry is refreshed so no new cache is created outside that window.
+  async refreshRecentAccountSelectorSelectionCacheIfActive({
+    sceneName,
+    sceneUrl,
+    num,
+    selectedAccountsMap,
+    updateMeta,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    num: number;
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    updateMeta: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
+    }>;
+  }) {
+    if (!this.getRecentAccountSelectorSelectionCache({ sceneName, sceneUrl })) {
+      return;
+    }
+    await this.setRecentAccountSelectorSelectionCache({
+      sceneName,
+      sceneUrl,
+      num,
+      selectedAccountsMap,
+      updateMeta,
+    });
+    await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+  }
+
   async flushAccountSelectorColdStartSnapshot({
     sceneName,
     sceneUrl,
@@ -1278,6 +1312,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updatedAt: Date.now(),
           },
         }));
+        await this.refreshRecentAccountSelectorSelectionCacheIfActive({
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          num,
+          selectedAccountsMap: get(selectedAccountsAtom()),
+          updateMeta: get(accountSelectorUpdateMetaAtom()),
+        });
       });
     },
   );
