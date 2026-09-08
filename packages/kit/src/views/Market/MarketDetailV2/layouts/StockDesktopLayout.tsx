@@ -955,6 +955,9 @@ function StockAnalystRatings() {
           flexWrap="wrap"
           gap="$8"
           alignItems="center"
+          // Only bites once the row wraps: until then the distribution column
+          // grows into the leftover space and there is nothing to centre.
+          justifyContent="center"
           py="$2"
         >
           <Skeleton
@@ -974,7 +977,14 @@ function StockAnalystRatings() {
           </YStack>
         </XStack>
       ) : (
-        <XStack flexWrap="wrap" gap="$8" alignItems="center" py="$2" pr="$2">
+        <XStack
+          flexWrap="wrap"
+          gap="$8"
+          alignItems="center"
+          justifyContent="center"
+          py="$2"
+          pr="$2"
+        >
           <StockAnalystGauge ratings={ratings} ratingCounts={ratingCounts} />
           <YStack
             flex={1}
