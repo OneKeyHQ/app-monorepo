@@ -46,6 +46,8 @@ import {
   StockAnalystGauge,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
+import { stockFinancialLabels } from '../components/StockFinancials/stockFinancialLabels';
+import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
   type IStockSimpleChartRange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
@@ -1200,6 +1202,7 @@ function StockOverview({
 }) {
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
+  const { stockId } = useStockDetail();
 
   return (
     <YStack>
@@ -1257,6 +1260,9 @@ function StockOverview({
           </YStack>
           <StockEventsSection />
           <StockAnalystRatings />
+          {stockId ? (
+            <StockFinancials stockId={stockId} labels={stockFinancialLabels} />
+          ) : null}
           <StockNewsSection />
           <StockAbout />
         </>
