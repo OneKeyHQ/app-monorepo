@@ -45,6 +45,7 @@ import {
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -403,7 +404,7 @@ const SwapActionsState = ({
     !swapActionState.isRefreshQuote &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
-    ? false
+    ? shouldRedirectOnboardingToTravelMode()
     : Boolean(disabled) ||
       swapActionState.disabled ||
       swapActionState.isLoading ||
