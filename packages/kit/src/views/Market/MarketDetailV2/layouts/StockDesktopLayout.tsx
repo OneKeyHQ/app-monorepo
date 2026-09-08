@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -24,7 +24,6 @@ import {
   type IMarketDetailChartDisplayMode,
   type IMarketPriceSource,
   useMarketDetailChartDisplayModePersistAtom,
-  useMarketPriceSourceAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -56,6 +55,7 @@ import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
+import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 import {
   STAT_FALLBACK_VALUE,
@@ -1181,27 +1181,12 @@ export function StockDesktopLayout({
   // control row hands its trailing slots to this page's stable overlay.
   onEnterChartFullscreen: () => void;
 }) {
-  const { stockId } = useStockDetail();
   const {
     portfolioData: stockPortfolioData,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
-  const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
-  const handlePriceModeChange = useCallback(
-    (source: IMarketPriceSource) => setPriceSource({ source }),
-    [setPriceSource],
-  );
-  // The price source atom is global and outlives this page, so a Token Price
-  // selection would otherwise leak into the next stock opened. Every per-stock
-  // entry resets to the share price the page is named after. Keyed on stockId
-  // only (never on priceMode) so switching the toggle within one stock does not
-  // re-trigger the reset.
-  useEffect(() => {
-    setPriceSource((prev) =>
-      prev.source === 'share' ? prev : { source: 'share' },
-    );
-  }, [stockId, setPriceSource]);
+  const { priceMode, handlePriceModeChange } = useStockPriceSource();
   // Lives here rather than inside the chart so the price header above it can
   // follow the crosshair; the chart clears it on pointer-out and on unmount.
   const [chartHoverPoint, setChartHoverPoint] = useState<
