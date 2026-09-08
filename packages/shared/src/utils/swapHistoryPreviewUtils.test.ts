@@ -60,6 +60,16 @@ describe('swapHistoryPreviewUtils', () => {
           }),
         ),
       ).toBe('none');
+      expect(
+        getSwapHistoryPreviewBadgeKind(
+          makeItem({ status: ESwapTxHistoryStatus.EXPIRED, created: 1 }),
+        ),
+      ).toBe('expired');
+      expect(
+        getSwapHistoryPreviewBadgeKind(
+          makeItem({ status: ESwapTxHistoryStatus.REFUNDED, created: 1 }),
+        ),
+      ).toBe('refunded');
       // HOLD needs user attention and must win over a non-terminal status
       // (otherwise it would render as a generic blue "Pending").
       expect(
@@ -131,5 +141,17 @@ describe('swapHistoryPreviewUtils', () => {
       expect(result[1].previewReadAt).toBeUndefined(); // pending -> untouched
       expect(result[2].previewReadAt).toBe(777); // already read -> untouched
     });
+
+    it.each([ESwapTxHistoryStatus.REFUNDED, ESwapTxHistoryStatus.EXPIRED])(
+      'marks %s as read because it is terminal',
+      (status) => {
+        const [result] = markUnreadTerminalAsRead(
+          [makeItem({ status, created: 1 })],
+          555,
+        );
+
+        expect(result.previewReadAt).toBe(555);
+      },
+    );
   });
 });
