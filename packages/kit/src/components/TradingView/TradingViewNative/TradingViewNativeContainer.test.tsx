@@ -3,6 +3,7 @@
  */
 
 import type { ReactNode, SetStateAction } from 'react';
+import { Suspense, startTransition, use } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -1709,6 +1710,62 @@ describe('TradingViewNativeContainer', () => {
       source: 'realtime',
       timestamp: realtimePoint.t,
     });
+  });
+
+  it('keeps the committed price callback while a replacement render is suspended', async () => {
+    const currentPriceUpdate = jest.fn();
+    const pendingPriceUpdate = jest.fn();
+    const suspendedRender = jest.fn();
+    const suspension = new Promise<void>(() => undefined);
+    function SuspendedContent({ shouldSuspend }: { shouldSuspend: boolean }) {
+      if (shouldSuspend) {
+        suspendedRender();
+        use(suspension);
+      }
+      return null;
+    }
+    const renderChart = (
+      onPriceUpdate: typeof currentPriceUpdate,
+      shouldSuspend = false,
+    ) => (
+      <Suspense fallback={null}>
+        <TradingViewNativeContainer
+          source={{
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xabc',
+            symbol: 'TOKEN',
+            realtime: 'websocket',
+          }}
+          onPriceUpdate={onPriceUpdate}
+        />
+        <SuspendedContent shouldSuspend={shouldSuspend} />
+      </Suspense>
+    );
+    const { rerender } = render(renderChart(currentPriceUpdate));
+    const currentListener = mockRealtimePointListener;
+    currentPriceUpdate.mockClear();
+
+    await act(async () => {
+      startTransition(() => rerender(renderChart(pendingPriceUpdate, true)));
+    });
+
+    expect(suspendedRender).toHaveBeenCalled();
+    const point = { o: 100, h: 106, l: 99, c: 105, v: 12, t: 2000 };
+    act(() => currentListener?.(point));
+    expect(currentPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(currentPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: point.c, source: 'realtime' }),
+    );
+    expect(pendingPriceUpdate).not.toHaveBeenCalled();
+
+    rerender(renderChart(pendingPriceUpdate));
+    pendingPriceUpdate.mockClear();
+    act(() => currentListener?.({ ...point, c: 110 }));
+    expect(pendingPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(pendingPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 110, source: 'realtime' }),
+    );
   });
 
   it('uses the compact chart presentation without legends or volume', () => {
