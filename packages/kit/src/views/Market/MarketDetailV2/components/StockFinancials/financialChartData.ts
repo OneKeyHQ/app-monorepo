@@ -132,7 +132,9 @@ export function buildFinancialChart(
           values: [
             row.revenue,
             row.netIncome,
-            getNetMargin(row.revenue, row.netIncome),
+            isFinancialNumber(row.netMarginPercent)
+              ? row.netMarginPercent
+              : getNetMargin(row.revenue, row.netIncome),
           ],
         }),
       ),

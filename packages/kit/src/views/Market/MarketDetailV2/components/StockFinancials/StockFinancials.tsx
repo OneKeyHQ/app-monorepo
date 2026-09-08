@@ -120,7 +120,11 @@ function FinancialCard({
           gap="$3"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_no_data })}
+            {intl.formatMessage({
+              id: result?.failed
+                ? ETranslations.global_unknown_error_retry_message
+                : ETranslations.global_no_data,
+            })}
           </SizableText>
           <Button
             testID={`stock-financials-${kind}-retry`}
@@ -161,13 +165,19 @@ function FinancialCard({
 export function StockFinancials({
   stockId,
   labels,
+  withHorizontalPadding = true,
 }: {
   stockId: string;
+  withHorizontalPadding?: boolean;
   labels: IStockFinancialLabels;
 }) {
   const { result, isLoading, retry } = useStockFinancials(stockId);
   return (
-    <YStack testID="stock-financials" px="$5" py="$2">
+    <YStack
+      testID="stock-financials"
+      px={withHorizontalPadding ? '$5' : '$0'}
+      py="$2"
+    >
       <SizableText size="$headingXl" pt="$6">
         {labels.financials}
       </SizableText>

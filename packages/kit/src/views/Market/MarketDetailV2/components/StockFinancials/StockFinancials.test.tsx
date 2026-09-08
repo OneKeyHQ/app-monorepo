@@ -5,8 +5,11 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import messages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import type { IStockFinancials } from '@onekeyhq/shared/types/marketStockFinancials';
+
+import { StockTokenOverview } from '../TokenOverview/StockTokenOverview';
 
 import { FinancialChart } from './FinancialChart';
 import { buildFinancialChart } from './financialChartData';
@@ -109,11 +112,46 @@ const quarterly: IStockFinancials = {
   },
 };
 const mockRetry = jest.fn();
-let mockResult = {
+let mockResult: {
+  stockId: string;
+  annual: { data: IStockFinancials | null; failed: boolean };
+  quarter: { data: IStockFinancials | null; failed: boolean };
+} = {
   stockId: 'AAPL',
   annual: { data: annual, failed: false },
   quarter: { data: quarterly, failed: false },
 };
+
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
+jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
+  __esModule: true,
+  default: () => ({ formatDate: () => '--' }),
+}));
+jest.mock('../../hooks/StockDetailContext', () => ({
+  useStockDetail: () => ({ stockId: 'AAPL', stockDetail: { symbol: 'AAPL' } }),
+}));
+jest.mock('../../hooks/useTokenDetail', () => ({
+  useTokenDetail: () => ({
+    isStockToken: true,
+    tokenDetail: { symbol: 'AAPLon' },
+  }),
+}));
+jest.mock('../../hooks/useStockSecurityStats', () => ({
+  useStockSecurityStats: () => ({
+    assetAnalysisRows: [],
+    tradingActivityRows: [],
+    descriptionRows: [],
+  }),
+}));
+jest.mock('../../utils/stockPublicDataUtils', () => ({
+  buildStockInfoFromPublicDetail: () => ({}),
+  formatDirectPercentValue: () => '--',
+  formatStockAnalystConsensus: () => '--',
+}));
+jest.mock('../StockDescriptionRows', () => ({
+  StockDescriptionRows: () => null,
+}));
+jest.mock('../StockStatSections', () => ({ StockStatSections: () => null }));
 
 jest.mock('./useStockFinancials', () => ({
   useStockFinancials: () => ({
@@ -174,6 +212,7 @@ jest.mock('@onekeyhq/components', () => {
   );
   return {
     Stack,
+    Divider: Stack,
     XStack: Stack,
     YStack: Stack,
     SizableText: Stack,
@@ -265,4 +304,68 @@ it('shows exact hover values and missing fields without converting them to zero'
   const tooltip = screen.getByTestId('chart-tooltip');
   expect(tooltip.textContent).toContain('Free cash flow -10');
   expect(tooltip.textContent).toContain('Cash & equivalents --');
+});
+
+it('mounts the financial charts in the mobile stock overview', () => {
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockTokenOverview />
+    </IntlProvider>,
+  );
+  expect(screen.getByTestId('stock-financials')).toBeTruthy();
+  expect(screen.getByTestId('stock-financials-performance-chart')).toBeTruthy();
+  fireEvent.click(screen.getByTestId('stock-financials-performance-quarter'));
+  expect(
+    screen
+      .getByTestId('stock-financials-performance-quarter')
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+});
+
+it('distinguishes failed requests from successful empty responses', () => {
+  mockResult = {
+    stockId: 'AAPL',
+    annual: { data: null, failed: true },
+    quarter: { data: null, failed: true },
+  };
+  const view = renderFinancials();
+  expect(
+    within(screen.getByTestId('stock-financials-performance')).getByText(
+      intlMessages[ETranslations.global_unknown_error_retry_message],
+    ),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByTestId('stock-financials-performance-retry'));
+  expect(mockRetry).toHaveBeenCalledTimes(1);
+  view.unmount();
+  mockResult = {
+    stockId: 'AAPL',
+    annual: { data: null, failed: false },
+    quarter: { data: null, failed: false },
+  };
+  renderFinancials();
+  expect(
+    within(screen.getByTestId('stock-financials-performance')).getByText(
+      intlMessages[ETranslations.global_no_data],
+    ),
+  ).toBeTruthy();
+});
+
+it('prefers valid API net margins and only computes missing margins', () => {
+  const chart = (
+    netMarginPercent: number | null,
+    revenue: number | null = 1000,
+  ) =>
+    buildFinancialChart(
+      {
+        ...annual,
+        performance: [{ ...annual.performance[0], revenue, netMarginPercent }],
+      },
+      'performance',
+      labels,
+    );
+  expect(chart(17).rows[0].values[2]).toBe(17);
+  expect(chart(0, null).rows[0].values[2]).toBe(0);
+  expect(chart(null).rows[0].values[2]).toBe(20);
+  expect(chart(NaN).rows[0].values[2]).toBe(20);
+  expect(chart(null, null).rows[0].values[2]).toBeNull();
 });

@@ -15,17 +15,14 @@ export type IFinancialPeriodResult = {
   failed: boolean;
 };
 
+// Public financial data is shared across component mounts within this UI runtime.
+const loadFinancials = createFinancialsLoader((params) =>
+  backgroundApiProxy.serviceMarketV2.fetchMarketStockFinancials(params),
+);
+const lastSuccess = new Map<string, IStockFinancials>();
+
 export function useStockFinancials(stockId: string) {
-  const loaderRef = useRef<ReturnType<typeof createFinancialsLoader> | null>(
-    null,
-  );
-  if (!loaderRef.current) {
-    loaderRef.current = createFinancialsLoader((params) =>
-      backgroundApiProxy.serviceMarketV2.fetchMarketStockFinancials(params),
-    );
-  }
   const normalizedStockId = stockId.trim().toUpperCase();
-  const lastSuccessRef = useRef(new Map<string, IStockFinancials>());
   const refreshRef = useRef(false);
   const { result, isLoading, run } = usePromiseResult(
     async () => {
@@ -36,22 +33,20 @@ export function useStockFinancials(stockId: string) {
       ): Promise<IFinancialPeriodResult> => {
         const key = `${normalizedStockId}:${period}`;
         try {
-          const data = await loaderRef.current?.(
-            normalizedStockId,
-            period,
-            refresh,
-          );
+          const data = await loadFinancials(normalizedStockId, period, refresh);
           if (data) {
-            const firstKey = lastSuccessRef.current.keys().next().value;
-            if (lastSuccessRef.current.size >= 20 && firstKey !== undefined) {
-              lastSuccessRef.current.delete(firstKey);
+            const firstKey = lastSuccess.keys().next().value;
+            if (lastSuccess.size >= 20 && firstKey !== undefined) {
+              lastSuccess.delete(firstKey);
             }
-            lastSuccessRef.current.set(key, data);
+            lastSuccess.set(key, data);
+          } else {
+            lastSuccess.delete(key);
           }
           return { data: data ?? null, failed: false };
         } catch (_error) {
           return {
-            data: lastSuccessRef.current.get(key) ?? null,
+            data: lastSuccess.get(key) ?? null,
             failed: true,
           };
         }
