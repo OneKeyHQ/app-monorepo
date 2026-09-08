@@ -78,8 +78,31 @@ function PositionCardSkeleton() {
   );
 }
 
-function getPositionKey(kind: 'supplied' | 'borrowed', reserveAddress: string) {
-  return `${kind}-${reserveAddress}`;
+// Aave native reserves carry an empty reserveAddress, so the address alone is
+// not an identity: the same `supplied-` key would match a different market's
+// native card, and the list is not remounted when the market or account
+// changes. Scope the key to both, and reuse the normalized address so a
+// checksum-cased refresh does not silently collapse the open card.
+function getPositionKey({
+  kind,
+  accountId,
+  networkId,
+  marketAddress,
+  reserveKey,
+}: {
+  kind: 'supplied' | 'borrowed';
+  accountId: string;
+  networkId: string;
+  marketAddress: string;
+  reserveKey: string;
+}) {
+  return [
+    kind,
+    accountId,
+    networkId,
+    marketAddress.toLowerCase(),
+    reserveKey,
+  ].join('-');
 }
 
 export function BorrowMobilePositions({
@@ -101,6 +124,7 @@ export function BorrowMobilePositions({
   const accountId = earnAccount.data?.account?.id || '';
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
   const networkId = market?.networkId ?? '';
+  const marketAddress = market?.marketAddress ?? '';
   const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
 
@@ -194,15 +218,23 @@ export function BorrowMobilePositions({
 
         if (entry.kind === 'supplied') {
           const suppliedAsset = entry.asset;
-          const positionKey = getPositionKey(
-            'supplied',
-            suppliedAsset.reserveAddress,
-          );
+          const positionKey = getPositionKey({
+            kind: 'supplied',
+            accountId,
+            networkId,
+            marketAddress,
+            reserveKey,
+          });
           const actions: IBorrowPositionCardAction[] = [
             {
               key: 'withdraw',
               label: labels.withdraw,
               variant: 'secondary',
+              testID: BorrowTestIDs.positionCardAction(
+                'supplied',
+                suppliedAsset.reserveAddress,
+                'withdraw',
+              ),
               disabled:
                 isNativeActionUnsupported ||
                 suppliedAsset.withdrawButton?.disabled === true,
@@ -213,6 +245,11 @@ export function BorrowMobilePositions({
               key: 'supply',
               label: labels.supply,
               variant: 'primary',
+              testID: BorrowTestIDs.positionCardAction(
+                'supplied',
+                suppliedAsset.reserveAddress,
+                'supply',
+              ),
               disabled:
                 isNativeActionUnsupported ||
                 supplyDisabledByReserve.get(reserveKey) === true,
@@ -243,7 +280,13 @@ export function BorrowMobilePositions({
                 hasCollateralControls &&
                 suppliedAsset.usageAsCollateral !== undefined ? (
                   <>
-                    <SizableText size="$bodySm" color="$text">
+                    <SizableText
+                      size="$bodySm"
+                      color="$text"
+                      numberOfLines={1}
+                      flexShrink={1}
+                      minWidth={0}
+                    >
                       {labels.useAsCollateral}
                     </SizableText>
                     <CollateralSwitchCell
@@ -256,21 +299,30 @@ export function BorrowMobilePositions({
               }
               actions={actions}
               isExpanded={expandedKey === positionKey}
+              expandLabel={`${labels.supplied} ${suppliedAsset.token.symbol}`}
               onToggleExpand={() => toggleExpanded(positionKey)}
             />
           );
         }
 
         const borrowedAsset = entry.asset;
-        const positionKey = getPositionKey(
-          'borrowed',
-          borrowedAsset.reserveAddress,
-        );
+        const positionKey = getPositionKey({
+          kind: 'borrowed',
+          accountId,
+          networkId,
+          marketAddress,
+          reserveKey,
+        });
         const actions: IBorrowPositionCardAction[] = [
           {
             key: 'repay',
             label: labels.repay,
             variant: 'secondary',
+            testID: BorrowTestIDs.positionCardAction(
+              'borrowed',
+              borrowedAsset.reserveAddress,
+              'repay',
+            ),
             disabled:
               isNativeActionUnsupported ||
               borrowedAsset.repayButton?.disabled === true,
@@ -281,6 +333,11 @@ export function BorrowMobilePositions({
             key: 'borrow',
             label: labels.borrow,
             variant: 'primary',
+            testID: BorrowTestIDs.positionCardAction(
+              'borrowed',
+              borrowedAsset.reserveAddress,
+              'borrow',
+            ),
             disabled:
               isNativeActionUnsupported ||
               borrowDisabledByReserve.get(reserveKey) === true,
@@ -309,6 +366,7 @@ export function BorrowMobilePositions({
             platformBonusApy={borrowedAsset.platformBonusApy}
             actions={actions}
             isExpanded={expandedKey === positionKey}
+            expandLabel={`${labels.borrowed} ${borrowedAsset.token.symbol}`}
             onToggleExpand={() => toggleExpanded(positionKey)}
           />
         );
