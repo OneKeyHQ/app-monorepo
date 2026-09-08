@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { Dialog } from '@onekeyhq/components';
 
 import {
@@ -12,7 +14,11 @@ const TRADING_VIEW_WEBVIEW_HIDDEN_OPTION_IDS = [
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
 
-export function showTradingViewChartSettingsDialog() {
+export function showTradingViewChartSettingsDialog({
+  renderContent,
+}: {
+  renderContent?: (closeDialog: () => void) => ReactNode;
+} = {}) {
   const dialogInstanceRef: {
     current: ReturnType<typeof Dialog.show> | undefined;
   } = {
@@ -37,7 +43,9 @@ export function showTradingViewChartSettingsDialog() {
       outlineWidth: 0,
       bg: 'transparent',
     },
-    renderContent: (
+    renderContent: renderContent ? (
+      renderContent(closeDialog)
+    ) : (
       <TradingViewChartSettings
         hiddenOptionIds={TRADING_VIEW_WEBVIEW_HIDDEN_OPTION_IDS}
         onCancel={closeDialog}
