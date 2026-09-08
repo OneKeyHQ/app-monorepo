@@ -523,6 +523,8 @@ export const TradingViewChartControls = memo(
         >
           <ToolbarContainer
             testID="trading-view-desktop-toolbar"
+            width={desktopToolbar ? '100%' : undefined}
+            minWidth={desktopToolbar ? 0 : undefined}
             {...(desktopToolbar
               ? {
                   horizontal: true,
