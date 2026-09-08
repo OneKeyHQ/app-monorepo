@@ -1293,10 +1293,10 @@ function TokenListBlock({
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
       } else {
         // Refresh the cached wallet config in the background when it is stale
-        // (app version changed or TTL expired) so delisted networks get purged
-        // from the persisted aggregate-token maps. Not awaited: the current
-        // refresh renders with the cached data and the next one picks up the
-        // fresh config.
+        // (app/bundle version changed or TTL expired) so delisted networks get
+        // purged from the persisted aggregate-token maps. Not awaited: the
+        // current refresh renders with the cached data and the next one picks
+        // up the fresh config.
         backgroundApiProxy.serviceSetting
           .syncWalletConfigIfNeeded()
           .catch(() => {
