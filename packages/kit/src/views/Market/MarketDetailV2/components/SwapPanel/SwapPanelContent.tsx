@@ -630,20 +630,22 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             {stockEstimatedReceiveContent}
           </XStack>
 
-          <XStack
-            testID="stock-trade-estimated-shares"
-            px="$0.5"
-            pt="$0"
-            pb="$2"
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$2"
-          >
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({ id: ETranslations.market_est_shares })}
-            </SizableText>
-            {stockEstimatedSharesContent}
-          </XStack>
+          {stockTokenToAssetRatio?.trim() ? (
+            <XStack
+              testID="stock-trade-estimated-shares"
+              px="$0.5"
+              pt="$0"
+              pb="$2"
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$2"
+            >
+              <SizableText size="$bodyMd">
+                {intl.formatMessage({ id: ETranslations.market_est_shares })}
+              </SizableText>
+              {stockEstimatedSharesContent}
+            </XStack>
+          ) : null}
         </YStack>
 
         {quoteError ? (

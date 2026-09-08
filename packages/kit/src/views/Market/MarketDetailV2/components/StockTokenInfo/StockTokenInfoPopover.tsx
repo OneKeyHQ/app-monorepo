@@ -153,18 +153,18 @@ function StockTokenInfoContent({
         <InfoValueText>{ticker || VALUE_FALLBACK}</InfoValueText>
       </InfoRow>
 
-      <InfoRow
-        label={intl.formatMessage({
-          id: ETranslations.market_shares_per_token,
-        })}
-        testID="stock-token-info-shares"
-      >
-        <InfoValueText>
-          {sharesPerToken
-            ? [sharesPerToken, ticker].filter(Boolean).join(' ')
-            : VALUE_FALLBACK}
-        </InfoValueText>
-      </InfoRow>
+      {sharesPerToken ? (
+        <InfoRow
+          label={intl.formatMessage({
+            id: ETranslations.market_shares_per_token,
+          })}
+          testID="stock-token-info-shares"
+        >
+          <InfoValueText>
+            {[sharesPerToken, ticker].filter(Boolean).join(' ')}
+          </InfoValueText>
+        </InfoRow>
+      ) : null}
 
       <InfoRow
         label={intl.formatMessage({ id: ETranslations.trading_hours_title })}
