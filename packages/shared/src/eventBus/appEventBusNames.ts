@@ -192,6 +192,7 @@ export enum EAppEventBusNames {
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
+  DevLargeWalletDataCreationProgress = 'DevLargeWalletDataCreationProgress',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchEarnMode = 'SwitchEarnMode',

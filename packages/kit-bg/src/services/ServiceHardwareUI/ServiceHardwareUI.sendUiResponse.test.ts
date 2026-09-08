@@ -200,6 +200,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -232,6 +233,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -299,6 +301,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -346,6 +349,7 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
         backgroundApi: {
           serviceHardware: {
             cancelTimer: undefined,
+            invalidatePendingCancel: jest.fn(),
             getFeaturesMutex: {
               isLocked: jest.fn(() => false),
               waitForUnlock: jest.fn(),
@@ -422,6 +426,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -483,6 +488,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -553,6 +559,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -615,12 +622,13 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     });
   });
 
-  it('still sends cancel after the user dismisses a Pro2 hardware prompt', async () => {
+  it('does not send another cancel after a Pro2 request is already cancelled', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -678,7 +686,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
       deviceResetToHome: false,
-      skipDeviceCancel: false,
+      skipDeviceCancel: true,
       deviceType: EDeviceType.Pro2,
     });
   });
@@ -973,8 +981,10 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
 describe('ServiceHardwareUI.deviceStageUserClose', () => {
   const createService = () => {
     const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const cancelDevice = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceHardwareUI({
       backgroundApi: {
+        serviceHardware: { cancel: cancelDevice },
         serviceQrWallet: { cancelStageAirGapScan },
       } as never,
     });
@@ -982,7 +992,7 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
     const close = jest
       .spyOn(service, 'closeHardwareUiStateDialogFn')
       .mockResolvedValue(undefined);
-    return { service, close };
+    return { service, close, cancelDevice };
   };
 
   beforeEach(() => {
@@ -1007,18 +1017,97 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
   });
 
   it('still cancels on the device the stage names', async () => {
-    const { service, close } = createService();
+    const { service, close, cancelDevice } = createService();
+    const cancelOperation = jest.spyOn(
+      service.hardwareProcessingManager,
+      'cancelOperation',
+    );
 
-    await service.deviceStageUserClose({
-      connectId: 'PRB09B0058A',
-      skipDeviceCancel: false,
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({
+          connectId: 'PRB09B0058A',
+          skipDeviceCancel: false,
+        });
+        expect(lease.signal?.aborted).toBe(true);
+      },
     });
 
     expect(close.mock.calls[0][0]).toMatchObject({
       connectId: 'PRB09B0058A',
-      skipDeviceCancel: false,
+      skipDeviceCancel: true,
       immediateDeviceCancel: true,
     });
+    expect(cancelOperation).toHaveBeenCalledTimes(1);
+    expect(cancelOperation).toHaveBeenCalledWith('PRB09B0058A');
+    expect(cancelDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cancel again after the stage has reached an error outcome', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'error', burstId: 1 } as never);
+    const { service, close, cancelDevice } = createService();
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({ connectId: 'PRB09B0058A' });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: true,
+    });
+    expect(cancelDevice).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI delayed close ownership', () => {
+  it('ignores a stale close after a newer burst acquired the lease', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 2 } as never);
+    const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.closeHardwareUiStateDialog({
+          connectId: 'same-device',
+          deviceStageBurstId: 1,
+          immediateDeviceCancel: true,
+        });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('does not attach an unowned delayed close to a newly acquired lease', async () => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+      const close = jest
+        .spyOn(service, 'closeHardwareUiStateDialogFn')
+        .mockResolvedValue(undefined);
+      await service.closeHardwareUiStateDialog({
+        connectId: undefined,
+        skipDeviceCancel: true,
+      });
+      await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+        operation: async () => {
+          await jest.advanceTimersByTimeAsync(600);
+          expect(close).toHaveBeenCalledTimes(1);
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
