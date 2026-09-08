@@ -1,5 +1,3 @@
-import { isUndefined, omitBy } from 'lodash';
-
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -80,11 +78,26 @@ function buildMergedSelectedAccount({
   data: IAccountSelectorSelectedAccount | undefined;
   mergedByData: IAccountSelectorSelectedAccount;
 }): IAccountSelectorSelectedAccount {
-  // Explicit `undefined` keys (e.g. a freshly created default selection)
-  // must not erase a defined network context coming from the source.
+  // The network context travels as a (networkId, deriveType) pair. A target
+  // that already has a network keeps its own derivation, even a cleared one
+  // (an All Networks selection reads back with `deriveType: undefined`), so
+  // the source's derivation is never applied to a different network. A
+  // target without a network (e.g. a freshly created default selection with
+  // explicit `undefined` keys) inherits both from the source instead of
+  // erasing them.
+  const networkContext: Pick<
+    IAccountSelectorSelectedAccount,
+    'networkId' | 'deriveType'
+  > = data?.networkId
+    ? { networkId: data.networkId, deriveType: data.deriveType }
+    : {
+        networkId: mergedByData.networkId,
+        deriveType: mergedByData.deriveType,
+      };
   const result: IAccountSelectorSelectedAccount = {
     ...mergedByData,
-    ...omitBy(data, isUndefined),
+    ...data,
+    ...networkContext,
     walletId: mergedByData.walletId,
     indexedAccountId: mergedByData.indexedAccountId,
     othersWalletAccountId: mergedByData.othersWalletAccountId,

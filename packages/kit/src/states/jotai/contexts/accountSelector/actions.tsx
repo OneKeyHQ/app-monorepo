@@ -665,6 +665,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
               {
                 selectedAccount,
+                sceneName: get(accountSelectorContextDataAtom())?.sceneName,
               },
             ));
         } catch (_error) {

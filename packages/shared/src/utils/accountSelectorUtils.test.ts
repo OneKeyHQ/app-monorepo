@@ -72,4 +72,55 @@ describe('accountSelectorUtils buildMergedSelectedAccount', () => {
     expect(result.indexedAccountId).toBe('hw-1--0');
     expect(result.focusedWallet).toBe('hw-1');
   });
+
+  it('keeps a cleared derive type when the target already has its own network', () => {
+    // simpleDb reads an All Networks selection back with `deriveType: undefined`;
+    // the source's BTC derivation must not leak onto it.
+    const result = accountSelectorUtils.buildMergedSelectedAccount({
+      data: {
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        othersWalletAccountId: undefined,
+        networkId: 'onekeyall--0',
+        deriveType: undefined,
+        focusedWallet: 'hd-1',
+      },
+      mergedByData: {
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--1',
+        othersWalletAccountId: undefined,
+        networkId: 'btc--0',
+        deriveType: 'BIP86',
+        focusedWallet: 'hd-1',
+      },
+    });
+
+    expect(result.networkId).toBe('onekeyall--0');
+    expect(result.deriveType).toBeUndefined();
+    expect(result.indexedAccountId).toBe('hd-1--1');
+  });
+
+  it('inherits the source derive type together with the source network', () => {
+    const result = accountSelectorUtils.buildMergedSelectedAccount({
+      data: {
+        walletId: undefined,
+        indexedAccountId: undefined,
+        othersWalletAccountId: undefined,
+        networkId: undefined,
+        deriveType: 'default',
+        focusedWallet: undefined,
+      },
+      mergedByData: {
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        othersWalletAccountId: undefined,
+        networkId: 'btc--0',
+        deriveType: 'BIP86',
+        focusedWallet: 'hd-1',
+      },
+    });
+
+    expect(result.networkId).toBe('btc--0');
+    expect(result.deriveType).toBe('BIP86');
+  });
 });

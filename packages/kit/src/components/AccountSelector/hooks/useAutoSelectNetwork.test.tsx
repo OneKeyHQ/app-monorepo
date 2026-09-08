@@ -96,4 +96,45 @@ describe('useAutoSelectNetwork', () => {
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalled();
     unmount();
   });
+
+  it('restores the retry budget once any path selects a valid network', async () => {
+    mockUpdateSelectedAccountNetwork.mockRejectedValue(
+      new Error('background not ready'),
+    );
+    const settleRetry = () =>
+      act(async () => {
+        await jest.advanceTimersByTimeAsync(1000);
+      });
+
+    const { rerender, unmount } = renderHook(() =>
+      useAutoSelectNetwork({ num: 0 }),
+    );
+
+    // Exhaust the initial attempt plus every retry.
+    await settleRetry();
+    await settleRetry();
+    await settleRetry();
+    await waitFor(() => {
+      expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledTimes(4);
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledTimes(4);
+
+    // Another path (e.g. a manual network switch) lands on a valid network.
+    mockNetworkId = 'evm--1';
+    rerender();
+
+    // The selection loses its network again: the auto-select must retry.
+    mockNetworkId = undefined;
+    rerender();
+    expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledTimes(5);
+    await settleRetry();
+    await waitFor(() => {
+      expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledTimes(6);
+    });
+
+    unmount();
+  });
 });

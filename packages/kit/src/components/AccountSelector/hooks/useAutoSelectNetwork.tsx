@@ -91,9 +91,6 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
             num,
             networkId: usedNetworkId,
           })
-          .then(() => {
-            retryCountRef.current = 0;
-          })
           .catch(() => {
             if (
               cancelled ||
@@ -115,6 +112,11 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
           }
         };
       }
+    } else {
+      // Any path that lands on a valid network restores the retry budget,
+      // not only this hook's own successful call, so a later failed
+      // auto-select still gets its retries.
+      retryCountRef.current = 0;
     }
     return undefined;
   }, [
