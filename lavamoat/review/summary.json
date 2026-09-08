@@ -4,91 +4,91 @@
       "sourcePolicy": "lavamoat/webpack/web/policy.json",
       "sourceOverride": "lavamoat/webpack/web/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4528,
-      "generatedResources": 4528,
-      "highRiskResources": 241,
-      "highRiskEntries": 440,
+      "totalResources": 4330,
+      "generatedResources": 4326,
+      "highRiskResources": 311,
+      "highRiskEntries": 789,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
-          "resources": 73,
-          "entries": 89
+          "resources": 119,
+          "entries": 149
         },
         "storage-privacy": {
-          "resources": 41,
-          "entries": 71
+          "resources": 122,
+          "entries": 191
         },
         "extension-desktop-bridge": {
           "resources": 10,
-          "entries": 32
+          "entries": 20
         },
         "hardware-device": {
-          "resources": 5,
-          "entries": 6
+          "resources": 58,
+          "entries": 59
         },
         "crypto-random": {
-          "resources": 75,
-          "entries": 79
+          "resources": 78,
+          "entries": 83
         },
         "code-execution": {
-          "resources": 18,
-          "entries": 28
+          "resources": 21,
+          "entries": 33
         },
         "dom-injection-navigation": {
-          "resources": 85,
-          "entries": 135
+          "resources": 148,
+          "entries": 254
         },
         "node-system": {
           "resources": 0,
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 841
+      "packageEdgesToRiskyResources": 1103
     },
     {
       "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
       "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4490,
-      "generatedResources": 4490,
-      "highRiskResources": 243,
-      "highRiskEntries": 469,
+      "totalResources": 4283,
+      "generatedResources": 4279,
+      "highRiskResources": 312,
+      "highRiskEntries": 866,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
-          "resources": 74,
-          "entries": 90
+          "resources": 119,
+          "entries": 147
         },
         "storage-privacy": {
-          "resources": 39,
-          "entries": 65
+          "resources": 121,
+          "entries": 181
         },
         "extension-desktop-bridge": {
           "resources": 11,
-          "entries": 56
+          "entries": 110
         },
         "hardware-device": {
-          "resources": 6,
-          "entries": 7
+          "resources": 56,
+          "entries": 58
         },
         "crypto-random": {
-          "resources": 75,
-          "entries": 79
+          "resources": 78,
+          "entries": 82
         },
         "code-execution": {
-          "resources": 20,
-          "entries": 30
+          "resources": 23,
+          "entries": 35
         },
         "dom-injection-navigation": {
-          "resources": 87,
-          "entries": 142
+          "resources": 150,
+          "entries": 253
         },
         "node-system": {
           "resources": 0,
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 854
+      "packageEdgesToRiskyResources": 1120
     }
   ],
   "totalPolicies": 2

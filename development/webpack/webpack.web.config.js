@@ -13,8 +13,11 @@ const {
 
 const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 const {
+  createLavaMoatWebpackOptimization,
   createLavaMoatWebpackPlugin,
   createLavaMoatWebpackRules,
+  createLavaMoatWebpackValidationPlugin,
+  isLavaMoatPolicyGeneration,
 } = require('./lavamoat');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
@@ -29,6 +32,7 @@ module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.web,
 }) => {
+  const isPolicyGeneration = isLavaMoatPolicyGeneration();
   const configs = ENABLE_ANALYZER
     ? [webConfig, analyzerConfig({ configName: platform })]
     : [webConfig];
@@ -45,14 +49,17 @@ module.exports = ({
           module: {
             rules: createLavaMoatWebpackRules(),
           },
+          optimization: createLavaMoatWebpackOptimization(),
           plugins: [
             new SubresourceIntegrityPlugin(),
-            new WebAppVersionManifestPlugin({
+            createLavaMoatWebpackValidationPlugin(),
+            // Policy-only compilation suppresses runnable chunks and emission.
+            !isPolicyGeneration && new WebAppVersionManifestPlugin({
               RawSource: webpack.sources.RawSource,
               processAssetsStage:
                 webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
             }),
-            new InjectManifest({
+            !isPolicyGeneration && new InjectManifest({
               swSrc: path.join(basePath, 'src/service-worker.js'),
               swDest: 'service-worker.js',
               // apps/web/index.js registers it from the stable root path so one

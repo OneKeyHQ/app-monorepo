@@ -51,6 +51,9 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: yarn install --immutable
 
+      - name: Install Chromium for protected runtime validation
+        run: yarn exec playwright-core install --with-deps chromium
+
       - name: Validate LavaMoat tooling
         run: yarn lavamoat:test-tooling
 
@@ -97,6 +100,18 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn lavamoat:build:desktop-renderer
+
+      - name: Verify protected Web startup and deep links
+        id: web-smoke
+        run: yarn lavamoat:smoke:web --output "${{ runner.temp }}/lavamoat-web-smoke"
+
+      - name: Upload protected Web startup evidence
+        if: ${{ always() && steps.web-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-web-smoke
+          path: ${{ runner.temp }}/lavamoat-web-smoke
+          if-no-files-found: ignore
 
       - name: Upload policy diff on failure
         if: ${{ failure() && steps.check-working-tree.outcome == 'failure' }}

@@ -1,45 +1,45 @@
 {
   "categoryCounts": {
     "code-execution": {
-      "entries": 30,
-      "resources": 20
+      "entries": 35,
+      "resources": 23
     },
     "crypto-random": {
-      "entries": 79,
-      "resources": 75
+      "entries": 82,
+      "resources": 78
     },
     "dom-injection-navigation": {
-      "entries": 142,
-      "resources": 87
+      "entries": 253,
+      "resources": 150
     },
     "extension-desktop-bridge": {
-      "entries": 56,
+      "entries": 110,
       "resources": 11
     },
     "hardware-device": {
-      "entries": 7,
-      "resources": 6
+      "entries": 58,
+      "resources": 56
     },
     "network": {
-      "entries": 90,
-      "resources": 74
+      "entries": 147,
+      "resources": 119
     },
     "node-system": {
       "entries": 0,
       "resources": 0
     },
     "storage-privacy": {
-      "entries": 65,
-      "resources": 39
+      "entries": 181,
+      "resources": 121
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 4490,
-  "highRiskEntries": 469,
-  "highRiskResources": 243,
-  "packageEdgesToRiskyResources": 854,
+  "generatedResources": 4279,
+  "highRiskEntries": 866,
+  "highRiskResources": 312,
+  "packageEdgesToRiskyResources": 1120,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
-  "totalResources": 4490
+  "totalResources": 4283
 }

@@ -9,8 +9,10 @@ const babelTools = require('../babelTools');
 
 const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
 const {
+  createLavaMoatWebpackOptimization,
   createLavaMoatWebpackPlugin,
   createLavaMoatWebpackRules,
+  createLavaMoatWebpackValidationPlugin,
 } = require('./lavamoat');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
@@ -160,8 +162,10 @@ module.exports = ({
           module: {
             rules: createLavaMoatWebpackRules(),
           },
+          optimization: createLavaMoatWebpackOptimization(),
           plugins: [
             new SubresourceIntegrityPlugin(),
+            createLavaMoatWebpackValidationPlugin(),
             BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
             createLavaMoatWebpackPlugin({
               basePath,
