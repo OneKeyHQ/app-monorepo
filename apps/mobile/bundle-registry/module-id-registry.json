@@ -20725,6 +20725,7 @@
     "packages/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/index.tsx": 22295,
     "packages/kit/src/views/Borrow/components/ManagePosition/utils.ts": 24249,
     "packages/kit/src/views/Borrow/components/Markets.tsx": 8206,
+    "packages/kit/src/views/Borrow/components/Markets.utils.ts": 14807,
     "packages/kit/src/views/Borrow/components/Overview.tsx": 24075,
     "packages/kit/src/views/Borrow/components/OverviewMetric.tsx": 23141,
     "packages/kit/src/views/Borrow/components/SuppliedCard.tsx": 944,
