@@ -43,6 +43,7 @@ import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
@@ -991,6 +992,14 @@ class ServiceSetting extends ServiceBase {
         }
       },
     );
+
+    // The server array is not guaranteed to follow `order` (prod USDG arrives
+    // as Ethereum, Robinhood, X Layer, Solana with orders 3, 1, 2, 4) and the
+    // Receive search flatten keeps array order, so sort members once here.
+    // Members without `order` sink to the end.
+    Object.values(allAggregateTokenMap).forEach((group) => {
+      group.tokens = sortTokensByOrder({ tokens: group.tokens });
+    });
 
     const allAggregateTokens: IAccountToken[] = Object.keys(
       allAggregateTokenMap,

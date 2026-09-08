@@ -1569,3 +1569,5 @@ tnum
 cctp
 hypercore
 robinhood
+usdg
+USDG

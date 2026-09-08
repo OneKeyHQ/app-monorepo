@@ -308,9 +308,19 @@ export function getFilteredTokenBySearchKey({
   let mergedTokens = tokens;
 
   if (searchAll && searchTokenList) {
-    const aggregateTokens = Object.values(aggregateTokenListMap ?? {}).flatMap(
-      (token) => token.tokens,
+    // Only an aggregate that has a row in `tokens` can stand in for its
+    // members (grouped row or flattened subs). The selector folds aggregate
+    // rows from the enabled-network fan-out alone, so a backend hit whose
+    // aggregate is absent — the account holds none of it on an enabled
+    // network — must stay as a plain row or it disappears from the results.
+    const presentAggregateKeys = new Set(
+      tokens
+        .filter((token) => token.isAggregateToken)
+        .map((token) => token.$key),
     );
+    const aggregateTokens = Object.entries(aggregateTokenListMap ?? {})
+      .filter(([aggregateKey]) => presentAggregateKeys.has(aggregateKey))
+      .flatMap(([, aggregate]) => aggregate.tokens);
 
     const filteredSearchTokenList = searchTokenList.filter(
       (token) =>

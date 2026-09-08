@@ -31,21 +31,37 @@ const robinhood = {
   id: 'evm--4663',
   status: ENetworkStatus.LISTED,
 } as IServerNetwork;
+const base = {
+  id: 'evm--8453',
+  status: ENetworkStatus.LISTED,
+} as IServerNetwork;
 
 type IUpdateAllAggregateInfoParams = Parameters<
   SimpleDbEntityAggregateToken['updateAllAggregateInfo']
 >[0];
 
-function buildMember(networkId: string): IAggregateToken {
-  return { networkId, address: '', decimals: 18 } as IAggregateToken;
+function buildMember(networkId: string, order?: number): IAggregateToken {
+  return {
+    networkId,
+    address: '',
+    decimals: 18,
+    ...(order === undefined ? {} : { order }),
+  } as IAggregateToken;
 }
 
 function buildService({
   networks,
   ensureServerNetworksFetched = jest.fn(async () => undefined),
+  ethMembers = [
+    buildMember('evm--1'),
+    buildMember('evm--4663'),
+    // Unknown to the client: must never reach the aggregate maps.
+    buildMember('evm--999999'),
+  ],
 }: {
   networks: IServerNetwork[] | (() => IServerNetwork[]);
   ensureServerNetworksFetched?: jest.Mock<Promise<void>, []>;
+  ethMembers?: IAggregateToken[];
 }) {
   const updateAllAggregateInfo = jest.fn(
     async (_params: IUpdateAllAggregateInfoParams) => undefined,
@@ -78,12 +94,7 @@ function buildService({
       ETH: {
         logoURI: 'eth.png',
         name: 'Ethereum',
-        data: [
-          buildMember('evm--1'),
-          buildMember('evm--4663'),
-          // Unknown to the client: must never reach the aggregate maps.
-          buildMember('evm--999999'),
-        ],
+        data: ethMembers,
       },
     },
   };
@@ -168,5 +179,43 @@ describe('ServiceSetting.syncWalletConfig', () => {
         })
       ],
     ).toBeDefined();
+  });
+
+  it('sorts aggregate members by server order, members without order last', async () => {
+    // The server array is not guaranteed to follow `order` (prod USDG arrives
+    // as Ethereum, Robinhood, X Layer, Solana with orders 3, 1, 2, 4), and
+    // consumers that flatten members keep array order.
+    const { service, updateAllAggregateInfo } = buildService({
+      networks: [ethereum, robinhood, base],
+      ethMembers: [
+        buildMember('evm--1', 3),
+        buildMember('evm--8453'),
+        buildMember('evm--4663', 1),
+      ],
+    });
+
+    await sync(service);
+
+    const { allAggregateTokenMap, allAggregateTokens } =
+      updateAllAggregateInfo.mock.calls[0][0];
+    const ethGroup =
+      allAggregateTokenMap[
+        buildAggregateTokenListMapKeyForTokenList({ commonSymbol: 'ETH' })
+      ];
+    expect(ethGroup.tokens.map((token) => token.networkId)).toEqual([
+      'evm--4663',
+      'evm--1',
+      'evm--8453',
+    ]);
+    // The common row only carries aggregate-wide fields, so the first member
+    // changing must not alter it.
+    expect(allAggregateTokens).toEqual([
+      expect.objectContaining({
+        isAggregateToken: true,
+        commonSymbol: 'ETH',
+        name: 'Ethereum',
+        logoURI: 'eth.png',
+      }),
+    ]);
   });
 });

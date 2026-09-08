@@ -1448,3 +1448,117 @@ describe('normalizeTokenSearchResults — networkId normalization and catalog fi
     expect(result[0]).toBe(hit);
   });
 });
+
+describe('getFilteredTokenBySearchKey — backend hits of aggregates without a row (Receive All Networks)', () => {
+  const aggregateUsdg = buildTestToken({
+    $key: 'aggregate_USDG_',
+    address: 'aggregate_USDG_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'USDG',
+    commonSymbol: 'USDG',
+  });
+  const memberUsdgEthereum = buildTestToken({
+    $key: 'member-usdg-evm--1',
+    address: '0xe343167631d89b6ffc58b88d6b7fb0228795491d',
+    networkId: 'evm--1',
+    symbol: 'USDG',
+  });
+  const memberUsdgRobinhood = buildTestToken({
+    $key: 'member-usdg-evm--4663',
+    address: '0x5fc5360d0400b1c8f9e8cd7d3b3a6a2f5fbb8d3e',
+    networkId: 'evm--4663',
+    symbol: 'USDG',
+  });
+  const memberUsdgSolana = buildTestToken({
+    $key: 'member-usdg-sol--101',
+    address: '2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH',
+    networkId: 'sol--101',
+    symbol: 'USDG',
+  });
+  // Backend `token/search` hits carry their own `$key` shape.
+  const hitUsdgRobinhood = buildTestToken({
+    $key: 'evm--4663_0x5fc5360d0400b1c8f9e8cd7d3b3a6a2f5fbb8d3e',
+    address: memberUsdgRobinhood.address,
+    networkId: 'evm--4663',
+    symbol: 'USDG',
+  });
+  const hitUsdgEthereum = buildTestToken({
+    $key: 'evm--1_0xe343167631d89b6ffc58b88d6b7fb0228795491d',
+    address: memberUsdgEthereum.address,
+    networkId: 'evm--1',
+    symbol: 'USDG',
+  });
+  const hitSyrupUsdg = buildTestToken({
+    $key: 'evm--1_0x87b65c4aaffa5bd5aefa5fbd2fb0a9e7b4c3d2e1',
+    address: '0x87b65c4aaffa5bd5aefa5fbd2fb0a9e7b4c3d2e1',
+    networkId: 'evm--1',
+    symbol: 'syrupUSDG',
+    name: 'syrupUSDG',
+  });
+  const aggregateTokenListMap = {
+    [aggregateUsdg.$key]: {
+      tokens: [memberUsdgEthereum, memberUsdgRobinhood, memberUsdgSolana],
+    },
+  };
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'evm--4663': buildTestNetwork({
+      id: 'evm--4663',
+      name: 'Robinhood',
+      code: 'robinhood',
+      shortname: 'Robinhood',
+    }),
+    'sol--101': buildTestNetwork({
+      id: 'sol--101',
+      name: 'Solana',
+      code: 'sol',
+      shortname: 'SOL',
+    }),
+  };
+  const searchTokenList = [hitUsdgRobinhood, hitUsdgEthereum, hitSyrupUsdg];
+
+  test('keeps member hits as plain rows when the account holds none of the aggregate', () => {
+    // No USDG aggregate row: the account holds no USDG on any enabled network
+    // (e.g. Robinhood disabled). Nothing can flatten the config members, so
+    // the backend hits must survive instead of being deduped into nothing.
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [],
+        searchKey: 'usdg',
+        searchAll: true,
+        searchTokenList,
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap: {},
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([hitUsdgRobinhood, hitUsdgEthereum, hitSyrupUsdg]);
+  });
+
+  test('still dedupes member hits against an aggregate that has a row', () => {
+    const result = getFilteredTokenBySearchKey({
+      tokens: [aggregateUsdg],
+      searchKey: 'usdg',
+      searchAll: true,
+      searchTokenList,
+      aggregateTokenListMap,
+      networksMap,
+      enableNetworkSearch: true,
+      tokenFiatMap: {},
+      flattenAggregateTokens: true,
+    });
+    expect(result.map((token) => token.$key)).toEqual([
+      memberUsdgEthereum.$key,
+      memberUsdgRobinhood.$key,
+      memberUsdgSolana.$key,
+      hitSyrupUsdg.$key,
+    ]);
+  });
+});
