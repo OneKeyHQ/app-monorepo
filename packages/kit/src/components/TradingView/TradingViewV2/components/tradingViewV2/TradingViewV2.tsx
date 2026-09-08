@@ -15,6 +15,7 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
+import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -46,6 +47,7 @@ import {
   useHyperLiquidKlineSource,
   useTradingViewV2WebSocket,
 } from './hooks';
+import { useTradingViewIntervalSync } from './hooks/useTradingViewIntervalSync';
 import {
   DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
@@ -59,6 +61,7 @@ import { resolveTradingViewStorageNamespace } from './tradingViewStorageNamespac
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type { ITradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
+import type { ITradingViewNativeIntervalStorageNamespace } from '../../../TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
@@ -121,6 +124,7 @@ interface IBaseTradingViewV2Props {
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
+  intervalStorageNamespace?: ITradingViewNativeIntervalStorageNamespace;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
@@ -200,6 +204,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onInteractionOverlayOpenChange,
     disabledFeatures,
     storageNamespace,
+    intervalStorageNamespace,
     forceEmptyKLineData,
     emptyKLineDataOnError,
     kLineDataFallback,
@@ -299,6 +304,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           ? {
               ...prev,
               activeInterval: interval,
+              persist: false,
             }
           : prev,
       );
@@ -312,6 +318,28 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       });
     },
     [handleCurrentKLineResolutionChange],
+  );
+  const {
+    displayedIntervalConfig,
+    isRestoringInterval,
+    initialInterval,
+    reset: resetIntervalSync,
+    saveInterval,
+  } = useTradingViewIntervalSync({
+    namespace: intervalStorageNamespace,
+    intervalConfig,
+    isReady: enableNativeChartControls
+      ? Boolean(nativeChartControlsConfig) &&
+        nativeChartControlsConfig?.layoutRestored !== false
+      : Boolean(intervalConfig),
+    onIntervalChange: handleNativeIntervalChange,
+  });
+  const handleSelectedIntervalChange = useCallback(
+    (interval: string) => {
+      saveInterval(interval);
+      handleNativeIntervalChange(interval);
+    },
+    [handleNativeIntervalChange, saveInterval],
   );
   const handleNativeChartControlsConfigChange = useCallback(
     (data: ITradingViewNativeChartControlsConfigData) => {
@@ -510,6 +538,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       symbol: chartSymbol,
       type: 'market',
       storageNamespace: finalStorageNamespace,
+      ...(initialInterval ? { initialResolution: initialInterval } : {}),
       ...(enableNativeIntervalSelector ? { nativeIntervalSelector: '1' } : {}),
       ...(enableNativeChartControls ? { nativeChartControls: '1' } : {}),
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
@@ -520,6 +549,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enableNativeChartControls,
     enableNativeIntervalSelector,
     forceCandlestickChart,
+    initialInterval,
     networkId,
     storageNamespace,
     tokenAddress,
@@ -688,12 +718,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
+      resetIntervalSync();
       setIntervalConfig(null);
       setNativeChartControlsConfig(null);
       resetInteractionLocks();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetInteractionLocks],
+    [onLoadStart, resetInteractionLocks, resetIntervalSync],
   );
 
   const handleLoadEnd = useCallback(
@@ -842,7 +873,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       {enableNativeIntervalSelector ? (
         <TradingViewV2ChartControlsContainer
           enableNativeChartSettings={enableNativeChartSettings}
-          intervalConfig={intervalConfig}
+          intervalConfig={displayedIntervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -856,7 +887,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
           onChartSwitch={onChartSwitch}
-          onIntervalChange={handleNativeIntervalChange}
+          onIntervalChange={handleSelectedIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}
           onResetLayout={handleNativeResetLayout}
@@ -873,6 +904,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
       <Stack position="relative" flex={1}>
         {webView}
+        {isRestoringInterval ? (
+          <TradingViewChartLoadingMask testID="trading-view-interval-sync-loading" />
+        ) : null}
 
         {mockEmptyKLineEnabled ? (
           <Stack

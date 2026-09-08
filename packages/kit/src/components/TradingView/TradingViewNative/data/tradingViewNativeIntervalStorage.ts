@@ -51,28 +51,34 @@ export function getTradingViewNativeIntervalStorageNamespace(
   return source.isNative || !source.tokenAddress.trim() ? 'native' : 'token';
 }
 
-export function readTradingViewNativeActiveInterval(
+export function readStoredTradingViewNativeActiveInterval(
   namespace: ITradingViewNativeIntervalStorageNamespace,
-): ITradingViewNativeChartInterval {
+): ITradingViewNativeChartInterval | undefined {
   try {
     const storedIntervals = appStorage.syncStorage.getObject<
       Record<string, unknown>
     >(getStorageKey(namespace));
     const storedInterval = storedIntervals?.[namespace];
     if (!storedInterval || typeof storedInterval !== 'object') {
-      return DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+      return undefined;
     }
     const interval = (storedInterval as { interval?: unknown }).interval;
     if (typeof interval !== 'string') {
-      return DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+      return undefined;
     }
-    return (
-      getTradingViewNativeKLineInterval(interval)?.value ??
-      DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL
-    );
+    return getTradingViewNativeKLineInterval(interval)?.value;
   } catch {
-    return DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+    return undefined;
   }
+}
+
+export function readTradingViewNativeActiveInterval(
+  namespace: ITradingViewNativeIntervalStorageNamespace,
+): ITradingViewNativeChartInterval {
+  return (
+    readStoredTradingViewNativeActiveInterval(namespace) ??
+    DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL
+  );
 }
 
 export async function saveTradingViewNativeActiveInterval({
