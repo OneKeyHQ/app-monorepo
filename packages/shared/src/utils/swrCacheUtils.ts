@@ -780,6 +780,7 @@ const NS = {
   bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
   bulkCopyAddressesAccounts: 'bulkCopyAccounts',
   chainSelectorInputNetworks: 'chainSelNets',
+  homeWalletTabSupport: 'homeWalletTabs',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -1029,6 +1030,11 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  // Home wallet tab support (Perps / DeFi tab visibility). Seeds the first
+  // frame so the tab row does not reflow once the background gating resolves
+  // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
+  homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
+    [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
