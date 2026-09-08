@@ -268,12 +268,16 @@ export function shouldShowProtocolLendingFallbackWarning({
   hasDebts,
   isWithdraw,
   checkAmountAlertCount,
+  riskOfLiquidationAlert,
 }: {
   hasDebts?: boolean;
   isWithdraw: boolean;
   checkAmountAlertCount: number;
+  riskOfLiquidationAlert?: boolean;
 }) {
-  return Boolean(hasDebts && isWithdraw && checkAmountAlertCount === 0);
+  const hasServerLiquidationAlert =
+    checkAmountAlertCount > 0 && typeof riskOfLiquidationAlert === 'boolean';
+  return Boolean(hasDebts && isWithdraw && !hasServerLiquidationAlert);
 }
 
 export type IProtocolLendingPrimaryBalanceLabel =

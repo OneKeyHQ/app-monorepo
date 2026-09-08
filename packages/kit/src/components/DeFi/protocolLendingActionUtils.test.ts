@@ -306,22 +306,35 @@ describe('protocolLendingActionUtils', () => {
         hasDebts: true,
         isWithdraw: true,
         checkAmountAlertCount: 0,
+        riskOfLiquidationAlert: false,
       }),
     ).toBe(true);
   });
 
-  it.each([1, 2])(
-    'lets %i server alert(s) replace the generic liquidation warning without text matching',
-    (checkAmountAlertCount) => {
+  it.each([true, false])(
+    'lets a server liquidation alert with risk marker %s replace the generic warning',
+    (riskOfLiquidationAlert) => {
       expect(
         shouldShowProtocolLendingFallbackWarning({
           hasDebts: true,
           isWithdraw: true,
-          checkAmountAlertCount,
+          checkAmountAlertCount: 1,
+          riskOfLiquidationAlert,
         }),
       ).toBe(false);
     },
   );
+
+  it('keeps the generic warning alongside unrelated server alerts', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: true,
+        checkAmountAlertCount: 1,
+        riskOfLiquidationAlert: undefined,
+      }),
+    ).toBe(true);
+  });
 
   it('does not show the generic liquidation warning outside debt withdrawals', () => {
     expect(

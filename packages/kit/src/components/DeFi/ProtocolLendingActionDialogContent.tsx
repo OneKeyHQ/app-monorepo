@@ -1699,6 +1699,7 @@ function ProtocolLendingActionBorrowContent({
       hasDebts,
       isWithdraw,
       checkAmountAlertCount: checkAmountAlerts.length,
+      riskOfLiquidationAlert: actionResult.riskOfLiquidationAlert,
     });
   const inlineErrorMessage =
     assetsError ??
