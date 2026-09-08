@@ -1,3 +1,6 @@
+import { Semaphore } from 'async-mutex';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getMarketWatchlistKey,
@@ -11,35 +14,68 @@ import type {
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+import { SimpleDbEntityMarketListingWatchList } from './SimpleDbEntityMarketListingWatchList';
+
+function isListing(item: IMarketWatchListItemV2) {
+  return item.assetId !== undefined || item.stockId !== undefined;
+}
+
 export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketWatchListDataV2> {
   entityName = 'marketWatchListV2';
 
   override enableCache = false;
 
-  private _invalidItemsCleaned = false;
+  private listingDb = new SimpleDbEntityMarketListingWatchList();
 
-  private _isValidItem(item: IMarketWatchListItemV2): boolean {
-    return isValidMarketWatchlistItem(item);
+  private watchListMutex = new Semaphore(1);
+
+  private async migrateListings(): Promise<void> {
+    const raw = await this.getRawData();
+    const listings = (raw?.data ?? []).filter(
+      (item) => isListing(item) && isValidMarketWatchlistItem(item),
+    );
+    if (!listings.length) return;
+
+    // Save first so an interrupted migration can retry without losing favorites.
+    const saved = await this.listingDb.setRawData((data) => ({
+      data: sortUtils.buildSortedList({
+        oldList: listings,
+        saveItems: data?.data ?? [],
+        uniqByFn: getMarketWatchlistKey,
+      }),
+    }));
+    if (!saved) {
+      throw new OneKeyLocalError('Market listing migration was not persisted');
+    }
+    const cleaned = await this.setRawData((data) => ({
+      data: (data?.data ?? []).filter((item) => !isListing(item)),
+    }));
+    if (!cleaned) {
+      throw new OneKeyLocalError(
+        'Market listing migration cleanup was not persisted',
+      );
+    }
   }
 
-  async getMarketWatchListV2() {
-    const result = await this.getRawData();
-    const data = result?.data ?? [];
-
-    // Filter out invalid items (non-perps with empty chainId) on every read
-    const cleanData = data.filter((item) => this._isValidItem(item));
-
-    // Persist cleanup once per app session if invalid items were found
-    if (!this._invalidItemsCleaned) {
-      this._invalidItemsCleaned = true;
-      if (cleanData.length !== data.length) {
-        void this.setRawData((rawData) => ({
-          data: (rawData?.data ?? []).filter((item) => this._isValidItem(item)),
+  async getMarketWatchListV2(): Promise<IMarketWatchListDataV2> {
+    return this.watchListMutex.runExclusive(async () => {
+      await this.migrateListings();
+      const legacy = await this.getRawData();
+      const cleanLegacy = (legacy?.data ?? []).filter(
+        isValidMarketWatchlistItem,
+      );
+      if (cleanLegacy.length !== (legacy?.data.length ?? 0)) {
+        await this.setRawData((data) => ({
+          data: (data?.data ?? []).filter(isValidMarketWatchlistItem),
         }));
       }
-    }
-
-    return { data: cleanData };
+      const listings = await this.listingDb.getRawData();
+      return {
+        data: [...cleanLegacy, ...(listings?.data ?? [])]
+          .filter(isValidMarketWatchlistItem)
+          .toSorted((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0)),
+      };
+    });
   }
 
   async getMarketWatchListItemV2(
@@ -63,16 +99,26 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       callerName,
       items: watchList,
     });
-    await this.setRawData((data) => {
-      const oldList: IMarketWatchListItemV2[] = data?.data ?? [];
-
-      const newList: IMarketWatchListItemV2[] = sortUtils.buildSortedList({
-        oldList,
-        saveItems: watchList,
-        uniqByFn: getMarketWatchlistKey,
-      });
-
-      return { data: newList };
+    await this.watchListMutex.runExclusive(async () => {
+      await this.migrateListings();
+      const stores: [
+        SimpleDbEntityBase<IMarketWatchListDataV2>,
+        IMarketWatchListItemV2[],
+      ][] = [
+        [this, watchList.filter((item) => !isListing(item))],
+        [this.listingDb, watchList.filter(isListing)],
+      ];
+      for (const [db, items] of stores) {
+        if (items.length) {
+          await db.setRawData((data) => ({
+            data: sortUtils.buildSortedList({
+              oldList: data?.data ?? [],
+              saveItems: items.filter(isValidMarketWatchlistItem),
+              uniqByFn: getMarketWatchlistKey,
+            }),
+          }));
+        }
+      }
     });
   }
 
@@ -87,23 +133,33 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       callerName,
       items,
     });
-    await this.setRawData((data) => {
-      const oldList = data?.data ?? [];
-
-      const filteredData = oldList.filter(
-        (item) =>
-          !items.some(
-            (removed) =>
-              getMarketWatchlistKey(item) === getMarketWatchlistKey(removed),
+    await this.watchListMutex.runExclusive(async () => {
+      await this.migrateListings();
+      const stores: SimpleDbEntityBase<IMarketWatchListDataV2>[] = [
+        this,
+        this.listingDb,
+      ];
+      for (const db of stores) {
+        await db.setRawData((data) => ({
+          data: (data?.data ?? []).filter(
+            (item) =>
+              !items.some(
+                (removed) =>
+                  getMarketWatchlistKey(item) ===
+                  getMarketWatchlistKey(removed),
+              ),
           ),
-      );
-
-      return { data: filteredData };
+        }));
+      }
     });
   }
 
   async clearAllMarketWatchListV2() {
     defaultLogger.cloudSync.market.simpleDbClearAllWatchListItems();
-    await this.setRawData(() => ({ data: [] }));
+    await this.watchListMutex.runExclusive(async () => {
+      await this.migrateListings();
+      await this.setRawData(() => ({ data: [] }));
+      await this.listingDb.setRawData(() => ({ data: [] }));
+    });
   }
 }

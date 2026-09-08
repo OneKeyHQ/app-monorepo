@@ -8,18 +8,22 @@ import { CloudSyncFlowManagerMarketWatchList } from './CloudSyncFlowManagerMarke
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBCloudSyncItem } from '../../../dbs/local/types';
 
-let mockItems: IMarketWatchListItemV2[] = [];
+let mockItems: Record<string, IMarketWatchListItemV2[]> = {};
 jest.mock('../../../dbs/simple/base/SimpleDbEntityBase', () => ({
   SimpleDbEntityBase: class {
+    entityName!: string;
     async getRawData() {
-      return { data: mockItems };
+      return { data: mockItems[this.entityName] ?? [] };
     }
     async setRawData(
       update: (data: { data: IMarketWatchListItemV2[] }) => {
         data: IMarketWatchListItemV2[];
       },
     ) {
-      mockItems = update({ data: mockItems }).data;
+      mockItems[this.entityName] = update({
+        data: mockItems[this.entityName] ?? [],
+      }).data;
+      return { data: mockItems[this.entityName] };
     }
   },
 }));
@@ -58,7 +62,7 @@ function setup() {
   });
 }
 beforeEach(() => {
-  mockItems = [];
+  mockItems = {};
 });
 it('gives assets and stocks distinct sync keys while retaining the legacy key', async () => {
   const manager = setup();
@@ -86,7 +90,7 @@ it('round-trips addressless listings through sync and deletes only the selected 
       }),
     ).toBe(true);
   }
-  expect(mockItems).toHaveLength(3);
+  expect(Object.values(mockItems).flat()).toHaveLength(3);
   expect(
     await manager.getDBRecordBySyncPayload({ payload: stock }),
   ).toMatchObject(stock);
@@ -97,7 +101,15 @@ it('round-trips addressless listings through sync and deletes only the selected 
       item: { isDeleted: true } as IDBCloudSyncItem,
     }),
   ).toBe(true);
-  expect(mockItems).toHaveLength(2);
-  expect(mockItems.some((item) => item.assetId === 'BTC')).toBe(true);
-  expect(mockItems.some((item) => item.chainId === 'btc--0')).toBe(true);
+  expect(Object.values(mockItems).flat()).toHaveLength(2);
+  expect(
+    Object.values(mockItems)
+      .flat()
+      .some((item) => item.assetId === 'BTC'),
+  ).toBe(true);
+  expect(
+    Object.values(mockItems)
+      .flat()
+      .some((item) => item.chainId === 'btc--0'),
+  ).toBe(true);
 });

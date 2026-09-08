@@ -18655,6 +18655,7 @@
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory.ts": 5559,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalNFTs.ts": 24344,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens.ts": 6669,
+    "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityMarketListingWatchList.ts": 18565,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityMarketPresetSettings.ts": 4843,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityMarketTokenPreference.ts": 14133,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityMarketWatchList.ts": 5276,

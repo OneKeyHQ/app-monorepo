@@ -719,7 +719,7 @@ class ServiceMarketV2 extends ServiceBase {
     callerName: string;
   }) {
     const currentData =
-      await this.backgroundApi.simpleDb.marketWatchListV2.getRawData();
+      await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
     const newWatchList = sortUtils.fillingSaveItemsSortIndex({
       oldList: currentData?.data ?? [],
       saveItems: watchList,
