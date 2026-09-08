@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useContext } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
+
+import { TradingViewDesktopToolbarContext } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext';
 
 import { TokenDetailChart } from './TokenDetailChart';
 
@@ -44,6 +46,7 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button,
+    ScrollView: Stack,
     Stack,
     XStack: Stack,
     YStack: Stack,
@@ -72,11 +75,16 @@ jest.mock('./MarketDetailProChartControls', () => ({
   ),
 }));
 
+function MockProChart() {
+  const toolbar = useContext(TradingViewDesktopToolbarContext);
+  return <div data-testid="market-token-pro-chart">{toolbar}</div>;
+}
+
 function renderTokenDetailChart(marketAssetId?: string) {
   return render(
     <TokenDetailChart
       marketAssetId={marketAssetId}
-      marketTradingView={<div data-testid="market-token-pro-chart" />}
+      marketTradingView={<MockProChart />}
       isChartFullscreen={false}
       chartMode="native"
       onChartSwitch={jest.fn()}
