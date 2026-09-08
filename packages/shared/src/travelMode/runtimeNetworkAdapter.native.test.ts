@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '../errors';
+
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 
 const mockRunOrReject = jest.fn();
@@ -29,6 +31,37 @@ describe('createRuntimeNetworkAdapter.native', () => {
 
     await expect(adapter(config)).resolves.toBe(response);
     expect(mockRunOrReject).toHaveBeenCalledTimes(1);
+    expect(delegate).toHaveBeenCalledWith(config);
+  });
+
+  it('allows allowlisted top-level requests in Travel Mode', async () => {
+    const response = { data: 'ok', status: 200 } as AxiosResponse;
+    const delegate = jest.fn<
+      ReturnType<AxiosAdapter>,
+      Parameters<AxiosAdapter>
+    >(async () => response);
+    mockRunOrReject.mockImplementation(
+      async (
+        operation: () => Promise<AxiosResponse>,
+        options?: { allowInTravelMode?: boolean },
+      ) => {
+        if (options?.allowInTravelMode) {
+          return operation();
+        }
+        throw new OneKeyLocalError('Unknown error');
+      },
+    );
+
+    const adapter = createRuntimeNetworkAdapter(delegate);
+    const config = {
+      method: 'get',
+      url: '/utility/v2/market/basic-config',
+    } as Parameters<AxiosAdapter>[0];
+
+    await expect(adapter(config)).resolves.toBe(response);
+    expect(mockRunOrReject).toHaveBeenCalledWith(expect.any(Function), {
+      allowInTravelMode: true,
+    });
     expect(delegate).toHaveBeenCalledWith(config);
   });
 

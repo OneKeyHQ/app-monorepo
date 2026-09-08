@@ -229,6 +229,12 @@ type IChangeActiveAssetResult = {
   margin: IMarginTable | undefined;
 };
 
+type ITradingUniverseSnapshot = {
+  universesByDex: IPerpsUniverse[][];
+  marginTablesMapByDex: Array<IMarginTableMap | undefined>;
+  updatedAt?: number;
+};
+
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
   seconds: 0.3,
 });
@@ -318,6 +324,8 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
+  private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
+
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
@@ -1574,6 +1582,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
         prevMarginTablesMapByDex,
       );
+      this.runtimeTradingUniverse = {
+        universesByDex: universes,
+        marginTablesMapByDex: marginTablesMapList,
+        updatedAt: Date.now(),
+      };
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,
         marginTablesMapList,
@@ -1587,7 +1600,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getTradingUniverse() {
-    return this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    const persisted =
+      await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    return persisted.universesByDex.length > 0
+      ? persisted
+      : (this.runtimeTradingUniverse ?? persisted);
   }
 
   @backgroundMethod()

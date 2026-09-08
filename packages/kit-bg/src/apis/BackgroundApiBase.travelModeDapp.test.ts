@@ -125,23 +125,77 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
       get: jest.fn(async () => ({ walletId: 'sensitive-wallet' })),
       set: jest.fn(async () => undefined),
     };
+    const contextStoreMapAtom = {
+      get: jest.fn(async () => ({
+        'accountSelector@discover--https://private.example': {
+          storeName: 'accountSelector',
+          accountSelectorInfo: {
+            sceneName: 'discover',
+            sceneUrl: 'https://private.example',
+            enabledNum: [0],
+          },
+          count: 1,
+        },
+      })),
+      set: jest.fn(async () => undefined),
+    };
+    const perpsOrderBookOptionsAtom = {
+      get: jest.fn(async () => ({
+        coin: 'xyz:NVDA',
+        assetId: 12,
+        nSigFigs: 5,
+        mantissa: 2,
+        accountAddress: 'must-not-be-exposed',
+      })),
+      set: jest.fn(async () => undefined),
+    };
+    const tradingModeAtom = {
+      get: jest.fn(async () => 'spot'),
+      set: jest.fn(async () => undefined),
+    };
+    const resettablePerpsAtoms = {
+      [EAtomNames.perpsActiveAssetCtxAtom]: {
+        get: jest.fn(async () => ({ coin: 'xyz:NVDA' })),
+        set: jest.fn(async () => undefined),
+      },
+      [EAtomNames.perpsActiveAssetCtxDisplayAtom]: {
+        get: jest.fn(async () => ({ coin: 'xyz:NVDA' })),
+        set: jest.fn(async () => undefined),
+      },
+      [EAtomNames.perpsActiveAssetDataAtom]: {
+        get: jest.fn(async () => ({ coin: 'xyz:NVDA' })),
+        set: jest.fn(async () => undefined),
+      },
+      [EAtomNames.spotActiveAssetCtxAtom]: {
+        get: jest.fn(async () => ({ coin: '@1' })),
+        set: jest.fn(async () => undefined),
+      },
+    };
     backgroundApi.allAtoms = Promise.resolve({
       [EAtomNames.passwordAtom]: passwordRuntimeAtom,
       [EAtomNames.passwordPersistAtom]: passwordAtom,
       [EAtomNames.passwordPersistManualLockStateAtom]: manualLockAtom,
       [EAtomNames.settingsPersistAtom]: settingsAtom,
       [EAtomNames.currencyPersistAtom]: currencyAtom,
+      [EAtomNames.jotaiContextStoreMapAtom]: contextStoreMapAtom,
+      [EAtomNames.perpsActiveOrderBookOptionsAtom]: perpsOrderBookOptionsAtom,
+      [EAtomNames.tradingModeAtom]: tradingModeAtom,
+      ...resettablePerpsAtoms,
       [EAtomNames.addressBookPersistAtom]: businessAtom,
     }) as unknown as BackgroundApiBase['allAtoms'];
     return {
       backgroundApi,
       businessAtom,
       currencyAtom,
+      contextStoreMapAtom,
       manualLockAtom,
       passwordAtom,
       passwordRuntimeAtom,
       passwordRuntimeState,
+      perpsOrderBookOptionsAtom,
       settingsAtom,
+      tradingModeAtom,
+      resettablePerpsAtoms,
     };
   }
 
@@ -150,11 +204,14 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
       backgroundApi,
       businessAtom,
       currencyAtom,
+      contextStoreMapAtom,
       manualLockAtom,
       passwordAtom,
       passwordRuntimeAtom,
       passwordRuntimeState,
+      perpsOrderBookOptionsAtom,
       settingsAtom,
+      tradingModeAtom,
     } = buildBackgroundApi();
 
     const { states } = await backgroundApi.getAtomStates();
@@ -187,12 +244,23 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
         eur: { id: 'eur', name: 'Euro', type: ['fiat'], unit: '€' },
       },
     });
+    expect(states[EAtomNames.jotaiContextStoreMapAtom]).toEqual({});
+    expect(states[EAtomNames.perpsActiveOrderBookOptionsAtom]).toEqual({
+      coin: 'xyz:NVDA',
+      assetId: 12,
+      nSigFigs: 5,
+      mantissa: 2,
+    });
+    expect(states[EAtomNames.tradingModeAtom]).toBe('spot');
 
     expect(passwordAtom.get).toHaveBeenCalledTimes(1);
     expect(passwordRuntimeAtom.get).toHaveBeenCalledTimes(1);
     expect(manualLockAtom.get).toHaveBeenCalledTimes(1);
     expect(settingsAtom.get).toHaveBeenCalledTimes(1);
     expect(currencyAtom.get).toHaveBeenCalledTimes(1);
+    expect(contextStoreMapAtom.get).toHaveBeenCalledTimes(1);
+    expect(perpsOrderBookOptionsAtom.get).toHaveBeenCalledTimes(1);
+    expect(tradingModeAtom.get).toHaveBeenCalledTimes(1);
     expect(businessAtom.get).not.toHaveBeenCalled();
   });
 
@@ -210,6 +278,109 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
 
     expect(businessAtom.get).not.toHaveBeenCalled();
     expect(businessAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('keeps only top-level context provider registrations', async () => {
+    const { backgroundApi, contextStoreMapAtom } = buildBackgroundApi();
+
+    await backgroundApi.setAtomValue(EAtomNames.jotaiContextStoreMapAtom, {
+      'accountSelector@home': {
+        storeName: 'accountSelector',
+        accountSelectorInfo: {
+          sceneName: 'home',
+          sceneUrl: '',
+          enabledNum: [0, 1, 9],
+        },
+        count: 2,
+      },
+      'accountSelector@discover--https://private.example': {
+        storeName: 'accountSelector',
+        accountSelectorInfo: {
+          sceneName: 'discover',
+          sceneUrl: 'https://private.example',
+          enabledNum: [0],
+        },
+        count: 1,
+      },
+      swap: { storeName: 'swap', count: 1 },
+      sendConfirm: { storeName: 'sendConfirm', count: 1 },
+    });
+
+    expect(contextStoreMapAtom.set).toHaveBeenCalledWith({
+      'accountSelector@home': {
+        storeName: 'accountSelector',
+        accountSelectorInfo: {
+          sceneName: 'home',
+          sceneUrl: '',
+          enabledNum: [0, 1],
+        },
+        count: 2,
+      },
+      swap: { storeName: 'swap', count: 1 },
+    });
+  });
+
+  it('syncs only public Perps order-book subscription options', async () => {
+    const { backgroundApi, perpsOrderBookOptionsAtom } = buildBackgroundApi();
+
+    await backgroundApi.setAtomValue(
+      EAtomNames.perpsActiveOrderBookOptionsAtom,
+      {
+        coin: 'xyz:NVDA',
+        assetId: 12,
+        nSigFigs: 5,
+        mantissa: 2,
+        accountAddress: 'must-not-be-written',
+      },
+    );
+
+    expect(perpsOrderBookOptionsAtom.set).toHaveBeenCalledWith({
+      coin: 'xyz:NVDA',
+      assetId: 12,
+      nSigFigs: 5,
+      mantissa: 2,
+    });
+  });
+
+  it('rejects invalid Perps order-book subscription options', async () => {
+    const { backgroundApi, perpsOrderBookOptionsAtom } = buildBackgroundApi();
+
+    await expect(
+      backgroundApi.setAtomValue(EAtomNames.perpsActiveOrderBookOptionsAtom, {
+        coin: 'xyz:NVDA',
+        assetId: -1,
+        nSigFigs: 99,
+      }),
+    ).rejects.toThrow('Unknown error');
+
+    expect(perpsOrderBookOptionsAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('syncs only valid public Perps runtime state', async () => {
+    const { backgroundApi, resettablePerpsAtoms, tradingModeAtom } =
+      buildBackgroundApi();
+
+    await backgroundApi.setAtomValue(EAtomNames.tradingModeAtom, 'perp');
+    await backgroundApi.setAtomValue(
+      EAtomNames.perpsActiveAssetCtxAtom,
+      undefined,
+    );
+    await expect(
+      backgroundApi.setAtomValue(EAtomNames.perpsActiveAssetDataAtom, {
+        accountAddress: 'must-not-be-written',
+      }),
+    ).rejects.toThrow('Unknown error');
+    await expect(
+      backgroundApi.setAtomValue(EAtomNames.tradingModeAtom, 'invalid'),
+    ).rejects.toThrow('Unknown error');
+
+    expect(tradingModeAtom.set).toHaveBeenCalledWith('perp');
+    expect(
+      resettablePerpsAtoms[EAtomNames.perpsActiveAssetCtxAtom].set,
+    ).toHaveBeenCalledWith(undefined);
+    expect(
+      resettablePerpsAtoms[EAtomNames.perpsActiveAssetDataAtom].set,
+    ).not.toHaveBeenCalled();
   });
 
   it('writes only the four supported preferences', async () => {

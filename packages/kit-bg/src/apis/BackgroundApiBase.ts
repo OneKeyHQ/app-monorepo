@@ -148,6 +148,133 @@ const PASSWORD_VERIFY_STATUS_VALUES = new Set(
   Object.values(EPasswordVerifyStatus),
 );
 
+const TRAVEL_MODE_CONTEXT_STORE_KEYS = new Set([
+  'accountSelector@home',
+  'accountSelector@swap',
+  'perps',
+  'swap',
+]);
+
+const TRAVEL_MODE_RESETTABLE_PERPS_ATOMS = new Set<EAtomNames>([
+  EAtomNames.perpsActiveAssetCtxAtom,
+  EAtomNames.perpsActiveAssetCtxDisplayAtom,
+  EAtomNames.perpsActiveAssetDataAtom,
+  EAtomNames.spotActiveAssetCtxAtom,
+]);
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function buildTravelModeContextStoreMapView(
+  value: unknown,
+): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    return {};
+  }
+
+  const result: Record<string, unknown> = {};
+  TRAVEL_MODE_CONTEXT_STORE_KEYS.forEach((key) => {
+    const item = value[key];
+    if (!isPlainRecord(item)) {
+      return;
+    }
+    const count = item.count;
+    if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    const normalizedCount = Math.min(Math.trunc(count), 100);
+    if (key === 'perps' || key === 'swap') {
+      if (item.storeName !== key) {
+        return;
+      }
+      result[key] = { storeName: key, count: normalizedCount };
+      return;
+    }
+
+    if (item.storeName !== 'accountSelector') {
+      return;
+    }
+    const accountSelectorInfo = item.accountSelectorInfo;
+    if (!isPlainRecord(accountSelectorInfo)) {
+      return;
+    }
+    const sceneName = key === 'accountSelector@home' ? 'home' : 'swap';
+    if (
+      accountSelectorInfo.sceneName !== sceneName ||
+      (accountSelectorInfo.sceneUrl !== undefined &&
+        accountSelectorInfo.sceneUrl !== '')
+    ) {
+      return;
+    }
+    const enabledNum = Array.isArray(accountSelectorInfo.enabledNum)
+      ? [
+          ...new Set(
+            accountSelectorInfo.enabledNum.filter(
+              (num): num is number => num === 0 || num === 1,
+            ),
+          ),
+        ].toSorted()
+      : [];
+    if (!enabledNum.length) {
+      return;
+    }
+    result[key] = {
+      storeName: 'accountSelector',
+      accountSelectorInfo: {
+        sceneName,
+        sceneUrl: '',
+        enabledNum,
+      },
+      count: normalizedCount,
+    };
+  });
+  return result;
+}
+
+function buildTravelModePerpsOrderBookOptionsView(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isPlainRecord(value)) {
+    return undefined;
+  }
+
+  const coin = value.coin;
+  const assetId = value.assetId;
+  const nSigFigs = value.nSigFigs;
+  const mantissa = value.mantissa;
+  if (
+    typeof coin !== 'string' ||
+    coin.length === 0 ||
+    coin.length > 128 ||
+    (assetId !== undefined &&
+      (typeof assetId !== 'number' ||
+        !Number.isSafeInteger(assetId) ||
+        assetId < 0)) ||
+    (nSigFigs !== undefined &&
+      nSigFigs !== null &&
+      ![2, 3, 4, 5].includes(nSigFigs as number)) ||
+    (mantissa !== undefined &&
+      mantissa !== null &&
+      mantissa !== 2 &&
+      mantissa !== 5)
+  ) {
+    return undefined;
+  }
+
+  return {
+    coin,
+    assetId,
+    nSigFigs,
+    mantissa,
+  };
+}
+
+function buildTravelModeTradingModeView(value: unknown) {
+  return value === 'spot' ? 'spot' : 'perp';
+}
+
 async function buildTravelModePasswordRuntimeState({
   currentValue,
   proposedValue,
@@ -179,16 +306,23 @@ async function buildTravelModePasswordRuntimeState({
 
 const TRAVEL_MODE_READABLE_ATOMS = new Set<EAtomNames>([
   EAtomNames.currencyPersistAtom,
+  EAtomNames.jotaiContextStoreMapAtom,
   EAtomNames.passwordAtom,
   EAtomNames.passwordPersistAtom,
   EAtomNames.passwordPersistManualLockStateAtom,
+  EAtomNames.perpsActiveOrderBookOptionsAtom,
   EAtomNames.settingsPersistAtom,
+  EAtomNames.tradingModeAtom,
 ]);
 
 const TRAVEL_MODE_WRITABLE_ATOMS = new Set<EAtomNames>([
+  EAtomNames.jotaiContextStoreMapAtom,
   EAtomNames.passwordAtom,
   EAtomNames.passwordPersistAtom,
+  EAtomNames.perpsActiveOrderBookOptionsAtom,
+  ...TRAVEL_MODE_RESETTABLE_PERPS_ATOMS,
   EAtomNames.settingsPersistAtom,
+  EAtomNames.tradingModeAtom,
 ]);
 
 async function buildTravelModeAtomState(
@@ -201,6 +335,8 @@ async function buildTravelModeAtomState(
         initialValue: currencyPersistAtomInitialValue,
         persistedValue: atomValue,
       });
+    case EAtomNames.jotaiContextStoreMapAtom:
+      return buildTravelModeContextStoreMapView(atomValue);
     case EAtomNames.passwordPersistAtom:
       return buildTravelModePasswordPersistView({
         initialValue: passwordAtomInitialValue,
@@ -225,11 +361,15 @@ async function buildTravelModeAtomState(
         initialValue: { manualLocking: false },
         persistedValue: atomValue,
       });
+    case EAtomNames.perpsActiveOrderBookOptionsAtom:
+      return buildTravelModePerpsOrderBookOptionsView(atomValue);
     case EAtomNames.settingsPersistAtom:
       return buildTravelModeSettingsPersistView({
         initialValue: settingsAtomInitialValue,
         persistedValue: atomValue,
       });
+    case EAtomNames.tradingModeAtom:
+      return buildTravelModeTradingModeView(atomValue);
     default:
       return rejectTravelModeUnknownError();
   }
@@ -586,6 +726,23 @@ class BackgroundApiBase implements IBackgroundApiBridge {
             }),
             proposedValue: value,
           });
+        } else if (atomName === EAtomNames.jotaiContextStoreMapAtom) {
+          nextValue = buildTravelModeContextStoreMapView(value);
+        } else if (atomName === EAtomNames.perpsActiveOrderBookOptionsAtom) {
+          nextValue = buildTravelModePerpsOrderBookOptionsView(value);
+          if (value !== undefined && nextValue === undefined) {
+            await rejectTravelModeUnknownError();
+          }
+        } else if (atomName === EAtomNames.tradingModeAtom) {
+          if (value !== 'perp' && value !== 'spot') {
+            await rejectTravelModeUnknownError();
+          }
+          nextValue = value;
+        } else if (TRAVEL_MODE_RESETTABLE_PERPS_ATOMS.has(atomName)) {
+          if (value !== undefined) {
+            await rejectTravelModeUnknownError();
+          }
+          nextValue = undefined;
         } else {
           nextValue = await buildTravelModePasswordRuntimeState({
             currentValue: currentValue as IPasswordAtom,
