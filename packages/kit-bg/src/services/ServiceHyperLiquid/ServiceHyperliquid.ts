@@ -103,6 +103,7 @@ import type {
   IPerpsUniverse,
   IRecentTrade,
   ISpotMetaAndAssetCtxsResponse,
+  ISpotToken,
   ISpotUniverse,
   ITwapHistoryParameters,
   ITwapHistoryRecord,
@@ -229,6 +230,17 @@ type IChangeActiveAssetResult = {
   margin: IMarginTable | undefined;
 };
 
+type ITradingUniverseSnapshot = {
+  universesByDex: IPerpsUniverse[][];
+  marginTablesMapByDex: Array<IMarginTableMap | undefined>;
+  updatedAt?: number;
+};
+
+type ISpotMetaSnapshot = {
+  tokens: ISpotToken[];
+  universes: ISpotUniverse[];
+};
+
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
   seconds: 0.3,
 });
@@ -318,6 +330,10 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
+  private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
+
+  private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
+
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
@@ -1574,6 +1590,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
         prevMarginTablesMapByDex,
       );
+      this.runtimeTradingUniverse = {
+        universesByDex: universes,
+        marginTablesMapByDex: marginTablesMapList,
+        updatedAt: Date.now(),
+      };
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,
         marginTablesMapList,
@@ -1587,15 +1608,18 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getTradingUniverse() {
-    return this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    const persisted =
+      await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    return persisted.universesByDex.length > 0
+      ? persisted
+      : (this.runtimeTradingUniverse ?? persisted);
   }
 
   @backgroundMethod()
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
-    const { universes: spotUniverses } =
-      await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes: spotUniverses } = await this.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
@@ -2502,6 +2526,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   ) {
     const spotMeta = this._buildSpotMetaFromResponse(result);
     if (spotMeta) {
+      this.runtimeSpotMeta = spotMeta;
       await this.backgroundApi.simpleDb.perp.setSpotMeta(spotMeta);
       this._rebuildSpotMappings(spotMeta.universes);
     }
@@ -2557,7 +2582,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
   private async _ensureSpotMappings() {
     if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
-    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes } = await this.getSpotMeta();
     if (universes.length > 0) {
       this._rebuildSpotMappings(universes);
     }
@@ -2595,7 +2620,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getSpotMeta() {
-    return this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const persisted = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    return persisted.tokens.length > 0 || persisted.universes.length > 0
+      ? persisted
+      : (this.runtimeSpotMeta ?? persisted);
   }
 
   @backgroundMethod()

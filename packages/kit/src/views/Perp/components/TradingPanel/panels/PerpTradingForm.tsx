@@ -2542,7 +2542,7 @@ function PerpTradingForm({
         {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
-        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        size={isMobile ? '$bodySm' : '$bodyMd'}
         color="$text"
         dashColor="$textDisabled"
         dashThickness={0.5}
@@ -2589,7 +2589,7 @@ function PerpTradingForm({
                 {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
               <DashText
-                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                size={isMobile ? '$bodySm' : '$bodyMd'}
                 color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}

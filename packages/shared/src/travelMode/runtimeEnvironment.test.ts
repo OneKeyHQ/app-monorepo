@@ -114,6 +114,20 @@ describe('RuntimeEnvironment', () => {
     expect(command).not.toHaveBeenCalled();
   });
 
+  it('allows explicitly permitted read effects while Travel Mode is active', async () => {
+    const environment = RuntimeEnvironment.create(
+      getTravelModeRuntimeProfile(true),
+    );
+    const operation = jest.fn(async () => 'visible');
+
+    await expect(
+      environment.walletEffects.runOrReject(operation, {
+        allowInTravelMode: true,
+      }),
+    ).resolves.toBe('visible');
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
+
   it('runs standard capabilities directly from the immutable boot profile', async () => {
     const environment = RuntimeEnvironment.create(
       getTravelModeRuntimeProfile(false),
