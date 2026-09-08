@@ -1117,7 +1117,12 @@ async function installMobileDevShell({
     path.join(os.tmpdir(), 'onekey-ios-dev-shell-'),
   );
   try {
-    runChecked('ditto', ['-x', '-k', artifactPath, temporaryDirectory]);
+    runChecked(
+      'ditto',
+      ['-x', '-k', artifactPath, temporaryDirectory],
+      {},
+      spawnCommand,
+    );
     const appDirectories = (
       await fs.promises.readdir(temporaryDirectory, {
         withFileTypes: true,
@@ -1130,12 +1135,50 @@ async function installMobileDevShell({
         '[mobileDevShellResource] iOS Simulator archive must contain one app.',
       );
     }
-    runChecked('xcrun', [
-      'simctl',
-      'install',
-      targetDeviceId,
-      appDirectories[0],
-    ]);
+    // Sign vendor frameworks explicitly: deep signing can skip unsigned embedded code.
+    const frameworksDirectory = path.join(appDirectories[0], 'Frameworks');
+    if (fs.existsSync(frameworksDirectory)) {
+      const frameworks = (
+        await fs.promises.readdir(frameworksDirectory)
+      ).filter(
+        (framework) =>
+          framework.endsWith('.framework') || framework.endsWith('.dylib'),
+      );
+      for (const framework of frameworks) {
+        const frameworkPath = path.join(frameworksDirectory, framework);
+        runChecked(
+          'codesign',
+          ['--force', '--deep', '--sign', '-', frameworkPath],
+          {},
+          spawnCommand,
+        );
+        runChecked(
+          'codesign',
+          ['--verify', '--deep', '--strict', frameworkPath],
+          {},
+          spawnCommand,
+        );
+      }
+    }
+    // Keep the verified cache archive unchanged; sign only the extracted simulator copy.
+    runChecked(
+      'codesign',
+      ['--force', '--deep', '--sign', '-', appDirectories[0]],
+      {},
+      spawnCommand,
+    );
+    runChecked(
+      'codesign',
+      ['--verify', '--deep', '--strict', appDirectories[0]],
+      {},
+      spawnCommand,
+    );
+    runChecked(
+      'xcrun',
+      ['simctl', 'install', targetDeviceId, appDirectories[0]],
+      {},
+      spawnCommand,
+    );
   } finally {
     await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
   }
