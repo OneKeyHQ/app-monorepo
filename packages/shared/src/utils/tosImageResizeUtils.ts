@@ -1,5 +1,15 @@
+// Final CDN pixel widths shared by the layout tiers below.
 export const TOS_IMAGE_RESIZE_WIDTH_BUCKETS = [
-  32, 40, 48, 64, 96, 128, 160, 200, 256, 320, 480, 640, 960, 1280,
+  96, 160, 192, 320, 384, 640, 768, 1280,
+] as const;
+
+// [maximum layout size, standard rendition, high-density rendition]
+const TOS_IMAGE_RESIZE_SIZE_TIERS = [
+  [48, 96, 160],
+  [96, 192, 320],
+  [192, 384, 640],
+  [384, 768, 1280],
+  [Infinity, 1280, 1280],
 ] as const;
 
 const TOS_IMAGE_RESIZE_ALLOWED_HOSTS = new Set([
@@ -95,13 +105,10 @@ function getNormalizedPixelRatio({
   const safeMaxPixelRatio = isPositiveFiniteNumber(maxPixelRatio)
     ? maxPixelRatio
     : DEFAULT_MAX_PIXEL_RATIO;
-  return Math.min(safePixelRatio, safeMaxPixelRatio);
-}
-
-function getBucketedWidth(width: number) {
-  return (
-    TOS_IMAGE_RESIZE_WIDTH_BUCKETS.find((bucket) => bucket >= width) ??
-    TOS_IMAGE_RESIZE_WIDTH_BUCKETS[TOS_IMAGE_RESIZE_WIDTH_BUCKETS.length - 1]
+  return Math.min(
+    Math.max(safePixelRatio, 1),
+    safeMaxPixelRatio,
+    DEFAULT_MAX_PIXEL_RATIO,
   );
 }
 
@@ -247,15 +254,16 @@ export function getTosImageResizeTargetWidth({
   }
 
   const safeOverscanRatio = isPositiveFiniteNumber(overscanRatio)
-    ? overscanRatio
+    ? Math.max(overscanRatio, 1)
     : DEFAULT_OVERSCAN_RATIO;
-  const targetWidth = Math.ceil(
-    displaySize *
-      getNormalizedPixelRatio({ pixelRatio, maxPixelRatio }) *
-      safeOverscanRatio,
-  );
-
-  return getBucketedWidth(targetWidth);
+  const tier =
+    TOS_IMAGE_RESIZE_SIZE_TIERS.find(([maxSize]) => displaySize <= maxSize) ??
+    TOS_IMAGE_RESIZE_SIZE_TIERS[TOS_IMAGE_RESIZE_SIZE_TIERS.length - 1];
+  // Fixed renditions include the default margin; custom margins stay within the tier.
+  const density =
+    getNormalizedPixelRatio({ pixelRatio, maxPixelRatio }) *
+    (safeOverscanRatio / DEFAULT_OVERSCAN_RATIO);
+  return density > 2 ? tier[2] : tier[1];
 }
 
 export function buildTosImageResizeUrl({
