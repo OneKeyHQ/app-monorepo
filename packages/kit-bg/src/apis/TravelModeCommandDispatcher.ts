@@ -40,10 +40,12 @@ export class TravelModeCommandDispatcher {
   }): Promise<T> {
     if (!shouldRejectTravelModeServiceCall({ methodName, serviceName })) {
       return travelModeManager.getRuntimeState().then((runtimeState) => {
-        if (
+        const isStableRuntimeState =
+          runtimeState === 'active' || runtimeState === 'inactive';
+        const canRetryRecovery =
           runtimeState === 'transition-recovery' &&
-          !isTravelModeRecoveryServiceCall({ methodName, serviceName })
-        ) {
+          isTravelModeRecoveryServiceCall({ methodName, serviceName });
+        if (!isStableRuntimeState && !canRetryRecovery) {
           return rejectTravelModeUnknownError();
         }
         return operation();

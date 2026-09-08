@@ -24,6 +24,7 @@ const { TravelModeCommandDispatcher } =
 describe('TravelModeCommandDispatcher', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetRuntimeState.mockResolvedValue('active');
   });
 
   it('rejects protected service commands from the authoritative dispatcher', async () => {
@@ -134,4 +135,32 @@ describe('TravelModeCommandDispatcher', () => {
     ).resolves.toBe('control-result');
     expect(operation).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['initializing', 'activating', 'deactivating'])(
+    'keeps allowlisted business reads fail-closed while %s',
+    async (runtimeState) => {
+      mockGetRuntimeState.mockResolvedValue(runtimeState);
+      const dispatcher = new TravelModeCommandDispatcher();
+      const operation = jest.fn(async () => [{ id: 'wallet-1' }]);
+
+      await expect(
+        dispatcher.runServiceCall({
+          methodName: 'getWallets',
+          operation,
+          serviceName: 'serviceAccount',
+        }),
+      ).rejects.toThrow('Unknown error');
+
+      expect(operation).not.toHaveBeenCalled();
+
+      await expect(
+        dispatcher.runServiceCall({
+          methodName: 'retryRestart',
+          operation,
+          serviceName: 'serviceTravelMode',
+        }),
+      ).rejects.toThrow('Unknown error');
+      expect(operation).not.toHaveBeenCalled();
+    },
+  );
 });

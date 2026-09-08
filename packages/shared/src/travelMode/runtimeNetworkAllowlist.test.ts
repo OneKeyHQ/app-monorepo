@@ -12,6 +12,7 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ['/swap/v1/tokens?networkId=evm--1', 'get'],
     ['/swap/v1/check-stable-coins-list', 'post'],
     ['/earn/v1/available-assets?type=staking', 'get'],
+    ['/earn/v2/available-assets', 'get'],
   ])('allows the top-level request %s', (url, method) => {
     expect(
       isTravelModeNetworkRequestAllowed({

@@ -10,6 +10,7 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set([
   'get /earn/v1/banner/list',
   'get /earn/v1/block-region',
   'get /earn/v1/faq/list',
+  'get /earn/v2/available-assets',
   'get /swap/v1/networks',
   'get /swap/v1/native-token-config',
   'get /swap/v1/providers/list',
