@@ -1,5 +1,6 @@
 // cspell:ignore LavaMoat LAVAMOAT ONEKEYBOT lavamoat
 
+const assert = require('assert/strict');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -117,6 +118,21 @@ function testGeneratedFileScope(tempRoot) {
     'check-generated-file-scope allows lavamoat-only changes after committed business changes',
   );
 
+  for (const forbidden of [
+    'lavamoat/supply-chain/install-scripts.json',
+    'lavamoat/webpack/web/policy-override.json',
+    'lavamoat/review/executable.js',
+  ]) {
+    const file = path.join(repo, forbidden);
+    writeFile(file, '{}\n');
+    expectStatus(
+      runScript(checkGeneratedFileScopeScript, repo),
+      1,
+      `generated updates must not change ${forbidden}`,
+    );
+    fs.rmSync(file);
+  }
+
   writeFile(path.join(repo, 'src/app.ts'), 'dirty\n');
   expectStatus(
     runScript(checkGeneratedFileScopeScript, repo),
@@ -174,7 +190,7 @@ function testPolicyDiff(tempRoot) {
     '{"new":true}\n',
   );
   writeFile(
-    path.join(repo, 'lavamoat/webpack/web/policy-override.json'),
+    path.join(repo, 'lavamoat/review/summary.json'),
     '{"resources":{}}\n',
   );
   expectStatus(
@@ -247,6 +263,137 @@ function copyFileFromRepo(targetRepo, sourceRelativePath) {
   fs.copyFileSync(source, target);
 }
 
+function testPolicyReview(tempRoot) {
+  const repo = path.join(tempRoot, 'review');
+  for (const file of [
+    'split-policy-for-review.cjs',
+    'targets.cjs',
+    'error.cjs',
+  ]) {
+    copyFileFromRepo(repo, `development/lavamoat/${file}`);
+  }
+  fs.mkdirSync(path.join(repo, 'node_modules'), { recursive: true });
+  fs.symlinkSync(
+    path.dirname(require.resolve('lavamoat-core/package.json')),
+    path.join(repo, 'node_modules/lavamoat-core'),
+    'junction',
+  );
+
+  const grants = {
+    navigator: { navigator: true },
+    'writable-navigator': { navigator: 'write' },
+    document: { document: true },
+    'dom-node': { 'document.head': true },
+    'dom-append': { 'document.body.appendChild': true },
+    'dom-insert': { 'document.head.insertAdjacentHTML': true },
+    'dom-create-ns': { 'document.createElementNS': true },
+    'dom-query': { 'document.querySelector': true },
+    'bucket-storage': { 'navigator.storageBuckets': true },
+    safe: {
+      'navigator.userAgent': true,
+      'navigator.userAgentData': true,
+      'document.readyState': true,
+      'document.documentElement.clientWidth': true,
+      globalThis: true,
+      window: true,
+    },
+    denied: { navigator: true, document: true },
+  };
+  const policy = {
+    resources: {
+      ...Object.fromEntries(
+        Object.entries(grants).map(([resource, globals]) => [
+          resource,
+          { globals },
+        ]),
+      ),
+      caller: {
+        packages: Object.fromEntries(
+          Object.keys(grants).map((resource) => [resource, true]),
+        ),
+      },
+    },
+  };
+  const override = {
+    resources: {
+      denied: { globals: { navigator: false, document: false } },
+    },
+  };
+  for (const target of ['web', 'desktop-renderer']) {
+    const policyDir = path.join(repo, 'lavamoat/webpack', target);
+    writeFile(path.join(policyDir, 'policy.json'), JSON.stringify(policy));
+    writeFile(
+      path.join(policyDir, 'policy-override.json'),
+      JSON.stringify(override),
+    );
+  }
+
+  expectStatus(
+    runScript(
+      path.join(repo, 'development/lavamoat/split-policy-for-review.cjs'),
+      repo,
+    ),
+    0,
+    'policy review generates reports from effective permissions',
+  );
+
+  const expectedCategories = {
+    navigator: ['hardware-device', 'network', 'storage-privacy'],
+    'writable-navigator': ['hardware-device', 'network', 'storage-privacy'],
+    document: ['dom-injection-navigation', 'storage-privacy'],
+    'dom-node': ['dom-injection-navigation'],
+    'dom-append': ['dom-injection-navigation'],
+    'dom-insert': ['dom-injection-navigation'],
+    'dom-create-ns': ['dom-injection-navigation'],
+    'dom-query': ['dom-injection-navigation'],
+    'bucket-storage': ['storage-privacy'],
+    safe: [],
+    denied: [],
+  };
+  for (const target of ['web', 'desktop-renderer']) {
+    const reviewDir = path.join(repo, 'lavamoat/review/webpack', target);
+    const readReview = (file) =>
+      JSON.parse(fs.readFileSync(path.join(reviewDir, file), 'utf8'));
+    const entries = readReview('all-high-risk-entries.json');
+    for (const [resource, categories] of Object.entries(expectedCategories)) {
+      assert.deepEqual(
+        entries
+          .filter((entry) => entry.resource === resource)
+          .map((entry) => entry.category)
+          .toSorted(),
+        categories,
+        `${target} risk categories for ${resource}`,
+      );
+    }
+
+    const riskyResources = Object.keys(expectedCategories).filter(
+      (resource) => expectedCategories[resource].length > 0,
+    );
+    const edges = readReview('package-edges-to-risky-resources.json');
+    assert.deepEqual(
+      Object.keys(edges.caller).toSorted(),
+      riskyResources.toSorted(),
+      `${target} callers retain edges to broad and DOM permissions`,
+    );
+    assert.equal(
+      readReview('summary.json').highRiskResources,
+      riskyResources.length,
+      `${target} summary includes broad permissions`,
+    );
+    assert.equal(
+      readReview('denied-overrides.json').length,
+      2,
+      `${target} denied permissions remain visible only in override report`,
+    );
+    assert.equal(
+      readReview('hardware-device.json').resources['writable-navigator'].globals
+        .navigator,
+      'write',
+      `${target} report preserves the original permission value`,
+    );
+  }
+}
+
 function copyLavamoatValidationFixture(targetRepo) {
   for (const dir of [
     'lavamoat/build-system',
@@ -273,13 +420,22 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/check-generated-file-scope.cjs',
     'development/lavamoat/check-policy-diff.cjs',
     'development/lavamoat/error.cjs',
+    'development/lavamoat/generated-files.cjs',
+    'development/lavamoat/generated-file-security.test.cjs',
     'development/lavamoat/normalize-policy-artifacts.cjs',
     'development/lavamoat/split-policy-for-review.cjs',
+    'development/lavamoat/smoke-web.cjs',
+    'development/lavamoat/smoke-web.test.cjs',
     'development/lavamoat/targets.cjs',
     'development/lavamoat/test-tooling.cjs',
     'development/lavamoat/validate-policy-artifacts.cjs',
     'development/lavamoat/validate-webpack-integration.cjs',
+    'development/lavamoat/webpack-loader-policy.test.cjs',
+    'development/lavamoat/webpack-wasm-assets.test.cjs',
+    'development/lavamoat/webpack-runtime-chunks.test.cjs',
+    'development/lavamoat/webpack-host-globals.test.cjs',
     'development/webpack/lavamoat.js',
+    'development/webpack/lavamoat-wasm-loader.cjs',
     'package.json',
     'lavamoat/review/README.review.md',
     'lavamoat/review/summary.json',
@@ -534,7 +690,10 @@ function testPolicyArtifactValidation(tempRoot) {
     missingUploadValidateWorkflowFile,
     fs
       .readFileSync(missingUploadValidateWorkflowFile, 'utf8')
-      .replace('actions/upload-artifact@v4', 'actions/cache@v4'),
+      .replace(
+        'uses: actions/upload-artifact@v4\n        with:\n          name: lavamoat-policy-diff-all',
+        'uses: actions/cache@v4\n        with:\n          name: lavamoat-policy-diff-all',
+      ),
   );
   expectStatus(
     runScript(validatePolicyArtifactsScript, missingValidateArtifactUploadRepo),
@@ -773,7 +932,17 @@ function main() {
   try {
     testGeneratedFileScope(tempRoot);
     testPolicyDiff(tempRoot);
+    testPolicyReview(tempRoot);
     testPolicyArtifactValidation(tempRoot);
+    run(
+      process.execPath,
+      [
+        '--test',
+        path.join(__dirname, 'generated-file-security.test.cjs'),
+        path.join(__dirname, 'smoke-web.test.cjs'),
+      ],
+      { cwd: repoRoot },
+    );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

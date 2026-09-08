@@ -1,8 +1,43 @@
 [
   {
     "category": "storage-privacy",
+    "name": "document",
+    "resource": "@electron/rebuild>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@electron/rebuild>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
     "name": "localStorage",
-    "resource": "@electron/notarize>debug",
+    "resource": "@electron/rebuild>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@electron/rebuild>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@electron/rebuild>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@electron/rebuild>debug",
     "type": "global",
     "value": true
   },
@@ -10,6 +45,62 @@
     "category": "extension-desktop-bridge",
     "name": "desktopApi.addIpcEventListener",
     "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.executeMenuCommand",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getApplicationMenu",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getMenuItemIcon",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "FileReader",
+    "resource": "@onekeyhq/components",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/native",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/native",
     "type": "global",
     "value": true
   },
@@ -49,8 +140,232 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/native>@react-navigation/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/native>@react-navigation/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/native>@react-navigation/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/native>@react-navigation/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/native>@react-navigation/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler>@egjs/hammerjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler>@egjs/hammerjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>use-latest-callback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@react-navigation/stack>use-latest-callback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>use-latest-callback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>use-latest-callback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@react-navigation/stack>use-latest-callback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>moti>framer-motion",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>moti>framer-motion",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
+    "resource": "@onekeyhq/components>moti>react-native-reanimated",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "@onekeyhq/components>moti>react-native-reanimated",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head.append",
+    "resource": "@onekeyhq/components>moti>react-native-reanimated",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head.appendChild",
     "resource": "@onekeyhq/components>moti>react-native-reanimated",
     "type": "global",
     "value": true
@@ -70,6 +385,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>react-hook-form",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>react-hook-form",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/components>react-hook-form",
@@ -79,6 +408,13 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
+    "resource": "@onekeyhq/components>react-native-svg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
     "resource": "@onekeyhq/components>react-native-svg",
     "type": "global",
     "value": true
@@ -350,6 +686,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>@stellar/stellar-base",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>@stellar/stellar-base",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto.getRandomValues",
     "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
@@ -399,6 +749,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>algosdk",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>algosdk",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>algosdk",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>algosdk>tweetnacl",
@@ -430,6 +801,20 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>bs58check>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>cardano-crypto.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>cardano-crypto.js",
     "type": "global",
     "value": true
   },
@@ -526,6 +911,20 @@
   },
   {
     "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
     "name": "localStorage",
     "resource": "@onekeyhq/core>near-api-js>@near-js/keystores-browser",
     "type": "global",
@@ -602,6 +1001,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "WebSocket",
     "resource": "@onekeyhq/core>xrpl",
@@ -619,6 +1032,13 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.action.getUserSettings",
+    "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
   },
@@ -644,6 +1064,13 @@
     "value": true
   },
   {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.tabs.query",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/kit",
@@ -653,6 +1080,62 @@
   {
     "category": "extension-desktop-bridge",
     "name": "desktopApi",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.appleAuth",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.appUpdate.useTestUpdateFeedUrl",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.bluetooth.openBluetoothSettings",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.bluetooth.openPrivacySettings",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.bundleUpdate.getNativeAppVersion",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.dev.callDevOnlyApi",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.dev.changeDevTools",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -673,6 +1156,20 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.dev.getNetworkThrottle",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.dev.openLoggerFile",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApiProxy.dev.uploadLoggerBundle",
     "resource": "@onekeyhq/kit",
     "type": "global",
@@ -680,7 +1177,217 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.inAppPurchase.canMakePayments",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.inAppPurchase.getProducts",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.inAppPurchase.testDelay",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.inAppPurchase.testError",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.notification.getNotificationPermission",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.notification.openPermissionSettings",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.notification.setBadge",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.notification.showNotification",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.oauthLocalServer",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.security.canPromptTouchID",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.security.checkBiometricAuthChanged",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.security.promptTouchID",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.security.setContentProtection",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.secureDelItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.secureGetItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.secureSetItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.storeClear",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.storeDelItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.storeGetItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.storage.storeSetItemAsync",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApiProxy.system.changeLanguage",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.disableShortcuts",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.focus",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getAppName",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getBundleInfo",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getEnvPath",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getMediaAccessStatus",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.getSystemInfo",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.openLoggerFile",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.openPreferences",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.openPrivacyPanel",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -701,7 +1408,70 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.reloadBridgeProcess",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.restore",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.shareImageFile",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.system.toggleMaximizeWindow",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.webview.clearWebViewCache",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.webview.getPreloadJsContent",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApiProxy.webview.setAllowedPhishingUrls",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -709,6 +1479,20 @@
   {
     "category": "dom-injection-navigation",
     "name": "history.replaceState",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "history.state",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.clear",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -722,6 +1506,13 @@
   },
   {
     "category": "storage-privacy",
+    "name": "localStorage.removeItem",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
     "name": "localStorage.setItem",
     "resource": "@onekeyhq/kit",
     "type": "global",
@@ -729,21 +1520,28 @@
   },
   {
     "category": "dom-injection-navigation",
-    "name": "location.hash",
+    "name": "location",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
   },
   {
-    "category": "dom-injection-navigation",
-    "name": "location.href",
+    "category": "network",
+    "name": "navigator",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
   },
   {
-    "category": "dom-injection-navigation",
-    "name": "location.origin",
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -751,6 +1549,13 @@
   {
     "category": "dom-injection-navigation",
     "name": "open",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "sessionStorage.clear",
     "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
@@ -834,7 +1639,7 @@
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "chrome.storage.session.clear",
+    "name": "chrome.storage.session",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
@@ -876,7 +1681,7 @@
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "desktopApi.nobleBle.checkAvailability",
+    "name": "desktopApi.nobleBle",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
@@ -931,6 +1736,13 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "navigator.storageBuckets",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "hardware-device",
     "name": "navigator.usb",
     "resource": "@onekeyhq/kit-bg",
@@ -966,9 +1778,23 @@
     "value": true
   },
   {
+    "category": "extension-desktop-bridge",
+    "name": "window.desktopApi.thirdPartyBle",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/kit-bg>eth-url-parser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@onekeyhq/kit-bg>fflate",
     "type": "global",
     "value": true
   },
@@ -994,6 +1820,20 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit>@onekeyfe/react-native-native-list",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@onekeyhq/kit>@onekeyfe/react-native-native-list",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "@onekeyhq/kit>expo-camera",
@@ -1001,9 +1841,100 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "Worker",
+    "category": "network",
+    "name": "fetch",
     "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator.mediaDevices",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator.permissions.query",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.instantiate",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.instantiateStreaming",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.RuntimeError",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>expo",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>expo",
     "type": "global",
     "value": true
   },
@@ -1036,6 +1967,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>expo>expo-keep-awake",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>expo>expo-keep-awake",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>expo>expo-keep-awake",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/kit>expo-camera>expo>expo-modules-core",
@@ -1057,11 +2009,67 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "clipboardData",
+    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "@onekeyhq/kit>expo-camera>react-native-web",
     "type": "global",
     "value": "write"
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
+    "type": "global",
+    "value": true
   },
   {
     "category": "dom-injection-navigation",
@@ -1071,15 +2079,22 @@
     "value": true
   },
   {
-    "category": "storage-privacy",
-    "name": "clipboardData",
-    "resource": "@onekeyhq/kit>expo-camera>react-native-web>react-dom",
+    "category": "extension-desktop-bridge",
+    "name": "chrome",
+    "resource": "@onekeyhq/kit>lightweight-charts",
     "type": "global",
     "value": true
   },
   {
-    "category": "extension-desktop-bridge",
-    "name": "chrome",
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "@onekeyhq/kit>lightweight-charts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body",
     "resource": "@onekeyhq/kit>lightweight-charts",
     "type": "global",
     "value": true
@@ -1093,8 +2108,43 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "@onekeyhq/kit>lightweight-charts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "@onekeyhq/kit>lightweight-charts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "location.href",
     "resource": "@onekeyhq/kit>lightweight-charts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body",
+    "resource": "@onekeyhq/kit>lightweight-charts>fancy-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit>zbar.wasm",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit>zbar.wasm",
     "type": "global",
     "value": true
   },
@@ -1282,6 +2332,13 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.logicalProcessorCount",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApi.markBootSuccess",
     "resource": "@onekeyhq/shared",
     "type": "global",
@@ -1331,7 +2388,28 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.totalMemoryBytes",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApiProxy",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -1367,6 +2445,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -1414,6 +2513,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/shared>axios",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/shared>axios",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/shared>axios",
@@ -1430,6 +2543,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.href",
+    "resource": "@onekeyhq/shared>axios",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared>axios",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared>axios",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "@onekeyhq/shared>axios",
     "type": "global",
     "value": true
@@ -1498,6 +2632,20 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/shared>react-native-uuid",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "@onekeyhq/shared>stackblur-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "__SENTRY_IPC__",
     "resource": "@sentry/electron",
@@ -1508,6 +2656,13 @@
     "category": "network",
     "name": "fetch",
     "resource": "@sentry/electron",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "importScripts",
+    "resource": "@sentry/electron>@sentry/browser",
     "type": "global",
     "value": true
   },
@@ -1541,6 +2696,27 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/feedback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "location.href",
     "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
     "type": "global",
@@ -1568,9 +2744,58 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "code-execution",
     "name": "Worker",
     "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb",
     "type": "global",
     "value": true
   },
@@ -1632,8 +2857,43 @@
   },
   {
     "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@cityofzion/neon-core/dist/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@cityofzion/neon-core/dist/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@cityofzion/neon-core/dist/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
     "name": "XMLHttpRequest",
     "resource": "external:../../node_modules/@cityofzion/neon-core/dist/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js",
     "type": "global",
     "value": true
   },
@@ -1694,6 +2954,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "hardware-device",
     "name": "navigator.usb.addEventListener",
     "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js",
@@ -1704,6 +2985,27 @@
     "category": "hardware-device",
     "name": "navigator.usb.removeEventListener",
     "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
     "type": "global",
     "value": true
   },
@@ -1758,7 +3060,42 @@
   },
   {
     "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
     "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
     "type": "global",
     "value": true
@@ -1766,6 +3103,20 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
     "type": "global",
     "value": true
@@ -1841,6 +3192,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-core/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-core/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-core/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "desktopApi",
     "resource": "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js",
@@ -1883,6 +3255,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
@@ -1918,6 +3304,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "code-execution",
     "name": "WebAssembly.Instance",
     "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
@@ -1948,6 +3355,34 @@
   {
     "category": "crypto-random",
     "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
     "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs",
     "type": "global",
     "value": true
@@ -1956,6 +3391,20 @@
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs",
     "type": "global",
     "value": true
   },
@@ -1969,6 +3418,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
     "type": "global",
     "value": true
@@ -1983,6 +3453,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
     "type": "global",
     "value": true
@@ -1997,6 +3488,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/api/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/api/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/api/packageInfo.js",
     "type": "global",
     "value": true
@@ -2011,6 +3523,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
     "type": "global",
     "value": true
@@ -2037,6 +3570,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.host",
     "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
@@ -2046,6 +3600,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
     "type": "global",
     "value": true
@@ -2060,6 +3635,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
     "type": "global",
     "value": true
@@ -2074,6 +3670,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
     "type": "global",
     "value": true
@@ -2088,6 +3705,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
     "type": "global",
     "value": true
@@ -2102,6 +3740,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
     "type": "global",
     "value": true
@@ -2128,6 +3787,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.host",
     "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
@@ -2137,6 +3817,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
     "type": "global",
     "value": true
@@ -2163,6 +3864,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "code-execution",
     "name": "WebAssembly",
     "resource": "external:../../node_modules/@polkadot/wasm-bridge/init.js",
@@ -2184,6 +3906,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.host",
     "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
@@ -2193,6 +3936,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.protocol",
+    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
     "type": "global",
     "value": true
@@ -2247,6 +4011,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.hostname",
     "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js",
@@ -2278,6 +4056,20 @@
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthenticationMessenger.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthenticationMessenger.js",
     "type": "global",
     "value": true
   },
@@ -2381,8 +4173,50 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.head.appendChild",
+    "resource": "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-router-container/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head.appendChild",
+    "resource": "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/UiHelperUtil.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementsByTagName",
+    "resource": "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.querySelector",
+    "resource": "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js",
     "type": "global",
     "value": true
   },
@@ -2395,7 +4229,21 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.body.insertAdjacentElement",
+    "resource": "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "document.createElement",
+    "resource": "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.querySelector",
     "resource": "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js",
     "type": "global",
     "value": true
@@ -2410,6 +4258,20 @@
   {
     "category": "crypto-random",
     "name": "crypto.randomUUID",
+    "resource": "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
     "resource": "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js",
     "type": "global",
     "value": true
@@ -2444,8 +4306,22 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkSVGFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "DOMParser",
     "resource": "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkSVGFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiVideo.js",
     "type": "global",
     "value": true
   },
@@ -2506,8 +4382,43 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
     "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js",
     "type": "global",
     "value": true
@@ -2556,6 +4467,27 @@
   },
   {
     "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@supabase/functions-js/dist/module/helper.js",
     "type": "global",
@@ -2579,6 +4511,27 @@
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@supabase/postgrest-js/dist/cjs/PostgrestQueryBuilder.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js",
     "type": "global",
     "value": true
   },
@@ -2618,6 +4571,41 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@supabase/supabase-js/dist/main/lib/fetch.js",
@@ -2626,22 +4614,274 @@
   },
   {
     "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs",
+    "name": "document.getElementById",
+    "resource": "external:../../node_modules/@tamagui/dialog/dist/esm/Dialog.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body",
+    "resource": "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.search",
+    "resource": "external:../../node_modules/@tamagui/popover/dist/esm/useFloatingContext.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body",
+    "resource": "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@tamagui/roving-focus/dist/esm/RovingFocusGroup.mjs",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/@tamagui/web/dist/esm/views/TamaguiProvider.mjs",
+    "name": "document.head",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetScrollView.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.search",
+    "resource": "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@vibrant/image-browser/dist/esm/index.js",
     "type": "global",
     "value": true
   },
@@ -2709,6 +4949,41 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "WebSocket",
     "resource": "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js",
@@ -2719,6 +4994,13 @@
     "category": "storage-privacy",
     "name": "localStorage",
     "resource": "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@walletconnect/logger/dist/index.es.js",
     "type": "global",
     "value": true
   },
@@ -2786,9 +5068,58 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/allotment/dist/modern.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/allotment/dist/modern.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/allotment/dist/modern.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/allotment/dist/modern.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/allotment/dist/modern.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
     "type": "global",
     "value": true
   },
@@ -2802,6 +5133,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.href",
+    "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js",
     "type": "global",
     "value": true
@@ -2842,6 +5194,62 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/detect-browser/es/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/detect-browser/es/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/detect-browser/es/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/detect-browser/es/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/detect-browser/es/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/dom-helpers/esm/canUseDOM.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/dom-helpers/esm/canUseDOM.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/dom-helpers/esm/scrollbarSize.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/dom-helpers/esm/scrollbarSize.js",
@@ -2863,9 +5271,44 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/transports/polling.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/transports/polling.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "external:../../node_modules/engine.io-client/build/esm/transports/polling.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js",
     "type": "global",
     "value": true
   },
@@ -2893,6 +5336,13 @@
   {
     "category": "storage-privacy",
     "name": "ClipboardItem",
+    "resource": "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
     "resource": "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js",
     "type": "global",
     "value": true
@@ -2929,6 +5379,27 @@
     "category": "storage-privacy",
     "name": "navigator.permissions.query",
     "resource": "external:../../node_modules/expo-clipboard/build/web/Utils.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-device/build/ExpoDevice.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-device/build/ExpoDevice.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-device/build/ExpoDevice.web.js",
     "type": "global",
     "value": true
   },
@@ -2989,37 +5460,23 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js",
+    "name": "document",
+    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "FileReader",
-    "resource": "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image/src/ImageModule.web.ts",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/expo-image/src/ImageModule.web.ts",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/expo-image/src/web/hooks.ts",
+    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
     "type": "global",
     "value": true
   },
@@ -3043,6 +5500,76 @@
     "resource": "external:../../node_modules/expo-linking/build/RNLinking.web.js",
     "type": "global",
     "value": "write"
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.getItem",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.removeItem",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.setItem",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "open",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "parent",
+    "resource": "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js",
+    "type": "global",
+    "value": true
   },
   {
     "category": "network",
@@ -3073,6 +5600,27 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "external:../../node_modules/jpeg-js/lib/decoder.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/jpeg-js/lib/encoder.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "external:../../node_modules/jpeg-js/lib/encoder.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "storage-privacy",
     "name": "FileReader",
     "resource": "external:../../node_modules/jszip/dist/jszip.min.js",
@@ -3088,6 +5636,20 @@
   },
   {
     "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/lit-html/lit-html.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/lit-html/lit-html.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
     "name": "document.cookie",
     "resource": "external:../../node_modules/loglevel/lib/loglevel.js",
     "type": "global",
@@ -3096,6 +5658,27 @@
   {
     "category": "storage-privacy",
     "name": "localStorage",
+    "resource": "external:../../node_modules/loglevel/lib/loglevel.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/loglevel/lib/loglevel.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/loglevel/lib/loglevel.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/loglevel/lib/loglevel.js",
     "type": "global",
     "value": true
@@ -3116,7 +5699,42 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.body",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "document.createElement",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementsByClassName",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementsByTagName",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.querySelectorAll",
     "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
     "type": "global",
     "value": true
@@ -3131,6 +5749,27 @@
   {
     "category": "dom-injection-navigation",
     "name": "location.pathname",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
     "resource": "external:../../node_modules/lottie-web/build/player/lottie.js",
     "type": "global",
     "value": true
@@ -3165,6 +5804,13 @@
   },
   {
     "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
     "type": "global",
@@ -3192,6 +5838,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js",
@@ -3206,9 +5866,37 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "chrome",
     "resource": "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/dimensions.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body",
+    "resource": "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/onScroll.js",
     "type": "global",
     "value": true
   },
@@ -3234,9 +5922,51 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/sonner/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/sonner/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "DOMParser",
+    "resource": "external:../../node_modules/sonner/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.querySelector",
+    "resource": "external:../../node_modules/style-loader/dist/runtime/insertBySelector.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/style-loader/dist/runtime/insertStyleElement.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/style-loader/dist/runtime/styleDomAPI.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/style-loader/dist/runtime/styleDomAPI.js",
     "type": "global",
     "value": true
   },
@@ -3251,6 +5981,27 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/tonweb/src/utils/Utils.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs",
     "type": "global",
     "value": true
   },
@@ -3279,6 +6030,34 @@
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/viem/_esm/utils/rpc/http.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/core>near-api-js>node-fetch",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "WebSocket",
+    "resource": "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/react-virtualized/dist/es/vendor/detectElementResize.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "external:../../node_modules/worker-loader/dist/runtime/inline.js",
     "type": "global",
     "value": true
   }

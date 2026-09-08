@@ -3,7 +3,8 @@
   "resources": {
     "@onekeyhq/components": {
       "globals": {
-        "desktopApi.addIpcEventListener": true
+        "desktopApi.addIpcEventListener": true,
+        "desktopApiProxy": true
       }
     },
     "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
@@ -15,9 +16,7 @@
     },
     "@onekeyhq/kit": {
       "globals": {
-        "chrome.idle.onStateChanged.addListener": true,
-        "chrome.idle.onStateChanged.removeListener": true,
-        "chrome.idle.setDetectionInterval": true,
+        "chrome": true,
         "desktopApi": true,
         "desktopApiProxy": true
       }

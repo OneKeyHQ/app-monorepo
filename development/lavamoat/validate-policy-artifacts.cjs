@@ -55,13 +55,22 @@ const requiredToolFiles = [
   'development/lavamoat/check-generated-file-scope.cjs',
   'development/lavamoat/check-policy-diff.cjs',
   'development/lavamoat/error.cjs',
+  'development/lavamoat/generated-files.cjs',
+  'development/lavamoat/generated-file-security.test.cjs',
   'development/lavamoat/normalize-policy-artifacts.cjs',
   'development/lavamoat/split-policy-for-review.cjs',
+  'development/lavamoat/smoke-web.cjs',
+  'development/lavamoat/smoke-web.test.cjs',
   'development/lavamoat/targets.cjs',
   'development/lavamoat/test-tooling.cjs',
   'development/lavamoat/validate-policy-artifacts.cjs',
   'development/lavamoat/validate-webpack-integration.cjs',
+  'development/lavamoat/webpack-loader-policy.test.cjs',
+  'development/lavamoat/webpack-wasm-assets.test.cjs',
+  'development/lavamoat/webpack-runtime-chunks.test.cjs',
+  'development/lavamoat/webpack-host-globals.test.cjs',
   'development/webpack/lavamoat.js',
+  'development/webpack/lavamoat-wasm-loader.cjs',
 ];
 
 const forbiddenLocalPathPatterns = [
@@ -345,6 +354,7 @@ function validateRootScripts() {
   const requiredScripts = [
     'lavamoat:policy:all',
     'lavamoat:build:all',
+    'lavamoat:smoke:web',
     'lavamoat:review',
     'lavamoat:normalize-policies',
     'lavamoat:validate-artifacts',
@@ -594,12 +604,14 @@ function validateWorkflowCoverage() {
     '# Keep validation read-only.',
     'permissions:\n  contents: read\n  packages: read',
     'yarn lavamoat:test-tooling',
+    'yarn lavamoat:smoke:web',
+    'yarn exec playwright-core install --with-deps chromium',
     'yarn lavamoat:policy:all',
     'yarn lavamoat:validate-artifacts',
     'yarn lavamoat:validate-generated-scope',
     'development/lavamoat/check-policy-diff.cjs',
     'lavamoat-policy-diff-all.patch',
-    'actions/upload-artifact@v4',
+    'uses: actions/upload-artifact@v4\n        with:\n          name: lavamoat-policy-diff-all',
     'name: lavamoat-policy-diff-all',
     'path: lavamoat-policy-diff-all.patch',
     "failure() && steps.check-working-tree.outcome == 'failure'",
@@ -645,7 +657,8 @@ function validateWorkflowCoverage() {
     'lavamoat-policy-diffs/*.patch',
     `git read-tree "${shellVariable('HEAD_SHA')}"`,
     'git apply --cached --whitespace=error',
-    `git diff --cached --name-only -z "${shellVariable('HEAD_SHA')}"`,
+    `git diff --cached --no-renames --name-only -z "${shellVariable('HEAD_SHA')}"`,
+    "git --literal-pathspecs ls-files --format='%(objectmode)'",
     'git commit-tree',
     `git push origin "${shellVariable(
       'NEW_COMMIT',
@@ -736,7 +749,11 @@ function validateCanonicalPolicyJson() {
 
     assert(
       original === canonical,
-      `${relativeFile} is not normalized. Run yarn lavamoat:normalize-policies.`,
+      `${relativeFile} is not normalized. ${
+        expectedOverrideFiles.includes(relativeFile)
+          ? 'Sort override keys and string arrays, use two-space JSON indentation, and review the manual change.'
+          : 'Run yarn lavamoat:normalize-policies.'
+      }`,
     );
   }
 }

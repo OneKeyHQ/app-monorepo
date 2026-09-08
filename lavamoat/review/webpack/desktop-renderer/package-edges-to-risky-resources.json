@@ -1,46 +1,76 @@
 {
   "@onekeyhq/components": {
     "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
+    "@onekeyhq/components>@react-navigation/stack": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
     "@onekeyhq/components>moti>react-native-reanimated": true,
     "@onekeyhq/components>qrcode": true,
     "@onekeyhq/components>react-hook-form": true,
     "@onekeyhq/components>react-native-svg": true,
     "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true,
     "@onekeyhq/shared": true,
-    "external:../../node_modules/@tamagui/web/dist/esm/views/TamaguiProvider.mjs": true
+    "external:../../node_modules/@tamagui/dialog/dist/esm/Dialog.mjs": true,
+    "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs": true,
+    "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs": true,
+    "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs": true,
+    "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs": true,
+    "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": true,
+    "external:../../node_modules/sonner/dist/index.mjs": true,
+    "external:../../node_modules/style-loader/dist/runtime/insertBySelector.js": true,
+    "external:../../node_modules/style-loader/dist/runtime/insertStyleElement.js": true,
+    "external:../../node_modules/style-loader/dist/runtime/styleDomAPI.js": true
   },
   "@onekeyhq/components>@react-navigation/bottom-tabs": {
     "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>@react-navigation/elements": {
     "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": true,
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>@react-navigation/native": {
+    "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/components>@react-navigation/native>@react-navigation/core": {
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": true
   },
   "@onekeyhq/components>@react-navigation/stack": {
     "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": true,
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": {
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler>@egjs/hammerjs": true,
     "@onekeyhq/components>moti>react-native-reanimated": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
+  "@onekeyhq/components>@tamagui/spacer>@tamagui/web": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/helpers": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
   "@onekeyhq/components>moti": {
+    "@onekeyhq/components>moti>framer-motion": true,
     "@onekeyhq/components>moti>react-native-reanimated": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>moti>react-native-reanimated": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "@onekeyhq/components>moti>react-native-reanimated>react-native-worklets": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/components>react-native-markdown-display": {
@@ -122,10 +152,10 @@
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": {
-    "@electron/notarize>debug": true
+    "@electron/rebuild>debug": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana": {
-    "@electron/notarize>debug": true,
+    "@electron/rebuild>debug": true,
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
@@ -141,7 +171,7 @@
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@metaplex-foundation/beet-solana": {
-    "@electron/notarize>debug": true,
+    "@electron/rebuild>debug": true,
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@solana/spl-token": {
@@ -221,6 +251,9 @@
     "@onekeyhq/core>cardano-crypto.js>borc>iso-url": true,
     "@onekeyhq/core>xrpl>bignumber.js": true
   },
+  "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>for-each": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
   "@onekeyhq/core>cip-23>keccak>readable-stream": {
     "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
   },
@@ -263,6 +296,9 @@
   "@onekeyhq/core>near-api-js>@near-js/crypto": {
     "@onekeyhq/core>algosdk>tweetnacl": true
   },
+  "@onekeyhq/core>near-api-js>@near-js/providers": {
+    "@onekeyhq/core>near-api-js>node-fetch": true
+  },
   "@onekeyhq/core>ripple-keypairs": {
     "@onekeyhq/core>elliptic>brorand": true
   },
@@ -272,6 +308,9 @@
   },
   "@onekeyhq/core>web3-utils>ethereum-cryptography": {
     "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": true
+  },
+  "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "@onekeyhq/core>xrpl": {
     "@onekeyhq/core>xrpl>bignumber.js": true,
@@ -286,26 +325,36 @@
   "@onekeyhq/kit": {
     "@onekeyhq/components": true,
     "@onekeyhq/components>@react-navigation/native": true,
+    "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": true,
+    "@onekeyhq/components>@react-navigation/stack>react-native-safe-area-context": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>moti>framer-motion": true,
     "@onekeyhq/components>moti>react-native-reanimated": true,
-    "@onekeyhq/components>qrcode": true,
     "@onekeyhq/components>react-hook-form": true,
     "@onekeyhq/components>react-native-svg": true,
     "@onekeyhq/core": true,
     "@onekeyhq/core>@noble/hashes": true,
     "@onekeyhq/core>xrpl>bignumber.js": true,
     "@onekeyhq/kit-bg": true,
+    "@onekeyhq/kit>@onekeyfe/react-native-native-list": true,
     "@onekeyhq/kit>expo-camera": true,
+    "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": true,
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true,
     "@onekeyhq/kit>lightweight-charts": true,
     "@onekeyhq/kit>zbar.wasm": true,
     "@onekeyhq/shared": true,
     "@onekeyhq/shared>axios": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true,
-    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
+    "external:../../node_modules/allotment/dist/modern.mjs": true,
+    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true,
+    "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": true,
+    "external:../../node_modules/worker-loader/dist/runtime/inline.js": true
   },
   "@onekeyhq/kit-bg": {
     "@onekeyhq/core": true,
@@ -321,6 +370,7 @@
     "@onekeyhq/core>xrpl>bignumber.js": true,
     "@onekeyhq/kit": true,
     "@onekeyhq/kit-bg>eth-url-parser": true,
+    "@onekeyhq/kit-bg>fflate": true,
     "@onekeyhq/kit-bg>idb": true,
     "@onekeyhq/kit-bg>miscreant": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
@@ -328,23 +378,32 @@
     "@onekeyhq/shared>axios": true,
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@walletconnect/core/dist/index.es.js": true,
     "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": true,
     "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": true,
     "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true,
     "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
   },
+  "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
   "@onekeyhq/kit>expo-camera": {
+    "@onekeyhq/kit>expo-camera>barcode-detector": true,
+    "@onekeyhq/kit>expo-camera>expo": true,
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "@onekeyhq/kit>zbar.wasm": true
+    "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/kit>expo-camera>expo": {
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/kit>expo-camera>expo>expo-file-system": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
   "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
@@ -353,7 +412,10 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/kit>expo-camera>react-native-web": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
+  },
+  "@onekeyhq/kit>lightweight-charts": {
+    "@onekeyhq/kit>lightweight-charts>fancy-canvas": true
   },
   "@onekeyhq/qr-wallet-sdk": {
     "@onekeyhq/shared": true
@@ -409,27 +471,43 @@
     "@onekeyhq/core>@noble/hashes": true,
     "@onekeyhq/core>@noble/secp256k1": true,
     "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/kit>expo-camera>expo": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
     "@onekeyhq/shared>axios": true,
     "@onekeyhq/shared>localforage": true,
+    "@onekeyhq/shared>react-native-uuid": true,
+    "@onekeyhq/shared>stackblur-canvas": true,
     "@sentry/electron": true,
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
     "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
-    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true
   },
   "@sentry/electron": {
     "@sentry/electron>@sentry/browser": true,
     "@sentry/electron>@sentry/browser>@sentry-internal/feedback": true,
     "@sentry/electron>@sentry/browser>@sentry-internal/replay": true,
-    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": true
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": true,
+    "@sentry/electron>@sentry/core": true
   },
   "@sentry/electron>@sentry/browser": {
     "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
-    "@sentry/electron>@sentry/browser>@sentry-internal/feedback": true
+    "@sentry/electron>@sentry/browser>@sentry-internal/feedback": true,
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/feedback": {
+    "@sentry/electron>@sentry/core": true
   },
   "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
-    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+    "@sentry/electron>@sentry/core": true
   },
   "external:../../node_modules/@benfen/bfc.js/dist/esm/client/client.js": {
     "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js": true
@@ -452,14 +530,14 @@
   "external:../../node_modules/@cityofzion/neon-core/lib/logging.js": {
     "external:../../node_modules/loglevel/lib/loglevel.js": true
   },
-  "external:../../node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
-  },
-  "external:../../node_modules/@floating-ui/react/dist/floating-ui.react.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+  "external:../../node_modules/@cowprotocol/contracts/lib/esm/api.js": {
+    "@onekeyhq/core>near-api-js>node-fetch": true
   },
   "external:../../node_modules/@glif/filecoin-rpc-client/lib/index.js": {
     "@onekeyhq/shared>axios": true
+  },
+  "external:../../node_modules/@intercom/messenger-js-sdk/dist/index.js": {
+    "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js": true
   },
   "external:../../node_modules/@inversifyjs/container/lib/esm/index.js": {
     "external:../../node_modules/reflect-metadata/Reflect.js": true
@@ -568,6 +646,9 @@
     "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/native.js": true,
     "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/rng.js": true
   },
+  "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": {
+    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": true
+  },
   "external:../../node_modules/@lit/reactive-element/reactive-element.js": {
     "external:../../node_modules/@lit/reactive-element/css-tag.js": true
   },
@@ -673,6 +754,9 @@
   "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": {
     "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true
   },
+  "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": {
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": true
+  },
   "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/index.mjs": {
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
@@ -684,160 +768,214 @@
     "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowClockwise.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowDown.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowLeft.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowRight.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsClockwise.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsDownUp.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsLeftRight.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowSquareOut.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUp.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUpRight.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhBank.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhBrowser.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretDown.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretLeft.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretRight.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretUp.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCheck.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCircleHalf.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhClock.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCompass.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCopy.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCreditCard.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhCurrencyDollar.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDesktop.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDeviceMobile.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhDotsThree.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhEnvelope.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhFunnelSimple.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhGlobe.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhIdentificationCard.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhImage.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhInfo.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhLightbulb.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhMagnifyingGlass.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPaperPlaneRight.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPlus.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPower.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhPuzzlePiece.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQrCode.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestion.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestionMark.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSealCheck.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSignOut.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhSpinner.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhTrash.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhUser.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhVault.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarning.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarningCircle.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhX.mjs": {
-    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/reactive-element.mjs": {
     "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true
+  },
+  "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-element@4.0.6/node_modules/lit-element/lit-element.mjs": {
+    "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
   "external:../../node_modules/@polkadot/api-augment/bundle.js": {
     "external:../../node_modules/@polkadot/api-augment/packageInfo.js": true
@@ -1108,10 +1246,12 @@
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
   },
   "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/index.js": {
-    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": true
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthenticationMessenger.js": true
   },
   "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": {
-    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": true
+    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": true,
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthenticationMessenger.js": true
   },
   "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/ConnectorControllerUtil.js": {
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
@@ -1170,7 +1310,8 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js": {
-    "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": true
+    "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": true,
+    "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/partials/w3m-router-container/index.js": true
   },
   "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-footer/index.js": {
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true
@@ -1249,7 +1390,8 @@
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true
   },
   "external:../../node_modules/@reown/appkit-ui/dist/esm/exports/index.js": {
-    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true,
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/UiHelperUtil.js": true
   },
   "external:../../node_modules/@reown/appkit-ui/dist/esm/src/components/wui-card/index.js": {
     "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
@@ -1336,13 +1478,18 @@
     "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
   },
   "external:../../node_modules/@reown/appkit-ui/dist/esm/src/layout/wui-flex/index.js": {
-    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true,
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/UiHelperUtil.js": true
   },
   "external:../../node_modules/@reown/appkit-ui/dist/esm/src/layout/wui-grid/index.js": {
-    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeUtil.js": true,
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/UiHelperUtil.js": true
   },
   "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/QrCode.js": {
     "@onekeyhq/components>qrcode": true
+  },
+  "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/TransactionUtil.js": {
+    "external:../../node_modules/@reown/appkit-ui/dist/esm/src/utils/UiHelperUtil.js": true
   },
   "external:../../node_modules/@reown/appkit/dist/esm/exports/core.js": {
     "external:../../node_modules/@reown/appkit/dist/esm/src/client/appkit-core.js": true
@@ -1383,13 +1530,16 @@
     "external:../../node_modules/@walletconnect/core/dist/index.es.js": true
   },
   "external:../../node_modules/@sentry/react/build/esm/error.js": {
-    "@sentry/electron>@sentry/browser": true
+    "@sentry/electron>@sentry/browser": true,
+    "@sentry/electron>@sentry/core": true
   },
   "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": {
-    "@sentry/electron>@sentry/browser": true
+    "@sentry/electron>@sentry/browser": true,
+    "@sentry/electron>@sentry/core": true
   },
   "external:../../node_modules/@sentry/react/build/esm/profiler.js": {
-    "@sentry/electron>@sentry/browser": true
+    "@sentry/electron>@sentry/browser": true,
+    "@sentry/electron>@sentry/core": true
   },
   "external:../../node_modules/@shopify/flash-list/dist/AnimatedFlashList.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
@@ -1428,6 +1578,15 @@
   },
   "external:../../node_modules/@shopify/react-native-skia/lib/module/web/LoadSkiaWeb.js": {
     "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": true
+  },
+  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/async.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/max-age.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/promise.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
   },
   "external:../../node_modules/@supabase/auth-js/dist/module/AuthClient.js": {
     "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": true
@@ -1507,66 +1666,296 @@
     "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true
   },
   "external:../../node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js": {
+    "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js": true,
     "external:../../node_modules/@supabase/supabase-js/dist/main/lib/fetch.js": true
   },
-  "external:../../node_modules/@tamagui/animations-moti/dist/esm/createAnimations.mjs": {
-    "@onekeyhq/components>moti>react-native-reanimated": true
+  "external:../../node_modules/@tamagui/accordion/dist/esm/Accordion.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/adapt/dist/esm/Adapt.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/animate-presence/dist/esm/AnimatePresence.mjs": {
+    "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/animate-presence/dist/esm/PresenceChild.mjs": {
+    "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/animations-css/dist/esm/createAnimations.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/collapsible/dist/esm/Collapsible.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/collection/dist/esm/Collection.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/core/dist/esm/index.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/dialog/dist/esm/Dialog.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs": true,
+    "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": true,
+    "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs": true
   },
   "external:../../node_modules/@tamagui/dismissable/dist/esm/Dismissable.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
+    "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs": {
+    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs": {
+    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useHover.mjs": {
+    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/dist/esm/useFloating.mjs": {
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/dom/dist/floating-ui.dom.mjs": {
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": true
+  },
+  "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": {
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": true
+  },
+  "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/focusable/dist/esm/focusableInputHOC.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/font-size/dist/esm/getFontSize.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/form/dist/esm/Form.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/get-font-sized/dist/esm/index.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/get-token/dist/esm/index.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
   "external:../../node_modules/@tamagui/group/dist/esm/Group.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
   },
   "external:../../node_modules/@tamagui/popover/dist/esm/Popover.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs": true,
+    "external:../../node_modules/@tamagui/popover/dist/esm/useFloatingContext.mjs": true,
+    "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": true
+  },
+  "external:../../node_modules/@tamagui/popover/dist/esm/useFloatingContext.mjs": {
+    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs": true,
+    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs": true,
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": true
   },
   "external:../../node_modules/@tamagui/popper/dist/esm/Popper.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true,
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": true,
+    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": true,
+    "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/portal/dist/esm/constants.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/portal/dist/esm/GorhomPortal.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/portal/dist/esm/GorhomPortalItem.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
+  },
+  "external:../../node_modules/@tamagui/portal/dist/esm/helpers.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
   "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
+  },
+  "external:../../node_modules/@tamagui/radio-group/dist/esm/createRadioGroup.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/roving-focus/dist/esm/RovingFocusGroup.mjs": true
+  },
+  "external:../../node_modules/@tamagui/radio-group/dist/esm/RadioGroup.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/radio-headless/dist/esm/useRadioGroup.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs": true
+  },
+  "external:../../node_modules/@tamagui/react-native-media-driver/dist/esm/createMedia.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/remove-scroll/dist/esm/RemoveScroll.mjs": {
+    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": true
+  },
+  "external:../../node_modules/@tamagui/roving-focus/dist/esm/RovingFocusGroup.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
   },
   "external:../../node_modules/@tamagui/scroll-view/dist/esm/ScrollView.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/separator/dist/esm/Separator.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
   },
   "external:../../node_modules/@tamagui/sheet/dist/esm/createSheet.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+    "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/SheetScrollView.mjs": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/GestureDetectorWrapper.mjs": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/@tamagui/sheet/dist/esm/Sheet.mjs": {
-    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
-  },
-  "external:../../node_modules/@tamagui/sheet/dist/esm/SheetContext.mjs": {
-    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
   "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "external:../../node_modules/@tamagui/sheet/dist/esm/constants.mjs": true
+    "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs": true,
+    "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/SheetScrollView.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/useGestureHandlerPan.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs": true
+  },
+  "external:../../node_modules/@tamagui/sheet/dist/esm/useSheetProviderProps.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs": true
+  },
+  "external:../../node_modules/@tamagui/slider/dist/esm/constants.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/slider/dist/esm/Slider.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/slider/dist/esm/SliderImpl.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/@tamagui/stacks/dist/esm/getElevation.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/stacks/dist/esm/Stacks.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/stacks/dist/esm/ThemeableStack.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/switch-headless/dist/esm/useSwitch.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/label/dist/esm/Label.mjs": true
   },
   "external:../../node_modules/@tamagui/switch/dist/esm/createSwitch.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/switch/dist/esm/StyledContext.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/switch/dist/esm/Switch.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/text/dist/esm/Headings.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/text/dist/esm/Paragraph.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/text/dist/esm/SizableText.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/themes/dist/esm/tokens.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/toast/dist/esm/Toast.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "external:../../node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs": true,
+    "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs": true
+  },
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastAnnounce.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": true
   },
   "external:../../node_modules/@tamagui/toast/dist/esm/ToastImperative.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
   },
   "external:../../node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs": true
   },
   "external:../../node_modules/@tamagui/toast/dist/esm/ToastPortal.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs": true
   },
-  "external:../../node_modules/@tamagui/use-keyboard-visible/dist/esm/useKeyboardVisible.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastProvider.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
-  "external:../../node_modules/@tamagui/web/dist/esm/createTamagui.mjs": {
-    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
   },
-  "external:../../node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs": {
-    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  "external:../../node_modules/@tamagui/toggle-group/dist/esm/context.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
-  "external:../../node_modules/@tamagui/web/dist/esm/helpers/normalizeValueWithProperty.mjs": {
-    "external:../../node_modules/@tamagui/web/dist/esm/helpers/insertStyleRule.mjs": true
+  "external:../../node_modules/@tamagui/toggle-group/dist/esm/Toggle.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
+  },
+  "external:../../node_modules/@tamagui/toggle-group/dist/esm/ToggleGroup.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true,
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true,
+    "external:../../node_modules/@tamagui/roving-focus/dist/esm/RovingFocusGroup.mjs": true
+  },
+  "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs": {
+    "external:../../node_modules/@tamagui/popover/dist/esm/useFloatingContext.mjs": true
+  },
+  "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": true
+  },
+  "external:../../node_modules/@tamagui/visually-hidden/dist/esm/VisuallyHidden.mjs": {
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web": true
   },
   "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
     "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js": true,
@@ -1576,7 +1965,8 @@
     "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
   },
   "external:../../node_modules/@walletconnect/environment/dist/cjs/index.js": {
-    "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": true
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": true,
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js": true
   },
   "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": {
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true
@@ -1594,7 +1984,8 @@
     "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
   },
   "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
-    "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js": true
+    "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js": true,
+    "external:../../node_modules/detect-browser/es/index.js": true
   },
   "external:../../node_modules/advanced-cropper/algorithms/resizeCoordinatesAlgorithm.js": {
     "external:../../node_modules/advanced-cropper/utils/index.js": true
@@ -1751,20 +2142,38 @@
   "external:../../node_modules/diffie-hellman/lib/generatePrime.js": {
     "@onekeyhq/core>ecpair>randombytes": true
   },
+  "external:../../node_modules/dom-helpers/esm/scrollbarSize.js": {
+    "external:../../node_modules/dom-helpers/esm/canUseDOM.js": true
+  },
   "external:../../node_modules/engine.io-client/build/esm/index.js": {
     "external:../../node_modules/engine.io-client/build/esm/socket.js": true
   },
   "external:../../node_modules/engine.io-client/build/esm/transports/index.js": {
-    "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": true
+    "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": true,
+    "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js": true
   },
   "external:../../node_modules/engine.io-client/build/esm/transports/polling.js": {
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": true,
     "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": true
   },
+  "external:../../node_modules/engine.io-client/build/esm/transports/websocket-constructor.browser.js": {
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": true
+  },
   "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": {
-    "external:../../node_modules/engine.io-client/build/esm/contrib/has-cors.js": true
+    "external:../../node_modules/engine.io-client/build/esm/contrib/has-cors.js": true,
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm/util.js": {
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": true
   },
   "external:../../node_modules/engine.io-parser/build/esm/index.js": {
     "external:../../node_modules/engine.io-parser/build/esm/encodePacket.browser.js": true
+  },
+  "external:../../node_modules/es-abstract/2023/IsCallable.js": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
+  "external:../../node_modules/es-to-primitive/es2015.js": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "external:../../node_modules/expo-blur/build/BlurView.web.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
@@ -1782,7 +2191,8 @@
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
   "external:../../node_modules/expo-device/build/Device.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-device/build/ExpoDevice.web.js": true
   },
   "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
@@ -1830,50 +2240,14 @@
   "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
-  "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
-  },
-  "external:../../node_modules/expo-image-picker/build/ImagePicker.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": true
-  },
-  "external:../../node_modules/expo-image/src/ExpoImage.web.tsx": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "external:../../node_modules/expo-image/src/Image.tsx": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "external:../../node_modules/expo-image/src/ImageModule.web.ts": true
-  },
-  "external:../../node_modules/expo-image/src/ImageModule.web.ts": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
-  },
-  "external:../../node_modules/expo-image/src/utils.ts": {
+  "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts": {
     "@onekeyhq/kit>expo-camera>expo": true,
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
-  "external:../../node_modules/expo-image/src/utils/AssetSourceResolver.web.ts": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "external:../../node_modules/expo-image/src/utils/resolveSources.tsx": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
-  },
-  "external:../../node_modules/expo-image/src/web/ColorTintFilter.tsx": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "external:../../node_modules/expo-image/src/web/ImageRef.ts": {
+  "external:../../node_modules/expo-image-picker/src/ImagePicker.ts": {
     "@onekeyhq/kit>expo-camera>expo": true,
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
-  },
-  "external:../../node_modules/expo-image/src/web/ImageWrapper.tsx": {
-    "external:../../node_modules/expo-image/src/web/hooks.ts": true
-  },
-  "external:../../node_modules/expo-keep-awake/build/ExpoKeepAwake.web.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
-  },
-  "external:../../node_modules/expo-keep-awake/build/index.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts": true
   },
   "external:../../node_modules/expo-linear-gradient/build/LinearGradient.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
@@ -1904,14 +2278,28 @@
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
-  "external:../../node_modules/expo-sharing/build/ExpoSharing.web.js": {
+  "external:../../node_modules/expo-sharing/build/Sharing.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js": true
+  },
+  "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
-  "external:../../node_modules/expo-sharing/build/Sharing.js": {
-    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "external:../../node_modules/expo-web-browser/build/WebBrowser.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js": true
   },
   "external:../../node_modules/inversify/lib/esm/index.js": {
     "external:../../node_modules/reflect-metadata/Reflect.js": true
+  },
+  "external:../../node_modules/jpeg-js/index.js": {
+    "external:../../node_modules/jpeg-js/lib/decoder.js": true,
+    "external:../../node_modules/jpeg-js/lib/encoder.js": true
   },
   "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.wasm": {
     "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": true
@@ -1919,8 +2307,38 @@
   "external:../../node_modules/juicebox-sdk/juicebox-sdk.js": {
     "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": true
   },
+  "external:../../node_modules/lit-element/lit-element.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit-html/directive-helpers.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit-html/directives/class-map.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit-html/directives/if-defined.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit-html/directives/ref.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit-html/static.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
+  "external:../../node_modules/lit/index.js": {
+    "external:../../node_modules/lit-html/lit-html.js": true
+  },
   "external:../../node_modules/lottie-react/build/index.umd.js": {
     "external:../../node_modules/lottie-web/build/player/lottie.js": true
+  },
+  "external:../../node_modules/memoizee/ext/async.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/max-age.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/promise.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
   },
   "external:../../node_modules/miller-rabin/lib/mr.js": {
     "@onekeyhq/core>elliptic>brorand": true
@@ -1959,7 +2377,7 @@
     "@onekeyhq/core>ecpair>randombytes": true
   },
   "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
   },
   "external:../../node_modules/react-mobile-cropper/dist/index.esm-bundler.js": {
     "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": true
@@ -1967,10 +2385,7 @@
   "external:../../node_modules/react-native-confirmation-code-field/esm/CodeField.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
-  "external:../../node_modules/react-native-confirmation-code-field/esm/CodeField.styles.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "external:../../node_modules/react-native-confirmation-code-field/esm/useClearByFocusCell.js": {
+  "external:../../node_modules/react-native-confirmation-code-field/esm/CodeField.styles.web.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/CellDecorators.js": {
@@ -1982,6 +2397,7 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js": {
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": true,
     "@onekeyhq/components>moti>react-native-reanimated": true,
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
@@ -1990,6 +2406,7 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/NestableScrollContainer.js": {
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": true,
     "@onekeyhq/components>moti>react-native-reanimated": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/components/PlaceholderItem.js": {
@@ -2004,6 +2421,7 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js": {
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": true,
     "@onekeyhq/components>moti>react-native-reanimated": true
   },
   "external:../../node_modules/react-native-draggable-flatlist/lib/module/context/nestableScrollContainerContext.js": {
@@ -2039,8 +2457,20 @@
   "external:../../node_modules/react-native-webview-cleaner/lib/module/index.js": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
+  "external:../../node_modules/react-redux/es/components/connectAdvanced.js": {
+    "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js": true
+  },
+  "external:../../node_modules/react-redux/es/components/Provider.js": {
+    "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js": true
+  },
+  "external:../../node_modules/react-redux/es/hooks/useSelector.js": {
+    "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js": true
+  },
   "external:../../node_modules/react-redux/es/utils/reactBatchedUpdates.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
+  },
+  "external:../../node_modules/react-virtualized/dist/es/AutoSizer/AutoSizer.js": {
+    "external:../../node_modules/react-virtualized/dist/es/vendor/detectElementResize.js": true
   },
   "external:../../node_modules/react-virtualized/dist/es/Collection/CollectionView.js": {
     "external:../../node_modules/dom-helpers/esm/scrollbarSize.js": true
@@ -2051,6 +2481,11 @@
   "external:../../node_modules/react-virtualized/dist/es/Grid/utils/ScalingCellSizeAndPositionManager.js": {
     "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": true
   },
+  "external:../../node_modules/react-virtualized/dist/es/WindowScroller/WindowScroller.js": {
+    "external:../../node_modules/react-virtualized/dist/es/vendor/detectElementResize.js": true,
+    "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/dimensions.js": true,
+    "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/onScroll.js": true
+  },
   "external:../../node_modules/shamir-secret-sharing/esm/index.js": {
     "external:../../node_modules/shamir-secret-sharing/esm/csprng.js": true
   },
@@ -2058,10 +2493,11 @@
     "external:../../node_modules/socket.io-client/build/esm/url.js": true
   },
   "external:../../node_modules/sonner/dist/index.mjs": {
-    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": true
+    "@onekeyhq/kit>expo-camera>expo>react-dom": true
   },
   "external:../../node_modules/tonweb/src/index.js": {
     "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js": true,
+    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": true,
     "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": true,
     "external:../../node_modules/tonweb/src/providers/index.js": true
   },

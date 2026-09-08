@@ -1,6 +1,31 @@
 {
   "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
   "resources": {
+    "@electron/rebuild>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/native>@react-navigation/core": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/components>react-hook-form": {
       "globals": {
         "fetch": true
@@ -64,7 +89,8 @@
     },
     "@onekeyhq/core>algosdk": {
       "globals": {
-        "fetch": true
+        "fetch": true,
+        "navigator": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js": {
@@ -93,9 +119,20 @@
         "fetch": "write"
       }
     },
+    "@onekeyhq/core>near-api-js>node-fetch": {
+      "globals": {
+        "fetch": true
+      }
+    },
     "@onekeyhq/core>xrpl": {
       "globals": {
         "WebSocket": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "fetch": true,
+        "navigator": true
       }
     },
     "@onekeyhq/kit-bg": {
@@ -106,9 +143,36 @@
         "WebSocket.OPEN": true
       }
     },
+    "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>barcode-detector": {
+      "globals": {
+        "fetch": true,
+        "navigator": true,
+        "XMLHttpRequest": true
+      }
+    },
     "@onekeyhq/kit>expo-camera>expo": {
       "globals": {
         "fetch": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web": {
+      "globals": {
+        "navigator": true
       }
     },
     "@onekeyhq/kit>zbar.wasm": {
@@ -126,6 +190,7 @@
     "@onekeyhq/shared": {
       "globals": {
         "fetch": "write",
+        "navigator": true,
         "WebSocket": true,
         "XMLHttpRequest": true
       }
@@ -134,6 +199,7 @@
       "globals": {
         "fetch": true,
         "importScripts": true,
+        "navigator": true,
         "XMLHttpRequest": true
       }
     },
@@ -149,12 +215,18 @@
     },
     "@sentry/electron>@sentry/browser": {
       "globals": {
+        "importScripts": true,
         "XMLHttpRequest.prototype": true
       }
     },
     "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
       "globals": {
         "XMLHttpRequest.prototype": true
+      }
+    },
+    "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js": {
@@ -170,12 +242,23 @@
     },
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
       "globals": {
+        "navigator": true,
         "XMLHttpRequest": true
       }
     },
     "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/isomorphic-ws/browser.js": {
       "globals": {
         "WebSocket": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": {
@@ -198,16 +281,107 @@
         "WebSocket": true
       }
     },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
       "globals": {
         "fetch": true,
         "importScripts": true,
+        "navigator": true,
         "XMLHttpRequest": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
       "globals": {
         "fetch": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/features/reown-authentication/ReownAuthentication.js": {
@@ -251,9 +425,19 @@
         "fetch": true
       }
     },
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": {
       "globals": {
         "fetch": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@supabase/functions-js/dist/module/helper.js": {
@@ -278,6 +462,7 @@
     },
     "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js": {
       "globals": {
+        "navigator": true,
         "WebSocket": true
       }
     },
@@ -296,14 +481,29 @@
         "fetch": true
       }
     },
+    "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@supabase/supabase-js/dist/main/lib/fetch.js": {
       "globals": {
         "fetch": true
       }
     },
+    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
       "globals": {
         "fetch": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js": {
@@ -321,10 +521,21 @@
         "fetch": true
       }
     },
+    "external:../../node_modules/allotment/dist/modern.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {
       "globals": {
         "fetch": true,
+        "navigator": true,
         "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/detect-browser/es/index.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/engine.io-client/build/esm/contrib/has-cors.js": {
@@ -332,19 +543,29 @@
         "XMLHttpRequest": true
       }
     },
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": {
+      "globals": {
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/engine.io-client/build/esm/transports/xmlhttprequest.browser.js": {
       "globals": {
         "XMLHttpRequest": true
       }
     },
-    "external:../../node_modules/expo-image/src/ImageModule.web.ts": {
+    "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
       "globals": {
-        "fetch": true
+        "navigator": true
       }
     },
-    "external:../../node_modules/expo-image/src/web/hooks.ts": {
+    "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js": {
       "globals": {
-        "fetch": true
+        "navigator": true
       }
     },
     "external:../../node_modules/iceberg-js/dist/index.mjs": {
@@ -352,13 +573,24 @@
         "fetch": true
       }
     },
+    "external:../../node_modules/jpeg-js/lib/decoder.js": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
     "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": {
       "globals": {
         "fetch": true
       }
     },
+    "external:../../node_modules/loglevel/lib/loglevel.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/lottie-web/build/player/lottie.js": {
       "globals": {
+        "navigator": true,
         "XMLHttpRequest": true
       }
     },
@@ -370,6 +602,11 @@
     "external:../../node_modules/tonweb/src/providers/index.js": {
       "globals": {
         "fetch": "write"
+      }
+    },
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/viem/_esm/utils/ccip.js": {

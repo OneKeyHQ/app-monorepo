@@ -110,6 +110,11 @@
       "globals": {
         "Worker": true
       }
+    },
+    "external:../../node_modules/worker-loader/dist/runtime/inline.js": {
+      "globals": {
+        "Worker": true
+      }
     }
   }
 }

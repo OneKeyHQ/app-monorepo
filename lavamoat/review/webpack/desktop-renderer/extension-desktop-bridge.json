@@ -3,7 +3,10 @@
   "resources": {
     "@onekeyhq/components": {
       "globals": {
-        "desktopApi.addIpcEventListener": true
+        "desktopApi.addIpcEventListener": true,
+        "desktopApiProxy.system.executeMenuCommand": true,
+        "desktopApiProxy.system.getApplicationMenu": true,
+        "desktopApiProxy.system.getMenuItemIcon": true
       }
     },
     "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
@@ -15,16 +18,64 @@
     },
     "@onekeyhq/kit": {
       "globals": {
+        "chrome.action.getUserSettings": true,
         "chrome.idle.onStateChanged.addListener": true,
         "chrome.idle.onStateChanged.removeListener": true,
         "chrome.idle.setDetectionInterval": true,
+        "chrome.tabs.query": true,
         "desktopApi": true,
+        "desktopApiProxy.appleAuth": true,
+        "desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber": true,
+        "desktopApiProxy.appUpdate.useTestUpdateFeedUrl": true,
+        "desktopApiProxy.bluetooth.openBluetoothSettings": true,
+        "desktopApiProxy.bluetooth.openPrivacySettings": true,
+        "desktopApiProxy.bundleUpdate.getNativeAppVersion": true,
+        "desktopApiProxy.dev.callDevOnlyApi": true,
+        "desktopApiProxy.dev.changeDevTools": true,
         "desktopApiProxy.dev.collectLoggerDigest": true,
         "desktopApiProxy.dev.exportLoggerZip": true,
+        "desktopApiProxy.dev.getNetworkThrottle": true,
+        "desktopApiProxy.dev.openLoggerFile": true,
         "desktopApiProxy.dev.uploadLoggerBundle": true,
+        "desktopApiProxy.inAppPurchase.canMakePayments": true,
+        "desktopApiProxy.inAppPurchase.getProducts": true,
+        "desktopApiProxy.inAppPurchase.testDelay": true,
+        "desktopApiProxy.inAppPurchase.testError": true,
+        "desktopApiProxy.notification.getNotificationPermission": true,
+        "desktopApiProxy.notification.openPermissionSettings": true,
+        "desktopApiProxy.notification.setBadge": true,
+        "desktopApiProxy.notification.showNotification": true,
+        "desktopApiProxy.oauthLocalServer": true,
+        "desktopApiProxy.security.canPromptTouchID": true,
+        "desktopApiProxy.security.checkBiometricAuthChanged": true,
+        "desktopApiProxy.security.promptTouchID": true,
+        "desktopApiProxy.security.setContentProtection": true,
+        "desktopApiProxy.storage.secureDelItemAsync": true,
+        "desktopApiProxy.storage.secureGetItemAsync": true,
+        "desktopApiProxy.storage.secureSetItemAsync": true,
+        "desktopApiProxy.storage.storeClear": true,
+        "desktopApiProxy.storage.storeDelItemAsync": true,
+        "desktopApiProxy.storage.storeGetItemAsync": true,
+        "desktopApiProxy.storage.storeSetItemAsync": true,
         "desktopApiProxy.system.changeLanguage": true,
+        "desktopApiProxy.system.disableShortcuts": true,
+        "desktopApiProxy.system.focus": true,
+        "desktopApiProxy.system.getAppName": true,
+        "desktopApiProxy.system.getBundleInfo": true,
+        "desktopApiProxy.system.getEnvPath": true,
+        "desktopApiProxy.system.getMediaAccessStatus": true,
+        "desktopApiProxy.system.getSystemInfo": true,
+        "desktopApiProxy.system.openLoggerFile": true,
+        "desktopApiProxy.system.openPreferences": true,
+        "desktopApiProxy.system.openPrivacyPanel": true,
         "desktopApiProxy.system.quitApp": true,
         "desktopApiProxy.system.reload": true,
+        "desktopApiProxy.system.reloadBridgeProcess": true,
+        "desktopApiProxy.system.restore": true,
+        "desktopApiProxy.system.shareImageFile": true,
+        "desktopApiProxy.system.toggleMaximizeWindow": true,
+        "desktopApiProxy.webview.clearWebViewCache": true,
+        "desktopApiProxy.webview.getPreloadJsContent": true,
         "desktopApiProxy.webview.setAllowedPhishingUrls": true
       }
     },
@@ -41,15 +92,16 @@
         "chrome.storage.local.clear": true,
         "chrome.storage.local.get": true,
         "chrome.storage.local.set": true,
-        "chrome.storage.session.clear": true,
+        "chrome.storage.session": true,
         "chrome.tabs.get": true,
         "chrome.tabs.onActivated.addListener": true,
         "chrome.tabs.query": true,
         "desktopApi.channel": true,
-        "desktopApi.nobleBle.checkAvailability": true,
+        "desktopApi.nobleBle": true,
         "desktopApi.platform": true,
         "desktopApiBridge.call": true,
-        "desktopApiProxy": "write"
+        "desktopApiProxy": "write",
+        "window.desktopApi.thirdPartyBle": true
       }
     },
     "@onekeyhq/kit>lightweight-charts": {
@@ -66,6 +118,7 @@
         "desktopApi.deskChannel": true,
         "desktopApi.isFocused": true,
         "desktopApi.isMas": true,
+        "desktopApi.logicalProcessorCount": true,
         "desktopApi.markBootSuccess": true,
         "desktopApi.on": true,
         "desktopApi.onAppState": true,
@@ -73,6 +126,7 @@
         "desktopApi.processStartAt": true,
         "desktopApi.setConsecutiveBootFailCount": true,
         "desktopApi.systemVersion": true,
+        "desktopApi.totalMemoryBytes": true,
         "desktopApiProxy": true
       }
     },
