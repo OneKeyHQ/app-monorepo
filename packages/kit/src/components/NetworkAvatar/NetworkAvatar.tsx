@@ -11,6 +11,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useNetworkLogoUri } from '../../hooks/useNetworkLogoUri';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
 import { useTokenListViewContext } from '../TokenListView/TokenListViewContext';
@@ -108,8 +109,13 @@ export function NetworkAvatar({
       initResult: cachedNetwork,
     },
   );
-  const { logoURI, isCustomNetwork, name, isAllNetworks } =
-    cachedNetwork ?? res.result ?? {};
+  const network =
+    cachedNetwork ?? (res.result?.id === networkId ? res.result : undefined);
+  const { isCustomNetwork, name, isAllNetworks } = network ?? {};
+  const effectiveLogoURI = useNetworkLogoUri({
+    logoUri: network?.logoURI,
+    networkId,
+  });
 
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;
@@ -126,10 +132,10 @@ export function NetworkAvatar({
     );
   }
 
-  return logoURI ? (
+  return effectiveLogoURI ? (
     <NetworkAvatarBase
       size={size}
-      logoURI={logoURI}
+      logoURI={effectiveLogoURI}
       isAllNetworks={isAllNetworks}
       allNetworksIconProps={allNetworksIconProps}
     />

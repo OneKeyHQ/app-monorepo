@@ -14,6 +14,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 type IAccountDerivationListItemProps = {
   title: string;
   icon?: string;
@@ -107,26 +109,28 @@ const AccountDerivation = () => {
           id: ETranslations.settings_account_derivation_path,
         })}
       />
-      <Stack px="$5" py="$3">
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.settings_account_derivation_path_desc,
-          })}
-        </SizableText>
-      </Stack>
-      {!isLoading ? (
-        <Stack>
-          {items.map((o) => (
-            <AccountDerivationListItem
-              key={o.icon}
-              title={o.title}
-              icon={o.icon}
-              networkId={o.defaultNetworkId}
-              setDeriveTypes={setDeriveTypes}
-            />
-          ))}
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        <Stack px="$5" py="$3">
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.settings_account_derivation_path_desc,
+            })}
+          </SizableText>
         </Stack>
-      ) : null}
+        {!isLoading ? (
+          <Stack>
+            {items.map((o) => (
+              <AccountDerivationListItem
+                key={o.icon}
+                title={o.title}
+                icon={o.icon}
+                networkId={o.defaultNetworkId}
+                setDeriveTypes={setDeriveTypes}
+              />
+            ))}
+          </Stack>
+        ) : null}
+      </Page.Body>
     </Page>
   );
 };

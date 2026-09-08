@@ -1,14 +1,16 @@
+import { createIntl } from 'react-intl';
+
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
-  PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-  PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
   calculateProgressInRange,
-  getNextEstimatedFirmwareProgress,
+  getFirmwareTransferDisplayMetrics,
   normalizeFirmwareUpdateProgressType,
+  resolveFirmwareInstallProgress,
 } from './firmwareUpdateProgressUtils';
 
 describe('firmwareUpdateProgressUtils', () => {
+  const intl = createIntl({ locale: 'en-US' });
   test('将 bootloader 就绪事件归一到重启阶段，避免 UI 直接进入传输阶段', () => {
     expect(
       normalizeFirmwareUpdateProgressType(
@@ -41,34 +43,95 @@ describe('firmwareUpdateProgressUtils', () => {
     ).toBe(90);
   });
 
-  test('Pro2 估算进度渐近阶段上限但不会提前触顶', () => {
-    let progress = 50;
-    for (let index = 0; index < 240; index += 1) {
-      progress = getNextEstimatedFirmwareProgress({
-        currentProgress: progress,
-        maxProgress: PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-      });
-    }
-
-    expect(progress).toBeGreaterThan(88.9);
-    expect(progress).toBeLessThan(PRO2_INSTALL_ESTIMATED_PROGRESS_MAX);
+  test('uses aggregate install progress across phase transitions', () => {
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: 100,
+        firmwareProgress: 42,
+      }),
+    ).toBe(42);
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: 0,
+        firmwareProgress: 45,
+      }),
+    ).toBe(45);
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: 100,
+        firmwareProgress: undefined,
+      }),
+    ).toBeUndefined();
   });
 
-  test('重连估算进度不回退真实进度，也不越过验证阶段', () => {
+  test('formats stable transfer speed and ETA after warm-up', () => {
     expect(
-      getNextEstimatedFirmwareProgress({
-        currentProgress: 90,
-        maxProgress: PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-      }),
-    ).toBe(90);
-
-    const reconnectProgress = getNextEstimatedFirmwareProgress({
-      currentProgress: 90,
-      maxProgress: PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 1_220_281,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 16_760,
+          elapsedMs: 72_810,
+        },
+        intl,
+      ),
+    ).toEqual({
+      transferredText: '1.2 MiB',
+      totalText: '2.3 MiB',
+      speedText: '16.4 KiB/s',
+      elapsedText: '1 min 13 sec',
+      estimatedRemainingText: '1 min 13 sec',
     });
-    expect(reconnectProgress).toBeGreaterThan(90);
-    expect(reconnectProgress).toBeLessThan(
-      PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
+  });
+
+  test('hides ETA until enough transfer data has been sampled', () => {
+    expect(
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 32 * 1024,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 9380,
+          elapsedMs: 1500,
+        },
+        intl,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        speedText: '9.2 KiB/s',
+        estimatedRemainingText: undefined,
+      }),
     );
+  });
+
+  test('rejects incomplete or zero-rate transfer samples', () => {
+    expect(
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 1024,
+          totalBytes: 2048,
+          rateBytesPerSecond: 0,
+          elapsedMs: 1000,
+        },
+        intl,
+      ),
+    ).toBeUndefined();
+  });
+
+  test('localizes countdown units with the selected language', () => {
+    const chineseIntl = createIntl({ locale: 'zh-CN' });
+    expect(
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 128 * 1024,
+          totalBytes: 256 * 1024,
+          rateBytesPerSecond: (128 * 1024) / 73,
+          elapsedMs: 73_000,
+        },
+        chineseIntl,
+      ),
+    ).toMatchObject({
+      elapsedText: '1分钟 13秒',
+      estimatedRemainingText: '1分钟 13秒',
+    });
   });
 });

@@ -5,7 +5,6 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
-import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -27,9 +26,22 @@ import {
   parseAsyncStorageWriteForwarderRequestStatus,
   serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import {
+  type INativeStorageContractViolation,
+  type INativeStorageGlobal,
+  type INativeStorageRequest,
+  NATIVE_SYNC_STORAGE_MUTATION_EVENT,
+  parseNativeStorageContractViolation,
+  parseNativeSyncStorageMutation,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
+import { applyOrQueueJotaiStateBroadcast } from './jotaiMainHydrationGate';
+import {
+  deletePersistedNativeStorageContractViolation,
+  drainPersistedNativeStorageContractViolations,
+} from './nativeStorageContractViolationQueue';
 import {
   BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
   BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
@@ -37,6 +49,7 @@ import {
   type IBackgroundThreadBridgeCallRequest,
   type IBackgroundThreadBridgeChannel,
   type IBackgroundThreadRequest,
+  type IBackgroundThreadResponseErrorPayload,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
@@ -126,6 +139,10 @@ const OBSERVER_RETRY_MS = 50;
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
+// Mirror mutations are idempotent and deduplicated in bg. Bootstrap gets a
+// longer, bounded timeout because a first-upgrade migration can run longer.
+const NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS = 15_000;
+const NATIVE_STORAGE_BOOTSTRAP_REQUEST_TIMEOUT_MS = 60_000;
 // Main AsyncStorage writes are serialized. Allow one same-boot retry after the
 // per-request timeout, but do not block later writes for the old 60s window.
 const ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS =
@@ -247,6 +264,78 @@ function createTransportError(message: string) {
   return new OneKeyLocalError(message);
 }
 
+type IBackgroundThreadTransportError = Error &
+  Partial<IBackgroundThreadResponseErrorPayload>;
+type IRehydratableBackgroundThreadErrorKey = Exclude<
+  keyof IBackgroundThreadResponseErrorPayload,
+  'message'
+>;
+
+const backgroundThreadErrorMetadataValidators: {
+  [Key in IRehydratableBackgroundThreadErrorKey]: (value: unknown) => boolean;
+} = {
+  name: (value) => typeof value === 'string' && Boolean(value),
+  stack: (value) => typeof value === 'string' && Boolean(value),
+  autoToast: (value) => typeof value === 'boolean',
+  className: (value) => typeof value === 'string',
+  $isHardwareError: (value) => value === true,
+  code: (value) => typeof value === 'string' || typeof value === 'number',
+  key: (value) => typeof value === 'string',
+  requestId: (value) => typeof value === 'string',
+  httpStatusCode: (value) => typeof value === 'number',
+  data: (value) => value !== undefined,
+  info: (value) => value !== undefined,
+  payload: (value) => value !== undefined,
+  reconnect: (value) => typeof value === 'boolean',
+};
+
+function rehydrateTransportError({
+  errorMessage,
+  errorInfo,
+  callId,
+}: {
+  errorMessage: string;
+  errorInfo: IBackgroundThreadResponseErrorPayload | undefined;
+  callId: string;
+}): IBackgroundThreadTransportError {
+  let error = new Error(errorMessage) as IBackgroundThreadTransportError;
+  try {
+    error = createTransportError(
+      errorMessage,
+    ) as IBackgroundThreadTransportError;
+  } catch (metadataError) {
+    transportLog(
+      `handleResponse: failed to create transport error. callId=${callId}, error=${
+        (metadataError as Error)?.message || String(metadataError)
+      }`,
+    );
+    return error;
+  }
+
+  if (!errorInfo) {
+    return error;
+  }
+
+  const metadataKeys = Object.keys(
+    backgroundThreadErrorMetadataValidators,
+  ) as IRehydratableBackgroundThreadErrorKey[];
+  for (const metadataKey of metadataKeys) {
+    const metadataValue = errorInfo[metadataKey];
+    if (backgroundThreadErrorMetadataValidators[metadataKey](metadataValue)) {
+      try {
+        Object.assign(error, { [metadataKey]: metadataValue });
+      } catch (metadataError) {
+        transportLog(
+          `handleResponse: failed to rehydrate error metadata. callId=${callId}, field=${metadataKey}, error=${
+            (metadataError as Error)?.message || String(metadataError)
+          }`,
+        );
+      }
+    }
+  }
+  return error;
+}
+
 function isAsyncStorageWriteForwardingEnabled() {
   // Hot path: app-modules calls this getter on every AsyncStorage write.
   // Keep it side-effect free and log-free.
@@ -280,6 +369,28 @@ function isAsyncStorageWriteServiceRequest(
   return (
     request.type === 'service-call' && request.method === 'writeAsyncStorage'
   );
+}
+
+function isNativeSyncStorageServiceRequest(request: IBackgroundThreadRequest) {
+  if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
+    return false;
+  }
+  const nativeStorageRequest = request.params[0] as
+    | INativeStorageRequest
+    | undefined;
+  return nativeStorageRequest?.scope === 'syncStorage';
+}
+
+function isNativeStorageBootstrapServiceRequest(
+  request: IBackgroundThreadRequest,
+) {
+  if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
+    return false;
+  }
+  const nativeStorageRequest = request.params[0] as
+    | INativeStorageRequest
+    | undefined;
+  return nativeStorageRequest?.scope === 'bootstrap';
 }
 
 function createAsyncStorageForwarderTransportRequiredError() {
@@ -780,6 +891,12 @@ function getRemoteRequestTimeoutMs(request: IBackgroundThreadRequest) {
     // must not block every later write for the generic service timeout window.
     return ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS;
   }
+  if (isNativeSyncStorageServiceRequest(request)) {
+    return NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS;
+  }
+  if (isNativeStorageBootstrapServiceRequest(request)) {
+    return NATIVE_STORAGE_BOOTSTRAP_REQUEST_TIMEOUT_MS;
+  }
   return request.type === 'bridge-call'
     ? BRIDGE_CALL_TIMEOUT_MS
     : REQUEST_TIMEOUT_MS;
@@ -937,6 +1054,24 @@ function dispatchQueuedCallsToRemote() {
   });
 }
 
+function refreshNativeSyncStorageMirrorsAfterBackgroundRestart() {
+  void import('@onekeyhq/shared/src/storage/instance/nativeSyncStorageMirror')
+    .then(({ refreshNativeSyncStorageMirrors }) =>
+      refreshNativeSyncStorageMirrors(),
+    )
+    .catch((error: unknown) => {
+      transportLog(
+        `native sync storage refresh failed after bg restart: ${(error as Error)?.message || 'unknown'}`,
+      );
+    });
+}
+
+function notifyNativeSyncStorageTransportReady() {
+  (
+    globalThis as INativeStorageGlobal
+  ).__onekeyNativeSyncStorageTransportReady?.();
+}
+
 function handleRuntimeSignal() {
   transportLog(`handleRuntimeSignal called, transportState=${transportState}`);
   // Readiness is latched in SharedStore (non-deleting `get`), not the SharedRPC
@@ -978,6 +1113,8 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      notifyNativeSyncStorageTransportReady();
+      refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
     }
     return;
   }
@@ -999,6 +1136,10 @@ function handleRuntimeSignal() {
   setBackgroundThreadReadyPayload(runtimePayload);
   dispatchQueuedCallsToRemote();
   resolveReadyWaiters();
+  notifyNativeSyncStorageTransportReady();
+  if (bootIdChanged) {
+    refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
+  }
 }
 
 function handleBackgroundThreadResponse(
@@ -1021,7 +1162,9 @@ function handleBackgroundThreadResponse(
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
-    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
+    `handleResponse: callId=${callId}, ok=${response?.ok}, errorName=${
+      response?.error?.name || 'none'
+    }, errorCode=${response?.error?.code ?? 'none'}`,
   );
   if (!response) {
     switchToRemoteBroken(
@@ -1041,68 +1184,15 @@ function handleBackgroundThreadResponse(
   const errorMessage =
     errorInfo?.message ||
     `Background request failed without error payload. callId=${callId}`;
-  let error = new Error(errorMessage) as Error & {
-    name?: string;
-    stack?: string;
-    autoToast?: boolean;
-    className?: string;
-    $isHardwareError?: boolean;
-    code?: string | number;
-    key?: string;
-    requestId?: string;
-    httpStatusCode?: number;
-    data?: unknown;
-    payload?: unknown;
-  };
-  try {
-    error = createTransportError(errorMessage);
-    if (errorInfo?.name) {
-      error.name = errorInfo.name;
-    }
-    if (errorInfo?.stack) {
-      error.stack = errorInfo.stack;
-    }
-    // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
-    // toast / i18n / dedup logic behaves the same as non-split thread mode.
-    if (typeof errorInfo?.autoToast === 'boolean') {
-      error.autoToast = errorInfo.autoToast;
-    }
-    if (typeof errorInfo?.className === 'string') {
-      error.className = errorInfo.className;
-    }
-    if (errorInfo?.$isHardwareError === true) {
-      error.$isHardwareError = true;
-    }
-    if (
-      typeof errorInfo?.code === 'string' ||
-      typeof errorInfo?.code === 'number'
-    ) {
-      error.code = errorInfo.code;
-    }
-    if (typeof errorInfo?.key === 'string') {
-      error.key = errorInfo.key;
-    }
-    if (typeof errorInfo?.requestId === 'string') {
-      error.requestId = errorInfo.requestId;
-    }
-    if (typeof errorInfo?.httpStatusCode === 'number') {
-      error.httpStatusCode = errorInfo.httpStatusCode;
-    }
-    if (errorInfo?.data !== undefined) {
-      error.data = errorInfo.data;
-    }
-    if (errorInfo?.payload !== undefined) {
-      error.payload = errorInfo.payload;
-    }
-  } catch (metadataError) {
-    transportLog(
-      `handleResponse: failed to rehydrate error metadata. callId=${callId}, error=${
-        (metadataError as Error)?.message || String(metadataError)
-      }`,
-    );
-  } finally {
-    pendingCall.reject(error);
-  }
+  // Restore only fields declared by the transport contract. The exhaustive
+  // validator map makes protocol additions fail type-checking until this
+  // rehydration path is updated as well.
+  const error = rehydrateTransportError({
+    errorMessage,
+    errorInfo,
+    callId,
+  });
+  pendingCall.reject(error);
 }
 
 function handleBackgroundThreadJotaiStateUpdate(
@@ -1113,8 +1203,7 @@ function handleBackgroundThreadJotaiStateUpdate(
     return;
   }
 
-  void jotaiUpdateFromUiByBgBroadcast({
-    $$isFromBgStatesSyncBroadcast: true,
+  applyOrQueueJotaiStateBroadcast({
     name: payload.name,
     payload: payload.payload,
   });
@@ -1136,12 +1225,32 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
   }
 
   for (const item of payload.items) {
-    void jotaiUpdateFromUiByBgBroadcast({
-      $$isFromBgStatesSyncBroadcast: true,
+    applyOrQueueJotaiStateBroadcast({
       name: item.name,
       payload: item.payload,
     });
   }
+}
+
+function dispatchNativeStorageContractViolationFromBackground(
+  violation: INativeStorageContractViolation,
+) {
+  appEventBus.dispatchInboundFromBackground({
+    type: EAppEventBusNames.NativeStorageContractViolation,
+    payload: violation,
+    originNodeId: '',
+  });
+}
+
+function drainNativeStorageContractViolationsFromSharedStore() {
+  const sharedStore = getSharedStore();
+  if (!sharedStore) {
+    return;
+  }
+  drainPersistedNativeStorageContractViolations(
+    sharedStore,
+    dispatchNativeStorageContractViolationFromBackground,
+  );
 }
 
 function handleBackgroundThreadAppEventUpdate(
@@ -1149,6 +1258,32 @@ function handleBackgroundThreadAppEventUpdate(
 ) {
   const payload = parseBackgroundThreadAppEventBroadcastPayload(value);
   if (!payload) {
+    return;
+  }
+
+  if (payload.eventName === EAppEventBusNames.NativeStorageContractViolation) {
+    const violation = parseNativeStorageContractViolation(payload.payload);
+    if (!violation) {
+      transportLog('ignored invalid native storage contract violation');
+      return;
+    }
+    dispatchNativeStorageContractViolationFromBackground(violation);
+    const sharedStore = getSharedStore();
+    if (sharedStore) {
+      deletePersistedNativeStorageContractViolation(sharedStore, violation.id);
+    }
+    return;
+  }
+
+  if (payload.eventName === NATIVE_SYNC_STORAGE_MUTATION_EVENT) {
+    const mutation = parseNativeSyncStorageMutation(payload.payload);
+    if (!mutation) {
+      transportLog('ignored invalid native sync storage mutation');
+      return;
+    }
+    (
+      globalThis as INativeStorageGlobal
+    ).__onekeyNativeSyncStorageApplyMutation?.(mutation);
     return;
   }
 
@@ -1275,6 +1410,8 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         `failed to advertise main capabilities: ${(error as Error)?.message || String(error)}`,
       );
     }
+
+    drainNativeStorageContractViolationsFromSharedStore();
   }
 
   if (transportState === 'idle') {
@@ -1565,6 +1702,29 @@ function installGlobalTransport() {
   };
 }
 
+function installNativeStorageBridge() {
+  const nativeStorageGlobal = globalThis as INativeStorageGlobal;
+  nativeStorageGlobal.__onekeyNativeStorageIsTransportReady = () =>
+    transportState === 'ready';
+  nativeStorageGlobal.__onekeyNativeStorageCall = (
+    request: INativeStorageRequest,
+  ) =>
+    callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'nativeStorage',
+        params: [request],
+        sync: false,
+      },
+      () =>
+        Promise.reject(
+          createTransportError(
+            'Native storage requires the background runtime; UI fallback is forbidden',
+          ),
+        ),
+    );
+}
+
 appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
   webEmbedReady = true;
   // BG re-emits this event only *after* the live page sent
@@ -1706,6 +1866,9 @@ export function getTransportTimingMilestones() {
 
 export function setupMainThreadBackgroundRunner() {
   installGlobalTransport();
+  installNativeStorageBridge();
+  // Kept for version-locked rollback bundles. Current Metro graphs redirect
+  // every package consumer to nativeAsyncStorageInstance, so this hook is inert.
   installAsyncStorageWriteForwarder();
   ensureBackgroundRuntimeObserver();
   // Only register on dual-thread native main: in single-thread native the

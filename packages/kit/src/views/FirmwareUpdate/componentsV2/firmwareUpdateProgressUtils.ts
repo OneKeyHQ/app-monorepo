@@ -1,9 +1,91 @@
+import type { IFirmwareTransferMetrics } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
-const ESTIMATED_PROGRESS_STEP_RATIO = 0.03;
+import type { IntlShape } from 'react-intl';
 
-export const PRO2_INSTALL_ESTIMATED_PROGRESS_MAX = 89;
-export const PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX = 98;
+const ETA_WARMUP_ELAPSED_MS = 2000;
+const ETA_WARMUP_TRANSFERRED_BYTES = 64 * 1024;
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KiB`;
+  }
+  return `${Math.round(bytes)} B`;
+}
+
+function formatDuration(
+  durationMs: number,
+  intl: Pick<IntlShape, 'formatNumber'>,
+) {
+  const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const secondsText = intl.formatNumber(seconds, {
+    style: 'unit',
+    unit: 'second',
+    unitDisplay: 'short',
+  });
+  if (minutes === 0) {
+    return secondsText;
+  }
+  const minutesText = intl.formatNumber(minutes, {
+    style: 'unit',
+    unit: 'minute',
+    unitDisplay: 'short',
+  });
+  return `${minutesText} ${secondsText}`;
+}
+
+export function getFirmwareTransferDisplayMetrics(
+  metrics: IFirmwareTransferMetrics | undefined,
+  intl: Pick<IntlShape, 'formatNumber'>,
+) {
+  const transferredBytes = metrics?.transferredBytes;
+  const totalBytes = metrics?.totalBytes;
+  const rateBytesPerSecond = metrics?.rateBytesPerSecond;
+  const elapsedMs = metrics?.elapsedMs;
+  if (
+    !Number.isFinite(transferredBytes) ||
+    !Number.isFinite(totalBytes) ||
+    !Number.isFinite(rateBytesPerSecond) ||
+    !Number.isFinite(elapsedMs) ||
+    (transferredBytes ?? -1) < 0 ||
+    (totalBytes ?? 0) <= 0 ||
+    (rateBytesPerSecond ?? 0) <= 0 ||
+    (elapsedMs ?? -1) < 0
+  ) {
+    return undefined;
+  }
+
+  const confirmedTransferredBytes = transferredBytes as number;
+  const confirmedTotalBytes = totalBytes as number;
+  const confirmedRateBytesPerSecond = rateBytesPerSecond as number;
+  const confirmedElapsedMs = elapsedMs as number;
+  const remainingBytes = Math.max(
+    confirmedTotalBytes - confirmedTransferredBytes,
+    0,
+  );
+  const estimatedRemainingMs =
+    confirmedElapsedMs >= ETA_WARMUP_ELAPSED_MS &&
+    confirmedTransferredBytes >= ETA_WARMUP_TRANSFERRED_BYTES &&
+    remainingBytes > 0
+      ? Math.ceil((remainingBytes / confirmedRateBytesPerSecond) * 1000)
+      : undefined;
+
+  return {
+    transferredText: formatBytes(confirmedTransferredBytes),
+    totalText: formatBytes(confirmedTotalBytes),
+    speedText: `${formatBytes(confirmedRateBytesPerSecond)}/s`,
+    elapsedText: formatDuration(confirmedElapsedMs, intl),
+    estimatedRemainingText:
+      estimatedRemainingMs === undefined
+        ? undefined
+        : formatDuration(estimatedRemainingMs, intl),
+  };
+}
 
 export function normalizeFirmwareUpdateProgressType<T extends string>(type: T) {
   return type === EFirmwareUpdateTipMessages.GoToBootloaderSuccess
@@ -24,19 +106,13 @@ export function calculateProgressInRange({
   return Math.min(progress, maxAt);
 }
 
-export function getNextEstimatedFirmwareProgress({
-  currentProgress,
-  maxProgress,
+export function resolveFirmwareInstallProgress({
+  firmwareProgress,
 }: {
-  currentProgress: number;
-  maxProgress: number;
+  installPhaseProgress: number | undefined;
+  firmwareProgress: number | undefined;
 }) {
-  if (currentProgress >= maxProgress) {
-    return currentProgress;
-  }
-
-  return (
-    currentProgress +
-    (maxProgress - currentProgress) * ESTIMATED_PROGRESS_STEP_RATIO
-  );
+  // Phase progress resets for prepare, install, and verify, so it cannot drive
+  // the aggregate installation progress bar.
+  return firmwareProgress;
 }

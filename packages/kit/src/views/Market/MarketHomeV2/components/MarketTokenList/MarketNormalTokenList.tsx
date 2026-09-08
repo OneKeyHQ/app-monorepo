@@ -24,6 +24,7 @@ type IMarketNormalTokenListProps = {
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   onItemPress?: (item: IMarketToken) => void;
   toolbar?: ReactNode;
   tabIntegrated?: boolean;
@@ -37,6 +38,8 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  centerDesktopPortalContent?: boolean;
+  desktopColumnVariant?: 'default' | 'trending';
 };
 
 function MarketNormalTokenList({
@@ -47,6 +50,7 @@ function MarketNormalTokenList({
   timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
+  useApiDefaultSort,
   onItemPress,
   toolbar,
   tabIntegrated,
@@ -58,6 +62,8 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
+  centerDesktopPortalContent,
+  desktopColumnVariant,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -69,6 +75,7 @@ function MarketNormalTokenList({
     networkId,
     initialSortBy,
     initialSortType,
+    useApiDefaultSort,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,
@@ -125,6 +132,10 @@ function MarketNormalTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
+      marketTokenCategory={selectedCategory}
+      desktopColumnVariant={desktopColumnVariant}
+      timeRange={timeRange}
     />
   );
 }

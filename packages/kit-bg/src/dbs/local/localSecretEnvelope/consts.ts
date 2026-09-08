@@ -103,3 +103,6 @@ export function getLocalSecretEnvelopeInnerPrefixByLabel(
   }
   return undefined;
 }
+
+export const DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF =
+  'onekey_lse_mmkv_profile_key_v1';

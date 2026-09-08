@@ -25,9 +25,16 @@ function getLegacyAndroidSplash(): IReactNativeSplashScreen {
 // Support for displaying splash screen on Android versions below 12
 // This legacy splash screen implementation ensures compatibility with older Android devices
 // that don't support the newer native splash screen APIs
-void preventAutoHideAsync();
-if (platformEnv.isNativeAndroid) {
-  void getLegacyAndroidSplash().preventAutoHideAsync();
+const splashAutoHideWasPrevented = (
+  globalThis as typeof globalThis & {
+    __ONEKEY_SPLASH_AUTO_HIDE_PREVENTED__?: boolean;
+  }
+).__ONEKEY_SPLASH_AUTO_HIDE_PREVENTED__;
+if (!splashAutoHideWasPrevented) {
+  void preventAutoHideAsync();
+  if (platformEnv.isNativeAndroid) {
+    void getLegacyAndroidSplash().preventAutoHideAsync();
+  }
 }
 
 const jsEntryStart: number =

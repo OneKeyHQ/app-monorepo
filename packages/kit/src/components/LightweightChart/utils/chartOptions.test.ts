@@ -38,6 +38,37 @@ describe('createChartOptions', () => {
     expect(options.rightPriceScale).not.toHaveProperty('minimumWidth');
   });
 
+  it('keeps the shared faint crosshair when no override is passed', () => {
+    const options = createChartOptions(theme);
+
+    expect(options.crosshair?.vertLine).toMatchObject({
+      color: 'rgba(150, 150, 150, 0.4)',
+      style: 3,
+    });
+  });
+
+  it('applies the caller crosshair overrides', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      false,
+      false,
+      undefined,
+      'right',
+      undefined,
+      undefined,
+      { color: '#0000009b', style: 2 },
+    );
+
+    expect(options.crosshair?.vertLine).toMatchObject({
+      color: '#0000009b',
+      style: 2,
+    });
+  });
+
   it('places the visible price scale and reserved width on the left', () => {
     const options = createChartOptions(
       theme,

@@ -1,3 +1,5 @@
+import { TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH } from './chartConstants';
+
 import type { ITradingViewNativeInitialRightOffset } from './types';
 
 export const TRADING_VIEW_NATIVE_DEFAULT_INITIAL_RIGHT_OFFSET = {
@@ -5,7 +7,7 @@ export const TRADING_VIEW_NATIVE_DEFAULT_INITIAL_RIGHT_OFFSET = {
     type: 'chartWidthPercentage',
     value: 5,
   },
-  largeScreenMinWidth: 768,
+  largeScreenMinWidth: TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH,
   smallScreen: {
     type: 'pointCount',
     value: 2,

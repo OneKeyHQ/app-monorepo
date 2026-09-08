@@ -6,6 +6,7 @@ import {
   EBorrowProviderEnum,
   type IBorrowAsset,
   type IBorrowBalance,
+  type IBorrowToken,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -56,19 +57,52 @@ function isSameBorrowReserveAddress({
   return false;
 }
 
-export function getBorrowAssetByReserveAddress({
-  assets,
-  reserveAddress,
-}: {
-  assets?: IBorrowAsset[];
-  reserveAddress?: string;
-}) {
+export function getBorrowAssetByReserveAddress<
+  T extends { reserveAddress: string },
+>({ assets, reserveAddress }: { assets?: T[]; reserveAddress?: string }) {
   return assets?.find((asset) =>
     isSameBorrowReserveAddress({
       reserveAddress: asset.reserveAddress,
       targetReserveAddress: reserveAddress,
     }),
   );
+}
+
+export function getBorrowReserveTokenByAddress({
+  reserves,
+  reserveAddress,
+}: {
+  reserves?: Partial<
+    Record<
+      'supply' | 'borrow' | 'supplied' | 'borrowed',
+      {
+        assets: {
+          reserveAddress: string;
+          token: IBorrowToken;
+        }[];
+      }
+    >
+  >;
+  reserveAddress?: string;
+}): IBorrowToken | undefined {
+  const assetGroups = [
+    reserves?.supply?.assets,
+    reserves?.borrow?.assets,
+    reserves?.supplied?.assets,
+    reserves?.borrowed?.assets,
+  ];
+
+  for (const assets of assetGroups) {
+    const asset = getBorrowAssetByReserveAddress({
+      assets,
+      reserveAddress,
+    });
+    if (asset) {
+      return asset.token;
+    }
+  }
+
+  return undefined;
 }
 
 // Networks whose Aave market ships a WrappedTokenGateway the backend serves

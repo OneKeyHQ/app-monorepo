@@ -265,7 +265,7 @@ const KEYTAG_LIGHT_GRADIENT = [
 // keeps the speckle crisp at any plate size. Tiled via an SVG <Pattern>
 // because RN core Image's resizeMode="repeat" does not tile under the new
 // architecture (it paints the tile once, at intrinsic size, top-left), and
-// the expo-image based wrapper has no tiling mode at all.
+// the shared image wrapper has no tiling mode at all.
 const KEYTAG_NOISE_TILE = require('@onekeyhq/kit/assets/keytag/keytag_noise.png');
 
 // Matches the asset's intrinsic pixel size so the speckle stays crisp.

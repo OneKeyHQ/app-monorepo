@@ -29,11 +29,17 @@ export function TokenDetailHeader({
   showStats = true,
   showMediaAndSecurity = true,
   showFavoriteButton = true,
+  desktopRedesign = false,
+  desktopDetailVariant = 'trending',
+  showDivider = true,
   containerProps,
 }: {
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
   showFavoriteButton?: boolean;
+  desktopRedesign?: boolean;
+  desktopDetailVariant?: 'trending' | 'topCoins';
+  showDivider?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
@@ -93,6 +99,8 @@ export function TokenDetailHeader({
         showMediaAndSecurity={showMediaAndSecurity}
         isNative={isNative}
         showFavoriteButton={showFavoriteButton}
+        desktopRedesign={desktopRedesign}
+        desktopDetailVariant={desktopDetailVariant}
       />
 
       {showStats === false && platformEnv.isNative && md ? null : (
@@ -107,7 +115,11 @@ export function TokenDetailHeader({
       )}
 
       {/* Share button pushed to the right on desktop */}
-      {!platformEnv.isNative && !md && networkId && isNative ? (
+      {!desktopRedesign &&
+      !platformEnv.isNative &&
+      !md &&
+      networkId &&
+      isNative ? (
         <>
           <Stack flex={1} />
           <ShareButton
@@ -124,10 +136,15 @@ export function TokenDetailHeader({
   return (
     <XStack
       position="relative"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
+      borderBottomWidth={showDivider ? '$px' : 0}
+      borderBottomColor={showDivider ? '$borderSubdued' : undefined}
     >
-      {!platformEnv.isNative && !md ? (
+      {/* The redesigned desktop headers lay their content out as one full-width
+          row with a flexible middle section, so they can never overflow. Keeping
+          them out of the horizontal ScrollView, which shrink-wraps its content,
+          is what pushes the favorite and share buttons to the right edge the way
+          the stock detail header does. The legacy desktop header still scrolls. */}
+      {!platformEnv.isNative && !md && !desktopRedesign ? (
         <>
           <ScrollView
             horizontal

@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
@@ -49,6 +50,7 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -214,6 +216,53 @@ function validatePrimeRedemptionResponse(
     addedDays: Number(redemption.daysAdded),
     finalExpiresAt: Number(redemption.primeExpiresAt),
   };
+}
+
+function normalizePrimeRedemptionAxiosHttpError(
+  error: unknown,
+): OneKeyServerApiError | undefined {
+  if (!axios.isAxiosError<unknown>(error)) {
+    return undefined;
+  }
+  const status = error.response?.status;
+  const payload = error.response?.data;
+  if (
+    !status ||
+    status < 400 ||
+    status >= 500 ||
+    status === 401 ||
+    status === 403 ||
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
+    return undefined;
+  }
+  const record = payload as Record<string, unknown>;
+  const code =
+    typeof record.code === 'number' &&
+    Number.isSafeInteger(record.code) &&
+    record.code > 0
+      ? record.code
+      : undefined;
+  const message =
+    typeof record.message === 'string' ? record.message : undefined;
+  const translatedMessage =
+    typeof record.translatedMessage === 'string'
+      ? record.translatedMessage
+      : undefined;
+  if (!code && !message && !translatedMessage) {
+    return undefined;
+  }
+  // Only business fields cross the bridge; Axios config can contain auth tokens.
+  return new OneKeyServerApiError({
+    autoToast: false,
+    disableFallbackMessage: true,
+    message: translatedMessage || message || error.message,
+    code,
+    httpStatusCode: status,
+    data: { code, message, translatedMessage },
+  });
 }
 
 function validateInfiniPaymentResponse(
@@ -5335,11 +5384,15 @@ class ServicePrime extends ServiceBase {
     } catch (error) {
       // The dialog renders non-auth failures inline. Invalid-session errors
       // keep the existing global toast and OneKey ID logout flow.
-      if (
-        error &&
-        typeof error === 'object' &&
-        !(error instanceof OneKeyErrorPrimeLoginInvalidToken)
-      ) {
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) {
+        throw error;
+      }
+      const normalizedAxiosError =
+        normalizePrimeRedemptionAxiosHttpError(error);
+      if (normalizedAxiosError) {
+        throw normalizedAxiosError;
+      }
+      if (error && typeof error === 'object') {
         (error as { autoToast?: boolean }).autoToast = false;
       }
       throw error;
@@ -5486,6 +5539,8 @@ class ServicePrime extends ServiceBase {
       ) {
         return [];
       }
+      const chain = option.chain.trim().toUpperCase();
+      const networkId = option.networkId.trim();
       const tokens = option.tokens.flatMap((tokenValue) => {
         if (!tokenValue || typeof tokenValue !== 'object') {
           return [];
@@ -5494,15 +5549,28 @@ class ServicePrime extends ServiceBase {
         if (
           !isString(token.symbol) ||
           !token.symbol.trim() ||
-          !isString(token.contract) ||
-          !token.contract.trim()
+          (token.contract !== undefined &&
+            token.contract !== null &&
+            !isString(token.contract))
+        ) {
+          return [];
+        }
+        const symbol = token.symbol.trim().toUpperCase();
+        const contract = isString(token.contract) ? token.contract.trim() : '';
+        if (
+          !isValidPrimeInfiniPaymentContract({
+            chain,
+            networkId,
+            token: symbol,
+            contractAddress: contract,
+          })
         ) {
           return [];
         }
         return [
           {
-            symbol: token.symbol.trim().toUpperCase(),
-            contract: token.contract.trim(),
+            symbol,
+            contract,
           },
         ];
       });
@@ -5511,8 +5579,8 @@ class ServicePrime extends ServiceBase {
       }
       return [
         {
-          chain: option.chain.trim().toUpperCase(),
-          networkId: option.networkId.trim(),
+          chain,
+          networkId,
           tokens,
         },
       ];

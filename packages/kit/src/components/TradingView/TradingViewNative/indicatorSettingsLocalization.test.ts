@@ -14,7 +14,6 @@ const EXPECTED_TRANSLATION_IDS = [
   ETranslations.market_chart_indicator_dmi__title,
   ETranslations.market_chart_indicator_emv__title,
   ETranslations.market_chart_indicator_fast_length__label,
-  ETranslations.market_chart_indicator_histogram__label,
   ETranslations.market_chart_indicator_increment__label,
   ETranslations.market_chart_indicator_length__label,
   ETranslations.market_chart_indicator_lower_limit__label,
@@ -28,7 +27,6 @@ const EXPECTED_TRANSLATION_IDS = [
   ETranslations.market_chart_indicator_roc__title,
   ETranslations.market_chart_indicator_rsi__title,
   ETranslations.market_chart_indicator_rsi_length__label,
-  ETranslations.market_chart_indicator_signal__label,
   ETranslations.market_chart_indicator_signal_length__label,
   ETranslations.market_chart_indicator_slow_length__label,
   ETranslations.market_chart_indicator_smoothed_ma__label,
@@ -79,6 +77,7 @@ describe('indicatorSettingsLocalization', () => {
     const value = getLocalizedValue();
     const volume = value.indicators.find((indicator) => indicator.id === 'VOL');
     const macd = value.indicators.find((indicator) => indicator.id === 'MACD');
+    const obv = value.indicators.find((indicator) => indicator.id === 'OBV');
     const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
     const trix = value.indicators.find((indicator) => indicator.id === 'TRIX');
 
@@ -92,6 +91,14 @@ describe('indicatorSettingsLocalization', () => {
       label: 'MACD',
       title: 'MACD',
     });
+    expect(macd?.lines.map((line) => line.label)).toEqual([
+      'DIF',
+      'DEA',
+      'MACD',
+    ]);
+    expect(
+      obv?.lines.find((line) => line.id === 'plot:movingAverage'),
+    ).toMatchObject({ enabled: true, label: 'MAOBV' });
     expect(rsi).toMatchObject({
       description: ETranslations.market_chart_indicator_rsi__title,
       label: 'RSI',
@@ -106,10 +113,14 @@ describe('indicatorSettingsLocalization', () => {
 
   it('keeps background, zero, and zero-line labels distinct', () => {
     const value = getLocalizedValue();
+    const boll = value.indicators.find((indicator) => indicator.id === 'BOLL');
     const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
     const trix = value.indicators.find((indicator) => indicator.id === 'TRIX');
     const roc = value.indicators.find((indicator) => indicator.id === 'ROC');
 
+    expect(boll?.lines.find((line) => line.id === 'background')?.label).toBe(
+      ETranslations.market_chart_settings__background,
+    );
     expect(
       rsi?.lines.find((line) => line.id === 'fill:background')?.label,
     ).toBe(ETranslations.market_chart_settings__background);

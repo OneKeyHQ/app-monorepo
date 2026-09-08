@@ -93,9 +93,12 @@ const LoggerDemo = () => {
                 isUncontrolled
                 defaultChecked={perfUtils.getPerformanceTimerLogConfig(logName)}
                 label={logName}
-                onChange={(v) =>
-                  perfUtils.updatePerformanceTimerLogConfig(logName as any, !!v)
-                }
+                onChange={(v) => {
+                  void perfUtils.updatePerformanceTimerLogConfig(
+                    logName as any,
+                    !!v,
+                  );
+                }}
               />
             ))}
           </Accordion.Content>

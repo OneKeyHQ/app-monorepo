@@ -145,6 +145,7 @@ export type IPrimeInfiniPaymentOption = {
   networkId: string;
   tokens: Array<{
     symbol: string;
+    // Empty for the network's native asset.
     contract: string;
   }>;
 };

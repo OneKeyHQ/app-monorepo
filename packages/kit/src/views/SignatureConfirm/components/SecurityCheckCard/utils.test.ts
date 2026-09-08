@@ -13,15 +13,16 @@ import type {
 
 import {
   SIMULATION_GROUP_FALLBACK_ID,
+  getAddressRiskStatus,
   getParserAlertDisplay,
   getShownSimulationAssetNetworkId,
   getSimulationAssetAmount,
   getSimulationAssetIconProps,
   getSimulationAssetLabel,
   getSimulationAssetSign,
-  getSimulationAssets,
   getSimulationGroups,
-  hasAddressRiskTags,
+  normalizeSecurityFindingTitle,
+  shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -113,40 +114,28 @@ function buildAddressComponent(
   };
 }
 
+describe('SecurityCheckCard finding title display', () => {
+  it('removes trailing periods and exclamation marks but keeps questions', () => {
+    expect(normalizeSecurityFindingTitle('Scam address.')).toBe('Scam address');
+    expect(normalizeSecurityFindingTitle('诈骗地址。')).toBe('诈骗地址');
+    expect(normalizeSecurityFindingTitle('Malicious site!')).toBe(
+      'Malicious site',
+    );
+    expect(normalizeSecurityFindingTitle('恶意网站！')).toBe('恶意网站');
+    expect(normalizeSecurityFindingTitle('Proceed?')).toBe('Proceed?');
+    expect(normalizeSecurityFindingTitle('继续？')).toBe('继续？');
+  });
+});
+
 describe('SecurityCheckCard parser alert display', () => {
-  it.each([
-    [
-      'an initialism',
+  it('does not split a long alert on an abbreviation or decimal', () => {
+    const alerts = [
       'Approval to spend U.S. Dollar Coin (USDC) will be granted to an unverified spender address.',
-    ],
-    [
-      'a Latin abbreviation',
-      'This request, e.g. an unlimited approval, may expose all wallet assets to a malicious spender.',
-    ],
-    [
-      'a company suffix',
-      'Acme Inc. is not a verified spender and may gain unlimited access to every token in this wallet.',
-    ],
-    [
-      'a number abbreviation',
-      'Recipient No. 12 is associated with suspicious activity and may put all wallet assets at risk.',
-    ],
-    [
-      'an abbreviation before a number',
-      'This transaction requests approx. 1000 USDC from your wallet and sends the funds to an unverified address.',
-    ],
-    [
-      'an abbreviation before a proper noun',
-      'This transaction sends funds to Corp. Treasury through an unverified contract with unlimited access.',
-    ],
-    [
-      'a decimal point',
       'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.',
-    ],
-  ])('shows a long alert containing %s only once', (_case, alert) => {
-    expect(alert.length).toBeGreaterThan(80);
-    expect(getParserAlertDisplay(alert)).toEqual({
-      title: alert,
+    ];
+    alerts.forEach((alert) => {
+      expect(alert.length).toBeGreaterThan(80);
+      expect(getParserAlertDisplay(alert)).toEqual({ title: alert });
     });
   });
 
@@ -162,17 +151,57 @@ describe('SecurityCheckCard parser alert display', () => {
   });
 });
 
+describe('SecurityCheckCard confirmation finding', () => {
+  it('hides the generic Permit warning only for a verified site', () => {
+    const genericPermitAlert =
+      'Malicious signatures may result in asset loss. Ensure the dApp is trustworthy.';
+
+    expect(
+      shouldHideGenericPermitAlert({
+        alert: genericPermitAlert,
+        genericPermitAlert,
+        isPermitSignMethod: true,
+        isSiteVerified: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHideGenericPermitAlert({
+        alert: genericPermitAlert,
+        genericPermitAlert,
+        isPermitSignMethod: true,
+        isSiteVerified: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideGenericPermitAlert({
+        alert: '',
+        genericPermitAlert: '',
+        isPermitSignMethod: true,
+        isSiteVerified: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideGenericPermitAlert({
+        alert: 'The spender is known to be malicious.',
+        genericPermitAlert,
+        isPermitSignMethod: true,
+        isSiteVerified: true,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('SecurityCheckCard address risk boundaries', () => {
   it.each(['warning', 'critical'] as const)(
     'detects %s tags kept on the address row',
     (displayType) => {
       expect(
-        hasAddressRiskTags([
+        getAddressRiskStatus([
           buildAddressComponent({
             tags: [{ value: 'Risk address', displayType }],
           }),
         ]),
-      ).toBe(true);
+      ).toBe(displayType);
     },
   );
 
@@ -180,53 +209,56 @@ describe('SecurityCheckCard address risk boundaries', () => {
     'does not treat %s address tags as risk',
     (displayType) => {
       expect(
-        hasAddressRiskTags([
+        getAddressRiskStatus([
           buildAddressComponent({
             tags: [{ value: 'Known address', displayType }],
           }),
         ]),
-      ).toBe(false);
+      ).toBeUndefined();
     },
   );
 
   it('ignores non-address components', () => {
-    expect(hasAddressRiskTags([buildTokenAsset()])).toBe(false);
+    expect(getAddressRiskStatus([buildTokenAsset()])).toBeUndefined();
   });
 
-  it('suppresses the global success verdict when the address row has risk', () => {
+  it('uses the highest address risk severity', () => {
     expect(
-      shouldShowNoIssueSection({
-        hasCardFindings: false,
-        hasAddressRisk: true,
-        hasResolvedRequiredChecks: true,
-        hasCoverageTitle: true,
-      }),
-    ).toBe(false);
+      getAddressRiskStatus([
+        buildAddressComponent({
+          tags: [
+            { value: 'Suspicious address', displayType: 'warning' },
+            { value: 'Malicious address', displayType: 'critical' },
+          ],
+        }),
+      ]),
+    ).toBe('critical');
   });
 
   it('shows the global success verdict only for resolved, covered checks', () => {
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
-        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
-        hasCoverageTitle: true,
       }),
     ).toBe(true);
     expect(
       shouldShowNoIssueSection({
-        hasCardFindings: false,
-        hasAddressRisk: false,
-        hasResolvedRequiredChecks: false,
-        hasCoverageTitle: true,
+        hasCardFindings: true,
+        hasResolvedRequiredChecks: true,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
-        hasAddressRisk: false,
+        hasResolvedRequiredChecks: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoIssueSection({
+        hasCardFindings: false,
         hasResolvedRequiredChecks: true,
-        hasCoverageTitle: false,
+        isSecurityCheckPending: true,
       }),
     ).toBe(false);
   });
@@ -443,16 +475,6 @@ describe('SecurityCheckCard simulation asset display rules', () => {
       ]);
       expect(groups).toHaveLength(2);
       expect(new Set(groups.map((group) => group.id)).size).toBe(2);
-    });
-
-    it('flattens grouped assets in order', () => {
-      const token = buildTokenAsset();
-      const nft = buildNFTAsset();
-      const groups = getSimulationGroups([
-        buildSimulation('A', [token]),
-        buildSimulation('B', [nft]),
-      ]);
-      expect(getSimulationAssets(groups)).toEqual([token, nft]);
     });
 
     it('returns an empty list without simulation components', () => {

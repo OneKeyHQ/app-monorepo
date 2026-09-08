@@ -11,5 +11,6 @@ export * from './Shortcut';
 export * from './Toast';
 export { LazyTooltip as Tooltip } from './LazyTooltip';
 export { useTooltipContext } from './Tooltip/context';
+export { closeAllTooltips } from './Tooltip/tooltipRegistry';
 export * from './Trigger';
 export * from './Pagination';

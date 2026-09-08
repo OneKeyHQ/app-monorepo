@@ -22,6 +22,9 @@ import {
   isSameMarketTradingViewBootstrap,
   normalizeChartTokenAddress,
 } from '../utils/marketTradingViewBootstrap';
+import { resolveIsStockToken } from '../utils/resolveIsStockToken';
+
+import { useStockDetail } from './StockDetailContext';
 
 import type { IMarketTradingViewBootstrap } from '../utils/marketTradingViewBootstrap';
 
@@ -39,6 +42,7 @@ interface IUseTokenDetailResult {
 }
 
 export function useTokenDetail(): IUseTokenDetailResult {
+  const { isStockRoute } = useStockDetail();
   const [tokenDetail] = useTokenDetailAtom();
   const [tokenDetailPreview] = useTokenDetailPreviewAtom();
   const [isLoading] = useTokenDetailLoadingAtom();
@@ -53,10 +57,8 @@ export function useTokenDetail(): IUseTokenDetailResult {
     [isLoading, tokenDetail],
   );
 
-  const isStockToken = useMemo(
-    () => !!tokenDetail?.stock?.underlyingAssetTicker,
-    [tokenDetail?.stock?.underlyingAssetTicker],
-  );
+  const isStockToken =
+    isStockRoute || resolveIsStockToken(tokenDetail, tokenDetailPreview);
 
   return {
     tokenDetail,

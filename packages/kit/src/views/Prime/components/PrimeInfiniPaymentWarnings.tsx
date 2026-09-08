@@ -1,5 +1,5 @@
 /* cspell:ignore Infini */
-import { Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Dialog, UnOrderedList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
@@ -16,13 +16,13 @@ export function showPrimeInfiniPaymentWarnings(
       tone: 'warning',
       renderContent: (
         <Dialog.ScrollView maxHeight={360}>
-          <YStack gap="$3">
+          <UnOrderedList>
             {warningMessages.map((message, index) => (
-              <SizableText key={index} size="$bodyMd">
+              <UnOrderedList.Item key={index} titleSize="$bodyMd">
                 {message}
-              </SizableText>
+              </UnOrderedList.Item>
             ))}
-          </YStack>
+          </UnOrderedList>
         </Dialog.ScrollView>
       ),
       showCancelButton: true,

@@ -27,7 +27,7 @@ const mockSyncStorage = jest.requireMock<{
 
 describe('TradingViewNative active interval storage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   it('uses separate V2-compatible namespaces for each source type', () => {
@@ -57,6 +57,18 @@ describe('TradingViewNative active interval storage', () => {
         kind: 'hyperliquid',
       }),
     ).toBe('market-hyperliquid');
+    expect(
+      getTradingViewNativeIntervalStorageNamespace({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    ).toBe('stock');
+    expect(
+      getTradingViewNativeIntervalStorageNamespace({
+        kind: 'asset',
+        assetId: 'doge',
+      }),
+    ).toBe('asset');
   });
 
   it('restores only supported saved intervals', () => {
@@ -79,7 +91,50 @@ describe('TradingViewNative active interval storage', () => {
     expect(readTradingViewNativeActiveInterval('token')).toBe('60');
   });
 
-  it('merges a successfully displayed interval into existing namespaces', () => {
+  it('keeps Swap preferences separate when the same data source is used elsewhere', async () => {
+    const marketKey =
+      EAppSyncStorageKeys.onekey_trading_view_native_active_intervals_v1;
+    const swapKey =
+      EAppSyncStorageKeys.onekey_swap_trading_view_native_active_intervals_v1;
+    const storage = new Map<string, unknown>([
+      [marketKey, { 'market-hyperliquid': { interval: '240' } }],
+    ]);
+    mockSyncStorage.getObject.mockImplementation((key: string) =>
+      storage.get(key),
+    );
+    mockSyncStorage.setObject.mockImplementation(
+      (key: string, value: unknown) => {
+        storage.set(key, value);
+      },
+    );
+    const source = {
+      kind: 'hyperliquid',
+      coin: 'ETH',
+      environment: 'mainnet',
+    } as const;
+    const namespace = getTradingViewNativeIntervalStorageNamespace(
+      source,
+      'swap',
+    );
+
+    expect(readTradingViewNativeActiveInterval(namespace)).toBe('60');
+    await saveTradingViewNativeActiveInterval({ interval: '15', namespace });
+    expect(storage.has(swapKey)).toBe(true);
+    expect(readTradingViewNativeActiveInterval(namespace)).toBe('15');
+    expect(
+      readTradingViewNativeActiveInterval(
+        getTradingViewNativeIntervalStorageNamespace(source),
+      ),
+    ).toBe('240');
+
+    await saveTradingViewNativeActiveInterval({
+      interval: '1D',
+      namespace: 'market-hyperliquid',
+    });
+    expect(readTradingViewNativeActiveInterval(namespace)).toBe('15');
+  });
+
+  it('merges a successfully displayed interval into existing namespaces', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(200);
     mockSyncStorage.getObject.mockReturnValue({
       native: {
@@ -89,7 +144,7 @@ describe('TradingViewNative active interval storage', () => {
       },
     });
 
-    saveTradingViewNativeActiveInterval({
+    await saveTradingViewNativeActiveInterval({
       interval: '15',
       namespace: 'token',
     });

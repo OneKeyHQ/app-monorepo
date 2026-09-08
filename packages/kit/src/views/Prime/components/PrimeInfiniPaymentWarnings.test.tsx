@@ -1,5 +1,5 @@
 /* cspell:ignore Infini */
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createIntl } from 'react-intl';
@@ -17,14 +17,23 @@ const mockShow = jest.fn<
   ]
 >();
 
-jest.mock('@onekeyhq/components', () => ({
-  Dialog: {
-    show: (...args: Parameters<typeof mockShow>) => mockShow(...args),
-    ScrollView: 'div',
-  },
-  SizableText: 'span',
-  YStack: 'div',
-}));
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+
+  function UnOrderedList({ children }: { children?: ReactNode }) {
+    return React.createElement('ul', null, children);
+  }
+  UnOrderedList.Item = ({ children }: { children?: ReactNode }) =>
+    React.createElement('li', null, children);
+
+  return {
+    Dialog: {
+      show: (...args: Parameters<typeof mockShow>) => mockShow(...args),
+      ScrollView: 'div',
+    },
+    UnOrderedList,
+  };
+});
 
 const messages: Record<string, string> = {
   'global.warning': 'Warning',

@@ -1,7 +1,8 @@
 export type IPrimeAddressRiskCheckEntryPoint =
   | 'inputManual'
   | 'inputRecentList'
-  | 'historyList';
+  | 'historyList'
+  | 'sendAddressInput';
 
 export type IExportHistoryRangeType = 'lastMonth' | 'last3Months' | 'custom';
 

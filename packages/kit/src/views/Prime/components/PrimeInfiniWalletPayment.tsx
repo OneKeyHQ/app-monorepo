@@ -26,7 +26,10 @@ import {
   Toast,
   XStack,
   YStack,
+  closeAllDialogInstances,
   getFontVariantStyle,
+  popToMainRoute,
+  resetToRoute,
   usePreventRemove,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -34,6 +37,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { useSpecifiedTokenSelectorBalances } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -44,6 +48,7 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import {
+  useDevSettingsPersistAtom,
   usePrimePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -58,6 +63,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
@@ -96,12 +104,14 @@ import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniAccountSelectionPress,
   resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from '../hooks/primeInfiniPaymentDisplaySnapshot';
+import { closePrimeInfiniPaymentOverlaysAndNavigate } from '../hooks/primeInfiniPaymentNavigation';
 import {
   type IPrimeInfiniPaymentReloadRequest,
   resolvePrimeInfiniPaymentReloadCommit,
@@ -175,6 +185,11 @@ const PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS = 300;
 const PRIME_PAYMENT_BUTTON_NUMERIC_STYLE = getFontVariantStyle([
   'tabular-nums',
 ]);
+const PRIME_INFINI_MOCK_WARNING_MESSAGES = [
+  'Mock warning: verify that the selected network and token match the invoice before paying.',
+  'Mock warning: keep enough native tokens to cover network fees. Fees are not included in the subscription price.',
+  'Mock warning: this is a real payment flow. Continuing will open the normal transaction confirmation or external checkout.',
+];
 
 function getPrimeInfiniPaymentLogContext({
   payment,
@@ -862,6 +877,8 @@ function PrimeInfiniWalletPaymentContent({
   paymentContextErrorTitle,
   isPaymentContextRetrying,
   onRetryPaymentContext,
+  fallbackWarningMessages,
+  onEnableMockPaymentWarnings,
 }: {
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: ISubscriptionPeriod;
@@ -895,6 +912,8 @@ function PrimeInfiniWalletPaymentContent({
   paymentContextErrorTitle?: string;
   isPaymentContextRetrying: boolean;
   onRetryPaymentContext: () => Promise<void>;
+  fallbackWarningMessages?: readonly string[];
+  onEnableMockPaymentWarnings: () => void;
 }) {
   const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
@@ -1009,6 +1028,7 @@ function PrimeInfiniWalletPaymentContent({
   const accountSyncGenerationRef = useRef(0);
   const accountSelectorOpenRef = useRef(false);
   const accountSelectorInitialIdentityRef = useRef('');
+  const onboardingNavigationInFlightRef = useRef(false);
   const replacementTargetAssetKeyRef = useRef('');
   const balanceErrorToastSelectionRef = useRef('');
   const replacementSourceAssetRef = useRef<
@@ -1626,6 +1646,7 @@ function PrimeInfiniWalletPaymentContent({
   const displaySelectionIdentityRef = useRef(displaySelectionIdentity);
   displaySelectionIdentityRef.current = displaySelectionIdentity;
   const isPaymentButtonPreparing = shouldShowPrimeInfiniPaymentButtonSkeleton({
+    hasPaymentAccount: Boolean(isOwnAccount && accountAddress),
     hasCurrentPayment: Boolean(displayPayment),
     isOptionsRefreshing,
     isBalanceLoading,
@@ -2375,8 +2396,35 @@ function PrimeInfiniWalletPaymentContent({
     }
   }, [canChangeAccountSelection]);
 
-  const handleShowAccountSelector = useCallback(() => {
-    if (!canChangeAccountSelection) {
+  const handleShowAccountSelector = useCallback(async () => {
+    const action = resolvePrimeInfiniAccountSelectionPress({
+      canChangeAccountSelection,
+      hasWallet: Boolean(activeAccount.wallet),
+    });
+    if (action === 'disabled') {
+      return;
+    }
+    if (action === 'onboarding') {
+      if (onboardingNavigationInFlightRef.current) {
+        return;
+      }
+      onboardingNavigationInFlightRef.current = true;
+      try {
+        await closePrimeInfiniPaymentOverlaysAndNavigate({
+          closeDialogs: closeAllDialogInstances,
+          closeModals: popToMainRoute,
+          navigate: () => {
+            resetToRoute(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.GetStarted,
+              },
+            });
+          },
+        });
+      } finally {
+        onboardingNavigationInFlightRef.current = false;
+      }
       return;
     }
     accountSelectorOpenRef.current = true;
@@ -2385,7 +2433,12 @@ function PrimeInfiniWalletPaymentContent({
         actions.current.getSelectedAccount({ num: 0 }),
       );
     showAccountSelector();
-  }, [actions, canChangeAccountSelection, showAccountSelector]);
+  }, [
+    actions,
+    activeAccount.wallet,
+    canChangeAccountSelection,
+    showAccountSelector,
+  ]);
 
   const preparePaymentForSelection = useCallback(async () => {
     const expectedOneKeyUserId = baseline.onekeyUserId;
@@ -3034,6 +3087,7 @@ function PrimeInfiniWalletPaymentContent({
       if (
         !(await confirmPrimeInfiniPaymentWarnings({
           payment: currentPayment,
+          fallbackWarningMessages,
           confirmWarnings: (messages) =>
             showPrimeInfiniPaymentWarnings(messages, intl),
           shouldContinue: isAttemptCurrent,
@@ -3411,6 +3465,7 @@ function PrimeInfiniWalletPaymentContent({
     balanceDetail,
     baseline.onekeyUserId,
     canContinue,
+    fallbackWarningMessages,
     featureName,
     intl,
     onExitPreventedChange,
@@ -3669,7 +3724,13 @@ function PrimeInfiniWalletPaymentContent({
           featureName,
           beforeCheckout: async () => {
             if (!currentPayment) {
-              return isAttemptOwned();
+              return confirmPrimeInfiniPaymentWarnings({
+                payment: {},
+                fallbackWarningMessages,
+                confirmWarnings: (messages) =>
+                  showPrimeInfiniPaymentWarnings(messages, intl),
+                shouldContinue: isAttemptOwned,
+              });
             }
             const result = await resolvePrimeInfiniPaymentReplacement({
               currentPayment,
@@ -3680,6 +3741,7 @@ function PrimeInfiniWalletPaymentContent({
               confirmLatestPayment: (latestPayment) =>
                 confirmPrimeInfiniPaymentWarnings({
                   payment: latestPayment,
+                  fallbackWarningMessages,
                   confirmWarnings: (messages) =>
                     showPrimeInfiniPaymentWarnings(messages, intl),
                   shouldContinue: isAttemptOwned,
@@ -3825,6 +3887,7 @@ function PrimeInfiniWalletPaymentContent({
       discardPaymentSessionForSelectionChange,
       captureTerminalPaymentSessionRevision,
       discardTerminalPaymentSessionForSelectionChange,
+      fallbackWarningMessages,
       featureName,
       intl,
       onClose,
@@ -4088,11 +4151,18 @@ function PrimeInfiniWalletPaymentContent({
                 : ETranslations.prime_crypto_monthly_plan__title,
           })}`}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" maxWidth={720}>
-          {intl.formatMessage({
-            id: ETranslations.prime_crypto_manual_renewal__desc,
-          })}
-        </SizableText>
+        <MultipleClickStack
+          testID="prime-infini-payment-mock-warnings"
+          devSettingsOnly
+          maxWidth={720}
+          onPress={onEnableMockPaymentWarnings}
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.prime_crypto_manual_renewal__desc,
+            })}
+          </SizableText>
+        </MultipleClickStack>
       </YStack>
       <YStack gap="$2">
         <SizableText size="$bodyMdMedium">
@@ -4208,7 +4278,27 @@ function PrimeInfiniWalletPaymentRoot({
 }) {
   const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [primeUserInfo] = usePrimePersistAtom();
+  // Keep the fallback enabled across content remounts during invoice reloads.
+  const [isMockPaymentWarningsEnabled, setIsMockPaymentWarningsEnabled] =
+    useState(false);
+  const fallbackWarningMessages =
+    devSettings.enabled && isMockPaymentWarningsEnabled
+      ? PRIME_INFINI_MOCK_WARNING_MESSAGES
+      : undefined;
+  const handleEnableMockPaymentWarnings = useCallback(() => {
+    if (!devSettings.enabled || isMockPaymentWarningsEnabled) {
+      return;
+    }
+    setIsMockPaymentWarningsEnabled(true);
+    Toast.success({ title: 'Mock payment warning fallback enabled' });
+  }, [devSettings.enabled, isMockPaymentWarningsEnabled]);
+  useEffect(() => {
+    if (!devSettings.enabled) {
+      setIsMockPaymentWarningsEnabled(false);
+    }
+  }, [devSettings.enabled]);
   const [selectedAssetKey, setSelectedAssetKey] = useState('');
   const [discardedPaymentBindingIds, setDiscardedPaymentBindingIds] = useState<
     ReadonlySet<string>
@@ -5279,6 +5369,8 @@ function PrimeInfiniWalletPaymentRoot({
         paymentContextErrorTitle={paymentContextErrorTitle}
         isPaymentContextRetrying={Boolean(isLoading)}
         onRetryPaymentContext={handleRetryPaymentContext}
+        fallbackWarningMessages={fallbackWarningMessages}
+        onEnableMockPaymentWarnings={handleEnableMockPaymentWarnings}
         shouldCreatePayment={
           !paymentContextErrorTitle &&
           (result.shouldCreatePayment || paymentCreationIntentRef.current)

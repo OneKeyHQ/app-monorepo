@@ -177,9 +177,3 @@ jobs:
             PROFILE="production"
           fi
           eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
-
-      - name: Build Simulator on EAS
-        if: ${{ env.ENABLE_STARTUP_PROFILE != 'true' }}
-        run: |
-          cd apps/mobile
-          eas build --profile=simulator --platform ios --non-interactive --no-wait

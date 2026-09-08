@@ -1,15 +1,16 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
-import type {
+import {
   EModalFirmwareUpdateRoutes,
-  IModalFirmwareUpdateParamList,
+  type IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EHardwareCallContext,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
@@ -45,6 +47,8 @@ function PageFirmwareUpdateChangeLog() {
   const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const navigation = useAppNavigation();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -119,6 +123,28 @@ function PageFirmwareUpdateChangeLog() {
       backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow(),
   });
 
+  const retryUpdate = useCallback(async () => {
+    const releaseResult = confirmUpdateResult.current ?? result;
+    if (!retryInfo || !releaseResult) {
+      return;
+    }
+    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    setStepInfo({
+      step: EFirmwareUpdateSteps.updateStart,
+      payload: {
+        startAtTime: Date.now(),
+      },
+    });
+    navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
+      result: releaseResult,
+    });
+    await backgroundApiProxy.serviceFirmwareUpdate.retryUpdateTask({
+      id: retryInfo.id,
+      connectId: releaseResult.updatingConnectId,
+      releaseResult,
+    });
+  }, [navigation, result, retryInfo, setStepInfo]);
+
   const content = useMemo(() => {
     if (isLoading) {
       return (
@@ -146,7 +172,12 @@ function PageFirmwareUpdateChangeLog() {
     }
     // keep change log modal content when install modal back
     if (confirmUpdateResult.current) {
-      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
+      return (
+        <FirmwareChangeLogView
+          result={confirmUpdateResult.current}
+          onRetryClick={retryInfo ? retryUpdate : undefined}
+        />
+      );
     }
     if (shouldShowChangeLog) {
       return (
@@ -163,6 +194,8 @@ function PageFirmwareUpdateChangeLog() {
     activeConnectId,
     isLoading,
     result,
+    retryInfo,
+    retryUpdate,
     run,
     shouldShowChangeLog,
     stepInfo.payload,

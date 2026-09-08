@@ -35,6 +35,8 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
+import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
+import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { getTradingViewNativeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -42,12 +44,15 @@ import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
+import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import {
   EJotaiContextStoreNames,
   useMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -68,6 +73,8 @@ import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetwor
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
+import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -201,12 +208,15 @@ function MobileMarketTradingView({
   decimal,
   dataSource,
   storageNamespace,
+  intervalStorageNamespace,
   pageWidth,
   onChartSwitch,
   onNativeIndicatorQuickBarChange,
   onNativeSubIndicatorCountChange,
   onIndicatorsDialogOpenChange,
   onInteractionOverlayOpenChange,
+  kLineDataFallback,
+  primaryKLineDataUnavailable,
 }: {
   tokenAddress: string;
   networkId: string;
@@ -214,6 +224,7 @@ function MobileMarketTradingView({
   decimal: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
+  intervalStorageNamespace: ITradingViewNativeIntervalStorageNamespace;
   pageWidth?: number;
   onChartSwitch: () => void;
   onNativeIndicatorQuickBarChange: (
@@ -225,6 +236,8 @@ function MobileMarketTradingView({
   ) => void;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
+  kLineDataFallback?: IMarketKLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
 }) {
   useEffect(() => {
     return () => {
@@ -241,6 +254,7 @@ function MobileMarketTradingView({
       decimal={decimal}
       dataSource={dataSource}
       storageNamespace={storageNamespace}
+      intervalStorageNamespace={intervalStorageNamespace}
       pageWidth={pageWidth}
       nativeControlsLayoutMode="mobile"
       onChartSwitch={onChartSwitch}
@@ -251,6 +265,8 @@ function MobileMarketTradingView({
       }
       onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
       onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+      kLineDataFallback={kLineDataFallback}
+      primaryKLineDataUnavailable={primaryKLineDataUnavailable}
     />
   );
 }
@@ -264,6 +280,8 @@ export interface IMobileLayoutProps {
   isNative?: boolean;
   networkId?: string;
   tokenAddress?: string;
+  marketTokenId?: string;
+  marketTokenCategory?: string;
 }
 
 export function MobileLayout({
@@ -275,6 +293,8 @@ export function MobileLayout({
   isNative: routeIsNative = false,
   networkId: routeNetworkId = '',
   tokenAddress: routeTokenAddress = '',
+  marketTokenId,
+  marketTokenCategory,
 }: IMobileLayoutProps) {
   const {
     tokenAddress: storeTokenAddress,
@@ -286,13 +306,21 @@ export function MobileLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const networkId = storeNetworkId || routeNetworkId;
-  const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const { selectedTokenVariant } = useStockDetail();
+  const networkId =
+    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ||
+    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
   const isNative =
     networkId === routeNetworkId && tokenAddress === routeTokenAddress
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
+  const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
+    networkId,
+    tokenAddress,
+  });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
     networkId,
@@ -303,10 +331,16 @@ export function MobileLayout({
   });
   let marketTradingViewKey = 'v2';
   if (isTradingViewNative) {
-    marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
+    marketTradingViewKey = [
+      'native',
+      marketTokenId ?? '',
+      networkId,
+      tokenAddress,
+    ].join(':');
   } else if (marketTradingViewParams) {
     marketTradingViewKey = [
       'v2',
+      marketTokenId ?? '',
       marketTradingViewParams.networkId,
       marketTradingViewParams.tokenAddress,
       marketTradingViewParams.tokenSymbol,
@@ -358,17 +392,23 @@ export function MobileLayout({
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
     isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
+  const marketAssetId =
+    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+      ? marketTokenId?.trim()
+      : undefined;
   const tradingViewNativeSource = useMemo(
     () =>
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: nativeHyperliquidCoin,
         isNative,
+        marketAssetId,
         marketDataSource: marketTradingViewParams?.dataSource,
         networkId,
         symbol: tokenSymbol ?? '',
         tokenAddress,
       }),
     [
+      marketAssetId,
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
       isNative,
@@ -376,6 +416,19 @@ export function MobileLayout({
       tokenAddress,
       tokenSymbol,
     ],
+  );
+  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+    () =>
+      marketAssetId
+        ? ({ interval, timeFrom, timeTo }) =>
+            fetchMarketAssetKLineData({
+              assetId: marketAssetId,
+              interval,
+              timeFrom,
+              timeTo,
+            })
+        : undefined,
+    [marketAssetId],
   );
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -763,6 +816,8 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      onPriceUpdate={handleNativeChartPriceUpdate}
+                      enableNativeChartSettings
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }
@@ -792,6 +847,9 @@ export function MobileLayout({
                       decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
+                      intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+                        tradingViewNativeSource,
+                      )}
                       pageWidth={layoutPageWidth}
                       onChartSwitch={onChartSwitch}
                       onNativeIndicatorQuickBarChange={
@@ -806,11 +864,16 @@ export function MobileLayout({
                       onInteractionOverlayOpenChange={
                         handleInteractionOverlayOpenChange
                       }
+                      kLineDataFallback={assetKLineDataFallback}
+                      primaryKLineDataUnavailable={Boolean(marketAssetId)}
                     />
                   );
                 }
                 return (
                   <LazyMobileMarketTradingView
+                    intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+                      tradingViewNativeSource,
+                    )}
                     tokenAddress={marketTradingViewParams.tokenAddress}
                     networkId={marketTradingViewParams.networkId}
                     tokenSymbol={marketTradingViewParams.tokenSymbol}
@@ -818,6 +881,8 @@ export function MobileLayout({
                     dataSource={marketTradingViewParams.dataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
+                    kLineDataFallback={assetKLineDataFallback}
+                    primaryKLineDataUnavailable={Boolean(marketAssetId)}
                   />
                 );
               })()}
@@ -844,12 +909,15 @@ export function MobileLayout({
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
+    handleNativeChartPriceUpdate,
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isChartFullscreen,
     isTradingViewScrollLocked,
     isTradingViewNative,
     layoutPageWidth,
+    assetKLineDataFallback,
+    marketAssetId,
     marketTradingViewKey,
     marketTradingViewParams,
     marketTradingViewStorageNamespace,
@@ -925,7 +993,7 @@ export function MobileLayout({
       networkId,
       contractAddress: tokenDetail?.address || '',
       symbol: tokenDetail?.symbol || '',
-      decimals: tokenDetail?.decimals || 0,
+      decimals: tokenDetail?.decimals ?? 0,
       logoURI: tokenDetail?.logoUrl,
       price: tokenDetail?.price,
       isNative: tokenDetail?.isNative,
@@ -941,6 +1009,11 @@ export function MobileLayout({
     tokenDetail?.isNative,
     isStockToken,
   ]);
+  const isSwapTokenReady =
+    tokenDetail?.decimalsResolved !== false &&
+    typeof tokenDetail?.decimals === 'number' &&
+    Number.isInteger(tokenDetail.decimals) &&
+    tokenDetail.decimals >= 0;
 
   const showSwapDialog = (swapToken?: ISwapToken) => {
     if (swapToken) {
@@ -1015,7 +1088,7 @@ export function MobileLayout({
           </YStack>
         ))}
       </ScrollView>
-      {disableTrade || isChartFullscreen ? null : (
+      {disableTrade || !isSwapTokenReady || isChartFullscreen ? null : (
         <LazySwapPanel
           swapToken={toSwapPanelToken}
           portfolioData={portfolioData}

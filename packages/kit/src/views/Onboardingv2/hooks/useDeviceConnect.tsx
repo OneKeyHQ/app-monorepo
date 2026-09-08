@@ -25,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -575,8 +576,13 @@ export function useDeviceConnect({
         const showCheckingDeviceDialog = () =>
           backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId: device.connectId ?? '',
+            deviceType: device.deviceType ?? undefined,
+            deviceName: device.name ?? undefined,
           });
-        if (platformEnv.isNativeIOS) {
+        // The iOS wait is for the legacy Sheet's mount acknowledgement —
+        // with the stage owning the surface no Sheet mounts, so waiting
+        // can only time out and kill the flow (OK-59934).
+        if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
           await hardwareUiStateDialogLifecycle.openAndWait(
             showCheckingDeviceDialog,
           );
@@ -859,6 +865,9 @@ export function useDeviceConnect({
         if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
           void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         }
+        // The stage's half: the checking beat painted with no burst behind
+        // it has nothing to land its exit (see dismissUnowned).
+        void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error
@@ -1041,7 +1050,9 @@ export function useDeviceConnect({
         backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
           connectId: currentDevice.connectId ?? '',
         });
-      if (platformEnv.isNativeIOS) {
+      // Same gate as the checking dialog above: the mount wait belongs to
+      // the legacy Sheet alone (OK-59934).
+      if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
         await hardwareUiStateDialogLifecycle.openAndWait(
           showDeviceProcessLoadingDialog,
         );

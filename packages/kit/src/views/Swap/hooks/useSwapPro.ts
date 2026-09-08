@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -17,12 +18,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
@@ -114,6 +117,12 @@ type ISwapProSearchTokenListItem = IMarketSearchV2Token & {
 const SWAP_PRO_SEARCH_RESULTS_REFRESH_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 15,
 });
+const swapProAccountCache = new LRUCache<string, INetworkAccount>({ max: 20 });
+const swapProSearchTokenCache = new LRUCache<
+  string,
+  ISwapProSearchTokenListItem[]
+>({ max: 30 });
+const EMPTY_SWAP_PRO_SEARCH_TOKEN_LIST: ISwapProSearchTokenListItem[] = [];
 
 export function isSwapProTokenBalanceRequestCurrent({
   requestId,
@@ -246,67 +255,117 @@ export function useSwapProAccount() {
     activeAccountId: activeAccount?.account?.id ?? activeAccount?.dbAccount?.id,
   });
   const hasConnectedAccount = Boolean(indexedAccountId || accountId);
-  const accountScope = buildSwapProAccountScope({
+  const accountIdentityScope = buildSwapProAccountScope({
     targetNetworkId,
     indexedAccountId,
     accountId,
   });
-  const shouldResolveAccount = Boolean(accountScope && targetNetworkId);
-  const netAccountStateRes = usePromiseResult(
+  const selectedDeriveType =
+    indexedAccountId && selectedAccount.networkId === targetNetworkId
+      ? selectedAccount.deriveType
+      : undefined;
+  const knownAccountDeriveType = indexedAccountId
+    ? selectedDeriveType
+    : 'default';
+  const knownAccountScope =
+    accountIdentityScope && knownAccountDeriveType
+      ? `${accountIdentityScope}|${knownAccountDeriveType}`
+      : '';
+  const accountRequestScope =
+    knownAccountScope ||
+    (accountIdentityScope ? `${accountIdentityScope}|network-default` : '');
+  const shouldResolveAccount = Boolean(accountRequestScope && targetNetworkId);
+  const cachedNetAccount = knownAccountScope
+    ? swapProAccountCache.get(knownAccountScope)
+    : undefined;
+  const netAccountStateRes = usePromiseResult<{
+    requestScope: string;
+    scope: string;
+    account: INetworkAccount | undefined;
+  }>(
     async () => {
       if (!shouldResolveAccount) {
         return {
+          requestScope: '',
           scope: '',
           account: undefined,
         };
       }
+      let resolvedAccountScope = '';
       try {
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: targetNetworkId,
-          });
+        const accountDeriveType =
+          knownAccountDeriveType ??
+          (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+            {
+              networkId: targetNetworkId,
+            },
+          ));
+        resolvedAccountScope = `${accountIdentityScope}|${
+          indexedAccountId ? (accountDeriveType ?? 'default') : 'default'
+        }`;
         const account =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId,
             indexedAccountId: indexedAccountId ?? '',
             networkId: targetNetworkId,
-            deriveType: defaultDeriveType ?? 'default',
+            deriveType: accountDeriveType ?? 'default',
           });
+        if (account) {
+          swapProAccountCache.set(resolvedAccountScope, account);
+        }
         return {
-          scope: accountScope,
+          requestScope: accountRequestScope,
+          scope: resolvedAccountScope,
           account,
         };
       } catch (_e) {
+        const cachedAccount = resolvedAccountScope
+          ? swapProAccountCache.get(resolvedAccountScope)
+          : undefined;
         return {
-          scope: accountScope,
-          account: undefined,
+          requestScope: accountRequestScope,
+          scope: resolvedAccountScope,
+          account: cachedAccount,
         };
       }
     },
     [
       accountId,
-      accountScope,
+      accountIdentityScope,
+      accountRequestScope,
       indexedAccountId,
+      knownAccountDeriveType,
       shouldResolveAccount,
       targetNetworkId,
     ],
     {
       initResult: {
-        scope: '',
-        account: undefined,
+        requestScope: cachedNetAccount ? accountRequestScope : '',
+        scope: cachedNetAccount ? knownAccountScope : '',
+        account: cachedNetAccount,
       },
     },
   );
+  const isResolvedAccountScopeCurrent =
+    netAccountStateRes.result.requestScope === accountRequestScope ||
+    Boolean(
+      knownAccountScope &&
+      netAccountStateRes.result.scope === knownAccountScope,
+    );
+  const resolvedAccountScope = isResolvedAccountScopeCurrent
+    ? netAccountStateRes.result.scope
+    : '';
+  const accountScope = knownAccountScope || resolvedAccountScope;
 
   const accountStatus = resolveSwapProAccountStatus({
     hasConnectedAccount,
     accountScope,
-    resolvedAccountScope: netAccountStateRes.result.scope,
+    resolvedAccountScope,
     accountAddress: netAccountStateRes.result.account?.addressDetail.address,
   });
   const accountForCurrentScope = getSwapProAccountForCurrentScope({
     accountScope,
-    resolvedAccountScope: netAccountStateRes.result.scope,
+    resolvedAccountScope,
     account: netAccountStateRes.result.account,
   });
   const isSwapProActive = Boolean(
@@ -811,6 +870,7 @@ export function useSwapProTokenInit() {
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const hasInitializedSwapProSelectTokenRef = useRef(false);
   const ownsActiveSwapProTradeState = isSwapProTradeStateOwner({
     isNative: Boolean(platformEnv.isNative),
     swapTypeSwitch,
@@ -966,17 +1026,22 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
-    if (
-      !swapProJumpToken?.token &&
-      !swapProSelectToken &&
-      speedDefaultSelectToken
-    ) {
-      void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
+    if (swapProJumpToken?.token) {
+      hasInitializedSwapProSelectTokenRef.current = true;
+      return;
     }
+    if (
+      hasInitializedSwapProSelectTokenRef.current ||
+      (!swapProSelectToken && !speedDefaultSelectToken)
+    ) {
+      return;
+    }
+    hasInitializedSwapProSelectTokenRef.current = true;
+    void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
   }, [
-    swapProJumpToken,
     initializeSwapProSelectToken,
     speedDefaultSelectToken,
+    swapProJumpToken?.token,
     swapProSelectToken,
   ]);
 
@@ -1235,10 +1300,32 @@ export function useSwapProTokenSearch(
     tokenListType?: string;
   },
 ) {
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchTokenList, setSearchTokenList] = useState<
-    ISwapProSearchTokenListItem[]
-  >([]);
+  const locale = useLocaleVariant();
+  const searchScope = `${locale}|${input.trim().toLowerCase()}|${
+    selectedNetworkId ?? ''
+  }`;
+  const cachedSearchTokenList = input
+    ? swapProSearchTokenCache.get(searchScope)
+    : undefined;
+  const [searchLoadingScope, setSearchLoadingScope] = useState('');
+  const [searchTokenState, setSearchTokenState] = useState<{
+    items: ISwapProSearchTokenListItem[];
+    scope: string;
+  }>(() => ({
+    items: cachedSearchTokenList ?? EMPTY_SWAP_PRO_SEARCH_TOKEN_LIST,
+    scope: cachedSearchTokenList !== undefined ? searchScope : '',
+  }));
+  const searchTokenList =
+    searchTokenState.scope === searchScope
+      ? searchTokenState.items
+      : (cachedSearchTokenList ?? EMPTY_SWAP_PRO_SEARCH_TOKEN_LIST);
+  const searchLoading = Boolean(
+    input &&
+    searchTokenList.length === 0 &&
+    cachedSearchTokenList === undefined &&
+    (searchTokenState.scope !== searchScope ||
+      searchLoadingScope === searchScope),
+  );
   const lastLoggedSearchRef = useRef<string>(''); // query__networkId
   const searchTokenListRef =
     useRef<ISwapProSearchTokenListItem[]>(searchTokenList);
@@ -1295,10 +1382,13 @@ export function useSwapProTokenSearch(
 
     void (async () => {
       if (!input) {
-        setSearchTokenList([]);
+        setSearchTokenState({ items: [], scope: '' });
+        setSearchLoadingScope('');
         return;
       }
-      setSearchLoading(true);
+      if (swapProSearchTokenCache.get(searchScope) === undefined) {
+        setSearchLoadingScope(searchScope);
+      }
       try {
         const searchRes =
           await backgroundApiProxy.serviceUniversalSearch.universalSearchOfV2MarketToken(
@@ -1315,7 +1405,8 @@ export function useSwapProTokenSearch(
           };
         });
         const finalList = searchTokenParse ?? [];
-        setSearchTokenList(finalList);
+        swapProSearchTokenCache.set(searchScope, finalList);
+        setSearchTokenState({ items: finalList, scope: searchScope });
 
         const queryLength = input.length;
         const currentNetworkId = selectedNetworkId ?? '';
@@ -1356,10 +1447,15 @@ export function useSwapProTokenSearch(
       } catch (e) {
         if (!isCancelled) {
           console.error(e);
+          if (swapProSearchTokenCache.get(searchScope) === undefined) {
+            setSearchTokenState({ items: [], scope: searchScope });
+          }
         }
       } finally {
         if (!isCancelled) {
-          setSearchLoading(false);
+          setSearchLoadingScope((currentScope) =>
+            currentScope === searchScope ? '' : currentScope,
+          );
         }
       }
     })();
@@ -1371,6 +1467,7 @@ export function useSwapProTokenSearch(
     input,
     analyticsOverride?.tokenListType,
     analyticsOverride?.tokenRole,
+    searchScope,
     selectedNetworkId,
   ]);
 
@@ -1411,7 +1508,14 @@ export function useSwapProTokenSearch(
           return;
         }
 
-        setSearchTokenList((prev) => mergeBatchQuotes(prev, list ?? []));
+        setSearchTokenState((prev) => {
+          if (prev.scope !== searchScope) {
+            return prev;
+          }
+          const items = mergeBatchQuotes(prev.items, list ?? []);
+          swapProSearchTokenCache.set(searchScope, items);
+          return { items, scope: searchScope };
+        });
       } catch (error) {
         if (!isCancelled) {
           console.error(error);
@@ -1433,7 +1537,7 @@ export function useSwapProTokenSearch(
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeBatchQuotes, searchTokenListKey]);
+  }, [mergeBatchQuotes, searchScope, searchTokenListKey]);
 
   return {
     searchLoading,

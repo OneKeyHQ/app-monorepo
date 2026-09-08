@@ -1,10 +1,13 @@
 /* cspell:ignore Infini */
+import { getNetworkIdsMap } from '../config/networkIds';
+
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
   isPrimeInfiniPaymentFullyConfirmedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
+  isValidPrimeInfiniPaymentContract,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from './primeInfiniPaymentCacheUtils';
 
@@ -75,6 +78,44 @@ function buildTransferClaim(session: IPrimeInfiniPendingPaymentSession) {
     amount: session.payment.amountDue,
   };
 }
+
+describe('isValidPrimeInfiniPaymentContract', () => {
+  const networkIdsMap = getNetworkIdsMap();
+
+  test.each([
+    [' ethereum ', networkIdsMap.eth, 'ETH'],
+    ['BASE', networkIdsMap.base, 'ETH'],
+    ['BSC', networkIdsMap.bsc, 'BNB'],
+    ['SOLANA', networkIdsMap.sol, 'SOL'],
+    ['TRON', networkIdsMap.trx, 'TRX'],
+  ])('accepts the native %s chain metadata', (chain, networkId, token) => {
+    expect(
+      isValidPrimeInfiniPaymentContract({
+        chain,
+        networkId,
+        token,
+        contractAddress: '',
+      }),
+    ).toBe(true);
+  });
+
+  test.each([
+    ['BSC', networkIdsMap.eth, 'ETH'],
+    ['ETHEREUM', networkIdsMap.base, 'ETH'],
+  ])(
+    'rejects native metadata when %s conflicts with its network',
+    (chain, networkId, token) => {
+      expect(
+        isValidPrimeInfiniPaymentContract({
+          chain,
+          networkId,
+          token,
+          contractAddress: '',
+        }),
+      ).toBe(false);
+    },
+  );
+});
 
 describe('Infini broadcast quote safety window', () => {
   test.each([-1, 0, 1, 29_999, 30_000, 30_001])(

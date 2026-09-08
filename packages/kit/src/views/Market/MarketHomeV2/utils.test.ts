@@ -1,8 +1,10 @@
 import { TIME_RANGE_TO_API_MAP } from './types';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  ensureMarketTopCoinsCategory,
   isMarketStockCategory,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -362,6 +364,19 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
   });
 });
 
+describe('Trending-style Spot Category Tests', () => {
+  test('uses the trending desktop layout for trending and Robinhood meme', () => {
+    expect(isTrendingStyleSpotCategory('trending')).toBe(true);
+    expect(isTrendingStyleSpotCategory('robinhood_meme')).toBe(true);
+  });
+
+  test('keeps other categories on the default desktop layout', () => {
+    expect(isTrendingStyleSpotCategory('x_mentioned')).toBe(false);
+    expect(isTrendingStyleSpotCategory('stocks')).toBe(false);
+    expect(isTrendingStyleSpotCategory(undefined)).toBe(false);
+  });
+});
+
 describe('Market Stock Category Detection Tests', () => {
   test('detects stock category from explicit metadata', () => {
     expect(
@@ -406,6 +421,37 @@ describe('Market Stock Category Detection Tests', () => {
     expect(isMarketStockCategoryById(categories, 'trending')).toBe(false);
     expect(isMarketStockCategoryById(categories, 'missing')).toBe(false);
     expect(isMarketStockCategoryById(undefined, 'stock')).toBe(false);
+  });
+});
+
+describe('Top Coins Category Fallback Tests', () => {
+  test('appends Top Coins after the spot categories', () => {
+    // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
+    // Perps is appended after every spot category.
+    expect(
+      ensureMarketTopCoinsCategory(
+        [
+          { id: 'trending', name: 'Trending' },
+          { id: 'stocks', name: 'Stocks' },
+        ],
+        'Top Coins',
+      ),
+    ).toEqual([
+      { id: 'trending', name: 'Trending' },
+      { id: 'stocks', name: 'Stocks' },
+      { id: 'top_coins', name: 'Top Coins' },
+    ]);
+  });
+
+  test('preserves the server-provided Top Coins category and name', () => {
+    const categories = [
+      { id: 'trending', name: 'Trending' },
+      { id: 'top_coins', name: 'Top Assets' },
+    ];
+
+    expect(ensureMarketTopCoinsCategory(categories, 'Top Coins')).toBe(
+      categories,
+    );
   });
 });
 

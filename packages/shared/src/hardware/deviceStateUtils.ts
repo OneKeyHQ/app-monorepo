@@ -39,6 +39,44 @@ export function hasDeviceStateIdentityMismatch({
   );
 }
 
+export function getValidDeviceStateVersionKeys(
+  state: IOneKeyDeviceState,
+): string[] {
+  return Object.entries(state.versions).flatMap(([field, value]) =>
+    typeof value === 'string' && value && value !== '0.0.0'
+      ? [`versions.${field}`]
+      : [],
+  );
+}
+
+export function hasAuthoritativeDeviceInfoVersionChange({
+  currentState,
+  incomingState,
+  changedKeys,
+  source,
+}: {
+  currentState?: IOneKeyDeviceState;
+  incomingState: IOneKeyDeviceState;
+  changedKeys: string[];
+  source?: string;
+}) {
+  const validVersionKeys = getValidDeviceStateVersionKeys(incomingState);
+  const authoritativeVersionKeys = validVersionKeys.filter(
+    (key) => changedKeys.includes('versions') || changedKeys.includes(key),
+  );
+  return Boolean(
+    currentState &&
+    source === 'device-info' &&
+    authoritativeVersionKeys.some((key) => {
+      const field = key.slice('versions.'.length);
+      return (
+        (currentState.versions as Record<string, unknown>)[field] !==
+        (incomingState.versions as Record<string, unknown>)[field]
+      );
+    }),
+  );
+}
+
 function sanitizeState(state: IOneKeyDeviceState) {
   const nextState = cloneDeep(state);
   delete (nextState as unknown as { raw?: unknown }).raw;
@@ -67,21 +105,23 @@ export function mergeDeviceStateEvent({
   }
 
   let mergedState = sanitizeState(currentState);
-  // 'settings-read' and Protocol V1 'initialize' / 'settings-write' events
-  // carry the SDK's full settings truth (GetFeatures snapshot, plus the just
-  // written fields for settings-write). changedKeys only reflects the delta
-  // against the SDK's in-memory cache, which can already hold a device-side
-  // change the app never observed (BLE initialize runs before event
-  // listeners attach), so a sparse merge would silently drop such settings
-  // forever. Merge the whole settings section for these sources. V2 events
-  // are section-scoped device-info reads and keep sparse semantics.
+  // V1 snapshots may contain current device values that are absent from
+  // changedKeys because the SDK cache observed them before App persistence.
   const isAuthoritativeSettingsSnapshot =
     source === 'settings-read' ||
     (incomingState.protocol === 'V1' &&
       (source === 'initialize' || source === 'settings-write'));
-  const mergeKeys = isAuthoritativeSettingsSnapshot
-    ? Array.from(new Set([...changedKeys, 'settings']))
-    : changedKeys;
+  const isAuthoritativeV1DeviceSnapshot =
+    incomingState.protocol === 'V1' &&
+    (source === 'initialize' || source === 'device-info');
+  const authoritativeVersionKeys = isAuthoritativeV1DeviceSnapshot
+    ? getValidDeviceStateVersionKeys(incomingState)
+    : [];
+  const authoritativeKeys = [
+    ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
+    ...authoritativeVersionKeys,
+  ];
+  const mergeKeys = Array.from(new Set([...changedKeys, ...authoritativeKeys]));
   for (const changedKey of mergeKeys) {
     const isNonPersistedKey =
       changedKey === 'identity.displayName' ||

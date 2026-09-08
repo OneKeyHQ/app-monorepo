@@ -1,4 +1,5 @@
 /* eslint-disable onekey/no-raw-error, no-continue, no-plusplus */
+/* cspell:words prebundle */
 const { spawnSync } = require('child_process');
 const path = require('path');
 
@@ -11,6 +12,7 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeNativeContractKey,
   getManifestPath,
   getPlatformOutputDirectory,
   sha256,
@@ -23,6 +25,10 @@ const {
   toModuleKey,
 } = require('../plugins/moduleIdRegistry');
 
+const {
+  restorePlatformFromRelease,
+  verifyAndReplaceDirectory,
+} = require('./metro-dev-prebundle');
 const {
   updateRegistryFromModulePaths,
   writeRegistry,
@@ -303,43 +309,6 @@ function createModuleRecords(selectedModules, registry) {
     .toSorted((left, right) => compareModuleKeys(left.path, right.path));
 }
 
-async function replaceDirectoryAtomically({
-  outputDirectory,
-  temporaryDirectory,
-}) {
-  const backupDirectory = `${outputDirectory}.previous-${process.pid}`;
-  await fs.remove(backupDirectory);
-  const hadPreviousOutput = await fs.pathExists(outputDirectory);
-  if (hadPreviousOutput) {
-    await fs.rename(outputDirectory, backupDirectory);
-  }
-  try {
-    await fs.rename(temporaryDirectory, outputDirectory);
-  } catch (error) {
-    if (hadPreviousOutput && (await fs.pathExists(backupDirectory))) {
-      await fs.rename(backupDirectory, outputDirectory);
-    }
-    throw error;
-  }
-  if (hadPreviousOutput) {
-    await fs.remove(backupDirectory);
-  }
-}
-
-async function verifyAndReplaceDirectory({
-  outputDirectory,
-  temporaryDirectory,
-  verifyTemporaryDirectory,
-}) {
-  try {
-    await verifyTemporaryDirectory(temporaryDirectory);
-  } catch (error) {
-    await fs.remove(temporaryDirectory);
-    throw error;
-  }
-  await replaceDirectoryAtomically({ outputDirectory, temporaryDirectory });
-}
-
 async function writePlatformOutput({
   backgroundModuleCount,
   config,
@@ -352,6 +321,10 @@ async function writePlatformOutput({
 }) {
   const registry = loadRegistry();
   const moduleRecords = createModuleRecords(selectedModules, registry);
+  const prependModules = createModuleRecords(
+    new Set(prepend.map((moduleData) => moduleData.path)),
+    registry,
+  );
   const configInputsDigest = computeConfigInputsDigest();
   const modulesDigest = computeModulesDigest(moduleRecords);
   const fingerprintFields = {
@@ -360,8 +333,10 @@ async function writePlatformOutput({
     platform,
     registryEpoch: registry.registryEpoch,
     configInputsDigest,
+    nativeContractKey: computeNativeContractKey(platform),
     modulesDigest,
     modules: moduleRecords,
+    prependModules,
   };
   const fingerprint = computeFingerprint(fingerprintFields);
   const outputDirectory = getPlatformOutputDirectory(mobileDirPath, platform);
@@ -421,7 +396,7 @@ async function writePlatformOutput({
     fingerprint,
     common: {
       moduleCount: moduleRecords.length,
-      prependModuleCount: prepend.length,
+      prependModuleCount: prependModules.length,
       source: {
         file: devVendorConfig.commonSourceName,
         bytes: sourceBytes.length,
@@ -570,28 +545,67 @@ async function preparePlatform(
     build = (targetPlatform) =>
       buildPlatform(targetPlatform, { writeOutput: true }),
     check = checkPlatform,
+    restore = (targetPlatform) =>
+      restorePlatformFromRelease({
+        platform: targetPlatform,
+        projectRoot: mobileDirPath,
+      }),
+    onFallback,
+    source = 'auto',
   } = {},
 ) {
-  try {
+  if (!['auto', 'local', 'remote'].includes(source)) {
+    throw new Error(`[devVendor] Invalid prepare source: ${source}.`);
+  }
+  if (source === 'local') {
+    await build(platform);
     check(platform);
-    return { rebuilt: false };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `[devVendor] rebuild required platform=${platform} reason=${reason}`,
-    );
+    return { fallback: false, source: 'local-build' };
   }
 
+  let localCacheReason;
+  if (source === 'auto') {
+    try {
+      check(platform);
+      return { fallback: false, source: 'local-cache' };
+    } catch (error) {
+      localCacheReason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[devVendor] local cache unavailable platform=${platform} reason=${localCacheReason}`,
+      );
+    }
+  }
+
+  let remoteReason;
+  try {
+    const restored = await restore(platform);
+    check(platform);
+    console.log(
+      `[devVendor] restored public prebundle platform=${platform} tag=${restored?.tagName || 'unknown'}`,
+    );
+    return { fallback: false, source: 'remote', tag: restored?.tagName };
+  } catch (error) {
+    remoteReason = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[devVendor] public prebundle unavailable platform=${platform} reason=${remoteReason}`,
+    );
+    if (source === 'remote') throw error;
+  }
+
+  await onFallback?.({ reason: remoteReason, resource: 'vendor' });
   try {
     await build(platform);
     check(platform);
   } catch (error) {
-    console.error(
-      '[devVendor] Prepare failed. Run `yarn app:native-bundle:legacy`, then `yarn app:ios:legacy` or `yarn app:android:legacy`.',
-    );
+    console.error(`[devVendor] Prepare failed for platform=${platform}.`);
     throw error;
   }
-  return { rebuilt: true };
+  return {
+    fallback: true,
+    fallbackReason: remoteReason,
+    localCacheReason,
+    source: 'local-build',
+  };
 }
 
 async function main() {

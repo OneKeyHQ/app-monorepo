@@ -62,7 +62,7 @@ import type { RouteProp } from '@react-navigation/core';
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
 
-function AggregateTokenListItem({
+export function AggregateTokenListItem({
   token,
   aggKey,
   network,
@@ -111,9 +111,11 @@ function AggregateTokenListItem({
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
-  const { result: accountId, run } = usePromiseResult(async () => {
+  // Settles to an object so a pending lookup (undefined) stays distinguishable
+  // from a settled "no address on this network" ({ accountId: undefined }).
+  const { result: networkAccountLookup, run } = usePromiseResult(async () => {
     if (token.accountId) {
-      return token.accountId;
+      return { accountId: token.accountId };
     }
 
     const deriveType =
@@ -130,11 +132,17 @@ function AggregateTokenListItem({
         },
       );
 
-      return account?.id;
+      return { accountId: account?.id };
     } catch {
-      return undefined;
+      return { accountId: undefined };
     }
   }, [indexedAccount?.id, token.networkId, token.accountId]);
+  const accountId = networkAccountLookup?.accountId;
+  // OK-61879: a network with no created address has no balance to show, so
+  // the value column is dropped once the lookup settles without an account.
+  // While pending it stays put, so rows that do have an address never blink
+  // their balance in after the first frame.
+  const isAddressMissing = networkAccountLookup !== undefined && !accountId;
 
   const handleOnPress = useCallback(async () => {
     if (accountId) {
@@ -241,7 +249,7 @@ function AggregateTokenListItem({
           : intl.formatMessage({ id: ETranslations.global_create_address }),
       })}
     >
-      {hideBalanceAndValue ? null : (
+      {hideBalanceAndValue || isAddressMissing ? null : (
         <ListItem.Text
           align="right"
           primary={

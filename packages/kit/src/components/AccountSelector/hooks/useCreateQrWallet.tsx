@@ -133,7 +133,7 @@ export function useCreateQrWallet() {
       console.log('startScan:', fullURText);
       if (process.env.NODE_ENV !== 'production') {
         if (fullURText) {
-          appStorage.syncStorage.set(
+          await appStorage.syncStorage.set(
             EAppSyncStorageKeys.last_scan_qr_code_text,
             fullURText,
           );

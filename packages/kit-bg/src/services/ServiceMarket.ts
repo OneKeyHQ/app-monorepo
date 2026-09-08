@@ -3,8 +3,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -14,6 +16,9 @@ import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IMarketAssetDetailData,
+  IMarketAssetKLineData,
+  IMarketAssetListData,
   IMarketCategory,
   IMarketDetailPlatform,
   IMarketDetailPool,
@@ -79,6 +84,105 @@ class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
     return this._fetchTrendingV2();
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetList({
+    currency = 'usd',
+    type = 'top_coins',
+    page = 1,
+    limit = 100,
+  }: {
+    currency?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketAssetListData;
+    }>('/utility/v1/market/asset/list', {
+      params: {
+        currency,
+        type,
+        page,
+        limit,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetDetail({
+    assetId,
+    variantId,
+    currency = 'usd',
+    autoHandleError,
+  }: {
+    assetId: string;
+    variantId?: string;
+    currency?: string;
+    autoHandleError?: boolean;
+  }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code?: number;
+        data: IMarketAssetDetailData;
+      }>('/utility/v1/market/asset/detail', {
+        params: {
+          assetId,
+          variantId,
+          currency,
+        },
+        ...(autoHandleError === false ? { autoHandleError: false } : {}),
+      });
+      if (
+        autoHandleError === false &&
+        ((response.data.code !== undefined && response.data.code !== 0) ||
+          !response.data.data)
+      ) {
+        throw new OneKeyLocalError('Market asset detail request failed');
+      }
+      return response.data.data;
+    } catch (error) {
+      if (autoHandleError === false) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetKline({
+    assetId,
+    interval,
+    timeFrom,
+    timeTo,
+    currency = 'usd',
+    autoHandleError,
+  }: {
+    assetId: string;
+    interval: string;
+    timeFrom?: number;
+    timeTo?: number;
+    currency?: string;
+    autoHandleError?: boolean;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketAssetKLineData;
+    }>('/utility/v1/market/asset/kline', {
+      params: {
+        assetId,
+        interval: normalizeMarketApiKLineInterval(interval),
+        timeFrom,
+        timeTo,
+        currency,
+      },
+      ...(autoHandleError === false ? { autoHandleError: false } : {}),
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()

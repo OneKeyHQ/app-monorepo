@@ -50,6 +50,7 @@ import {
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -838,7 +839,7 @@ function ManageAccountActivity() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_manage })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <AccountNotificationSettingsProvider wallets={wallets}>
           {isLoading ? (
             <LoadingView show={isLoading} />

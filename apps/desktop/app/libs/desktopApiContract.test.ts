@@ -1,6 +1,7 @@
 /* eslint-disable import/first */
 // Drift-detection contract test between:
 //   - packages/shared/src/platformEnv.ts        (reader)
+//   - apps/desktop/app/libs/desktopPlatformInfo.ts  (shared platform snapshot)
 //   - apps/desktop/app/libs/registerInfoHandlers.ts (IPC writer for renderer)
 //   - apps/desktop/app/libs/react-native-mock.ts    (globalThis writer for main)
 //
@@ -14,6 +15,15 @@
 //   2. Runtime (this test) — belt-and-suspenders. Verifies both builders
 //      actually produce the full required key set at runtime, so a field that
 //      only type-checks via `any` / optional would still be caught.
+
+jest.mock('os', () => ({
+  __esModule: true,
+  default: {
+    availableParallelism: jest.fn(() => 8),
+    cpus: jest.fn(() => Array.from({ length: 4 }, () => ({}))),
+    totalmem: jest.fn(() => 16 * 1024 ** 3),
+  },
+}));
 
 jest.mock('electron', () => ({
   ipcMain: {
@@ -30,8 +40,13 @@ jest.mock('electron-log/main', () => ({
   transports: { file: { getFile: () => ({ path: '/tmp/onekey.log' }) } },
 }));
 
+import os from 'os';
+
+import {
+  buildDesktopPlatformInfo,
+  getDesktopPlatformInfo,
+} from './desktopPlatformInfo';
 import { buildDesktopApiGlobal } from './react-native-mock';
-import { buildPlatformInfoForIpc } from './registerInfoHandlers';
 
 // Fields platformEnv.ts reads from `globalThis.desktopApi`. Kept in sync
 // manually — if platformEnv adds a new read, add it here and the writers'
@@ -45,11 +60,49 @@ const PLATFORM_ENV_READS = [
   'isMas',
 ] as const;
 
+const DEVICE_CAPABILITY_READS = [
+  'logicalProcessorCount',
+  'totalMemoryBytes',
+] as const;
+
 describe('desktopApi contract', () => {
+  it('reuses one OS snapshot across both main-process writers', () => {
+    expect(getDesktopPlatformInfo()).toBe(getDesktopPlatformInfo());
+    expect(buildDesktopApiGlobal()).toMatchObject(getDesktopPlatformInfo());
+    expect(os.availableParallelism).toHaveBeenCalledTimes(1);
+    expect(os.totalmem).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the CPU list when availableParallelism is unavailable', () => {
+    const availableParallelism = os.availableParallelism;
+    Object.defineProperty(os, 'availableParallelism', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(buildDesktopPlatformInfo().logicalProcessorCount).toBe(4);
+      expect(os.cpus).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(os, 'availableParallelism', {
+        configurable: true,
+        value: availableParallelism,
+      });
+    }
+  });
+
   it('IPC payload has all fields platformEnv reads', () => {
-    const info = buildPlatformInfoForIpc();
+    const info = buildDesktopPlatformInfo();
     const keys = Object.keys(info);
     for (const required of PLATFORM_ENV_READS) {
+      expect(keys).toContain(required);
+    }
+  });
+
+  it('IPC payload exposes synchronous device capability inputs', () => {
+    const info = buildDesktopPlatformInfo();
+    const keys = Object.keys(info);
+    for (const required of DEVICE_CAPABILITY_READS) {
       expect(keys).toContain(required);
     }
   });
@@ -66,7 +119,7 @@ describe('desktopApi contract', () => {
     // The mock populates `globalThis.desktopApi` in the main-process bundle;
     // the renderer gets the same fields via IPC (plus `isDev` via a separate
     // IPC call). Any field in IPC must also be in the mock.
-    const ipcKeys = new Set(Object.keys(buildPlatformInfoForIpc()));
+    const ipcKeys = new Set(Object.keys(buildDesktopPlatformInfo()));
     const mockKeys = new Set(Object.keys(buildDesktopApiGlobal()));
     for (const key of ipcKeys) {
       expect(mockKeys.has(key)).toBe(true);
@@ -81,6 +134,8 @@ describe('desktopApi contract', () => {
     expect(typeof info.deskChannel).toBe('string');
     expect(typeof info.isMas).toBe('boolean');
     expect(typeof info.isDev).toBe('boolean');
+    expect(info.logicalProcessorCount).toBeGreaterThan(0);
+    expect(info.totalMemoryBytes).toBeGreaterThan(0);
     // `processStartAt` is required (epoch ms of process creation). In the
     // non-Electron test env `process.getCreationTime` is undefined, so the
     // builder falls back to `Date.now()` — still a positive number. Asserting

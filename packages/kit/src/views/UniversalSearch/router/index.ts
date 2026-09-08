@@ -9,7 +9,7 @@ const UniversalSearchPage = LazyLoadPage(
 );
 
 const MarketDetail = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Market/MarketDetail'),
+  () => import('@onekeyhq/kit/src/views/Market/LegacyMarketDetailRoute'),
 );
 
 export const UniversalSearchRouter: IModalFlowNavigatorConfig<

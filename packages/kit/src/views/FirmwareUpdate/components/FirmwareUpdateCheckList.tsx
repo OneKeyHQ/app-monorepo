@@ -12,7 +12,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import {
+  classifyFirmwareUpdateFailure,
+  resolveFirmwareUpdateErrorCode,
+  toUserFacingFirmwareUpdateError,
+} from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmwareVersions';
@@ -144,15 +148,16 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  defaultLogger.update.firmware.firmwareUpdateStarted({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                  });
+                  if (!useV2FirmwareUpdateFlow) {
+                    defaultLogger.update.firmware.firmwareUpdateStarted({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                    });
+                  }
 
                   if (useV2FirmwareUpdateFlow) {
-                    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
@@ -189,10 +194,7 @@ export function FirmwareUpdateCheckList({
                   const trackingInfo =
                     await backgroundApiProxy.serviceFirmwareUpdate
                       .getUpdateWorkflowTrackingInfo()
-                      .catch(() => ({
-                        retryCount: undefined,
-                        durationMs: undefined,
-                      }));
+                      .catch(() => undefined);
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -201,8 +203,13 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
-                    retryCount: trackingInfo.retryCount,
-                    durationMs: trackingInfo.durationMs,
+                    retryCount: trackingInfo?.retryCount,
+                    totalDurationMs: trackingInfo?.totalDurationMs,
+                    transferredBytes: trackingInfo?.transferredBytes,
+                    totalBytes: trackingInfo?.totalBytes,
+                    averageTransferRateBytesPerSecond:
+                      trackingInfo?.averageTransferRateBytesPerSecond,
+                    transferDurationMs: trackingInfo?.transferDurationMs,
                   });
 
                   const { fromFirmwareType, toFirmwareType } =
@@ -223,37 +230,47 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
-                  const err = toUserFacingFirmwareUpdateError(
-                    toPlainErrorObject(error as any),
-                  );
+                  const err = toPlainErrorObject(error as any);
+                  const displayError = toUserFacingFirmwareUpdateError(err);
+                  const failureType = classifyFirmwareUpdateFailure(err);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
                     payload: {
-                      error: err,
+                      error: displayError,
                     },
                   });
                   // Never let analytics context reading break the update flow
                   const trackingInfo =
                     await backgroundApiProxy.serviceFirmwareUpdate
                       .getUpdateWorkflowTrackingInfo()
-                      .catch(() => ({
-                        retryCount: undefined,
-                        durationMs: undefined,
-                      }));
-                  defaultLogger.update.firmware.firmwareUpdateResult({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                    fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
-                    toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-                    status: 'failed',
-                    errorCode:
-                      err?.code === undefined ? undefined : String(err.code),
-                    errorMessage: err?.message,
-                    retryCount: trackingInfo.retryCount,
-                    durationMs: trackingInfo.durationMs,
-                  });
+                      .catch(() => undefined);
+                  const resultFailureType =
+                    failureType === 'cancelled'
+                      ? trackingInfo?.lastFailureType
+                      : failureType;
+                  if (resultFailureType && resultFailureType !== 'cancelled') {
+                    defaultLogger.update.firmware.firmwareUpdateResult({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                      fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+                      toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+                      status: 'failed',
+                      failureType: resultFailureType,
+                      errorCode:
+                        failureType === 'cancelled'
+                          ? trackingInfo?.lastErrorCode
+                          : resolveFirmwareUpdateErrorCode(err),
+                      retryCount: trackingInfo?.retryCount,
+                      totalDurationMs: trackingInfo?.totalDurationMs,
+                      transferredBytes: trackingInfo?.transferredBytes,
+                      totalBytes: trackingInfo?.totalBytes,
+                      averageTransferRateBytesPerSecond:
+                        trackingInfo?.averageTransferRateBytesPerSecond,
+                      transferDurationMs: trackingInfo?.transferDurationMs,
+                    });
+                  }
                 } finally {
                   if (shouldResetWorkflowRunningInUi) {
                     setWorkflowIsRunning(false);

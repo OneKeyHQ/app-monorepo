@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import {
   Badge,
-  DashText,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -442,44 +441,6 @@ function SpotBalanceList({
         </XStack>
         <XStack px="$4" py="$1.5" alignItems="center">
           <HideSmallSpotHoldingsCheckbox isMobile />
-        </XStack>
-        <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$0.5">
-          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_name })}
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              /
-            </SizableText>
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_balance })}
-            </SizableText>
-          </XStack>
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            justifyContent="flex-end"
-            alignItems="center"
-          >
-            <SizableText size="$bodyXs" color="$textSubdued">
-              {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
-            </SizableText>
-            <DashText
-              size="$bodyXs"
-              color="$textSubdued"
-              dashThickness={0.5}
-              tooltip={intl.formatMessage({
-                id: ETranslations.marketdex_un_pnl,
-              })}
-              tooltipTitle={intl.formatMessage({
-                id: ETranslations.marketdex_unrealized_pnl,
-              })}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_pnl_mobile,
-              })}
-            </DashText>
-          </XStack>
         </XStack>
       </>
     );
