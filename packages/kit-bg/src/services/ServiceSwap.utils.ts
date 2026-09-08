@@ -4,6 +4,23 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+type ISwapRequestAccountContext = {
+  accountAddress?: string;
+  accountId?: string;
+  accountNetworkId?: string;
+  isAllNetworkFetchAccountTokens?: boolean;
+  onlyAccountTokens?: boolean;
+};
+
+export function resolveSwapRequestAccountContext({
+  isTravelMode,
+  ...accountContext
+}: ISwapRequestAccountContext & { isTravelMode: boolean }) {
+  return isTravelMode
+    ? ({} satisfies ISwapRequestAccountContext)
+    : accountContext;
+}
+
 export function shouldAttachSwapReferralBuildTxParams(
   protocol: EProtocolOfExchange,
 ) {

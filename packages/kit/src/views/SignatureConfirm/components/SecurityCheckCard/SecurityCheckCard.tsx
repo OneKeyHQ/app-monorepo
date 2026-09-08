@@ -748,8 +748,8 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
     ? intl.formatMessage({ id: STATUS_LABEL_ID[model.status] })
     : '';
   const cardFindings = useMemo(
-    () => getCardSecurityFindings(model.findings),
-    [model.findings],
+    () => getCardSecurityFindings(model.findings, model.status),
+    [model.findings, model.status],
   );
   const isStandaloneFinding = cardFindings.visibleFindings.length === 1;
   const showViewAll = cardFindings.hasHiddenDecisionFindings;

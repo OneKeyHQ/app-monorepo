@@ -7,6 +7,8 @@
  * out of non-native startup graphs. Jest maps this module to the `.native`
  * implementation via `moduleNameMapper`.
  */
+import { isEqual } from 'lodash';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/createMMKVSyncStorage';
@@ -632,6 +634,9 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         persistedValue,
         proposedValue: newValue,
       });
+      if (isEqual(mergedValue, persistedValue)) {
+        return;
+      }
       void this.store.set(
         SETTINGS_CONTROL_STORAGE_KEY,
         JSON.stringify(mergedValue),

@@ -297,8 +297,63 @@ export function sortSecurityFindings(findings: ISecurityCheckFinding[]) {
 
 const CARD_DECISION_FINDING_LIMIT = 3;
 
-export function getCardSecurityFindings(findings: ISecurityCheckFinding[]) {
-  const sortedFindings = sortSecurityFindings(findings);
+function isGenericConfirmationFinding(finding: ISecurityCheckFinding) {
+  return (
+    finding.id === 'tx-confirmation-required' ||
+    finding.id === 'message-confirmation-required'
+  );
+}
+
+function hasNonGenericOperationDecision(findings: ISecurityCheckFinding[]) {
+  return findings.some(
+    (finding) =>
+      finding.category === 'operation' &&
+      isDecisionSecurityFinding(finding) &&
+      !isGenericConfirmationFinding(finding),
+  );
+}
+
+function isRedundantUnknownFinding(
+  finding: ISecurityCheckFinding,
+  status?: ISecurityCheckStatus,
+) {
+  // Retry is bound to tx-security-check-failed by row id, so that finding is
+  // never part of this whitelist. Unknown detail text and actions stay visible.
+  return (
+    status === 'unknown' &&
+    finding.status === 'unknown' &&
+    !finding.description?.trim() &&
+    !finding.action &&
+    (finding.id === 'site-unknown' ||
+      finding.id === 'tx-parse-fallback' ||
+      finding.id === 'tx-security-partial-coverage')
+  );
+}
+
+function selectDisplaySecurityFindings(
+  findings: ISecurityCheckFinding[],
+  status?: ISecurityCheckStatus,
+) {
+  const hideGenericConfirmation = hasNonGenericOperationDecision(findings);
+  return findings.filter((finding) => {
+    if (finding.id === 'message-typed-data' && finding.status === 'info') {
+      return false;
+    }
+    // Site-only risk must not hide the generic operation explanation.
+    if (hideGenericConfirmation && isGenericConfirmationFinding(finding)) {
+      return false;
+    }
+    return !isRedundantUnknownFinding(finding, status);
+  });
+}
+
+export function getCardSecurityFindings(
+  findings: ISecurityCheckFinding[],
+  status?: ISecurityCheckStatus,
+) {
+  const sortedFindings = sortSecurityFindings(
+    selectDisplaySecurityFindings(findings, status),
+  );
   const decisionFindings = sortedFindings.filter(isDecisionSecurityFinding);
   const visibleFindings = [
     ...decisionFindings.slice(0, CARD_DECISION_FINDING_LIMIT),
