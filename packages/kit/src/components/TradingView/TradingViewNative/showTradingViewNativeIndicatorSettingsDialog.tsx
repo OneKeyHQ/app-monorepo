@@ -48,6 +48,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
       p: '$0',
     },
     floatingPanelProps: {
+      onOpenAutoFocus: (event) => event.preventDefault(),
       width: isFocused
         ? '100%'
         : TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
