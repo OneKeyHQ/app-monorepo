@@ -24,7 +24,10 @@ import {
   type IPerpHistoryTab,
 } from '@onekeyhq/shared/src/routes/perp';
 
-import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
+import {
+  usePerpTradesHistoryViewAllUrl,
+  usePerpTwapHistoryViewAllUrl,
+} from '../../hooks/usePerpOrderInfoPanel';
 import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -129,6 +132,7 @@ export function PerpTradersHistoryListModal() {
     >();
   const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
+  const { onViewAllUrl: onViewAllTwapUrl } = usePerpTwapHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
@@ -193,10 +197,10 @@ export function PerpTradersHistoryListModal() {
         </Button>
       );
     }
-    if (activeTab === 'Trades') {
+    if (activeTab === 'Trades' || activeTab === 'Twap') {
       return (
         <Button
-          onPress={onViewAllUrl}
+          onPress={activeTab === 'Twap' ? onViewAllTwapUrl : onViewAllUrl}
           variant="tertiary"
           size="small"
           testID="perp-header-right-btn"
@@ -213,6 +217,7 @@ export function PerpTradersHistoryListModal() {
     handleViewCryptoDeposits,
     intl,
     isUnifoldDepositTrackerAvailable,
+    onViewAllTwapUrl,
     onViewAllUrl,
   ]);
 
