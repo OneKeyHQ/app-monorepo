@@ -49,6 +49,18 @@ describe('shouldRefreshMarketPerpsUniverse', () => {
     ).toBe(false);
   });
 
+  it('refreshes when the timestamp sits in the future', () => {
+    // The device clock moved back since the write. Reading the difference as
+    // negative would call the cache fresh until the clock caught back up.
+    expect(
+      shouldRefreshMarketPerpsUniverse({
+        universesByDex: universe(['BTC']),
+        updatedAt: NOW + 60 * 1000,
+        now: NOW,
+      }),
+    ).toBe(true);
+  });
+
   it('refreshes once the window has passed', () => {
     // Market never refreshes this on its own, so an old universe would keep
     // hiding a market listed since and advertising one removed since.

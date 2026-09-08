@@ -17,6 +17,11 @@ export const MARKET_PERPS_UNIVERSE_MAX_AGE_MS = timerUtils.getTimeDurationMs({
  * was long enough ago that the answer can no longer be trusted in either
  * direction: a market listed since is missing from it, and one removed since
  * is still in it without the delisted flag.
+ *
+ * A timestamp ahead of `now` is treated the same way. It means the device
+ * clock moved back since the write, so the age cannot be measured — and
+ * reading the difference as negative would call the cache fresh until the
+ * clock caught back up.
  */
 export function shouldRefreshMarketPerpsUniverse({
   universesByDex,
@@ -31,6 +36,9 @@ export function shouldRefreshMarketPerpsUniverse({
     return true;
   }
   if (!updatedAt) {
+    return true;
+  }
+  if (updatedAt > now) {
     return true;
   }
   return now - updatedAt > MARKET_PERPS_UNIVERSE_MAX_AGE_MS;
