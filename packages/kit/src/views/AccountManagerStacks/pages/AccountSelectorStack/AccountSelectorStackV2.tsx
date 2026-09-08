@@ -26,7 +26,7 @@ export function AccountSelectorStackV2({
   });
 
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Body>
         <XStack flex={1}>
           {shouldHideWalletList ? null : (

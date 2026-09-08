@@ -5,6 +5,9 @@ import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/account
 
 const AccountSelectorStackPage = LazyLoadPage(
   () => import('../pages/AccountSelectorStack/AccountSelectorStackV2'),
+  undefined,
+  undefined,
+  false,
 );
 
 const ExportPrivateKeys = LazyLoadPage(

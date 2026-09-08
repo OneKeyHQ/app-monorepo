@@ -28,6 +28,9 @@ const ChainListSearch = LazyLoadPage(() => import('../pages/ChainListSearch'));
 
 const UnifiedNetworkSelector = LazyLoadPage(
   () => import('../components/UnifiedNetworkSelectorV2'),
+  undefined,
+  undefined,
+  false,
 );
 
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
