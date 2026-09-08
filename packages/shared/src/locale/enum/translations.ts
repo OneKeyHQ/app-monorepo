@@ -2552,6 +2552,7 @@ export enum ETranslations {
   market_low_abbr = 'market.low_abbr',
   market_main_chart_indicators = 'market.main_chart_indicators',
   market_market_cap_tips = 'market.market_cap_tips',
+  market_mcap = 'market.mcap',
   market_mcap_short = 'market.mcap_short',
   market_minus_2_percent_depth = 'market.minus_2_percent_depth',
   market_most_24h_volume = 'market.most_24h_volume',
