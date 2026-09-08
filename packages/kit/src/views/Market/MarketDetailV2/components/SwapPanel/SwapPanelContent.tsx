@@ -92,6 +92,8 @@ export type ISwapPanelContentProps = {
   balance?: BigNumber;
   balanceToken?: IToken;
   paymentTokenPrice?: BigNumber;
+  paymentTokenDisplay?: IToken;
+  paymentTokenDisplayLoading?: boolean;
   onSwap: () => void;
   onOpenRecipientAddress: () => void;
   onWrappedSwap: () => void;
@@ -128,27 +130,6 @@ export type ISwapPanelContentProps = {
   resolvedVariantKeys?: string[];
 };
 
-function StockTradePanelSkeleton() {
-  return (
-    <YStack testID="stock-trade-loading" gap="$4">
-      <XStack alignItems="center" justifyContent="space-between">
-        <Skeleton width={176} height={32} />
-        <Skeleton width={32} height={32} borderRadius="$full" />
-      </XStack>
-      <XStack height={44} alignItems="center" justifyContent="space-between">
-        <Skeleton width={128} height={24} />
-        <Skeleton width={88} height={24} />
-      </XStack>
-      <Skeleton width="100%" height={116} borderRadius="$4" />
-      <XStack height={40} alignItems="center" justifyContent="space-between">
-        <Skeleton width={112} height={20} />
-        <Skeleton width={64} height={20} />
-      </XStack>
-      <Skeleton width="100%" height={48} borderRadius="$3" />
-    </YStack>
-  );
-}
-
 export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
     activeAccount,
@@ -167,6 +148,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balance,
     balanceToken,
     paymentTokenPrice,
+    paymentTokenDisplay,
+    paymentTokenDisplayLoading,
     swapNativeTokenReserveGas,
     onSwap,
     onOpenRecipientAddress,
@@ -517,10 +500,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
 
   if (stockDetailDesktopLayout) {
-    if (!hasInitialReady) {
-      return <StockTradePanelSkeleton />;
-    }
-
     const noAccount =
       !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
     const shouldUseSwapFallbackAction = shouldJumpToMarketTradeFallback({
@@ -589,7 +568,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={paymentToken}
+          selectedToken={paymentTokenDisplay ?? paymentToken}
+          selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
@@ -703,7 +683,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           />
         )}
 
-        {!isWrapped ? (
+        {!isWrapped && hasInitialReady ? (
           <SwapQuoteResult
             refreshAction={onForceRefreshQuote}
             onOpenProviderList={onOpenProviderList}
