@@ -6,6 +6,7 @@ import {
   type ITradingViewNativeSource,
   TradingViewNative,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
@@ -29,6 +30,7 @@ import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/La
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -195,6 +197,11 @@ export function DesktopLayout({
       ? routeIsNative
       : storeIsNative;
   const isNative = shouldUseStockDesktopLayout ? false : tokenDetailIsNative;
+  const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
+    networkId,
+    tokenAddress,
+    enabled: !isStockSharePrice,
+  });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -366,8 +373,10 @@ export function DesktopLayout({
         tradingViewNativeSource.kind === 'asset' ||
         tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
+          key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
           }
@@ -441,6 +450,7 @@ export function DesktopLayout({
       />
     );
   }, [
+    handleNativeChartPriceUpdate,
     handleTradingViewTouchScroll,
     hideChartTrailingControls,
     isChartFullscreen,
