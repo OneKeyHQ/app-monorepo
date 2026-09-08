@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "लेनदेन ऑन-चेन पर वापस लौटा दिया गया",
   "word": "शब्द",
   "your_device_is_ready": "आपका डिवाइस तैयार है",
-  "your_wallet_is_ready": "आपका वॉलेट तैयार है"
+  "your_wallet_is_ready": "आपका वॉलेट तैयार है",
+  "perp_twap_orders__title": "TWAP ऑर्डर"
 }

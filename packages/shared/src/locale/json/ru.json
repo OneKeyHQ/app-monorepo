@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Транзакция отменена в сети",
   "word": "Слово",
   "your_device_is_ready": "Ваше устройство готово",
-  "your_wallet_is_ready": "Ваш кошелёк готов"
+  "your_wallet_is_ready": "Ваш кошелёк готов",
+  "perp_twap_orders__title": "TWAP-ордер"
 }

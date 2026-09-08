@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "লেনদেন অন-চেইনে বাতিল হয়েছে",
   "word": "শব্দ",
   "your_device_is_ready": "আপনার ডিভাইস প্রস্তুত",
-  "your_wallet_is_ready": "আপনার ওয়ালেট প্রস্তুত"
+  "your_wallet_is_ready": "আপনার ওয়ালেট প্রস্তুত",
+  "perp_twap_orders__title": "TWAP অর্ডার"
 }

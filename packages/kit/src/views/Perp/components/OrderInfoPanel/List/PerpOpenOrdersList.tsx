@@ -345,7 +345,7 @@ function PerpOpenOrdersList({
       {
         key: 'twap',
         label: `${intl.formatMessage({
-          id: ETranslations.perp_twap_order__title,
+          id: ETranslations.perp_twap_orders__title,
         })}${twapCount}`,
       },
     ];

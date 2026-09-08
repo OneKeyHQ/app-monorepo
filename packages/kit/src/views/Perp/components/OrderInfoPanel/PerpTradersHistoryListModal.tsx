@@ -58,7 +58,7 @@ const HISTORY_TABS: Array<{
   },
   {
     name: 'Twap',
-    labelId: ETranslations.perp_twap_order__title,
+    labelId: ETranslations.perp_twap_orders__title,
   },
   {
     name: 'Funding',
@@ -85,6 +85,7 @@ function TabHeader({
       showsHorizontalScrollIndicator={false}
       bounces={false}
       flexGrow={0}
+      flexShrink={0}
       bg="$bgApp"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"

@@ -4,12 +4,9 @@ import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
-  Button,
   DashText,
   Divider,
   type IDebugRenderTrackerProps,
-  Icon,
-  Illustration,
   Popover,
   SizableText,
   Toast,
@@ -56,9 +53,8 @@ import type {
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
-import { PerpTestIDs } from '../../../testIDs';
-import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   calcCellAlign,
@@ -109,20 +105,18 @@ const TWAP_ORDERS_SUB_TABS: Array<{
   { key: 'fills', labelId: ETranslations.perp_twap_fill_history__title },
 ];
 
-const TWAP_EMPTY_STATE_MAP: Record<
-  ITwapPanelTab,
-  { titleId: ETranslations; description?: string }
-> = {
-  active: {
-    titleId: ETranslations.perp_no_active_twap__title,
-  },
-  history: {
-    titleId: ETranslations.perp_no_twap_history__title,
-  },
-  fills: {
-    titleId: ETranslations.perp_no_twap_fill_history__title,
-  },
-};
+const TWAP_EMPTY_STATE_MAP: Record<ITwapPanelTab, { titleId: ETranslations }> =
+  {
+    active: {
+      titleId: ETranslations.perp_no_active_twap__title,
+    },
+    history: {
+      titleId: ETranslations.perp_no_twap_history__title,
+    },
+    fills: {
+      titleId: ETranslations.perp_no_twap_fill_history__title,
+    },
+  };
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
@@ -349,96 +343,15 @@ function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
   return getFillDirectionDisplayInfo({ fill, intl });
 }
 
-function TwapEmptyState({
-  titleId,
-  description,
-}: {
-  titleId: ETranslations;
-  description?: string;
-}) {
+function TwapEmptyState({ titleId }: { titleId: ETranslations }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isMobile = !gtMd;
-  const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/15442238'));
-  }, []);
+  const title = intl.formatMessage({ id: titleId });
 
-  if (isMobile) {
-    return (
-      <PerpMobileEmptyState
-        contentOffsetY={-96}
-        title={intl.formatMessage({ id: titleId })}
-      />
-    );
-  }
-
-  const guideButton = (
-    <Button
-      testID={PerpTestIDs.TwapEmptyGuideButton}
-      width={180}
-      borderRadius="$full"
-      size="small"
-      h={28}
-      px="$3"
-      variant="secondary"
-      onPress={handleGuidePress}
-      childrenAsText={false}
-    >
-      <XStack gap="$1.5" alignItems="center">
-        <Icon name="BookOpenOutline" size="$4" />
-        <SizableText size="$bodySmMedium">
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </XStack>
-    </Button>
-  );
-
-  return (
-    <YStack
-      flex={1}
-      alignItems="center"
-      justifyContent="center"
-      minHeight={240}
-      px="$5"
-      py="$6"
-    >
-      <YStack
-        width="100%"
-        maxWidth={isMobile ? 320 : 420}
-        gap="$2"
-        alignItems="center"
-      >
-        <YStack
-          h={isMobile ? 72 : 88}
-          alignItems="center"
-          overflow="visible"
-          mb={isMobile ? -4 : -8}
-        >
-          <Illustration name="Orders" size={isMobile ? 100 : 124} />
-        </YStack>
-        <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
-          textAlign="center"
-          maxWidth={isMobile ? 280 : 360}
-        >
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size={isMobile ? '$bodyXs' : '$bodySm'}
-            color="$textSubdued"
-            textAlign="center"
-            maxWidth={isMobile ? 280 : 360}
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        {guideButton}
-      </YStack>
-    </YStack>
+  return gtMd ? (
+    <PerpDesktopEmptyState title={title} />
+  ) : (
+    <PerpMobileEmptyState contentOffsetY={-96} title={title} />
   );
 }
 
@@ -1765,13 +1678,8 @@ function PerpTwapList({
     sliceFills.length > TWAP_PAGE_SIZE ? onViewAllUrl : undefined;
 
   const listEmptyComponent = useMemo(
-    () => (
-      <TwapEmptyState
-        titleId={emptyState.titleId}
-        description={emptyState.description}
-      />
-    ),
-    [emptyState.description, emptyState.titleId],
+    () => <TwapEmptyState titleId={emptyState.titleId} />,
+    [emptyState.titleId],
   );
 
   return (

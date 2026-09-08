@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "La transacción se revirtió on-chain",
   "word": "Palabra",
   "your_device_is_ready": "Tu dispositivo está listo",
-  "your_wallet_is_ready": "Tu monedero está listo"
+  "your_wallet_is_ready": "Tu monedero está listo",
+  "perp_twap_orders__title": "Orden TWAP"
 }

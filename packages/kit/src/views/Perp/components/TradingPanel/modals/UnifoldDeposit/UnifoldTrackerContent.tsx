@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { PerpDesktopEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpMobileEmptyState';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
@@ -956,17 +957,12 @@ export function UnifoldTrackerContent({
               })}
             />
           ) : (
-            <YStack flex={1} py="$8" alignItems="center" gap="$2">
-              <Empty
-                icon="ClockTimeHistoryOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.perp_unifold_no_deposits__title,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.perp_unifold_history_appears_here__desc,
-                })}
-              />
-            </YStack>
+            <PerpDesktopEmptyState
+              contentOffsetY={-96}
+              title={intl.formatMessage({
+                id: ETranslations.perp_unifold_no_deposits__title,
+              })}
+            />
           )}
         </YStack>
       </YStack>,

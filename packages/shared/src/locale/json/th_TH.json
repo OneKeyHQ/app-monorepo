@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "ธุรกรรมถูกย้อนกลับบนเชน",
   "word": "คำ",
   "your_device_is_ready": "อุปกรณ์ของคุณพร้อมแล้ว",
-  "your_wallet_is_ready": "กระเป๋าเงินของคุณพร้อมแล้ว"
+  "your_wallet_is_ready": "กระเป๋าเงินของคุณพร้อมแล้ว",
+  "perp_twap_orders__title": "คำสั่ง TWAP"
 }

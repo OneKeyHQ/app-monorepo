@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Transaktion wurde on-chain rückgängig gemacht",
   "word": "Wort",
   "your_device_is_ready": "Ihr Gerät ist bereit",
-  "your_wallet_is_ready": "Ihre Wallet ist bereit"
+  "your_wallet_is_ready": "Ihre Wallet ist bereit",
+  "perp_twap_orders__title": "TWAP-Auftrag"
 }
