@@ -178,7 +178,9 @@ export function SearchBar({
       onCompositionStart={compositionLock.start}
       onCompositionEnd={handleCompositionEnd}
       onSubmitEditing={handleSubmitEditing}
-      {...(!platformEnv.isNative ? { blurOnSubmit: false } : null)}
+      {...(!platformEnv.isNative
+        ? { blurOnSubmit: rest.blurOnSubmit ?? false }
+        : null)}
       containerProps={resolvedContainerProps}
     />
   );

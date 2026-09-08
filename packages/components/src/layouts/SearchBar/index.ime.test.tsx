@@ -48,6 +48,14 @@ describe('SearchBar IME submit lock', () => {
     jest.useRealTimers();
   });
 
+  it.each([true, false])(
+    'preserves an explicit blurOnSubmit=%s',
+    (blurOnSubmit) => {
+      render(<SearchBar blurOnSubmit={blurOnSubmit} />);
+      expect(mockInputProps.current.blurOnSubmit).toBe(blurOnSubmit);
+    },
+  );
+
   it('suppresses confirming submit while locked, then accepts native submit', () => {
     jest.useFakeTimers();
     const onSubmitEditing = jest.fn();
