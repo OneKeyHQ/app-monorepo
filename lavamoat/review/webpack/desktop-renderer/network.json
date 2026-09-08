@@ -1,11 +1,6 @@
 {
   "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
   "resources": {
-    "@electron/rebuild>debug": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/components>@react-navigation/native>@react-navigation/core": {
       "globals": {
         "navigator": true
@@ -64,6 +59,11 @@
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
       "globals": {
         "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "navigator": true
       }
     },
     "@onekeyhq/core>@onekeyfe/kaspa-wasm": {

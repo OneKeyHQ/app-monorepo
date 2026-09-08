@@ -1,47 +1,5 @@
 [
   {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@electron/rebuild>debug",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "extension-desktop-bridge",
     "name": "desktopApi.addIpcEventListener",
     "resource": "@onekeyhq/components",
@@ -556,6 +514,48 @@
     "category": "network",
     "name": "XMLHttpRequest",
     "resource": "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
     "type": "global",
     "value": true
   },

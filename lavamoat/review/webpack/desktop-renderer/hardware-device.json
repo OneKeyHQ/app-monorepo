@@ -1,14 +1,85 @@
 {
   "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
   "resources": {
+    "@onekeyhq/components>@react-navigation/native>@react-navigation/core": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>react-native-gesture-handler": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>use-latest-callback": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/constants": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/core>algosdk": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/kit-bg": {
       "globals": {
         "navigator.usb": true
       }
     },
+    "@onekeyhq/kit>expo-camera": {
+      "globals": {
+        "navigator.mediaDevices": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>barcode-detector": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/shared>axios": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": {
       "globals": {
+        "navigator": true,
         "process.env.NODE_USB_PATH": true
+      }
+    },
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/lib/esm/api/transport/WebHidTransport.js": {
@@ -21,15 +92,195 @@
         "navigator.bluetooth": true
       }
     },
+    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": {
       "globals": {
         "navigator.usb.addEventListener": true,
         "navigator.usb.removeEventListener": true
       }
     },
+    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
       "globals": {
         "navigator.usb": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/api/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/types/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/webauthn.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@supabase/realtime-js/dist/module/lib/websocket-factory.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/allotment/dist/modern.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/detect-browser/es/index.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/transports/websocket.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/expo-sharing/build/SharingNativeModule.web.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/loglevel/lib/loglevel.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/lottie-web/build/player/lottie.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
+      "globals": {
+        "navigator": true
       }
     }
   }

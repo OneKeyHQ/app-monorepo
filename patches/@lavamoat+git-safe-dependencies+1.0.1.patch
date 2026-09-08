@@ -1,0 +1,30 @@
+diff --git a/node_modules/@lavamoat/git-safe-dependencies/src/isgit.js b/node_modules/@lavamoat/git-safe-dependencies/src/isgit.js
+index 638d460..732ae8f 100644
+--- a/node_modules/@lavamoat/git-safe-dependencies/src/isgit.js
++++ b/node_modules/@lavamoat/git-safe-dependencies/src/isgit.js
+@@ -22,6 +22,8 @@ exports.isUnsafeUrl = isUnsafeUrl
+ 
+ exports.isCodeloadUrl = isCodeloadUrl
+ exports.gitInfo = (url) => {
++  // OneKey patch: normalize only complete, unambiguous Yarn Berry commit selectors.
++  url = url.replace(/#commit=([0-9a-f]{40})$/, '#$1')
+   if (isUnsafeUrl(url)) {
+     url = url.replace('http:', 'https:')
+   }
+diff --git a/node_modules/@lavamoat/git-safe-dependencies/src/validate-git.js b/node_modules/@lavamoat/git-safe-dependencies/src/validate-git.js
+index 9eff3af..f5a3caa 100644
+--- a/node_modules/@lavamoat/git-safe-dependencies/src/validate-git.js
++++ b/node_modules/@lavamoat/git-safe-dependencies/src/validate-git.js
+@@ -87,7 +87,11 @@ class ValidateGitUrl {
+ 
+   async validate(knownDirectDependencies) {
+     const dependencies = Object.entries(this.packages).map(([key, dep]) => {
+-      const [name, specifier] = key.split('@')
++      // OneKey patch: preserve scoped package names when splitting lockfile keys.
++      // const [name, specifier] = key.split('@')
++      const separator = key.indexOf('@', key.startsWith('@') ? 1 : 0)
++      const name = separator === -1 ? key : key.slice(0, separator)
++      const specifier = separator === -1 ? '' : key.slice(separator + 1)
+       return { url: dep.resolved, packageName: name, specifier }
+     })
+     const errors = []

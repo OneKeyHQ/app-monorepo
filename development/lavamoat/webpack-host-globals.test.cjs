@@ -23,7 +23,12 @@ function write(directory, file, content) {
   fs.writeFileSync(target, content);
 }
 
-async function compile(directory, generatePolicyOnly, extra = {}) {
+async function compile(
+  directory,
+  generatePolicyOnly,
+  extra = {},
+  pluginOptions = {},
+) {
   const compiler = webpack({
     mode: 'production',
     context: directory,
@@ -40,6 +45,7 @@ async function compile(directory, generatePolicyOnly, extra = {}) {
         inlineLockdown: /^main\.js$/,
         // Match production diagnostics so browser failures stay observable.
         lockdown: { errorTrapping: 'none', errorTaming: 'unsafe' },
+        ...pluginOptions,
       }),
     ],
   });
@@ -2104,6 +2110,375 @@ test('Web PostHog initializes its shipped SDK with existing privacy configuratio
   } finally {
     await browser?.close();
     if (server) await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('the protected static shim preserves native fetch and animation frames across writable and read-only policy owners', async () => {
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-writable-host-')),
+  );
+  let server;
+  let browser;
+  try {
+    const dependencies = Object.fromEntries(
+      ['host-writer', 'host-reader', 'host-denied'].map((name) => [
+        name,
+        '1.0.0',
+      ]),
+    );
+    write(
+      directory,
+      'package.json',
+      JSON.stringify({
+        name: 'writable-browser-host-fixture',
+        private: true,
+        dependencies,
+      }),
+    );
+    for (const name of Object.keys(dependencies)) {
+      write(
+        directory,
+        `node_modules/${name}/package.json`,
+        JSON.stringify({
+          name,
+          version: '1.0.0',
+          main: 'index.js',
+        }),
+      );
+    }
+    write(
+      directory,
+      'node_modules/host-writer/index.js',
+      `
+      const initialFetch = fetch;
+      const initialFrame = requestAnimationFrame;
+      let generation = 0;
+      let fetchReceiver;
+      let frameReceiver;
+      const calls = [];
+      module.exports = {
+        replace() {
+          generation += 1;
+          const current = generation;
+          globalThis.fetch = function (...args) {
+            fetchReceiver = this;
+            calls.push('fetch-' + current);
+            return Reflect.apply(initialFetch, this, args);
+          };
+          globalThis.requestAnimationFrame = function (...args) {
+            frameReceiver = this;
+            calls.push('frame-' + current);
+            return Reflect.apply(initialFrame, this, args);
+          };
+        },
+        request(url, receiver = globalThis) {
+          return Reflect.apply(globalThis.fetch, receiver, [url]);
+        },
+        frame(receiver = globalThis) {
+          return new Promise(resolve => Reflect.apply(globalThis.requestAnimationFrame, receiver, [resolve]));
+        },
+        matches(receiver) {
+          return { fetch: fetchReceiver === receiver, frame: frameReceiver === receiver };
+        },
+        receiverAuthority() {
+          return { directSecret: typeof fixtureSecret,
+            receiverHasSecret: fetchReceiver?.fixtureSecret === 'host-only-marker',
+            receiverDocument: typeof fetchReceiver?.document,
+            receiverNetwork: typeof fetchReceiver?.XMLHttpRequest };
+        },
+        calls() { return calls.slice(); },
+      };
+    `,
+    );
+    write(
+      directory,
+      'node_modules/host-reader/index.js',
+      `
+      module.exports = {
+        request(url, receiver = globalThis) {
+          return Reflect.apply(fetch, receiver, [url]);
+        },
+        frame(receiver = globalThis) {
+          return new Promise(resolve => Reflect.apply(requestAnimationFrame, receiver, [resolve]));
+        },
+        cannotReplace() {
+          return [Reflect.set(globalThis, 'fetch', () => 'forbidden'),
+            Reflect.set(globalThis, 'requestAnimationFrame', () => 'forbidden')];
+        },
+      };
+    `,
+    );
+    write(
+      directory,
+      'node_modules/host-denied/index.js',
+      `
+      module.exports = () => {
+        const result = { fetch: typeof fetch, frame: typeof requestAnimationFrame,
+          secret: typeof fixtureHost };
+        try { fetch('/forbidden-network'); } catch { result.fetchDenied = true; }
+        try { requestAnimationFrame(() => {}); } catch { result.frameDenied = true; }
+        // A local shadow in an otherwise empty compartment must not modify the
+        // shared writable value or grant access to the native implementation.
+        globalThis.fetch = () => 'local-only';
+        globalThis.requestAnimationFrame = () => 'local-only';
+        result.localFetch = globalThis.fetch();
+        result.localFrame = globalThis.requestAnimationFrame();
+        return result;
+      };
+    `,
+    );
+    write(
+      directory,
+      'index.js',
+      `
+      const writer = require('host-writer');
+      const reader = require('host-reader');
+      Object.assign(fixtureResult, {
+        writer, reader, denied: require('host-denied'),
+        readerReceiverIsRoot: () => writer.matches(globalThis),
+      });
+      writer.replace();
+    `,
+    );
+    const policy = {
+      resources: {
+        'host-writer': {
+          globals: { fetch: 'write', requestAnimationFrame: 'write' },
+        },
+        'host-reader': {
+          globals: { fetch: true, requestAnimationFrame: true },
+        },
+        'host-denied': {},
+      },
+    };
+    write(directory, 'policy.json', JSON.stringify(policy));
+    await compile(directory, false);
+    const missingSource = fs.readFileSync(
+      path.join(directory, 'dist/main.js'),
+      'utf8',
+    );
+    const {
+      getLavaMoatStaticShimPath,
+    } = require('../webpack/build-lavamoat-shims');
+    await compile(
+      directory,
+      false,
+      {},
+      {
+        staticShims_experimental: [getLavaMoatStaticShimPath()],
+      },
+    );
+    const protectedSource = fs.readFileSync(
+      path.join(directory, 'dist/main.js'),
+      'utf8',
+    );
+    for (const owner of Object.keys(dependencies)) {
+      assert.ok(protectedSource.includes(`._LM_(${JSON.stringify(owner)}`));
+    }
+    const requests = [];
+    server = http.createServer((request, response) => {
+      if (request.url === '/main.js' || request.url === '/missing.js') {
+        response.writeHead(200, {
+          'content-type': 'text/javascript; charset=utf-8',
+        });
+        response.end(
+          request.url === '/main.js' ? protectedSource : missingSource,
+        );
+      } else if (request.url.startsWith('/health/')) {
+        requests.push(request.url);
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ ok: true, path: request.url }));
+      } else {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end(`<!doctype html><html><head><meta charset="utf-8"><title>Writable host fixture</title></head><body>
+          <script>globalThis.fixtureResult = {};</script>
+          <script src="${request.url === '/missing' ? '/missing.js' : '/main.js'}"></script></body></html>`);
+      }
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const executablePath = [
+      process.env.ONEKEY_LAVAMOAT_TEST_CHROME,
+      chromium.executablePath(),
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    ]
+      .filter(Boolean)
+      .find((candidate) => fs.existsSync(candidate));
+    assert.ok(
+      executablePath,
+      'Install Chromium or set ONEKEY_LAVAMOAT_TEST_CHROME',
+    );
+    browser = await chromium.launch({ executablePath, headless: true });
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    await page.route('**/*', (route) => {
+      assert.ok(route.request().url().startsWith(`${origin}/`));
+      return route.continue();
+    });
+    await page.addInitScript(() => {
+      globalThis.fixtureSecret = 'host-only-marker';
+      globalThis.fixtureHost = Object.fromEntries(
+        ['fetch', 'requestAnimationFrame'].map((name) => [
+          name,
+          Object.getOwnPropertyDescriptor(globalThis, name),
+        ]),
+      );
+    });
+    await page.goto(`${origin}/missing`);
+    assert.deepEqual(errors, []);
+    await assert.rejects(
+      page.evaluate(() => fixtureResult.writer.request('/health/missing')),
+      /Illegal invocation/,
+    );
+    await assert.rejects(
+      page.evaluate(() => fixtureResult.writer.frame()),
+      /Illegal invocation/,
+    );
+    assert.deepEqual(
+      requests,
+      [],
+      'the original writer failure occurs before network delivery',
+    );
+    await page.goto(origin);
+    const result = await page.evaluate(async () => {
+      const { writer, reader } = fixtureResult;
+      const descriptorPreserved = ['fetch', 'requestAnimationFrame'].map(
+        (name) => {
+          const before = fixtureHost[name];
+          const after = Object.getOwnPropertyDescriptor(globalThis, name);
+          return (
+            before.value !== after.value &&
+            before.writable === after.writable &&
+            before.enumerable === after.enumerable &&
+            before.configurable === after.configurable
+          );
+        },
+      );
+      const first = await writer.request('/health/writer');
+      const firstFrame = await writer.frame();
+      const explicitReceiver = { marker: 'explicit-caller' };
+      const explicit = await writer.request(
+        '/health/writer-explicit',
+        explicitReceiver,
+      );
+      const explicitFrame = await writer.frame(explicitReceiver);
+      const writerReceiver = writer.matches(explicitReceiver);
+      const read = await reader.request('/health/reader', explicitReceiver);
+      const readFrame = await reader.frame(explicitReceiver);
+      const readReceiver = fixtureResult.readerReceiverIsRoot();
+      const readerCallbackAuthority = writer.receiverAuthority();
+      const readerExplicitReceiver = writer.matches(explicitReceiver);
+      const cannotReplace = reader.cannotReplace();
+      const denied = fixtureResult.denied();
+      writer.replace();
+      const replaced = await reader.request('/health/replacement');
+      const replacedFrame = await reader.frame();
+      const defaultReaderCallbackAuthority = writer.receiverAuthority();
+      const defaultReaderReceiverIsRoot = fixtureResult.readerReceiverIsRoot();
+      // Initial native functions are intentionally fixed to the real host,
+      // including calls that supply an explicit non-Window receiver.
+      const native = await globalThis.fetch.call(
+        explicitReceiver,
+        '/health/native-explicit',
+      );
+      const nativeFrame = await new Promise((resolve) =>
+        globalThis.requestAnimationFrame.call(explicitReceiver, resolve),
+      );
+      return {
+        descriptorPreserved,
+        statuses: [
+          first.status,
+          explicit.status,
+          read.status,
+          replaced.status,
+          native.status,
+        ],
+        frames: [
+          firstFrame,
+          explicitFrame,
+          readFrame,
+          replacedFrame,
+          nativeFrame,
+        ].map(Number.isFinite),
+        body: await replaced.json(),
+        writerReceiver,
+        readReceiver,
+        readerCallbackAuthority,
+        defaultReaderCallbackAuthority,
+        defaultReaderReceiverIsRoot,
+        readerExplicitReceiver,
+        cannotReplace,
+        denied,
+        calls: writer.calls(),
+        frozen: [Object.prototype, Array.prototype, Function.prototype].map(
+          Object.isFrozen,
+        ),
+      };
+    });
+    assert.deepEqual(result, {
+      descriptorPreserved: [true, true],
+      statuses: [200, 200, 200, 200, 200],
+      frames: [true, true, true, true, true],
+      body: { ok: true, path: '/health/replacement' },
+      writerReceiver: { fetch: true, frame: true },
+      readReceiver: { fetch: false, frame: false },
+      readerCallbackAuthority: {
+        directSecret: 'undefined',
+        receiverHasSecret: false,
+        receiverDocument: 'undefined',
+        receiverNetwork: 'undefined',
+      },
+      defaultReaderCallbackAuthority: {
+        directSecret: 'undefined',
+        receiverHasSecret: false,
+        receiverDocument: 'undefined',
+        receiverNetwork: 'undefined',
+      },
+      defaultReaderReceiverIsRoot: { fetch: false, frame: false },
+      // The core patch must not give an attacker-controlled replacement the
+      // root compartment through a read-only caller's implicit receiver.
+      readerExplicitReceiver: { fetch: true, frame: true },
+      cannotReplace: [false, false],
+      denied: {
+        fetch: 'undefined',
+        frame: 'undefined',
+        secret: 'undefined',
+        fetchDenied: true,
+        frameDenied: true,
+        localFetch: 'local-only',
+        localFrame: 'local-only',
+      },
+      calls: [
+        'fetch-1',
+        'frame-1',
+        'fetch-1',
+        'frame-1',
+        'fetch-1',
+        'frame-1',
+        'fetch-2',
+        'frame-2',
+      ],
+      frozen: [true, true, true],
+    });
+    assert.deepEqual(requests, [
+      '/health/writer',
+      '/health/writer-explicit',
+      '/health/reader',
+      '/health/replacement',
+      '/health/native-explicit',
+    ]);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    if (server) {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });

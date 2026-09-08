@@ -109,28 +109,30 @@ window.removeEventListener('resize',handler);
     // @ts-ignore
     window.addEventListenerOld = window.addEventListener;
     window.removeEventListenerOld = window.removeEventListener;
-    window.addEventListener = (eventName, handler) => {
+    // Native listeners, including Electron webview setup, require capture/options
+    // to survive this wrapper so removal matches the original registration.
+    window.addEventListener = (eventName, handler, options) => {
       if (eventName === 'resize') {
         const debouncedHandler = debounce(handler, 300);
         resizeEventMap.set(handler, debouncedHandler);
-        window.addEventListenerOld(eventName, debouncedHandler);
+        window.addEventListenerOld(eventName, debouncedHandler, options);
       } else {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        window.addEventListenerOld(eventName, handler);
+        window.addEventListenerOld(eventName, handler, options);
       }
     };
-    window.removeEventListener = (eventName, handler) => {
+    window.removeEventListener = (eventName, handler, options) => {
       if (eventName === 'resize') {
         const debouncedHandler = resizeEventMap.get(handler);
         if (debouncedHandler) {
           resizeEventMap.delete(handler);
-          window.removeEventListenerOld(eventName, debouncedHandler);
+          window.removeEventListenerOld(eventName, debouncedHandler, options);
         }
       } else {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        window.removeEventListenerOld(eventName, handler);
+        window.removeEventListenerOld(eventName, handler, options);
       }
     };
   }

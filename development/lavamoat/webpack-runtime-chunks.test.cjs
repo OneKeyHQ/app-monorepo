@@ -41,6 +41,12 @@ async function compile(configuration) {
 }
 
 test('maxSize splitting preserves one untouched SES runtime before initial and lazy modules', async () => {
+  const hostPrototypes = [
+    Object.prototype,
+    Array.prototype,
+    Function.prototype,
+  ];
+  const initialHostFrozen = hostPrototypes.map(Object.isFrozen);
   const directory = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-split-runtime-')),
   );
@@ -178,34 +184,45 @@ test('maxSize splitting preserves one untouched SES runtime before initial and l
       assert.ok(tag.includes(`integrity="sha384-${integrity}"`));
     }
     const lazyRequests = [];
-    const document = {
-      getElementsByTagName: () => [],
-      createElement: () => ({ setAttribute() {} }),
-      head: {
-        appendChild(script) {
-          const file = script.src.slice(1);
-          lazyRequests.push(file);
-          vm.runInContext(
-            fs.readFileSync(path.join(output, file), 'utf8'),
-            context,
-          );
-          script.onload({ type: 'load', target: script });
-        },
-      },
-    };
     const context = vm.createContext({
-      console,
-      document,
-      setTimeout,
-      clearTimeout,
-      fixtureResult: {},
-      hostSecret: 'private host capability',
-      fetch() {
-        assert.fail('a dependency must never call host fetch');
+      loadLazyScript(url) {
+        const file = url.slice(1);
+        lazyRequests.push(file);
+        vm.runInContext(
+          fs.readFileSync(path.join(output, file), 'utf8'),
+          context,
+        );
       },
+      nativeSetTimeout: setTimeout,
+      nativeClearTimeout: clearTimeout,
     });
+    // Allocate observable functions and objects inside the fixture realm. SES
+    // must not recursively harden host prototypes used by later compilations.
     vm.runInContext(
-      'globalThis.self = globalThis; globalThis.window = globalThis; globalThis.location = { origin: "https://fixture.invalid" };',
+      `(() => {
+        const { loadLazyScript, nativeSetTimeout, nativeClearTimeout } = globalThis;
+        delete globalThis.loadLazyScript;
+        delete globalThis.nativeSetTimeout;
+        delete globalThis.nativeClearTimeout;
+        globalThis.setTimeout = (...args) => nativeSetTimeout(...args);
+        globalThis.clearTimeout = (...args) => nativeClearTimeout(...args);
+        globalThis.document = {
+          getElementsByTagName: () => [],
+          createElement: () => ({ setAttribute() {} }),
+          head: {
+            appendChild(script) {
+              loadLazyScript(script.src);
+              script.onload({ type: 'load', target: script });
+            },
+          },
+        };
+        globalThis.fixtureResult = {};
+        globalThis.hostSecret = 'private host capability';
+        globalThis.fetch = () => { throw new Error('A dependency must never call host fetch'); };
+        globalThis.self = globalThis;
+        globalThis.window = globalThis;
+        globalThis.location = { origin: 'https://fixture.invalid' };
+      })();`,
       context,
     );
     for (const [, file] of scripts) {
@@ -246,6 +263,11 @@ test('maxSize splitting preserves one untouched SES runtime before initial and l
       vm.runInContext('Object.prototype.__splitRuntimePolluted', context),
       undefined,
     );
+    assert.deepEqual(
+      hostPrototypes.map(Object.isFrozen),
+      initialHostFrozen,
+      'fixture lockdown must not freeze the host compiler realm',
+    );
     for (const broken of ['missing', 'duplicated']) {
       const brokenPlugin = new plugin.constructor({
         ...plugin.options,
@@ -277,6 +299,302 @@ test('maxSize splitting preserves one untouched SES runtime before initial and l
       assert.match(
         result.toString({ all: false, errors: true }),
         /exactly one dedicated runtime containing one untouched SES prelude/,
+      );
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('optional development trees cannot rename production policy owners while bundled dev dependencies and physical versions stay isolated', async () => {
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-policy-owners-')),
+  );
+  const LavaMoatPlugin = require('@lavamoat/webpack');
+  const { loadCanonicalNameMap } = createRequire(
+    require.resolve('@lavamoat/webpack'),
+  )('@lavamoat/aa');
+  const productionOwner =
+    'production-entry>production-middle>production-leaf>shared-runtime';
+  const secondOwner = 'production-alternative>shared-runtime';
+  const developmentOwner = 'bundled-development';
+  try {
+    const scenarios = [];
+    for (const optionalPresent of [false, true]) {
+      const root = path.join(
+        directory,
+        optionalPresent ? 'optional-present' : 'optional-absent',
+      );
+      const manifest = (
+        name,
+        properties = {},
+        location = `node_modules/${name}`,
+      ) => {
+        write(
+          root,
+          `${location}/package.json`,
+          JSON.stringify({
+            name,
+            version: '1.0.0',
+            main: 'index.js',
+            ...properties,
+          }),
+        );
+      };
+      write(
+        root,
+        'package.json',
+        JSON.stringify({
+          name: 'stable-policy-owner-fixture',
+          private: true,
+          dependencies: {
+            'production-entry': '1.0.0',
+            'production-alternative': '1.0.0',
+          },
+          devDependencies: {
+            'development-tool': '1.0.0',
+            'bundled-development': '1.0.0',
+          },
+        }),
+      );
+      for (const [name, next] of [
+        ['production-entry', 'production-middle'],
+        ['production-middle', 'production-leaf'],
+        ['production-leaf', 'shared-runtime'],
+      ]) {
+        manifest(name, { dependencies: { [next]: '1.0.0' } });
+        write(
+          root,
+          `node_modules/${name}/index.js`,
+          `module.exports = require(${JSON.stringify(next)});`,
+        );
+      }
+      manifest('shared-runtime');
+      write(
+        root,
+        'node_modules/shared-runtime/index.js',
+        `module.exports = () => ({
+        version: '1.0.0', value: productionV1, opposite: typeof productionV2,
+        fetch: typeof fetch, secret: typeof hostSecret });`,
+      );
+      manifest('production-alternative', {
+        dependencies: { 'shared-runtime': '2.0.0' },
+      });
+      write(
+        root,
+        'node_modules/production-alternative/index.js',
+        "module.exports = require('shared-runtime');",
+      );
+      manifest(
+        'shared-runtime',
+        { version: '2.0.0' },
+        'node_modules/production-alternative/node_modules/shared-runtime',
+      );
+      write(
+        root,
+        'node_modules/production-alternative/node_modules/shared-runtime/index.js',
+        `module.exports = () => ({
+        version: '2.0.0', value: productionV2, opposite: typeof productionV1,
+        fetch: typeof fetch, secret: typeof hostSecret });`,
+      );
+      manifest('development-tool', {
+        optionalDependencies: { 'optional-packaging': '1.0.0' },
+      });
+      // The optional package is not imported by the application. Its presence
+      // models platform-specific install results without depending on this OS.
+      // Its three-edge development path used to beat the four-edge runtime path.
+      if (optionalPresent) {
+        manifest('optional-packaging', {
+          dependencies: { 'shared-runtime': '1.0.0' },
+        });
+        write(
+          root,
+          'node_modules/optional-packaging/index.js',
+          "module.exports = require('shared-runtime');",
+        );
+      }
+      manifest(developmentOwner);
+      write(
+        root,
+        `node_modules/${developmentOwner}/index.js`,
+        `module.exports = () => ({
+        value: developmentValue, firstProduction: typeof productionV1,
+        secondProduction: typeof productionV2, fetch: typeof fetch, secret: typeof hostSecret });`,
+      );
+      write(
+        root,
+        'index.js',
+        `fixtureResult.values = {
+        first: require('production-entry')(),
+        second: require('production-alternative')(),
+        development: require('bundled-development')(),
+      };`,
+      );
+      const fullMap = await loadCanonicalNameMap({
+        rootDir: root,
+        includeDevDeps: true,
+      });
+      assert.equal(
+        fullMap.get(path.join(root, 'node_modules/shared-runtime')),
+        optionalPresent
+          ? 'development-tool>optional-packaging>shared-runtime'
+          : productionOwner,
+        'the fixture must reproduce the original full-map ownership drift',
+      );
+      const configuration = (generatePolicyOnly) => ({
+        mode: 'production',
+        context: root,
+        entry: './index.js',
+        output: {
+          path: path.join(root, 'dist'),
+          filename: 'main.js',
+          publicPath: '',
+          globalObject: 'globalThis',
+        },
+        optimization: { minimize: false, concatenateModules: false },
+        plugins: [
+          new LavaMoatPlugin({
+            rootDir: root,
+            policyLocation: root,
+            generatePolicyOnly,
+            readableResourceIds: true,
+            inlineLockdown: /^main\.js$/,
+            lockdown: {
+              errorTrapping: 'none',
+              errorTaming: 'unsafe',
+              reporting: 'none',
+            },
+          }),
+        ],
+      });
+      const generatedStats = await compile(configuration(true));
+      assert.equal(
+        generatedStats.hasErrors(),
+        false,
+        generatedStats.toString({ all: false, errors: true }),
+      );
+      const policy = JSON.parse(
+        fs.readFileSync(path.join(root, 'policy.json'), 'utf8'),
+      );
+      assert.ok(
+        policy.resources[productionOwner],
+        'production ownership must win over a shorter development-only path',
+      );
+      assert.ok(
+        policy.resources[secondOwner],
+        'the second physical version needs its own owner',
+      );
+      assert.ok(
+        policy.resources[developmentOwner],
+        'a bundled devDependency must remain a dependency compartment',
+      );
+      assert.equal(
+        policy.resources['development-tool>optional-packaging>shared-runtime'],
+        undefined,
+      );
+      assert.equal(
+        policy.resources[productionOwner].globals.productionV1,
+        true,
+      );
+      assert.equal(policy.resources[secondOwner].globals.productionV2, true);
+      assert.equal(
+        policy.resources[developmentOwner].globals.developmentValue,
+        true,
+      );
+      scenarios.push({
+        root,
+        configuration,
+        policy,
+        policySource: fs.readFileSync(path.join(root, 'policy.json'), 'utf8'),
+      });
+    }
+    assert.deepEqual(
+      scenarios[0].policy,
+      scenarios[1].policy,
+      'the complete generated runtime policy must be independent of an unused optional development tree',
+    );
+    assert.equal(
+      scenarios[0].policySource,
+      scenarios[1].policySource,
+      'generated policy bytes must match across optional development installs',
+    );
+    const approvedPolicy = scenarios[0].policy;
+    const override = {
+      resources: {
+        [productionOwner]: {
+          globals: { productionV2: false, fetch: false, hostSecret: false },
+        },
+        [secondOwner]: {
+          globals: { productionV1: false, fetch: false, hostSecret: false },
+        },
+        [developmentOwner]: {
+          globals: {
+            productionV1: false,
+            productionV2: false,
+            fetch: false,
+            hostSecret: false,
+          },
+        },
+      },
+    };
+    for (const { root, configuration } of scenarios) {
+      // Enforce exactly the policy approved on the other install layout, rather
+      // than regenerating grants to accommodate a host-specific resource name.
+      write(root, 'policy.json', JSON.stringify(approvedPolicy));
+      write(root, 'policy-override.json', JSON.stringify(override));
+      const enforcedStats = await compile(configuration(false));
+      assert.equal(
+        enforcedStats.hasErrors(),
+        false,
+        enforcedStats.toString({ all: false, errors: true }),
+      );
+      const source = fs.readFileSync(path.join(root, 'dist/main.js'), 'utf8');
+      for (const owner of [productionOwner, secondOwner, developmentOwner]) {
+        assert.ok(
+          source.includes(`._LM_(${JSON.stringify(owner)}`),
+          `${owner} must use the runtime policy wrapper`,
+        );
+      }
+      const context = vm.createContext({});
+      vm.runInContext(
+        `globalThis.fixtureResult = {};
+        globalThis.productionV1 = 'first-version-only';
+        globalThis.productionV2 = 'second-version-only';
+        globalThis.developmentValue = 'reviewed-development-module';
+        globalThis.hostSecret = 'denied-host-value';
+        globalThis.fetch = () => 'denied-network-capability';`,
+        context,
+      );
+      vm.runInContext(source, context);
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(context.fixtureResult.values)),
+        {
+          first: {
+            version: '1.0.0',
+            value: 'first-version-only',
+            opposite: 'undefined',
+            fetch: 'undefined',
+            secret: 'undefined',
+          },
+          second: {
+            version: '2.0.0',
+            value: 'second-version-only',
+            opposite: 'undefined',
+            fetch: 'undefined',
+            secret: 'undefined',
+          },
+          development: {
+            value: 'reviewed-development-module',
+            firstProduction: 'undefined',
+            secondProduction: 'undefined',
+            fetch: 'undefined',
+            secret: 'undefined',
+          },
+        },
+      );
+      assert.equal(
+        vm.runInContext('Object.isFrozen(Object.prototype)', context),
+        true,
       );
     }
   } finally {

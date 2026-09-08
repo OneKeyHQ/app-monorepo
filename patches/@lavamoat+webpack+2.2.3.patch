@@ -115,3 +115,29 @@ index d6a5247..1531385 100644
          type: isBuiltin(module.userRequest) ? 'builtin' : 'js',
          packageName,
          content: module.originalSource()?.source()?.toString(),
+diff --git a/node_modules/@lavamoat/webpack/src/plugin.js b/node_modules/@lavamoat/webpack/src/plugin.js
+index 62fe34d..d587b5c 100644
+--- a/node_modules/@lavamoat/webpack/src/plugin.js
++++ b/node_modules/@lavamoat/webpack/src/plugin.js
+@@ -220,7 +220,20 @@ class LavaMoatPlugin {
+         includeDevDeps: true, // even the most proper projects end up including devDeps in their bundles :(
+         resolve: browserResolve,
+       })
+-        .then((map) => {
++        // OneKey patch: load the production map before publishing canonical names.
++        // .then((map) => {
++        .then(async (map) => {
++          // OneKey patch: prefer production dependency paths for shared packages.
++          // Host-specific development tools must not rename runtime compartments.
++          // Keep the full map and its rootDir metadata for bundled dev-only modules.
++          const productionMap = await loadCanonicalNameMap({
++            rootDir: STORE.options.rootDir || compiler.context,
++            includeDevDeps: false,
++            resolve: browserResolve,
++          })
++          for (const [packageDir, canonicalName] of productionMap) {
++            map.set(packageDir, canonicalName)
++          }
+           STORE.canonicalNameMap = map
+           PROGRESS.report('canonicalNameMap')
+           callback()

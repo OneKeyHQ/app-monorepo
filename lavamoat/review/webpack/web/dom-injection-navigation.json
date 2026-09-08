@@ -1,11 +1,6 @@
 {
   "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
   "resources": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyhq/components": {
       "globals": {
         "document": true
@@ -121,6 +116,11 @@
         "history.replaceState": true,
         "location.assign": true,
         "location.href": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": {
+      "globals": {
+        "document": true
       }
     },
     "@onekeyhq/kit": {

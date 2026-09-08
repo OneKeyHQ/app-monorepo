@@ -152,10 +152,10 @@
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": {
-    "@electron/rebuild>debug": true
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana": {
-    "@electron/rebuild>debug": true,
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
@@ -171,7 +171,7 @@
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@metaplex-foundation/beet-solana": {
-    "@electron/rebuild>debug": true,
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
     "@onekeyhq/core>@solana/web3.js": true
   },
   "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@solana/spl-token": {
