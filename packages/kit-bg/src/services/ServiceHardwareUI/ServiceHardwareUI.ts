@@ -592,14 +592,14 @@ class ServiceHardwareUI extends ServiceBase {
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
 
   /** The firmware workflow is taking the screen: the stage leaves (see
-   * DeviceStageBurst.silenceForFirmwareWorkflow) and so does any air-gap
+   * DeviceStageBurst.silence) and so does any air-gap
    * scan it was hosting — the stage was that scan's only surface, and a
    * pending scan left behind would wait invisibly for its 30-minute expiry
    * while the update page ran. Rejected the way a user close rejects it;
    * a no-op without a session. */
   async silenceDeviceStageForFirmwareWorkflow() {
     const stepAtSilence = (await deviceStageAtom.get())?.step;
-    await this.deviceStageBurst.silenceForFirmwareWorkflow();
+    await this.deviceStageBurst.silence();
     await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
       scanning: stepAtSilence === 'scanQr',
     });
@@ -610,6 +610,45 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStageDismissUnowned() {
     await this.deviceStageBurst.dismissUnowned();
+  }
+
+  /** A dialog is about to take the screen over a live stage (the
+   * bootloader hand-off during onboarding, OK-62105): the stage leaves
+   * first, whether or not a flow holds a burst — a stage standing behind
+   * its own touch wall would otherwise cover the dialog until that hold
+   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence). */
+  @backgroundMethod()
+  async deviceStageYieldToDialog() {
+    await this.deviceStageBurst.silence();
+  }
+
+  /**
+   * Resolves once the stage is off — at once when it already is, otherwise
+   * on its next exit, or after `timeoutMs`. Returns whether it had to wait.
+   * The surface that raised the stage (a rename dialog, the setup page's
+   * ready state) sequences its own change after the stage's exit, so the
+   * exit reads first (OK-62228, OK-62172, OK-62092).
+   */
+  @backgroundMethod()
+  async deviceStageWaitForOff({
+    timeoutMs,
+  }: {
+    timeoutMs: number;
+  }): Promise<boolean> {
+    const current = await deviceStageAtom.get();
+    if (!current || current.step === 'off') {
+      return false;
+    }
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => settle(), timeoutMs);
+      function settle() {
+        clearTimeout(timer);
+        appEventBus.off(EAppEventBusNames.DeviceStageOff, settle);
+        resolve();
+      }
+      appEventBus.on(EAppEventBusNames.DeviceStageOff, settle);
+    });
+    return true;
   }
 
   @backgroundMethod()

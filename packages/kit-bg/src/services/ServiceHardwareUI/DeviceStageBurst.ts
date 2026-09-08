@@ -60,10 +60,21 @@ import type {
  *   error outcome being dismissed.
  */
 
-/** How long the stage stays after the last burst layer ends, so an
- * immediately following wrapper (cross-wrapper bursts like hidden-wallet
- * creation) morphs in place instead of exiting and re-entering. */
+/** How long the stage stays after an app-authored card is answered with
+ * no burst behind it (the wallet-type fork, the teach card), and after a
+ * call-end close lands with no burst at all: the flow that asked opens
+ * its own burst next, and that hop can cross a page mount, so this is
+ * the wide window. */
 const OFF_GRACE_MS = 600;
+
+/** How long the stage stays after the last burst layer ends. A follow-up
+ * wrapper inside one operation (hidden-wallet creation's back-to-back
+ * calls) rejoins within it and morphs in place instead of exiting and
+ * re-entering; those follow-ups are background-internal, so the window
+ * stays short — the person reads the device's answer as the operation's
+ * end, and every beat past it is felt as lag, with the dialog that raised
+ * the stage already gone (OK-62228, OK-62092, OK-62066). */
+const END_GRACE_MS = 250;
 
 /**
  * Product call (2026-09): every confirm plays bare — address verify,
@@ -505,7 +516,7 @@ export class DeviceStageBurstScope {
     }
     // No burst left to speak for — and noteStep dropped the pending exit
     // when it wrote the ✓. This is that burst's one exit.
-    this.scheduleOff();
+    this.scheduleOff(END_GRACE_MS);
   }
 
   /**
@@ -748,7 +759,7 @@ export class DeviceStageBurstScope {
     // ask a device that never failed whether it is still there. The burst
     // still closes, only the outcome stays out.
     if (params.error && !isOneKeyHardwareError(params.error)) {
-      this.scheduleOff();
+      this.scheduleOff(END_GRACE_MS);
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
@@ -885,7 +896,7 @@ export class DeviceStageBurstScope {
         return;
       }
     }
-    this.scheduleOff();
+    this.scheduleOff(END_GRACE_MS);
   }
 
   /**
@@ -1452,12 +1463,14 @@ export class DeviceStageBurstScope {
     await this.forceOff({ force: true });
   }
 
-  /** The firmware workflow is taking the screen (it drives its own full
-   * page, outside the stage's scope): whatever the stage shows leaves
-   * now, not at the end of the call that painted it. The burst's own
+  /** Another surface is taking the screen — the firmware workflow's own
+   * full page, or a dialog that must be answered over a live stage (the
+   * bootloader hand-off, OK-62105): whatever the stage shows leaves now,
+   * not at the end of the call that painted it. The burst's own
    * bookkeeping is untouched — its end() still releases the layer, and
-   * finds nothing left to take down. */
-  async silenceForFirmwareWorkflow() {
+   * finds nothing left to take down; a later beat from the same burst
+   * (the device speaking again) repaints as usual. */
+  async silence() {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;

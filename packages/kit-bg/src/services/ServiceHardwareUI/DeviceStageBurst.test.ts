@@ -429,7 +429,7 @@ describe('DeviceStageBurstScope', () => {
     expect(releaseRead).toBeDefined();
 
     firmwareWorkflowAtom.get.mockResolvedValue(true);
-    await scope.silenceForFirmwareWorkflow();
+    await scope.silence();
 
     releaseRead?.();
     await expect(opening).resolves.toBe(false);
@@ -964,7 +964,7 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
 
     firmwareWorkflowAtom.get.mockImplementationOnce(async () => {
-      await scope.silenceForFirmwareWorkflow();
+      await scope.silence();
       return false;
     });
     expect(
@@ -1012,7 +1012,7 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
     expect(stage?.step).toBe('connecting');
 
-    await scope.silenceForFirmwareWorkflow();
+    await scope.silence();
     expect(stage?.step).toBe('off');
 
     // The burst's own bookkeeping still lands on its end.

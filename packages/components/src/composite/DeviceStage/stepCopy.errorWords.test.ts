@@ -3,7 +3,11 @@ import { createIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 
-import { resolveCapsuleText, resolveErrorMessage } from './stepCopy';
+import {
+  errorNoticeFits,
+  resolveCapsuleText,
+  resolveErrorMessage,
+} from './stepCopy';
 
 import type { IntlShape } from 'react-intl';
 
@@ -17,6 +21,28 @@ import type { IntlShape } from 'react-intl';
 const intl = {
   formatMessage: ({ id }: { id: string }) => `<${id}>`,
 } as unknown as IntlShape;
+
+describe('DeviceStage error notice budget (OK-62077)', () => {
+  it('keeps short words on the capsule', () => {
+    expect(errorNoticeFits(undefined)).toBe(true);
+    expect(errorNoticeFits('Wrong PIN')).toBe(true);
+    expect(errorNoticeFits('PIN 码错误')).toBe(true);
+    expect(errorNoticeFits('Device disconnected during the call')).toBe(true);
+  });
+
+  it('sends long words to the card, CJK counting double', () => {
+    expect(
+      errorNoticeFits(
+        'Failure_DataError,Required signers must not be empty : 800',
+      ),
+    ).toBe(false);
+    expect(
+      errorNoticeFits(
+        '操作失败。请确保您的硬件和应用程序均为最新版本，或联系技术支持。',
+      ),
+    ).toBe(false);
+  });
+});
 
 describe('DeviceStage error localization', () => {
   it.each(['zh-CN', 'en-US'] as const)(

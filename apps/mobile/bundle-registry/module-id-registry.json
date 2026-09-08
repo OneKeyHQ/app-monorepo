@@ -20248,6 +20248,7 @@
     "packages/kit/src/provider/Container/DeviceStageContainer/airGapScanFrame.ts": 8025,
     "packages/kit/src/provider/Container/DeviceStageContainer/index.tsx": 8026,
     "packages/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer.ts": 8529,
+    "packages/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit.ts": 5213,
     "packages/kit/src/provider/Container/DialogLoadingContainer/DialogLoadingContainer.tsx": 13246,
     "packages/kit/src/provider/Container/DialogLoadingContainer/index.tsx": 13693,
     "packages/kit/src/provider/Container/DiskFullWarningDialogContainer/DiskFullWarningDialogContainer.tsx": 3392,

@@ -36,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
 
@@ -820,6 +821,16 @@ export function MorphOverlay<T>({
   // anchor flips, and the card's width cap applies only to the wide
   // side.
   const phonePosture = media.md;
+  // Android draws edge to edge, so the layer's bottom edge is the
+  // screen's — under the navigation bar — and the phone-posture shell
+  // lifts by that inset on top of its own clearance (OK-62279: the
+  // capsule and the card sat behind the bar). iOS keeps the constants:
+  // PILL.lift and CARD.margin + bottomPad were sized against the
+  // home-indicator zone already. The wide posture hangs from the top,
+  // where no bottom inset applies.
+  const insets = useSafeAreaInsets();
+  const bottomInset =
+    platformEnv.isNativeAndroid && phonePosture ? insets.bottom : 0;
   const cardWidth = phonePosture
     ? screenWidth - CARD.margin * 2
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
@@ -1043,17 +1054,18 @@ export function MorphOverlay<T>({
     // pulls presence under 1 (and a breath over it, rubber-banded), so
     // the finger rides this same line either way.
     const travel =
-      (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
+      (1 - presence.value) *
+      (height.value + lift.value + bottomInset + EXIT_OVERSHOOT);
     return {
       transform: [
         {
           translateY: phonePosture
-            ? travel - lift.value - keyboard.height.value
+            ? travel - lift.value - bottomInset - keyboard.height.value
             : lift.value - travel,
         },
       ],
     };
-  }, [height, keyboard, lift, phonePosture, presence]);
+  }, [bottomInset, height, keyboard, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike.
   const scrimFadeStyle = useAnimatedStyle(
