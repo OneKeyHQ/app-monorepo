@@ -5683,5 +5683,5 @@ export enum ETranslations {
   word = 'word',
   your_device_is_ready = 'your_device_is_ready',
   your_wallet_is_ready = 'your_wallet_is_ready',
-  perp_twap_orders__title = 'perp_twap_orders__title',
+
 }
