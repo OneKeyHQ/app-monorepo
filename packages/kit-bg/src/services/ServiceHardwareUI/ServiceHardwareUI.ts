@@ -144,6 +144,11 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleUnsupported,
 ];
 
+/** How long after the stage's off write its exit is still on screen —
+ * the bridge hop, the React commit and the shell's sink, read generously.
+ * deviceStageWaitForOff reports an off younger than this as a wait. */
+const DEVICE_STAGE_RECENT_OFF_MS = 1000;
+
 /** Stands in for the confirm payload in logs: its rows carry signature
  * plaintext (personal-sign text, typed-data JSON, transfer amounts), which
  * must never reach a log line — only whether a payload was registered. */
@@ -636,20 +641,40 @@ class ServiceHardwareUI extends ServiceBase {
   }: {
     timeoutMs: number;
   }): Promise<boolean> {
-    const current = await deviceStageAtom.get();
-    if (!current || current.step === 'off') {
-      return false;
-    }
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => settle(), timeoutMs);
-      function settle() {
-        clearTimeout(timer);
-        appEventBus.off(EAppEventBusNames.DeviceStageOff, settle);
-        resolve();
-      }
-      appEventBus.on(EAppEventBusNames.DeviceStageOff, settle);
+    // Listen first, read second: an exit landing between the two is a
+    // one-shot event, and a listener installed after it would wait the
+    // whole timeout for an exit that already happened.
+    let settleExit = () => {};
+    const exited = new Promise<void>((resolve) => {
+      settleExit = resolve;
     });
-    return true;
+    const onOff = () => settleExit();
+    appEventBus.on(EAppEventBusNames.DeviceStageOff, onOff);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const current = await deviceStageAtom.get();
+      if (!current || current.step === 'off') {
+        // Already off — but an exit that landed a moment ago is still
+        // playing out on the UI (the atom crosses a bridge on
+        // split-runtime targets, then React commits, then the shell
+        // sinks), so that one still counts as a wait for the caller's
+        // beat; an old off, or a stage never raised, does not.
+        return (
+          Date.now() - this.deviceStageBurst.getLastOffAt() <
+          DEVICE_STAGE_RECENT_OFF_MS
+        );
+      }
+      await Promise.race([
+        exited,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+        }),
+      ]);
+      return true;
+    } finally {
+      clearTimeout(timer);
+      appEventBus.off(EAppEventBusNames.DeviceStageOff, onOff);
+    }
   }
 
   @backgroundMethod()

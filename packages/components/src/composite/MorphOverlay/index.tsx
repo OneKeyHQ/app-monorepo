@@ -828,9 +828,23 @@ export function MorphOverlay<T>({
   // PILL.lift and CARD.margin + bottomPad were sized against the
   // home-indicator zone already. The wide posture hangs from the top,
   // where no bottom inset applies.
+  //
+  // The keyboard ADDS to it on purpose, no max: reanimated's Android
+  // keyboard height is the IME inset minus the system bar (it treats the
+  // bar as opaque unless told otherwise), so inset + keyboard is exactly
+  // the keyboard's top edge measured from the screen bottom; a max would
+  // rest the shell one bar height under the keyboard.
+  //
+  // A shared value, so the drag worklets and the position worklet read
+  // the same clearance (an inset change — a nav-mode switch — re-aims
+  // both without rebuilding the gesture).
   const insets = useSafeAreaInsets();
   const bottomInset =
     platformEnv.isNativeAndroid && phonePosture ? insets.bottom : 0;
+  const bottomClearance = useSharedValue(bottomInset);
+  useEffect(() => {
+    bottomClearance.value = bottomInset;
+  }, [bottomClearance, bottomInset]);
   const cardWidth = phonePosture
     ? screenWidth - CARD.margin * 2
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
@@ -898,7 +912,8 @@ export function MorphOverlay<T>({
     // provably off screen, instead of visibly springing under the
     // reveal.
     const offscreenBelow =
-      EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
+      EXIT_OVERSHOOT /
+      (targets.height + targets.lift + bottomInset + EXIT_OVERSHOOT);
     const arriving = prevPose === 'hidden' || presence.value < offscreenBelow;
     if (first || reducedMotion || arriving) {
       width.value = targets.width;
@@ -959,6 +974,7 @@ export function MorphOverlay<T>({
   }, [
     onGeometrySettled,
     activeSeatKey,
+    bottomInset,
     cardContentMeasured,
     cardHeight,
     cardRadius,
@@ -1000,7 +1016,9 @@ export function MorphOverlay<T>({
           // the bottom, up off the top. Normalized here, the rest of the
           // math never knows which way the shell hangs.
           const drag = phonePosture ? event.translationY : -event.translationY;
-          const travel = height.value + lift.value + EXIT_OVERSHOOT;
+          // The same door the position worklet opens (see positionStyle).
+          const travel =
+            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
           const pull = drag >= 0 ? drag : -rubberBand(-drag, height.value);
           presence.value = 1 - pull / travel;
         })
@@ -1009,7 +1027,8 @@ export function MorphOverlay<T>({
           const dragVelocity = phonePosture
             ? event.velocityY
             : -event.velocityY;
-          const travel = height.value + lift.value + EXIT_OVERSHOOT;
+          const travel =
+            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
           // Finger velocity, in presence units per second.
           const velocity = -dragVelocity / travel;
           const projected = drag + dragVelocity * DRAG_PROJECTION_S;
@@ -1026,7 +1045,15 @@ export function MorphOverlay<T>({
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
-    [dismiss, dragEnabled, height, lift, phonePosture, presence],
+    [
+      bottomClearance,
+      dismiss,
+      dragEnabled,
+      height,
+      lift,
+      phonePosture,
+      presence,
+    ],
   );
 
   // Size and position ride separate styles on purpose: the size worklet
@@ -1055,17 +1082,20 @@ export function MorphOverlay<T>({
     // the finger rides this same line either way.
     const travel =
       (1 - presence.value) *
-      (height.value + lift.value + bottomInset + EXIT_OVERSHOOT);
+      (height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT);
     return {
       transform: [
         {
           translateY: phonePosture
-            ? travel - lift.value - bottomInset - keyboard.height.value
+            ? travel -
+              lift.value -
+              bottomClearance.value -
+              keyboard.height.value
             : lift.value - travel,
         },
       ],
     };
-  }, [bottomInset, height, keyboard, lift, phonePosture, presence]);
+  }, [bottomClearance, height, keyboard, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike.
   const scrimFadeStyle = useAnimatedStyle(

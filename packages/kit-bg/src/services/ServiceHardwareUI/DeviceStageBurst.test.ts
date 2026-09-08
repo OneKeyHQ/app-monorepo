@@ -511,12 +511,40 @@ describe('DeviceStageBurstScope', () => {
       payload: tip(EFirmwareUpdateTipMessages.ConfirmOnDevice),
     });
     expect(stage?.step).toBe('confirm');
-    // The narration after the person's approval hands the screen to the
-    // page's progress bar.
+    // Pro 2 / Touch post InstallingFirmware and the install's 0% tick
+    // right behind the confirm tip, before the person has pressed
+    // anything: the card stands through both.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.InstallingFirmware),
+    });
+    expect(stage?.step).toBe('confirm');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: CONNECT_ID,
+      payload: {
+        firmwareProgress: 0,
+        firmwareProgressType: 'installingFirmware',
+        firmwareTipData: {
+          message: EFirmwareUpdateTipMessages.ConfirmOnDevice,
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('confirm');
+    // The transfer moving is the person's approval: the screen goes to
+    // the page's progress bar.
     await scope.onHardwareUiEvent({
       action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
       connectId: CONNECT_ID,
       payload: { firmwareProgress: 3 } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('off');
+    // A late InstallingFirmware tip raises nothing by itself.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.InstallingFirmware),
     });
     expect(stage?.step).toBe('off');
     // A PIN the device still wants is not narration: it stands through
@@ -531,6 +559,44 @@ describe('DeviceStageBurstScope', () => {
       payload: tip(EFirmwareUpdateTipMessages.DownloadFirmware),
     });
     expect(stage?.step).toBe('pinOnApp');
+  });
+
+  it('keeps a yielded stage off the dialog through the interrupted call’s stragglers', async () => {
+    // The bootloader hand-off: the connect flow holds a burst, the stage
+    // yields to the dialog, and the features call it interrupted still
+    // drains its close and a trailing tick through the event queue.
+    // Neither may put a wait back over the dialog; the device asking
+    // again is news and lifts the yield.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.silence();
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    // Lifted: the hold's own beats play again.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('processing');
+    await scope.endExplicit({ token });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
   });
 
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {

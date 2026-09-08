@@ -14,14 +14,17 @@ const DEVICE_STAGE_EXIT_TIMEOUT_MS = 4000;
  * to its ready state). The stage's exit reads first and the surface's
  * change after it, the mirror of the entrance, where the surface stood
  * still while the stage arrived (OK-62228, OK-62172, OK-62092).
- * Resolves at once when nothing is on stage.
+ * Resolves at once when nothing is on stage — and nothing just left it:
+ * the background reports an off it wrote within the last second as a
+ * wait too, since that exit is still crossing to this runtime and
+ * sinking off screen, so the beat below still applies.
  */
 export async function waitForDeviceStageExit() {
-  const waited =
+  const exiting =
     await backgroundApiProxy.serviceHardwareUI.deviceStageWaitForOff({
       timeoutMs: DEVICE_STAGE_EXIT_TIMEOUT_MS,
     });
-  if (waited) {
+  if (exiting) {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }
 }

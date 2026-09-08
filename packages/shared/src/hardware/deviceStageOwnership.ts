@@ -24,11 +24,14 @@ const STAGE_OWNED_ACTIONS: ReadonlySet<string> = new Set([
   EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
 ]);
 
-/** The firmware tips that are device asks in disguise: the SDK posts
- * ConfirmOnDevice (and, on Touch/Pro, InstallingFirmware right behind it)
- * while the device waits for the person to approve the install — the
- * beat REQUEST_BUTTON carries on Protocol V2 devices. Every other tip
- * narrates the update and belongs to the page. */
+/** The firmware tips that belong to the device's install confirm: the
+ * SDK posts ConfirmOnDevice while the device waits for the person to
+ * approve the install — the beat REQUEST_BUTTON carries on Protocol V2
+ * devices — and, on Touch/Pro, InstallingFirmware right behind it, before
+ * anything was pressed. Both stay with the stage's confirm card (the
+ * legacy toast showed them as one "confirm on device"); only the first
+ * raises the card, the second neither paints nor retires it. Every other
+ * tip narrates the update and belongs to the page. */
 const FIRMWARE_CONFIRM_TIPS: ReadonlySet<string> = new Set([
   EFirmwareUpdateTipMessages.ConfirmOnDevice,
   EFirmwareUpdateTipMessages.InstallingFirmware,

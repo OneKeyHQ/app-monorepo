@@ -23,6 +23,7 @@ import {
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
@@ -439,6 +440,22 @@ export class DeviceStageBurstScope {
    * write it back: its ask belongs to a call the person already left. */
   private dismissSeq = 0;
 
+  /** The stage yielded to a dialog (see silence) while a burst still
+   * holds it. Until that burst ends, the person closes, or the device
+   * asks again, stragglers from the call the dialog interrupted — its
+   * close, its trailing progress ticks — must not repaint a wait over
+   * the dialog; a new ask is the device speaking and lifts the yield. */
+  private yieldedToDialog = false;
+
+  /** When the stage last went off (ms since epoch) — the UI's exit
+   * animation trails this write, so a surface sequencing its own change
+   * after the exit keeps its beat for an off that just landed. */
+  private lastOffAt = 0;
+
+  getLastOffAt() {
+    return this.lastOffAt;
+  }
+
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
   ) {
@@ -543,6 +560,7 @@ export class DeviceStageBurstScope {
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
       this.authoredAuthStep = undefined;
+      this.yieldedToDialog = false;
       // A fresh initiation makes its own presence finding — a device the
       // PREVIOUS burst heard from proves nothing about this one.
       this.sawDeviceEventThisBurst = false;
@@ -699,6 +717,7 @@ export class DeviceStageBurstScope {
       await this.touchActivity();
       return;
     }
+    this.yieldedToDialog = false;
     // The last layer is landing: any DeviceNotFound built after this
     // belongs to the legacy dialog again.
     setDeviceStageBurstActive(false);
@@ -1001,16 +1020,32 @@ export class DeviceStageBurstScope {
         });
         return;
       }
-      if (this.depth > 0 && !firmwareWorkflow) {
+      if (this.depth > 0 && !firmwareWorkflow && !this.yieldedToDialog) {
         await this.setStep('processing', { connectId });
       } else {
         // Forced through a foreign hold during the update: that hold
-        // never painted this beat and must not keep it.
+        // never painted this beat and must not keep it. A yielded stage
+        // is already off; the timer finds nothing to take down.
         this.scheduleOff(OFF_GRACE_MS, { force: firmwareWorkflow });
       }
       return;
     }
     const firmwareTipMessage = payload?.firmwareTipData?.message;
+    const firmwareProgress = payload?.firmwareProgress;
+    if (
+      (action === EHardwareUiStateAction.FIRMWARE_PROGRESS &&
+        !(typeof firmwareProgress === 'number' && firmwareProgress > 0)) ||
+      (action === EHardwareUiStateAction.FIRMWARE_TIP &&
+        firmwareTipMessage === EFirmwareUpdateTipMessages.InstallingFirmware)
+    ) {
+      // Still confirming. Pro 2 / Touch post the install's 0% tick and
+      // the InstallingFirmware tip right behind ConfirmOnDevice, before
+      // the person has pressed anything (the update page keeps its
+      // "confirm on device" line through the same beat) — neither is
+      // the transfer, so a standing confirm card stands. Nothing here
+      // paints either: only ConfirmOnDevice itself raises the card.
+      return;
+    }
     if (
       action === EHardwareUiStateAction.FIRMWARE_PROGRESS ||
       (action === EHardwareUiStateAction.FIRMWARE_TIP &&
@@ -1049,6 +1084,15 @@ export class DeviceStageBurstScope {
         : ACTION_TO_STEP[action];
     if (!step) {
       return;
+    }
+    if (this.yieldedToDialog) {
+      // Behind a dialog the stage yielded to, only the device asking
+      // again may paint — that lifts the yield; a wait is the
+      // interrupted call's straggler and stays off the dialog.
+      if (!ASK_STEPS.has(step)) {
+        return;
+      }
+      this.yieldedToDialog = false;
     }
     // An owned, non-close SDK event is the device speaking — the initial
     // search failing emits nothing, so this is the presence proof
@@ -1491,6 +1535,7 @@ export class DeviceStageBurstScope {
     this.clearPendingOpen();
     this.dismissSeq += 1;
     this.depth = 0;
+    this.yieldedToDialog = false;
     setDeviceStageBurstActive(false);
     this.explicitToken = undefined;
     this.explicitOpened = false;
@@ -1514,6 +1559,14 @@ export class DeviceStageBurstScope {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
+    // The yield outlasts this write: the interrupted call's stragglers
+    // (its close, a trailing tick) are still crossing the event queue —
+    // on split-runtime targets from a bg queue the dialog's mount knows
+    // nothing about — and the burst behind them keeps `depth > 0`, so
+    // without this they repainted `processing` over the dialog. Lifted
+    // by the burst's own end, a user close, a new burst, or the device
+    // asking again (see onHardwareUiEvent).
+    this.yieldedToDialog = true;
     await this.forceOff({ force: true });
   }
 
@@ -1646,6 +1699,7 @@ export class DeviceStageBurstScope {
       vendorModel: prev.vendorModel,
       vendorModelName: prev.vendorModelName,
     });
+    this.lastOffAt = Date.now();
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.
     appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);

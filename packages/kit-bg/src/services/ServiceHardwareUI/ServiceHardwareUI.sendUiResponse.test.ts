@@ -978,6 +978,81 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
   });
 });
 
+describe('ServiceHardwareUI.deviceStageWaitForOff', () => {
+  const createService = () =>
+    new ServiceHardwareUI({ backgroundApi: {} as never });
+  // The bus is a jest.fn() pair here (see the module mock); spied rather
+  // than referenced, so the mock's calls are read without holding the
+  // unbound method.
+  const busOn = () => jest.spyOn(appEventBus, 'on');
+  const busOff = () => jest.spyOn(appEventBus, 'off');
+  const findOffListener = () =>
+    busOn().mock.calls.find(
+      ([name]) => name === EAppEventBusNames.DeviceStageOff,
+    )?.[1] as (() => void) | undefined;
+
+  beforeEach(() => {
+    busOn().mockClear();
+    busOff().mockClear();
+  });
+
+  it('does not miss an exit that lands while it reads the stage', async () => {
+    // The exit is a one-shot event: fired between the read and the
+    // subscription it used to be lost, and the caller sat out the full
+    // timeout for a stage that was already gone.
+    jest.useFakeTimers();
+    try {
+      const service = createService();
+      jest
+        .spyOn(service.deviceStageBurst, 'getLastOffAt')
+        .mockReturnValue(Date.now());
+      jest.mocked(deviceStageAtom.get).mockImplementation(async () => {
+        const onOff = findOffListener();
+        expect(onOff).toBeDefined();
+        onOff?.();
+        return { step: 'off', burstId: 1 } as never;
+      });
+      const waited = service.deviceStageWaitForOff({ timeoutMs: 4000 });
+      await jest.advanceTimersByTimeAsync(0);
+      await expect(waited).resolves.toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+      expect(busOff()).toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        expect.any(Function),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('resolves on the exit event, not the timeout, and reports an old off as no wait', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = createService();
+      jest
+        .mocked(deviceStageAtom.get)
+        .mockResolvedValue({ step: 'connecting', burstId: 1 } as never);
+      const waited = service.deviceStageWaitForOff({ timeoutMs: 4000 });
+      await jest.advanceTimersByTimeAsync(0);
+      findOffListener()?.();
+      await jest.advanceTimersByTimeAsync(0);
+      await expect(waited).resolves.toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+
+      // Off for a while already: nothing is leaving, no beat to keep.
+      jest.spyOn(service.deviceStageBurst, 'getLastOffAt').mockReturnValue(0);
+      jest
+        .mocked(deviceStageAtom.get)
+        .mockResolvedValue({ step: 'off', burstId: 1 } as never);
+      await expect(
+        service.deviceStageWaitForOff({ timeoutMs: 4000 }),
+      ).resolves.toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
 describe('ServiceHardwareUI.deviceStageUserClose', () => {
   const createService = () => {
     const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
