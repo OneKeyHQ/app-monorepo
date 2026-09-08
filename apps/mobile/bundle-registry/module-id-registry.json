@@ -19909,6 +19909,7 @@
     "packages/kit/src/components/TokenSelectorFilter/utils.ts": 20406,
     "packages/kit/src/components/TradingHoursPanel/index.tsx": 23522,
     "packages/kit/src/components/TradingView/TradingViewChartControls/TradingViewChartControls.tsx": 13553,
+    "packages/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext.ts": 1261,
     "packages/kit/src/components/TradingView/TradingViewChartControls/calendarControls/CalendarPanelPopover.tsx": 15974,
     "packages/kit/src/components/TradingView/TradingViewChartControls/calendarControls/CalendarPanelUtils.ts": 1328,
     "packages/kit/src/components/TradingView/TradingViewChartControls/chartSettings/ChartSettingsDialogContent.tsx": 18710,
