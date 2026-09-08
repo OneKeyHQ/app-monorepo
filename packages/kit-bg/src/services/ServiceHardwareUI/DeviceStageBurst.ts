@@ -19,9 +19,11 @@ import {
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
+  isFirmwareConfirmTip,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
@@ -60,10 +62,21 @@ import type {
  *   error outcome being dismissed.
  */
 
-/** How long the stage stays after the last burst layer ends, so an
- * immediately following wrapper (cross-wrapper bursts like hidden-wallet
- * creation) morphs in place instead of exiting and re-entering. */
+/** How long the stage stays after an app-authored card is answered with
+ * no burst behind it (the wallet-type fork, the teach card), and after a
+ * call-end close lands with no burst at all: the flow that asked opens
+ * its own burst next, and that hop can cross a page mount, so this is
+ * the wide window. */
 const OFF_GRACE_MS = 600;
+
+/** How long the stage stays after the last burst layer ends. A follow-up
+ * wrapper inside one operation (hidden-wallet creation's back-to-back
+ * calls) rejoins within it and morphs in place instead of exiting and
+ * re-entering; those follow-ups are background-internal, so the window
+ * stays short — the person reads the device's answer as the operation's
+ * end, and every beat past it is felt as lag, with the dialog that raised
+ * the stage already gone (OK-62228, OK-62092, OK-62066). */
+const END_GRACE_MS = 250;
 
 /**
  * Product call (2026-09): every confirm plays bare — address verify,
@@ -427,6 +440,22 @@ export class DeviceStageBurstScope {
    * write it back: its ask belongs to a call the person already left. */
   private dismissSeq = 0;
 
+  /** The stage yielded to a dialog (see silence) while a burst still
+   * holds it. Until that burst ends, the person closes, or the device
+   * asks again, stragglers from the call the dialog interrupted — its
+   * close, its trailing progress ticks — must not repaint a wait over
+   * the dialog; a new ask is the device speaking and lifts the yield. */
+  private yieldedToDialog = false;
+
+  /** When the stage last went off (ms since epoch) — the UI's exit
+   * animation trails this write, so a surface sequencing its own change
+   * after the exit keeps its beat for an off that just landed. */
+  private lastOffAt = 0;
+
+  getLastOffAt() {
+    return this.lastOffAt;
+  }
+
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
   ) {
@@ -434,9 +463,11 @@ export class DeviceStageBurstScope {
   }
 
   /**
-   * The stage plays every hardware interaction it owns — except while the
-   * firmware update workflow runs, which drives its own full page and
-   * stays outside the stage's scope.
+   * Whether the stage may HOLD a burst. Not while the firmware update
+   * workflow runs: the update page is the surface between interactions
+   * there, so wrappers hold nothing and app-authored cards do not land —
+   * but the device's own asks (PIN, confirm, passphrase) still play on
+   * the stage and leave on their close (OK-62087), see onHardwareUiEvent.
    */
   async isEnabled() {
     return !(await firmwareUpdateWorkflowRunningAtom.get());
@@ -505,7 +536,7 @@ export class DeviceStageBurstScope {
     }
     // No burst left to speak for — and noteStep dropped the pending exit
     // when it wrote the ✓. This is that burst's one exit.
-    this.scheduleOff();
+    this.scheduleOff(END_GRACE_MS);
   }
 
   /**
@@ -529,6 +560,7 @@ export class DeviceStageBurstScope {
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
       this.authoredAuthStep = undefined;
+      this.yieldedToDialog = false;
       // A fresh initiation makes its own presence finding — a device the
       // PREVIOUS burst heard from proves nothing about this one.
       this.sawDeviceEventThisBurst = false;
@@ -685,6 +717,7 @@ export class DeviceStageBurstScope {
       await this.touchActivity();
       return;
     }
+    this.yieldedToDialog = false;
     // The last layer is landing: any DeviceNotFound built after this
     // belongs to the legacy dialog again.
     setDeviceStageBurstActive(false);
@@ -748,7 +781,7 @@ export class DeviceStageBurstScope {
     // ask a device that never failed whether it is still there. The burst
     // still closes, only the outcome stays out.
     if (params.error && !isOneKeyHardwareError(params.error)) {
-      this.scheduleOff();
+      this.scheduleOff(END_GRACE_MS);
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
@@ -885,7 +918,7 @@ export class DeviceStageBurstScope {
         return;
       }
     }
-    this.scheduleOff();
+    this.scheduleOff(END_GRACE_MS);
   }
 
   /**
@@ -912,9 +945,12 @@ export class DeviceStageBurstScope {
     askCompleted?: boolean;
   }) {
     const dismissal = this.dismissSeq;
-    if (!(await this.isEnabled())) {
-      return;
-    }
+    // During the firmware update the page owns the screen between the
+    // device's asks (OK-62087): nothing holds a burst there (an
+    // onboarding hold may still stand behind the update — it counts for
+    // nothing here), a call-end close leaves instead of resting on
+    // `processing`, and the update's own narration takes the stage down.
+    const firmwareWorkflow = !(await this.isEnabled());
     const current = await deviceStageAtom.get();
     // The person closed the stage (or the firmware page took it) while
     // this event was reading: the ask it carries belongs to the call they
@@ -965,7 +1001,7 @@ export class DeviceStageBurstScope {
         // over a question the person is still reading.
         return;
       }
-      if (this.authoredAuthStep) {
+      if (this.authoredAuthStep && !firmwareWorkflow) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
         const isFailure = this.authoredAuthStep === 'authFailure';
@@ -984,10 +1020,50 @@ export class DeviceStageBurstScope {
         });
         return;
       }
-      if (this.depth > 0) {
+      if (this.depth > 0 && !firmwareWorkflow && !this.yieldedToDialog) {
         await this.setStep('processing', { connectId });
       } else {
-        this.scheduleOff();
+        // Forced through a foreign hold during the update: that hold
+        // never painted this beat and must not keep it. A yielded stage
+        // is already off; the timer finds nothing to take down.
+        this.scheduleOff(OFF_GRACE_MS, { force: firmwareWorkflow });
+      }
+      return;
+    }
+    const firmwareTipMessage = payload?.firmwareTipData?.message;
+    const firmwareProgress = payload?.firmwareProgress;
+    if (
+      (action === EHardwareUiStateAction.FIRMWARE_PROGRESS &&
+        !(typeof firmwareProgress === 'number' && firmwareProgress > 0)) ||
+      (action === EHardwareUiStateAction.FIRMWARE_TIP &&
+        firmwareTipMessage === EFirmwareUpdateTipMessages.InstallingFirmware)
+    ) {
+      // Still confirming. Pro 2 / Touch post the install's 0% tick and
+      // the InstallingFirmware tip right behind ConfirmOnDevice, before
+      // the person has pressed anything (the update page keeps its
+      // "confirm on device" line through the same beat) — neither is
+      // the transfer, so a standing confirm card stands. Nothing here
+      // paints either: only ConfirmOnDevice itself raises the card.
+      return;
+    }
+    if (
+      action === EHardwareUiStateAction.FIRMWARE_PROGRESS ||
+      (action === EHardwareUiStateAction.FIRMWARE_TIP &&
+        !isFirmwareConfirmTip(firmwareTipMessage)) ||
+      (firmwareWorkflow && action === EHardwareUiStateAction.DEVICE_PROGRESS)
+    ) {
+      // The update narrating itself — a reboot, a download, the transfer
+      // ticking — is the page's progress bar's story (OK-62087). A
+      // confirm the device was asking is answered by then and a wait has
+      // nothing left to wait for, so the stage steps aside for the page.
+      // An ask the device still makes (a PIN) and an outcome stand.
+      if (
+        current &&
+        (current.step === 'confirm' ||
+          PROGRESS_WRITABLE_STEPS.has(current.step))
+      ) {
+        this.clearOffTimer();
+        await this.forceOff({ force: true });
       }
       return;
     }
@@ -995,13 +1071,28 @@ export class DeviceStageBurstScope {
       !isDeviceStageOwnedHardwareUiAction({
         action,
         eventType: payload?.eventType,
+        firmwareTipMessage,
       })
     ) {
       return;
     }
-    const step = ACTION_TO_STEP[action];
+    // The install confirm tip is the device asking — REQUEST_BUTTON in a
+    // tip's clothing (see isFirmwareConfirmTip).
+    const step =
+      action === EHardwareUiStateAction.FIRMWARE_TIP
+        ? 'confirm'
+        : ACTION_TO_STEP[action];
     if (!step) {
       return;
+    }
+    if (this.yieldedToDialog) {
+      // Behind a dialog the stage yielded to, only the device asking
+      // again may paint — that lifts the yield; a wait is the
+      // interrupted call's straggler and stays off the dialog.
+      if (!ASK_STEPS.has(step)) {
+        return;
+      }
+      this.yieldedToDialog = false;
     }
     // An owned, non-close SDK event is the device speaking — the initial
     // search failing emits nothing, so this is the presence proof
@@ -1356,14 +1447,18 @@ export class DeviceStageBurstScope {
   /** PIN / passphrase handed to the device: hold the stage as processing
    * instead of the legacy close-then-reopen. */
   async noteInputSubmitted() {
-    if (!(await this.isEnabled())) {
-      return;
-    }
+    // Not gated on the firmware workflow: the card this answers was the
+    // device's own ask, which plays there too (OK-62087) — and no authored
+    // narrative can be standing behind an update.
+    const firmwareWorkflow = !(await this.isEnabled());
     const prev = await deviceStageAtom.get();
     if (!prev || prev.step === 'off') {
       return;
     }
-    await this.setStep(this.authoredAuthStep ?? 'processing', {});
+    await this.setStep(
+      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      {},
+    );
   }
 
   /**
@@ -1440,6 +1535,7 @@ export class DeviceStageBurstScope {
     this.clearPendingOpen();
     this.dismissSeq += 1;
     this.depth = 0;
+    this.yieldedToDialog = false;
     setDeviceStageBurstActive(false);
     this.explicitToken = undefined;
     this.explicitOpened = false;
@@ -1452,15 +1548,25 @@ export class DeviceStageBurstScope {
     await this.forceOff({ force: true });
   }
 
-  /** The firmware workflow is taking the screen (it drives its own full
-   * page, outside the stage's scope): whatever the stage shows leaves
-   * now, not at the end of the call that painted it. The burst's own
+  /** Another surface is taking the screen — the firmware workflow's own
+   * full page, or a dialog that must be answered over a live stage (the
+   * bootloader hand-off, OK-62105): whatever the stage shows leaves now,
+   * not at the end of the call that painted it. The burst's own
    * bookkeeping is untouched — its end() still releases the layer, and
-   * finds nothing left to take down. */
-  async silenceForFirmwareWorkflow() {
+   * finds nothing left to take down; a later beat from the same burst
+   * (the device speaking again) repaints as usual. */
+  async silence() {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
+    // The yield outlasts this write: the interrupted call's stragglers
+    // (its close, a trailing tick) are still crossing the event queue —
+    // on split-runtime targets from a bg queue the dialog's mount knows
+    // nothing about — and the burst behind them keeps `depth > 0`, so
+    // without this they repainted `processing` over the dialog. Lifted
+    // by the burst's own end, a user close, a new burst, or the device
+    // asking again (see onHardwareUiEvent).
+    this.yieldedToDialog = true;
     await this.forceOff({ force: true });
   }
 
@@ -1547,10 +1653,13 @@ export class DeviceStageBurstScope {
     });
   }
 
-  private scheduleOff(delayMs: number = OFF_GRACE_MS) {
+  private scheduleOff(
+    delayMs: number = OFF_GRACE_MS,
+    options: { force?: boolean } = {},
+  ) {
     this.clearOffTimer();
     this.offTimer = setTimeout(() => {
-      void this.forceOff();
+      void this.forceOff(options);
     }, delayMs);
   }
 
@@ -1590,6 +1699,7 @@ export class DeviceStageBurstScope {
       vendorModel: prev.vendorModel,
       vendorModelName: prev.vendorModelName,
     });
+    this.lastOffAt = Date.now();
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.
     appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);
