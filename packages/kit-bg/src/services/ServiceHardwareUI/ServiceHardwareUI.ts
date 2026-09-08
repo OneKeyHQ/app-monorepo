@@ -591,12 +591,13 @@ class ServiceHardwareUI extends ServiceBase {
 
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
 
-  /** The firmware workflow is taking the screen: the stage leaves (see
-   * DeviceStageBurst.silence) and so does any air-gap
+  /** The firmware workflow is starting: whatever the previous flow left
+   * on stage leaves (see DeviceStageBurst.silence) and so does any air-gap
    * scan it was hosting — the stage was that scan's only surface, and a
    * pending scan left behind would wait invisibly for its 30-minute expiry
    * while the update page ran. Rejected the way a user close rejects it;
-   * a no-op without a session. */
+   * a no-op without a session. The device's own asks during the update
+   * then play on the stage again (OK-62087). */
   async silenceDeviceStageForFirmwareWorkflow() {
     const stepAtSilence = (await deviceStageAtom.get())?.step;
     await this.deviceStageBurst.silence();
@@ -837,6 +838,12 @@ class ServiceHardwareUI extends ServiceBase {
     const stateAtClose = await deviceStageAtom.get();
     const stepAtClose = stateAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
+    // The lease is the whole operation's — during the firmware update
+    // that is the workflow itself, which owns its own recovery (a failed
+    // task lands Retry on the page). Closing an ask there cancels the
+    // device call only, as the legacy dialog's close did; aborting the
+    // lease would fail the workflow outright (OK-62087).
+    const firmwareWorkflow = await firmwareUpdateWorkflowRunningAtom.get();
     const cancelsDevice =
       skipDeviceCancel === undefined
         ? shouldCancelDeviceOnStageClose({
@@ -849,7 +856,7 @@ class ServiceHardwareUI extends ServiceBase {
       lease !== this.hardwareProcessingManager.getActiveOneKeyOperationLease()
     )
       return;
-    if (lease && cancelsDevice)
+    if (lease && cancelsDevice && !firmwareWorkflow)
       this.hardwareProcessingManager.cancelOneKeyOperation(lease);
     if (lease && connectId && !qrStepAtClose && cancelsDevice) {
       this.hardwareProcessingManager.cancelOperation(connectId);

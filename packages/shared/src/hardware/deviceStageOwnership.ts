@@ -1,3 +1,4 @@
+import { EFirmwareUpdateTipMessages } from '../../types/device';
 import { EHardwareUiStateAction } from '../../types/hardwareUi';
 
 import type { IDeviceStageStepValue } from '../../types/deviceStage';
@@ -7,7 +8,10 @@ import type { IDeviceStageStepValue } from '../../types/deviceStage';
  *
  * The stage replaced the popup surfaces for these; everything else still
  * belongs to the legacy container, and both sides read this one table so
- * an action can never be shown twice or by nobody.
+ * an action can never be shown twice or by nobody. The firmware update
+ * is no exception since OK-62087: the device's asks during an update play
+ * on the stage too — only the update's own narration (the tips and the
+ * transfer progress) stays with the page's progress bar.
  */
 const STAGE_OWNED_ACTIONS: ReadonlySet<string> = new Set([
   EHardwareUiStateAction.DeviceChecking,
@@ -20,24 +24,41 @@ const STAGE_OWNED_ACTIONS: ReadonlySet<string> = new Set([
   EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
 ]);
 
+/** The firmware tips that are device asks in disguise: the SDK posts
+ * ConfirmOnDevice (and, on Touch/Pro, InstallingFirmware right behind it)
+ * while the device waits for the person to approve the install — the
+ * beat REQUEST_BUTTON carries on Protocol V2 devices. Every other tip
+ * narrates the update and belongs to the page. */
+const FIRMWARE_CONFIRM_TIPS: ReadonlySet<string> = new Set([
+  EFirmwareUpdateTipMessages.ConfirmOnDevice,
+  EFirmwareUpdateTipMessages.InstallingFirmware,
+]);
+
+export function isFirmwareConfirmTip(message: string | undefined): boolean {
+  return Boolean(message) && FIRMWARE_CONFIRM_TIPS.has(message as string);
+}
+
 export function isDeviceStageOwnedHardwareUiAction({
   action,
   eventType,
-  firmwareUpdateRunning,
+  firmwareTipMessage,
 }: {
   action: string | undefined;
   eventType?: string;
-  /** The firmware update page owns its own surfaces start to finish — the
-   * stage stands down for the whole workflow (handover doc §01). */
-  firmwareUpdateRunning?: boolean;
+  /** FIRMWARE_TIP's message — the stage owns the tip only when it is the
+   * device's install confirm (see isFirmwareConfirmTip). */
+  firmwareTipMessage?: string;
 }): boolean {
-  if (!action || firmwareUpdateRunning) {
+  if (!action) {
     return false;
   }
   // Bluetooth pairing rides in on DeviceChecking, but it is a system
   // pairing prompt, explicitly outside the stage's scope.
   if (eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING) {
     return false;
+  }
+  if (action === EHardwareUiStateAction.FIRMWARE_TIP) {
+    return isFirmwareConfirmTip(firmwareTipMessage);
   }
   return STAGE_OWNED_ACTIONS.has(action);
 }

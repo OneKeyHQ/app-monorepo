@@ -19,6 +19,7 @@ import {
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
+  isFirmwareConfirmTip,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -445,9 +446,11 @@ export class DeviceStageBurstScope {
   }
 
   /**
-   * The stage plays every hardware interaction it owns — except while the
-   * firmware update workflow runs, which drives its own full page and
-   * stays outside the stage's scope.
+   * Whether the stage may HOLD a burst. Not while the firmware update
+   * workflow runs: the update page is the surface between interactions
+   * there, so wrappers hold nothing and app-authored cards do not land —
+   * but the device's own asks (PIN, confirm, passphrase) still play on
+   * the stage and leave on their close (OK-62087), see onHardwareUiEvent.
    */
   async isEnabled() {
     return !(await firmwareUpdateWorkflowRunningAtom.get());
@@ -923,9 +926,12 @@ export class DeviceStageBurstScope {
     askCompleted?: boolean;
   }) {
     const dismissal = this.dismissSeq;
-    if (!(await this.isEnabled())) {
-      return;
-    }
+    // During the firmware update the page owns the screen between the
+    // device's asks (OK-62087): nothing holds a burst there (an
+    // onboarding hold may still stand behind the update — it counts for
+    // nothing here), a call-end close leaves instead of resting on
+    // `processing`, and the update's own narration takes the stage down.
+    const firmwareWorkflow = !(await this.isEnabled());
     const current = await deviceStageAtom.get();
     // The person closed the stage (or the firmware page took it) while
     // this event was reading: the ask it carries belongs to the call they
@@ -976,7 +982,7 @@ export class DeviceStageBurstScope {
         // over a question the person is still reading.
         return;
       }
-      if (this.authoredAuthStep) {
+      if (this.authoredAuthStep && !firmwareWorkflow) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
         const isFailure = this.authoredAuthStep === 'authFailure';
@@ -995,10 +1001,34 @@ export class DeviceStageBurstScope {
         });
         return;
       }
-      if (this.depth > 0) {
+      if (this.depth > 0 && !firmwareWorkflow) {
         await this.setStep('processing', { connectId });
       } else {
-        this.scheduleOff();
+        // Forced through a foreign hold during the update: that hold
+        // never painted this beat and must not keep it.
+        this.scheduleOff(OFF_GRACE_MS, { force: firmwareWorkflow });
+      }
+      return;
+    }
+    const firmwareTipMessage = payload?.firmwareTipData?.message;
+    if (
+      action === EHardwareUiStateAction.FIRMWARE_PROGRESS ||
+      (action === EHardwareUiStateAction.FIRMWARE_TIP &&
+        !isFirmwareConfirmTip(firmwareTipMessage)) ||
+      (firmwareWorkflow && action === EHardwareUiStateAction.DEVICE_PROGRESS)
+    ) {
+      // The update narrating itself — a reboot, a download, the transfer
+      // ticking — is the page's progress bar's story (OK-62087). A
+      // confirm the device was asking is answered by then and a wait has
+      // nothing left to wait for, so the stage steps aside for the page.
+      // An ask the device still makes (a PIN) and an outcome stand.
+      if (
+        current &&
+        (current.step === 'confirm' ||
+          PROGRESS_WRITABLE_STEPS.has(current.step))
+      ) {
+        this.clearOffTimer();
+        await this.forceOff({ force: true });
       }
       return;
     }
@@ -1006,11 +1036,17 @@ export class DeviceStageBurstScope {
       !isDeviceStageOwnedHardwareUiAction({
         action,
         eventType: payload?.eventType,
+        firmwareTipMessage,
       })
     ) {
       return;
     }
-    const step = ACTION_TO_STEP[action];
+    // The install confirm tip is the device asking — REQUEST_BUTTON in a
+    // tip's clothing (see isFirmwareConfirmTip).
+    const step =
+      action === EHardwareUiStateAction.FIRMWARE_TIP
+        ? 'confirm'
+        : ACTION_TO_STEP[action];
     if (!step) {
       return;
     }
@@ -1367,14 +1403,18 @@ export class DeviceStageBurstScope {
   /** PIN / passphrase handed to the device: hold the stage as processing
    * instead of the legacy close-then-reopen. */
   async noteInputSubmitted() {
-    if (!(await this.isEnabled())) {
-      return;
-    }
+    // Not gated on the firmware workflow: the card this answers was the
+    // device's own ask, which plays there too (OK-62087) — and no authored
+    // narrative can be standing behind an update.
+    const firmwareWorkflow = !(await this.isEnabled());
     const prev = await deviceStageAtom.get();
     if (!prev || prev.step === 'off') {
       return;
     }
-    await this.setStep(this.authoredAuthStep ?? 'processing', {});
+    await this.setStep(
+      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      {},
+    );
   }
 
   /**
@@ -1560,10 +1600,13 @@ export class DeviceStageBurstScope {
     });
   }
 
-  private scheduleOff(delayMs: number = OFF_GRACE_MS) {
+  private scheduleOff(
+    delayMs: number = OFF_GRACE_MS,
+    options: { force?: boolean } = {},
+  ) {
     this.clearOffTimer();
     this.offTimer = setTimeout(() => {
-      void this.forceOff();
+      void this.forceOff(options);
     }, delayMs);
   }
 
