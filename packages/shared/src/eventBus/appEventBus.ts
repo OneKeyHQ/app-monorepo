@@ -666,6 +666,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
   [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
+  [EAppEventBusNames.DevLargeWalletDataCreationProgress]: {
+    isRunning: boolean;
+    walletIndex: number;
+    walletsCreated: number;
+    walletsTotal: number;
+    accountsCreatedInWallet: number;
+    accountsPerWallet: number;
+    accountsCreated: number;
+    accountsTotal: number;
+  };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;
