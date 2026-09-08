@@ -49,6 +49,7 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   getDenyBridgeProviderString,
@@ -145,7 +146,6 @@ import {
 } from './ServiceSwap.utils';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
-  isSwapTxHistoryStatusTerminal,
   mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
   shouldShowSwapHistoryStatusToast,
@@ -442,7 +442,7 @@ function getPrivateSendAnalyticsFinalStatus(status: ESwapTxHistoryStatus) {
   ) {
     return 'done';
   }
-  return isSwapTxHistoryStatusTerminal(status) ? 'failed' : undefined;
+  return isSwapHistoryTerminalStatus(status) ? 'failed' : undefined;
 }
 
 function getPrivateSendHistoryDurationSeconds(swapTxHistory: ISwapTxHistory) {
@@ -472,7 +472,7 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 }) {
   if (
     !isPrivateSendHistory ||
-    isSwapTxHistoryStatusTerminal(previousSwapTxHistory.status)
+    isSwapHistoryTerminalStatus(previousSwapTxHistory.status)
   ) {
     return;
   }
@@ -2928,7 +2928,7 @@ export default class ServiceSwap extends ServiceBase {
         const rawStatus = txStatusRes.state;
         const shouldPreserveExistingExtraStatus =
           fetchResult?.shouldPreserveExistingExtraStatus &&
-          !isSwapTxHistoryStatusTerminal(rawStatus);
+          !isSwapHistoryTerminalStatus(rawStatus);
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: rawStatus,
@@ -2987,6 +2987,8 @@ export default class ServiceSwap extends ServiceBase {
         });
         if (
           finalStatus === ESwapTxHistoryStatus.FAILED ||
+          finalStatus === ESwapTxHistoryStatus.REFUNDED ||
+          finalStatus === ESwapTxHistoryStatus.EXPIRED ||
           finalStatus === ESwapTxHistoryStatus.CANCELED
         ) {
           await this.clearLocalPendingTxForTerminalSwap(currentSwapTxHistory);
@@ -3009,7 +3011,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (isSwapTxHistoryStatusTerminal(finalStatus)) {
+        if (isSwapHistoryTerminalStatus(finalStatus)) {
           enableInterval = false;
           await this.cleanSwapHistoryStateIntervals(
             previousSwapTxHistory,

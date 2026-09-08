@@ -19,7 +19,7 @@ describe('Image optimization', () => {
     expect(result.optimized).toBe(true);
     expect(result.rawSource).toBe(resolvedSource);
     expect(result.source?.uri).toBe(
-      'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_48',
+      'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_96',
     );
   });
 
@@ -58,7 +58,7 @@ describe('Image optimization', () => {
 
     expect(result.optimized).toBe(true);
     expect(result.source?.uri).toBe(
-      'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_256',
+      'https://uni.onekey-asset.com/icons/token.png?x-tos-process=image%2Fresize%2Cw_384',
     );
   });
 
@@ -113,7 +113,7 @@ describe('Image optimization', () => {
 
     expect(result.optimized).toBe(true);
     expect(result.source?.uri).toBe(
-      'https://uni.onekey-asset.com/icons/poster.png?x-tos-process=image%2Fresize%2Cw_320',
+      'https://uni.onekey-asset.com/icons/poster.png?x-tos-process=image%2Fresize%2Cw_384',
     );
   });
 

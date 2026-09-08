@@ -11,6 +11,7 @@ import type {
 } from '../TradingViewChartControls/chartSettings';
 
 type IDialogConfig = {
+  onOpenAutoFocus?: (event: Event) => void;
   floatingPanelProps: {
     maxWidth: number | string;
     width: number | string;
@@ -38,6 +39,36 @@ jest.mock('../TradingViewChartControls/chartSettings', () => ({
 describe('showTradingViewNativeIndicatorSettingsDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('moves opening focus to the container and leaves inputs available for manual focus', () => {
+    showTradingViewNativeIndicatorSettingsDialog({
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm: jest.fn(),
+      value: { indicators: [], schemaVersion: 1 },
+    });
+    const { onOpenAutoFocus } = mockShowDialog.mock.calls[0][0];
+    const trigger = document.createElement('button');
+    const container = document.createElement('div');
+    const input = document.createElement('input');
+    container.append(input);
+    document.body.append(trigger, container);
+    trigger.focus();
+
+    const event = new Event('dialog-open', { cancelable: true });
+    container.addEventListener('dialog-open', (openEvent) =>
+      onOpenAutoFocus?.(openEvent),
+    );
+    container.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(container);
+    expect(container.tabIndex).toBe(-1);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    container.remove();
+    trigger.remove();
   });
 
   it('closes only after the child has committed a successful confirmation', async () => {

@@ -3,7 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, useMedia } from '@onekeyhq/components';
-import { TradingViewChartSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import {
+  TradingViewChartSettings,
+  showTradingViewChartSettingsDialog,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import type {
   ITradingViewChartSettingsProps,
   ITradingViewChartSettingsValue,
@@ -36,9 +39,15 @@ const NON_NATIVE_HIDDEN_OPTION_IDS = [
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
 
-export default function MarketChartSettingsModal() {
-  const intl = useIntl();
-  const { md } = useMedia();
+function MarketChartSettingsContent({
+  mobileLayout = false,
+  usePageFooter = false,
+  onClose,
+}: {
+  mobileLayout?: boolean;
+  usePageFooter?: boolean;
+  onClose?: () => void;
+}) {
   const [chartSettings, setChartSettings] =
     useMarketTradingViewChartSettingsPersistAtom();
   const settingsValue = useMemo(
@@ -61,25 +70,44 @@ export default function MarketChartSettingsModal() {
   );
 
   return (
+    <TradingViewChartSettings
+      value={settingsValue}
+      usePageFooter={usePageFooter}
+      mobileLayout={mobileLayout}
+      showChartType={mobileLayout}
+      hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
+      hiddenOptionIds={
+        platformEnv.isNative
+          ? NATIVE_HIDDEN_OPTION_IDS
+          : NON_NATIVE_HIDDEN_OPTION_IDS
+      }
+      onChange={mobileLayout ? handleMobileSettingsChange : undefined}
+      onConfirm={updateChartSettings}
+      onCancel={onClose}
+      onConfirmSuccess={onClose}
+    />
+  );
+}
+
+export function showMarketChartSettingsDialog() {
+  return showTradingViewChartSettingsDialog({
+    renderContent: (closeDialog) => (
+      <MarketChartSettingsContent onClose={closeDialog} />
+    ),
+  });
+}
+
+export default function MarketChartSettingsModal() {
+  const intl = useIntl();
+  const { md } = useMedia();
+
+  return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
       />
       <Page.Body minHeight={0}>
-        <TradingViewChartSettings
-          value={settingsValue}
-          usePageFooter={!md}
-          mobileLayout={md}
-          showChartType={md}
-          hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
-          hiddenOptionIds={
-            platformEnv.isNative
-              ? NATIVE_HIDDEN_OPTION_IDS
-              : NON_NATIVE_HIDDEN_OPTION_IDS
-          }
-          onChange={md ? handleMobileSettingsChange : undefined}
-          onConfirm={updateChartSettings}
-        />
+        <MarketChartSettingsContent usePageFooter={!md} mobileLayout={md} />
       </Page.Body>
     </Page>
   );
