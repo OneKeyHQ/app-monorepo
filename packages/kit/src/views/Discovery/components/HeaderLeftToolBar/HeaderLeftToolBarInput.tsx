@@ -186,8 +186,9 @@ function HeaderLeftToolBarInput({
         testID="explore-index-search-input"
         onFocus={() => setIsPopoverOpen(true)}
         // RN-web maps onKeyPress to keydown; do not also bind onKeyDown.
-        // @ts-expect-error
         onKeyPress={handleKeyDown}
+        // Ignored IME confirm Enter does not preventDefault; skip RN-web auto-blur.
+        blurOnSubmit={false}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
         addOns={[

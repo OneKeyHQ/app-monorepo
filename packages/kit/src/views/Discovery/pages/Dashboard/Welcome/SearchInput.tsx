@@ -201,8 +201,9 @@ export function SearchInput({ tabId }: { tabId?: string }) {
                 bg: 'transparent',
               }}
               // RN-web maps onKeyPress to keydown; do not also bind onKeyDown.
-              // @ts-expect-error
               onKeyPress={handleKeyDown}
+              // Ignored IME confirm Enter does not preventDefault; skip RN-web auto-blur.
+              blurOnSubmit={false}
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
               testID="search-input"

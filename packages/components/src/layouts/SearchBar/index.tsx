@@ -119,7 +119,9 @@ export function SearchBar({
     NonNullable<IInputProps['onSubmitEditing']>
   >(
     (event) => {
-      if (compositionLock.shouldIgnoreKeyboardEvent(event)) {
+      // RN-web already drops composing/229 Enter before onSubmitEditing.
+      // The lock covers the confirm key that arrives after compositionend.
+      if (compositionLock.isLocked()) {
         return;
       }
       onSubmitEditing?.(event);
