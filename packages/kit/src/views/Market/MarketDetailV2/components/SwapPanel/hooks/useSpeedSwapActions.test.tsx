@@ -680,6 +680,42 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('blocks automatic quotes, manual refresh and review until the current pair is ready', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const { result, rerender } = renderSwapHook(
+      ({ executionReady }: { executionReady: boolean }) =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          executionReady,
+        }),
+      { initialProps: { executionReady: false } },
+    );
+
+    await act(async () => {
+      result.current.forceRefreshMarketQuote();
+      await expect(result.current.prepareMarketSwapReview()).rejects.toThrow(
+        'Market trade pair is not ready.',
+      );
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+
+    rerender({ executionReady: true });
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+
+    mockCancelFetchQuoteEvents.mockClear();
+    rerender({ executionReady: false });
+    await waitFor(() => {
+      expect(mockCancelFetchQuoteEvents).toHaveBeenCalled();
+    });
+    act(() => {
+      result.current.forceRefreshMarketQuote();
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+  });
+
   it('re-requests the provider quote when a stock live-open state changes', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([]);
 
