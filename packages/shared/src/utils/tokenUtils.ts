@@ -318,16 +318,45 @@ export function getFilteredTokenBySearchKey({
         .filter((token) => token.isAggregateToken)
         .map((token) => token.$key),
     );
-    const aggregateTokens = Object.entries(aggregateTokenListMap ?? {})
-      .filter(([aggregateKey]) => presentAggregateKeys.has(aggregateKey))
-      .flatMap(([, aggregate]) => aggregate.tokens);
-
-    const filteredSearchTokenList = searchTokenList.filter(
-      (token) =>
-        !aggregateTokens.find(
-          (t) => t.address === token.address && t.networkId === token.networkId,
-        ),
+    const aggregateTokens: IAccountToken[] = [];
+    // Members of ABSENT aggregates keep their backend hits as plain rows;
+    // remember their config `order` so those rows rank the way the server
+    // lists the members (Robinhood first for USDG) instead of backend order.
+    const buildMemberKey = (token: IAccountToken) =>
+      `${token.address}_${token.networkId ?? ''}`;
+    const absentMemberOrderByKey = new Map<string, number>();
+    Object.entries(aggregateTokenListMap ?? {}).forEach(
+      ([aggregateKey, aggregate]) => {
+        if (presentAggregateKeys.has(aggregateKey)) {
+          aggregateTokens.push(...aggregate.tokens);
+          return;
+        }
+        aggregate.tokens.forEach((member) => {
+          if (!isNil(member.order)) {
+            absentMemberOrderByKey.set(buildMemberKey(member), member.order);
+          }
+        });
+      },
     );
+
+    const filteredSearchTokenList = searchTokenList
+      .filter(
+        (token) =>
+          !aggregateTokens.find(
+            (t) =>
+              t.address === token.address && t.networkId === token.networkId,
+          ),
+      )
+      .map((token, index) => ({
+        token,
+        index,
+        order:
+          absentMemberOrderByKey.get(buildMemberKey(token)) ??
+          Number.MAX_SAFE_INTEGER,
+      }))
+      // Config-ordered member hits first, everything else keeps backend order.
+      .sort((a, b) => a.order - b.order || a.index - b.index)
+      .map(({ token }) => token);
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);
     mergedTokens = uniqBy(
@@ -473,16 +502,23 @@ export function getFilteredTokenBySearchKey({
 
   if (tokenFiatMap) {
     results.sort((a, b) => {
-      if (a.strength !== b.strength) return a.strength - b.strength;
-      // Exact symbol hits ("usdt" → USDT) outrank includes hits (aUSDT) even
-      // when the includes hit carries more fiat value.
+      // An exact symbol hit ("eth" → ETH, "usdt" → USDT) is the token the
+      // user typed, so it outranks every includes hit (aUSDT) and every
+      // network-only hit regardless of match strength or fiat: otherwise
+      // "eth" buries ETH on other chains under every held token whose only
+      // match is the Ethereum network name.
       if (a.exactSymbolHit !== b.exactSymbolHit) {
         return a.exactSymbolHit ? -1 : 1;
       }
-      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
-      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
-      return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
-        fa.isNaN() ? new BigNumber(-1) : fa,
+      if (a.strength !== b.strength) return a.strength - b.strength;
+      // A row without a fiat record (network disabled under All Networks, or
+      // a backend hit) renders as zero, so it must rank as zero too — ranking
+      // it below the zero-record rows would push a disabled network's member
+      // behind every enabled one regardless of config order.
+      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? 0);
+      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? 0);
+      return (fb.isNaN() ? new BigNumber(0) : fb).comparedTo(
+        fa.isNaN() ? new BigNumber(0) : fa,
       );
     });
   }

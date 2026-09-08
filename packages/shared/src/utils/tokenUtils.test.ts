@@ -1562,3 +1562,194 @@ describe('getFilteredTokenBySearchKey — backend hits of aggregates without a r
     ]);
   });
 });
+
+describe('getFilteredTokenBySearchKey — exact symbol hits outrank network-only hits (Receive flatten)', () => {
+  const ethereum = buildTestNetwork({
+    id: 'evm--1',
+    name: 'Ethereum',
+    code: 'eth',
+    shortname: 'ETH',
+  });
+  const robinhood = buildTestNetwork({
+    id: 'evm--4663',
+    name: 'Robinhood',
+    code: 'robinhood',
+    shortname: 'Robinhood',
+  });
+  const networksMap = { 'evm--1': ethereum, 'evm--4663': robinhood };
+  const ethOnEthereum = buildTestToken({
+    $key: 'eth-native',
+    address: '',
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  const ethOnRobinhood = buildTestToken({
+    $key: 'robinhood-native',
+    address: '',
+    networkId: 'evm--4663',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  // Held Ethereum token whose own fields do not contain "eth": it matches
+  // only through the network name.
+  const usdtOnEthereum = buildTestToken({
+    $key: 'eth-usdt',
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    networkId: 'evm--1',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const tokenFiatMap = {
+    [ethOnEthereum.$key]: { fiatValue: '0.5' } as ITokenFiat,
+    [usdtOnEthereum.$key]: { fiatValue: '100' } as ITokenFiat,
+    [ethOnRobinhood.$key]: { fiatValue: '0' } as ITokenFiat,
+  };
+
+  test('"eth" lists ETH on every chain before other tokens that only hit the Ethereum network name', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [usdtOnEthereum, ethOnEthereum, ethOnRobinhood],
+        searchKey: 'eth',
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethOnEthereum, ethOnRobinhood, usdtOnEthereum]);
+  });
+});
+
+describe('getFilteredTokenBySearchKey — zero-balance ranking keeps config order (Receive flatten)', () => {
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'evm--4663': buildTestNetwork({
+      id: 'evm--4663',
+      name: 'Robinhood',
+      code: 'robinhood',
+      shortname: 'Robinhood',
+    }),
+    'evm--8453': buildTestNetwork({
+      id: 'evm--8453',
+      name: 'Base',
+      code: 'base',
+      shortname: 'Base',
+    }),
+  };
+  const aggregateEth = buildTestToken({
+    $key: 'aggregate_ETH_',
+    address: 'aggregate_ETH_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'ETH',
+    name: 'Ethereum',
+    commonSymbol: 'ETH',
+  });
+  const ethOnEthereum = buildTestToken({
+    $key: 'eth-evm--1',
+    address: '',
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    order: 1,
+  });
+  // Disabled under All Networks: never fanned out, so it has NO fiat record.
+  const ethOnRobinhood = buildTestToken({
+    $key: 'eth-evm--4663',
+    address: '',
+    networkId: 'evm--4663',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    order: 2,
+  });
+  // Enabled but empty: the fan-out wrote a zero fiat record.
+  const ethOnBase = buildTestToken({
+    $key: 'eth-evm--8453',
+    address: '',
+    networkId: 'evm--8453',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    order: 3,
+  });
+
+  test('a member without a fiat record ranks as zero, not below the zero-record members', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth',
+        aggregateTokenListMap: {
+          [aggregateEth.$key]: {
+            tokens: [ethOnEthereum, ethOnRobinhood, ethOnBase],
+          },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap: {
+          [ethOnEthereum.$key]: { fiatValue: '0.5' } as ITokenFiat,
+          [ethOnBase.$key]: { fiatValue: '0' } as ITokenFiat,
+        },
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethOnEthereum, ethOnRobinhood, ethOnBase]);
+  });
+
+  test('backend hits kept for an absent aggregate follow the member config order', () => {
+    const usdgEthereumMember = buildTestToken({
+      $key: 'usdg-evm--1',
+      address: '0xe343167631d89b6ffc58b88d6b7fb0228795491d',
+      networkId: 'evm--1',
+      symbol: 'USDG',
+      order: 3,
+    });
+    const usdgRobinhoodMember = buildTestToken({
+      $key: 'usdg-evm--4663',
+      address: '0x5fc5360d0400b1c8f9e8cd7d3b3a6a2f5fbb8d3e',
+      networkId: 'evm--4663',
+      symbol: 'USDG',
+      order: 1,
+    });
+    // Backend returns Ethereum first; Mantle is not a config member at all.
+    const hitEthereum = buildTestToken({
+      $key: 'evm--1_usdg',
+      address: usdgEthereumMember.address,
+      networkId: 'evm--1',
+      symbol: 'USDG',
+    });
+    const hitRobinhood = buildTestToken({
+      $key: 'evm--4663_usdg',
+      address: usdgRobinhoodMember.address,
+      networkId: 'evm--4663',
+      symbol: 'USDG',
+    });
+    const hitMantle = buildTestToken({
+      $key: 'evm--5000_usdg',
+      address: '0x063c1d1ef6e9f4c3a2b1d0e9f8a7b6c5d4e3f2a1',
+      networkId: 'evm--5000',
+      symbol: 'USDG',
+    });
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [],
+        searchKey: 'usdg',
+        searchAll: true,
+        searchTokenList: [hitEthereum, hitMantle, hitRobinhood],
+        aggregateTokenListMap: {
+          'aggregate_USDG_': {
+            tokens: [usdgRobinhoodMember, usdgEthereumMember],
+          },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap: {},
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([hitRobinhood, hitEthereum, hitMantle]);
+  });
+});
