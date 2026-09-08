@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Transação revertida on-chain",
   "word": "Palavra",
   "your_device_is_ready": "Seu dispositivo está pronto",
-  "your_wallet_is_ready": "Sua carteira está pronta"
+  "your_wallet_is_ready": "Sua carteira está pronta",
+  "perp_twap_orders__title": "Ordem TWAP"
 }

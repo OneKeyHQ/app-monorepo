@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "トランザクションがオンチェーンで巻き戻されました",
   "word": "ワード",
   "your_device_is_ready": "デバイスの準備ができました",
-  "your_wallet_is_ready": "ウォレットの準備が整いました"
+  "your_wallet_is_ready": "ウォレットの準備が整いました",
+  "perp_twap_orders__title": "TWAP注文"
 }

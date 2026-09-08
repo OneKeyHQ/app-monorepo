@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Giao dịch đã bị hoàn tác trên chuỗi",
   "word": "Từ",
   "your_device_is_ready": "Thiết bị của bạn đã sẵn sàng",
-  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng"
+  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng",
+  "perp_twap_orders__title": "Lệnh TWAP"
 }

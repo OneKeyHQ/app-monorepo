@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Transazione annullata on-chain",
   "word": "Parola",
   "your_device_is_ready": "Il tuo dispositivo è pronto",
-  "your_wallet_is_ready": "Il tuo portafoglio è pronto"
+  "your_wallet_is_ready": "Il tuo portafoglio è pronto",
+  "perp_twap_orders__title": "Ordine TWAP"
 }

@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Транзакцію скасовано в мережі",
   "word": "Слово",
   "your_device_is_ready": "Ваш пристрій готовий",
-  "your_wallet_is_ready": "Ваш гаманець готовий"
+  "your_wallet_is_ready": "Ваш гаманець готовий",
+  "perp_twap_orders__title": "TWAP-ордер"
 }

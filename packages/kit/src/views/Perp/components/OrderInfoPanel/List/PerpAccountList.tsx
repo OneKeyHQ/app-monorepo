@@ -23,6 +23,7 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { usePerpDepositOrder } from '../../../hooks/usePerpDeposit';
 import { AccountRow } from '../Components/AccountRow';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -216,6 +217,16 @@ function PerpAccountList({
       // If account has no Perp address (unsupported or not created),
       // show empty state instead of skeleton loading.
       listLoading={currentUser?.accountAddress ? !isLoaded : false}
+      ListEmptyComponent={
+        isMobile ? (
+          <PerpMobileEmptyState
+            contentOffsetY={-96}
+            title={intl.formatMessage({
+              id: ETranslations.perp_trade_history_empty,
+            })}
+          />
+        ) : undefined
+      }
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}

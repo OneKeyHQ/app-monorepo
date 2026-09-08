@@ -2885,7 +2885,7 @@
   "perp.account_create": "Please create an EVM address for this account",
   "perp.account_cross_margin_ration": "Cross Margin Ration",
   "perp.account_cross_margin_ration_tip": "The lower the Margin Ratio, the lower your liquidation level will be relative to your position size. Your positions will be liquidated once Margin Ratio reaches 100%.",
-  "perp.account_history": "Account history",
+  "perp.account_history": "Account History",
   "perp.account_history_liquidation": "Liquidation",
   "perp.account_panel_account_maintenance_margin": "Maintenance Margin",
   "perp.account_panel_account_maintenance_margin_tooltip": "Maintenance Margin is the minimum amount of margin balance required to keep your open cross positions.",
@@ -2991,7 +2991,7 @@
   "perp.open_orders_original_size": "Original Size",
   "perp.open_orders_size": "Size",
   "perp.open_orders_time": "Time",
-  "perp.open_orders_title": "Open orders",
+  "perp.open_orders_title": "Open Orders",
   "perp.open_orders_trigger_condition": "Trigger Condition",
   "perp.open_orders_type": "Type",
   "perp.open_orders_value": "Value",
@@ -3153,7 +3153,7 @@
   "perp.trades_history_direction": "Direction",
   "perp.trades_history_fee": "Fee",
   "perp.trades_history_price": "Price",
-  "perp.trades_history_title": "Trades history",
+  "perp.trades_history_title": "Trades History",
   "perp.trades_history_trade_value": "Trade Value",
   "perp.trading_adjust_leverage": "Adjust Leverage",
   "perp.trading_button_no_enough_margin": "Add Margin",
@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Transaction reverted on chain",
   "word": "Word",
   "your_device_is_ready": "Your device is ready",
-  "your_wallet_is_ready": "Your wallet is ready"
+  "your_wallet_is_ready": "Your wallet is ready",
+  "perp_twap_orders__title": "TWAP Orders"
 }
