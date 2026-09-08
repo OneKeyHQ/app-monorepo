@@ -503,7 +503,7 @@ const showActionList = (
         pageContextValue?: ReturnType<typeof usePageContext>;
       }
     | undefined,
-): IActionListShowHandle => {
+): IActionListShowHandle & { closeImmediately: () => void } => {
   const { modalNavigatorContext, pageContextValue } = contexts || {};
   const { onClose, triggerPosition, triggerRect, ...restProps } = props;
   dismissKeyboard();
@@ -610,7 +610,10 @@ const showActionList = (
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );
-  return { close: lifecycle.close };
+  return {
+    close: lifecycle.close,
+    closeImmediately: lifecycle.closeImmediately,
+  };
 };
 function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
@@ -652,7 +655,7 @@ function ActionListFrame(props: IActionListProps) {
 // Imperative action lists share one overlay slot; newer calls replace the active one.
 let imperativeActionList: ReturnType<typeof showActionList> | undefined;
 const show = (props: IShowActionListParams): IActionListShowHandle => {
-  imperativeActionList?.close();
+  imperativeActionList?.closeImmediately();
   imperativeActionList = showActionList(props, undefined);
   return imperativeActionList;
 };

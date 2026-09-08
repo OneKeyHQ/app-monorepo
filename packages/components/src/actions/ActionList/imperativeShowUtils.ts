@@ -39,6 +39,13 @@ export function createImperativeActionListLifecycle({
   schedule?: (callback: () => void, delay: number) => void;
 }) {
   let isClosed = false;
+  let isDestroyed = false;
+
+  const destroyOnce = () => {
+    if (isDestroyed) return;
+    isDestroyed = true;
+    destroy();
+  };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isClosed) {
@@ -54,12 +61,16 @@ export function createImperativeActionListLifecycle({
     if (onClose) {
       schedule(onClose, 0);
     }
-    schedule(destroy, CLOSE_ANIMATION_DURATION);
+    schedule(destroyOnce, CLOSE_ANIMATION_DURATION);
   };
 
   return {
     handleOpenChange,
     close: () => handleOpenChange(false),
+    closeImmediately: () => {
+      handleOpenChange(false);
+      destroyOnce();
+    },
   };
 }
 

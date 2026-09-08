@@ -141,6 +141,19 @@ function UnifiedNetworkSelectorV2() {
   });
 
   const enabledNetworksInit = useRef(false);
+  const hasLocalNetworkChanges = useRef(false);
+
+  useEffect(() => {
+    hasLocalNetworkChanges.current = false;
+  }, [accountId, walletId]);
+
+  const updateNetworksSelection = useCallback<typeof setNetworksState>(
+    (value) => {
+      hasLocalNetworkChanges.current = true;
+      setNetworksState(value);
+    },
+    [],
+  );
 
   const [originalEnabledNetworks, setOriginalEnabledNetworks] = useState<
     IServerNetworkMatch[]
@@ -250,12 +263,12 @@ function UnifiedNetworkSelectorV2() {
     void preloadNetworkImagesV2(networks.allNetworks);
   }, [networks.allNetworks]);
 
-  // Keep networksState in sync with revalidation. The seed above handles
-  // first paint; this effect picks up later updates from the SWR fetch.
+  // Revalidation may refresh the initial selection, but must not overwrite
+  // edits made while cached networks are already interactive.
   useEffect(() => {
-    if (!networkMeta) return;
+    if (!networkMeta || hasLocalNetworkChanges.current) return;
     setNetworksState(networkMeta.allNetworksState);
-  }, [networkMeta]);
+  }, [accountId, networkMeta, walletId]);
 
   // Keep the summary and checkboxes in the same render as the selection change.
   const enabledNetworks = useMemo(
@@ -443,10 +456,8 @@ function UnifiedNetworkSelectorV2() {
       onSuccess: async (network: IServerNetwork) => {
         if (activeTabRef.current === 'portfolio') {
           // Portfolio tab: enable the new network and persist to backend.
-          // Persist first to avoid race condition: refreshNetworkMeta
-          // (triggered by AddedCustomNetwork event) fetches backend state
-          // and overwrites local state. By persisting before the event,
-          // the backend already includes the enabled state.
+          // Persist before publishing the refresh event so the refreshed
+          // cache also includes the new network's enabled state.
           const newEnabledNetworks = {
             ...networksState.enabledNetworks,
             [network.id]: true,
@@ -455,7 +466,7 @@ function UnifiedNetworkSelectorV2() {
             ...networksState.disabledNetworks,
             [network.id]: false,
           };
-          setNetworksState({
+          updateNetworksSelection({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
           });
@@ -471,7 +482,14 @@ function UnifiedNetworkSelectorV2() {
         }
       },
     });
-  }, [navigation, handleNetworkPressItem, networksState, walletId, accountId]);
+  }, [
+    navigation,
+    handleNetworkPressItem,
+    networksState,
+    updateNetworksSelection,
+    walletId,
+    accountId,
+  ]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
@@ -707,7 +725,7 @@ function UnifiedNetworkSelectorV2() {
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
                   networksState={networksState}
-                  setNetworksState={setNetworksState}
+                  setNetworksState={updateNetworksSelection}
                   enabledNetworks={enabledNetworks}
                   searchKey={searchKey}
                   setSearchKey={setSearchKey}
@@ -748,7 +766,7 @@ function UnifiedNetworkSelectorV2() {
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
                   networksState={networksState}
-                  setNetworksState={setNetworksState}
+                  setNetworksState={updateNetworksSelection}
                   enabledNetworks={enabledNetworks}
                   searchKey={searchKey}
                   setSearchKey={setSearchKey}

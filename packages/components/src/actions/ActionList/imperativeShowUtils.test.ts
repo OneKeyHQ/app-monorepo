@@ -91,6 +91,37 @@ describe('imperative ActionList geometry', () => {
 });
 
 describe('imperative ActionList lifecycle', () => {
+  it.each([false, true])(
+    'removes a replaced overlay immediately (already closing: %s)',
+    (alreadyClosing) => {
+      const onOpenChange = jest.fn();
+      const onClose = jest.fn();
+      const destroy = jest.fn();
+      const scheduled: Array<() => void> = [];
+      const lifecycle = createImperativeActionListLifecycle({
+        onOpenChange,
+        onClose,
+        destroy,
+        schedule: (callback) => scheduled.push(callback),
+      });
+
+      if (alreadyClosing) lifecycle.close();
+      lifecycle.closeImmediately();
+
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(onOpenChange).toHaveBeenCalledTimes(1);
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+
+      lifecycle.closeImmediately();
+      lifecycle.close();
+      scheduled.forEach((callback) => callback());
+
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onOpenChange).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('prevents the focus scope from restoring focus to the proxy trigger', () => {
     const event = { preventDefault: jest.fn() };
 
