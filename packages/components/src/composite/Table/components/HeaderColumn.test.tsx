@@ -18,6 +18,30 @@ jest.mock('../hooks', () => ({
   useSortIcon: () => ({ renderSortIcon: () => null }),
 }));
 
+// Both reach platformEnv through the overlay stack, which this environment
+// does not stand up; the tooltip's wiring is what these cases assert, not its
+// rendering.
+jest.mock('../../../actions/Tooltip', () => ({
+  Tooltip: ({
+    renderTrigger,
+    renderContent,
+    onPress,
+  }: {
+    renderTrigger?: ReactNode;
+    renderContent?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <span data-testid="title-tooltip" onClick={onPress} role="presentation">
+      {renderTrigger}
+      {renderContent}
+    </span>
+  ),
+}));
+
+jest.mock('../../../content/DashText', () => ({
+  DashText: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+}));
+
 jest.mock('./Column', () => ({
   Column: ({
     children,
@@ -127,5 +151,32 @@ describe('HeaderColumn', () => {
     await waitFor(() => {
       expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.ASC);
     });
+  });
+  it('sorts from the tooltip trigger, which owns the press', () => {
+    const onSortTypeChange = jest.fn();
+    const onHeaderRow: ITableProps<IRow>['onHeaderRow'] = () => ({
+      onSortTypeChange,
+    });
+    const tooltipColumn: ITableColumn<IRow> = {
+      dataIndex: 'price',
+      title: 'Price',
+      titleTooltip: 'The underlying share price.',
+    };
+    const props = {
+      column: tooltipColumn,
+      index: 0,
+      selectedColumnName: '',
+      onChangeSelectedName: jest.fn(),
+      onHeaderRow,
+    };
+    render(<HeaderColumn {...props} />);
+
+    // A trigger nested in the title would consume this click and the column
+    // would never sort.
+    fireEvent.click(screen.getByTestId('title-tooltip'));
+
+    return waitFor(() =>
+      expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.DESC),
+    );
   });
 });

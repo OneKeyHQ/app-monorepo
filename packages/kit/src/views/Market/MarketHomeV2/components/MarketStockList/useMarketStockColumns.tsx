@@ -3,13 +3,11 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DashText,
   Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -228,37 +226,16 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: compact ? (
-          <Tooltip
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                dashThickness={0.5}
-                dashSpacing={0}
-                color="$textSubdued"
-                // The header still sorts on press; the dashes and the tooltip
-                // are the hover affordance, so the cursor stays a pointer.
-                cursor="pointer"
-              >
-                {intl.formatMessage({ id: ETranslations.global_price })}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.market_stock_price_underlying_tooltip,
-                })}
-              </SizableText>
-            }
-            placement="top"
-          />
-        ) : (
-          intl.formatMessage({ id: ETranslations.global_price })
-        ),
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        // The header sorts on press, so the tooltip is built by HeaderColumn
+        // rather than nested in the title: a trigger in there would swallow
+        // the click.
+        titleTooltip: intl.formatMessage({
+          id: ETranslations.market_stock_price_underlying_tooltip,
+        }),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps: compact ? undefined : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
