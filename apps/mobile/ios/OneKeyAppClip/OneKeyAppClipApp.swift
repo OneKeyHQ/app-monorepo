@@ -8,9 +8,6 @@ struct OneKeyAppClipApp: App {
   var body: some Scene {
     WindowGroup {
       AppClipRootView(model: model)
-        .task {
-          model.start()
-        }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
           guard let url = activity.webpageURL else {
             return

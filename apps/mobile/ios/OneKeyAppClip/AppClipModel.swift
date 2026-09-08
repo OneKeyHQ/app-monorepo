@@ -11,7 +11,17 @@ struct AppClipInvocation {
   let apiBaseURL: URL
   let appLinkHost: String
 
-  init(url: URL) {
+  init?(url: URL) {
+    guard
+      url.scheme?.lowercased() == "https",
+      url.user == nil,
+      url.password == nil,
+      url.port == nil || url.port == 443,
+      let host = url.host?.lowercased(),
+      host == "app.onekey.so" || host == "app.onekeytest.com"
+    else {
+      return nil
+    }
     let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
     let queryItems = components?.queryItems ?? []
     var query: [String: String] = [:]
@@ -21,13 +31,17 @@ struct AppClipInvocation {
         query[item.name] = value
       }
     }
-    let path = url.path.isEmpty ? "/clip/market" : url.path
+    let path = url.path
+    let isMarketPath = path == "/clip/market"
+    let isWebPath = path == "/clip/web" || path.hasPrefix("/clip/web/")
+    guard isMarketPath || isWebPath else {
+      return nil
+    }
     let campaignId = Self.safeIdentifier(query["campaign_id"])
     let clickId = Self.safeClickId(query["click_id"])
     let requestedWebURL = query["web_url"].flatMap(URL.init(string:))
-    let isWebPath = path.hasPrefix("/clip/web")
     let allowedWebURL = requestedWebURL.flatMap {
-      CampaignURLPolicy.isAllowed($0) ? $0 : nil
+      CampaignURLPolicy.isAllowedEntry($0) ? $0 : nil
     }
     if isWebPath, let allowedWebURL {
       experience = .web(allowedWebURL)
@@ -35,12 +49,12 @@ struct AppClipInvocation {
       experience = .market
     }
     apiBaseURL = URL(
-      string: url.host?.lowercased() == "app.onekeytest.com"
+      string: host == "app.onekeytest.com"
         ? "https://utility.onekeytest.com"
         : "https://utility.onekeycn.com"
     )!
     appLinkHost =
-      url.host?.lowercased() == "app.onekeytest.com"
+      host == "app.onekeytest.com"
       ? "app.onekeytest.com"
       : "app.onekey.so"
     let experienceName: String
@@ -139,9 +153,10 @@ final class AppClipModel: ObservableObject {
   private var marketRequestID = UUID()
   private var candleRequestID = UUID()
   private var hasStarted = false
+  private var hasHandledInvocation = false
 
   func start() {
-    guard !hasStarted else {
+    guard hasHandledInvocation, !hasStarted else {
       return
     }
     hasStarted = true
@@ -158,6 +173,9 @@ final class AppClipModel: ObservableObject {
   }
 
   func appDidBecomeActive() {
+    guard hasHandledInvocation else {
+      return
+    }
     start()
     guard
       !isRefreshing,
@@ -169,7 +187,10 @@ final class AppClipModel: ObservableObject {
   }
 
   func handleInvocation(_ url: URL) {
-    let invocation = AppClipInvocation(url: url)
+    guard let invocation = AppClipInvocation(url: url) else {
+      return
+    }
+    hasHandledInvocation = true
     marketRequestID = UUID()
     candleRequestID = UUID()
     attribution = invocation.attribution

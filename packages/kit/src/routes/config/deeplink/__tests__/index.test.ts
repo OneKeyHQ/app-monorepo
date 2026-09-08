@@ -245,6 +245,21 @@ describe('stocks / perps universal links', () => {
     expect(switchTabAsync).not.toHaveBeenCalled();
   });
 
+  it('consumes App Clip attribution for a direct universal-link handoff on iOS', async () => {
+    const originalIsNativeIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'https://app.onekey.so/clip/market?click_id=ABCDEFGHIJKL0123456789&utm_campaign=direct',
+      });
+      await flushAsyncTasks();
+
+      expect(reportInstallAttribution).toHaveBeenCalledTimes(1);
+    } finally {
+      platformEnv.isNativeIOS = originalIsNativeIOS;
+    }
+  });
+
   it('opens a same-domain App Clip web campaign in the full-app WebView', async () => {
     const { openWebView } = jest.requireMock(
       '../../../../views/WebView/utils/webViewNavigation',
@@ -258,6 +273,7 @@ describe('stocks / perps universal links', () => {
     await flushAsyncTasks();
 
     expect(openWebView).toHaveBeenCalledWith({
+      appClipCampaign: true,
       source: 'deeplink',
       url: webUrl,
     });
@@ -345,6 +361,7 @@ describe('stocks / perps universal links', () => {
     await flushAsyncTasks();
 
     expect(openWebView).toHaveBeenCalledWith({
+      appClipCampaign: true,
       source: 'deeplink',
       url: webUrl,
     });
@@ -405,6 +422,8 @@ describe('stocks / perps universal links', () => {
     'http://app.onekey.so/campaign',
     'https://evil.example/campaign',
     'https://user:secret@app.onekey.so/campaign',
+    'https://app.onekey.so/settings',
+    'https://app.onekey.so/campaigns',
   ])('rejects an unsafe App Clip web campaign URL: %s', async (webUrl) => {
     const { openWebView } = jest.requireMock(
       '../../../../views/WebView/utils/webViewNavigation',

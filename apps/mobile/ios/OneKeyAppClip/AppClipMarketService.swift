@@ -136,8 +136,7 @@ actor AppClipMarketService {
       let logoURLs = ([token.logoUrl].compactMap { $0 } + (token.logoUrls ?? []))
         .reduce(into: [URL]()) { result, value in
           guard
-            !value.lowercased().contains(".svg"),
-            let url = URL(string: value),
+            let url = Self.allowedLogoURL(value),
             !result.contains(url)
           else {
             return
@@ -155,7 +154,7 @@ actor AppClipMarketService {
         networkName: chain?.name,
         isNative: isNative,
         logoURLs: logoURLs,
-        networkLogoURL: chain.flatMap { URL(string: $0.logoUrl) },
+        networkLogoURL: chain.flatMap { Self.allowedLogoURL($0.logoUrl) },
         price: token.price?.doubleValue,
         priceChangePercent: token.priceChange24hPercent?.doubleValue,
         turnover: token.volume24h?.doubleValue
@@ -247,6 +246,22 @@ actor AppClipMarketService {
   private static var userAgent: String {
     let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     return "OneKeyWallet/\(version ?? "1")"
+  }
+
+  private static func allowedLogoURL(_ value: String) -> URL? {
+    guard
+      let url = URL(string: value),
+      url.scheme?.lowercased() == "https",
+      let host = url.host?.lowercased(),
+      host == "onekey-asset.com" || host.hasSuffix(".onekey-asset.com"),
+      url.user == nil,
+      url.password == nil,
+      url.port == nil || url.port == 443,
+      url.pathExtension.lowercased() != "svg"
+    else {
+      return nil
+    }
+    return url
   }
 
   private static let presetChainFallback: [String: MarketChain] = [

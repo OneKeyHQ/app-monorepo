@@ -41,6 +41,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isAllowedAppClipCampaignEntryUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -170,10 +171,6 @@ const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
   ONEKEY_PERPS_TEST_APP_LINK_HOST,
 ]);
 const ONEKEY_SWAP_APP_LINK_HOSTS = new Set<string>([ONEKEY_SWAP_APP_LINK_HOST]);
-const ONEKEY_APP_CLIP_WEB_HOSTS = new Set<string>([
-  ONEKEY_UNIVERSAL_LINK_HOST,
-  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
-]);
 const ONEKEY_APP_CLIP_HANDOFF_PATH = 'app-clip';
 
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
@@ -183,20 +180,11 @@ function normalizeAppLinkPath(path?: string | null) {
 
 function parseAppClipWebUrl(value: unknown): string | undefined {
   const rawUrl = getStringQueryParam(value);
-  if (!rawUrl || rawUrl.length > 2048) {
+  if (!rawUrl || !isAllowedAppClipCampaignEntryUrl(rawUrl)) {
     return undefined;
   }
   try {
     const url = new URL(rawUrl);
-    if (
-      url.protocol !== 'https:' ||
-      !ONEKEY_APP_CLIP_WEB_HOSTS.has(url.hostname.toLowerCase()) ||
-      url.username ||
-      url.password ||
-      (url.port && url.port !== '443')
-    ) {
-      return undefined;
-    }
     return url.toString();
   } catch {
     return undefined;
@@ -323,6 +311,16 @@ async function processOneKeyAppUniversalLink(
   if (!target) {
     return false;
   }
+  const normalizedPath = normalizeAppLinkPath(params.parsedUrl.path);
+  if (
+    times === 0 &&
+    platformEnv.isNativeIOS &&
+    (normalizedPath === 'clip/market' ||
+      normalizedPath === 'clip/web' ||
+      normalizedPath.startsWith('clip/web/'))
+  ) {
+    void reportInstallAttribution().catch(() => undefined);
+  }
   if (times > 10) {
     return true;
   }
@@ -416,6 +414,7 @@ async function processOneKeyAppUniversalLink(
   }
   if (target.type === 'appClipWeb') {
     openWebView({
+      appClipCampaign: true,
       url: target.url,
       source: 'deeplink',
     });
@@ -454,9 +453,6 @@ async function processAppClipHandoff(
     }
     if (!parseOneKeyAppLinkTarget(parsedUrl)) {
       return true;
-    }
-    if (platformEnv.isNativeIOS) {
-      void reportInstallAttribution().catch(() => undefined);
     }
     await processOneKeyAppUniversalLink({
       url: canonicalUrl,

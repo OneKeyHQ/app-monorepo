@@ -24,9 +24,9 @@ review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.
 2. The App Clip writes the invocation data to the shared `group.so.onekey.wallet` container before
    reporting any interaction.
 3. The App Clip reports `open`, `market_select`, and `install_cta` lifecycle events to Utility.
-4. The install CTA first tries the validated `onekey-wallet://app-clip` custom-scheme handoff. An
-   installed full app opens the selected existing market detail route (or the approved campaign
-   WebView); otherwise StoreKit presents the corresponding full-app download overlay.
+4. The install CTA opens the canonical HTTPS URL as a universal link only. An installed full app
+   opens the selected existing market detail route (or the approved campaign WebView); otherwise
+   StoreKit presents the corresponding full-app download overlay.
 5. On first full-app startup or a validated App Clip warm handoff, the iOS main JS runtime reads the
    shared record and claims the server-side snapshot.
 6. The full app logs the merged attribution once and clears the shared record only after success.

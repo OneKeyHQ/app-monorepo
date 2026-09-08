@@ -19,13 +19,25 @@ enum CampaignURLPolicy {
     }
     return allowedHosts.contains(host)
   }
+
+  static func isAllowedEntry(_ url: URL) -> Bool {
+    guard isAllowed(url) else {
+      return false
+    }
+    let path = url.path.lowercased().replacingOccurrences(
+      of: "/+$",
+      with: "",
+      options: .regularExpression
+    )
+    return path == "/campaign" || path.hasPrefix("/campaign/")
+  }
 }
 
 struct CampaignWebView: UIViewRepresentable {
   let url: URL
 
   func makeCoordinator() -> Coordinator {
-    Coordinator()
+    Coordinator(requestedURL: url)
   }
 
   func makeUIView(context: Context) -> WKWebView {
@@ -43,13 +55,21 @@ struct CampaignWebView: UIViewRepresentable {
   }
 
   func updateUIView(_ webView: WKWebView, context: Context) {
-    guard webView.url != url else {
+    guard context.coordinator.requestedURL != url else {
       return
     }
+    context.coordinator.requestedURL = url
     webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
   }
 
   final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    var requestedURL: URL
+
+    init(requestedURL: URL) {
+      self.requestedURL = requestedURL
+      super.init()
+    }
+
     func webView(
       _ webView: WKWebView,
       decidePolicyFor navigationAction: WKNavigationAction,

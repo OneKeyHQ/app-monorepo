@@ -748,14 +748,14 @@ private final class AppInstallOverlayPresenter: NSObject, @preconcurrency SKOver
 
   func openFullAppOrPresent(fullAppURL: URL?, campaignToken: String?) {
     let operationID = beginOperation()
-    guard
-      let fullAppURL,
-      let handoffURL = Self.handoffURL(for: fullAppURL)
-    else {
+    guard let fullAppURL else {
       presentFullApp(campaignToken: campaignToken, operationID: operationID)
       return
     }
-    UIApplication.shared.open(handoffURL) { [weak self] opened in
+    UIApplication.shared.open(
+      fullAppURL,
+      options: [.universalLinksOnly: true]
+    ) { [weak self] opened in
       Task { @MainActor in
         guard let self, operationID == self.activeOperationID, !opened else {
           return
@@ -772,16 +772,6 @@ private final class AppInstallOverlayPresenter: NSObject, @preconcurrency SKOver
     activeOperationID = operationID
     didFallbackToAppStore = false
     return operationID
-  }
-
-  private static func handoffURL(for canonicalURL: URL) -> URL? {
-    var components = URLComponents()
-    components.scheme = "onekey-wallet"
-    components.host = "app-clip"
-    components.queryItems = [
-      URLQueryItem(name: "url", value: canonicalURL.absoluteString)
-    ]
-    return components.url
   }
 
   private func presentFullApp(campaignToken: String?, operationID: UUID) {

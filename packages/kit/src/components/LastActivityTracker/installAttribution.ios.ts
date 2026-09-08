@@ -1,5 +1,6 @@
 import { NativeModules } from 'react-native';
 
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -65,6 +66,7 @@ function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   const stringFields = [
     'campaignId',
     'experience',
+    'firstOpenedAt',
     'lastAction',
     'route',
     'selectedNetwork',
@@ -100,6 +102,7 @@ async function reportPendingInstallAttribution(): Promise<void> {
   if (!pending?.clickId) {
     return;
   }
+  await analytics.whenInitialized();
   const client = await appApiClient.getClient({
     endpoint: await getEndpointByServiceName(EServiceEndpointEnum.Utility),
     name: EServiceEndpointEnum.Utility,
@@ -112,19 +115,31 @@ async function reportPendingInstallAttribution(): Promise<void> {
   );
   const claim = response.data.data;
   if (!claim.found) {
-    return;
-  }
-  if (claim.alreadyClaimed) {
     await nativeModule.clearPending();
     return;
   }
+  const attribution =
+    getPendingRecord({
+      ...claim.attribution,
+      ...claim.appClip,
+      ...pending,
+      clickId: pending.clickId,
+      schemaVersion: 1,
+    }) ?? pending;
+  const shortLinkPath = claim.shortLink?.path;
+  const shortLinkVersion = claim.shortLink?.version;
   await defaultLogger.app.install.reportAppClipInstallAttribution({
-    ...pending,
-    ...claim.attribution,
-    ...claim.appClip,
-    clickId: pending.clickId,
-    shortLinkPath: claim.shortLink?.path,
-    shortLinkVersion: claim.shortLink?.version,
+    ...attribution,
+    shortLinkPath:
+      typeof shortLinkPath === 'string' && shortLinkPath.length <= 256
+        ? shortLinkPath
+        : undefined,
+    shortLinkVersion:
+      typeof shortLinkVersion === 'number' &&
+      Number.isSafeInteger(shortLinkVersion) &&
+      shortLinkVersion >= 0
+        ? shortLinkVersion
+        : undefined,
   });
   await nativeModule.clearPending();
 }
