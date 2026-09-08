@@ -18,6 +18,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -38,6 +39,11 @@ import {
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -239,6 +245,39 @@ const sdkConnectSrc = isLocalUnpacked
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
+
+const TRADING_VIEW_ORIGINS = new Set([
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+]);
+
+function isTradingViewWebContents(contents: Electron.WebContents): boolean {
+  try {
+    return TRADING_VIEW_ORIGINS.has(new URL(contents.getURL()).origin);
+  } catch {
+    return false;
+  }
+}
+
+// Electron zoom roles target getFocusedWebContents(), which prefers any <webview> guest in the
+// focused window. For TradingView that zooms only the chart page, so zoom its host window instead.
+function getZoomTargetWebContents(): Electron.WebContents | null {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (focused?.getType() === 'webview' && isTradingViewWebContents(focused)) {
+    return focused.hostWebContents ?? focused;
+  }
+  return focused;
+}
+
+function adjustZoomLevel(delta: number | 'reset'): void {
+  const target = getZoomTargetWebContents();
+  if (!target) {
+    return;
+  }
+  target.zoomLevel = delta === 'reset' ? 0 : target.zoomLevel + delta;
+}
+
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 
@@ -468,24 +507,19 @@ const initMenu = () => {
             ].filter(Boolean)
           : []),
         {
-          role: 'resetZoom',
           label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
+          click: () => adjustZoomLevel('reset'),
         },
-        isMac
-          ? {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-            }
-          : {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-              accelerator: 'CmdOrCtrl+Shift+]',
-            },
         {
-          role: 'zoomOut',
+          label: i18nText(ElectronTranslations.menu_zoom_in),
+          accelerator: isMac ? 'CmdOrCtrl+Plus' : 'CmdOrCtrl+Shift+]',
+          click: () => adjustZoomLevel(0.5),
+        },
+        {
           label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
+          click: () => adjustZoomLevel(-0.5),
         },
         { type: 'separator' },
         {
