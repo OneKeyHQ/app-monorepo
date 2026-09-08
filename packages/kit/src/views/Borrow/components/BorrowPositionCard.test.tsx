@@ -242,4 +242,15 @@ describe('BorrowPositionCard expand behaviour', () => {
 
     expect(onToggleExpand).toHaveBeenCalledTimes(2);
   });
+
+  it('leaves the amounts in the accessible name instead of labelling over them', () => {
+    const { container } = renderCard({ onToggleExpand: jest.fn() });
+    const disclosure = container.querySelector('[role="button"]') as Element;
+
+    // `accessible` merges the row's children into one node, so a label here
+    // would replace their text and the balance would stop being announced.
+    expect(disclosure.getAttribute('aria-label')).toBeNull();
+    expect(disclosure.textContent).toContain('$20');
+    expect(disclosure.textContent).toContain('USDC');
+  });
 });

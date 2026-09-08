@@ -140,9 +140,7 @@ export function BorrowMobilePositions({
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       repay: intl.formatMessage({ id: ETranslations.defi_repay }),
-      useAsCollateral: intl.formatMessage({
-        id: ETranslations.defi_use_as_collateral,
-      }),
+      collateral: intl.formatMessage({ id: ETranslations.defi_collateral }),
     }),
     [intl],
   );
@@ -280,14 +278,8 @@ export function BorrowMobilePositions({
                 hasCollateralControls &&
                 suppliedAsset.usageAsCollateral !== undefined ? (
                   <>
-                    <SizableText
-                      size="$bodySm"
-                      color="$text"
-                      numberOfLines={1}
-                      flexShrink={1}
-                      minWidth={0}
-                    >
-                      {labels.useAsCollateral}
+                    <SizableText size="$bodySm" color="$text" numberOfLines={1}>
+                      {labels.collateral}
                     </SizableText>
                     <CollateralSwitchCell
                       item={suppliedAsset}
@@ -299,7 +291,6 @@ export function BorrowMobilePositions({
               }
               actions={actions}
               isExpanded={expandedKey === positionKey}
-              expandLabel={`${labels.supplied} ${suppliedAsset.token.symbol}`}
               onToggleExpand={() => toggleExpanded(positionKey)}
             />
           );
@@ -366,7 +357,6 @@ export function BorrowMobilePositions({
             platformBonusApy={borrowedAsset.platformBonusApy}
             actions={actions}
             isExpanded={expandedKey === positionKey}
-            expandLabel={`${labels.borrowed} ${borrowedAsset.token.symbol}`}
             onToggleExpand={() => toggleExpanded(positionKey)}
           />
         );
