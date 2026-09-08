@@ -260,6 +260,7 @@ function SelectContent() {
     offset,
   } = useContext(SelectContext);
   const isSelectingRef = useRef(false);
+  const selectionGenerationRef = useRef(0);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
       if (isSelectingRef.current) {
@@ -267,13 +268,16 @@ function SelectContent() {
       }
       const nextValue = labelInValue ? item : item.value;
       if (waitForChangeBeforeClose) {
+        const selectionGeneration = (selectionGenerationRef.current += 1);
         isSelectingRef.current = true;
         void (async () => {
           try {
             await onValueChange?.(nextValue);
           } finally {
-            isSelectingRef.current = false;
-            changeOpenStatus?.(false);
+            if (selectionGeneration === selectionGenerationRef.current) {
+              isSelectingRef.current = false;
+              changeOpenStatus?.(false);
+            }
           }
         })();
         return;
@@ -288,6 +292,13 @@ function SelectContent() {
 
   const handleOpenChange = useCallback(
     (openStatus: boolean) => {
+      if (!openStatus) {
+        // Closing the sheet cancels its pending selection lifecycle. The async
+        // work itself may continue, but its stale finally block must not lock
+        // or close a newly reopened Select instance.
+        selectionGenerationRef.current += 1;
+        isSelectingRef.current = false;
+      }
       changeOpenStatus?.(openStatus);
     },
     [changeOpenStatus],

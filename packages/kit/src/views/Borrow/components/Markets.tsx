@@ -124,6 +124,7 @@ export const Markets = () => {
     useBorrowMarketRequestContext();
   const pendingMarketChangeRef = useRef<{
     marketKey: string;
+    market: IBorrowMarketItem;
     resolve: () => void;
   } | null>(null);
   const selectedMarket = market ?? markets[0] ?? null;
@@ -147,9 +148,15 @@ export const Markets = () => {
     ) {
       return;
     }
+    rememberMarket(pendingMarketChange.market);
     pendingMarketChangeRef.current = null;
     pendingMarketChange.resolve();
-  }, [borrowDataStatus, reserves.ownerMarketKey, selectedMarketKey]);
+  }, [
+    borrowDataStatus,
+    rememberMarket,
+    reserves.ownerMarketKey,
+    selectedMarketKey,
+  ]);
 
   useEffect(() => {
     const pendingMarketChange = pendingMarketChangeRef.current;
@@ -173,6 +180,19 @@ export const Markets = () => {
       pendingMarketChangeRef.current = null;
     },
     [],
+  );
+
+  const handleMarketSelectOpenChange = useCallback(
+    (isOpen: boolean) => {
+      const pendingMarketChange = pendingMarketChangeRef.current;
+      if (isOpen || !pendingMarketChange) {
+        return;
+      }
+      pendingMarketChange.resolve();
+      pendingMarketChangeRef.current = null;
+      setRequestedMarket(null);
+    },
+    [setRequestedMarket],
   );
 
   const marketItems = useMemo(
@@ -206,13 +226,16 @@ export const Markets = () => {
 
       pendingMarketChangeRef.current?.resolve();
       const settled = new Promise<void>((resolve) => {
-        pendingMarketChangeRef.current = { marketKey: value, resolve };
+        pendingMarketChangeRef.current = {
+          marketKey: value,
+          market: nextMarket,
+          resolve,
+        };
       });
       setRequestedMarket(nextMarket);
-      rememberMarket(nextMarket);
       return settled;
     },
-    [markets, rememberMarket, selectedMarketKey, setRequestedMarket],
+    [markets, selectedMarketKey, setRequestedMarket],
   );
 
   const label = selectedMarket ? getBorrowMarketLabel(selectedMarket) : '';
@@ -232,6 +255,7 @@ export const Markets = () => {
         items={marketItems}
         value={selectedMarketKey}
         onChange={handleMarketChange}
+        onOpenChange={handleMarketSelectOpenChange}
         waitForChangeBeforeClose
         renderTrigger={({ onPress }) => (
           <MarketBarTrigger
