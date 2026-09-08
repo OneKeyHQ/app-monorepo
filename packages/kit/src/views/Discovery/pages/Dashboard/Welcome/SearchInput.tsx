@@ -90,6 +90,8 @@ export function SearchInput({ tabId }: { tabId?: string }) {
   const {
     handleInputBlur,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
@@ -200,6 +202,8 @@ export function SearchInput({ tabId }: { tabId?: string }) {
               }}
               // @ts-expect-error
               onKeyPress={handleKeyDown}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               testID="search-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.browser_search_dapp_or_enter_url,
