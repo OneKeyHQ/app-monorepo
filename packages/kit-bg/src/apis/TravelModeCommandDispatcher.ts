@@ -39,7 +39,9 @@ export class TravelModeCommandDispatcher {
     serviceName: string;
   }): Promise<T> {
     if (!shouldRejectTravelModeServiceCall({ methodName, serviceName })) {
-      return travelModeManager.getRuntimeState().then((runtimeState) => {
+      return travelModeManager.ready.then(() => {
+        // Check the current state and shared generation without yielding before admission.
+        const runtimeState = travelModeManager.getRuntimeStateSync();
         const isStableRuntimeState =
           runtimeState === 'active' || runtimeState === 'inactive';
         const canRetryRecovery =
