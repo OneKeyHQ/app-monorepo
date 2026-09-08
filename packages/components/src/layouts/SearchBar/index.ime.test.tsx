@@ -8,6 +8,7 @@ const mockInputProps: {
     onSubmitEditing?: (event: { nativeEvent: { text: string } }) => void;
     onCompositionStart?: () => void;
     onCompositionEnd?: (event: { target: { value: string } }) => void;
+    blurOnSubmit?: boolean;
   };
 } = {
   current: {},
@@ -56,7 +57,9 @@ describe('SearchBar IME submit lock', () => {
       onCompositionStart,
       onCompositionEnd,
       onSubmitEditing: submit,
+      blurOnSubmit,
     } = mockInputProps.current;
+    expect(blurOnSubmit).toBe(false);
     const nativeSubmitEvent = { nativeEvent: { text: 'four' } };
 
     act(() => {
