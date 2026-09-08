@@ -96,7 +96,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - BleUtils (0.1.6):
+  - BleUtils (0.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4406,7 +4406,7 @@ SPEC CHECKSUMS:
   AsyncStorage: eeae8c45c36c8a0d187dcafed1e1009613449b23
   AutoSizeInput: 52d873e1fe4f3dc0820c74d6c751c71760da5790
   BackgroundThread: d480c62e977e7f8f74eeb0e8bc8e78f6f3e2a073
-  BleUtils: 00f63c6bf8115301f8f47774b6e978f7174b4bc1
+  BleUtils: ac70ccd237cf40d18b1bc4e180fc9bc9c40e87b8
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 31909ab00816555a318386cdaf74dc2c5e3ec0ac
   CloudFs: 784a094064b4d2ec7c6261008dd5fd82dca3d88d
