@@ -143,6 +143,25 @@ function networkFieldsContainKeyword(
   );
 }
 
+// TRUE only when the keyword names the network itself ("eth" → Ethereum's
+// code). Includes-hits (`networkFieldsContainKeyword`) are too loose to act as
+// a qualifier for a keyword that already hits the token: Cyber's code "cyeth"
+// contains "eth", but "eth" is a symbol search there, not a chain scope.
+function networkFieldsEqualKeyword(
+  network: IServerNetwork | undefined,
+  kw: string,
+): boolean {
+  if (!network) return false;
+  return (
+    network.name?.toLowerCase() === kw ||
+    network.code?.toLowerCase() === kw ||
+    network.shortname?.toLowerCase() === kw ||
+    network.shortcode?.toLowerCase() === kw ||
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
+    false
+  );
+}
+
 const tokenSearchKeywordAliasMap: Record<string, string[]> = {
   eth: ['ether'],
 };
@@ -261,7 +280,12 @@ function computeSearchStrength(
         hasPureNetworkKeyword: false,
       };
     if (hitToken) anyTokenHit = true;
-    if (hitNetwork) anyNetworkHit = true;
+    // A keyword that also hits the token only counts as a network qualifier
+    // when it names the network exactly; a substring hit on the chain code
+    // must not lift an empty ETH@Cyber above held ETH on other chains.
+    if (hitNetwork && (!hitToken || networkFieldsEqualKeyword(network, kw))) {
+      anyNetworkHit = true;
+    }
     if (hitNetwork && !hitToken) hasPureNetworkKeyword = true;
   }
 
@@ -355,7 +379,7 @@ export function getFilteredTokenBySearchKey({
           Number.MAX_SAFE_INTEGER,
       }))
       // Config-ordered member hits first, everything else keeps backend order.
-      .sort((a, b) => a.order - b.order || a.index - b.index)
+      .toSorted((a, b) => a.order - b.order || a.index - b.index)
       .map(({ token }) => token);
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);

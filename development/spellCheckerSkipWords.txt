@@ -1571,3 +1571,4 @@ hypercore
 robinhood
 usdg
 USDG
+cyeth

@@ -1753,3 +1753,66 @@ describe('getFilteredTokenBySearchKey — zero-balance ranking keeps config orde
     ).toEqual([hitRobinhood, hitEthereum, hitMantle]);
   });
 });
+
+describe('getFilteredTokenBySearchKey — substring chain-code hits are not network qualifiers', () => {
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    // Cyber's code/shortname/shortcode are "cyeth": they CONTAIN "eth" but do
+    // not name the chain "eth".
+    'evm--7560': buildTestNetwork({
+      id: 'evm--7560',
+      name: 'Cyber',
+      code: 'cyeth',
+      shortname: 'cyeth',
+    }),
+    'evm--59144': buildTestNetwork({
+      id: 'evm--59144',
+      name: 'Linea',
+      code: 'linea',
+      shortname: 'Linea',
+    }),
+  };
+  const ethOnEthereum = buildTestToken({
+    $key: 'eth-evm--1',
+    address: '',
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    name: 'Ethereum',
+  });
+  const ethOnCyber = buildTestToken({
+    $key: 'eth-evm--7560',
+    address: '',
+    networkId: 'evm--7560',
+    symbol: 'ETH',
+    name: 'Ethereum',
+  });
+  const ethOnLinea = buildTestToken({
+    $key: 'eth-evm--59144',
+    address: '',
+    networkId: 'evm--59144',
+    symbol: 'ETH',
+    name: 'Ethereum',
+  });
+
+  test('"eth" keeps Ethereum first (exact chain code) but ranks empty Cyber ETH below held Linea ETH', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [ethOnCyber, ethOnLinea, ethOnEthereum],
+        searchKey: 'eth',
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap: {
+          [ethOnEthereum.$key]: { fiatValue: '0.51' } as ITokenFiat,
+          [ethOnLinea.$key]: { fiatValue: '3.30' } as ITokenFiat,
+          [ethOnCyber.$key]: { fiatValue: '0' } as ITokenFiat,
+        },
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethOnEthereum, ethOnLinea, ethOnCyber]);
+  });
+});
