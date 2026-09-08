@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -76,6 +76,7 @@ interface IUseToDetailPageOptions {
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
+  const navigationRequestIdRef = useRef(0);
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
@@ -118,6 +119,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (selectedItem: IMarketToken) => {
+      // Every selection supersedes pending asset lookups and delayed navigation.
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
+      const isCurrentRequest = () =>
+        requestId === navigationRequestIdRef.current;
       let item = selectedItem;
       if (item.assetId) {
         try {
@@ -127,6 +133,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               currency: 'usd',
               autoHandleError: false,
             });
+          if (!isCurrentRequest()) {
+            return;
+          }
           item = {
             ...item,
             marketTokenId: item.assetId,
@@ -137,6 +146,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             isNative: selectedVariant.isNative,
           };
         } catch {
+          if (!isCurrentRequest()) {
+            return;
+          }
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
@@ -237,7 +249,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: tokenParams.from || enterSource,
           });
         }
-        closeExtensionPopupAfterExpandTabOpen();
+        if (isCurrentRequest()) {
+          closeExtensionPopupAfterExpandTabOpen();
+        }
       } else if (options?.switchToMarketTabFirst) {
         if (stockId) {
           tokenDetailActions.current.clearTokenDetail();
@@ -251,6 +265,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         if (platformEnv.isNative) {
           await marketDetailShellPreloadPromise;
+          if (!isCurrentRequest()) {
+            return;
+          }
           // Navigate directly to the nested detail route to avoid briefly
           // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -267,6 +284,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           // Then navigate to detail page using rootNavigationRef
           // because the current navigation context is from modal, not from the target tab
           setTimeout(() => {
+            if (!isCurrentRequest()) {
+              return;
+            }
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
               screen: targetTab,
               params: {
@@ -297,6 +317,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         if (platformEnv.isNative) {
           await marketDetailShellPreloadPromise;
+          if (!isCurrentRequest()) {
+            return;
+          }
         }
         if (stockId) {
           if (shouldReplaceCurrentDetail) {
