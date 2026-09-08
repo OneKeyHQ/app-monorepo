@@ -1844,7 +1844,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
-          onViewAll={historyViewAll}
+          onViewAll={isMobile ? undefined : historyViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
@@ -1868,7 +1868,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderFillRow}
-          onViewAll={fillsViewAll}
+          onViewAll={isMobile ? undefined : fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,
