@@ -198,6 +198,26 @@ export function TokenDetailChart({
         </>
       ) : (
         <>
+          {(marketTradingView === null || marketTradingView === undefined) &&
+          proToolbar ? (
+            <ScrollView
+              testID="market-token-chart-fallback-toolbar"
+              horizontal
+              width="100%"
+              height={40}
+              flexGrow={0}
+              flexShrink={0}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexGrow: 1,
+                py: '$1',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {proToolbar}
+            </ScrollView>
+          ) : null}
           <TradingViewDesktopToolbarContext.Provider value={proToolbar}>
             <Stack flex={1} minWidth={0} overflow="hidden">
               {marketTradingView}
