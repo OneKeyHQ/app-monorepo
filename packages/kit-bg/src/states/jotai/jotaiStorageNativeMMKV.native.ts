@@ -21,8 +21,24 @@ import {
   syncNativeStorageMMKV,
 } from '@onekeyhq/shared/src/storage/nativeStorageMigrationModule';
 import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import {
+  buildTravelModeCurrencyReferenceView,
+  buildTravelModeManualLockPersistView,
+  buildTravelModePasswordPersistView,
+  buildTravelModeSettingsPersistView,
+  mergeTravelModeManualLockPersistWrite,
+  mergeTravelModePasswordPersistWrite,
+  mergeTravelModeSettingsPersistWrite,
+  travelModeManager,
+} from '@onekeyhq/shared/src/travelMode';
 
-import { MMKV_MIGRATION_COMPLETE_KEY } from './jotaiStorageConsts';
+import {
+  CURRENCY_REFERENCE_STORAGE_KEY,
+  MANUAL_LOCK_CONTROL_STORAGE_KEY,
+  MMKV_MIGRATION_COMPLETE_KEY,
+  PASSWORD_CONTROL_STORAGE_KEY,
+  SETTINGS_CONTROL_STORAGE_KEY,
+} from './jotaiStorageConsts';
 
 import type { AsyncStorage } from './types';
 
@@ -63,14 +79,16 @@ type IJotaiLegacyKeyEnumeration = {
 
 export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   /** Safe MMKV wrapper — null/undefined guarded via createMMKVSyncStorage */
-  private store: ISyncStorage;
+  private storeInstance: ISyncStorage<string> | undefined;
 
-  private mmkv: {
-    getString(key: string): string | undefined;
-    getAllKeys(): string[];
-    clearAll(): void;
-    set(key: string, value: string): void;
-  };
+  private mmkvInstance:
+    | {
+        getString(key: string): string | undefined;
+        getAllKeys(): string[];
+        clearAll(): void;
+        set(key: string, value: string): void;
+      }
+    | undefined;
 
   /** Business access opens only after both migration markers are reconciled. */
   private migrationReady = false;
@@ -83,14 +101,34 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         'Jotai MMKV storage is restricted to the native background runtime',
       );
     }
+  }
+
+  private initializeStorageBackend() {
+    if (this.storeInstance && this.mmkvInstance) {
+      return;
+    }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { default: instance } =
       require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createMMKVSyncStorage } =
       require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    this.store = createMMKVSyncStorage(instance, { checkResetting: true });
-    this.mmkv = instance;
+    this.storeInstance = createMMKVSyncStorage<string>(instance, {
+      checkResetting: true,
+    });
+    this.mmkvInstance = instance;
+  }
+
+  private get store(): ISyncStorage<string> {
+    this.initializeStorageBackend();
+    return this.storeInstance as ISyncStorage<string>;
+  }
+
+  private get mmkv() {
+    this.initializeStorageBackend();
+    return this.mmkvInstance as NonNullable<
+      JotaiStorageNativeMMKV['mmkvInstance']
+    >;
   }
 
   private log(msg: string) {
@@ -406,37 +444,226 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async getItem(key: string, initialValue: any): Promise<any> {
-    this.assertMigrated();
-    const raw = this.mmkv.getString(key);
-    if (raw !== undefined) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed !== null) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return parsed;
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    const read = async () => {
+      this.assertMigrated();
+      const raw = this.mmkv.getString(key);
+      if (raw !== undefined) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed !== null) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return parsed;
+          }
+        } catch (e) {
+          this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
         }
-      } catch (e) {
-        this.log(`MMKV parse failed for ${key}: ${(e as Error)?.message}`);
       }
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return initialValue;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return initialValue;
+    };
+    return environment.persistence.run({
+      operation: read,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      onBlocked: () => initialValue,
+    });
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    this.assertMigrated();
-    if (newValue === undefined || newValue === null) {
-      await this.removeItem(key);
-      return;
-    }
-    void this.store.set(key as any, JSON.stringify(newValue));
-    await syncNativeStorageMMKV('onekey-jotai-states');
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    const write = async () => {
+      this.assertMigrated();
+      if (newValue === undefined || newValue === null) {
+        void this.store.delete(key);
+      } else {
+        void this.store.set(key, JSON.stringify(newValue));
+      }
+      await syncNativeStorageMMKV('onekey-jotai-states');
+    };
+    return environment.persistence.run({
+      operation: write,
+      onBlocked: () => undefined,
+    });
   }
 
   async removeItem(key: string): Promise<void> {
-    this.assertMigrated();
-    void this.store.delete(key as any);
-    await syncNativeStorageMMKV('onekey-jotai-states');
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    const remove = async () => {
+      this.assertMigrated();
+      void this.store.delete(key);
+      await syncNativeStorageMMKV('onekey-jotai-states');
+    };
+    return environment.persistence.run({
+      operation: remove,
+      onBlocked: () => undefined,
+    });
+  }
+
+  async getPasswordControlState(initialValue: unknown): Promise<unknown> {
+    const raw = this.mmkv.getString(PASSWORD_CONTROL_STORAGE_KEY);
+    if (raw === undefined) {
+      return initialValue;
+    }
+    try {
+      return buildTravelModePasswordPersistView({
+        initialValue,
+        persistedValue: JSON.parse(raw),
+      });
+    } catch {
+      return initialValue;
+    }
+  }
+
+  async setPasswordControlState(newValue: unknown): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      return this.setItem(PASSWORD_CONTROL_STORAGE_KEY, newValue);
+    }
+    const rawPersistedValue = this.mmkv.getString(PASSWORD_CONTROL_STORAGE_KEY);
+    if (!rawPersistedValue) {
+      return;
+    }
+    try {
+      const persistedValue: unknown = JSON.parse(rawPersistedValue);
+      const mergedValue = mergeTravelModePasswordPersistWrite({
+        persistedValue,
+        proposedValue: newValue,
+      });
+      void this.store.set(
+        PASSWORD_CONTROL_STORAGE_KEY,
+        JSON.stringify(mergedValue),
+      );
+      await syncNativeStorageMMKV('onekey-jotai-states');
+    } catch (error) {
+      this.log(
+        `Travel Mode password state write skipped: ${
+          (error as Error)?.message
+        }`,
+      );
+    }
+  }
+
+  async removePasswordControlState(): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      await this.removeItem(PASSWORD_CONTROL_STORAGE_KEY);
+    }
+  }
+
+  async getManualLockControlState(initialValue: unknown): Promise<unknown> {
+    const raw = this.mmkv.getString(MANUAL_LOCK_CONTROL_STORAGE_KEY);
+    if (raw === undefined) {
+      return initialValue;
+    }
+    try {
+      return buildTravelModeManualLockPersistView({
+        initialValue,
+        persistedValue: JSON.parse(raw),
+      });
+    } catch {
+      return initialValue;
+    }
+  }
+
+  async setManualLockControlState(newValue: unknown): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      return this.setItem(MANUAL_LOCK_CONTROL_STORAGE_KEY, newValue);
+    }
+    const rawPersistedValue = this.mmkv.getString(
+      MANUAL_LOCK_CONTROL_STORAGE_KEY,
+    );
+    try {
+      const persistedValue: unknown = rawPersistedValue
+        ? JSON.parse(rawPersistedValue)
+        : undefined;
+      const mergedValue = mergeTravelModeManualLockPersistWrite({
+        persistedValue,
+        proposedValue: newValue,
+      });
+      const serializedValue = JSON.stringify(mergedValue);
+      if (!serializedValue) {
+        return;
+      }
+      void this.store.set(MANUAL_LOCK_CONTROL_STORAGE_KEY, serializedValue);
+      await syncNativeStorageMMKV('onekey-jotai-states');
+    } catch (error) {
+      this.log(
+        `Travel Mode manual lock state write skipped: ${
+          (error as Error)?.message
+        }`,
+      );
+    }
+  }
+
+  async removeManualLockControlState(): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      await this.removeItem(MANUAL_LOCK_CONTROL_STORAGE_KEY);
+    }
+  }
+
+  async getSettingsControlState(initialValue: unknown): Promise<unknown> {
+    const raw = this.mmkv.getString(SETTINGS_CONTROL_STORAGE_KEY);
+    if (raw === undefined) {
+      return initialValue;
+    }
+    try {
+      return buildTravelModeSettingsPersistView({
+        initialValue,
+        persistedValue: JSON.parse(raw),
+      });
+    } catch {
+      return initialValue;
+    }
+  }
+
+  async setSettingsControlState(newValue: unknown): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      return this.setItem(SETTINGS_CONTROL_STORAGE_KEY, newValue);
+    }
+    const rawPersistedValue = this.mmkv.getString(SETTINGS_CONTROL_STORAGE_KEY);
+    try {
+      const persistedValue: unknown = rawPersistedValue
+        ? JSON.parse(rawPersistedValue)
+        : undefined;
+      const mergedValue = mergeTravelModeSettingsPersistWrite({
+        persistedValue,
+        proposedValue: newValue,
+      });
+      void this.store.set(
+        SETTINGS_CONTROL_STORAGE_KEY,
+        JSON.stringify(mergedValue),
+      );
+      await syncNativeStorageMMKV('onekey-jotai-states');
+    } catch (error) {
+      this.log(
+        `Travel Mode settings state write skipped: ${(error as Error)?.message}`,
+      );
+    }
+  }
+
+  async removeSettingsControlState(): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'real') {
+      await this.removeItem(SETTINGS_CONTROL_STORAGE_KEY);
+    }
+  }
+
+  async getCurrencyReferenceState(initialValue: unknown): Promise<unknown> {
+    const raw = this.mmkv.getString(CURRENCY_REFERENCE_STORAGE_KEY);
+    if (raw === undefined) {
+      return initialValue;
+    }
+    try {
+      return buildTravelModeCurrencyReferenceView({
+        initialValue,
+        persistedValue: JSON.parse(raw),
+      });
+    } catch {
+      return initialValue;
+    }
   }
 
   isMigrationComplete(): boolean {
@@ -657,20 +884,28 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   async getAllEntries(): Promise<Map<string, any> | null> {
-    this.assertMigrated();
-    const map = new Map<string, any>();
-    const keys = this.getBusinessKeys();
-    for (const key of keys) {
-      const raw = this.mmkv.getString(key);
-      if (raw !== undefined) {
-        try {
-          map.set(key, JSON.parse(raw));
-        } catch {
-          map.set(key, undefined);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        this.assertMigrated();
+        const map = new Map<string, any>();
+        const keys = this.getBusinessKeys();
+        for (const key of keys) {
+          const raw = this.mmkv.getString(key);
+          if (raw !== undefined) {
+            try {
+              map.set(key, JSON.parse(raw));
+            } catch {
+              map.set(key, undefined);
+            }
+          }
         }
-      }
-    }
-    return map;
+        return map;
+      },
+      onBlocked: () => {
+        return new Map<string, any>();
+      },
+    });
   }
 
   subscribe = undefined;

@@ -6,6 +6,7 @@ import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
+  IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
 } from './type';
@@ -524,7 +525,10 @@ export function resolvePassphrasePanelText(
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. Only
  * capsule-pose steps reach here — including the actionless error, the
- * notice, which speaks its reason's title alone on either track. */
+ * notice, which speaks its reason's title alone on either track. A
+ * connecting wait that has stalled (`stalledOn`, the transport it rides)
+ * trades the device's name for the hint that matches the transport:
+ * wake the device and keep it near, or check the cable. */
 export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
@@ -532,6 +536,7 @@ export function resolveCapsuleText(
   vendor?: 'ledger' | 'trezor',
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
+  stalledOn?: IDeviceStageConnectionType,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
@@ -556,6 +561,17 @@ export function resolveCapsuleText(
             : STEP_TEXT[step].title,
       }),
       sub: '',
+    };
+  }
+  if (step === 'connecting' && stalledOn) {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+      sub: intl.formatMessage({
+        id:
+          stalledOn === 'bluetooth'
+            ? ETranslations.device_stage_connecting_stalled_bluetooth__desc
+            : ETranslations.device_stage_connecting_stalled_usb__desc,
+      }),
     };
   }
   return {

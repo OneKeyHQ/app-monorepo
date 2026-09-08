@@ -28,6 +28,7 @@ type IMockDialogConfig = {
 };
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
+const mockShowMarketChartSettingsDialog = jest.fn<void, []>();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
   activeChartType: 'candlestick' as const,
@@ -60,6 +61,13 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
   pushModal: mockPushModal,
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal',
+  () => ({
+    showMarketChartSettingsDialog: () => mockShowMarketChartSettingsDialog(),
+  }),
+);
 
 describe('TradingViewNative chart controls', () => {
   beforeEach(() => {
@@ -242,33 +250,39 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('opens chart settings from opted-in desktop controls', () => {
-    render(
-      <TradingViewNativeChartControlsContainer
-        {...defaultIndicatorSettingsProps}
-        activeIndicatorValues={new Set(['MA'])}
-        enableNativeChartSettings
-        intervalConfig={{ activeInterval: '60', intervals: [] }}
-        layoutMode="desktop"
-        onIndicatorChange={jest.fn()}
-        onIntervalChange={jest.fn()}
-      />,
-    );
+  it.each([false, true])(
+    'opens desktop settings without leaving the chart (fullscreen: %s)',
+    (isFullscreen) => {
+      const handleFullscreenChange = jest.fn();
+      render(
+        <TradingViewNativeChartControlsContainer
+          {...defaultIndicatorSettingsProps}
+          activeIndicatorValues={new Set(['MA'])}
+          enableNativeChartSettings
+          intervalConfig={{ activeInterval: '60', intervals: [] }}
+          isFullscreen={isFullscreen}
+          layoutMode="desktop"
+          onIndicatorChange={jest.fn()}
+          onIntervalChange={jest.fn()}
+          onFullscreenChange={handleFullscreenChange}
+        />,
+      );
 
-    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
-      expect.objectContaining({
-        settingsEnabled: true,
-      }),
-    );
-    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
-      onSettingsPress: () => void;
-    };
-    controlsProps.onSettingsPress();
+      expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settingsEnabled: true,
+        }),
+      );
+      const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+        onSettingsPress: () => void;
+      };
+      controlsProps.onSettingsPress();
 
-    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-      screen: 'MarketChartSettings',
-    });
-  });
+      expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(handleFullscreenChange).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps settings out of opted-in mobile controls', () => {
     render(

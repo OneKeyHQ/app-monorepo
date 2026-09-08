@@ -766,6 +766,7 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
@@ -807,6 +808,7 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             reason: 'HardwareUiStateContainer onClose',
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,

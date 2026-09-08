@@ -644,6 +644,47 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
+  it('restores and saves Swap intervals independently for the same token', async () => {
+    mockReadTradingViewNativeActiveInterval.mockImplementation((namespace) =>
+      namespace === 'swap' ? '240' : '15',
+    );
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+    const source = buildMarketSource();
+    const { result, rerender } = renderHook(
+      ({ storageNamespace }: { storageNamespace: 'market' | 'swap' }) =>
+        useTradingViewNativeKLine({ source, storageNamespace }),
+      { initialProps: { storageNamespace: 'market' } },
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(result.current.intervalConfig.activeInterval).toBe('15');
+
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    rerender({ storageNamespace: 'swap' });
+    expect(result.current.intervalConfig.activeInterval).toBe('240');
+    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith({
+      interval: '15',
+      namespace: 'swap',
+    });
+    await waitFor(() =>
+      expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenCalledWith({
+        interval: '240',
+        namespace: 'swap',
+      }),
+    );
+
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    act(() => result.current.handleIntervalChange('1D'));
+    await waitFor(() =>
+      expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenCalledWith({
+        interval: '1D',
+        namespace: 'swap',
+      }),
+    );
+    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith(
+      expect.objectContaining({ namespace: 'token' }),
+    );
+  });
+
   it('refines the weekly history boundary with daily data and caches it for 24 hours', async () => {
     let now = 200_000_000;
     mockHistoryBatchSize = 2;

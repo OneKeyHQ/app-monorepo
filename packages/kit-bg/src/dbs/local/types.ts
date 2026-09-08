@@ -711,7 +711,7 @@ export interface ILocalDBTransaction {
 export type ILocalDBRecord<T extends ELocalDBStoreNames> = ILocalDBSchemaMap[T];
 
 export type ILocalDBRecordPair<T extends ELocalDBStoreNames> = [
-  ILocalDBRecord<T>,
+  ILocalDBRecord<T> | null | undefined,
   IRealmDBSchemaMap[T] | null,
 ];
 
@@ -741,7 +741,9 @@ export interface ILocalDBGetRecordByIdParams<T extends ELocalDBStoreNames> {
   id: string;
 }
 export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
-  ILocalDBRecord<T>;
+  | ILocalDBRecord<T>
+  | null
+  | undefined;
 
 // GetRecordIds
 export interface ILocalDBGetRecordIdsParams<T extends ELocalDBStoreNames> {
