@@ -9,6 +9,8 @@ import {
   InteractiveIcon,
   Popover,
   SizableText,
+  Stack,
+  Tooltip,
   XStack,
   YStack,
   useClipboard,
@@ -19,6 +21,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketTooltipLabel } from '../../../components/MarketTooltipLabel';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { getIssuerLabel } from '../TokenSelector/StockTokenVariantSelector';
 
@@ -49,18 +52,28 @@ function formatTradingHours(days?: string) {
 
 function InfoRow({
   label,
+  labelTooltip,
   children,
   testID,
 }: {
   label: string;
+  labelTooltip?: string;
   children: ReactNode;
   testID?: string;
 }) {
   return (
     <XStack minHeight={20} alignItems="center" gap="$2" testID={testID}>
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-        {label}
-      </SizableText>
+      {labelTooltip ? (
+        <Stack flexShrink={0}>
+          <MarketTooltipLabel tooltip={labelTooltip}>
+            {label}
+          </MarketTooltipLabel>
+        </Stack>
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          {label}
+        </SizableText>
+      )}
       <XStack
         flex={1}
         minWidth={0}
@@ -157,6 +170,9 @@ function StockTokenInfoContent({
         label={intl.formatMessage({
           id: ETranslations.market_shares_per_token,
         })}
+        labelTooltip={intl.formatMessage({
+          id: ETranslations.market_shares_per_token_tooltip,
+        })}
         testID="stock-token-info-shares"
       >
         <InfoValueText>
@@ -249,16 +265,31 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
         // background bled 4px/8px past the content by the variant's own
         // negative margins. Only the label keeps its own type, which is a
         // step larger than the button's default.
+        // The hover hint rides on the trigger the same way an IconButton's
+        // `title` does, so press still opens the popover (see ThemeButton for
+        // the same pairing).
         // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
-        <Button
-          testID="stock-token-info-trigger"
-          iconAfter="InfoCircleOutline"
-          size="small"
-          variant="tertiary"
-          childrenAsText={false}
-        >
-          {label}
-        </Button>
+        <Tooltip
+          placement="top"
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_view_stock_token_details,
+              })}
+            </SizableText>
+          }
+          renderTrigger={
+            <Button
+              testID="stock-token-info-trigger"
+              iconAfter="InfoCircleOutline"
+              size="small"
+              variant="tertiary"
+              childrenAsText={false}
+            >
+              {label}
+            </Button>
+          }
+        />
       }
       renderContent={() => (
         <StockTokenInfoContent

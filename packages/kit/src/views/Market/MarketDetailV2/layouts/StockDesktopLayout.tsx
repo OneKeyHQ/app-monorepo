@@ -11,6 +11,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -36,6 +37,7 @@ import type {
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketStarV2 } from '../../components/MarketStarV2';
+import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
@@ -373,11 +375,22 @@ function StockPriceHeader({
               {hoverPoint.price}
             </NumberSizeableText>
           ) : (
-            <StockLivePrice
-              price={price}
-              priceMode={priceMode}
-              isSharePrice={isSharePrice}
-            />
+            <MarketTooltipLabel
+              testID="stock-price-tooltip-trigger"
+              // The row baseline-aligns this figure with the change beside it.
+              alignSelf="baseline"
+              tooltip={intl.formatMessage({
+                id: isSharePrice
+                  ? ETranslations.market_stock_price_underlying_tooltip
+                  : ETranslations.market_token_price_onchain_tooltip,
+              })}
+            >
+              <StockLivePrice
+                price={price}
+                priceMode={priceMode}
+                isSharePrice={isSharePrice}
+              />
+            </MarketTooltipLabel>
           )}
           <XStack alignItems="baseline" gap="$1.5">
             {changeValueText ? (
@@ -416,36 +429,62 @@ function StockPriceHeader({
           labels sitting in half-empty pills. flexShrink keeps a longer
           translation from being squeezed by the price beside it instead. */}
       <XStack height={38} py="$1" gap="$0.5" alignItems="center" flexShrink={0}>
-        <Button
-          testID="stock-price-mode-share"
-          height={30}
-          m="$0"
-          px="$2.5"
-          borderWidth={0}
-          flexShrink={0}
-          textEllipsis
-          size="small"
-          variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
-          borderRadius="$full"
-          onPress={() => onPriceModeChange('share')}
-        >
-          {intl.formatMessage({ id: ETranslations.market_share_price })}
-        </Button>
-        <Button
-          testID="stock-price-mode-token"
-          height={30}
-          m="$0"
-          px="$2.5"
-          borderWidth={0}
-          flexShrink={0}
-          textEllipsis
-          size="small"
-          variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
-          borderRadius="$full"
-          onPress={() => onPriceModeChange('token')}
-        >
-          {intl.formatMessage({ id: ETranslations.market_token_price })}
-        </Button>
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+            <Button
+              testID="stock-price-mode-share"
+              height={30}
+              m="$0"
+              px="$2.5"
+              borderWidth={0}
+              flexShrink={0}
+              textEllipsis
+              size="small"
+              variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
+              borderRadius="$full"
+              onPress={() => onPriceModeChange('share')}
+            >
+              {intl.formatMessage({ id: ETranslations.market_share_price })}
+            </Button>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_toggle_share_price_tooltip,
+              })}
+            </SizableText>
+          }
+        />
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+            <Button
+              testID="stock-price-mode-token"
+              height={30}
+              m="$0"
+              px="$2.5"
+              borderWidth={0}
+              flexShrink={0}
+              textEllipsis
+              size="small"
+              variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
+              borderRadius="$full"
+              onPress={() => onPriceModeChange('token')}
+            >
+              {intl.formatMessage({ id: ETranslations.market_token_price })}
+            </Button>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_toggle_token_price_tooltip,
+              })}
+            </SizableText>
+          }
+        />
       </XStack>
     </XStack>
   );
@@ -660,11 +699,17 @@ function StockOverviewGrid() {
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_market_cap_tooltip,
+        }),
         value: formatCurrencyStatValue(marketCap),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_dividend_yield,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_dividend_yield_desc,
         }),
         value: formatPercentValue(
           stockDetail?.dividendYieldTtm ??
@@ -675,17 +720,26 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pe_ttm,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_pe_ttm_desc,
+        }),
         value: formatRatioValue(
           stockDetail?.peRatio ?? stock?.tradingActivity?.peRatio,
         ),
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_stock_eps }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_eps_tooltip,
+        }),
         value: formatCurrencyStatValue(stockDetail?.epsTtm),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_24h_volume,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_volume_tooltip,
         }),
         value: formatCurrencyStatValue(
           stockDetail?.volume24h ?? stock?.assetAnalysis?.volume24h,
@@ -695,6 +749,9 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_turnover_rate_tooltip,
+        }),
         value: formatDirectPercentValue(
           stockDetail?.turnoverRate24h ?? stock?.assetAnalysis?.turnoverRate,
         ),
@@ -702,6 +759,9 @@ function StockOverviewGrid() {
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_high,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_52_week_high_tooltip,
         }),
         value: formatCurrencyStatValue(
           stockDetail?.weekHigh52 ?? stock?.assetAnalysis?.weekHigh52,
@@ -711,6 +771,9 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_low,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_52_week_low_tooltip,
+        }),
         value: formatCurrencyStatValue(
           stockDetail?.weekLow52 ?? stock?.assetAnalysis?.weekLow52,
         ),
@@ -719,11 +782,17 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.market_stock_net_income_fy,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_net_income_fy_tooltip,
+        }),
         value: formatCurrencyStatValue(stockDetail?.netIncomeFy),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.market_stock_revenue_fy,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_revenue_fy_tooltip,
         }),
         value: formatCurrencyStatValue(stockDetail?.revenueFy),
       },
@@ -731,10 +800,16 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.market_stock_shares_float,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_shares_float_tooltip,
+        }),
         value: formatMarketCapValue(stockDetail?.sharesFloat),
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_stock_beta_1y }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_beta_tooltip,
+        }),
         value: formatRatioValue(stockDetail?.beta1y),
       },
     ],
@@ -797,9 +872,9 @@ function StockOverviewGrid() {
           pr="$2.5"
           gap="$1.5"
         >
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <MarketTooltipLabel tooltip={item.tooltip}>
             {item.label}
-          </SizableText>
+          </MarketTooltipLabel>
           <SizableText size="$headingXl">{item.value}</SizableText>
         </YStack>
       ))}

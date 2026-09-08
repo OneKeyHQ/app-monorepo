@@ -1,4 +1,10 @@
-import { type CSSProperties, useCallback, useMemo, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,7 +25,10 @@ export interface IDashTextProps extends ISizableTextProps {
   dashColor?: string;
   dashThickness?: number;
   dashSpacing?: number;
-  children: string;
+  // Widened from `string` so a formatted value (a price, a percentage) can
+  // carry the same dashes as a plain label. Every existing caller passes a
+  // string, which is still a ReactNode.
+  children: ReactNode;
   length?: number;
   /** When set, wraps with Tooltip on desktop and Popover on mobile */
   tooltip?: string;
@@ -218,7 +227,13 @@ export function DashText({
 
   return (
     <Popover
-      title={tooltipTitle ?? rest.children}
+      // The sheet needs a title and a formatted node makes no sense as one,
+      // so a non-string child falls back to empty and asks the caller for
+      // `tooltipTitle` instead. Node children only appear on desktop, which
+      // takes the tooltip branch above and never reaches this.
+      title={
+        tooltipTitle ?? (typeof rest.children === 'string' ? rest.children : '')
+      }
       placement={tooltipPlacement as IPopoverProps['placement']}
       renderTrigger={trigger}
       renderContent={popoverContent}
