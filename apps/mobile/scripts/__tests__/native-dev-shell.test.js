@@ -262,8 +262,9 @@ describe('native-dev-shell', () => {
     expect(iosOutput).toHaveBeenCalledWith('xcrun', [
       'simctl',
       'spawn',
+      '--arch=arm64',
       'SIMULATOR-A',
-      'uname',
+      '/usr/bin/uname',
       '-m',
     ]);
   });
