@@ -4,6 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { normalizeMarketWsKLineInterval } from '@onekeyhq/shared/src/utils/marketWsUtils';
 import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -797,7 +798,7 @@ class ServiceMarketWS extends ServiceBase {
       matchedSubscriptions = this.subscriptionTracker.getSubscriptionsByParams({
         address: tokenAddress,
         type: EChannel.ohlcv,
-        chartType: priceData.type,
+        chartType: normalizeMarketWsKLineInterval(priceData.type),
       });
       if (!tokenAddress) {
         const priceDataSymbol = normalizeSubscriptionSymbol(priceData.symbol);
