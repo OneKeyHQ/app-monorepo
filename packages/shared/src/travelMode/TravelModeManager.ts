@@ -126,6 +126,10 @@ export class TravelModeManager {
 
   async getRuntimeState(): Promise<ITravelModeRuntimeState> {
     await this.ready;
+    return this.getRuntimeStateSync();
+  }
+
+  getRuntimeStateSync(): ITravelModeRuntimeState {
     if (
       (this.runtimeState === 'inactive' || this.runtimeState === 'active') &&
       this.isTransitionBlockedSync()

@@ -23921,6 +23921,7 @@
     "packages/shared/src/travelMode/runtimeLaunchGate.ts": 17128,
     "packages/shared/src/travelMode/runtimeNetworkAdapter.native.ts": 1119,
     "packages/shared/src/travelMode/runtimeNetworkAdapter.ts": 16930,
+    "packages/shared/src/travelMode/runtimeNetworkAllowlist.ts": 5888,
     "packages/shared/src/travelMode/runtimeProfile.ts": 23297,
     "packages/shared/src/travelMode/runtimeWalletEffect.native.ts": 14255,
     "packages/shared/src/travelMode/runtimeWalletEffect.ts": 14559,

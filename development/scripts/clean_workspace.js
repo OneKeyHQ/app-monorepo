@@ -1,20 +1,21 @@
+/* cspell:words prebundle */
 const { execSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
+const {
+  getMobileShellCacheRoot,
+  getSharedCacheRoot,
+} = require('../../apps/mobile/scripts/dev-cache-paths');
+
 // Function to remove directory recursively
-function removeDir(dir) {
+function removeDir(dir, log) {
   if (fs.existsSync(dir)) {
     fs.rmSync(dir, { recursive: true, force: true });
-    console.log(`Removed: ${dir}`);
+    log(`Removed: ${dir}`);
   }
 }
-
-console.log('Cleaning workspace...');
-
-// Clean yarn cache
-console.log('Cleaning yarn cache...');
-execSync('yarn cache clean', { stdio: 'inherit' });
 
 // Define directories to remove
 const dirsToRemove = [
@@ -46,8 +47,10 @@ const dirsToRemove = [
   './apps/mobile/node_modules',
   './apps/mobile/.expo',
   './apps/mobile/__generated__',
+  './apps/mobile/out-dir-bundle',
   './apps/mobile/ios/Pods',
   './apps/mobile/ios/build',
+  './apps/mobile/ios/outputs',
   './apps/mobile/ios/OneKeyWallet/web-embed',
   './apps/mobile/ios/OneKeyWallet.xcworkspace/xcuserdata',
   './apps/mobile/src/public/static/connect',
@@ -70,6 +73,7 @@ const dirsToRemove = [
   './apps/web-embed/node_modules',
   './apps/web-embed/.expo',
   './apps/web-embed/__generated__',
+  './apps/web-embed/out-dir-bundle',
   './apps/web-embed/dist',
   './apps/web-embed/web-build',
   './apps/web-embed/.expo-shared',
@@ -98,9 +102,46 @@ const dirsToRemove = [
   './packages/shared/src/web/index.html',
 ];
 
-// Remove directories
-dirsToRemove.forEach((dir) =>
-  removeDir(path.resolve(__dirname, '..', '..', dir)),
-);
+function cleanWorkspace({
+  repoRoot = path.resolve(__dirname, '../..'),
+  env = process.env,
+  platform = process.platform,
+  homeDirectory = os.homedir(),
+  run = execSync,
+  log = console.log,
+} = {}) {
+  log('Cleaning workspace...');
+  log('Cleaning yarn cache...');
+  run('yarn cache clean', { stdio: 'inherit', cwd: repoRoot, env });
 
-console.log('Workspace cleaned successfully.');
+  const sharedRoots = new Set([
+    getMobileShellCacheRoot({}, homeDirectory),
+    getMobileShellCacheRoot(env, homeDirectory),
+    getSharedCacheRoot({}, platform, homeDirectory),
+    getSharedCacheRoot(
+      { ...env, ONEKEY_METRO_PREBUNDLE_CACHE_DIR: undefined },
+      platform,
+      homeDirectory,
+    ),
+    getSharedCacheRoot(env, platform, homeDirectory),
+  ]);
+  for (const root of sharedRoots) {
+    if (fs.existsSync(root)) {
+      // Custom roots may contain unrelated files; OneKey artifacts live in version directories.
+      for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+        if (
+          /^v\d+$/u.test(entry.name) &&
+          (entry.isDirectory() || entry.isSymbolicLink())
+        ) {
+          removeDir(path.join(root, entry.name), log);
+        }
+      }
+    }
+  }
+  for (const dir of dirsToRemove) removeDir(path.resolve(repoRoot, dir), log);
+  log('Workspace cleaned successfully.');
+}
+
+if (require.main === module) cleanWorkspace();
+
+module.exports = { cleanWorkspace };

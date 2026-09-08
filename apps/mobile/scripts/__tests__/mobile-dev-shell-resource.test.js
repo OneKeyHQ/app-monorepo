@@ -849,6 +849,34 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
+  it('rejects an older ABI-compatible shell when the launcher requires matching native inputs', async () => {
+    const cacheRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-shell-native-input-test-'),
+    );
+    const remote = createRemoteShell({
+      compatibility,
+      exactMissing: true,
+      inputKey: 'a'.repeat(64),
+    });
+    try {
+      await expect(
+        restoreMobileDevShell({
+          attestationVerifier: jest.fn().mockResolvedValue(undefined),
+          cacheRoot,
+          compatibility: { ...compatibility, requireExactInput: true },
+          fetchImpl: remote.fetchImpl,
+        }),
+      ).rejects.toMatchObject({ code: 'SHELL_LOCATOR_NOT_FOUND' });
+      expect(
+        remote.fetchImpl.mock.calls.some(([url]) =>
+          String(url).includes(compatibility.compatibilityTag),
+        ),
+      ).toBe(false);
+    } finally {
+      fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
   it('falls back to an ABI-compatible remote shell with a user notice', async () => {
     const cacheRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-shell-compatible-cache-test-'),
