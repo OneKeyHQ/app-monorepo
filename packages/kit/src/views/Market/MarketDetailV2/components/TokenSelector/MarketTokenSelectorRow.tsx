@@ -93,6 +93,8 @@ const MarketTokenSelectorRow = memo(
 
     // Use hooks directly + custom IconButton to match perps FavoriteButton exactly
     const spotStar = useStarV2Checked({
+      assetId: item.assetId,
+      stockId: item.stockId,
       chainId: item.chainId ?? networkId ?? '',
       contractAddress: item.address,
       from: EWatchlistFrom.Search,

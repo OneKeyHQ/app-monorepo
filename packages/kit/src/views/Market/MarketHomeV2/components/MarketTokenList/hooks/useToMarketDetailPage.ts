@@ -9,12 +9,14 @@ import {
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -111,7 +113,24 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   );
 
   const toMarketDetailPage = useCallback(
-    async (item: IMarketToken) => {
+    async (selectedItem: IMarketToken) => {
+      let item = selectedItem;
+      if (item.assetId) {
+        const { selectedVariant } =
+          await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+            assetId: item.assetId,
+            currency: 'usd',
+          });
+        item = {
+          ...item,
+          marketTokenId: item.assetId,
+          marketVariantId: selectedVariant.variantId,
+          networkId: selectedVariant.networkId,
+          tokenAddress: selectedVariant.tokenAddress,
+          address: selectedVariant.tokenAddress,
+          isNative: selectedVariant.isNative,
+        };
+      }
       const stockId = resolveMarketStockId(item);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
@@ -144,8 +163,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         ...(typeof item.disableTrade === 'boolean'
           ? { disableTrade: item.disableTrade }
           : undefined),
-        ...(options?.marketTokenCategory
-          ? { marketTokenCategory: options.marketTokenCategory }
+        ...(item.assetId || options?.marketTokenCategory
+          ? {
+              marketTokenCategory: item.assetId
+                ? MARKET_TOP_COINS_CATEGORY_ID
+                : options?.marketTokenCategory,
+            }
           : undefined),
         ...(typeof showFavoriteButton === 'boolean'
           ? { showFavoriteButton }
@@ -184,8 +207,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ? EEnterWay.ExtensionPopup
           : EEnterWay.ExtensionSidePanel;
 
-        const { default: backgroundApiProxy } =
-          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,

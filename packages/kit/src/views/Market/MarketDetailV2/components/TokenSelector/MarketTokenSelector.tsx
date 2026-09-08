@@ -9,6 +9,7 @@ import {
   Popover,
   SearchBar,
   SizableText,
+  Toast,
   XStack,
   YStack,
   usePopoverContext,
@@ -76,6 +77,7 @@ function convertTopCoinToSelectorToken(
   return {
     id: `market_asset_${item.assetId}`,
     marketAssetId: item.assetId,
+    assetId: item.assetId,
     name: item.symbol.toUpperCase(),
     symbol: item.symbol.toUpperCase(),
     address: '',
@@ -280,6 +282,8 @@ function BaseMarketTokenSelectorContent({
     (token: {
       address: string;
       networkId: string;
+      assetId?: string;
+      stockId?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -290,7 +294,13 @@ function BaseMarketTokenSelectorContent({
         return;
       }
 
-      navigateToMarketTokenDetail(token, {
+      void navigateToMarketTokenDetail(token, {
+        onError: () =>
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          }),
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
@@ -300,6 +310,7 @@ function BaseMarketTokenSelectorContent({
       });
     },
     [
+      intl,
       tokenDetailActions,
       closePopover,
       navigateToPerps,

@@ -244,6 +244,8 @@ export function useTrendingColumnsDesktop({
             justifyContent="center"
           >
             <MarketStarV2
+              assetId={record.assetId}
+              stockId={record.stockId}
               chainId={record.chainId || networkId || ''}
               contractAddress={record.address}
               from={EWatchlistFrom.Homepage}
@@ -346,7 +348,7 @@ export function useTrendingColumnsDesktop({
               formatter={record.price > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
-              {record.price}
+              {Number.isFinite(record.price) ? record.price : '--'}
             </NumberSizeableText>
           </YStack>
         ),

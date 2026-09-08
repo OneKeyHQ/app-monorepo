@@ -12,7 +12,7 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { MarketTestIDs } from '../testIDs';
@@ -22,12 +22,16 @@ import { useWatchListV2Action } from './watchListHooksV2';
 import type { IMarketStarV2Props } from './MarketStarV2.types';
 
 export const useStarV2Checked = ({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   from,
   tokenSymbol,
   isNative = false,
 }: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
@@ -42,20 +46,22 @@ export const useStarV2Checked = ({
     if (!isMounted || watchListData.length === 0) {
       return false;
     }
-    return !!watchListData?.find((item) =>
-      equalTokenNoCaseSensitive({
-        token1: { networkId: chainId, contractAddress },
-        token2: {
-          networkId: item.chainId,
-          contractAddress: item.contractAddress,
-        },
-      }),
-    );
-  }, [watchListData, isMounted, chainId, contractAddress]);
+    const key = getMarketWatchlistKey({
+      chainId,
+      contractAddress,
+      assetId,
+      stockId,
+    });
+    return watchListData.some((item) => getMarketWatchlistKey(item) === key);
+  }, [watchListData, isMounted, chainId, contractAddress, assetId, stockId]);
 
   const handlePress = useCallback(async () => {
+    if (!isMounted) return;
     if (checked) {
-      actions.removeFromWatchListV2(chainId, contractAddress);
+      actions.removeFromWatchListV2(chainId, contractAddress, {
+        assetId,
+        stockId,
+      });
       // Dex analytics
       defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
         network: chainId,
@@ -64,7 +70,15 @@ export const useStarV2Checked = ({
         removeFrom: from,
       });
     } else {
-      actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
+      actions.addIntoWatchListV2([
+        {
+          chainId: assetId || stockId ? '' : chainId,
+          contractAddress: assetId || stockId ? '' : contractAddress,
+          isNative,
+          assetId,
+          stockId,
+        },
+      ]);
       // Dex analytics
       defaultLogger.dex.watchlist.dexAddToWatchlist({
         network: chainId,
@@ -73,18 +87,32 @@ export const useStarV2Checked = ({
         addFrom: from,
       });
     }
-  }, [checked, actions, chainId, contractAddress, from, tokenSymbol, isNative]);
+  }, [
+    checked,
+    actions,
+    chainId,
+    contractAddress,
+    from,
+    tokenSymbol,
+    isNative,
+    assetId,
+    stockId,
+    isMounted,
+  ]);
 
   return useMemo(
     () => ({
       checked,
+      isMounted,
       onPress: handlePress,
     }),
-    [checked, handlePress],
+    [checked, handlePress, isMounted],
   );
 };
 
 function BasicMarketStarV2({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   size,
@@ -95,7 +123,9 @@ function BasicMarketStarV2({
   ...props
 }: IMarketStarV2Props) {
   const intl = useIntl();
-  const { onPress, checked } = useStarV2Checked({
+  const { onPress, checked, isMounted } = useStarV2Checked({
+    assetId,
+    stockId,
     chainId,
     contractAddress,
     from,
@@ -122,6 +152,7 @@ function BasicMarketStarV2({
         ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
+      disabled={!isMounted}
       {...(props as IXStackProps)}
     />
   );

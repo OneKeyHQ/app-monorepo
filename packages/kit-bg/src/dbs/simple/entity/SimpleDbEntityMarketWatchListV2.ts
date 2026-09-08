@@ -1,6 +1,9 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getMarketWatchlistKey,
+  isValidMarketWatchlistItem,
+} from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketWatchListDataV2,
   IMarketWatchListItemV2,
@@ -16,7 +19,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
   private _invalidItemsCleaned = false;
 
   private _isValidItem(item: IMarketWatchListItemV2): boolean {
-    return !!(item.perpsCoin || item.chainId?.trim());
+    return isValidMarketWatchlistItem(item);
   }
 
   async getMarketWatchListV2() {
@@ -39,36 +42,13 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     return { data: cleanData };
   }
 
-  async getMarketWatchListItemV2({
-    chainId,
-    contractAddress,
-    perpsCoin,
-  }: {
-    chainId: string;
-    contractAddress: string;
-    perpsCoin?: string;
-  }): Promise<IMarketWatchListItemV2 | undefined> {
-    try {
-      const watchList = await this.getMarketWatchListV2();
-      if (perpsCoin) {
-        return watchList.data.find((item) => item.perpsCoin === perpsCoin);
-      }
-      return watchList.data.find((item) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: chainId,
-            contractAddress,
-          },
-          token2: {
-            networkId: item.chainId,
-            contractAddress: item.contractAddress,
-          },
-        }),
-      );
-    } catch (error) {
-      console.error('Failed to get market watch list item:', error);
-      return undefined;
-    }
+  async getMarketWatchListItemV2(
+    identity: IMarketWatchListItemV2,
+  ): Promise<IMarketWatchListItemV2 | undefined> {
+    const watchList = await this.getMarketWatchListV2();
+    return watchList.data.find(
+      (item) => getMarketWatchlistKey(item) === getMarketWatchlistKey(identity),
+    );
   }
 
   // addOrEdit
@@ -89,10 +69,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       const newList: IMarketWatchListItemV2[] = sortUtils.buildSortedList({
         oldList,
         saveItems: watchList,
-        uniqByFn: (i) =>
-          i.perpsCoin
-            ? `perps:${i.perpsCoin}`
-            : `${i.chainId}:${i.contractAddress}`,
+        uniqByFn: getMarketWatchlistKey,
       });
 
       return { data: newList };
@@ -103,11 +80,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     items,
     callerName,
   }: {
-    items: Array<{
-      chainId: string;
-      contractAddress: string;
-      perpsCoin?: string;
-    }>;
+    items: IMarketWatchListItemV2[];
     callerName: string;
   }) {
     defaultLogger.cloudSync.market.simpleDbRemoveWatchListItems({
@@ -118,24 +91,11 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       const oldList = data?.data ?? [];
 
       const filteredData = oldList.filter(
-        (i) =>
-          !items.some((item) => {
-            // Match perps items by perpsCoin
-            if (item.perpsCoin) {
-              return i.perpsCoin === item.perpsCoin;
-            }
-            // Match spot items by chainId + contractAddress
-            return equalTokenNoCaseSensitive({
-              token1: {
-                networkId: item.chainId,
-                contractAddress: item.contractAddress,
-              },
-              token2: {
-                networkId: i.chainId,
-                contractAddress: i.contractAddress,
-              },
-            });
-          }),
+        (item) =>
+          !items.some(
+            (removed) =>
+              getMarketWatchlistKey(item) === getMarketWatchlistKey(removed),
+          ),
       );
 
       return { data: filteredData };

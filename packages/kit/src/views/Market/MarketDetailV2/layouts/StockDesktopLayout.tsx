@@ -187,18 +187,18 @@ function StockPageHeader({
       />
 
       {/* The stock route can share the listing before any token variant
-          resolves, so the row also stands on a bare `stockId`. The favorite
-          button still needs a real chain/contract/symbol triple. */}
+          resolves, so the row also stands on a bare `stockId`. Favorites use the stock ID independently of the selected token. */}
       {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
-          {showFavoriteButton && tokenActionIdentity ? (
+          {showFavoriteButton && (stockId || tokenActionIdentity) ? (
             <MarketStarV2
-              chainId={tokenActionIdentity.networkId}
-              contractAddress={tokenActionIdentity.address}
+              stockId={stockId}
+              chainId={tokenActionIdentity?.networkId ?? ''}
+              contractAddress={tokenActionIdentity?.address ?? ''}
               size="small"
               customIconSize="$5"
               from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenActionIdentity.symbol}
+              tokenSymbol={stockDetail?.symbol ?? tokenActionIdentity?.symbol}
               isNative={isNative}
             />
           ) : null}

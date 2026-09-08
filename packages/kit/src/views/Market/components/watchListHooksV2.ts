@@ -31,9 +31,17 @@ export const useWatchListV2Action = () => {
   });
 
   const removeFromWatchListV2 = useCallback(
-    (chainId: string, contractAddress: string) => {
+    (
+      chainId: string,
+      contractAddress: string,
+      listing?: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+    ) => {
       reportWatchListFailure(
-        actions.current.removeFromWatchListV2(chainId, contractAddress),
+        actions.current.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          listing,
+        ),
         errorMessage,
       );
     },
@@ -46,6 +54,8 @@ export const useWatchListV2Action = () => {
         chainId: string;
         contractAddress: string;
         isNative?: boolean;
+        assetId?: string;
+        stockId?: string;
       }>,
     ) => {
       // Calculate sortIndex to make new items appear at the top
@@ -56,6 +66,7 @@ export const useWatchListV2Action = () => {
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({
+          ...item,
           chainId: item.chainId,
           contractAddress: item.contractAddress,
           sortIndex: firstSortIndex - (index + 1),

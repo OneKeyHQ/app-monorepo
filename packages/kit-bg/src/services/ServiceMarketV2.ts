@@ -1,4 +1,5 @@
 import { isNil } from 'lodash';
+import pLimit from 'p-limit';
 
 import {
   backgroundClass,
@@ -17,7 +18,10 @@ import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketListingWatchlistQuote,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
@@ -739,11 +743,7 @@ class ServiceMarketV2 extends ServiceBase {
     skipEventEmit,
     callerName,
   }: {
-    items: Array<{
-      chainId: string;
-      contractAddress: string;
-      perpsCoin?: string;
-    }>;
+    items: IMarketWatchListItemV2[];
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
     callerName: string;
@@ -768,26 +768,43 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchMarketListingWatchlistQuote(
+    identity: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+  ): Promise<IMarketListingWatchlistQuote | undefined> {
+    if (identity.assetId) {
+      const { asset, market } =
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+          assetId: identity.assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        });
+      return {
+        ...market,
+        symbol: asset.symbol,
+        name: asset.name,
+        logoUrl: asset.logoUrl,
+      };
+    }
+    if (identity.stockId) {
+      return (
+        (await this.fetchMarketStockDetail({ stockId: identity.stockId })) ??
+        undefined
+      );
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   async getMarketWatchListV2() {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
   }
 
   @backgroundMethod()
-  async getMarketWatchListItemV2({
-    chainId,
-    contractAddress,
-    perpsCoin,
-  }: {
-    chainId: string;
-    contractAddress: string;
-    perpsCoin?: string;
-  }): Promise<IMarketWatchListItemV2 | undefined> {
+  async getMarketWatchListItemV2(
+    identity: IMarketWatchListItemV2,
+  ): Promise<IMarketWatchListItemV2 | undefined> {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
-      {
-        chainId,
-        contractAddress,
-        perpsCoin,
-      },
+      identity,
     );
   }
 
@@ -826,8 +843,46 @@ class ServiceMarketV2 extends ServiceBase {
 
     // Filter out perps items — they don't have chainId/contractAddress for batch lookup
     // Also filter out items with empty chainId to avoid server validation errors
-    const spotItems = watchlistData.data.filter(
-      (item) => !item.perpsCoin && item.chainId?.trim(),
+    const limit = pLimit(4);
+    const resolvedItems = await Promise.all(
+      watchlistData.data.map((item) =>
+        limit(async () => {
+          if (item.assetId) {
+            const { selectedVariant } =
+              await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+                assetId: item.assetId,
+                currency: 'usd',
+                autoHandleError: false,
+              });
+            return {
+              chainId: selectedVariant.networkId,
+              contractAddress: selectedVariant.tokenAddress,
+              isNative: selectedVariant.isNative,
+            };
+          }
+          if (item.stockId) {
+            const { items, defaultTokenId } =
+              await this.fetchMarketStockTokenVariants({
+                stockId: item.stockId,
+              });
+            const variant =
+              items.find((entry) => entry.tokenId === defaultTokenId) ??
+              items[0];
+            return variant
+              ? {
+                  chainId: variant.networkId,
+                  contractAddress: variant.contractAddress,
+                  isNative: false,
+                }
+              : undefined;
+          }
+          return item.perpsCoin ? undefined : item;
+        }),
+      ),
+    );
+    const spotItems = resolvedItems.filter(
+      (item): item is NonNullable<typeof item> =>
+        Boolean(item?.chainId?.trim()),
     );
     const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,

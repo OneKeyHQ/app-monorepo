@@ -32,6 +32,72 @@ describe('ServiceMarketV2 public stock APIs', () => {
     jest.clearAllMocks();
   });
 
+  it('loads a stock watchlist quote without resolving a token variant', async () => {
+    const service = createService();
+    const variants = jest.spyOn(service, 'fetchMarketStockTokenVariants');
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple',
+          logoUrl: '',
+          price: '200',
+        },
+      },
+    });
+    expect(
+      await service.fetchMarketListingWatchlistQuote({ stockId: 'AAPL' }),
+    ).toMatchObject({ symbol: 'AAPL', price: '200' });
+    expect(variants).not.toHaveBeenCalled();
+  });
+
+  it('uses the default stock token for notifications without changing the stored listing', async () => {
+    const service = createService();
+    const stored = { stockId: 'AAPL', chainId: '', contractAddress: '' };
+    jest
+      .spyOn(service, 'getMarketWatchListV2')
+      .mockResolvedValue({ data: [stored] });
+    jest.spyOn(service, 'fetchMarketStockTokenVariants').mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'default',
+      items: [
+        {
+          tokenId: 'first',
+          issuer: 'first',
+          networkId: 'evm--1',
+          contractAddress: '0xfirst',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+        {
+          tokenId: 'default',
+          issuer: 'default',
+          networkId: 'evm--1',
+          contractAddress: '0xdefault',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+    const batch = jest
+      .spyOn(service, 'fetchMarketTokenListBatch')
+      .mockResolvedValue({ list: [] });
+    await service.buildWatchlistTokensForNotification();
+    expect(batch).toHaveBeenCalledWith({
+      tokenAddressList: [
+        { chainId: 'evm--1', contractAddress: '0xdefault', isNative: false },
+      ],
+    });
+    expect(stored).toEqual({
+      stockId: 'AAPL',
+      chainId: '',
+      contractAddress: '',
+    });
+  });
+
   it('loads the aggregated stock list without token identity fields', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({

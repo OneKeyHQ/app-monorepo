@@ -18,11 +18,15 @@ import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
 function getTokenKey(token: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   perpsCoin?: string;
   marketAsset?: Pick<IMarketAssetListItem, 'assetId'>;
 }) {
+  if (token.assetId) return `asset:${token.assetId}`;
+  if (token.stockId) return `stock:${token.stockId}`;
   if (token.marketAsset) {
     return `market:${token.marketAsset.assetId}`;
   }

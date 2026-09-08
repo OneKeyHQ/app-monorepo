@@ -100,15 +100,6 @@ function MarketCategoryTokenList({
             kind="asset"
             listingId={record.marketAsset.assetId}
             from={EWatchlistFrom.Homepage}
-            renderButton={(identity) =>
-              renderStarButton({
-                ...record,
-                marketAsset: undefined,
-                chainId: identity.chainId,
-                contractAddress: identity.contractAddress,
-                isNative: identity.isNative,
-              })
-            }
           />
         ) : (
           renderStarButton(record)

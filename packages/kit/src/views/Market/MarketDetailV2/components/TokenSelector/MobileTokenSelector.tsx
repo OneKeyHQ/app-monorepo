@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -107,6 +107,8 @@ function MobileTokenSelectorContent() {
     (token: {
       address: string;
       networkId: string;
+      assetId?: string;
+      stockId?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -117,14 +119,20 @@ function MobileTokenSelectorContent() {
         return;
       }
 
-      navigateToMarketTokenDetail(token, {
+      void navigateToMarketTokenDetail(token, {
+        onError: () =>
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          }),
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
+    [intl, tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
   );
 
   const handleTokenSelect = useCallback(

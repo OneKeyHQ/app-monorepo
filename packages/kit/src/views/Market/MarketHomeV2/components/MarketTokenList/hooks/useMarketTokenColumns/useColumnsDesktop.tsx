@@ -61,7 +61,7 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 const EMPTY_MARKET_VALUE = '--';
 
 function getDefaultMarketValue(text: number) {
-  return text === 0 ? EMPTY_MARKET_VALUE : text;
+  return !Number.isFinite(text) || text === 0 ? EMPTY_MARKET_VALUE : text;
 }
 
 function shouldUseLightweightCell(
@@ -214,6 +214,8 @@ export const useColumnsDesktop = (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
                 <MarketStarV2
+                  assetId={record.assetId}
+                  stockId={record.stockId}
                   chainId={record.chainId || networkId || ''}
                   contractAddress={record.address}
                   from={watchlistFrom || EWatchlistFrom.Homepage}
@@ -319,7 +321,9 @@ export const useColumnsDesktop = (
         columnProps: { flex: 1 },
         render: (text: string, _record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(text);
+            return renderLightweightText(
+              Number.isFinite(Number(text)) ? text : EMPTY_MARKET_VALUE,
+            );
           }
 
           return (
@@ -328,7 +332,7 @@ export const useColumnsDesktop = (
               formatter={Number(text) > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
-              {text}
+              {Number.isFinite(Number(text)) ? text : EMPTY_MARKET_VALUE}
             </NumberSizeableText>
           );
         },

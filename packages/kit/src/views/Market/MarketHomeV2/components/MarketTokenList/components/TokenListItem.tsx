@@ -143,7 +143,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           formatter="price"
           formatterOptions={{ currency: '$' }}
         >
-          {item.price}
+          {Number.isFinite(item.price) ? item.price : '--'}
         </NumberSizeableText>
         <PriceChangeBadge change={priceChange} />
       </XStack>

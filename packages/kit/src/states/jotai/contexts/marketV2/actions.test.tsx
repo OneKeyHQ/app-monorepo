@@ -545,6 +545,53 @@ describe('marketV2 watchlist optimistic actions', () => {
     mockRecordTaskCompleted.mockResolvedValue(undefined);
   });
 
+  test('optimistically adds an asset without overwriting an identically named stock', async () => {
+    const stock = {
+      stockId: 'BTC',
+      chainId: '',
+      contractAddress: '',
+      sortIndex: 1,
+    };
+    const asset = {
+      assetId: 'BTC',
+      chainId: '',
+      contractAddress: '',
+      sortIndex: 2,
+    };
+    const { result, store } = setupWatchList([stock]);
+    const pending = createDeferred<unknown>();
+    mockAddMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({ data: [stock, asset] });
+    let action: Promise<unknown> | undefined;
+    act(() => {
+      action = result.current.addIntoWatchListV2(asset);
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([stock, asset]);
+    await act(async () => {
+      pending.resolve(undefined);
+      await action;
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([stock, asset]);
+  });
+
+  test('removes only the selected listing and restores it on write failure', async () => {
+    const stock = { stockId: 'BTC', chainId: '', contractAddress: '' };
+    const asset = { assetId: 'BTC', chainId: '', contractAddress: '' };
+    const { result, store } = setupWatchList([asset, stock]);
+    const pending = createDeferred<unknown>();
+    mockRemoveMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    let action: Promise<unknown> | undefined;
+    act(() => {
+      action = result.current.removeFromWatchListV2('', '', { stockId: 'BTC' });
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([asset]);
+    await act(async () => {
+      pending.reject(new Error('offline'));
+      await expect(action).rejects.toThrow('offline');
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([asset, stock]);
+  });
+
   test('restores the previous list when adding a spot token fails', async () => {
     const initialData = [spotItem];
     const { result, store } = setupWatchList(initialData);

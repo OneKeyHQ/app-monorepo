@@ -4,56 +4,38 @@ import type { PropsWithChildren } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketListingStar } from './MarketListingStar';
 
-import type { IMarketListingWatchlistIdentity } from '../utils/marketListingWatchlistIdentity';
-
-const identity: IMarketListingWatchlistIdentity = {
-  chainId: 'btc--0',
-  contractAddress: '',
-  isNative: true,
-  tokenSymbol: 'BTC',
-};
-let mockResult:
-  | {
-      kind: 'asset' | 'stock';
-      listingId: string;
-      identity?: IMarketListingWatchlistIdentity;
-      failed: boolean;
-    }
-  | undefined;
-const mockRun = jest.fn();
-const mockAcquire = jest.fn<
-  {
-    promise: Promise<IMarketListingWatchlistIdentity | undefined>;
-    release: () => void;
-  },
-  unknown[]
->();
-let mockFocused = true;
-let mockExecuteRequests = false;
-
+let mockData: IMarketWatchListItemV2[] = [];
+let mockMounted = true;
+const mockAdd = jest.fn();
+const mockRemove = jest.fn();
+const mockAcquire = jest.fn<unknown, unknown[]>();
 jest.mock('../utils/marketListingWatchlistIdentity', () => ({
   acquireMarketListingWatchlistIdentity: (...args: unknown[]) =>
     mockAcquire(...args),
 }));
-jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => mockFocused,
+jest.mock('../../../states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: mockData, isMounted: mockMounted }],
 }));
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const ReactModule = jest.requireActual<typeof import('react')>('react');
-  return {
-    usePromiseResult: (callback: () => Promise<unknown>) => {
-      ReactModule.useEffect(() => {
-        if (mockExecuteRequests && mockFocused) {
-          void callback();
-        }
-      }, [callback]);
-      return { result: mockResult, isLoading: false, run: mockRun };
+jest.mock('./watchListHooksV2', () => ({
+  useWatchListV2Action: () => ({
+    addIntoWatchListV2: mockAdd,
+    removeFromWatchListV2: mockRemove,
+  }),
+}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexAddToWatchlist: jest.fn(),
+        dexRemoveFromWatchlist: jest.fn(),
+      },
     },
-  };
-});
+  },
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -69,142 +51,103 @@ jest.mock('@onekeyhq/components', () => ({
     </div>
   ),
   IconButton: ({
+    icon,
     disabled,
-    title,
     onPress,
+    testID,
   }: {
-    disabled: boolean;
-    title: string;
+    icon: string;
+    disabled?: boolean;
     onPress: () => void;
+    testID: string;
   }) => (
-    <button type="button" disabled={disabled} onClick={onPress}>
-      {title}
+    <button
+      type="button"
+      data-testid={testID}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      {icon}
     </button>
   ),
 }));
-jest.mock('./MarketStarV2', () => ({
-  MarketStarV2: ({
-    chainId,
-    contractAddress,
-  }: {
-    chainId: string;
-    contractAddress: string;
-  }) => <button type="button">{`${chainId}:${contractAddress}`}</button>,
-}));
-
 beforeEach(() => {
-  mockResult = undefined;
-  mockRun.mockReset();
-  mockAcquire.mockReset();
-  mockFocused = true;
-  mockExecuteRequests = false;
+  jest.clearAllMocks();
+  mockData = [];
+  mockMounted = true;
 });
-
-it('does not expose a previous row identity while resolving the new listing', () => {
-  mockResult = { kind: 'asset', listingId: 'bitcoin', identity, failed: false };
+it.each(['asset', 'stock'] as const)(
+  'renders and saves %s without resolving a token variant',
+  (kind) => {
+    render(
+      <MarketListingStar
+        kind={kind}
+        listingId="BTC"
+        from={EWatchlistFrom.Homepage}
+      />,
+    );
+    const button = screen.getByRole('button');
+    expect(button.textContent).toBe('StarOutline');
+    fireEvent.click(button);
+    expect(mockAdd).toHaveBeenCalledWith([
+      expect.objectContaining({
+        chainId: '',
+        contractAddress: '',
+        [kind === 'asset' ? 'assetId' : 'stockId']: 'BTC',
+      }),
+    ]);
+    expect(mockAcquire).not.toHaveBeenCalled();
+  },
+);
+it('uses the persisted listing identity immediately and isolates recycled rows', () => {
+  mockData = [{ chainId: '', contractAddress: '', assetId: 'BTC' }];
   const { rerender } = render(
     <MarketListingStar
       kind="asset"
-      listingId="bitcoin"
+      listingId="BTC"
       from={EWatchlistFrom.Homepage}
     />,
   );
-  expect(screen.getByRole('button').textContent).toBe('btc--0:');
+  expect(screen.getByRole('button').textContent).toBe('StarSolid');
+  fireEvent.click(screen.getByRole('button'));
+  expect(mockRemove).toHaveBeenCalledWith('', '', {
+    assetId: 'BTC',
+    stockId: undefined,
+  });
   rerender(
     <MarketListingStar
-      kind="asset"
-      listingId="ethereum"
+      kind="stock"
+      listingId="BTC"
       from={EWatchlistFrom.Homepage}
     />,
   );
-  expect(screen.queryByText('btc--0:')).toBeNull();
-  expect(screen.getByRole('button').hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button').textContent).toBe('StarOutline');
+  expect(mockAcquire).not.toHaveBeenCalled();
 });
-
-it('blocks row navigation for a favorite click', () => {
-  mockResult = { kind: 'asset', listingId: 'bitcoin', identity, failed: false };
-  const navigate = jest.fn();
-  render(
-    <div role="presentation" onClick={navigate}>
+it('does not mutate storage before hydration or navigate the row on a star click', () => {
+  mockMounted = false;
+  const onRowPress = jest.fn();
+  const { rerender } = render(
+    <div role="presentation" onClick={onRowPress}>
       <MarketListingStar
-        kind="asset"
-        listingId="bitcoin"
+        kind="stock"
+        listingId="AAPL"
         from={EWatchlistFrom.Homepage}
       />
     </div>,
   );
   fireEvent.click(screen.getByRole('button'));
-  expect(navigate).not.toHaveBeenCalled();
-});
-
-it('allows retry on failure without enabling an invalid favorite', () => {
-  mockResult = { kind: 'stock', listingId: 'AAPL', failed: true };
-  render(
-    <MarketListingStar
-      kind="stock"
-      listingId="AAPL"
-      from={EWatchlistFrom.Homepage}
-    />,
+  expect(mockAdd).not.toHaveBeenCalled();
+  mockMounted = true;
+  rerender(
+    <div role="presentation" onClick={onRowPress}>
+      <MarketListingStar
+        kind="stock"
+        listingId="AAPL"
+        from={EWatchlistFrom.Homepage}
+      />
+    </div>,
   );
-  fireEvent.click(screen.getByRole('button', { name: 'global.retry' }));
-  expect(mockRun).toHaveBeenCalledTimes(1);
-});
-
-it('disables the action when no token identity is available', () => {
-  mockResult = { kind: 'stock', listingId: 'EMPTY', failed: false };
-  render(
-    <MarketListingStar
-      kind="stock"
-      listingId="EMPTY"
-      from={EWatchlistFrom.Homepage}
-    />,
-  );
-  expect(screen.getByRole('button').hasAttribute('disabled')).toBe(true);
-});
-
-it('passes the resolved identity to the Home renderer', () => {
-  mockResult = { kind: 'asset', listingId: 'bitcoin', identity, failed: false };
-  const renderButton = jest.fn(() => (
-    <button type="button">Home favorite</button>
-  ));
-  render(
-    <MarketListingStar
-      kind="asset"
-      listingId="bitcoin"
-      from={EWatchlistFrom.Homepage}
-      renderButton={renderButton}
-    />,
-  );
-  expect(renderButton).toHaveBeenCalledWith(identity);
-  expect(screen.getByText('Home favorite')).toBeDefined();
-});
-
-it('releases queued identity work on row reuse, blur, and unmount', () => {
-  mockExecuteRequests = true;
-  const firstRelease = jest.fn();
-  const secondRelease = jest.fn();
-  const thirdRelease = jest.fn();
-  const pending = new Promise<undefined>(jest.fn());
-  mockAcquire
-    .mockReturnValueOnce({ promise: pending, release: firstRelease })
-    .mockReturnValueOnce({ promise: pending, release: secondRelease })
-    .mockReturnValueOnce({ promise: pending, release: thirdRelease });
-  const row = (listingId: string) => (
-    <MarketListingStar
-      kind="asset"
-      listingId={listingId}
-      from={EWatchlistFrom.Homepage}
-    />
-  );
-  const { rerender, unmount } = render(row('bitcoin'));
-  rerender(row('ethereum'));
-  expect(firstRelease).toHaveBeenCalledTimes(1);
-  expect(secondRelease).not.toHaveBeenCalled();
-  mockFocused = false;
-  rerender(row('ethereum'));
-  expect(secondRelease).toHaveBeenCalledTimes(1);
-  mockFocused = true;
-  rerender(row('solana'));
-  unmount();
-  expect(thirdRelease).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button'));
+  expect(onRowPress).not.toHaveBeenCalled();
 });

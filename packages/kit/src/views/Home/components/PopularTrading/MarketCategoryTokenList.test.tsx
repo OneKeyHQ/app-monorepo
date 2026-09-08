@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren, ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 
@@ -39,21 +39,12 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/components/MarketListingStar',
   () => ({
     MarketListingStar: ({
-      renderButton,
+      kind,
+      listingId,
     }: {
-      renderButton: (identity: {
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-        tokenSymbol: string;
-      }) => ReactNode;
-    }) =>
-      renderButton({
-        chainId: 'btc--0',
-        contractAddress: '',
-        isNative: true,
-        tokenSymbol: 'BTC',
-      }),
+      kind: string;
+      listingId: string;
+    }) => <button type="button">{`${kind}:${listingId}`}</button>,
   }),
 );
 jest.mock('./metricColumns', () => ({
@@ -79,7 +70,7 @@ jest.mock('../RichTable', () => ({
   ),
 }));
 
-it('checks and toggles Home Top Coins with the resolved native token identity', () => {
+it('passes the asset ID to the Home Top Coins favorite without resolving a token', () => {
   const record: IFavoriteTokenDisplay = {
     chainId: '',
     contractAddress: '',
@@ -116,15 +107,7 @@ it('checks and toggles Home Top Coins with the resolved native token identity', 
       onViewMore={jest.fn()}
     />,
   );
-  const resolvedRecord = {
-    ...record,
-    marketAsset: undefined,
-    chainId: 'btc--0',
-    isNative: true,
-  };
-  expect(isTokenInWatchList).toHaveBeenCalledWith(resolvedRecord);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'market.remove_from_favorites' }),
-  );
-  expect(onStarPress).toHaveBeenCalledWith(resolvedRecord);
+  expect(screen.getByRole('button', { name: 'asset:bitcoin' })).toBeTruthy();
+  expect(isTokenInWatchList).not.toHaveBeenCalled();
+  expect(onStarPress).not.toHaveBeenCalled();
 });
