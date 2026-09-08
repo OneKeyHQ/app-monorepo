@@ -1,3 +1,4 @@
+// cspell:ignore financials
 import { isNil } from 'lodash';
 import pLimit from 'p-limit';
 
@@ -5,6 +6,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,6 +24,10 @@ import type {
   IMarketListingWatchlistQuote,
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
+import type {
+  IStockFinancialPeriod,
+  IStockFinancials,
+} from '@onekeyhq/shared/types/marketStockFinancials';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
@@ -1129,6 +1135,35 @@ class ServiceMarketV2 extends ServiceBase {
       message: string;
       data: IMarketStockPublicDetail | null;
     }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}`, requestConfig);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockFinancials({
+    stockId,
+    period,
+  }: {
+    stockId: string;
+    period: IStockFinancialPeriod;
+  }): Promise<IStockFinancials | null> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: { period, limit: 5 },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IStockFinancials | null;
+    }>(
+      `/utility/v1/stocks/${encodeURIComponent(stockId)}/financials`,
+      requestConfig,
+    );
+    if (response.data.code !== 0) {
+      throw new OneKeyError('Unable to load stock financials');
+    }
     return response.data.data;
   }
 
