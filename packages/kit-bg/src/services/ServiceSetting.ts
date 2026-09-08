@@ -1,5 +1,5 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
-import { flatten, groupBy, isEqual, uniqBy } from 'lodash';
+import { flatten, groupBy, isEqual, keyBy, uniqBy } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -12,10 +12,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -900,7 +897,17 @@ class ServiceSetting extends ServiceBase {
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
     const aggregateTokenSymbolMap: Record<string, boolean> = {};
-    const listedNetworkMap = getListedNetworkMap();
+    // Aggregate members may live on server-delivered chains (e.g. Robinhood)
+    // that are not part of presetNetworks, so gate on the merged network
+    // registry instead of the preset-only listed map: presets keep their
+    // preset status, server networks their server status, delisted (TRASH)
+    // networks are already dropped and user custom RPC networks are excluded.
+    const { networks: eligibleNetworks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        excludeCustomNetwork: true,
+        excludeAllNetworkItem: true,
+      });
+    const eligibleNetworkMap = keyBy(eligibleNetworks, 'id');
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
         buildHomeDefaultTokenMapKey({
@@ -912,7 +919,7 @@ class ServiceSetting extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = uniqBy(
-          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          data.filter((token) => !!eligibleNetworkMap[token.networkId]),
           (token) => token.networkId,
         );
 
