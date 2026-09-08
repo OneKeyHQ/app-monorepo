@@ -1,10 +1,12 @@
 import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
+  Toast,
   rootNavigationRef,
   useMedia,
   useSplitViewType,
@@ -19,6 +21,7 @@ import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetai
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -72,6 +75,7 @@ interface IUseToDetailPageOptions {
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
@@ -116,20 +120,30 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     async (selectedItem: IMarketToken) => {
       let item = selectedItem;
       if (item.assetId) {
-        const { selectedVariant } =
-          await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-            assetId: item.assetId,
-            currency: 'usd',
+        try {
+          const { selectedVariant } =
+            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+              assetId: item.assetId,
+              currency: 'usd',
+              autoHandleError: false,
+            });
+          item = {
+            ...item,
+            marketTokenId: item.assetId,
+            marketVariantId: selectedVariant.variantId,
+            networkId: selectedVariant.networkId,
+            tokenAddress: selectedVariant.tokenAddress,
+            address: selectedVariant.tokenAddress,
+            isNative: selectedVariant.isNative,
+          };
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
           });
-        item = {
-          ...item,
-          marketTokenId: item.assetId,
-          marketVariantId: selectedVariant.variantId,
-          networkId: selectedVariant.networkId,
-          tokenAddress: selectedVariant.tokenAddress,
-          address: selectedVariant.tokenAddress,
-          isNative: selectedVariant.isNative,
-        };
+          return;
+        }
       }
       const stockId = resolveMarketStockId(item);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
@@ -306,6 +320,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,
       options?.showFavoriteButton,
+      intl,
       preloadLayout,
       splitViewType,
       tokenDetailActions,

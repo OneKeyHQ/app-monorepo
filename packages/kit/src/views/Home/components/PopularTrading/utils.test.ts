@@ -84,7 +84,7 @@ describe('PopularTrading market token display utils', () => {
       volume24h: 50_000_000_000,
       marketAsset: item,
     });
-    expect(getTokenKey(displayToken)).toBe('market:bitcoin');
+    expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
   });
 
   test('inserts Top Coins after stocks in the wallet home tabs', () => {

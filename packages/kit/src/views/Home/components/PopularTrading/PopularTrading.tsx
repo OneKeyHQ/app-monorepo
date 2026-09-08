@@ -307,9 +307,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             getMarketWatchlistKey(item) === getMarketWatchlistKey(record),
         );
       }
-      if (record.marketAsset) {
-        return false;
-      }
 
       if (record.perpsCoin) {
         return watchListItems.some(
@@ -335,10 +332,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      if (record.marketAsset) {
-        return;
-      }
-
       const checked = isTokenInWatchList(record);
 
       try {
@@ -911,7 +904,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
+            screen: record.stockId
+              ? ETabMarketRoutes.MarketStockDetail
+              : ETabMarketRoutes.MarketDetailV2,
             params: {
               stockId: record.stockId,
               stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,

@@ -1,6 +1,17 @@
+import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
+
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+let mockListingCache: Record<string, INotificationWatchlistToken> = {};
+const mockNotificationSettings = {
+  getMarketListingTokens: jest.fn(async () => mockListingCache),
+  saveMarketListingTokens: jest.fn(
+    async (tokens: Record<string, INotificationWatchlistToken>) => {
+      mockListingCache = { ...mockListingCache, ...tokens };
+    },
+  ),
+};
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -23,13 +34,18 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 describe('ServiceMarketV2 public stock APIs', () => {
   const createService = () => {
-    const service = new ServiceMarketV2({ backgroundApi: {} });
+    const service = new ServiceMarketV2({
+      backgroundApi: {
+        simpleDb: { notificationSettings: mockNotificationSettings },
+      },
+    });
     service.getClient = jest.fn(async () => ({ get: mockGet })) as never;
     return service;
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockListingCache = {};
   });
 
   it('loads a stock watchlist quote without resolving a token variant', async () => {
@@ -78,24 +94,99 @@ describe('ServiceMarketV2 public stock APIs', () => {
           contractAddress: '0xdefault',
           currency: 'USD',
           status: 'active',
-          tradingEnabled: true,
+          tradingEnabled: false,
         },
       ],
     });
     const batch = jest
       .spyOn(service, 'fetchMarketTokenListBatch')
-      .mockResolvedValue({ list: [] });
+      .mockResolvedValue({
+        list: [
+          { symbol: 'AAPL', name: 'Apple', address: '0xdefault', decimals: 18 },
+        ],
+      });
     await service.buildWatchlistTokensForNotification();
     expect(batch).toHaveBeenCalledWith({
       tokenAddressList: [
         { chainId: 'evm--1', contractAddress: '0xdefault', isNative: false },
       ],
     });
+    expect(mockListingCache['stock:AAPL']).toMatchObject({
+      tokenAddress: '0xdefault',
+      symbol: 'AAPL',
+    });
     expect(stored).toEqual({
       stockId: 'AAPL',
       chainId: '',
       contractAddress: '',
     });
+  });
+
+  it('keeps healthy subscriptions when a new listing lookup rejects', async () => {
+    const service = createService();
+    jest.spyOn(service, 'getMarketWatchListV2').mockResolvedValue({
+      data: [
+        { stockId: 'AAPL', chainId: '', contractAddress: '' },
+        { chainId: 'evm--1', contractAddress: '0xhealthy' },
+      ],
+    });
+    jest
+      .spyOn(service, 'fetchMarketStockTokenVariants')
+      .mockRejectedValue(new Error('offline'));
+    jest.spyOn(service, 'fetchMarketTokenListBatch').mockResolvedValue({
+      list: [
+        {
+          symbol: 'OK',
+          name: 'Healthy',
+          address: '0xhealthy',
+          decimals: 18,
+          logoUrl: '',
+        },
+      ],
+    });
+    await expect(
+      service.buildWatchlistTokensForNotification(),
+    ).resolves.toEqual([
+      {
+        networkId: 'evm--1',
+        tokenAddress: '0xhealthy',
+        isNative: false,
+        symbol: 'OK',
+        logoURI: '',
+      },
+    ]);
+  });
+
+  it('reuses a persisted listing identity after restart without restoring removed favorites', async () => {
+    mockListingCache = {
+      'stock:AAPL': {
+        networkId: 'evm--1',
+        tokenAddress: '0xdefault',
+        isNative: false,
+        symbol: 'AAPL',
+        logoURI: 'logo',
+      },
+      'stock:REMOVED': {
+        networkId: 'evm--1',
+        tokenAddress: '0xremoved',
+        isNative: false,
+        symbol: 'REMOVED',
+        logoURI: '',
+      },
+    };
+    const service = createService();
+    jest.spyOn(service, 'getMarketWatchListV2').mockResolvedValue({
+      data: [{ stockId: 'AAPL', chainId: '', contractAddress: '' }],
+    });
+    jest
+      .spyOn(service, 'fetchMarketStockTokenVariants')
+      .mockRejectedValue(new Error('offline'));
+    jest
+      .spyOn(service, 'fetchMarketTokenListBatch')
+      .mockResolvedValue({ list: [] });
+    await expect(
+      service.buildWatchlistTokensForNotification(),
+    ).resolves.toEqual([mockListingCache['stock:AAPL']]);
   });
 
   it('loads the aggregated stock list without token identity fields', async () => {

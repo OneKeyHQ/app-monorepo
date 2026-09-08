@@ -15,6 +15,7 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -847,42 +848,65 @@ class ServiceMarketV2 extends ServiceBase {
       return [];
     }
 
-    // Filter out perps items — they don't have chainId/contractAddress for batch lookup
-    // Also filter out items with empty chainId to avoid server validation errors
+    const listingCache =
+      await this.backgroundApi.simpleDb.notificationSettings.getMarketListingTokens();
+    type IResolvedToken = {
+      chainId: string;
+      contractAddress: string;
+      isNative?: boolean;
+      cacheKey?: string;
+      cachedToken?: INotificationWatchlistToken;
+    };
     const limit = pLimit(4);
     const resolvedItems = await Promise.all(
       watchlistData.data.map((item) =>
-        limit(async () => {
-          if (item.assetId) {
-            const { selectedVariant } =
-              await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
-                assetId: item.assetId,
-                currency: 'usd',
-                autoHandleError: false,
-              });
-            return {
-              chainId: selectedVariant.networkId,
-              contractAddress: selectedVariant.tokenAddress,
-              isNative: selectedVariant.isNative,
-            };
-          }
-          if (item.stockId) {
+        limit(async (): Promise<IResolvedToken | undefined> => {
+          if (item.perpsCoin) return undefined;
+          if (!item.assetId && !item.stockId) return item;
+          const cacheKey = getMarketWatchlistKey(item);
+          const cachedToken = listingCache[cacheKey];
+          try {
+            if (item.assetId) {
+              const { selectedVariant } =
+                await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+                  assetId: item.assetId,
+                  currency: 'usd',
+                  autoHandleError: false,
+                });
+              return {
+                chainId: selectedVariant.networkId,
+                contractAddress: selectedVariant.tokenAddress,
+                isNative: selectedVariant.isNative,
+                cacheKey,
+              };
+            }
             const { items, defaultTokenId } =
               await this.fetchMarketStockTokenVariants({
-                stockId: item.stockId,
+                stockId: item.stockId ?? '',
               });
             const variant =
               items.find((entry) => entry.tokenId === defaultTokenId) ??
               items[0];
-            return variant
-              ? {
-                  chainId: variant.networkId,
-                  contractAddress: variant.contractAddress,
-                  isNative: false,
-                }
-              : undefined;
+            if (variant) {
+              return {
+                chainId: variant.networkId,
+                contractAddress: variant.contractAddress,
+                isNative: false,
+                cacheKey,
+              };
+            }
+          } catch {
+            // A failed listing must not block other subscriptions or discard its last known identity.
           }
-          return item.perpsCoin ? undefined : item;
+          return cachedToken
+            ? {
+                chainId: cachedToken.networkId,
+                contractAddress: cachedToken.tokenAddress,
+                isNative: cachedToken.isNative,
+                cacheKey,
+                cachedToken,
+              }
+            : undefined;
         }),
       ),
     );
@@ -919,11 +943,23 @@ class ServiceMarketV2 extends ServiceBase {
           networkId: item.chainId,
           tokenAddress: item.contractAddress,
           isNative: item.isNative ?? false,
-          symbol: detail?.symbol ?? '',
-          logoURI: detail?.logoUrl ?? '',
+          symbol: detail?.symbol || item.cachedToken?.symbol || '',
+          logoURI: detail?.logoUrl || item.cachedToken?.logoURI || '',
         };
       },
     );
+
+    const nextListingTokens: Record<string, INotificationWatchlistToken> = {};
+    spotItems.forEach((item, index) => {
+      if (item.cacheKey && tokens[index].symbol) {
+        nextListingTokens[item.cacheKey] = tokens[index];
+      }
+    });
+    if (Object.keys(nextListingTokens).length) {
+      await this.backgroundApi.simpleDb.notificationSettings.saveMarketListingTokens(
+        nextListingTokens,
+      );
+    }
 
     // Only filter out symbol-less tokens when batch succeeded;
     // if batch failed, return all entries to avoid wiping server-side watchlist.

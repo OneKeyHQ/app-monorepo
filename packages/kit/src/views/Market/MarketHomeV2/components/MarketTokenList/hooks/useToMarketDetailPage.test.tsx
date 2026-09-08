@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -8,6 +9,10 @@ import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToDetailPage } from './useToMarketDetailPage';
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
@@ -38,6 +43,7 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceMarket: { fetchMarketAssetDetail: jest.fn() },
     serviceApp: {
       openExtensionMarketTokenDetail: jest.fn(),
       openExtensionMarketStockDetail: jest.fn(),
@@ -53,6 +59,7 @@ jest.mock(
 );
 
 jest.mock('@onekeyhq/components', () => ({
+  Toast: { error: jest.fn() },
   ESplitViewType: {
     UNKNOWN: 'UNKNOWN',
   },
@@ -139,6 +146,26 @@ describe('useToDetailPage', () => {
       configurable: true,
       value: originalWindowClose,
     });
+  });
+
+  it('consumes failed asset navigation requests and displays an error', async () => {
+    jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await expect(
+        result.current({
+          assetId: 'bitcoin',
+          networkId: '',
+          tokenAddress: '',
+          symbol: 'BTC',
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
   });
 
   it('navigates stock items with stockId instead of chain identity', async () => {

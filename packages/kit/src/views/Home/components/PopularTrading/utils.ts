@@ -135,6 +135,7 @@ function mapMarketAssetToDisplay(
   item: IMarketAssetListItem,
 ): IFavoriteTokenDisplay {
   return {
+    assetId: item.assetId,
     chainId: '',
     contractAddress: '',
     isNative: false,
