@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
@@ -255,17 +255,35 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
   } = useContext(SelectContext);
+  const isSelectingRef = useRef(false);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
+      if (isSelectingRef.current) {
+        return;
+      }
+      const nextValue = labelInValue ? item : item.value;
+      if (waitForChangeBeforeClose) {
+        isSelectingRef.current = true;
+        void (async () => {
+          try {
+            await onValueChange?.(nextValue);
+          } finally {
+            isSelectingRef.current = false;
+            changeOpenStatus?.(false);
+          }
+        })();
+        return;
+      }
       changeOpenStatus?.(false);
       requestIdleCallback(() => {
-        onValueChange?.(labelInValue ? item : item.value);
+        void onValueChange?.(nextValue);
       });
     },
-    [changeOpenStatus, labelInValue, onValueChange],
+    [changeOpenStatus, labelInValue, onValueChange, waitForChangeBeforeClose],
   );
 
   const handleOpenChange = useCallback(
@@ -309,6 +327,9 @@ function SelectContent() {
   );
 
   const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
+  const renderContentVersion = waitForChangeBeforeClose
+    ? `${String(isOpen)}-${String((value as ISelectItem)?.value ?? value)}`
+    : isOpen;
 
   const renderContent = useMemo(
     () => {
@@ -339,8 +360,11 @@ function SelectContent() {
         />
       );
     },
+    // Select lists are normally frozen while open. The wait mode is the one
+    // exception: its selected check must follow the value that settles before
+    // the sheet closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOpen],
+    [renderContentVersion],
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
@@ -401,6 +425,7 @@ function SelectFrame<
   floatingPanelProps,
   placement = platformEnv.isNative ? 'bottom-start' : undefined,
   usingPercentSnapPoints,
+  waitForChangeBeforeClose,
 }: ISelectProps<T>) {
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
@@ -436,6 +461,7 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
     }),
     [
       isOpen,
@@ -453,6 +479,7 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
     ],
   );
   return (
