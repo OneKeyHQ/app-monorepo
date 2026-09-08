@@ -14,6 +14,8 @@ on:
       - 'apps/mobile/plugins/devVendor.js'
       - 'apps/mobile/react-native.config.js'
       - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'apps/mobile/scripts/local-dev-shell-cache.js'
+      - 'apps/mobile/scripts/mobile-dev-shell-resource.js'
       - 'apps/web-embed/**'
       - 'development/**'
       - 'package.json'
@@ -181,7 +183,7 @@ jobs:
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
 
-      - name: Build arm64 Simulator app
+      - name: Build and verify signed arm64 Simulator app
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |

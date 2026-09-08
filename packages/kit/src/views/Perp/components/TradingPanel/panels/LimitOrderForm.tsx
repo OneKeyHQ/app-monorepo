@@ -1369,7 +1369,7 @@ export function LimitOrderForm({
                 height={LIMIT_ORDER_CHECKBOX_SIZE}
               />
               <DashText
-                size="$bodyMdMedium"
+                size="$bodyMd"
                 color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
