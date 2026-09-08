@@ -30,6 +30,7 @@ import {
   MarketCellPrimary,
   MarketIdentityCell,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
@@ -155,9 +156,10 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 4: 24h Change (absolute / percent)
         {
-          title: intl.formatMessage({
-            id: ETranslations.perp_token_selector_24h_change,
-          }),
+          title: intl.formatMessage(
+            { id: ETranslations.market_change_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
           dataIndex: 'change24h',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
@@ -242,9 +244,10 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 6: 24h Volume
         {
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_24h_volume,
-          }),
+          title: intl.formatMessage(
+            { id: ETranslations.market_volume_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
           dataIndex: 'volume24h',
           columnProps: METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (

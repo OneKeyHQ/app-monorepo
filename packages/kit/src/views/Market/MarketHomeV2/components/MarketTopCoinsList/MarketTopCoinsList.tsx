@@ -28,6 +28,7 @@ import {
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MARKET_FIXED_24H_RANGE, MARKET_FIXED_7D_RANGE } from '../../utils';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import {
   MARKET_CELL_LOGO_GAP,
@@ -220,9 +221,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.perp_token_selector_24h_change,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'priceChange24hPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -233,7 +235,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={64} height={16} />,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.market_change_7d }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_7D_RANGE },
+        ),
         dataIndex: 'priceChange7dPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -253,9 +258,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'volume24h',
         columnProps: metricColumnProps,
         render: (value: string) => (

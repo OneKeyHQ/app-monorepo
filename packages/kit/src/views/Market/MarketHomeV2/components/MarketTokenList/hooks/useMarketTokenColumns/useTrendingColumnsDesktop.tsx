@@ -323,7 +323,10 @@ export function useTrendingColumnsDesktop({
         title: (
           <MarketSplitSortHeader
             segments={[
-              { field: 'marketCap', label: 'MCap' },
+              {
+                field: 'marketCap',
+                label: intl.formatMessage({ id: ETranslations.market_mcap }),
+              },
               {
                 field: 'price',
                 label: `/${intl.formatMessage({

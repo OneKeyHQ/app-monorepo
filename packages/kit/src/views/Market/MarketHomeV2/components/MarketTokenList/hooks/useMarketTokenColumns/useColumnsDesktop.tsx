@@ -31,6 +31,7 @@ import {
   MARKET_CELL_LINE_GAP,
   MARKET_CELL_LOGO_GAP,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -337,13 +338,10 @@ export const useColumnsDesktop = (
       {
         title:
           change24hColumnTitle ??
-          (isWatchlistMode
-            ? intl.formatMessage({
-                id: ETranslations.perp_token_selector_24h_change,
-              })
-            : `${intl.formatMessage({
-                id: ETranslations.dexmarket_token_change,
-              })}(%)`),
+          intl.formatMessage(
+            { id: ETranslations.market_change_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -410,9 +408,10 @@ export const useColumnsDesktop = (
         ? undefined
         : {
             title: useStockMetadataColumns
-              ? intl.formatMessage({
-                  id: ETranslations.dexmarket_stock_24h_volume,
-                })
+              ? intl.formatMessage(
+                  { id: ETranslations.market_volume_in_range },
+                  { range: MARKET_FIXED_24H_RANGE },
+                )
               : intl.formatMessage({ id: ETranslations.global_liquidity }),
             dataIndex: 'liquidity',
             columnProps: { flex: 1.2 },
@@ -445,9 +444,10 @@ export const useColumnsDesktop = (
             });
           }
           return isWatchlistMode
-            ? intl.formatMessage({
-                id: ETranslations.dexmarket_stock_24h_volume,
-              })
+            ? intl.formatMessage(
+                { id: ETranslations.market_volume_in_range },
+                { range: MARKET_FIXED_24H_RANGE },
+              )
             : intl.formatMessage({ id: ETranslations.dexmarket_turnover });
         })(),
         dataIndex: 'turnover',
