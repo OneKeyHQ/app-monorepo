@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const devVendorConfig = require('../../dev-vendor.config');
 const {
   cacheLocalShellBuild,
   getIosSigningCacheOptions,
@@ -30,6 +31,21 @@ describe('local shell artifact cache', () => {
   });
   afterEach(() => fs.rmSync(directory, { recursive: true, force: true }));
 
+  function writeShellInputFixture(platform) {
+    expect(spawnSync('git', ['init', '-q', directory]).status).toBe(0);
+    const files = new Set([
+      'apps/mobile/scripts/build-mobile-dev-shell.js',
+      'apps/mobile/scripts/mobile-dev-shell-resource.js',
+      ...devVendorConfig.shellInputFiles.shared,
+      ...devVendorConfig.shellInputFiles[platform],
+    ]);
+    for (const relativePath of files) {
+      const file = path.join(directory, relativePath);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, 'native build input');
+    }
+  }
+
   it('keeps a complete validated package independent of the build output', async () => {
     await cacheLocalShellBuild(options);
     fs.rmSync(options.artifactPath);
@@ -42,21 +58,7 @@ describe('local shell artifact cache', () => {
   });
 
   it('changes the exact remote key for native implementation edits even when the ABI is unchanged', () => {
-    expect(spawnSync('git', ['init', '-q', directory]).status).toBe(0);
-    for (const relativePath of [
-      'scripts/build-mobile-dev-shell.js',
-      'scripts/mobile-dev-shell-resource.js',
-      'ios/AppDelegate.swift',
-      'ios/Podfile.lock',
-      'ios/Podfile.properties.json',
-      'ios/OneKeyWallet.xcodeproj/project.pbxproj',
-      'ios/OneKeyWallet/OneKeyWallet.entitlements',
-      'ios/Podfile',
-    ]) {
-      const file = path.join(directory, 'apps/mobile', relativePath);
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, 'native build input');
-    }
+    writeShellInputFixture('ios');
     const inputs = {
       nativeContractKey: 'a'.repeat(64),
       platform: 'ios',
@@ -76,6 +78,26 @@ describe('local shell artifact cache', () => {
     expect(getShellCompatibility(inputs).shellInputKey).toBe(
       after.shellInputKey,
     );
+  });
+
+  it.each([
+    'apps/mobile/android/app/build.gradle',
+    'apps/mobile/android/app/src/main/AndroidManifest.xml',
+    'apps/mobile/android/app/src/main/res/values/strings.xml',
+  ])('changes the Android shell key after editing %s', (relativePath) => {
+    writeShellInputFixture('android');
+    const inputs = {
+      nativeContractKey: 'a'.repeat(64),
+      platform: 'android',
+      repoRoot: directory,
+    };
+    const before = getShellCompatibility(inputs);
+    const file = path.join(directory, relativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, '\nchanged native build input');
+    const after = getShellCompatibility(inputs);
+    expect(after.nativeContractKey).toBe(before.nativeContractKey);
+    expect(after.shellInputKey).not.toBe(before.shellInputKey);
   });
 
   it.each([

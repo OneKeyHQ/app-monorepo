@@ -34,17 +34,10 @@ function getBuildDigest(
   platform,
   { repoRoot = path.resolve(__dirname, '../../..') } = {},
 ) {
-  const { getNativeContractInputPaths } = require('../plugins/devVendor');
+  const { getShellInputPaths } = require('../plugins/devVendor');
   const inputFiles = [
     ...BUILD_INPUT_FILES.map((name) => `apps/mobile/scripts/${name}`),
-    ...getNativeContractInputPaths(platform, repoRoot),
-    ...(platform === 'ios'
-      ? [
-          'apps/mobile/ios/OneKeyWallet.xcodeproj/project.pbxproj',
-          'apps/mobile/ios/OneKeyWallet/OneKeyWallet.entitlements',
-          'apps/mobile/ios/Podfile',
-        ]
-      : []),
+    ...getShellInputPaths(platform, repoRoot),
   ];
   const hash = crypto.createHash('sha256');
   for (const name of [...new Set(inputFiles)].toSorted()) {
