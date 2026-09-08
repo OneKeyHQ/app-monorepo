@@ -104,6 +104,7 @@
     "@onekeyfe/react-native-splash-screen": "3.0.109",
     "@onekeyfe/react-native-split-bundle-loader": "3.0.109",
     "@onekeyfe/react-native-tab-view": "3.0.109",
+    "@onekeyfe/react-native-text": "3.0.109",
     "@onekeyfe/react-native-text-input": "3.0.109",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",

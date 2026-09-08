@@ -9900,6 +9900,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-text@npm:3.0.109":
+  version: 3.0.109
+  resolution: "@onekeyfe/react-native-text@npm:3.0.109"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/6bda61961ca046051cc9f2740769335c042622e7d6daeff0c6e0daef034f097355d0f750af5d2a16b09ae2782c70b90b5c22578d880cf46090370379909e1dfb
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -10315,6 +10325,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:3.0.109"
+    "@onekeyfe/react-native-text": "npm:3.0.109"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
@@ -10375,6 +10386,7 @@ __metadata:
     "@onekeyfe/react-native-splash-screen": "npm:3.0.109"
     "@onekeyfe/react-native-split-bundle-loader": "npm:3.0.109"
     "@onekeyfe/react-native-tab-view": "npm:3.0.109"
+    "@onekeyfe/react-native-text": "npm:3.0.109"
     "@onekeyfe/react-native-text-input": "npm:3.0.109"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
