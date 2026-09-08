@@ -19,7 +19,9 @@ import type {
   ITableColumn,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -96,11 +98,13 @@ function MissingValue({
 export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
+  showWatchlist = false,
 }: {
   /** Use the selector layout with a wider company column and denser rows. */
   compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
+  showWatchlist?: boolean;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
@@ -136,14 +140,20 @@ export function useMarketStockColumns({
             alignItems="center"
             gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}
           >
-            {/* Decorative for now because the public stocks payload has no
-                chainId/contractAddress for a watchlist identity. */}
             <Stack
               width={MARKET_LIST_STAR_SLOT_WIDTH}
               alignItems="center"
               justifyContent="center"
             >
-              <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+              {showWatchlist ? (
+                <MarketListingStar
+                  kind="stock"
+                  listingId={record.stockId}
+                  from={EWatchlistFrom.Homepage}
+                />
+              ) : (
+                <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+              )}
             </Stack>
             <XStack
               flex={1}
@@ -367,5 +377,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [compact, intl, showSparkline]);
+  }, [compact, intl, showSparkline, showWatchlist]);
 }

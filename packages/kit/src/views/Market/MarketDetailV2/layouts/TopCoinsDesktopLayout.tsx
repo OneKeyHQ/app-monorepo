@@ -19,7 +19,6 @@ import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/Trading
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioItem,
@@ -33,6 +32,7 @@ import {
   buildAprText,
   formatRewardText,
 } from '../../../Earn/components/AprText.utils';
+import { EarnNavigation } from '../../../Earn/earnUtils';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
@@ -320,10 +320,14 @@ function TopCoinsOverview({
           />
           <TopCoinsStatItem
             label={intl.formatMessage({ id: ETranslations.global_max_supply })}
-            value={formatStatValueWithFormatter(
-              market?.maxSupply,
-              MARKET_CAP_FORMATTER,
-            )}
+            value={
+              market?.maxSupply === 'unlimited'
+                ? '∞'
+                : formatStatValueWithFormatter(
+                    market?.maxSupply,
+                    MARKET_CAP_FORMATTER,
+                  )
+            }
           />
         </XStack>
       </YStack>
@@ -469,13 +473,22 @@ function TopCoinsInformation({
   const [tab, setTab] = useState<'overview' | 'portfolio'>('overview');
   const { tokenDetail } = useTokenDetail();
   const symbol = assetDetail?.asset.symbol ?? tokenDetail?.symbol ?? '';
+  const about = assetDetail?.about?.trim();
+  const earnProtocol = earnAsset?.protocols[0];
 
   const handleEarnPress = useCallback(() => {
-    // The Earn surface performs its own protocol filtering and account setup.
-    // This CTA intentionally enters that surface instead of duplicating the
-    // staking flow inside Market detail.
-    navigation.switchTab(ETabRoutes.Earn);
-  }, [navigation]);
+    if (!earnAsset || !earnProtocol) {
+      return;
+    }
+
+    void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+      networkId: earnProtocol.networkId,
+      symbol: earnAsset.symbol,
+      provider: earnProtocol.provider,
+      vault: earnProtocol.vault,
+      logoURI: earnAsset.logoURI,
+    });
+  }, [earnAsset, earnProtocol, navigation]);
 
   let tabContent: ReactNode;
   if (tab === 'portfolio') {
@@ -505,12 +518,25 @@ function TopCoinsInformation({
       <>
         <TopCoinsOverview assetDetail={assetDetail} tokenDetail={tokenDetail} />
 
-        {earnAsset ? (
+        {earnAsset && earnProtocol ? (
           <TopCoinsEarnSection
             earnAsset={earnAsset}
             symbol={symbol}
             onPress={handleEarnPress}
           />
+        ) : null}
+        {about ? (
+          <YStack testID="top-coins-about" px="$5" py="$8" gap="$6">
+            <SizableText size="$headingXl">
+              {intl.formatMessage(
+                { id: ETranslations.market_about_title },
+                { ticker: symbol },
+              )}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {about}
+            </SizableText>
+          </YStack>
         ) : null}
       </>
     );

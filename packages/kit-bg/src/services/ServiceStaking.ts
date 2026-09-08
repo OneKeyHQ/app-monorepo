@@ -1609,8 +1609,16 @@ class ServiceStaking extends ServiceBase {
     theme,
   }: {
     theme: IEarnBannerTheme;
-  }): Promise<IEarnPageBannerListItem[]> {
-    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList(theme);
+  }): Promise<{
+    list: IEarnPageBannerListItem[];
+    isCacheHit: boolean;
+  }> {
+    const cache =
+      await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(theme);
+    return {
+      list: cache.list,
+      isCacheHit: cache.isThemeScoped || cache.list.length > 0,
+    };
   }
 
   @backgroundMethod()
