@@ -301,6 +301,9 @@ function useNextOpenCountdownText({
   const intl = useIntl();
   const { formatDuration } = useFormatDate();
   const [now, setNow] = useState(() => Date.now());
+  // When the current payload landed. The minute count is a snapshot, so it
+  // only decays if it is measured from the moment it was read.
+  const [observedAt, setObservedAt] = useState(() => Date.now());
 
   const hasTarget = enabled && Boolean(nextOpenTime ?? nextOpenMinutes);
 
@@ -308,7 +311,9 @@ function useNextOpenCountdownText({
     if (!hasTarget) {
       return undefined;
     }
-    setNow(Date.now());
+    const startedAt = Date.now();
+    setNow(startedAt);
+    setObservedAt(startedAt);
     const timer = setInterval(() => setNow(Date.now()), NEXT_OPEN_TICK_MS);
     return () => clearInterval(timer);
   }, [hasTarget, nextOpenTime, nextOpenMinutes]);
@@ -320,6 +325,7 @@ function useNextOpenCountdownText({
     const countdown = getUSMarketNextOpenCountdown({
       nextOpenTime,
       nextOpenMinutes,
+      nextOpenMinutesObservedAt: observedAt,
       now,
     });
     if (!countdown) {
@@ -334,7 +340,15 @@ function useNextOpenCountdownText({
       { id: ETranslations.market_opens_in },
       { time: formatDuration(duration) },
     );
-  }, [formatDuration, hasTarget, intl, nextOpenMinutes, nextOpenTime, now]);
+  }, [
+    formatDuration,
+    hasTarget,
+    intl,
+    nextOpenMinutes,
+    nextOpenTime,
+    now,
+    observedAt,
+  ]);
 }
 
 // Every chip takes its label from the row the trading-hours panel shows for

@@ -608,6 +608,27 @@ describe('getUSMarketNextOpenCountdown', () => {
     ).toEqual({ days: 1, hours: 1, minutes: 0, totalMinutes: 1500 });
   });
 
+  it('ticks the minute snapshot down from when it was observed', () => {
+    // 20 minutes after the snapshot was read, 90 minutes is really 70.
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenMinutes: 90,
+        nextOpenMinutesObservedAt: now - 20 * 60 * 1000,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 1, minutes: 10, totalMinutes: 70 });
+  });
+
+  it('drops the countdown once the observed minute snapshot runs out', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenMinutes: 5,
+        nextOpenMinutesObservedAt: now - 10 * 60 * 1000,
+        now,
+      }),
+    ).toBeUndefined();
+  });
+
   it('ignores an unparseable timestamp', () => {
     expect(
       getUSMarketNextOpenCountdown({
