@@ -67,6 +67,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
@@ -206,7 +207,7 @@ function StepTextSwap({ text }: { text: string }) {
           right={0}
           size="$heading2xl"
           textAlign="center"
-          animation="medium"
+          transition="medium"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, y: 16 }}
           exitStyle={{ opacity: 0, y: -16 }}
@@ -414,7 +415,13 @@ function FinalizeWalletSetupPage({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    // The stage hold is opened inside the hardware branch below, and only
+    // there: a software wallet (new mnemonic, import, keyless restore) has
+    // no device, and a hold taken here regardless painted the connecting
+    // replica over its password prompt 120ms later. endBurst() in the
+    // finally is a no-op for a run that never held.
     try {
       let hdWalletCreatedResult:
         | {
@@ -521,6 +528,16 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // The wallet-creation run is one conversation with the device
+        // across several hardware calls (wallet, passphrase, accounts) with
+        // app work between them. Legacy showed a checking dialog per call,
+        // which is what flickered through the onboarding animation; one
+        // hold spans it.
+        await ensureBurst({
+          connectId: deviceData.device?.connectId ?? undefined,
+          deviceType: deviceData.device?.deviceType ?? undefined,
+          deviceName: deviceData.device?.name ?? undefined,
+        });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -786,8 +803,12 @@ function FinalizeWalletSetupPage({
             : ETranslations.global_unknown_error,
         ) as ETranslations,
       });
+    } finally {
+      await endBurst();
     }
   }, [
+    ensureBurst,
+    endBurst,
     mnemonic,
     deviceData,
     isFirmwareVerified,
@@ -1017,7 +1038,7 @@ function FinalizeWalletSetupPage({
     opacity: isReadyActionVisible ? 1 : 0,
     pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
-      animation: 'quick' as const,
+      transition: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
     }),
   };
@@ -1029,7 +1050,7 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
-      animation="quick"
+      transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
@@ -1065,7 +1086,7 @@ function FinalizeWalletSetupPage({
               y: '$-2',
               opacity: 0,
             }}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           >
             <SizableText>
@@ -1181,7 +1202,7 @@ function FinalizeWalletSetupPage({
                 <YStack
                   position="absolute"
                   inset={0}
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   opacity={isReady ? 0 : 1}
                 >
@@ -1204,7 +1225,7 @@ function FinalizeWalletSetupPage({
                   bg="$brand10"
                   alignItems="center"
                   justifyContent="center"
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   opacity={isReady ? 1 : 0}
                   scale={isReady ? 1 : 0.7}

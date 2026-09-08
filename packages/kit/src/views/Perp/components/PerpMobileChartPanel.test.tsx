@@ -218,11 +218,11 @@ describe('PerpMobileChartPanel', () => {
       toggle.querySelector('[data-icon="TradingViewCandlesOutline"]'),
     ).toBeNull();
     expect(
-      toggle.querySelector('[data-icon="ChevronTopSmallOutline"]'),
+      toggle.querySelector('[data-icon="ChevronTriangleUpSmallSolid"]'),
     ).toBeTruthy();
     expect(
       toggle
-        .querySelector('[data-icon="ChevronTopSmallOutline"]')
+        .querySelector('[data-icon="ChevronTriangleUpSmallSolid"]')
         ?.getAttribute('data-size'),
     ).toBe('$5');
     expect(queryByTestId('perp-mobile-chart-content')).toBeNull();

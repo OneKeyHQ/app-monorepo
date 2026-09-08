@@ -27,6 +27,12 @@ module.exports = function (api) {
           },
         ],
       ],
+      overrides: [
+        {
+          test: /@ledgerhq[\\/]device-signer-kit-ethereum[\\/]lib[\\/]cjs[\\/]internal[\\/]app-binder[\\/]task[\\/]ProvideEIP712ContextTask\.js$/,
+          plugins: ['@babel/plugin-transform-classes'],
+        },
+      ],
       plugins: [
         // Strip jest.mock() calls when bundling for react-native-harness
         process.env.RN_HARNESS === 'true' &&
@@ -35,7 +41,7 @@ module.exports = function (api) {
         //  in react-native-gesture-handler
         require('@babel/plugin-transform-shorthand-properties'),
         [
-          require('@tamagui/babel-plugin/dist/cjs/index.native'),
+          require('@tamagui/babel-plugin').default,
           {
             components: ['tamagui'],
             config: path.join(

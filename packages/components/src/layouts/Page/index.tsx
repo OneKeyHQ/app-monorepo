@@ -25,6 +25,7 @@ import type { IPageProps } from './type';
 export type {
   IPageProps,
   IPageFooterProps,
+  IPageFooterSafeAreaBottomMode,
   IPageLifeCycle,
   IPageContentContainerProps,
   IPageContentContainerLayout,

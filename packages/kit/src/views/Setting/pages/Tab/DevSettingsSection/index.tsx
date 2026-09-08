@@ -221,7 +221,7 @@ const DevSettingsAccordionTrigger = ({
             />
           ) : null}
           <View
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={open ? '0deg' : '-90deg'}
           >
@@ -772,7 +772,7 @@ const BaseDevSettingsSection = () => {
       const next = prev.includes(sectionKey)
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
-      appStorage.syncStorage.set(
+      void appStorage.syncStorage.set(
         PINNED_STORAGE_KEY as any,
         JSON.stringify(next),
       );
@@ -796,7 +796,7 @@ const BaseDevSettingsSection = () => {
   const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
   const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
     devSettingsSearchHistoryRef.current = next;
-    appStorage.syncStorage.set(
+    void appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_dev_settings_search_history,
       JSON.stringify(next),
     );
@@ -848,7 +848,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -897,7 +897,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -1020,9 +1020,9 @@ const BaseDevSettingsSection = () => {
                     icon="InfoCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1309,9 +1309,9 @@ const BaseDevSettingsSection = () => {
                     icon="LabOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1481,6 +1481,20 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
+                      {platformEnv.isDesktop || platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="SNI Queue & Abort QA"
+                          subtitle="Run fixed /health, 20/40 request, cancellation, and recovery cases"
+                          searchKeywords="SNI Queue AbortController QA health 20 40 requests concurrency cancellation recovery Native Desktop"
+                          testID="desktop-sni-queue-qa-menu"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSniRequestQa,
+                            );
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"
@@ -1593,9 +1607,9 @@ const BaseDevSettingsSection = () => {
                     icon="ArrowTopCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1686,9 +1700,9 @@ const BaseDevSettingsSection = () => {
                     icon="ServerOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1732,7 +1746,7 @@ const BaseDevSettingsSection = () => {
                               ) ?? false
                             }
                             onChange={(v) => {
-                              appStorage.syncStorage.set(
+                              void appStorage.syncStorage.set(
                                 EAppSyncStorageKeys.onekey_debug_render_tracker,
                                 v,
                               );
@@ -1773,7 +1787,7 @@ const BaseDevSettingsSection = () => {
                               !isBgApiSerializableCheckingDisabled()
                             }
                             onChange={(v) => {
-                              toggleBgApiSerializableChecking(v);
+                              void toggleBgApiSerializableChecking(v);
                             }}
                           />
                         </ListItem>
@@ -1878,9 +1892,9 @@ const BaseDevSettingsSection = () => {
                     icon="LayoutWindowOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       exitStyle={{ opacity: 0 }}
                     >
                       <LazyNavigationDiagnosticsSection />
@@ -1897,9 +1911,9 @@ const BaseDevSettingsSection = () => {
                     icon="TableOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2089,6 +2103,7 @@ const BaseDevSettingsSection = () => {
                         icon="LockOutline"
                         title="Clear Cached Password"
                         subtitle="清除缓存密码"
+                        testID="clear-cached-password"
                         onPress={async () => {
                           await backgroundApiProxy.servicePassword.clearCachedPassword();
                           Toast.success({
@@ -2142,9 +2157,9 @@ const BaseDevSettingsSection = () => {
                     icon="BrowserOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2294,9 +2309,9 @@ const BaseDevSettingsSection = () => {
                     icon="AiImagesOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2380,9 +2395,9 @@ const BaseDevSettingsSection = () => {
                     icon="HeadOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2469,6 +2484,19 @@ const BaseDevSettingsSection = () => {
                           Toast.success({
                             title: 'success',
                           });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="WalletOutline"
+                        title="Create Real HD Wallets: 10 × 100 / 100 × 100"
+                        subtitle="创建 1,000 或 10,000 个可派生、可签名、可同步的真实账户"
+                        searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
+                        testID="create-large-wallet-account-data"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+                          );
                         }}
                       />
 
@@ -2570,9 +2598,9 @@ const BaseDevSettingsSection = () => {
                     icon="SignatureOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >

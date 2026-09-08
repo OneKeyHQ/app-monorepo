@@ -152,7 +152,6 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$5"
       pt="$3"
-      pb="$10"
       cancelButton={buyButton}
       confirmButton={sellButton}
       buttonContainerProps={{

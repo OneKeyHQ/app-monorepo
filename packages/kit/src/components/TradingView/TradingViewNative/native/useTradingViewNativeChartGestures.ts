@@ -64,7 +64,7 @@ export function useTradingViewNativeChartGestures({
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
-  timeAxisHeight?: number;
+  timeAxisHeight: number;
 }) {
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
@@ -81,6 +81,7 @@ export function useTradingViewNativeChartGestures({
         height: runtime.size.height,
         paneCount,
         priceAxisWidth: priceAxisWidth.value,
+        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -94,6 +95,7 @@ export function useTradingViewNativeChartGestures({
       return isTradingViewNativeTimeAxisTouch({
         height: runtime.size.height,
         priceAxisWidth: priceAxisWidth.value,
+        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -151,6 +153,7 @@ export function useTradingViewNativeChartGestures({
         panes: runtime.subIndicatorPanes,
         pointIndex,
         priceAxisX,
+        timeAxisHeight,
       });
       return getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
         regions,

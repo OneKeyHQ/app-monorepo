@@ -227,13 +227,25 @@ const PreSwapInfoGroup = ({
     [preSwapData.netWorkFee?.gasInfos],
   );
 
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so sponsorship never applies; the estimate source strips the
+  // sponsor state for them and keeps only this raw eligibility flag, which
+  // surfaces as the "zero fee with OneKey wallet" promo hint (OK-61254).
+  const showExternalSponsorPromo = useMemo(
+    () =>
+      !!preSwapData.netWorkFee?.gasInfos?.some(
+        ({ gasInfo }) => gasInfo.externalSponsorPromoEligible,
+      ),
+    [preSwapData.netWorkFee?.gasInfos],
+  );
+
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
     if (isGasSponsored) {
       return <SwapSponsoredNetworkFee />;
     }
-    return (
+    const feeLevelSelect = (
       <XStack alignItems="center" gap="$2">
         <Select
           testID="swap-network-fee-select-select"
@@ -269,9 +281,23 @@ const PreSwapInfoGroup = ({
         )}
       </XStack>
     );
+    if (showExternalSponsorPromo) {
+      return (
+        <YStack alignItems="flex-end" gap="$0.5">
+          {feeLevelSelect}
+          <SizableText size="$bodySm" color="$textInteractive">
+            {intl.formatMessage({
+              id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+            })}
+          </SizableText>
+        </YStack>
+      );
+    }
+    return feeLevelSelect;
   }, [
     intl,
     isGasSponsored,
+    showExternalSponsorPromo,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,

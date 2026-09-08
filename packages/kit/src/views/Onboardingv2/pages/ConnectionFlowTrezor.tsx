@@ -8,6 +8,7 @@ import {
   Button,
   EVideoResizeMode,
   HeightTransition,
+  type IVideoSource,
   LottieView,
   SegmentControl,
   SizableText,
@@ -50,7 +51,6 @@ import {
 import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -60,11 +60,11 @@ enum EConnectionStatus {
 
 function DevicePlaceholder({ isBle }: { isBle: boolean }) {
   const themeVariant = useThemeVariant();
-  const videoSource = useMemo<ReactVideoSource>(
+  const videoSource = useMemo<IVideoSource>(
     () =>
       themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-L.mp4') as ReactVideoSource),
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-D.mp4') as IVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-L.mp4') as IVideoSource),
     [themeVariant],
   );
   return (

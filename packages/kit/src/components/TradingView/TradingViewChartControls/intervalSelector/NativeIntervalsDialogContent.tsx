@@ -10,8 +10,10 @@ import { useNativeIntervalsDialogState } from './hooks/useNativeIntervalsDialogS
 import { IntervalGrid, IntervalsDialogSection } from './NativeIntervalGrid';
 import { MAX_PREFERRED_INTERVAL_COUNT } from './NativeIntervalUtils';
 
-import type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
-import type { ITradingViewIntervalOption } from '../types';
+import type {
+  ITradingViewIntervalOption,
+  ITradingViewNativeIntervalControlMode,
+} from '../types';
 
 export function IntervalsDialogContent({
   options,

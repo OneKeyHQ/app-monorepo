@@ -124,7 +124,7 @@ export function Content({
             {showLoading ? (
               <Stack
                 bg="$bg"
-                animation="medium"
+                transition="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 position="absolute"
                 top={0}

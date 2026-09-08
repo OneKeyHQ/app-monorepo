@@ -334,6 +334,7 @@ function ReceiveToken() {
           deriveType: currentDeriveType,
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
+          expectedAddress: displayAddress,
         });
 
       const isSameAddress =
@@ -698,7 +699,7 @@ function ReceiveToken() {
   const renderVerifyFooter = useCallback(() => {
     if (platformEnv.isNative) {
       return (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <YStack p="$5" pb={bottom || '$5'} gap="$2.5" bg="$bgApp">
             <Button
               testID={ReceiveTestIDs.VerifyOnDeviceButton}
@@ -839,7 +840,7 @@ function ReceiveToken() {
 
   const renderNativeActionsFooter = useCallback(() => {
     return (
-      <Page.Footer>
+      <Page.Footer safeAreaBottomMode="content">
         <YStack p="$5" pb={bottom || '$5'} bg="$bgApp">
           <XStack gap="$2.5">
             {canShowShareEntry ? (

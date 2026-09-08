@@ -15,17 +15,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useNativeIntervalSelector } from './hooks/useNativeIntervalSelector';
 import { IntervalsDialogContent } from './NativeIntervalsDialogContent';
 import {
+  COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT,
   MAX_PREFERRED_INTERVAL_COUNT,
   isIntervalOptionDisabled,
 } from './NativeIntervalUtils';
 
-import type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
-import type { ITradingViewIntervalConfigData } from '../types';
+import type {
+  ITradingViewIntervalConfigData,
+  ITradingViewNativeIntervalControlMode,
+} from '../types';
 
-export type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
+export type { ITradingViewNativeIntervalControlMode } from '../types';
+
+const FULL_WIDTH_MORE_CONTROL_FLEX = 1.2;
 
 interface ITradingViewNativeIntervalSelectorProps {
   compactMobileLayout?: boolean;
+  fullWidth?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   showActiveBackground?: boolean;
@@ -33,27 +39,53 @@ interface ITradingViewNativeIntervalSelectorProps {
   onControlInteraction?: () => void;
 }
 
+function getIntervalControlHorizontalPadding({
+  compactMobileLayout,
+  fullWidth,
+}: {
+  compactMobileLayout: boolean;
+  fullWidth: boolean;
+}) {
+  if (fullWidth) {
+    return '$0';
+  }
+  if (compactMobileLayout) {
+    return '$1';
+  }
+  return '$2.5';
+}
+
 function IntervalMoreTrigger({
   compactMobileLayout,
+  fullWidth,
   label,
   isActive,
   showActiveBackground,
   onPress,
 }: {
   compactMobileLayout: boolean;
+  fullWidth: boolean;
   label: string;
   isActive: boolean;
   showActiveBackground: boolean;
   onPress?: () => void;
 }) {
   const hasActiveBackground = isActive && showActiveBackground;
+  const horizontalPadding = getIntervalControlHorizontalPadding({
+    compactMobileLayout,
+    fullWidth,
+  });
   return (
     <XStack
       testID="trading-view-native-interval-selector-more-select"
+      flex={fullWidth ? FULL_WIDTH_MORE_CONTROL_FLEX : undefined}
+      flexBasis={fullWidth ? 0 : undefined}
       h={compactMobileLayout ? 26 : 30}
-      px="$2.5"
+      minWidth={fullWidth ? 0 : undefined}
+      px={horizontalPadding}
       gap="$1"
       alignItems="center"
+      justifyContent={fullWidth ? 'center' : undefined}
       borderRadius="$full"
       borderCurve="continuous"
       bg={hasActiveBackground ? '$bgStrong' : '$transparent'}
@@ -87,6 +119,7 @@ function IntervalMoreTrigger({
 export const TradingViewNativeIntervalSelector = memo(
   ({
     compactMobileLayout = false,
+    fullWidth = false,
     intervalConfig,
     intervalControlMode = 'dialog',
     showActiveBackground = true,
@@ -94,6 +127,19 @@ export const TradingViewNativeIntervalSelector = memo(
     onControlInteraction,
   }: ITradingViewNativeIntervalSelectorProps) => {
     const intl = useIntl();
+    const horizontalPadding = getIntervalControlHorizontalPadding({
+      compactMobileLayout,
+      fullWidth,
+    });
+    const shouldCompressIntervalItems = compactMobileLayout || fullWidth;
+    const shouldShrinkToSiblings = compactMobileLayout && !fullWidth;
+    const toolbarMaxPreferredIntervalCount = compactMobileLayout
+      ? COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT
+      : MAX_PREFERRED_INTERVAL_COUNT;
+    const maxPreferredIntervalCount =
+      intervalControlMode === 'popover'
+        ? null
+        : toolbarMaxPreferredIntervalCount;
     const [intervalsPopoverSessionKey, setIntervalsPopoverSessionKey] =
       useState(0);
     const {
@@ -116,7 +162,7 @@ export const TradingViewNativeIntervalSelector = memo(
       visibleSegmentValueSet,
     } = useNativeIntervalSelector({
       intervalConfig,
-      intervalControlMode,
+      visiblePreferredIntervalCount: maxPreferredIntervalCount,
     });
 
     const handleIntervalsPopoverOpenChange = useCallback(
@@ -153,6 +199,7 @@ export const TradingViewNativeIntervalSelector = memo(
             onIntervalChange={onIntervalChange}
             onPreferredValuesChange={handlePreferredValuesChange}
             onClose={closeIntervalsDialog}
+            maxPreferredIntervalCount={maxPreferredIntervalCount}
           />
         ),
       });
@@ -169,6 +216,7 @@ export const TradingViewNativeIntervalSelector = memo(
       onIntervalChange,
       options,
       preferredIntervalValues,
+      maxPreferredIntervalCount,
       setIntervalsDialogInstance,
     ]);
 
@@ -188,11 +236,7 @@ export const TradingViewNativeIntervalSelector = memo(
         onPreferredValuesChange={handlePreferredValuesChange}
         onClose={closeIntervalsPopover}
         mode={intervalControlMode}
-        maxPreferredIntervalCount={
-          intervalControlMode === 'popover'
-            ? null
-            : MAX_PREFERRED_INTERVAL_COUNT
-        }
+        maxPreferredIntervalCount={maxPreferredIntervalCount}
         footerButtonSize={
           intervalControlMode === 'popover' ? 'medium' : 'large'
         }
@@ -223,6 +267,7 @@ export const TradingViewNativeIntervalSelector = memo(
             renderTrigger={
               <IntervalMoreTrigger
                 compactMobileLayout={compactMobileLayout}
+                fullWidth={fullWidth}
                 label={moreTriggerLabel}
                 isActive={isMoreTriggerActive}
                 showActiveBackground={showActiveBackground}
@@ -235,6 +280,7 @@ export const TradingViewNativeIntervalSelector = memo(
         moreControl = (
           <IntervalMoreTrigger
             compactMobileLayout={compactMobileLayout}
+            fullWidth={fullWidth}
             label={moreTriggerLabel}
             isActive={isMoreTriggerActive}
             showActiveBackground={showActiveBackground}
@@ -245,9 +291,19 @@ export const TradingViewNativeIntervalSelector = memo(
     }
 
     return (
-      <XStack gap="$0" alignItems="center">
+      <XStack
+        w={fullWidth ? '100%' : undefined}
+        minWidth={0}
+        flexShrink={shouldShrinkToSiblings ? 1 : undefined}
+        gap="$0"
+        alignItems="center"
+      >
         {segmentOptions.length ? (
           <SegmentControl
+            flex={fullWidth ? segmentOptions.length : undefined}
+            flexBasis={fullWidth ? 0 : undefined}
+            flexShrink={shouldShrinkToSiblings ? 1 : undefined}
+            minWidth={fullWidth ? 0 : undefined}
             value={
               visibleSegmentValueSet.has(activeInterval) ? activeInterval : ''
             }
@@ -295,8 +351,10 @@ export const TradingViewNativeIntervalSelector = memo(
             // active/hover background matches the adjacent More trigger.
             p="$0"
             segmentControlItemStyleProps={{
-              minWidth: 42,
-              px: '$2.5',
+              flex: fullWidth ? 1 : undefined,
+              flexBasis: fullWidth ? 0 : undefined,
+              minWidth: shouldCompressIntervalItems ? 0 : 42,
+              px: horizontalPadding,
               py: '$0',
               h: compactMobileLayout ? '100%' : undefined,
               justifyContent: 'center',

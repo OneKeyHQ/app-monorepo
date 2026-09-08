@@ -192,7 +192,7 @@ type ISendAmountAutoSizeInputProps = {
   };
   extraContent?: React.ReactNode;
   onLayout?: (event: LayoutChangeEvent) => void;
-} & IStackProps;
+} & Omit<IStackProps, 'onChange'>;
 
 function SendAutoSizeAmountInputComponent(
   {

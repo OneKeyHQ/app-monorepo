@@ -650,14 +650,14 @@ function PerpSettingsPopoverContent({
       width="100%"
       overflow="hidden"
       height={contentHeight}
-      animation={animation}
+      transition={animation}
       animateOnly={ANIMATE_ONLY_HEIGHT}
     >
       <AnimatePresence custom={presenceCustom} initial={false}>
         <AnimatedSettingsPanelView
           key={navSeq}
           going={going}
-          animation={reducedMotion ? '0ms' : 'smooth'}
+          transition={reducedMotion ? '0ms' : 'smooth'}
           onLayout={(event: LayoutChangeEvent) =>
             handleViewLayout(navSeq, event.nativeEvent.layout.height)
           }

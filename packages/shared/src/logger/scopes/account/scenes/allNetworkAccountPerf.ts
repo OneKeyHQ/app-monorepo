@@ -25,6 +25,11 @@ type IHomeTokenListRefreshTraceParams = {
   indexedAccountPresent?: boolean;
   source?: string;
   reason?: string;
+  skipReason?: string;
+  disabled?: boolean;
+  isRouteFocused?: boolean;
+  isLocked?: boolean;
+  shouldAlwaysFetch?: boolean;
 };
 
 export class AllNetworkAccountPerf extends BaseScene {

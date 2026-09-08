@@ -47,6 +47,7 @@ function renderPopularTradingTokenIdentity(
       stock={record.stock}
       maxLeverage={record.maxLeverage}
       perpsSubtitle={record.perpsSubtitle}
+      perpsDexLabel={record.perpsDexLabel}
     />
   );
 }

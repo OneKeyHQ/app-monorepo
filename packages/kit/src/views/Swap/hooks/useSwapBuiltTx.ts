@@ -21,6 +21,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -149,6 +150,7 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
@@ -349,6 +351,7 @@ export function useSwapBuildTx({
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [persistSettings, setPersistSettings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { isFirstTimeSwap } = persistSettings;
   const swapActionState = useSwapActionState();
   const [swapNetWorkFeeLevel] = useSwapStepNetFeeLevelAtom();
@@ -1095,6 +1098,16 @@ export function useSwapBuildTx({
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false as const,
+        // The direct pipeline never passes through the confirm page's fee
+        // footer, so hand the resolved fee to the device stage card here.
+        stageFeeInfo: {
+          feeInfo: gasInfo as IFeeInfoUnit,
+          total,
+          totalNative,
+          totalFiat,
+          totalNativeForDisplay,
+          totalFiatForDisplay,
+        },
       };
       const res = await sendDirectSwapWithGasAccountAnalytics({
         context: gasAccountAnalyticsContext,
@@ -1501,6 +1514,26 @@ export function useSwapBuildTx({
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
+      // Sponsorship (megafuel / Gas Account) never applies to external-wallet
+      // accounts, but `serviceGas.estimateFee` does not distinguish them.
+      // Strip the sponsored state at the source — restore the real gas price
+      // (megafuel zeroes `gasPrice`, keeping it in `originalGasPrice`) and
+      // drop the sponsor flags — so the native-balance precheck, the fee
+      // display, and the tx handed to the external wallet all use the real fee.
+      if (accountUtils.isExternalAccount({ accountId: fromAccountId ?? '' })) {
+        return {
+          ...gasInfo,
+          gas: gasInfo.gas
+            ? {
+                ...gasInfo.gas,
+                gasPrice: gasInfo.gas.originalGasPrice ?? gasInfo.gas.gasPrice,
+              }
+            : undefined,
+          // Keep only the raw megafuel eligibility so the review UI can show
+          // the "zero network fee with OneKey wallet" promo hint (OK-61254).
+          externalSponsorPromoEligible: !!gasRes.megafuelEligible?.sponsorable,
+        };
+      }
       // Carry sponsorship result from estimate-fee so it flows into the preview
       // badge and, for Gas Account, the send path broadcast quoteId.
       return {
@@ -1513,6 +1546,7 @@ export function useSwapBuildTx({
       };
     },
     [
+      fromAccountId,
       swapNetWorkFeeLevel?.networkFeeLevel,
       swapNetWorkFeeLevel?.customPriorityFee,
     ],
@@ -2560,13 +2594,31 @@ export function useSwapBuildTx({
             buildSwapRes.result.quoteId ??
             '';
           if (updateReviewState) {
+            const builtFromAmount =
+              buildSwapRes.result.fromAmount ?? data.fromAmount;
+            const builtToAmount = buildSwapRes.result.toAmount ?? data.toAmount;
+            const builtInstantRate = new BigNumber(builtToAmount)
+              .dividedBy(builtFromAmount)
+              .toFixed();
             setSwapSteps((prev) => ({
               ...prev,
               preSwapData: {
                 ...prev.preSwapData,
                 swapBuildLoading: false,
                 requiresSlippageRebuildOnConfirm: false,
-                toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
+                toTokenAmount: builtToAmount,
+                rateDifference:
+                  data.protocol === EProtocolOfExchange.LIMIT
+                    ? undefined
+                    : buildSwapRateDifference({
+                        fromTokenPrice: prev.preSwapData.fromToken?.price,
+                        toTokenPrice: prev.preSwapData.toToken?.price,
+                        fromTokenCurrency: prev.preSwapData.fromToken?.currency,
+                        toTokenCurrency: prev.preSwapData.toToken?.currency,
+                        defaultTokenCurrency: persistSettings.currencyInfo.id,
+                        currencyMap,
+                        instantRate: builtInstantRate,
+                      }),
                 swapBuildResultData: {
                   swapInfo,
                   orderId,
@@ -2617,6 +2669,8 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       intl,
+      persistSettings.currencyInfo.id,
+      currencyMap,
     ],
   );
 
@@ -3669,6 +3723,22 @@ export function useSwapBuildTx({
             ...prev.preSwapData,
             fromTokenAmount: rebuiltQuoteResult.fromAmount,
             toTokenAmount: rebuiltQuoteResult.toAmount,
+            rateDifference:
+              rebuiltQuoteResult.protocol === EProtocolOfExchange.LIMIT
+                ? undefined
+                : buildSwapRateDifference({
+                    fromTokenPrice: prev.preSwapData.fromToken?.price,
+                    toTokenPrice: prev.preSwapData.toToken?.price,
+                    fromTokenCurrency: prev.preSwapData.fromToken?.currency,
+                    toTokenCurrency: prev.preSwapData.toToken?.currency,
+                    defaultTokenCurrency: persistSettings.currencyInfo.id,
+                    currencyMap,
+                    instantRate: new BigNumber(
+                      rebuiltQuoteResult.toAmount ?? '',
+                    )
+                      .dividedBy(rebuiltQuoteResult.fromAmount ?? '')
+                      .toFixed(),
+                  }),
             minToAmount: rebuiltQuoteResult.minToAmount,
             providerInfo: rebuiltQuoteResult.info,
             fee: rebuiltQuoteResult.fee,
@@ -3718,6 +3788,8 @@ export function useSwapBuildTx({
       fromAccountNetworkId,
       getApproveUnSignedTxArr,
       setSwapSteps,
+      currencyMap,
+      persistSettings.currencyInfo.id,
     ],
   );
 

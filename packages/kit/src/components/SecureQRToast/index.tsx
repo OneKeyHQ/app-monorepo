@@ -92,7 +92,7 @@ const SecureQRToastBase = ({
           <Stack>
             <Stack
               ai="center"
-              animation="slow"
+              transition="slow"
               animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{
                 opacity: 0,

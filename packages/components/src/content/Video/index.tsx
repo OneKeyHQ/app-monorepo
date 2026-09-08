@@ -16,7 +16,12 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
       paused,
       autoPlay,
       onEnd,
+      onError,
       onProgress,
+      onReadyForDisplay,
+      playInBackground: _playInBackground,
+      poster,
+      controls,
       ...props
     },
     style,
@@ -97,11 +102,17 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
       // Match native's "paused wins" semantics: an initial paused={true}
       // must suppress browser autoplay even when autoPlay is not passed.
       autoPlay={autoPlay ?? paused !== true}
+      controls={controls}
       muted={muted}
+      poster={poster}
       style={style as any}
       {...(props as any)}
       {...(onEnd ? { onEnded: () => onEnd() } : undefined)}
-      src={typeof source === 'string' ? source : source?.uri}
+      {...(onError ? { onError: (event) => onError(event) } : undefined)}
+      {...(onReadyForDisplay
+        ? { onCanPlay: () => onReadyForDisplay() }
+        : undefined)}
+      src={typeof source === 'object' ? source.uri : (source as string)}
       loop={repeat}
     />
   );

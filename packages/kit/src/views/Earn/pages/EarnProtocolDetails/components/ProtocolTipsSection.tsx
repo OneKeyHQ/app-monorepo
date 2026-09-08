@@ -3,32 +3,90 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Dialog, Divider, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Divider,
+  SizableText,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
+// Same caps the protocol intro dialog uses, so every Earn dialog scrolls at the
+// same height instead of growing until the sheet swallows the screen.
+const DIALOG_CONTENT_MAX_HEIGHT = 512;
+const COMPACT_DIALOG_CONTENT_HEIGHT = 260;
+
 type IProtocolTips = NonNullable<IStakeEarnDetail['protocolTips']>;
 type IProtocolTipItem = IProtocolTips['tips'][number];
 
-// 外显规则 (OK-58972)：单条直显；多条优先 showDefault=true 的第一条，
-// 均未标记时回落数组第一条。
+// Inline-tip selection (OK-58972): a single tip is shown as-is; with several,
+// the first one flagged showDefault wins, falling back to the first entry when
+// none is flagged.
 function pickInlineTip(tips: IProtocolTipItem[]): IProtocolTipItem {
   return tips.find((tip) => tip.showDefault) ?? tips[0];
 }
 
-function ProtocolTipRow({ tip }: { tip: IProtocolTipItem }) {
+function ProtocolTipRow({
+  tip,
+  onBeforeOpenUrl,
+}: {
+  tip: IProtocolTipItem;
+  onBeforeOpenUrl?: () => Promise<void>;
+}) {
   return (
     <YStack gap="$1">
-      <EarnText text={tip.title} size="$bodyMdMedium" />
-      <EarnText text={tip.description} size="$bodyMd" color="$textSubdued" />
+      <EarnText
+        text={tip.title}
+        size="$bodyMdMedium"
+        onBeforeOpenUrl={onBeforeOpenUrl}
+      />
+      <EarnText
+        text={tip.description}
+        size="$bodyMd"
+        color="$textSubdued"
+        onBeforeOpenUrl={onBeforeOpenUrl}
+      />
     </YStack>
   );
 }
 
-// FIXME: Replace with product-approved i18n key once available (设计稿文案
-// "Protocol tips"，figma 24951-53676)。
-const PROTOCOL_TIPS_HEADER = 'Protocol tips';
+// The dialog has to get out of the way before a link opens: an <urlInApp> link
+// pushes the in-app browser onto the navigation modal stack while this dialog
+// renders in its own overlay, so it would otherwise still be sitting there when
+// the user comes back from the page — and on native it keeps the sheet stacked
+// under the browser the whole time.
+function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
+  const dialogInstance = useDialogInstance();
+  const { md } = useMedia();
+  // Await the dismissal: the in-app browser is pushed onto the navigation modal
+  // stack while this dialog lives in its own overlay, so opening it mid-exit
+  // leaves the two animating over each other (and the dialog waiting behind the
+  // page when the user comes back).
+  const handleBeforeOpenUrl = useCallback(async () => {
+    await dialogInstance.close();
+  }, [dialogInstance]);
+
+  return (
+    <Dialog.ScrollView
+      height={md ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
+      maxHeight={md ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
+      nestedScrollEnabled
+    >
+      <YStack gap="$4" pb="$2">
+        {tips.map((tip, index) => (
+          <YStack key={index} gap="$4">
+            {index > 0 ? <Divider /> : null}
+            <ProtocolTipRow tip={tip} onBeforeOpenUrl={handleBeforeOpenUrl} />
+          </YStack>
+        ))}
+      </YStack>
+    </Dialog.ScrollView>
+  );
+}
 
 export function ProtocolTipsSection({
   protocolTips,
@@ -36,6 +94,10 @@ export function ProtocolTipsSection({
   protocolTips?: IProtocolTips;
 }) {
   const intl = useIntl();
+  // Heading for both the card and the dialog (design: figma 24951-53676).
+  const protocolTipsHeader = intl.formatMessage({
+    id: ETranslations.protocol_tips__title,
+  });
   const tips = useMemo(
     () =>
       (protocolTips?.tips ?? []).filter(
@@ -46,20 +108,11 @@ export function ProtocolTipsSection({
 
   const handleViewAll = useCallback(() => {
     Dialog.show({
-      title: PROTOCOL_TIPS_HEADER,
+      title: protocolTipsHeader,
       showFooter: false,
-      renderContent: (
-        <YStack gap="$4" pb="$2">
-          {tips.map((tip, index) => (
-            <YStack key={index} gap="$4">
-              {index > 0 ? <Divider /> : null}
-              <ProtocolTipRow tip={tip} />
-            </YStack>
-          ))}
-        </YStack>
-      ),
+      renderContent: <ProtocolTipsDialogContent tips={tips} />,
     });
-  }, [tips]);
+  }, [protocolTipsHeader, tips]);
 
   if (tips.length === 0) {
     return null;
@@ -68,10 +121,12 @@ export function ProtocolTipsSection({
   const inlineTip = pickInlineTip(tips);
   const hasMore = tips.length > 1;
 
-  // 图表下方卡片 (设计稿)：白底描边圆角，仅标题条为浅灰背景，
-  // 内容区白底：外显 tip + 居中蓝色 View all。
-  // 间距：所在容器无 gap，上方补 $4；下方是外层 section gap $8，
-  // 用 -$2 收窄到 24px，与设计稿卡片下间距一致
+  // Card under the chart (per design): rounded outlined card on the page
+  // background, with only the heading strip on the subdued fill and the body
+  // on the plain one — the inline tip plus a centered blue "View all".
+  // Spacing: the parent container has no gap, so $4 is added above; below, the
+  // outer section's $8 gap is pulled back to 24px with -$2 to match the
+  // design's card spacing.
   return (
     <YStack
       mt="$4"
@@ -84,17 +139,26 @@ export function ProtocolTipsSection({
     >
       <YStack bg="$bgSubdued" px="$4" py="$2">
         <SizableText size="$bodyMdMedium" textAlign="center">
-          {PROTOCOL_TIPS_HEADER}
+          {protocolTipsHeader}
         </SizableText>
       </YStack>
       <YStack px="$4" py="$3" gap="$2">
+        {/* Same EarnText the "View all" dialog uses. Passing `.text` straight
+            to SizableText printed the dashboard's <bold>/<url>/<red> markup
+            verbatim and left links dead, and dropped the IEarnText color and
+            size, so the card and the dialog disagreed on the same data. */}
         <YStack gap="$0.5">
-          <SizableText size="$bodyMdMedium" numberOfLines={1}>
-            {inlineTip.title.text}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
-            {inlineTip.description.text}
-          </SizableText>
+          <EarnText
+            text={inlineTip.title}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+          />
+          <EarnText
+            text={inlineTip.description}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={2}
+          />
         </YStack>
         {hasMore ? (
           <SizableText

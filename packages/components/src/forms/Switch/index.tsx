@@ -35,7 +35,10 @@ const SWITCH_SIZE_CONFIG = {
 
 export type ISwitchProps = IFormFieldProps<
   boolean,
-  Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
+  Omit<
+    GetProps<typeof TMSwitch>,
+    'checked' | 'onChange' | 'onCheckedChange' | 'value'
+  > & {
     size?: ISwitchSize;
     thumbProps?: Partial<GetProps<typeof TMSwitch.Thumb>>;
   }
@@ -77,15 +80,14 @@ export function Switch({
   const nativeProps = useMemo(
     () => ({
       disabled,
-      // iOS 26 gives the native UISwitch a Liquid Glass track; a solid off-state
-      // background bleeds past the glass as an extra-gray sliver, so drop it
-      // there and let the system render the glass off-track. iOS < 26 / Android
-      // keep the neutral5 background unchanged.
-      ios_backgroundColor: platformEnv.isNativeIOS26Plus
-        ? 'transparent'
-        : theme.neutral5.val,
+      // The off-track fill is $neutral4, the design's stamp for the toggle.
+      // On iOS 26 this deliberately paints over the Liquid Glass off-track:
+      // the glass sampling a dark surface (the device stage's near-black
+      // face) rendered the off state close to invisible, which costs more
+      // than the faint sliver a solid background bleeds past the glass.
+      ios_backgroundColor: theme.neutral4.val,
       trackColor: {
-        false: theme.neutral5.val,
+        false: theme.neutral4.val,
         // On iOS the on-state uses the brand green ($bgAccent) so "activated"
         // reads unmistakably — a saturated color cue, not just a darker/lighter
         // track. The native thumb is $bg (white in light mode, near-black in
@@ -108,7 +110,7 @@ export function Switch({
     [
       disabled,
       nativeScale,
-      theme.neutral5.val,
+      theme.neutral4.val,
       theme.bgAccent.val,
       theme.bgPrimary.val,
       theme.bg.val,
@@ -117,7 +119,7 @@ export function Switch({
 
   return (
     <TMSwitch
-      tag="span"
+      render="span"
       flexShrink={0}
       unstyled
       checked={checked}
@@ -144,7 +146,7 @@ export function Switch({
         h={sizeConfig.thumbSize}
         borderRadius="$full"
         bg="$bg"
-        animation="switch"
+        transition="switch"
         animateOnly={ANIMATE_ONLY_TRANSFORM}
         {...thumbProps}
       />

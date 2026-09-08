@@ -21,6 +21,10 @@ import {
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
+import {
+  raceSniRequestWithAbort,
+  throwIfSniRequestAborted,
+} from './sniRequestAbort';
 
 import type { IIpTableRequestOutcomeState } from './ipTableRequestOutcome';
 import type {
@@ -1025,6 +1029,7 @@ export function createIpTableAdapter(
   };
 
   return async (config: InternalAxiosRequestConfig) => {
+    throwIfSniRequestAborted(config.signal);
     const sniSupported = isSniSupported();
     // Check if SNI is supported on current platform
     if (!sniSupported) {
@@ -1126,8 +1131,15 @@ export function createIpTableAdapter(
     let proxyActive: boolean | null;
     let preflightError: unknown;
     try {
-      proxyActive = await isProxyActiveForUrl(targetUrl);
+      throwIfSniRequestAborted(config.signal);
+      proxyActive = await raceSniRequestWithAbort(
+        isProxyActiveForUrl(targetUrl),
+        config.signal,
+      );
     } catch (error) {
+      if (isSniFailClosedError(error)) {
+        throw error;
+      }
       debugWarn(
         '[IpTableAdapter] Proxy preflight failed, using fallback:',
         error,
@@ -1181,7 +1193,11 @@ export function createIpTableAdapter(
     }
 
     // Get selected IP for this hostname (async call)
-    const selectedIp = await getSelectedIpForHost(hostname);
+    throwIfSniRequestAborted(config.signal);
+    const selectedIp = await raceSniRequestWithAbort(
+      getSelectedIpForHost(hostname),
+      config.signal,
+    );
 
     // If no IP mapping found, use original adapter (direct domain request, not fallback)
     if (!selectedIp) {
@@ -1283,15 +1299,18 @@ export function createIpTableAdapter(
     };
 
     try {
-      const sniResponse = await sniRequest({
-        ip: selectedIp,
-        hostname,
-        path: fullPath,
-        headers: requestHeaders,
-        method: (config.method || 'GET').toUpperCase(),
-        body: requestBody,
-        timeout: config.timeout || 60_000,
-      });
+      const sniResponse = await sniRequest(
+        {
+          ip: selectedIp,
+          hostname,
+          path: fullPath,
+          headers: requestHeaders,
+          method: (config.method || 'GET').toUpperCase(),
+          body: requestBody,
+          timeout: config.timeout || 60_000,
+        },
+        { signal: config.signal },
+      );
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {

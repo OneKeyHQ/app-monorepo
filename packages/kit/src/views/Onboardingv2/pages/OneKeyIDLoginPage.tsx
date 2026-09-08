@@ -109,7 +109,7 @@ function OptionItem({
           {isLoading ? (
             <YStack
               key="loading-spinner"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
@@ -119,7 +119,7 @@ function OptionItem({
           ) : (
             <YStack
               key="chevron-right"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}

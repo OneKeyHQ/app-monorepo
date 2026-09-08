@@ -181,8 +181,10 @@ function PrimePaymentMethodItems({
 
 export function usePrimePurchaseCallback({
   onPurchase,
+  networkId,
 }: {
   onPurchase?: () => void | Promise<void>;
+  networkId?: string;
 } = {}) {
   const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
   const { supabaseUser, user } = useOneKeyAuth();
@@ -190,7 +192,7 @@ export function usePrimePurchaseCallback({
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
-    usePrimeInfiniPurchase();
+    usePrimeInfiniPurchase({ networkId });
 
   const purchaseByNativeUnchecked = useCallback(
     async ({
@@ -320,13 +322,16 @@ export function usePrimePurchaseCallback({
       };
       const startCryptoPayment = async ({
         subscriptionPeriod,
+        createNewPayment = true,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
+        createNewPayment?: boolean;
       }) => {
         try {
           await purchaseByCryptoUnchecked({
             selectedSubscriptionPeriod: subscriptionPeriod,
             featureName,
+            createNewPayment,
           });
         } catch (error) {
           showPrimeInfiniPaymentErrorToast({
@@ -380,6 +385,7 @@ export function usePrimePurchaseCallback({
           // once the payment is no longer replaceable.
           subscriptionPeriod:
             entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
+          createNewPayment: false,
         });
         return true;
       };
@@ -527,11 +533,17 @@ export function usePrimePurchaseCallback({
 export const PrimePurchaseDialog = (props: {
   onPurchase: () => void | Promise<void>;
   featureName?: EPrimeFeatures;
+  networkId?: string;
   // Preselected plan, e.g. the renew flow defaults to the plan of the
   // current Infini subscription (integration plan §7.2)
   defaultSelectedSubscriptionPeriod?: ISubscriptionPeriod;
 }) => {
-  const { onPurchase, featureName, defaultSelectedSubscriptionPeriod } = props;
+  const {
+    onPurchase,
+    featureName,
+    networkId,
+    defaultSelectedSubscriptionPeriod,
+  } = props;
   const intl = useIntl();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>(defaultSelectedSubscriptionPeriod ?? 'P1Y');
@@ -546,6 +558,7 @@ export const PrimePurchaseDialog = (props: {
 
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
+    networkId,
   });
   const selectedPackage = packages?.find(
     (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,

@@ -7,7 +7,7 @@ import type { IImageProps } from './type';
 export function ImageNull({ onLoadStart, onLoadEnd, onError }: IImageProps) {
   useEffect(() => {
     onLoadStart?.();
-    onError?.(new Error('image source is empty') as any);
+    onError?.({ error: 'image source is empty' });
     onLoadEnd?.();
   }, [onError, onLoadEnd, onLoadStart]);
   return null;

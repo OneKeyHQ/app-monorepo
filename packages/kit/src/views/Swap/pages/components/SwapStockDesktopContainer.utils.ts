@@ -21,6 +21,7 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
 } as const;
 
 export type IStockChartCoinGeckoIdLookupResult = {
+  cacheable?: boolean;
   tokenScope: string;
   coinGeckoId?: string;
 };
@@ -99,6 +100,20 @@ export function isStockMarketPanelLoadingStage(
   return (
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
+}
+
+export function shouldDeferStockInitialContent({
+  channelStage,
+  startedWithoutContent,
+}: {
+  channelStage: ESwapStockChannelStage;
+  startedWithoutContent: boolean;
+}) {
+  return (
+    startedWithoutContent &&
+    (isStockMarketPanelLoadingStage(channelStage) ||
+      channelStage === ESwapStockChannelStage.InitializingPayToken)
   );
 }
 

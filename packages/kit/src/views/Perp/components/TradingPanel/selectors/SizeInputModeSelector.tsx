@@ -87,7 +87,11 @@ export function SizeInputModeSelector({
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {resolvedValue === 'token' ? tokenSymbol || tokenFallbackLabel : 'USD'}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+      <Icon
+        name="ChevronTriangleDownSmallSolid"
+        size="$4"
+        color="$iconSubdued"
+      />
     </XStack>
   );
 

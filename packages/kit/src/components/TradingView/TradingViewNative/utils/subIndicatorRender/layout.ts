@@ -29,6 +29,26 @@ export interface ITradingViewNativeSubIndicatorPaneStackLayout {
   top: number;
 }
 
+interface ITradingViewNativeSubIndicatorPaneStackOptions {
+  height: number;
+  paneCount: number;
+  timeAxisHeight?: number;
+}
+
+function getTradingViewNativeTimeAxisY(
+  height: number,
+  timeAxisHeight?: number,
+) {
+  'worklet';
+
+  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
+  const normalizedTimeAxisHeight =
+    typeof timeAxisHeight === 'number' && Number.isFinite(timeAxisHeight)
+      ? Math.max(timeAxisHeight, 0)
+      : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  return Math.max(normalizedHeight - normalizedTimeAxisHeight, 0);
+}
+
 export function getTradingViewNativeVisibleSubIndicatorPaneCount(
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
 ) {
@@ -40,20 +60,14 @@ export function getTradingViewNativeVisibleSubIndicatorPaneCount(
 export function getTradingViewNativeSubIndicatorPaneStackHeight({
   height,
   paneCount,
-}: {
-  height: number;
-  paneCount: number;
-}) {
+  timeAxisHeight,
+}: ITradingViewNativeSubIndicatorPaneStackOptions) {
   'worklet';
 
-  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
   const normalizedPaneCount = Number.isFinite(paneCount)
     ? Math.max(Math.floor(paneCount), 0)
     : 0;
-  const timeAxisY = Math.max(
-    normalizedHeight - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-    0,
-  );
+  const timeAxisY = getTradingViewNativeTimeAxisY(height, timeAxisHeight);
   const minimumMainChartBottom =
     TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
     TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT;
@@ -67,20 +81,15 @@ export function getTradingViewNativeSubIndicatorPaneStackHeight({
 export function getTradingViewNativeSubIndicatorPaneStackLayout({
   height,
   paneCount,
-}: {
-  height: number;
-  paneCount: number;
-}): ITradingViewNativeSubIndicatorPaneStackLayout {
+  timeAxisHeight,
+}: ITradingViewNativeSubIndicatorPaneStackOptions): ITradingViewNativeSubIndicatorPaneStackLayout {
   'worklet';
 
-  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
-  const bottom = Math.max(
-    normalizedHeight - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-    0,
-  );
+  const bottom = getTradingViewNativeTimeAxisY(height, timeAxisHeight);
   const stackHeight = getTradingViewNativeSubIndicatorPaneStackHeight({
-    height: normalizedHeight,
+    height,
     paneCount,
+    timeAxisHeight,
   });
   return {
     bottom,

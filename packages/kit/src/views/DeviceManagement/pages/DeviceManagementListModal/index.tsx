@@ -25,7 +25,7 @@ import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvat
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { isDeviceManagementWalletUsable } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
+import { getDeviceManagementWallets } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -42,6 +42,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { selectFirmwareUpdateDetectStatus } from '../../../FirmwareUpdate/utils';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
@@ -306,18 +307,26 @@ function DeviceManagementV2ListWeb() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDeviceSameType: true,
         });
-      const devices: Array<IDeviceManagementListItem> = Object.values(r)
-        .filter(
-          (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && isDeviceManagementWalletUsable(item),
-        )
-        .toSorted((a, b) => {
+      const devices: Array<IDeviceManagementListItem> =
+        getDeviceManagementWallets(Object.values(r)).toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
           return orderA - orderB;
         });
+      const firmwareUpdateConnectIds = devices.flatMap((item) => {
+        const vendorProfile = getVendorProfile(
+          item.device?.vendor ?? EHardwareVendor.onekey,
+        );
+        return vendorProfile.supportsFirmwareUpdate && item.device?.connectId
+          ? [item.device.connectId]
+          : [];
+      });
+      const detectStatusSnapshots = firmwareUpdateConnectIds.length
+        ? await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectStatuses(
+            { connectIds: firmwareUpdateConnectIds },
+          )
+        : {};
 
       for (const item of devices) {
         item.isQrWallet = accountUtils.isQrWallet({
@@ -348,7 +357,18 @@ function DeviceManagementV2ListWeb() {
               device: item.device,
               features: item.device?.featuresInfo,
             });
-        const deviceDetectStatus = detectStatus?.[item.device?.connectId ?? ''];
+        const deviceConnectId = item.device?.connectId;
+        const detectStatusSnapshot =
+          vendorProfile.supportsFirmwareUpdate && deviceConnectId
+            ? detectStatusSnapshots[deviceConnectId]
+            : undefined;
+        const deviceDetectStatus = deviceConnectId
+          ? selectFirmwareUpdateDetectStatus({
+              connectId: deviceConnectId,
+              persistedStatus: detectStatus,
+              snapshot: detectStatusSnapshot,
+            })
+          : undefined;
         const shouldUpdate = vendorProfile.supportsFirmwareUpdate
           ? deviceDetectStatus?.hasUpgrade
           : false;
@@ -404,8 +424,10 @@ function DeviceManagementV2ListWeb() {
       void refreshHwQrWalletList();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.FirmwareUpdateDetectStatusChanged, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.FirmwareUpdateDetectStatusChanged, fn);
     };
   }, [refreshHwQrWalletList]);
 

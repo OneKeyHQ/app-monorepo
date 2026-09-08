@@ -18,7 +18,6 @@ import {
   Divider,
   Icon,
   Image,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -364,7 +363,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
   const isCompact = Boolean(platformEnv.isRuntimeBrowser && md);
 
   return (
-    <ScrollView
+    <Dialog.ScrollView
       height={isCompact ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
       maxHeight={isCompact ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
       nestedScrollEnabled
@@ -372,7 +371,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
       <YStack px="$5" pb="$5">
         {children}
       </YStack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 
@@ -1443,7 +1442,7 @@ function AuditAccordionItem({
               jc="flex-end"
             >
               <Stack
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
               >
@@ -1458,12 +1457,12 @@ function AuditAccordionItem({
         )}
       </Accordion.Trigger>
       {hasContent ? (
-        <Accordion.HeightAnimator animation="quick">
+        <Accordion.HeightAnimator transition="quick">
           <Accordion.Content
             unstyled
             pt="$3"
             pb="$4"
-            animation="100ms"
+            transition="100ms"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}

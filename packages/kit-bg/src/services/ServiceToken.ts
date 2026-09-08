@@ -30,6 +30,7 @@ import {
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
+  normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -872,8 +873,30 @@ class ServiceToken extends ServiceBase {
     const buildSearchTokenKey = (info: IToken) =>
       `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
 
+    // Catalog for the delisted-network filter inside
+    // normalizeTokenSearchResults (OK-60860). The lookup is best-effort: a
+    // transient catalog failure must not discard the token queries that
+    // already succeeded, so fail open and skip the filter.
+    let availableNetworkIds: Set<string> | undefined;
+    try {
+      const { networks: availableNetworks } =
+        await this.backgroundApi.serviceNetwork.getAllNetworks();
+      availableNetworkIds = new Set(
+        availableNetworks.map((network) => network.id),
+      );
+    } catch {
+      availableNetworkIds = undefined;
+    }
+
+    // Normalize before deduping so the key sees the stamped networkId: a hit
+    // that omits it under a scoped request would otherwise collide across
+    // networks and, on press, fall back to the selector's own network.
     return uniqBy(
-      fulfilledResponses.flatMap((resp) => resp.data.data),
+      normalizeTokenSearchResults({
+        items: fulfilledResponses.flatMap((resp) => resp.data.data),
+        requestNetworkId: networkId,
+        availableNetworkIds,
+      }),
       (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,

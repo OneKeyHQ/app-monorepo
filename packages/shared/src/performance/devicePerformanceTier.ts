@@ -26,8 +26,8 @@ import {
 export { EDeviceCpuTier, EDeviceMemoryClass, EDevicePerformanceTier };
 export type { IDevicePerformanceProfile };
 
-// Cache per JS context so repeated consumers do not reread browser capability
-// inputs. Each web, desktop, or extension context keeps its own JS snapshot.
+// Cache per JS context so repeated consumers do not reread bridged or browser
+// capability inputs. Each desktop renderer keeps its own deserialized snapshot.
 let cachedProfile: IDevicePerformanceProfile | undefined;
 
 const CPU_TIER_BY_LEGACY_PERFORMANCE_TIER: Record<
@@ -98,22 +98,33 @@ export async function calibrateDevicePerformanceTier(): Promise<EDevicePerforman
   return getDevicePerformanceTier();
 }
 
-export function setDeviceCpuTier(tier: TKnownDeviceCpuTier): void {
-  syncStorage.set(EAppSyncStorageKeys.onekey_device_cpu_tier_override_v2, tier);
+export async function setDeviceCpuTier(
+  tier: TKnownDeviceCpuTier,
+): Promise<void> {
+  const acknowledgement = syncStorage.set(
+    EAppSyncStorageKeys.onekey_device_cpu_tier_override_v2,
+    tier,
+  );
   cachedProfile = createDevicePerformanceProfile();
+  await acknowledgement;
 }
 
-export function resetDeviceCpuTier(): void {
-  syncStorage.delete(EAppSyncStorageKeys.onekey_device_cpu_tier_override_v2);
+export async function resetDeviceCpuTier(): Promise<void> {
+  const acknowledgement = syncStorage.delete(
+    EAppSyncStorageKeys.onekey_device_cpu_tier_override_v2,
+  );
   cachedProfile = undefined;
+  await acknowledgement;
 }
 
 /** @deprecated Use setDeviceCpuTier. */
-export function setDevicePerformanceTier(tier: EDevicePerformanceTier): void {
-  setDeviceCpuTier(CPU_TIER_BY_LEGACY_PERFORMANCE_TIER[tier]);
+export async function setDevicePerformanceTier(
+  tier: EDevicePerformanceTier,
+): Promise<void> {
+  await setDeviceCpuTier(CPU_TIER_BY_LEGACY_PERFORMANCE_TIER[tier]);
 }
 
 /** @deprecated Use resetDeviceCpuTier. */
-export function resetDevicePerformanceTier(): void {
-  resetDeviceCpuTier();
+export async function resetDevicePerformanceTier(): Promise<void> {
+  await resetDeviceCpuTier();
 }

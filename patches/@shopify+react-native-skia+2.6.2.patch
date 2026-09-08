@@ -1,0 +1,105 @@
+diff --git a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
+index aec7f26..72d2ae5 100644
+--- a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
++++ b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
+@@ -69,13 +69,43 @@ public:
+         runtime, hostObjectInstance, getContext());
+   }
+ 
++  // OneKey patch: expose Skia's locale-aware system fallback lookup.
++  JSI_HOST_FUNCTION(matchFamilyStyleCharacter) {
++    auto name = arguments[0].asString(runtime).utf8(runtime);
++    auto resolvedName = getContext()->resolveFontFamily(name);
++    auto fontStyle = JsiSkFontStyle::fromValue(runtime, arguments[1]);
++    auto jsiBcp47 = arguments[2].asObject(runtime).asArray(runtime);
++    auto bcp47Count = static_cast<int>(jsiBcp47.size(runtime));
++    std::vector<std::string> bcp47Strings;
++    bcp47Strings.reserve(bcp47Count);
++    for (int index = 0; index < bcp47Count; index += 1) {
++      bcp47Strings.push_back(jsiBcp47.getValueAtIndex(runtime, index)
++                                 .asString(runtime)
++                                 .utf8(runtime));
++    }
++    std::vector<const char *> bcp47;
++    bcp47.reserve(bcp47Strings.size());
++    for (const auto &locale : bcp47Strings) {
++      bcp47.push_back(locale.c_str());
++    }
++    auto character = static_cast<SkUnichar>(arguments[3].asNumber());
++    auto typeface = getObject()->matchFamilyStyleCharacter(
++        resolvedName.c_str(), *fontStyle, bcp47.data(), bcp47Count, character);
++    if (!typeface) {
++      return jsi::Value::null();
++    }
++    return JsiSkTypeface::toValue(runtime, getContext(), std::move(typeface));
++  }
++
+   size_t getMemoryPressure() const override { return 2048; }
+ 
+   std::string getObjectType() const override { return "JsiSkFontMgr"; }
+ 
+   JSI_EXPORT_FUNCTIONS(JSI_EXPORT_FUNC(JsiSkFontMgr, countFamilies),
+                        JSI_EXPORT_FUNC(JsiSkFontMgr, getFamilyName),
+-                       JSI_EXPORT_FUNC(JsiSkFontMgr, matchFamilyStyle))
++                       JSI_EXPORT_FUNC(JsiSkFontMgr, matchFamilyStyle),
++                       JSI_EXPORT_FUNC(JsiSkFontMgr,
++                                       matchFamilyStyleCharacter))
+ 
+ private:
+   std::vector<std::string> _systemFontFamilies;
+diff --git a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts b/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts
+index eb436ae..887c298 100644
+--- a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts
++++ b/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts
+@@ -5,4 +5,6 @@ export interface SkFontMgr extends SkJSIInstance<"FontMgr"> {
+     countFamilies(): number;
+     getFamilyName(index: number): string;
+     matchFamilyStyle(name: string, style: FontStyle): SkTypeface;
++    /** OneKey patch: expose locale-aware system fallback matching on native. */
++    matchFamilyStyleCharacter(name: string, style: FontStyle, bcp47: string[], character: number): SkTypeface | null;
+ }
+diff --git a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/web/JsiSkFontMgr.d.ts b/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/web/JsiSkFontMgr.d.ts
+index cbba94c..60a1b8d 100644
+--- a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/web/JsiSkFontMgr.d.ts
++++ b/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/web/JsiSkFontMgr.d.ts
+@@ -7,4 +7,6 @@ export declare class JsiSkFontMgr extends HostObject<FontMgr, "FontMgr"> impleme
+     countFamilies(): number;
+     getFamilyName(index: number): string;
+     matchFamilyStyle(_familyName: string, _fontStyle: FontStyle): SkTypeface;
++    /** OneKey patch: keep the native-only fallback API explicit on web. */
++    matchFamilyStyleCharacter(_familyName: string, _fontStyle: FontStyle, _bcp47: string[], _character: number): SkTypeface;
+ }
+diff --git a/node_modules/@shopify/react-native-skia/src/skia/types/Font/FontMgr.ts b/node_modules/@shopify/react-native-skia/src/skia/types/Font/FontMgr.ts
+index 7dce039..808e458 100644
+--- a/node_modules/@shopify/react-native-skia/src/skia/types/Font/FontMgr.ts
++++ b/node_modules/@shopify/react-native-skia/src/skia/types/Font/FontMgr.ts
+@@ -7,4 +7,11 @@ export interface SkFontMgr extends SkJSIInstance<"FontMgr"> {
+   countFamilies(): number;
+   getFamilyName(index: number): string;
+   matchFamilyStyle(name: string, style: FontStyle): SkTypeface;
++  // OneKey patch: expose locale-aware system fallback matching on native.
++  matchFamilyStyleCharacter(
++    name: string,
++    style: FontStyle,
++    bcp47: string[],
++    character: number
++  ): SkTypeface | null;
+ }
+diff --git a/node_modules/@shopify/react-native-skia/src/skia/web/JsiSkFontMgr.ts b/node_modules/@shopify/react-native-skia/src/skia/web/JsiSkFontMgr.ts
+index 79a3448..e2b11ce 100644
+--- a/node_modules/@shopify/react-native-skia/src/skia/web/JsiSkFontMgr.ts
++++ b/node_modules/@shopify/react-native-skia/src/skia/web/JsiSkFontMgr.ts
+@@ -24,4 +24,13 @@ export class JsiSkFontMgr
+   matchFamilyStyle(_familyName: string, _fontStyle: FontStyle) {
+     return throwNotImplementedOnRNWeb<SkTypeface>();
+   }
++  // OneKey patch: keep the native-only fallback API explicit on web.
++  matchFamilyStyleCharacter(
++    _familyName: string,
++    _fontStyle: FontStyle,
++    _bcp47: string[],
++    _character: number
++  ) {
++    return throwNotImplementedOnRNWeb<SkTypeface>();
++  }
+ }

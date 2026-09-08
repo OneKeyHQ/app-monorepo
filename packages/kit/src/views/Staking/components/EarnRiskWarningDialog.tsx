@@ -208,3 +208,30 @@ export async function showEarnRiskWarningDialog({
     });
   });
 }
+
+/**
+ * Hook form of {@link showEarnRiskWarningDialog} for the trade hooks: it owns
+ * the localized title so every gate stays worded the same, and resolves true
+ * when the user may proceed (immediately so, once accepted on this device).
+ */
+export function useEarnRiskWarningGate() {
+  const intl = useIntl();
+  return useCallback(
+    ({
+      provider,
+      symbol,
+      networkId,
+    }: {
+      provider: string;
+      symbol?: string;
+      networkId?: string;
+    }) =>
+      showEarnRiskWarningDialog({
+        provider,
+        symbol: symbol ?? '',
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      }),
+    [intl],
+  );
+}

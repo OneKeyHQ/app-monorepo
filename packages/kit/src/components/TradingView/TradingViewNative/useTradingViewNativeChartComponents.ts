@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
+
 import { flattenTradingViewNativeChartComponentTree } from './utils/chartComponentTree';
 
 import type {
@@ -22,11 +24,13 @@ export function useTradingViewNativeChartComponents({
   dataProviderKey,
   latestPrice,
   referenceLineColor,
+  showPreviousClose,
 }: {
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   dataProviderKey: string;
   latestPrice?: number;
   referenceLineColor: string;
+  showPreviousClose: boolean;
 }): readonly ITradingViewNativeChartLeafComponent[] {
   const finiteLatestPrice =
     latestPrice !== undefined && Number.isFinite(latestPrice)
@@ -63,7 +67,7 @@ export function useTradingViewNativeChartComponents({
     const initialPriceReferenceLine:
       | ITradingViewNativeReferenceLineComponent
       | undefined =
-      initialPrice === undefined
+      !showPreviousClose || initialPrice === undefined
         ? undefined
         : {
             id: INITIAL_PRICE_REFERENCE_LINE_ID,
@@ -72,7 +76,7 @@ export function useTradingViewNativeChartComponents({
               color: referenceLineColor,
               interactive: false,
               style: 'dashed',
-              title: 'Prev close',
+              title: TRADING_VIEW_PREVIOUS_CLOSE_LABEL,
             },
             type: 'referenceLine',
           };
@@ -81,5 +85,5 @@ export function useTradingViewNativeChartComponents({
       ...(initialPriceReferenceLine ? [initialPriceReferenceLine] : []),
       ...chartComponents,
     ]);
-  }, [chartComponents, initialPrice, referenceLineColor]);
+  }, [chartComponents, initialPrice, referenceLineColor, showPreviousClose]);
 }

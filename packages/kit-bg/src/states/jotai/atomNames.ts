@@ -23,6 +23,7 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
+  deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
@@ -137,6 +138,8 @@ export enum EAtomNames {
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
+  swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
+  swapTradingViewIndicatorSettingsPersistAtom = 'swapTradingViewIndicatorSettingsPersistAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
@@ -144,11 +147,16 @@ export enum EAtomNames {
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
+  marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
   accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
+
+  // batch tx sign
+  batchTxSignAtom = 'batchTxSignAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
@@ -172,6 +180,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

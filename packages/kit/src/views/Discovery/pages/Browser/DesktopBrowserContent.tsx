@@ -157,7 +157,7 @@ function BasicFind({ id }: { id: string }) {
           left="50%"
           top="$2.5"
           zIndex={100_000}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{
             opacity: 0,

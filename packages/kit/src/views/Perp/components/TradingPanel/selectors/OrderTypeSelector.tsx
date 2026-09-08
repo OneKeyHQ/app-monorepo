@@ -59,7 +59,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
           >
             <SizableText size="$bodyMdMedium">{label}</SizableText>
             <Icon
-              name="ChevronDownSmallOutline"
+              name="ChevronTriangleDownSmallSolid"
               color="$iconSubdued"
               size="$4"
             />

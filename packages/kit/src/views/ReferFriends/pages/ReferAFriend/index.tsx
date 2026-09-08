@@ -48,7 +48,7 @@ function ReferAFriendPage({
         {phaseState === EPhaseState.next ? (
           <YStack
             key="intro-phase"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
@@ -73,7 +73,7 @@ function ReferAFriendPage({
         {phaseState === EPhaseState.join ? (
           <YStack
             key="howto-phase"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,

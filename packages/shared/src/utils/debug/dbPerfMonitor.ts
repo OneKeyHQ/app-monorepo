@@ -109,7 +109,10 @@ function updateSettings(newSettings: Partial<IOneKeyDBPerfMonitorSettings>) {
   settings = merge(settings, newSettings, {
     isEnabled: IS_ENABLED,
   });
-  syncStorage?.setObject(EAppSyncStorageKeys.onekey_db_perf_monitor, settings);
+  void syncStorage?.setObject(
+    EAppSyncStorageKeys.onekey_db_perf_monitor,
+    settings,
+  );
 }
 
 // ----------------------------------------------

@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -22,6 +29,7 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -30,6 +38,10 @@ import { useSettingsConfig } from './config';
 import { ConfigContext, useConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
+import {
+  getSettingsAnalyticsLayout,
+  logSettingCategoryOpened,
+} from './settingsAnalytics';
 import {
   getSettingsDisplayIcon,
   getSettingsDisplayTitle,
@@ -40,7 +52,7 @@ import {
   resolveSidebarItems,
 } from './settingsRootLayout';
 import { SubSettings } from './SubSettings';
-import { useIsTabNavigator } from './useIsTabNavigator';
+import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
 import type {
@@ -204,6 +216,10 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           canPreventDefault: true,
         });
         if (!focus && !event.defaultPrevented) {
+          logSettingCategoryOpened({
+            category: route.name as ESettingsTabNames,
+            source: 'sidebar',
+          });
           navigation.dispatch({
             ...CommonActions.navigate({
               name: route.name,
@@ -348,8 +364,18 @@ function SettingsTabNavigator() {
 const MemoizedSettingsTabNavigator = memo(SettingsTabNavigator);
 
 function SettingTab() {
-  const isTabNavigator = useIsTabNavigator();
+  const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   const appNavigation = useAppNavigation();
+  const hasLoggedOpenRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedOpenRef.current) {
+      return;
+    }
+    hasLoggedOpenRef.current = true;
+    defaultLogger.setting.page.settingsOpened({
+      layout: getSettingsAnalyticsLayout({ isTabNavigator, isMobileLayout }),
+    });
+  }, [isMobileLayout, isTabNavigator]);
   useLayoutEffect(() => {
     if (isTabNavigator) {
       appNavigation.setOptions({

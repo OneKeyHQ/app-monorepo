@@ -190,14 +190,14 @@ export default function WebAccountPanelPopoverContent({
       width="100%"
       overflow="hidden"
       height={contentHeight}
-      animation={heightReady ? 'smooth' : '0ms'}
+      transition={heightReady ? 'smooth' : '0ms'}
       animateOnly={ANIMATE_ONLY_HEIGHT}
     >
       <AnimatePresence custom={presenceCustom} initial={false}>
         <AnimatedPanelView
           key={navSeq}
           going={going}
-          animation="smooth"
+          transition="smooth"
           onLayout={(e: LayoutChangeEvent) =>
             handleViewLayout(navSeq, e.nativeEvent.layout.height)
           }

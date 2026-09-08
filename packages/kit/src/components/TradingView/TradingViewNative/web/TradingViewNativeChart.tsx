@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, Ref } from 'react';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -116,6 +117,7 @@ export const TradingViewNativeChart = memo(
     hasVolume,
     indicatorSeries,
     initialRightOffset,
+    isMobileLayout = false,
     isSwitchingInterval,
     priceAxisFontSize = AXIS_FONT_SIZE,
     priceAxisTickCount,
@@ -162,7 +164,7 @@ export const TradingViewNativeChart = memo(
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
     const [measuredPriceAxisWidth, setMeasuredPriceAxisWidth] = useState(0);
     const [measuredMainChartBottomInset, setMeasuredMainChartBottomInset] =
-      useState(TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT);
+      useState(timeAxisHeight);
     const [webFontMeasureVersion, setWebFontMeasureVersion] = useState(0);
     const [viewportState, setViewportState] = useState(
       () => runtimeStateRef.current.viewport,
@@ -307,6 +309,8 @@ export const TradingViewNativeChart = memo(
           candleLabels,
           currentPriceLabel,
           indicatorSeries,
+          isMobileLayout,
+          pinnedPriceRange: priceScaleModelRef.current.pinnedPriceRange,
           points,
           priceAxisFontSize,
           priceAxisWidth,
@@ -324,6 +328,8 @@ export const TradingViewNativeChart = memo(
         });
         subIndicatorLegendHitRegionsRef.current =
           scene?.subIndicatorLegendHitRegions ?? [];
+        priceScaleModelRef.current.autoPriceRange =
+          scene?.autoPriceRange ?? null;
         const nextChartWidth = getTradingViewNativeChartWidth(
           canvas.getBoundingClientRect().width,
           priceAxisWidth,
@@ -347,6 +353,7 @@ export const TradingViewNativeChart = memo(
         grid,
         hasVolume,
         indicatorSeries,
+        isMobileLayout,
         line,
         candleLabels,
         points,
@@ -558,6 +565,7 @@ export const TradingViewNativeChart = memo(
           getTradingViewNativeMainPriceAxisLayout({
             height: canvas.clientHeight,
             paneCount: visibleSubIndicatorPaneCount,
+            timeAxisHeight,
           }).bottomInset;
         setMeasuredMainChartBottomInset((currentInset) =>
           currentInset === nextMainChartBottomInset
@@ -576,6 +584,7 @@ export const TradingViewNativeChart = memo(
       priceAxisFontSize,
       priceAxisLabels,
       renderChart,
+      timeAxisHeight,
       visibleSubIndicatorPaneCount,
       webFontMeasureVersion,
       zoomScale,
@@ -980,6 +989,7 @@ export const TradingViewNativeChart = memo(
             paneCount: visibleSubIndicatorPaneCount,
             priceAxisFontSize,
             priceScale: priceScaleModelRef.current,
+            timeAxisHeight,
           })
         ) {
           handlePriceScaleWheel(wheelDelta.deltaY);
@@ -1044,6 +1054,7 @@ export const TradingViewNativeChart = memo(
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
+        timeAxisHeight,
         visibleSubIndicatorPaneCount,
       ],
     );
@@ -1061,7 +1072,7 @@ export const TradingViewNativeChart = memo(
 
     return (
       <Stack
-        ref={containerRef}
+        ref={containerRef as unknown as Ref<IElement>}
         flex={1}
         minHeight={0}
         position="relative"

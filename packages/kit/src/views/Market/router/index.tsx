@@ -6,10 +6,7 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { EModalMarketRoutes, type IModalMarketParamList } from './types';
 
 const MarketDetailV2Modal = LazyLoadPage(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2", webpackPrefetch: true */ '../MarketDetailV2'
-    ),
+  () => import(/* webpackChunkName: "market-detail-v2" */ '../MarketDetailV2'),
 );
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),

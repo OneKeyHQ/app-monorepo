@@ -62,7 +62,7 @@ function BaseSortableCell(
                 onPress={onDeletePress}
                 icon="MinusCircleSolid"
                 variant="destructive"
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />
@@ -79,7 +79,7 @@ function BaseSortableCell(
               <IconButton
                 icon="MenuOutline"
                 onPressIn={drag}
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />

@@ -5,6 +5,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH,
+  TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
@@ -18,8 +20,9 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MAX_TICK_COUNT,
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
+  TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
+  TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
-  TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
 } from '../chartConstants';
 
@@ -86,6 +89,7 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  autoPriceRange: ITradingViewNativePriceRange;
   mainChartBottom: number;
   maxPrice: number;
   maxVolume: number;
@@ -570,43 +574,58 @@ export function getTradingViewNativePriceExtremumHorizontalLayout({
 }
 
 export function getTradingViewNativeWatermarkLayout({
-  height,
-  width,
+  canvasWidth,
+  isMobileLayout = false,
+  mainChartBottom,
 }: {
-  height: number;
-  width: number;
+  canvasWidth: number;
+  isMobileLayout?: boolean;
+  mainChartBottom: number;
 }): ITradingViewNativeWatermarkLayout | null {
   'worklet';
 
   if (
-    !Number.isFinite(height) ||
-    !Number.isFinite(width) ||
-    height <= 0 ||
-    width <= 0
+    !Number.isFinite(canvasWidth) ||
+    !Number.isFinite(mainChartBottom) ||
+    canvasWidth <= 0 ||
+    mainChartBottom <= 0
   ) {
     return null;
   }
 
-  const preferredWidth = Math.min(
-    Math.max(
-      width * TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
-      TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
-    ),
-    TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
-  );
+  const watermarkWidthRatio = isMobileLayout
+    ? TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO
+    : TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO;
   const watermarkWidth = Math.min(
-    preferredWidth,
-    width,
-    height * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
+    canvasWidth * watermarkWidthRatio,
+    TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
+    mainChartBottom * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   );
   const watermarkHeight =
     watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
+  const shouldCenterWatermark =
+    isMobileLayout || canvasWidth < TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH;
 
   return {
     height: watermarkHeight,
     width: watermarkWidth,
-    x: (width - watermarkWidth) / 2,
-    y: (height - watermarkHeight) / 2,
+    x: shouldCenterWatermark
+      ? (canvasWidth - watermarkWidth) / 2
+      : Math.max(
+          Math.min(
+            TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
+            canvasWidth - watermarkWidth,
+          ),
+          0,
+        ),
+    y: shouldCenterWatermark
+      ? (mainChartBottom - watermarkHeight) / 2
+      : Math.max(
+          mainChartBottom -
+            watermarkHeight -
+            TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
+          0,
+        ),
   };
 }
 
@@ -924,6 +943,7 @@ export function getTradingViewNativeChartLayout({
   height,
   minimumTimeTickIndexSpacing,
   points,
+  pinnedPriceRange,
   priceAxisWidth,
   priceAxisTickCount,
   timeAxisHeight,
@@ -943,6 +963,7 @@ export function getTradingViewNativeChartLayout({
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   priceAxisWidth: number;
   priceAxisTickCount?: number;
   timeAxisHeight?: number;
@@ -996,7 +1017,7 @@ export function getTradingViewNativeChartLayout({
     minPrice,
     mode: resolvedPriceScaleMode,
   } = resolveTradingViewNativePriceRange({
-    autoPriceRange,
+    autoPriceRange: pinnedPriceRange ?? autoPriceRange,
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
@@ -1084,6 +1105,7 @@ export function getTradingViewNativeChartLayout({
   }).ticks;
 
   return {
+    autoPriceRange,
     mainChartBottom,
     maxPrice,
     maxVolume,

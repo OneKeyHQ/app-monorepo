@@ -1,4 +1,5 @@
 import type {
+  ComponentProps,
   Dispatch,
   MutableRefObject,
   PropsWithChildren,
@@ -10,6 +11,7 @@ import type {
 import type {
   DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
+  Sheet as TMSheet,
   SheetProps as TMSheetProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -19,7 +21,6 @@ import type {
   IKeyOfIcons,
   IStackProps,
   IXStackProps,
-  IYStackProps,
 } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
@@ -77,6 +78,8 @@ interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
   onOpen?: () => void;
+  /** Controls initial focus for both the floating panel and sheet on web. */
+  onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
   onHeaderCloseButtonPress?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   isExist?: () => boolean;
@@ -91,7 +94,7 @@ interface IBasicDialogProps extends TMDialogProps {
   // Close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: IYStackProps;
+  sheetOverlayProps?: ComponentProps<typeof TMSheet.Overlay>;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close

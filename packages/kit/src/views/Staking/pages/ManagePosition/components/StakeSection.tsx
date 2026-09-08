@@ -577,14 +577,15 @@ export const StakeSection = ({
       stakeType: confirmStakeType,
       onStepChange,
     }: IApproveConfirmFnParams) => {
-      if (!hasRequiredData) return;
+      // Nothing was started, so the form keeps what the user typed.
+      if (!hasRequiredData) return false;
 
       const token = effectiveStakeTokenInfo?.token as IToken;
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
 
-      if (borrowApiCtx.isBorrow) return;
+      if (borrowApiCtx.isBorrow) return false;
 
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,
@@ -712,7 +713,8 @@ export const StakeSection = ({
         !borrowApiCtx.isBorrow ||
         unsupportedAaveNativeReserve
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const token = tokenInfo?.token as IToken;
@@ -743,7 +745,7 @@ export const StakeSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+      return (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
         provider,
         marketAddress,

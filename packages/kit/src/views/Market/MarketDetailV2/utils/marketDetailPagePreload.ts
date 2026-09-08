@@ -2,6 +2,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type IMarketDetailLayoutPreloadTarget = 'desktop' | 'mobile';
 type IMarketDetailV2Module = typeof import('../index');
+type IPreloadOptions = {
+  includeHeavyModules?: boolean;
+  isStockRoute?: boolean;
+  layout?: IMarketDetailLayoutPreloadTarget;
+};
 
 let marketDetailV2ShellModule: IMarketDetailV2Module | undefined;
 let marketDetailV2ShellPromise: Promise<IMarketDetailV2Module> | undefined;
@@ -17,7 +22,7 @@ export function loadMarketDetailV2Shell() {
 
   if (!marketDetailV2ShellPromise) {
     marketDetailV2ShellPromise = import(
-      /* webpackChunkName: "market-detail-v2", webpackPrefetch: true */ '../index'
+      /* webpackChunkName: "market-detail-v2" */ '../index'
     )
       .then((module) => {
         marketDetailV2ShellModule = module;
@@ -50,73 +55,64 @@ function resolveDefaultLayoutTarget(): IMarketDetailLayoutPreloadTarget {
   return platformEnv.isNative ? 'mobile' : 'desktop';
 }
 
-export function preloadMarketDetailV2Layout(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
-) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
+function preloadMarketDetailV2Layout(target: IMarketDetailLayoutPreloadTarget) {
   if (target === 'desktop') {
     void import(
-      /* webpackChunkName: "market-detail-v2-desktop-layout", webpackPrefetch: true */ '../layouts/DesktopLayout'
+      /* webpackChunkName: "market-detail-v2-desktop-layout" */ '../layouts/DesktopLayout'
     ).catch(() => undefined);
     return;
   }
 
   void import(
-    /* webpackChunkName: "market-detail-v2-mobile-layout", webpackPrefetch: true */ '../layouts/MobileLayout'
+    /* webpackChunkName: "market-detail-v2-mobile-layout" */ '../layouts/MobileLayout'
   ).catch(() => undefined);
 }
 
-export function preloadMarketDetailV2TradingView() {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
+function preloadMarketDetailV2TradingView() {
   void import(
-    /* webpackChunkName: "market-detail-v2-tradingview", webpackPrefetch: true */ '../components/MarketTradingView/MarketTradingView'
+    /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
   ).catch(() => undefined);
 }
 
-export function preloadMarketDetailV2SwapPanel(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+function preloadMarketDetailV2SwapPanel(
+  target: IMarketDetailLayoutPreloadTarget,
+  isStockRoute?: boolean,
 ) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
-  void import(
-    /* webpackChunkName: "market-detail-v2-swap-panel", webpackPrefetch: true */ '../components/SwapPanel/SwapPanel'
+  void (
+    target === 'desktop' && !isStockRoute
+      ? import(
+          /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
+        )
+      : import(
+          /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
+        )
   ).catch(() => undefined);
   if (target === 'mobile') {
     void import(
-      /* webpackChunkName: "market-detail-v2-swap-panel-wrap", webpackPrefetch: true */ '../components/SwapPanel/SwapPanelWrap'
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
     ).catch(() => undefined);
   }
 }
 
-export function preloadMarketDetailV2InfoPanel(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+function preloadMarketDetailV2InfoPanel(
+  target: IMarketDetailLayoutPreloadTarget,
 ) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
   if (target === 'desktop') {
     void import(
-      /* webpackChunkName: "market-detail-v2-desktop-info-tabs", webpackPrefetch: true */ '../components/InformationTabs/layout/DesktopInformationTabs'
+      /* webpackChunkName: "market-detail-v2-desktop-info-tabs" */ '../components/InformationTabs/layout/DesktopInformationTabs'
     ).catch(() => undefined);
   }
 }
 
 export function preloadMarketDetailV2BodyModules({
   layout = resolveDefaultLayoutTarget(),
-  includeHeavyModules = false,
-}: {
-  layout?: IMarketDetailLayoutPreloadTarget;
-  includeHeavyModules?: boolean;
-} = {}) {
+  includeHeavyModules,
+  isStockRoute,
+}: IPreloadOptions) {
+  if (shouldSkipMarketDetailPreload()) {
+    return;
+  }
+
   preloadMarketDetailV2Layout(layout);
 
   if (!includeHeavyModules) {
@@ -126,23 +122,24 @@ export function preloadMarketDetailV2BodyModules({
   if (layout === 'mobile') {
     preloadMarketDetailV2TradingView();
   }
-  preloadMarketDetailV2SwapPanel(layout);
+  preloadMarketDetailV2SwapPanel(layout, isStockRoute);
   preloadMarketDetailV2InfoPanel(layout);
 }
 
 export function preloadMarketDetailV2Page({
-  includeBodyModules = false,
-  includeHeavyModules = false,
+  includeBodyModules,
+  includeHeavyModules,
   layout = resolveDefaultLayoutTarget(),
-}: {
-  includeBodyModules?: boolean;
-  includeHeavyModules?: boolean;
-  layout?: IMarketDetailLayoutPreloadTarget;
-} = {}) {
+  isStockRoute,
+}: IPreloadOptions & { includeBodyModules?: boolean } = {}) {
   const shellPreloadPromise = preloadMarketDetailV2Shell();
 
   if (includeBodyModules) {
-    preloadMarketDetailV2BodyModules({ layout, includeHeavyModules });
+    preloadMarketDetailV2BodyModules({
+      layout,
+      includeHeavyModules,
+      isStockRoute,
+    });
   }
 
   return shellPreloadPromise;

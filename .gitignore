@@ -101,6 +101,7 @@ coverage/
 /packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js
 /apps/ext/src/entry/injected.text-js
 /packages/kit/src/components/WebView/injectedNative.text-js
+/packages/kit/src/components/WebView/injectedNative.js.txt
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js
 /packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.js.LICENSE.txt
 /packages/kit/src/components/WebView/translateInject.text-js

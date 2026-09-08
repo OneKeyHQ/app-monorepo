@@ -907,4 +907,15 @@ describe('TradingViewNative data providers', () => {
       timeTo: 200,
     });
   });
+
+  it('routes stock sources to a history-only provider', () => {
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'stock',
+      stockId: 'AAPL',
+    });
+
+    expect(provider.key).toBe('stock:AAPL');
+    expect(provider.isReady).toBe(true);
+    expect(provider.supportsRealtime).toBe(false);
+  });
 });

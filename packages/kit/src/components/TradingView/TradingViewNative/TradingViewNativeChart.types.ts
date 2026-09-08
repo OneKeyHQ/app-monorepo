@@ -30,6 +30,8 @@ export interface ITradingViewNativeChartProps {
   indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
+  isMobileLayout?: boolean;
+  locale: string;
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;

@@ -39,7 +39,26 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button: View,
-    Checkbox: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
+    Checkbox: ({
+      label,
+      onChange,
+      testID,
+      value,
+    }: {
+      label?: ReactNode;
+      onChange?: (value: boolean) => void;
+      testID?: string;
+      value?: boolean;
+    }) => (
+      <button
+        data-testid={testID}
+        data-value={String(value)}
+        onClick={() => onChange?.(!value)}
+        type="button"
+      >
+        {label}
+      </button>
+    ),
     ColorPicker: ({
       disabled,
       onChange,
@@ -75,8 +94,17 @@ jest.mock('@onekeyhq/components', () => {
       Footer: View,
       FooterActions: View,
     },
-    Popover: ({ renderTrigger }: { renderTrigger?: ReactNode }) => (
-      <>{renderTrigger}</>
+    Popover: ({
+      renderContent,
+      renderTrigger,
+    }: {
+      renderContent?: (props: { closePopover: () => void }) => ReactNode;
+      renderTrigger?: ReactNode;
+    }) => (
+      <>
+        {renderTrigger}
+        {renderContent?.({ closePopover: jest.fn() })}
+      </>
     ),
     ScrollView: View,
     SizableText: View,
@@ -129,5 +157,54 @@ describe('TradingViewChartSettings', () => {
       upColor: '#123456',
       downColor: '#654321',
     });
+  });
+
+  it('shows the previous-close option disabled by default and updates it', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        onChange={onChange}
+      />,
+    );
+
+    const previousCloseCheckbox = screen.getByTestId(
+      'trading-view-settings-checkbox-previous-close',
+    );
+    expect(previousCloseCheckbox.textContent).toBe('Prev close');
+    expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
+
+    fireEvent.click(previousCloseCheckbox);
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.options.previousClose).toBe(true);
+  });
+
+  it('shows native chart types in settings and updates the preference', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        showChartType
+        onChange={onChange}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('trading-view-settings-select-chart-type').textContent,
+    ).toContain('global.auto');
+
+    fireEvent.click(
+      screen.getByTestId('trading-view-settings-select-chart-type-line'),
+    );
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.chartType).toBe('line');
   });
 });

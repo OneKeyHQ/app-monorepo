@@ -59,7 +59,11 @@ export function clearPendingDiscoveryUrl(): void {
   pendingDiscoveryUrl = null;
 }
 
-const openUrlByWebview = (url: string, title?: string) => {
+const openUrlByWebview = (
+  url: string,
+  title?: string,
+  options?: IOpenUrlInAppOptions,
+) => {
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.WebViewModal,
     params: {
@@ -67,6 +71,7 @@ const openUrlByWebview = (url: string, title?: string) => {
       params: {
         url,
         title,
+        enableDappBridge: options?.enableDappBridge,
       },
     },
   });
@@ -110,9 +115,22 @@ const openUrlOutsideNative = (url: string): void => {
   }
 };
 
-export const openUrlInApp = (url: string, title?: string) => {
+export interface IOpenUrlInAppOptions {
+  /**
+   * The page is expected to talk to the wallet (connect, sign). Adds the
+   * account/network change notifications a dApp session needs; see
+   * WebViewWithFeatures.
+   */
+  enableDappBridge?: boolean;
+}
+
+export const openUrlInApp = (
+  url: string,
+  title?: string,
+  options?: IOpenUrlInAppOptions,
+) => {
   if (platformEnv.isNative || platformEnv.isDesktop) {
-    openUrlByWebview(url.trim(), title);
+    openUrlByWebview(url.trim(), title, options);
   } else {
     openUrlOutsideNative(url.trim());
   }

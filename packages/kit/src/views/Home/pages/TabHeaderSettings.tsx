@@ -12,12 +12,15 @@ import {
   Stack,
   Switch,
   XStack,
-  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
@@ -29,14 +32,67 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTokenSelectorDappTokenFilterSupportedNetwork } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 
 import { ListItem } from '../../../components/ListItem';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
+function TokenListSettingsContent({
+  handleOnManageToken,
+  manageTokenEnabled,
+  onLpTokenFilterChange,
+  showLpTokenFilterSwitch,
+  showLpTokensOnly,
+}: {
+  handleOnManageToken: () => void;
+  manageTokenEnabled: boolean;
+  onLpTokenFilterChange: (value: boolean) => void;
+  showLpTokenFilterSwitch: boolean;
+  showLpTokensOnly: boolean;
+}) {
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+
+  const handleManageTokenPress = useCallback(async () => {
+    await closePopover?.();
+    await timerUtils.wait(150);
+    handleOnManageToken();
+  }, [closePopover, handleOnManageToken]);
+
+  return (
+    <Stack py="$2">
+      {showLpTokenFilterSwitch ? (
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.wallet_defi_tokens__action,
+          })}
+        >
+          <Switch
+            testID="home-defi-token-switch"
+            size={ESwitchSize.small}
+            value={showLpTokensOnly}
+            onChange={onLpTokenFilterChange}
+          />
+        </ListItem>
+      ) : null}
+      {manageTokenEnabled ? (
+        <ListItem
+          testID="home-manage-token"
+          title={intl.formatMessage({
+            id: ETranslations.manage_token_title,
+          })}
+          onPress={handleManageTokenPress}
+          disabled={showLpTokensOnly}
+          drillIn
+        />
+      ) : null}
+    </Stack>
+  );
+}
+
 function TokenListSettings() {
   const intl = useIntl();
-  const media = useMedia();
   const {
     activeAccount: {
       account,
@@ -47,6 +103,17 @@ function TokenListSettings() {
       deriveType,
     },
   } = useActiveAccount({ num: 0 });
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const isDeFiEnabled = useIsDeFiEnabled(network?.id);
+  const showLpTokenFilterSwitch =
+    isTokenSelectorDappTokenFilterSupportedNetwork({
+      network,
+      isDeFiEnabled,
+    });
+  const showLpTokensOnly = showLpTokenFilterSwitch
+    ? tokenSelectorFilter.homeShowLpTokensOnly
+    : false;
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -56,21 +123,45 @@ function TokenListSettings() {
     isOthersWallet,
   });
 
-  if (media.gtMd) {
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        homeShowLpTokensOnly: value,
+      }));
+    },
+    [setTokenSelectorFilter],
+  );
+
+  if (!showLpTokenFilterSwitch && !manageTokenEnabled) {
     return null;
   }
 
-  return manageTokenEnabled ? (
-    <IconButton
-      testID="home-media-icon-btn"
-      title={intl.formatMessage({
-        id: ETranslations.manage_token_title,
-      })}
-      variant="tertiary"
-      icon="SliderHorOutline"
-      onPress={handleOnManageToken}
+  return (
+    <Popover
+      title={intl.formatMessage({ id: ETranslations.global_filter })}
+      renderTrigger={
+        <IconButton
+          testID="home-media-icon-btn"
+          title={intl.formatMessage({
+            id: ETranslations.global_filter,
+          })}
+          variant="tertiary"
+          icon="SliderHorOutline"
+          bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}
+        />
+      }
+      renderContent={
+        <TokenListSettingsContent
+          handleOnManageToken={handleOnManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          onLpTokenFilterChange={handleLpTokenFilterChange}
+          showLpTokenFilterSwitch={showLpTokenFilterSwitch}
+          showLpTokensOnly={showLpTokensOnly}
+        />
+      }
     />
-  ) : null;
+  );
 }
 const filterScamHistorySupportedNetworkIds = new Set(
   getNetworkIdsSupportFilterScamHistory(),

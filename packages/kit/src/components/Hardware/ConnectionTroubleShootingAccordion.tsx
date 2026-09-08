@@ -223,7 +223,7 @@ export function ConnectionTroubleShootingAccordion({
                       )}
                 </Heading>
                 <Stack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '-180deg' : '0deg'}
                 >
@@ -236,10 +236,10 @@ export function ConnectionTroubleShootingAccordion({
               </>
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               unstyled
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}

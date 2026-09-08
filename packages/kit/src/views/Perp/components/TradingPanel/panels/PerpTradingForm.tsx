@@ -15,7 +15,6 @@ import {
   Select,
   SizableText,
   Skeleton,
-  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -2586,28 +2585,22 @@ function PerpTradingForm({
                 height={checkboxSizeVal}
                 {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
-              <Tooltip
-                placement="top"
-                triggerAsChild="except-style"
-                renderContent={intl.formatMessage({
+              <DashText
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                color="$text"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
-                renderTrigger={
-                  <Stack display="inline-flex" alignSelf="flex-start">
-                    <DashText
-                      size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                      color="$text"
-                      dashColor="$textDisabled"
-                      dashThickness={0.5}
-                      cursor="help"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_twap_randomize__title,
-                      })}
-                    </DashText>
-                  </Stack>
-                }
-              />
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              </DashText>
             </XStack>
             {twapEstimatedSliceNotionalDisplay ? (
               <XStack
@@ -2932,7 +2925,12 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+              <XStack
+                alignItems="center"
+                flex={platformEnv.isNative ? 1 : undefined}
+                gap="$3"
+                width="100%"
+              >
                 <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}

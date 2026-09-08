@@ -6,8 +6,65 @@ import {
   normalizeStockMetadataValue,
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  sortMarketTokenListData,
   transformApiItemToToken,
 } from './tokenListHelpers';
+
+function buildSortableToken(id: string, price: number) {
+  return { id, price };
+}
+
+describe('market token list sorting', () => {
+  test('sorts the latest token values without mutating the source list', () => {
+    const source = [
+      buildSortableToken('first', 10),
+      buildSortableToken('second', 20),
+    ];
+    const latest = source.map((token) =>
+      token.id === 'first' ? { ...token, price: 30 } : token,
+    );
+
+    const sorted = sortMarketTokenListData({
+      data: latest,
+      field: 'price',
+      order: 'desc',
+    });
+
+    expect(sorted.map((token) => token.id)).toEqual(['first', 'second']);
+    expect(latest.map((token) => token.id)).toEqual(['first', 'second']);
+  });
+
+  test('keeps the original list when sorting is inactive', () => {
+    const source = [buildSortableToken('first', 10)];
+
+    expect(sortMarketTokenListData({ data: source })).toBe(source);
+  });
+
+  test.each(['asc', 'desc'] as const)(
+    'keeps missing and invalid metrics last when sorting %s',
+    (order) => {
+      const source = [
+        { id: 'missing', price: undefined },
+        { id: 'high', price: 20 },
+        { id: 'invalid', price: Number.NaN },
+        { id: 'zero', price: 0 },
+        { id: 'low', price: 10 },
+      ];
+
+      const sorted = sortMarketTokenListData({
+        data: source,
+        field: 'price',
+        order,
+      });
+
+      expect(sorted.map((token) => token.id)).toEqual(
+        order === 'asc'
+          ? ['zero', 'low', 'high', 'missing', 'invalid']
+          : ['high', 'low', 'zero', 'missing', 'invalid'],
+      );
+    },
+  );
+});
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {
@@ -310,6 +367,80 @@ describe('market home live price change', () => {
         priceChangeBasePrice: 0,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('market token network logos', () => {
+  const tokenItem = {
+    address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+    name: 'Token',
+    symbol: 'TOKEN',
+    decimals: 18,
+  };
+
+  test('uses the selected dynamic Market network logo', () => {
+    const token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--143',
+      },
+      {
+        chainId: 'evm--143',
+        networkLogoUri: 'https://example.com/monad.png',
+      },
+    );
+
+    expect(token.networkLogoUri).toBe('https://example.com/monad.png');
+  });
+
+  test('resolves each dynamic network logo from Market config', () => {
+    const networkLogoUriMap = new Map([
+      ['evm--143', 'https://example.com/monad.png'],
+      ['evm--4663', 'https://example.com/network-4663.png'],
+    ]);
+
+    const monadToken = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--143',
+      },
+      {
+        chainId: 'onekeyall--0',
+        networkLogoUri: '',
+        networkLogoUriMap,
+      },
+    );
+    const network4663Token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--4663',
+      },
+      {
+        chainId: 'onekeyall--0',
+        networkLogoUri: '',
+        networkLogoUriMap,
+      },
+    );
+
+    expect(monadToken.networkLogoUri).toBe('https://example.com/monad.png');
+    expect(network4663Token.networkLogoUri).toBe(
+      'https://example.com/network-4663.png',
+    );
+  });
+
+  test('does not reuse the selected network logo for another network', () => {
+    const token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--4663',
+      },
+      {
+        chainId: 'evm--143',
+        networkLogoUri: 'https://example.com/monad.png',
+      },
+    );
+
+    expect(token.networkLogoUri).toBe('');
   });
 });
 

@@ -103,7 +103,7 @@ function WalletListItemBaseView({
     >
       {avatarView}
       <SizableText
-        flex={1}
+        flex={platformEnv.isNative ? 1 : undefined}
         width="100%"
         numberOfLines={1}
         mt="$1"

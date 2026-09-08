@@ -216,7 +216,7 @@ export default function ScanQrCodeModal() {
     async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
-          appStorage.syncStorage.set(
+          await appStorage.syncStorage.set(
             EAppSyncStorageKeys.last_scan_qr_code_text,
             value,
           );
@@ -331,7 +331,7 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer safeAreaBottomMode="content">
         <DebugInput onText={(value) => callback(value)} />
       </Page.Footer>
     </Page>

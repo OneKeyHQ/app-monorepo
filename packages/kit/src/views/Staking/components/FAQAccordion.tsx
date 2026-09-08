@@ -53,7 +53,7 @@ export function FAQAccordion<T>({
                 <>
                   {renderTitle(item, { open })}
                   <Stack
-                    animation="quick"
+                    transition="quick"
                     animateOnly={ANIMATE_ONLY_TRANSFORM}
                     rotate={open ? '180deg' : '0deg'}
                   >
@@ -66,12 +66,12 @@ export function FAQAccordion<T>({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.HeightAnimator transition="quick" overflow="hidden">
               <Accordion.Content
                 unstyled
                 pt="$2"
                 pb="$5"
-                animation="100ms"
+                transition="100ms"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}

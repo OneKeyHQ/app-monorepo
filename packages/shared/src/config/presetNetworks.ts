@@ -2652,33 +2652,28 @@ export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
   ROBINHOOD_NETWORK_ID,
 ]);
 
+type IMevProtectionProviderInfo = {
+  name: string;
+  logoURI: string;
+  logoURIDark?: string;
+};
+
+const blinkMevProtectionProvider: IMevProtectionProviderInfo = {
+  name: 'Blink',
+  logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+  logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
+};
+
+// Client fallback for the tx-confirm MEV badge; must mirror the vendor the
+// server actually broadcasts through. Blink only since OK-61501.
 export const getNetworksSupportMevProtection = memoFn(
-  (): Record<
-    string,
-    {
-      name: string;
-      logoURI: string;
-      logoURIDark?: string;
-    }
-  > => ({
-    [eth.id]: {
-      name: 'MEV Blocker',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/mev_blocker.png',
-    },
-    [bsc.id]: {
-      name: 'Block Razor',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/block_razor.png',
-    },
-    [base.id]: {
-      name: 'Blink',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
-      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
-    },
-    [sol.id]: {
-      name: 'Blink',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
-      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
-    },
+  (): Record<string, IMevProtectionProviderInfo> => ({
+    [eth.id]: blinkMevProtectionProvider,
+    [bsc.id]: blinkMevProtectionProvider,
+    [base.id]: blinkMevProtectionProvider,
+    [arbitrum.id]: blinkMevProtectionProvider,
+    [ROBINHOOD_NETWORK_ID]: blinkMevProtectionProvider,
+    [sol.id]: blinkMevProtectionProvider,
     [sui.id]: {
       name: 'Shio',
       logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',

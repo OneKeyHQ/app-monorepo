@@ -235,7 +235,7 @@ function PerpBadgesRow() {
   return (
     <XStack alignItems="center" gap="$1.5" onLayout={handleLayout}>
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-        <SizableText color="$textSubdued" fontSize={10}>
+        <SizableText color="$textSubdued" fontSize={10} lineHeight={16}>
           {isSpot
             ? intl.formatMessage({
                 id: ETranslations.dexmarket_spot,
@@ -248,6 +248,7 @@ function PerpBadgesRow() {
       <PerpDexBadge
         compact
         dexLabel={dexLabel}
+        height={20}
         testID={PerpTestIDs.ActiveDexBadge}
       />
       {subtitle ? (
@@ -268,6 +269,7 @@ function PerpBadgesRow() {
               <SizableText
                 color="$textInfo"
                 fontSize={10}
+                lineHeight={16}
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 flexShrink={1}
@@ -287,7 +289,7 @@ function PerpBadgesRow() {
       ) : null}
       {!isSpot && builderFeeRate === 0 ? (
         <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
-          <SizableText color="$textSuccess" fontSize={10}>
+          <SizableText color="$textSuccess" fontSize={10} lineHeight={16}>
             {intl.formatMessage({
               id: ETranslations.perp_0_fee,
             })}

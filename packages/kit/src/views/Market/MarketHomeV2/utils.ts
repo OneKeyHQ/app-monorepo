@@ -1,8 +1,14 @@
 // Shared utility functions for MarketHomeV2 components
 
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+
 import type { IMarketCategoryItem } from './types';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
+const TRENDING_STYLE_SPOT_CATEGORY_IDS = new Set([
+  'trending',
+  'robinhood_meme',
+]);
 
 export const COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
@@ -138,6 +144,11 @@ export const shouldHideSpotExtendedStats = (
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
 
+export const isTrendingStyleSpotCategory = (
+  categoryId: string | undefined,
+): boolean =>
+  Boolean(categoryId && TRENDING_STYLE_SPOT_CATEGORY_IDS.has(categoryId));
+
 export const isMarketStockCategory = (
   category?: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
 ): boolean => {
@@ -170,4 +181,24 @@ export const isMarketStockCategoryById = (
   return categories.some(
     (category) => category.id === categoryId && isMarketStockCategory(category),
   );
+};
+
+export const ensureMarketTopCoinsCategory = (
+  categories: IMarketCategoryItem[],
+  fallbackName: string,
+): IMarketCategoryItem[] => {
+  if (
+    categories.some((category) => category.id === MARKET_TOP_COINS_CATEGORY_ID)
+  ) {
+    return categories;
+  }
+
+  const topCoinsCategory: IMarketCategoryItem = {
+    id: MARKET_TOP_COINS_CATEGORY_ID,
+    name: fallbackName,
+  };
+
+  // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps. Perps is
+  // appended after every spot category, so Top coins goes last among them.
+  return [...categories, topCoinsCategory];
 };

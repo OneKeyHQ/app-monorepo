@@ -57,6 +57,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
+import { TRAVEL_MODE_COPY } from '../TravelMode/copy';
 
 import {
   AutoLockListItem,
@@ -76,6 +77,7 @@ import {
   ResetPinListItem,
   SplitViewListItem,
   ThemeListItem,
+  TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -127,6 +129,7 @@ interface ISubSettingConfigBase {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  searchable?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -351,7 +354,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_onekey_keytag,
                   }),
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterKeyTag();
                     navigation?.pushModal(EModalRoutes.KeyTagModal, {
                       screen: EModalKeyTagRoutes.UserOptions,
                     });
@@ -372,6 +374,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             !platformEnv.isWeb
               ? {
+                  id: 'notifications',
                   icon: 'BellOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
@@ -552,6 +555,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
                 !platformEnv.isWeb
                   ? {
+                      id: 'account-sync',
                       icon: 'RefreshCcwOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_account_sync_modal_title,
@@ -568,6 +572,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'customize-transaction',
                   icon: 'LabOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
@@ -584,7 +589,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ],
                   settingRoute: EModalSettingRoutes.SettingCustomTransaction,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomizeTransaction();
                     navigation?.push(
                       EModalSettingRoutes.SettingCustomTransaction,
                     );
@@ -604,6 +608,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'account-derivation',
                   icon: 'BranchesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
@@ -690,6 +695,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'protection',
                       icon: 'ShieldCheckDoneOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_protection,
@@ -739,18 +745,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'dApp',
                         'WalletConnect',
                       ],
+                      settingRoute:
+                        EModalSettingRoutes.SettingDAppConnectionList,
                       onPress: (navigation) => {
-                        navigation?.pushModal(
-                          EModalRoutes.DAppConnectionModal,
-                          {
-                            screen: EDAppConnectionModal.ConnectionList,
-                          },
+                        navigation?.push(
+                          EModalSettingRoutes.SettingDAppConnectionList,
                         );
                       },
                     },
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'signature-record',
                       icon: 'NoteOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_signature_record,
@@ -767,6 +773,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 platformEnv.isExtension
                   ? {
+                      id: 'floating-icon',
                       icon: 'MenuCircleHorOutline',
                       title: intl.formatMessage({
                         id: ETranslations.setting_floating_icon,
@@ -778,6 +785,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           EModalSettingRoutes.SettingFloatingIconModal,
                         );
                       },
+                    }
+                  : undefined,
+              ],
+              [
+                platformEnv.isNative
+                  ? {
+                      id: 'travel-mode',
+                      icon: 'LuggagePackageOutline',
+                      title: TRAVEL_MODE_COPY.title,
+                      searchable: false,
+                      testID: SettingTestIDs.travelModeItem,
+                      renderElement: <TravelModeListItem />,
                     }
                   : undefined,
               ],
@@ -798,26 +817,26 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'add-network',
                   icon: 'GlobusOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
                   settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(
                       EModalSettingRoutes.SettingChainListSearch,
                     );
                   },
                 },
                 {
+                  id: 'custom-rpc',
                   icon: 'BezierNodesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_rpc_title,
                   }),
                   settingRoute: EModalSettingRoutes.SettingCustomRPC,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomRPC);
                   },
                 },
@@ -848,6 +867,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'export-network-config',
                   icon: 'FileDownloadOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_network_config_label,
@@ -913,7 +933,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             isMobileLayout
               ? {
-                  id: 'official-channels',
                   icon: 'SpeakerPromoteOutline',
                   title: intl.formatMessage({
                     id: ETranslations.official_channels__title,
@@ -1014,6 +1033,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
+            testID: SettingTestIDs.devModeItem,
             tabBarItemStyle: {
               backgroundColor: '$bgCritical',
             },

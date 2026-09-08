@@ -252,7 +252,7 @@ function HardwareTroubleshootingModal() {
                   hoverStyle={{
                     bg: '$bgActive',
                   }}
-                  transition="background-color 0.2s"
+                  style={{ transition: 'background-color 0.2s' }}
                   cursor="pointer"
                   ai="center"
                   jc="center"

@@ -36,7 +36,7 @@ import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { isMarketStockCategory } from './utils';
+import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -122,7 +122,7 @@ const useMarketHomeLayoutProps = () => {
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => {
+      const mappedCategories = apiSpotCategories.map((c) => {
         const category = {
           id: c.type,
           name: c.name,
@@ -133,15 +133,23 @@ const useMarketHomeLayoutProps = () => {
           isStockCategory: isMarketStockCategory(category),
         };
       });
+
+      return ensureMarketTopCoinsCategory(
+        mappedCategories,
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
+      );
     }
 
     // Fallback before API responds
-    return [
-      {
-        id: 'trending',
-        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-      },
-    ];
+    return ensureMarketTopCoinsCategory(
+      [
+        {
+          id: 'trending',
+          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+        },
+      ],
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
+    );
   }, [apiSpotCategories, intl]);
 
   const stockCategories: IMarketCategoryItem[] = useMemo(

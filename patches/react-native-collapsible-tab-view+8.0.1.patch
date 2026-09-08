@@ -46,7 +46,7 @@ index 7a739fc..60d1ba0 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..9aa41a4 100644
+index e782b90..dd98965 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,15 @@
@@ -84,7 +84,26 @@ index e782b90..9aa41a4 100644
          !renderHeader ? 0 : initialHeaderHeight
        )
        const initialIndex = React.useMemo(
-@@ -139,10 +147,13 @@ export const Container = React.memo(
+@@ -107,11 +115,13 @@ export const Container = React.memo(
+       )
+ 
+       const contentInset = React.useMemo(() => {
+-        if (allowHeaderOverscroll) return 0
+-
+-        // necessary for the refresh control on iOS to be positioned underneath the header
+-        // this also adjusts the scroll bars to clamp underneath the header area
+-        return IS_IOS ? (headerHeight || 0) + (tabBarHeight || 0) : 0
++        // OneKey patch: RN 0.85+ Fabric does not reliably apply contentInset on iOS.
++        // if (allowHeaderOverscroll) return 0
++        //
++        // // necessary for the refresh control on iOS to be positioned underneath the header
++        // // this also adjusts the scroll bars to clamp underneath the header area
++        // return IS_IOS ? (headerHeight || 0) + (tabBarHeight || 0) : 0
++        return 0
+       }, [headerHeight, tabBarHeight, allowHeaderOverscroll])
+ 
+       const snappingTo: ContextType['snappingTo'] = useSharedValue(0)
+@@ -139,10 +149,13 @@ export const Container = React.memo(
            return tabNames.value[index.value]
          }, [tabNames])
        const calculateNextOffset = useSharedValue(initialIndex)
@@ -100,7 +119,7 @@ index e782b90..9aa41a4 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -174,12 +185,15 @@ export const Container = React.memo(
+@@ -174,12 +187,15 @@ export const Container = React.memo(
            return afterRender.value === 1
          },
          (trigger) => {
@@ -118,23 +137,28 @@ index e782b90..9aa41a4 100644
        )
  
        // derived from scrollX
-@@ -194,6 +208,15 @@ export const Container = React.memo(
+@@ -193,7 +209,19 @@ export const Container = React.memo(
+           return nextIndex
          },
          (nextIndex) => {
-           if (nextIndex !== null && nextIndex !== index.value) {
-+            if (
-+              programmaticPageTarget.value !== null &&
-+              nextIndex !== programmaticPageTarget.value
-+            ) {
+-          if (nextIndex !== null && nextIndex !== index.value) {
++          if (nextIndex === null) {
++            return
++          }
++          // OneKey patch: release the programmatic target as soon as the pager
++          // visually reaches it, even when `index` was already synced by the
++          // early Android onPageSelected, so the guard never outlives the scroll.
++          if (programmaticPageTarget.value !== null) {
++            if (nextIndex !== programmaticPageTarget.value) {
 +              return
 +            }
-+            if (nextIndex === programmaticPageTarget.value) {
-+              programmaticPageTarget.value = null
-+            }
++            programmaticPageTarget.value = null
++          }
++          if (nextIndex !== index.value) {
              calculateNextOffset.value = nextIndex
            }
          },
-@@ -212,25 +235,46 @@ export const Container = React.memo(
+@@ -212,25 +240,46 @@ export const Container = React.memo(
          'worklet'
  
          const name = tabNamesArray[index.value]
@@ -187,7 +211,7 @@ index e782b90..9aa41a4 100644
            runOnJS(toggleSyncScrollFrame)(false)
          }
        }, false)
-@@ -241,54 +285,298 @@ export const Container = React.memo(
+@@ -241,54 +290,334 @@ export const Container = React.memo(
          },
          (i) => {
            if (i !== index.value) {
@@ -306,8 +330,7 @@ index e782b90..9aa41a4 100644
 -            },
 -          ],
 +          transform: [{ translateY: headerTranslateY.value }],
-         }
--      }, [revealHeaderOnScroll])
++        }
 +      }, [])
 +
 +      // Native animated header: uses RN's Animated driver for same-frame updates
@@ -362,7 +385,8 @@ index e782b90..9aa41a4 100644
 +          }
 +          // Start first attempt after a short delay
 +          setTimeout(() => scrollToPosition(0), 16)
-+        }
+         }
+-      }, [revealHeaderOnScroll])
 +      }, [useNativeHeaderAnimation, nativeScrollY, contentInset])
 +
 +      // Only sync nativeScrollY when focused tab changes, not on every scroll
@@ -441,12 +465,27 @@ index e782b90..9aa41a4 100644
 +          const selectedIndex = event.nativeEvent.position
 +          const pendingTarget = programmaticPageTarget.value
 +          if (pendingTarget !== null || pendingPageFallbackTimerRef.current) {
++            // OneKey patch: Android's ViewPager2 reports the selected page as
++            // soon as a programmatic smooth scroll starts, before the pager has
++            // moved. Sync `index` right away (keeps the tab highlight instant)
++            // but keep the programmatic target alive until the pager visually
++            // reaches the page; otherwise every page the scroll passes through
++            // would be propagated as an index change. Landing on a different
++            // page (the user interrupted the scroll) still releases the target.
++            const isEarlyProgrammaticSelect =
++              pendingTarget !== null &&
++              selectedIndex === pendingTarget &&
++              Math.round(indexDecimal.value) !== selectedIndex
 +            if (index.value !== selectedIndex) {
 +              calculateNextOffset.value = selectedIndex
-+              indexDecimal.value = selectedIndex
++              if (!isEarlyProgrammaticSelect) {
++                indexDecimal.value = selectedIndex
++              }
 +            }
-+            programmaticPageTarget.value = null
-+            clearPendingPageFallback()
++            if (!isEarlyProgrammaticSelect) {
++              programmaticPageTarget.value = null
++              clearPendingPageFallback()
++            }
 +          }
 +          pagerProps?.onPageSelected?.(event)
 +        },
@@ -456,13 +495,28 @@ index e782b90..9aa41a4 100644
 +      const handlePageScrollStateChanged = React.useCallback(
 +        (event: PageScrollStateChangedNativeEvent) => {
 +          const pendingTarget = programmaticPageTarget.value
-+          if (pendingTarget !== null && index.value === pendingTarget) {
++          const pageScrollState = event.nativeEvent.pageScrollState
++          // OneKey patch: `settling` is dispatched while the programmatic scroll
++          // is still in flight (Android emits it right before the early
++          // onPageSelected), so only a non-settling state marks the pager as
++          // done with the programmatic target.
++          if (
++            pendingTarget !== null &&
++            index.value === pendingTarget &&
++            pageScrollState !== 'settling'
++          ) {
++            if (
++              pageScrollState === 'idle' &&
++              Math.round(indexDecimal.value) !== pendingTarget
++            ) {
++              indexDecimal.value = pendingTarget
++            }
 +            programmaticPageTarget.value = null
 +            clearPendingPageFallback()
 +          }
 +          pagerProps?.onPageScrollStateChanged?.(event)
 +        },
-+        [clearPendingPageFallback, index, pagerProps, programmaticPageTarget]
++        [clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget]
 +      )
 +
 +      const setPageWithFallback = React.useCallback(
@@ -487,6 +541,12 @@ index e782b90..9aa41a4 100644
 +          pendingPageFallbackTimerRef.current = setTimeout(() => {
 +            pendingPageFallbackTimerRef.current = null
 +            if (index.value === nextIndex) {
++              // OneKey patch: `index` may have been synced by an early
++              // onPageSelected while the pager never scrolled; finish the
++              // arrival here so the tab indicator lands on the target too.
++              if (Math.round(indexDecimal.value) !== nextIndex) {
++                indexDecimal.value = nextIndex
++              }
 +              programmaticPageTarget.value = null
 +              return
 +            }
@@ -511,7 +571,7 @@ index e782b90..9aa41a4 100644
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -303,11 +591,11 @@ export const Container = React.memo(
+@@ -303,11 +632,11 @@ export const Container = React.memo(
                true
              )
            } else {
@@ -525,7 +585,7 @@ index e782b90..9aa41a4 100644
        )
  
        useAnimatedReaction(
-@@ -344,57 +632,96 @@ export const Container = React.memo(
+@@ -344,57 +673,96 @@ export const Container = React.memo(
            getCurrentIndex: () => {
              return index.value
            },
@@ -661,7 +721,7 @@ index e782b90..9aa41a4 100644
                  pointerEvents="box-none"
                >
                  {renderHeader &&
-@@ -407,10 +734,11 @@ export const Container = React.memo(
+@@ -407,10 +775,11 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -675,7 +735,7 @@ index e782b90..9aa41a4 100644
                  pointerEvents="box-none"
                >
                  {renderTabBar &&
-@@ -425,13 +753,15 @@ export const Container = React.memo(
+@@ -425,13 +794,15 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -1042,7 +1102,7 @@ index 2bd6b9c..80c7377 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..ec94ae4 100644
+index ba7dffa..fc486ed 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,11 +8,12 @@ import {
@@ -1162,7 +1222,22 @@ index ba7dffa..ec94ae4 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -265,10 +324,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -160,9 +219,11 @@ export function useCollapsibleStyle(): CollapsibleStyle {
+             ? containerHeightWithMinHeader - (tabBarHeight || 0)
+             : containerHeightWithMinHeader + (headerHeight || 0),
+         paddingTop:
+-          IS_IOS && !allowHeaderOverscroll
+-            ? 0
+-            : (headerHeight || 0) + (tabBarHeight || 0),
++          // OneKey patch: Use content padding because Fabric ignores contentInset on iOS.
++          // IS_IOS && !allowHeaderOverscroll
++          //   ? 0
++          //   : (headerHeight || 0) + (tabBarHeight || 0),
++          (headerHeight || 0) + (tabBarHeight || 0),
+       },
+       progressViewOffset:
+         // on iOS we need the refresh control to be at the top if overscrolling
+@@ -265,10 +326,13 @@ export const useScrollHandlerY = (name: TabName) => {
      accScrollY,
      offset,
      headerScrollDistance,
@@ -1176,7 +1251,7 @@ index ba7dffa..ec94ae4 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +358,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +360,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -1191,7 +1266,7 @@ index ba7dffa..ec94ae4 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,6 +468,14 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,6 +470,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -1206,7 +1281,7 @@ index ba7dffa..ec94ae4 100644
          }
        },
        onBeginDrag: () => {
-@@ -465,6 +538,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +540,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -1216,14 +1291,15 @@ index ba7dffa..ec94ae4 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +581,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +583,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
 -    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
 +    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo, useNativeHeaderAnimation]
-+  )
-+
+   )
+ 
+-  return { scrollHandler, enable }
 +  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
 +  // for same-frame header animation on Android
 +  const enabledRef = useRef(false)
@@ -1277,9 +1353,8 @@ index ba7dffa..ec94ae4 100644
 +      runOnJS(setEnabledRefFn)(toggle)
 +    },
 +    [origEnable, setEnabledRefFn]
-   )
- 
--  return { scrollHandler, enable }
++  )
++
 +  return {
 +    scrollHandler: nativeScrollHandler || scrollHandler,
 +    enable: nativeScrollHandler ? enableWithRef : enable,
@@ -1287,7 +1362,7 @@ index ba7dffa..ec94ae4 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +713,11 @@ export function useAfterMountEffect(
+@@ -579,11 +715,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {

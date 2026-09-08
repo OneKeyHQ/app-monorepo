@@ -44,6 +44,7 @@ import type { ITradingViewNativeIntervalStorageNamespace } from './tradingViewNa
 import type {
   ITradingViewNativeDataState,
   ITradingViewNativeSource,
+  ITradingViewNativeStorageNamespace,
 } from '../types';
 import type {
   ITradingViewNativeViewportRequest,
@@ -1615,11 +1616,15 @@ function getDataState({
 export function useTradingViewNativeKLine({
   onRealtimePoint,
   source,
+  storageNamespace,
 }: {
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
 }) {
   const sourceKind = source.kind;
+  const assetId = source.kind === 'asset' ? source.assetId : '';
+  const stockId = source.kind === 'stock' ? source.stockId : '';
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
   const hyperliquidEnvironment =
     source.kind === 'hyperliquid' ? source.environment : 'mainnet';
@@ -1635,11 +1640,23 @@ export function useTradingViewNativeKLine({
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
   const rawHistoryProvider = useMemo(() => {
+    if (sourceKind === 'asset') {
+      return createTradingViewNativeDataProvider({
+        kind: 'asset',
+        assetId,
+      });
+    }
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
         kind: 'hyperliquid',
         coin: hyperliquidCoin,
         environment: hyperliquidEnvironment,
+      });
+    }
+    if (sourceKind === 'stock') {
+      return createTradingViewNativeDataProvider({
+        kind: 'stock',
+        stockId,
       });
     }
     return createTradingViewNativeDataProvider({
@@ -1652,6 +1669,7 @@ export function useTradingViewNativeKLine({
       realtime: 'disabled',
     });
   }, [
+    assetId,
     hyperliquidCoin,
     hyperliquidEnvironment,
     marketFallbackCoinGeckoId,
@@ -1660,6 +1678,7 @@ export function useTradingViewNativeKLine({
     marketNetworkId,
     marketTokenAddress,
     sourceKind,
+    stockId,
   ]);
   const seriesKey = rawHistoryProvider.key;
   const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
@@ -1828,11 +1847,14 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const providerIsReady = historyProvider.isReady;
+  const historyRefreshInterval = historyProvider.historyRefreshInterval;
   const supportsRealtime = Boolean(
     realtimeProvider?.isReady && realtimeProvider.supportsRealtime,
   );
-  const intervalStorageNamespace =
-    getTradingViewNativeIntervalStorageNamespace(source);
+  const intervalStorageNamespace = getTradingViewNativeIntervalStorageNamespace(
+    source,
+    storageNamespace,
+  );
   const currentSeriesKeyRef = useRef(seriesKey);
   currentSeriesKeyRef.current = seriesKey;
   const latestRequestIdRef = useRef(0);
@@ -2066,7 +2088,7 @@ export function useTradingViewNativeKLine({
     ) {
       return;
     }
-    saveTradingViewNativeActiveInterval({
+    void saveTradingViewNativeActiveInterval({
       interval: activeInterval,
       namespace: intervalStorageNamespace,
     });
@@ -3808,6 +3830,26 @@ export function useTradingViewNativeKLine({
     subscriberId,
     supportsRealtime,
   ]);
+
+  useInterval(
+    () => {
+      if (initialHistoryAbortControllerRef.current) {
+        emitTradingViewNativeDebugEvent({
+          details: { providerKey: seriesKey },
+          name: 'history.poll.skipped.in-flight',
+        });
+        return;
+      }
+      emitTradingViewNativeDebugEvent({
+        details: { providerKey: seriesKey },
+        name: 'history.poll.requested',
+      });
+      setHistoryRefreshRevision((current) => current + 1);
+    },
+    providerIsReady && isVisible && !supportsRealtime
+      ? historyRefreshInterval
+      : null,
+  );
 
   useInterval(
     () => {

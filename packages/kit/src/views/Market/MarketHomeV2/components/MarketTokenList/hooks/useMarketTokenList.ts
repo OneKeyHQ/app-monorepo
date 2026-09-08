@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
@@ -18,6 +19,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
+  buildMarketNetworkLogoUriMap,
+  getMarketTokenNetworkLogoUri,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -33,6 +36,7 @@ interface IUseMarketTokenListParams {
   networkId: string;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   pageSize?: number;
   type?: string;
   category?: string;
@@ -97,6 +101,7 @@ const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
   'decimals',
   'price',
   'change24h',
+  'priceChangeRaw',
   'marketCap',
   'liquidity',
   'transactions',
@@ -179,38 +184,82 @@ function reuseStableMarketTokenRows({
 function transformMarketTokenListResponse({
   response,
   networkId,
+  networkLogoUriMap,
   networkLogoUri,
   timeRange,
 }: {
   response: IMarketTokenListResponseWithSource | undefined;
   networkId: string;
+  networkLogoUriMap: ReadonlyMap<string, string>;
   networkLogoUri: string;
   timeRange: IMarketTimeRangeValue | undefined;
 }) {
   return (response?.list ?? []).map((item) =>
     transformApiItemToToken(item, {
       chainId: networkId,
+      networkLogoUriMap,
       networkLogoUri,
       timeRange,
     }),
   );
 }
 
+function refreshMarketTokenNetworkLogos({
+  data,
+  networkId,
+  networkLogoUriMap,
+  networkLogoUri,
+}: {
+  data: IMarketToken[];
+  networkId: string;
+  networkLogoUriMap: ReadonlyMap<string, string>;
+  networkLogoUri: string;
+}) {
+  let changed = false;
+  const nextData = data.map((token) => {
+    const nextNetworkLogoUri = getMarketTokenNetworkLogoUri({
+      tokenNetworkId: token.networkId,
+      chainId: networkId,
+      networkLogoUriMap,
+      networkLogoUri,
+    });
+    if (token.networkLogoUri === nextNetworkLogoUri) {
+      return token;
+    }
+
+    changed = true;
+    return {
+      ...token,
+      id: `${token.address}${token.name}${nextNetworkLogoUri}${token.symbol}`,
+      networkLogoUri: nextNetworkLogoUri,
+    };
+  });
+
+  return changed ? nextData : data;
+}
+
 export function useMarketTokenList({
   networkId,
-  initialSortBy = 'v24hUSD',
-  initialSortType = 'desc',
+  initialSortBy: initialSortByProp,
+  initialSortType: initialSortTypeProp,
+  useApiDefaultSort = false,
   pageSize = 20,
   type,
   category,
   timeRange,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
+  const initialSortBy = useApiDefaultSort
+    ? undefined
+    : (initialSortByProp ?? 'v24hUSD');
+  const initialSortType = useApiDefaultSort
+    ? undefined
+    : (initialSortTypeProp ?? 'desc');
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
+  const locale = useLocaleVariant();
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
-  // Get minLiquidity from market config
-  const { minLiquidity } = useMarketBasicConfig();
+  const { minLiquidity, networkList } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -224,11 +273,18 @@ export function useMarketTokenList({
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const maxPages = 5;
 
-  // Optimize network logo URI calculation
-  const networkLogoUri = useMemo(
-    () => getNetworkLogoUri(networkId),
-    [networkId],
+  const networkLogoUriMap = useMemo(
+    () => buildMarketNetworkLogoUriMap(networkList),
+    [networkList],
   );
+  const networkLogoUri = useMemo(
+    () => networkLogoUriMap.get(networkId) || getNetworkLogoUri(networkId),
+    [networkId, networkLogoUriMap],
+  );
+  const networkLogoUriMapRef = useRef(networkLogoUriMap);
+  networkLogoUriMapRef.current = networkLogoUriMap;
+  const networkLogoUriRef = useRef(networkLogoUri);
+  networkLogoUriRef.current = networkLogoUri;
   const hasNetworkId = Boolean(networkId);
 
   // Check if "All Networks" is selected
@@ -255,6 +311,7 @@ export function useMarketTokenList({
         category,
         timeFrame,
         networkId,
+        locale,
       }),
     [
       apiNetworkId,
@@ -266,6 +323,7 @@ export function useMarketTokenList({
       category,
       timeFrame,
       networkId,
+      locale,
     ],
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
@@ -273,11 +331,12 @@ export function useMarketTokenList({
   const bypassWebSeedOnceRef = useRef(false);
   const forcedRemoteProvisionalQueryKeysRef = useRef<Set<string>>(new Set());
   const marketTokenListSwrKey = useMemo(() => {
-    if (!platformEnv.isWeb || !hasNetworkId) {
+    if (!hasNetworkId) {
       return undefined;
     }
     return swrKeys.marketHomeTokenList({
       networkId: apiNetworkId,
+      locale,
       sortBy,
       sortType,
       pageSize,
@@ -289,6 +348,7 @@ export function useMarketTokenList({
   }, [
     apiNetworkId,
     hasNetworkId,
+    locale,
     minLiquidity,
     pageSize,
     sortBy,
@@ -371,7 +431,7 @@ export function useMarketTokenList({
       if (!hasNetworkId) {
         return undefined;
       }
-      const requestQueryKey = currentQueryKeyRef.current;
+      const requestQueryKey = currentQueryKey;
       const shouldAllowColdCacheFallback =
         remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
       pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
@@ -456,6 +516,7 @@ export function useMarketTokenList({
       minLiquidity,
       type,
       category,
+      currentQueryKey,
       timeFrame,
     ],
     {
@@ -479,14 +540,29 @@ export function useMarketTokenList({
   // Seed and SWR values are available synchronously during render. Initialize
   // the table rows from that value so remounting Market never starts from an
   // empty list while the same cached response waits for an effect.
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>(() =>
-    transformMarketTokenListResponse({
+  const [transformedDataState, setTransformedDataState] = useState<{
+    data: IMarketToken[];
+    queryKey: string;
+  }>(() => ({
+    data: transformMarketTokenListResponse({
       response: apiResult,
       networkId,
+      networkLogoUriMap,
       networkLogoUri,
       timeRange: timeRangeRef.current,
     }),
-  );
+    queryKey: currentQueryKey,
+  }));
+  const transformedData =
+    transformedDataState.queryKey === currentQueryKey
+      ? transformedDataState.data
+      : transformMarketTokenListResponse({
+          response: cachedMarketTokenListEntry?.data,
+          networkId,
+          networkLogoUriMap,
+          networkLogoUri,
+          timeRange: timeRangeRef.current,
+        });
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
@@ -580,7 +656,8 @@ export function useMarketTokenList({
     const transformed = transformMarketTokenListResponse({
       response: apiResult,
       networkId,
-      networkLogoUri,
+      networkLogoUriMap: networkLogoUriMapRef.current,
+      networkLogoUri: networkLogoUriRef.current,
       timeRange: timeRangeRef.current,
     });
     const transformDuration =
@@ -601,9 +678,13 @@ export function useMarketTokenList({
 
     // Update only rows whose visible fields changed so Table row memoization can
     // survive seed -> remote refresh and polling updates.
-    setTransformedData((prev) =>
-      reuseStableMarketTokenRows({ prev, next: transformed }),
-    );
+    setTransformedDataState((prev) => ({
+      data: reuseStableMarketTokenRows({
+        prev: prev.queryKey === currentQueryKey ? prev.data : [],
+        next: transformed,
+      }),
+      queryKey: currentQueryKey,
+    }));
     setCurrentPage(1);
     setHasReachedEnd(false);
 
@@ -614,13 +695,38 @@ export function useMarketTokenList({
     setIsNetworkSwitching(false);
   }, [
     apiResult,
+    currentQueryKey,
     hasNetworkId,
     networkId,
-    networkLogoUri,
     timeFrame,
     trackNetworkLoading,
     type,
     category,
+  ]);
+
+  useEffect(() => {
+    if (!hasNetworkId) {
+      return;
+    }
+
+    setTransformedDataState((prev) => {
+      if (prev.queryKey !== currentQueryKey) {
+        return prev;
+      }
+      const nextData = refreshMarketTokenNetworkLogos({
+        data: prev.data,
+        networkId,
+        networkLogoUriMap,
+        networkLogoUri,
+      });
+      return nextData === prev.data ? prev : { ...prev, data: nextData };
+    });
+  }, [
+    currentQueryKey,
+    hasNetworkId,
+    networkId,
+    networkLogoUriMap,
+    networkLogoUri,
   ]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
@@ -706,7 +812,8 @@ export function useMarketTokenList({
         const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
             chainId: networkId,
-            networkLogoUri,
+            networkLogoUriMap: networkLogoUriMapRef.current,
+            networkLogoUri: networkLogoUriRef.current,
             timeRange: timeRangeRef.current,
           }),
         );
@@ -719,7 +826,13 @@ export function useMarketTokenList({
         trackNetworkLoading(networkId, response.list.length);
 
         // Append new data to existing data
-        setTransformedData((prev) => [...prev, ...newTransformed]);
+        setTransformedDataState((prev) => ({
+          data:
+            prev.queryKey === requestQueryKey
+              ? [...prev.data, ...newTransformed]
+              : newTransformed,
+          queryKey: requestQueryKey,
+        }));
         setCurrentPage(nextPage);
       } else {
         // Empty response - stop loading immediately
@@ -750,7 +863,6 @@ export function useMarketTokenList({
     category,
     timeFrame,
     trackNetworkLoading,
-    networkLogoUri,
   ]);
 
   const canLoadMore =
@@ -766,7 +878,7 @@ export function useMarketTokenList({
     data: transformedData,
     isLoading: effectiveIsLoading,
     isLoadingMore,
-    isNetworkSwitching,
+    isNetworkSwitching: isNetworkSwitching && transformedData.length === 0,
     isProvisionalFirstPageResult,
     initialSortBy,
     initialSortType,

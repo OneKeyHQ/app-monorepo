@@ -65,6 +65,7 @@ export function HeaderNotificationIconButton({
       keepChildrenMounted
       renderTrigger={
         <Tooltip
+          triggerAsChild
           placement="bottom"
           renderTrigger={
             <HeaderNotificationButton

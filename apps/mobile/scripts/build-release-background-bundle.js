@@ -13,8 +13,10 @@ const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 // cspell:ignore hermesc
 const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
 );
 
 const log = (...messages) => {

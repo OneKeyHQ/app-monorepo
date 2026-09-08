@@ -580,6 +580,34 @@ describe('buildBasicOptions', () => {
       expect(result).toBeNull();
     });
 
+    test('should forward web-embed exceptions locally and drop the Sentry event', () => {
+      const previousIsWebEmbed = platformEnv.isWebEmbed;
+      platformEnv.isWebEmbed = true;
+      try {
+        const onError = jest.fn();
+        const options = buildBasicOptions({ onError });
+        const event: any = {
+          exception: {
+            values: [
+              {
+                value: `Secret: ${TEST_MNEMONIC_3}`,
+              },
+            ],
+          },
+        };
+
+        const result = callBeforeSend(options, event);
+
+        expect(result).toBeNull();
+        expect(onError).toHaveBeenCalledWith(
+          'Secret: **** **** ****',
+          undefined,
+        );
+      } finally {
+        platformEnv.isWebEmbed = previousIsWebEmbed;
+      }
+    });
+
     test('should handle event without exception values', () => {
       const onError = jest.fn();
       const options = buildBasicOptions({ onError });

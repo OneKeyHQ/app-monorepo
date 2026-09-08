@@ -6,13 +6,13 @@ export function useHoverOpacity(isHovering?: boolean) {
   if (!platformEnv.isDesktop) {
     return {
       opacity: 1,
-      animation: undefined,
+      transition: undefined,
     };
   }
 
   return {
     opacity: isHovering ? 1 : 0.7,
-    animation: 'quick' as const,
+    transition: 'quick' as const,
     animateOnly: ANIMATE_ONLY_OPACITY,
   };
 }

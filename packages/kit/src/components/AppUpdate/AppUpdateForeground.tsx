@@ -402,7 +402,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           status: 'success',
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
-        markWhatsNewShown(Boolean(info.jsBundleVersion));
+        await markWhatsNewShown(Boolean(info.jsBundleVersion));
         // Auto-update strategies (silent + seamless) complete invisibly, so
         // they must NOT pop the changelog / "what's new" page after the update
         // applies — only user-facing (manual / force) updates do. Previously

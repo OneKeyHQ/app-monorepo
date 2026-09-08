@@ -242,8 +242,10 @@ export function UniversalSearchV2MarketTokenItem({
         void toMarketDetailPage({
           tokenAddress: address,
           networkId: network,
+          name,
           symbol,
           isNative,
+          stock,
         });
 
         defaultLogger.market.token.searchToken({
@@ -269,8 +271,10 @@ export function UniversalSearchV2MarketTokenItem({
     isTrending,
     address,
     network,
+    name,
     symbol,
     isNative,
+    stock,
     universalSearchActions,
     item.type,
     toMarketDetailPage,

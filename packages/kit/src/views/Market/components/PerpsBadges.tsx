@@ -11,7 +11,11 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IColorTokens,
+  IKeyOfIcons,
+  ISizableTextProps,
+} from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
@@ -51,6 +55,8 @@ function getPerpDexDescriptionId(dexLabel?: string) {
       return ETranslations.perp_xyz_market__desc;
     case 'para':
       return ETranslations.perp_para_market__desc;
+    case 'io':
+      return ETranslations.perp_io_market__desc;
     default:
       return undefined;
   }
@@ -60,10 +66,12 @@ const PerpDexBadge = memo(
   ({
     compact,
     dexLabel,
+    height,
     testID,
   }: {
     compact?: boolean;
     dexLabel?: string;
+    height?: number;
     testID?: string;
   }) => {
     const intl = useIntl();
@@ -87,6 +95,7 @@ const PerpDexBadge = memo(
         justifyContent="center"
         alignItems="center"
         px={compact ? '$1' : '$1.5'}
+        height={height}
         testID={testID}
       >
         {badgeText}
@@ -183,12 +192,22 @@ SubtitleBadge.displayName = 'SubtitleBadge';
 // Used in Market/Perps list rows: placed under the symbol on desktop and
 // before the volume on mobile.
 const SubtitleText = memo(
-  ({ subtitle, maxWidth }: { subtitle: string; maxWidth?: number }) => {
+  ({
+    subtitle,
+    maxWidth,
+    size: sizeOverride,
+  }: {
+    subtitle: string;
+    maxWidth?: number;
+    /** Opt out of the shared size where a surface has its own scale — the
+     *  Market list tables run their subtitle at the row's own secondary size. */
+    size?: ISizableTextProps['size'];
+  }) => {
     const { gtMd } = useMedia();
     // Unified subtitle size across every Market/Perps list and selector row:
     // 11px on desktop, 12px on mobile. Keep this the single source of truth so
     // the localized name never diverges between lists.
-    const size = gtMd ? '$bodyXs' : '$bodySm';
+    const size = sizeOverride ?? (gtMd ? '$bodyXs' : '$bodySm');
     const textRef = useRef<HTMLElement | null>(null);
     const tooltipRef = useRef<ITooltipRef>({
       closeTooltip: () => Promise.resolve(),
@@ -279,7 +298,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   },
   [EUSMarketStatusVariant.Open]: {
     icon: 'SunOutline',
-    titleId: ETranslations.market_status_open,
+    // Named after the trading session rather than a bare "Open", matching the
+    // wording the trading-hours panel uses for the same row.
+    titleId: ETranslations.trading_hours_regular_market,
     bg: '$bgSuccess',
     color: '$textSuccess',
   },
@@ -335,9 +356,11 @@ const StockIsOpenBadge = memo(
   ({
     stock,
     disableTooltip,
+    variant: displayVariant = 'badge',
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
+    variant?: 'badge' | 'inline';
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
@@ -366,23 +389,33 @@ const StockIsOpenBadge = memo(
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
 
-    const badge = (
-      <XStack
-        borderRadius="$1"
-        bg={chip.bg}
-        justifyContent="center"
-        alignItems="center"
-        gap={3}
-        px="$1"
-      >
-        <Icon name={chip.icon} size="$3" color={chip.color} />
-        <SizableText fontSize={10} color={chip.color} lineHeight={16}>
-          {chip.titleId !== undefined
-            ? intl.formatMessage({ id: chip.titleId })
-            : chip.title}
-        </SizableText>
-      </XStack>
-    );
+    const badge =
+      displayVariant === 'inline' ? (
+        <XStack alignItems="center" gap="$1">
+          <Icon name={chip.icon} size="$4" color={chip.color} />
+          <SizableText size="$bodyMd" color={chip.color}>
+            {chip.titleId !== undefined
+              ? intl.formatMessage({ id: chip.titleId })
+              : chip.title}
+          </SizableText>
+        </XStack>
+      ) : (
+        <XStack
+          borderRadius="$1"
+          bg={chip.bg}
+          justifyContent="center"
+          alignItems="center"
+          gap={3}
+          px="$1"
+        >
+          <Icon name={chip.icon} size="$3" color={chip.color} />
+          <SizableText fontSize={10} color={chip.color} lineHeight={16}>
+            {chip.titleId !== undefined
+              ? intl.formatMessage({ id: chip.titleId })
+              : chip.title}
+          </SizableText>
+        </XStack>
+      );
 
     if (disableTooltip || !description || platformEnv.isNative) {
       return badge;
@@ -407,14 +440,22 @@ StockIsOpenBadge.displayName = 'StockIsOpenBadge';
  * non-Ondo issuers render no chip (see StockIsOpenBadge).
  */
 const StockMarketStatusBadge = memo(
-  ({ stock }: { stock?: IMarketStockInfo }) => {
+  ({
+    stock,
+    variant,
+  }: {
+    stock?: IMarketStockInfo;
+    variant?: 'badge' | 'inline';
+  }) => {
     if (!stock) {
       return null;
     }
     return (
       <TradingHoursTrigger
         stock={stock}
-        renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
+        renderTrigger={
+          <StockIsOpenBadge stock={stock} disableTooltip variant={variant} />
+        }
       />
     );
   },

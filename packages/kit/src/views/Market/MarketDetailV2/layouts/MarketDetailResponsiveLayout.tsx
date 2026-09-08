@@ -12,6 +12,10 @@ export function MarketDetailResponsiveLayout({
   isNative,
   networkId,
   tokenAddress,
+  marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
+  marketTokenCategory,
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
@@ -25,6 +29,11 @@ export function MarketDetailResponsiveLayout({
         isNative={isNative}
         networkId={networkId}
         tokenAddress={tokenAddress}
+        marketTokenId={marketTokenId}
+        marketAssetDetail={marketAssetDetail}
+        isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+        marketTokenCategory={marketTokenCategory}
+        disableTrade={disableTrade}
         showFavoriteButton={showFavoriteButton}
       />
     );
@@ -40,6 +49,8 @@ export function MarketDetailResponsiveLayout({
       isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
+      marketTokenId={marketTokenId}
+      marketTokenCategory={marketTokenCategory}
     />
   );
 }

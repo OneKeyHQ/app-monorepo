@@ -9,7 +9,7 @@ const baseParams = {
   gasAccountQuoteEligible: false,
   isCustomRpcEnabled: false,
   sponsorDisabledForBatch: false,
-  megafuelDisabledForPrivateSend: false,
+  sponsorDisabledForExternalAccount: false,
   gasAccountDisabledByScenario: false,
   gasAccountTemporarilyDisabled: false,
 };
@@ -60,23 +60,22 @@ describe('isGasAccountQuoteEligible', () => {
     ).toBe(false);
   });
 
-  it('resolves to user/user when the quote object exists without a quoteId', () => {
-    // End-to-end invariant: an id-less quote must never surface the sponsored
-    // UI (effectiveFeePayer) nor wire the submit path (selectedPayer), even
-    // on the Private Send megafuel fallback where the window is widest.
+  it('never wires the gas account submit path on an id-less quote', () => {
+    // End-to-end invariant: an id-less quote must never wire the submit path
+    // (selectedPayer) to gasAccount; megafuel display stays intact since it
+    // does not depend on the quote.
     expect(
       resolveSponsorPayerState({
         ...baseParams,
         serverPayer: 'megafuel',
         megafuelSponsorable: true,
-        megafuelDisabledForPrivateSend: true,
         gasAccountQuoteEligible: isGasAccountQuoteEligible({
           gasAccountEligible: true,
           gasAccountQuote: { ...quote, quoteId: '' },
         }),
       }),
     ).toEqual({
-      effectiveFeePayer: 'user',
+      effectiveFeePayer: 'megafuel',
       selectedPayer: 'user',
     });
   });
@@ -151,6 +150,20 @@ describe('resolveSponsorPayerState', () => {
       });
     });
 
+    it('surfaces megafuel without an eligible gas account quote', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'megafuel',
+          megafuelSponsorable: true,
+          gasAccountQuoteEligible: false,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'megafuel',
+        selectedPayer: 'user',
+      });
+    });
+
     it('resets both payers to user without an eligible quote', () => {
       // The display payer must be gated by quote eligibility as well:
       // keeping effectiveFeePayer at 'gasAccount' here would show the
@@ -191,6 +204,35 @@ describe('resolveSponsorPayerState', () => {
           megafuelSponsorable: true,
           gasAccountQuoteEligible: true,
           sponsorDisabledForBatch: true,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'user',
+        selectedPayer: 'user',
+      });
+    });
+
+    it('forces user for both payers for external-wallet accounts (OK-61254)', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'megafuel',
+          megafuelSponsorable: true,
+          gasAccountQuoteEligible: true,
+          sponsorDisabledForExternalAccount: true,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'user',
+        selectedPayer: 'user',
+      });
+    });
+
+    it('forces user for external-wallet accounts when the server prefers gasAccount', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'gasAccount',
+          gasAccountQuoteEligible: true,
+          sponsorDisabledForExternalAccount: true,
         }),
       ).toEqual({
         effectiveFeePayer: 'user',
@@ -240,92 +282,30 @@ describe('resolveSponsorPayerState', () => {
         selectedPayer: 'user',
       });
     });
-  });
 
-  describe('private send (megafuel suppressed)', () => {
-    it('falls back to the eligible gas account quote when the server prefers megafuel', () => {
+    it('still surfaces megafuel while gas account is temporarily disabled', () => {
       expect(
         resolveSponsorPayerState({
           ...baseParams,
           serverPayer: 'megafuel',
           megafuelSponsorable: true,
           gasAccountQuoteEligible: true,
-          megafuelDisabledForPrivateSend: true,
-        }),
-      ).toEqual({
-        effectiveFeePayer: 'gasAccount',
-        selectedPayer: 'gasAccount',
-      });
-    });
-
-    it('falls back to user when the server prefers megafuel and no quote is eligible', () => {
-      expect(
-        resolveSponsorPayerState({
-          ...baseParams,
-          serverPayer: 'megafuel',
-          megafuelSponsorable: true,
-          gasAccountQuoteEligible: false,
-          megafuelDisabledForPrivateSend: true,
-        }),
-      ).toEqual({
-        effectiveFeePayer: 'user',
-        selectedPayer: 'user',
-      });
-    });
-
-    it('selects gas account when the server prefers it even with megafuel sponsorable', () => {
-      expect(
-        resolveSponsorPayerState({
-          ...baseParams,
-          serverPayer: 'gasAccount',
-          megafuelSponsorable: true,
-          gasAccountQuoteEligible: true,
-          megafuelDisabledForPrivateSend: true,
-        }),
-      ).toEqual({
-        effectiveFeePayer: 'gasAccount',
-        selectedPayer: 'gasAccount',
-      });
-    });
-
-    it('keeps user payer when the server does not sponsor', () => {
-      expect(
-        resolveSponsorPayerState({
-          ...baseParams,
-          serverPayer: 'user',
-          megafuelDisabledForPrivateSend: true,
-        }),
-      ).toEqual({
-        effectiveFeePayer: 'user',
-        selectedPayer: 'user',
-      });
-    });
-
-    it('does not fall back to gas account when a custom RPC is enabled', () => {
-      expect(
-        resolveSponsorPayerState({
-          ...baseParams,
-          serverPayer: 'megafuel',
-          megafuelSponsorable: true,
-          gasAccountQuoteEligible: true,
-          megafuelDisabledForPrivateSend: true,
-          isCustomRpcEnabled: true,
-        }),
-      ).toEqual({
-        effectiveFeePayer: 'user',
-        selectedPayer: 'user',
-      });
-    });
-
-    it('does not fall back to gas account while it is temporarily disabled', () => {
-      expect(
-        resolveSponsorPayerState({
-          ...baseParams,
-          serverPayer: 'megafuel',
-          megafuelSponsorable: true,
-          gasAccountQuoteEligible: true,
-          megafuelDisabledForPrivateSend: true,
           gasAccountTemporarilyDisabled: true,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'megafuel',
+        selectedPayer: 'user',
+      });
+    });
+
+    it('forces user for megafuel when a custom RPC is enabled', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'megafuel',
+          megafuelSponsorable: true,
+          gasAccountQuoteEligible: true,
+          isCustomRpcEnabled: true,
         }),
       ).toEqual({
         effectiveFeePayer: 'user',

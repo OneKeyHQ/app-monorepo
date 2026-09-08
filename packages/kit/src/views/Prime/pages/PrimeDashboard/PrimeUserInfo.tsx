@@ -50,7 +50,7 @@ export function PrimeUserInfo({
         flex={1}
         size="$bodyMdMedium"
         ellipsizeMode="middle"
-        ellipse
+        ellipsis
       >
         {displayEmail}
       </SizableText>

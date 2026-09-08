@@ -4,7 +4,7 @@ name: release-desktop-all
 #   1. Build renderer once on ubuntu (fastest)
 #   2. Fan out to 3 platform jobs (mac, win, linux) — each packages multiple variants
 #
-# Triggered by daily-build / daily-build-dev dispatching an immutable CI tag,
+# Triggered by daily-build / daily-build-dev dispatching their source branch,
 # or manually via workflow_dispatch.
 # This is the single source of truth for all desktop packaging.
 
@@ -22,7 +22,7 @@ on:
         type: string
         default: ''
       source_ref_name:
-        description: 'Original source ref name to use for build metadata when running from a temporary CI tag.'
+        description: 'Source ref name to use for build metadata.'
         required: false
         type: string
         default: ''
@@ -43,11 +43,6 @@ on:
         default: true
       upload_snap_to_store:
         description: 'Upload Snap package to Snap Store edge'
-        required: false
-        type: boolean
-        default: false
-      cleanup_release_ref:
-        description: 'Delete the temporary CI release tag after completion'
         required: false
         type: boolean
         default: false
@@ -893,23 +888,3 @@ jobs:
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.install_snap_runtime_integrity.outcome }}" != "success" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.linux_runtime_integrity.outcome }}" != "success" ]] && exit 1
           exit 0
-
-  cleanup-release-ref:
-    if: ${{ always() && github.event.inputs.cleanup_release_ref == 'true' && startsWith(github.ref, 'refs/tags/ci/desktop-release/') }}
-    needs:
-      - renderer
-      - package-mac
-      - package-win
-      - package-linux
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Delete temporary CI release tag
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_REF_NAME: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_REF_NAME}"

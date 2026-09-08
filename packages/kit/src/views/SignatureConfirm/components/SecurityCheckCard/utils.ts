@@ -1,4 +1,5 @@
 import type { IBadgeType } from '@onekeyhq/components';
+import { ADDRESS_RISK_TAG_DISPLAY_TYPES } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   EParseTxComponentType,
@@ -21,38 +22,70 @@ function findParserAlertSentenceEnd(text: string) {
   return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
-// Address tag severities that represent risk. They stay next to the address,
-// while the SecurityCheckCard uses this set only to avoid a contradictory
-// global "No issues" verdict.
-export const RISK_BADGE_TYPES: ReadonlySet<IBadgeType> = new Set<IBadgeType>([
-  'warning',
-  'critical',
-]);
+// Address details stay next to the address row. The card consumes only their
+// severity as a fallback when a targeted request scan has no conclusion.
+export function getAddressRiskStatus(components: IDisplayComponent[]) {
+  let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
 
-export function hasAddressRiskTags(components: IDisplayComponent[]) {
-  return components.some(
-    (component) =>
-      component.type === EParseTxComponentType.Address &&
-      component.tags.some((tag) => RISK_BADGE_TYPES.has(tag.displayType)),
-  );
+  components.forEach((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return;
+    }
+    component.tags.forEach((tag) => {
+      if (!ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType)) {
+        return;
+      }
+      if (tag.displayType === 'critical') {
+        status = 'critical';
+      } else if (!status) {
+        status = 'warning';
+      }
+    });
+  });
+
+  return status;
 }
 
 export function shouldShowNoIssueSection({
   hasCardFindings,
-  hasAddressRisk,
   hasResolvedRequiredChecks,
-  hasCoverageTitle,
+  isSecurityCheckPending,
 }: {
   hasCardFindings: boolean;
-  hasAddressRisk: boolean;
   hasResolvedRequiredChecks: boolean;
-  hasCoverageTitle: boolean;
+  isSecurityCheckPending?: boolean;
 }) {
   return (
-    !hasCardFindings &&
-    !hasAddressRisk &&
-    hasResolvedRequiredChecks &&
-    hasCoverageTitle
+    !hasCardFindings && hasResolvedRequiredChecks && !isSecurityCheckPending
+  );
+}
+
+export function normalizeAlertText(text?: string) {
+  return text?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
+}
+
+export function normalizeSecurityFindingTitle(title: string) {
+  const trimmedTitle = title.trim();
+  return trimmedTitle.replace(/[。.！!]+$/u, '') || trimmedTitle;
+}
+
+export function shouldHideGenericPermitAlert({
+  alert,
+  genericPermitAlert,
+  isPermitSignMethod,
+  isSiteVerified,
+}: {
+  alert: string;
+  genericPermitAlert: string;
+  isPermitSignMethod: boolean;
+  isSiteVerified: boolean;
+}) {
+  const normalizedAlert = normalizeAlertText(alert);
+  return (
+    isPermitSignMethod &&
+    isSiteVerified &&
+    Boolean(normalizedAlert) &&
+    normalizedAlert === normalizeAlertText(genericPermitAlert)
   );
 }
 
@@ -199,8 +232,4 @@ export function getSimulationGroups(
       }))
       .filter((group) => group.assets.length > 0) ?? []
   );
-}
-
-export function getSimulationAssets(simulationGroups: ISimulationGroup[]) {
-  return simulationGroups.flatMap((group) => group.assets);
 }
