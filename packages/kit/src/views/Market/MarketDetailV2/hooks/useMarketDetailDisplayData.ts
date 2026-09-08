@@ -65,6 +65,66 @@ function buildStockPreviewTokenDetail({
   };
 }
 
+function isSameTokenIdentity({
+  previewTokenDetail,
+  tokenDetail,
+}: {
+  previewTokenDetail?: IMarketTokenDetail;
+  tokenDetail?: IMarketTokenDetail;
+}) {
+  if (!previewTokenDetail || !tokenDetail) {
+    return false;
+  }
+  return (
+    (!previewTokenDetail.networkId ||
+      !tokenDetail.networkId ||
+      previewTokenDetail.networkId === tokenDetail.networkId) &&
+    (previewTokenDetail.isNative === undefined ||
+      tokenDetail.isNative === undefined ||
+      previewTokenDetail.isNative === tokenDetail.isNative) &&
+    previewTokenDetail.address.toLowerCase() ===
+      tokenDetail.address.toLowerCase()
+  );
+}
+
+export function preserveMarketDetailPreviewImage({
+  previewTokenDetail,
+  tokenDetail,
+}: {
+  previewTokenDetail?: IMarketTokenDetail;
+  tokenDetail?: IMarketTokenDetail;
+}): IMarketTokenDetail | undefined {
+  const hasPreviewImage = Boolean(
+    previewTokenDetail?.logoUrl || previewTokenDetail?.logoUrls?.length,
+  );
+  const previewImageUris = previewTokenDetail?.logoUrls?.length
+    ? previewTokenDetail.logoUrls
+    : [previewTokenDetail?.logoUrl ?? ''];
+  const fullImageUris = tokenDetail?.logoUrls?.length
+    ? tokenDetail.logoUrls
+    : [tokenDetail?.logoUrl ?? ''];
+  const fullDetailConfirmsPreviewImage = previewImageUris
+    .filter(Boolean)
+    .every((uri) => fullImageUris.includes(uri));
+  if (
+    !tokenDetail ||
+    !hasPreviewImage ||
+    !fullDetailConfirmsPreviewImage ||
+    !isSameTokenIdentity({ previewTokenDetail, tokenDetail })
+  ) {
+    return tokenDetail;
+  }
+
+  // Preserve both the URI and the image component mode used by the preview.
+  // Switching between Image and Image.WithFallbackSources after detail loading
+  // would reload an icon that was already visible in the Market list.
+  return {
+    ...tokenDetail,
+    logoUrl: previewTokenDetail?.logoUrl ?? '',
+    logoUrls: previewTokenDetail?.logoUrls,
+  };
+}
+
 export function useMarketDetailDisplayData() {
   const tokenDetailData = useTokenDetail();
   const { stockPreview } = useStockDetail();
@@ -85,8 +145,16 @@ export function useMarketDetailDisplayData() {
     [networkId, stockPreview, tokenAddress],
   );
 
+  const stableFullTokenDetail = useMemo(
+    () =>
+      preserveMarketDetailPreviewImage({
+        previewTokenDetail,
+        tokenDetail,
+      }),
+    [previewTokenDetail, tokenDetail],
+  );
   const displayTokenDetail =
-    tokenDetail ?? previewTokenDetail ?? stockPreviewTokenDetail;
+    stableFullTokenDetail ?? previewTokenDetail ?? stockPreviewTokenDetail;
 
   return useMemo(
     () => ({
