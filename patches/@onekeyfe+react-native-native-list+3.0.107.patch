@@ -1,3 +1,113 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
+index a129837..f898ab2 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
+@@ -79,6 +79,7 @@ internal data class NativeListConfig(
+   val endReachedThreshold: Double,
+   val sectionIndexEnabled: Boolean,
+   val sectionIndexHapticsEnabled: Boolean,
++  val sectionIndexCenteredInWindow: Boolean,
+   val theme: JSONObject?,
+   val fixedFooter: NativeListItem?,
+   val items: List<NativeListItem>,
+@@ -127,6 +128,7 @@ internal data class NativeListConfig(
+         endReachedThreshold = capabilities?.optDouble("endReachedThreshold", 0.2) ?: 0.2,
+         sectionIndexEnabled = sectionIndex?.optBoolean("enabled", false) ?: false,
+         sectionIndexHapticsEnabled = sectionIndex?.optBoolean("hapticsEnabled", true) ?: true,
++        sectionIndexCenteredInWindow = sectionIndex?.optBoolean("centeredInWindow", false) ?: false,
+         theme = root.optJSONObject("theme"),
+         fixedFooter = fixedFooter,
+         items = items,
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+index eddcdcd..11513c7 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+@@ -4,6 +4,7 @@ import android.animation.TimeInterpolator
+ import android.graphics.Canvas
+ import android.graphics.Color
+ import android.graphics.Paint
++import android.graphics.Rect
+ import android.graphics.RectF
+ import android.graphics.drawable.GradientDrawable
+ import android.os.Bundle
+@@ -371,6 +372,7 @@ class NativeListView(
+       previous.endReachedThreshold != next.endReachedThreshold ||
+       previous.sectionIndexEnabled != next.sectionIndexEnabled ||
+       previous.sectionIndexHapticsEnabled != next.sectionIndexHapticsEnabled ||
++      previous.sectionIndexCenteredInWindow != next.sectionIndexCenteredInWindow ||
+       previous.theme?.toString() != next.theme?.toString() ||
+       previous.fixedFooter?.content != next.fixedFooter?.content ||
+       previous.items.size != next.items.size
+@@ -907,6 +909,7 @@ class NativeListView(
+       themeColor(next.theme, "secondaryText", "#646464"),
+       themeColor(next.theme, "accent", "#108303"),
+       themeColor(next.theme, "inverseText", "#FCFCFC"),
++      next.sectionIndexCenteredInWindow,
+     )
+     sectionIndexView.visibility = if (sectionIndexEntries.isEmpty()) GONE else VISIBLE
+     sectionIndexPreview.setTextColor(themeColor(next.theme, "inverseText", "#FCFCFC"))
+@@ -1701,7 +1704,10 @@ private class NativeListSectionIndexView(
+   private var normalColor = Color.GRAY
+   private var activeColor = Color.BLACK
+   private var activeTextColor = Color.WHITE
++  private var centeredInWindow = false
+   private var lastTouchIndex: Int? = null
++  private val windowVisibleFrame = Rect()
++  private val locationOnScreen = IntArray(2)
+   private val activeBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+   private val normalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+     textAlign = Paint.Align.CENTER
+@@ -1724,11 +1730,13 @@ private class NativeListSectionIndexView(
+     normalColor: Int,
+     activeColor: Int,
+     activeTextColor: Int,
++    centeredInWindow: Boolean,
+   ) {
+     this.titles = titles
+     this.normalColor = normalColor
+     this.activeColor = activeColor
+     this.activeTextColor = activeTextColor
++    this.centeredInWindow = centeredInWindow
+     activeIndex = null
+     updateContentDescription()
+     invalidate()
+@@ -1745,7 +1753,7 @@ private class NativeListSectionIndexView(
+     super.onDraw(canvas)
+     if (titles.isEmpty()) return
+     val cellHeight = cellHeight()
+-    val originY = (height - cellHeight * titles.size) / 2f
++    val originY = indexOriginY(cellHeight, titles.size)
+     val textSize = NativeListScale.font(resources, 10f) * resources.displayMetrics.scaledDensity
+     normalPaint.color = normalColor
+     normalPaint.textSize = textSize
+@@ -1853,7 +1861,7 @@ private class NativeListSectionIndexView(
+ 
+   private fun selectAt(y: Float, interacting: Boolean) {
+     val cellHeight = cellHeight()
+-    val originY = (height - cellHeight * titles.size) / 2f
++    val originY = indexOriginY(cellHeight, titles.size)
+     val index = ((y - originY) / cellHeight).toInt().coerceIn(0, titles.lastIndex)
+     if (interacting && lastTouchIndex == index) return
+     lastTouchIndex = index.takeIf { interacting }
+@@ -1870,6 +1878,18 @@ private class NativeListSectionIndexView(
+       .coerceAtMost(NativeListScale.dp(resources, 16f))
+       .coerceAtLeast(1f)
+ 
++  private fun indexOriginY(cellHeight: Float, count: Int): Float {
++    val totalHeight = cellHeight * count
++    val centeredOriginY = (height - totalHeight) / 2f
++    if (!centeredInWindow || !isAttachedToWindow) return centeredOriginY
++    rootView.getWindowVisibleDisplayFrame(windowVisibleFrame)
++    if (windowVisibleFrame.isEmpty) return centeredOriginY
++    getLocationOnScreen(locationOnScreen)
++    val localCenterY = windowVisibleFrame.exactCenterY() - locationOnScreen[1]
++    return (localCenterY - totalHeight / 2f)
++      .coerceIn(0f, (height - totalHeight).coerceAtLeast(0f))
++  }
++
+   private fun updateContentDescription() {
+     contentDescription = activeIndex?.let { titles.getOrNull(it) }
+       ?.let { "$ACCESSIBILITY_LABEL, $it" }
 diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift
 index ef5fe41..9b0ed93 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift
@@ -103,6 +213,18 @@ index 4006301..622950b 100644
    private func select(index: Int, interacting: Bool) {
      onSelect?(index, interacting)
      setActiveIndex(index)
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+index 6fb3adc..54af97d 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+@@ -390,6 +390,7 @@ export type NativeListTheme = Readonly<{
+ export type SectionIndexConfig = Readonly<{
+     enabled: boolean;
+     hapticsEnabled?: boolean;
++    centeredInWindow?: boolean;
+ }>;
+ export type NativeListSnapshot = Readonly<{
+     schemaVersion: 1;
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 index c40c112..40c5209 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
@@ -135,124 +257,3 @@ index f20eef3..82b8c8c 100644
      if (
        sectionIndex.enabled &&
        (snapshot.layout.kind !== 'sectioned' ||
-diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
-index a129837f7..f898ab22d 100644
---- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
-+++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListModels.kt
-@@ -79,6 +79,7 @@ internal data class NativeListConfig(
-   val endReachedThreshold: Double,
-   val sectionIndexEnabled: Boolean,
-   val sectionIndexHapticsEnabled: Boolean,
-+  val sectionIndexCenteredInWindow: Boolean,
-   val theme: JSONObject?,
-   val fixedFooter: NativeListItem?,
-   val items: List<NativeListItem>,
-@@ -127,6 +128,7 @@ internal data class NativeListConfig(
-         endReachedThreshold = capabilities?.optDouble("endReachedThreshold", 0.2) ?: 0.2,
-         sectionIndexEnabled = sectionIndex?.optBoolean("enabled", false) ?: false,
-         sectionIndexHapticsEnabled = sectionIndex?.optBoolean("hapticsEnabled", true) ?: true,
-+        sectionIndexCenteredInWindow = sectionIndex?.optBoolean("centeredInWindow", false) ?: false,
-         theme = root.optJSONObject("theme"),
-         fixedFooter = fixedFooter,
-         items = items,
-diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-index 756bde017..9114c069d 100644
---- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-+++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-@@ -4,6 +4,7 @@ import android.animation.TimeInterpolator
- import android.graphics.Canvas
- import android.graphics.Color
- import android.graphics.Paint
-+import android.graphics.Rect
- import android.graphics.RectF
- import android.graphics.drawable.GradientDrawable
- import android.os.Bundle
-@@ -371,6 +372,7 @@ class NativeListView(
-       previous.endReachedThreshold != next.endReachedThreshold ||
-       previous.sectionIndexEnabled != next.sectionIndexEnabled ||
-       previous.sectionIndexHapticsEnabled != next.sectionIndexHapticsEnabled ||
-+      previous.sectionIndexCenteredInWindow != next.sectionIndexCenteredInWindow ||
-       previous.theme?.toString() != next.theme?.toString() ||
-       previous.fixedFooter?.content != next.fixedFooter?.content ||
-       previous.items.size != next.items.size
-@@ -907,6 +909,7 @@ class NativeListView(
-       themeColor(next.theme, "secondaryText", "#646464"),
-       themeColor(next.theme, "accent", "#108303"),
-       themeColor(next.theme, "inverseText", "#FCFCFC"),
-+      next.sectionIndexCenteredInWindow,
-     )
-     sectionIndexView.visibility = if (sectionIndexEntries.isEmpty()) GONE else VISIBLE
-     sectionIndexPreview.setTextColor(themeColor(next.theme, "inverseText", "#FCFCFC"))
-@@ -1704,7 +1707,10 @@ private class NativeListSectionIndexView(
-   private var normalColor = Color.GRAY
-   private var activeColor = Color.BLACK
-   private var activeTextColor = Color.WHITE
-+  private var centeredInWindow = false
-   private var lastTouchIndex: Int? = null
-+  private val windowVisibleFrame = Rect()
-+  private val locationOnScreen = IntArray(2)
-   private val activeBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-   private val normalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-     textAlign = Paint.Align.CENTER
-@@ -1727,11 +1733,13 @@ private class NativeListSectionIndexView(
-     normalColor: Int,
-     activeColor: Int,
-     activeTextColor: Int,
-+    centeredInWindow: Boolean,
-   ) {
-     this.titles = titles
-     this.normalColor = normalColor
-     this.activeColor = activeColor
-     this.activeTextColor = activeTextColor
-+    this.centeredInWindow = centeredInWindow
-     activeIndex = null
-     updateContentDescription()
-     invalidate()
-@@ -1748,7 +1756,7 @@ private class NativeListSectionIndexView(
-     super.onDraw(canvas)
-     if (titles.isEmpty()) return
-     val cellHeight = cellHeight()
--    val originY = (height - cellHeight * titles.size) / 2f
-+    val originY = indexOriginY(cellHeight, titles.size)
-     val textSize = NativeListScale.font(resources, 10f) * resources.displayMetrics.scaledDensity
-     normalPaint.color = normalColor
-     normalPaint.textSize = textSize
-@@ -1856,7 +1864,7 @@ private class NativeListSectionIndexView(
-
-   private fun selectAt(y: Float, interacting: Boolean) {
-     val cellHeight = cellHeight()
--    val originY = (height - cellHeight * titles.size) / 2f
-+    val originY = indexOriginY(cellHeight, titles.size)
-     val index = ((y - originY) / cellHeight).toInt().coerceIn(0, titles.lastIndex)
-     if (interacting && lastTouchIndex == index) return
-     lastTouchIndex = index.takeIf { interacting }
-@@ -1873,6 +1881,18 @@ private class NativeListSectionIndexView(
-       .coerceAtMost(NativeListScale.dp(resources, 16f))
-       .coerceAtLeast(1f)
-
-+  private fun indexOriginY(cellHeight: Float, count: Int): Float {
-+    val totalHeight = cellHeight * count
-+    val centeredOriginY = (height - totalHeight) / 2f
-+    if (!centeredInWindow || !isAttachedToWindow) return centeredOriginY
-+    rootView.getWindowVisibleDisplayFrame(windowVisibleFrame)
-+    if (windowVisibleFrame.isEmpty) return centeredOriginY
-+    getLocationOnScreen(locationOnScreen)
-+    val localCenterY = windowVisibleFrame.exactCenterY() - locationOnScreen[1]
-+    return (localCenterY - totalHeight / 2f)
-+      .coerceIn(0f, (height - totalHeight).coerceAtLeast(0f))
-+  }
-+
-   private fun updateContentDescription() {
-     contentDescription = activeIndex?.let { titles.getOrNull(it) }
-       ?.let { "$ACCESSIBILITY_LABEL, $it" }
-diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index fd1345e..54af97d 100644
---- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-+++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-@@ -390,6 +390,7 @@ export type SectionIndexConfig = Readonly<{
-     enabled: boolean;
-     hapticsEnabled?: boolean;
-+    centeredInWindow?: boolean;
- }>;
- export type NativeListSnapshot = Readonly<{
-     schemaVersion: 1;
