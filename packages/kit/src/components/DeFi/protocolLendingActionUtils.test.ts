@@ -7,6 +7,7 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingFallbackWarning,
 } from './protocolLendingActionUtils';
 
 function createSubmitGuard({
@@ -297,6 +298,46 @@ describe('protocolLendingActionUtils', () => {
       currentDebt: '10',
       remainingDebt: '0',
     });
+  });
+
+  it('shows the generic liquidation warning when no server alert is available', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: true,
+        checkAmountAlertCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([1, 2])(
+    'lets %i server alert(s) replace the generic liquidation warning without text matching',
+    (checkAmountAlertCount) => {
+      expect(
+        shouldShowProtocolLendingFallbackWarning({
+          hasDebts: true,
+          isWithdraw: true,
+          checkAmountAlertCount,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('does not show the generic liquidation warning outside debt withdrawals', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: false,
+        isWithdraw: true,
+        checkAmountAlertCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: false,
+        checkAmountAlertCount: 0,
+      }),
+    ).toBe(false);
   });
 
   it('shows remaining debt and wallet balance for repay with known debt', () => {
