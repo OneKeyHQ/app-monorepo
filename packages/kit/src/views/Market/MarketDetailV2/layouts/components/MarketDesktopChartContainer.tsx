@@ -218,16 +218,14 @@ export function MarketDesktopChartContainer({
     </Stack>
   );
 
-  // Fullscreen drops the handle and the footer with it, so the box stands on
-  // its own there and keeps carrying the fullscreen frame styles itself.
-  if (isFullscreen || !footer) {
-    return box;
-  }
-
+  // The wrapper is unconditional: returning `box` bare in fullscreen changes
+  // the element the chart hangs off, which remounts the whole subtree and
+  // costs the user their zoom and pan every time they toggle. Fullscreen drops
+  // the footer instead, and the box keeps carrying the frame styles itself.
   return (
     <YStack width="100%" gap="$2">
       {box}
-      {footer}
+      {isFullscreen ? null : footer}
     </YStack>
   );
 }
