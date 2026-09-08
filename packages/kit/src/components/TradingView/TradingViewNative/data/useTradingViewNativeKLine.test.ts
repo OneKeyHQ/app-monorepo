@@ -644,6 +644,23 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
+  it('persists a selected interval before its history request finishes', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    const { result, unmount } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    act(() => result.current.handleIntervalChange('15'));
+    expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenLastCalledWith({
+      interval: '15',
+      namespace: 'token',
+    });
+    unmount();
+  });
+
   it('restores and saves Swap intervals independently for the same token', async () => {
     mockReadTradingViewNativeActiveInterval.mockImplementation((namespace) =>
       namespace === 'swap' ? '240' : '15',
@@ -3521,9 +3538,10 @@ describe('TradingViewNative K-line data state machine', () => {
     );
     expect(result.current.points[0]?.c).toBe(100);
     expect(result.current.dataState.status).toBe('stale');
-    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith(
-      expect.objectContaining({ interval: '1' }),
-    );
+    expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenLastCalledWith({
+      interval: '60',
+      namespace: 'token',
+    });
   });
 
   it('aborts selected-interval history when time navigation takes over', async () => {
