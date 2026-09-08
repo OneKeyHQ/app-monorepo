@@ -1,3 +1,5 @@
+import { isUndefined, omitBy } from 'lodash';
+
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -78,9 +80,11 @@ function buildMergedSelectedAccount({
   data: IAccountSelectorSelectedAccount | undefined;
   mergedByData: IAccountSelectorSelectedAccount;
 }): IAccountSelectorSelectedAccount {
+  // Explicit `undefined` keys (e.g. a freshly created default selection)
+  // must not erase a defined network context coming from the source.
   const result: IAccountSelectorSelectedAccount = {
     ...mergedByData,
-    ...data,
+    ...omitBy(data, isUndefined),
     walletId: mergedByData.walletId,
     indexedAccountId: mergedByData.indexedAccountId,
     othersWalletAccountId: mergedByData.othersWalletAccountId,

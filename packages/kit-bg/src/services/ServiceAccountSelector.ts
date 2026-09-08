@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -61,6 +62,30 @@ function hasStoredAccountAddress(account: IDBAccount): boolean {
   return addressMaps.some((addressMap) =>
     Object.values(addressMap ?? {}).some(Boolean),
   );
+}
+
+function hasSelectedAccountIdentity(
+  selectedAccount: IAccountSelectorSelectedAccount,
+): boolean {
+  return Boolean(
+    selectedAccount.walletId &&
+    (selectedAccount.indexedAccountId || selectedAccount.othersWalletAccountId),
+  );
+}
+
+// A selection that names an account but carries no network cannot be
+// rendered: the single-network branch reports "no address" for an account
+// that exists. Fall back to All Networks, the default for a fresh selection,
+// instead of treating the missing network as a missing account (OK-62137).
+function resolveSelectedAccountNetworkId(
+  selectedAccount: IAccountSelectorSelectedAccount,
+): string | undefined {
+  if (selectedAccount.networkId) {
+    return selectedAccount.networkId;
+  }
+  return hasSelectedAccountIdentity(selectedAccount)
+    ? getNetworkIdsMap().onekeyall
+    : undefined;
 }
 
 @backgroundClass()
@@ -162,8 +187,9 @@ class ServiceAccountSelector extends ServiceBase {
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
   }> {
-    const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
+    const { othersWalletAccountId, indexedAccountId, walletId } =
       selectedAccount;
+    const networkId = resolveSelectedAccountNetworkId(selectedAccount);
     const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
@@ -580,6 +606,10 @@ class ServiceAccountSelector extends ServiceBase {
         async (item: [string, IAccountSelectorSelectedAccount | undefined]) => {
           // TODO add whitelist
           const [num, v] = item;
+          if (v && !v.networkId) {
+            // Repair a persisted account selection that lost its network.
+            v.networkId = resolveSelectedAccountNetworkId(v);
+          }
           if (v && v.networkId) {
             const globalDeriveType = await this.getGlobalDeriveType({
               selectedAccount: v,

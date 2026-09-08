@@ -29,6 +29,7 @@ import {
 import {
   AccountSelectorJotaiProvider,
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorAvailableNetworksAtom,
   accountSelectorContextDataAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
@@ -3028,6 +3029,116 @@ describe('useAccountSelectorActions', () => {
       expect(store.get(selectedAccountsAtom())[0]).toEqual(
         homeRecentSelectedAccount,
       );
+    });
+  });
+  describe('missing network on an account selection (OK-62137)', () => {
+    const createdWallet = { id: 'hw-1', isMocked: false } as IWallet;
+    const createdIndexedAccount = {
+      id: 'hw-1--0',
+      walletId: 'hw-1',
+    } as IIndexedAccount;
+    const createParams = {
+      device: { connectId: 'hw-1-usb', deviceId: 'hw-1-device' },
+      features: {},
+      hideCheckingDeviceLoading: true,
+    } as unknown as IDBCreateHwWalletParamsBase;
+
+    beforeEach(() => {
+      mockCreateHWWalletService.mockResolvedValue({
+        wallet: createdWallet,
+        device: undefined,
+        indexedAccount: createdIndexedAccount,
+        isOverrideWallet: false,
+      });
+      mockAddDefaultNetworkAccountsService.mockResolvedValue({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+    });
+
+    it('gives a newly created wallet selection All Networks when the store has no network yet', async () => {
+      const { Wrapper, store } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        focusedWallet: 'hw-1',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('prefers the scene default network when filling a missing network', async () => {
+      const { Wrapper, store } = createWrapper();
+      store.set(accountSelectorAvailableNetworksAtom(), {
+        0: {
+          networkIds: ['evm--1', 'evm--56'],
+          defaultNetworkId: 'evm--56',
+        },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe('evm--56');
+    });
+
+    it('fills a missing network on the confirmAccountSelect fast path', async () => {
+      mockGetWalletSafe.mockResolvedValue(createdWallet);
+      const { Wrapper, store } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: createdIndexedAccount,
+          othersWalletAccount: undefined,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('does not persist an account selection that has no network', async () => {
+      const selectedAccount: ISelectedAccount = {
+        ...defaultSelectedAccount(),
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        focusedWallet: 'hw-1',
+      };
+      const { Wrapper, store } = createWrapper();
+      store.set(selectedAccountsAtom(), { 0: selectedAccount });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.saveToStorage({
+          selectedAccount,
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccountUpdatedAt: Date.now(),
+        });
+      });
+
+      expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+      expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
     });
   });
 });

@@ -25,7 +25,10 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -87,6 +90,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from './activeAccountInitGuard';
 import {
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorAvailableNetworksAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageInitDoneAtom,
@@ -1154,6 +1158,55 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return contextData;
   });
 
+  // An account selection must always carry a network: the background treats
+  // an identity without a network as "no address" and home renders the
+  // create-address empty state with a blank network selector (OK-62137).
+  // Callers such as autoSelectToCreatedWallet inherit whatever the store had,
+  // which is nothing until useAutoSelectNetwork has run, so fill the scene
+  // default here instead of relying on that effect.
+  fillMissingNetworkIdForAccountSelection({
+    get,
+    num,
+    sceneName,
+    selectedAccount,
+  }: {
+    get: IJotaiGetter;
+    num: number;
+    sceneName: EAccountSelectorSceneName | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }): IAccountSelectorSelectedAccount {
+    if (selectedAccount.networkId) {
+      return selectedAccount;
+    }
+    const hasAccountIdentity = Boolean(
+      selectedAccount.walletId &&
+      (selectedAccount.indexedAccountId ||
+        selectedAccount.othersWalletAccountId),
+    );
+    if (!hasAccountIdentity) {
+      return selectedAccount;
+    }
+    const availableNetworks = get(accountSelectorAvailableNetworksAtom())[num];
+    const networkIds = availableNetworks?.networkIds ?? [];
+    const defaultNetworkId = availableNetworks?.defaultNetworkId;
+    let networkId: string | undefined =
+      defaultNetworkId &&
+      (networkIds.length === 0 || networkIds.includes(defaultNetworkId))
+        ? defaultNetworkId
+        : networkIds[0];
+    if (!networkId) {
+      // Discover scenes never select All Networks (see useAutoSelectNetwork).
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return selectedAccount;
+      }
+      networkId = getNetworkIdsMap().onekeyall;
+    }
+    return {
+      ...selectedAccount,
+      networkId,
+    };
+  }
+
   mutexUpdateSelectedAccount = new Semaphore(1);
 
   updateSelectedAccount = contextAtomMethod(
@@ -1178,9 +1231,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           this.getSelectedAccount.call(set, { num }) ||
             defaultSelectedAccount(),
         );
-        const newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
+        let newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
           builder(oldSelectedAccount),
         );
+        newSelectedAccount = this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: sceneInfo?.sceneName,
+          selectedAccount: newSelectedAccount,
+        });
 
         if (
           platformEnv.isWebDappMode
@@ -1469,13 +1528,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return false;
       }
 
-      const newSelectedAccount: IAccountSelectorSelectedAccount = {
-        ...oldSelectedAccount,
-        networkId: resolvedNetworkId || oldSelectedAccount.networkId,
-        walletId,
-        othersWalletAccountId: othersWalletAccount?.id,
-        indexedAccountId: indexedAccount?.id,
-      };
+      const newSelectedAccount: IAccountSelectorSelectedAccount =
+        this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: requestContextData?.sceneName,
+          selectedAccount: {
+            ...oldSelectedAccount,
+            networkId: resolvedNetworkId || oldSelectedAccount.networkId,
+            walletId,
+            othersWalletAccountId: othersWalletAccount?.id,
+            indexedAccountId: indexedAccount?.id,
+          },
+        });
       const shouldUseFastConfirm =
         !resolvedNetworkId ||
         resolvedNetworkId === oldSelectedAccount.networkId;
@@ -2899,6 +2964,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount.othersWalletAccountId),
         );
         if (!hasAccountIdentityForStorage) {
+          return;
+        }
+        // An account without a network cannot be rendered (OK-62137): never
+        // let it replace a saved record; the in-memory fill above repairs it.
+        if (!selectedAccount.networkId) {
           return;
         }
         // Skip stale async saves: the in-memory selection may have moved on
