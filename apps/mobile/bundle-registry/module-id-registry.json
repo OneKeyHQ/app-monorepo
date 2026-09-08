@@ -20630,6 +20630,7 @@
     "packages/kit/src/views/AssetDetails/pages/KytRiskDetail/index.tsx": 4541,
     "packages/kit/src/views/AssetDetails/pages/MarketChart/index.tsx": 4616,
     "packages/kit/src/views/AssetDetails/pages/NFTDetails.tsx": 21766,
+    "packages/kit/src/views/AssetDetails/pages/NativeMarketDetail/index.tsx": 13210,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/ActionBuy.tsx": 18992,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsBalanceHero.tsx": 24358,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsContext.tsx": 16696,
