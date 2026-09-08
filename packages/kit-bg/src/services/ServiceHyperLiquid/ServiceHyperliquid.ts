@@ -163,6 +163,7 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
@@ -1667,12 +1668,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     const findMainDexAsset = (universesByDex: IPerpsUniverse[][]) =>
       universesByDex[0]?.find((item) => !item.isDelisted && item.name === coin);
 
-    let { universesByDex } = await this.getTradingUniverse();
-    if (!universesByDex[0]?.length) {
-      // Market is reachable without ever mounting Perps, so the positional
-      // universe cache can still be empty here on a cold start.
-      await this.refreshTradingMeta();
-      ({ universesByDex } = await this.getTradingUniverse());
+    const cached = await this.getTradingUniverse();
+    let { universesByDex } = cached;
+    if (
+      shouldRefreshMarketPerpsUniverse({
+        universesByDex,
+        updatedAt: cached.updatedAt,
+      })
+    ) {
+      try {
+        await this.refreshTradingMeta();
+        ({ universesByDex } = await this.getTradingUniverse());
+      } catch (error) {
+        // A stale universe still answers most symbols, and the caller reads a
+        // miss as "no perps entry" — losing that to a network blip would be
+        // worse than the staleness this was guarding against.
+        defaultLogger.app.error.log(
+          `Failed to refresh perps trading meta for market: ${String(error)}`,
+        );
+      }
     }
     const asset = findMainDexAsset(universesByDex);
     return asset ? { hlTicker: asset.name } : undefined;
