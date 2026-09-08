@@ -2,21 +2,21 @@ import { isTravelModeNetworkRequestAllowed } from './runtimeNetworkAllowlist';
 
 describe('isTravelModeNetworkRequestAllowed', () => {
   it.each([
-    ['/utility/v1/discover/dapp/homepage', 'get'],
-    ['/utility/v2/market/basic-config', 'GET'],
-    ['/utility/v1/market/tokens', 'get'],
-    ['/utility/v2/market/token/list/batch', 'post'],
-    ['/swap/v1/networks', undefined],
-    ['/swap/v1/speed-config?networkId=evm--1', 'get'],
-    ['/swap/v1/token/detail?networkId=evm--1', 'get'],
-    ['/swap/v1/tokens?networkId=evm--1', 'get'],
-    ['/swap/v1/check-stable-coins-list', 'post'],
-    ['/earn/v1/available-assets?type=staking', 'get'],
-    ['/earn/v2/available-assets', 'get'],
-  ])('allows the top-level request %s', (url, method) => {
+    ['utility', '/utility/v1/discover/dapp/homepage', 'get'],
+    ['utility', '/utility/v2/market/basic-config', 'GET'],
+    ['utility', '/utility/v1/market/tokens', 'get'],
+    ['utility', '/utility/v2/market/token/list/batch', 'post'],
+    ['swap', '/swap/v1/networks', undefined],
+    ['swap', '/swap/v1/speed-config?networkId=evm--1', 'get'],
+    ['swap', '/swap/v1/token/detail?networkId=evm--1', 'get'],
+    ['swap', '/swap/v1/tokens?networkId=evm--1', 'get'],
+    ['swap', '/swap/v1/check-stable-coins-list', 'post'],
+    ['earn', '/earn/v1/available-assets?type=staking', 'get'],
+    ['earn', '/earn/v2/available-assets', 'get'],
+  ])('allows the top-level request %s%s', (service, url, method) => {
     expect(
       isTravelModeNetworkRequestAllowed({
-        baseURL: 'https://api.onekey.so',
+        baseURL: `https://${service}.onekeycn.com`,
         method,
         url,
       }),
@@ -27,7 +27,32 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     expect(
       isTravelModeNetworkRequestAllowed({
         method: 'get',
-        url: 'https://api.onekey.so/utility/v2/market/basic-config/?foo=bar',
+        url: 'https://utility.onekeycn.com/utility/v2/market/basic-config/?foo=bar',
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    'https://untrusted.example/utility/v2/market/basic-config',
+    'https://utility.onekeycn.com.evil.example/utility/v2/market/basic-config',
+    'http://utility.onekeycn.com/utility/v2/market/basic-config',
+    'https://swap.onekeycn.com/utility/v2/market/basic-config',
+  ])('rejects the allowlisted path on an untrusted origin %s', (url) => {
+    expect(
+      isTravelModeNetworkRequestAllowed({
+        baseURL: 'https://utility.onekeycn.com',
+        method: 'get',
+        url,
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts official test service origins', () => {
+    expect(
+      isTravelModeNetworkRequestAllowed({
+        baseURL: 'https://earn.onekeytest.com',
+        method: 'get',
+        url: '/earn/v1/banner/list',
       }),
     ).toBe(true);
   });

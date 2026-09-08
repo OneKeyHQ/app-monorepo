@@ -1,3 +1,4 @@
+import { ONEKEY_API_HOST, ONEKEY_TEST_API_HOST } from '../config/appConfig';
 import type { AxiosRequestConfig } from 'axios';
 
 type IRuntimeNetworkRequestConfig = Pick<
@@ -5,32 +6,46 @@ type IRuntimeNetworkRequestConfig = Pick<
   'baseURL' | 'method' | 'url'
 >;
 
-const TRAVEL_MODE_ALLOWED_REQUESTS = new Set([
-  'get /earn/v1/available-assets',
-  'get /earn/v1/banner/list',
-  'get /earn/v1/block-region',
-  'get /earn/v1/faq/list',
-  'get /earn/v2/available-assets',
-  'get /swap/v1/networks',
-  'get /swap/v1/native-token-config',
-  'get /swap/v1/providers/list',
-  'get /swap/v1/speed-config',
-  'get /swap/v1/swap-config',
-  'get /swap/v1/token/detail',
-  'get /swap/v1/tokens',
-  'get /utility/v1/discover/dapp/homepage',
-  'get /utility/v1/market/asset/list',
-  'get /utility/v1/market/tokens',
-  'get /utility/v1/perp-config',
-  'get /utility/v1/stocks',
-  'get /utility/v1/swap-tips',
-  'get /utility/v2/market/basic-config',
-  'get /utility/v2/market/perps/token-list',
-  'get /utility/v2/market/token/list',
-  'get /utility/v2/market/banner/list',
-  'post /swap/v1/check-stable-coins-list',
-  'post /utility/v2/market/token/list/batch',
-]);
+type ITravelModeService = 'earn' | 'swap' | 'utility';
+
+const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
+  (
+    [
+      ['earn', 'get', '/earn/v1/available-assets'],
+      ['earn', 'get', '/earn/v1/banner/list'],
+      ['earn', 'get', '/earn/v1/block-region'],
+      ['earn', 'get', '/earn/v1/faq/list'],
+      ['earn', 'get', '/earn/v2/available-assets'],
+      ['swap', 'get', '/swap/v1/networks'],
+      ['swap', 'get', '/swap/v1/native-token-config'],
+      ['swap', 'get', '/swap/v1/providers/list'],
+      ['swap', 'get', '/swap/v1/speed-config'],
+      ['swap', 'get', '/swap/v1/swap-config'],
+      ['swap', 'get', '/swap/v1/token/detail'],
+      ['swap', 'get', '/swap/v1/tokens'],
+      ['utility', 'get', '/utility/v1/discover/dapp/homepage'],
+      ['utility', 'get', '/utility/v1/market/asset/list'],
+      ['utility', 'get', '/utility/v1/market/tokens'],
+      ['utility', 'get', '/utility/v1/perp-config'],
+      ['utility', 'get', '/utility/v1/stocks'],
+      ['utility', 'get', '/utility/v1/swap-tips'],
+      ['utility', 'get', '/utility/v2/market/basic-config'],
+      ['utility', 'get', '/utility/v2/market/perps/token-list'],
+      ['utility', 'get', '/utility/v2/market/token/list'],
+      ['utility', 'get', '/utility/v2/market/banner/list'],
+      ['swap', 'post', '/swap/v1/check-stable-coins-list'],
+      ['utility', 'post', '/utility/v2/market/token/list/batch'],
+    ] as const satisfies readonly (readonly [
+      ITravelModeService,
+      string,
+      string,
+    ])[]
+  ).flatMap(([service, method, path]) =>
+    [ONEKEY_API_HOST, ONEKEY_TEST_API_HOST].map(
+      (host) => `${method} https://${service}.${host}${path}`,
+    ),
+  ),
+);
 
 function normalizePath(path: string): string {
   const normalizedPath = path.split(/[?#]/, 1)[0] || '/';
@@ -40,36 +55,35 @@ function normalizePath(path: string): string {
   return withLeadingSlash.replace(/\/+$/, '') || '/';
 }
 
-function getRequestPath({
+function getRequestUrl({
   baseURL,
   url,
-}: IRuntimeNetworkRequestConfig): string | undefined {
+}: IRuntimeNetworkRequestConfig): URL | undefined {
   if (!url) {
     return undefined;
   }
 
   if (typeof URL !== 'undefined') {
     try {
-      const parsed = new URL(url, baseURL || 'https://onekey.invalid');
-      return normalizePath(parsed.pathname);
+      return new URL(url, baseURL);
     } catch {
-      // Fall back to relative URL parsing for environments without URL support.
+      return undefined;
     }
   }
 
-  return normalizePath(url);
+  return undefined;
 }
 
 function getTravelModeNetworkRequestKey(
   config: IRuntimeNetworkRequestConfig,
 ): string | undefined {
-  const path = getRequestPath(config);
-  if (!path) {
+  const requestUrl = getRequestUrl(config);
+  if (!requestUrl) {
     return undefined;
   }
 
   const method = (config.method || 'get').toLowerCase();
-  return `${method} ${path}`;
+  return `${method} ${requestUrl.origin}${normalizePath(requestUrl.pathname)}`;
 }
 
 /**

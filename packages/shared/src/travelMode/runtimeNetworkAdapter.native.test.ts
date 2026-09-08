@@ -54,6 +54,7 @@ describe('createRuntimeNetworkAdapter.native', () => {
 
     const adapter = createRuntimeNetworkAdapter(delegate);
     const config = {
+      baseURL: 'https://utility.onekeycn.com',
       method: 'get',
       url: '/utility/v2/market/basic-config',
     } as Parameters<AxiosAdapter>[0];
