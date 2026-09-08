@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "트랜잭션이 온체인에서 되돌려졌습니다",
   "word": "워드",
   "your_device_is_ready": "기기가 준비되었습니다",
-  "your_wallet_is_ready": "지갑이 준비되었습니다"
+  "your_wallet_is_ready": "지갑이 준비되었습니다",
+  "perp_twap_orders__title": "TWAP 주문"
 }

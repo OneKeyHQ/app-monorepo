@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "交易在鏈上被回滾",
   "word": "助記詞",
   "your_device_is_ready": "你的裝置已就緒",
-  "your_wallet_is_ready": "您的錢包已準備就緒"
+  "your_wallet_is_ready": "您的錢包已準備就緒",
+  "perp_twap_orders__title": "分時委託"
 }

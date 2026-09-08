@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "Transaksi dibatalkan di on-chain",
   "word": "Kata",
   "your_device_is_ready": "Perangkat Anda siap",
-  "your_wallet_is_ready": "Dompet Anda sudah siap"
+  "your_wallet_is_ready": "Dompet Anda sudah siap",
+  "perp_twap_orders__title": "Order TWAP"
 }

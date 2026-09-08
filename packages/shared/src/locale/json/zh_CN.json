@@ -5637,5 +5637,6 @@
   "wc_pay_tx_reverted__msg": "交易在链上被回滚",
   "word": "助记词",
   "your_device_is_ready": "设备已就绪",
-  "your_wallet_is_ready": "您的钱包已准备就绪"
+  "your_wallet_is_ready": "您的钱包已准备就绪",
+  "perp_twap_orders__title": "分时委托"
 }
