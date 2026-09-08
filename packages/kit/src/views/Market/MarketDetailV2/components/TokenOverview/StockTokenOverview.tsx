@@ -21,6 +21,8 @@ import {
   formatStockAnalystConsensus,
 } from '../../utils/stockPublicDataUtils';
 import { StockDescriptionRows } from '../StockDescriptionRows';
+import { stockFinancialLabels } from '../StockFinancials/stockFinancialLabels';
+import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
@@ -29,7 +31,7 @@ export function StockTokenOverview() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail, isStockToken } = useTokenDetail();
-  const { stockDetail, isStockDetailError, retryStockDetail } =
+  const { stockId, stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const stock = stockDetail
     ? buildStockInfoFromPublicDetail(stockDetail, tokenDetail?.stock)
@@ -140,6 +142,14 @@ export function StockTokenOverview() {
       </Stack>
 
       <Divider my="$1" />
+
+      {stockId ? (
+        <StockFinancials
+          stockId={stockId}
+          labels={stockFinancialLabels}
+          withHorizontalPadding={false}
+        />
+      ) : null}
 
       <Stack gap="$3" py="$2">
         <SizableText size="$bodyLgMedium">
