@@ -1551,7 +1551,19 @@ export function buildAggregateTokenListData(params: {
         ],
       };
     } else {
-      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push(token);
+      // Later members must carry the same config metadata as the first one:
+      // the token selector folds every network into one accumulated map, and
+      // `sortTokensByOrder` would otherwise leave members without `order` in
+      // response-arrival order.
+      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push({
+        ...token,
+        accountId,
+        networkId,
+        order: aggregateToken.order,
+        commonSymbol: aggregateToken.commonSymbol,
+        networkName,
+        logoURI: aggregateToken.logoURI,
+      });
     }
 
     newAggregateTokenMap[aggregateTokenListMapKey] = {
