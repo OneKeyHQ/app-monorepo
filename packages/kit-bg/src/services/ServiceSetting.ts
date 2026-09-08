@@ -874,7 +874,16 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async syncWalletConfig() {
     await this.abortFetchWalletConfig();
-    const resp = await this.fetchWalletConfig();
+    // Aggregate members are gated on the merged network registry below, which
+    // includes server-delivered networks only once their cache has been filled.
+    // On a fresh install getServerNetworks returns an empty cache and refreshes
+    // it in the background, so without waiting here the first sync would drop
+    // every server-chain member and persist that incomplete map until the
+    // config TTL expires.
+    const [resp] = await Promise.all([
+      this.fetchWalletConfig(),
+      this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched(),
+    ]);
 
     if (!resp) {
       return;

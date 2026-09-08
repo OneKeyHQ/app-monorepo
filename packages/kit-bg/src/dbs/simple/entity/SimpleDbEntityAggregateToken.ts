@@ -236,6 +236,17 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     }));
   }
 
+  // Drops the sync marker so the next syncWalletConfigIfNeeded re-fetches the
+  // wallet config. Used when the server-network set changes, because the
+  // cached aggregate-token maps were gated on the previous set.
+  @backgroundMethod()
+  async clearConfigSyncMeta() {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      configSyncMeta: undefined,
+    }));
+  }
+
   @backgroundMethod()
   async updateLastActiveTabNameInTokenDetails({
     accountId,

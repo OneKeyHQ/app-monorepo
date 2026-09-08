@@ -40,7 +40,13 @@ function buildMember(networkId: string): IAggregateToken {
   return { networkId, address: '', decimals: 18 } as IAggregateToken;
 }
 
-function buildService({ networks }: { networks: IServerNetwork[] }) {
+function buildService({
+  networks,
+  ensureServerNetworksFetched = jest.fn(async () => undefined),
+}: {
+  networks: IServerNetwork[] | (() => IServerNetwork[]);
+  ensureServerNetworksFetched?: jest.Mock<Promise<void>, []>;
+}) {
   const updateAllAggregateInfo = jest.fn(
     async (_params: IUpdateAllAggregateInfoParams) => undefined,
   );
@@ -53,7 +59,12 @@ function buildService({ networks }: { networks: IServerNetwork[] }) {
         },
       },
       serviceNetwork: {
-        getAllNetworks: jest.fn(async () => ({ networks })),
+        getAllNetworks: jest.fn(async () => ({
+          networks: typeof networks === 'function' ? networks() : networks,
+        })),
+      },
+      serviceCustomRpc: {
+        ensureServerNetworksFetched,
       },
     },
   });
@@ -131,5 +142,31 @@ describe('ServiceSetting.syncWalletConfig', () => {
 
     // Only one eligible member is left, so ETH is not an aggregate token.
     expect(Object.keys(configMap)).toEqual([]);
+  });
+
+  it('waits for the server-network cache before gating members', async () => {
+    // Fresh install: the merged registry only knows presets until the first
+    // server-network fetch lands, which is what ensureServerNetworksFetched
+    // awaits.
+    let cachedNetworks = [ethereum];
+    const ensureServerNetworksFetched = jest.fn(async () => {
+      cachedNetworks = [ethereum, robinhood];
+    });
+    const { service } = buildService({
+      networks: () => cachedNetworks,
+      ensureServerNetworksFetched,
+    });
+
+    const configMap = await sync(service);
+
+    expect(ensureServerNetworksFetched).toHaveBeenCalledTimes(1);
+    expect(
+      configMap[
+        buildAggregateTokenMapKeyForAggregateConfig({
+          networkId: 'evm--4663',
+          tokenAddress: '',
+        })
+      ],
+    ).toBeDefined();
   });
 });
