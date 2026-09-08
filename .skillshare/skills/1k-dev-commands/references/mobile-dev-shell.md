@@ -12,8 +12,8 @@ simulator, installing an artifact, or triggering CI.
 
 ## Launch
 
-Require a booted iOS Simulator or a connected Android emulator/device, then run
-one long-lived command from the repository root:
+Require an available iOS Simulator or a connected Android emulator/device, then
+run one long-lived command from the repository root:
 
 ```bash
 yarn workspace @onekeyhq/mobile dev-shell --platform ios
@@ -23,9 +23,16 @@ yarn workspace @onekeyhq/mobile dev-shell --platform android
 The root aliases `yarn app:ios` and `yarn app:android` invoke these DevSession
 launchers; they are not direct native build commands.
 
-If more than one target is available, do not guess. Resolve the requested UDID
-or serial and rerun with `--device <serial-or-UDID>`. The launcher accepts one
-available target without an explicit device argument.
+For iOS, the launcher reuses the sole booted simulator, or selects the sole
+available simulator when none are booted. Otherwise, an interactive terminal
+shows a numbered list with device names, runtime versions, states, and UDIDs.
+The selected simulator is booted if needed and awaited before app installation.
+An explicit `--device <UDID>` can also select a shutdown simulator.
+
+In non-interactive sessions with multiple candidates, do not guess. Resolve the
+requested UDID or serial and rerun with `--device <serial-or-UDID>`. The error
+lists available devices. Android still requires a connected emulator/device and
+an explicit serial when multiple targets are connected.
 
 `--metro-url <origin>` overrides only the device-visible route written into the
 private session. Use it for a LAN address or reverse proxy that routes to the
@@ -44,8 +51,54 @@ only when the user explicitly requests that mode or when diagnosing the launcher
 Do not reproduce the download, attestation, cache, extraction, installation, or
 fallback logic with ad hoc commands.
 
+Native shell selection requires an exact input key that includes native source
+contents and build/signing inputs as well as the ABI contract. The launcher does
+not fall back to an older shell merely because its exported native interface is
+compatible. If the matching remote artifact is unavailable, `--shell auto` builds
+locally and caches that result. JavaScript-only edits do not change this native
+input key.
+
 The iOS resource is an iOS Simulator app artifact, not a device/App Store IPA.
 The Android resource is an APK.
+
+Before installing an iOS shell, the launcher checks for Xcode's embedded
+simulator entitlements. With `--shell auto`, an older shell missing them triggers
+a local native rebuild. Simulator permissions must be embedded during the build;
+adding restricted iOS entitlements to an ad-hoc signature is not sufficient.
+The installer verifies the extracted app and its vendor frameworks and repairs
+only invalid signatures. A repaired archive is cached separately, keyed to the
+original archive digest and build/signing rules; subsequent launches verify and
+reuse it. The verified remote archive stays unchanged. CI uses the
+same signing and verification routine after injecting the final Info.plist and
+before packaging the archive; missing entitlements or invalid signatures fail the
+build before publication.
+
+With the default `--shell auto`, a successful local rebuild is saved as a complete
+archive under `apps/mobile/out-dir-bundle/dev-shell/local-cache`. The next launch
+checks its native shell key, build/signing inputs, size, and SHA-256 before trying
+remote resources. A valid hit skips CocoaPods, Xcode/Gradle, and packaging. Missing,
+modified, or obsolete archives follow the normal restore/build path. Explicit
+`--shell local` still requests a build; native build intermediates remain reusable.
+
+WebEmbed checks `web-build` against its canonical build or verified restore receipt
+before downloading. Matching source inputs and output-tree digests skip both the
+download and build, including after a previous 404 fallback. Changed inputs or
+missing/modified output trigger restore, then the automatic local build if needed.
+
+WebEmbed saves its dependency scan under `out-dir-bundle/web-embed-input-cache.json`.
+New launcher processes validate source contents, package/lock metadata, symlinks,
+and the resolver's existing/missing path dependencies before reusing the input
+key. Unchanged inputs skip source parsing and module resolution. Changed inputs,
+new higher-priority resolution candidates, or a corrupt scan cache trigger a full
+scan; `yarn clean` removes this cache too.
+
+`yarn clean` removes mobile `out-dir-bundle` (local shells, repaired signatures,
+vendor output, and sessions), WebEmbed output and receipts, and `ios/outputs` in
+addition to dependencies and Pods. It also clears every version of the shared
+OneKey shell/vendor caches at the default and configured locations, including
+`XDG_CACHE_HOME` and `ONEKEY_METRO_PREBUNDLE_CACHE_DIR`. These shared caches may
+serve other worktrees. The next launch after dependency installation must restore
+or build fresh artifacts.
 
 ## Completion and reporting
 

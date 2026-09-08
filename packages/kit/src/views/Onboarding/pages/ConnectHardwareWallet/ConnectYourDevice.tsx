@@ -1528,7 +1528,10 @@ export function ConnectYourDevicePage() {
           deviceName: device.name ?? undefined,
         });
 
-        const handleBootloaderMode = (existsFirmware: boolean) => {
+        const handleBootloaderMode = async (existsFirmware: boolean) => {
+          // The checking beat stands on stage behind its touch wall; the
+          // dialog must not open under it (OK-62105). Yield first.
+          await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
@@ -1546,7 +1549,7 @@ export function ConnectYourDevicePage() {
             await deviceUtils.existsFirmwareFromSearchDevice({
               device: device as any,
             });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 
@@ -1577,7 +1580,7 @@ export function ConnectYourDevicePage() {
           const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
             features,
           });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 

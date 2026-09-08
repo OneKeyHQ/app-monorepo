@@ -35,6 +35,7 @@ describe('Travel Mode platform loading', () => {
     ).rejects.toThrow('only supported on mobile');
     travelModeManager.markRestartFailed();
     await expect(travelModeManager.getRuntimeState()).resolves.toBe('inactive');
+    expect(travelModeManager.getRuntimeStateSync()).toBe('inactive');
   });
 
   it('loads the supported manager in a native runtime', async () => {

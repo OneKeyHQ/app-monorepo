@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Divider } from '@onekeyhq/components';
+import {
+  ActionList,
+  Divider,
+  type IActionListProps,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -27,16 +31,7 @@ import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
-function AccountEditButtonView({
-  avatarNetworkId,
-  accountsCount,
-  indexedAccount,
-  firstIndexedAccount,
-  account,
-  firstAccount,
-  wallet,
-  networkId,
-}: {
+export interface IAccountEditButtonProps {
   avatarNetworkId?: string;
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
@@ -45,7 +40,23 @@ function AccountEditButtonView({
   firstAccount?: IDBAccount;
   wallet?: IDBWallet;
   networkId?: string;
-}) {
+}
+
+export interface IAccountEditActionListOptions {
+  title: string;
+  renderItemsAsync: NonNullable<IActionListProps['renderItemsAsync']>;
+}
+
+export function useAccountEditActionListOptions({
+  avatarNetworkId,
+  accountsCount,
+  indexedAccount,
+  firstIndexedAccount,
+  account,
+  firstAccount,
+  wallet,
+  networkId,
+}: IAccountEditButtonProps): IAccountEditActionListOptions {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
   const name = indexedAccount?.name || account?.name || '--';
@@ -326,16 +337,25 @@ function AccountEditButtonView({
     ],
   );
 
+  return {
+    title: name,
+    renderItemsAsync: renderItems,
+  };
+}
+
+function AccountEditButtonView(props: IAccountEditButtonProps) {
+  const { title, renderItemsAsync } = useAccountEditActionListOptions(props);
+
   return (
     <ActionList
-      title={name}
+      title={title}
       renderTrigger={
         <ListItem.IconButton
-          testID={AccountManagerTestIDs.accountEditButton(name)}
+          testID={AccountManagerTestIDs.accountEditButton(title)}
           icon="DotHorOutline"
         />
       }
-      renderItemsAsync={renderItems}
+      renderItemsAsync={renderItemsAsync}
     />
   );
 }

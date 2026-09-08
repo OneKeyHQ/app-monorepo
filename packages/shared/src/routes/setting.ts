@@ -51,6 +51,7 @@ export enum EModalSettingRoutes {
   SettingDevBundleUpdateStatusModal = 'SettingDevBundleUpdateStatusModal',
   SettingDevSplitBundleTestModal = 'SettingDevSplitBundleTestModal',
   SettingDevDrawingOrderStressModal = 'SettingDevDrawingOrderStressModal',
+  SettingDevLargeWalletDataCreation = 'SettingDevLargeWalletDataCreation',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -143,6 +144,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevBundleUpdateStatusModal]: undefined;
   [EModalSettingRoutes.SettingDevSplitBundleTestModal]: undefined;
   [EModalSettingRoutes.SettingDevDrawingOrderStressModal]: undefined;
+  [EModalSettingRoutes.SettingDevLargeWalletDataCreation]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;

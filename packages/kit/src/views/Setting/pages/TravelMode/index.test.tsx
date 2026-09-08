@@ -3,6 +3,9 @@
 import TravelMode from './';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
+
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 
 type ITravelModeStatus = {
   enabled: boolean;
@@ -20,6 +23,8 @@ const mockSetEnabled = jest.fn<Promise<void>, [unknown]>();
 const mockRetryRestart = jest.fn<Promise<void>, [unknown]>();
 
 let mockCurrentEnabled = false;
+let enMessages: Awaited<ReturnType<typeof loadLocaleMessages>>;
+let zhMessages: Awaited<ReturnType<typeof loadLocaleMessages>>;
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -27,12 +32,6 @@ jest.mock('@react-navigation/native', () => ({
     addListener: mockNavigationAddListener,
   }),
   useRoute: () => ({ params: { admissionId: 'admission-id' } }),
-}));
-
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
-  }),
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -51,11 +50,10 @@ jest.mock('@onekeyhq/components', () => {
   const Stack = ({ children }: { children?: import('react').ReactNode }) =>
     React.createElement('div', null, children);
   const Page = Stack as typeof Stack & {
-    Header: typeof Stack;
+    Header: (props: { title?: string }) => React.ReactElement;
     Body: typeof Stack;
   };
-  Page.Header = ({ children }: { children?: React.ReactNode }) =>
-    React.createElement('header', null, children);
+  Page.Header = ({ title }) => React.createElement('header', null, title);
   Page.Body = Stack;
 
   return {
@@ -119,18 +117,35 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   };
 });
 
-jest.mock('@onekeyhq/shared/src/locale', () => ({
-  ETranslations: {
-    global_retry: 'global_retry',
-    global_unknown_error_retry_message: 'global_unknown_error_retry_message',
-  },
-}));
+jest.mock('@onekeyhq/shared/src/locale', () =>
+  jest.requireActual<
+    typeof import('@onekeyhq/shared/src/locale/enum/translations')
+  >('@onekeyhq/shared/src/locale/enum/translations'),
+);
 
 jest.mock('../Tab/settingsSurface', () => ({
   SETTINGS_PAGE_BODY_INSET_X: 0,
 }));
 
+function TravelModeWithLocale({ locale = 'en' }: { locale?: 'en' | 'zh-CN' }) {
+  return (
+    <IntlProvider
+      locale={locale}
+      messages={locale === 'en' ? enMessages : zhMessages}
+    >
+      <TravelMode />
+    </IntlProvider>
+  );
+}
+
 describe('TravelMode', () => {
+  beforeAll(async () => {
+    [enMessages, zhMessages] = await Promise.all([
+      loadLocaleMessages('en-US'),
+      loadLocaleMessages('zh-CN'),
+    ]);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockCurrentEnabled = false;
@@ -145,7 +160,7 @@ describe('TravelMode', () => {
   });
 
   it('requires confirmation before enabling Travel Mode', async () => {
-    const { container, findByTestId } = render(<TravelMode />);
+    const { container, findByTestId } = render(<TravelModeWithLocale />);
 
     fireEvent.click(await findByTestId('setting-travel-mode-switch'));
 
@@ -189,7 +204,7 @@ describe('TravelMode', () => {
   });
 
   it('keeps Travel Mode off when enable confirmation is cancelled', async () => {
-    const { findByTestId } = render(<TravelMode />);
+    const { findByTestId } = render(<TravelModeWithLocale />);
 
     fireEvent.click(await findByTestId('setting-travel-mode-switch'));
 
@@ -210,7 +225,7 @@ describe('TravelMode', () => {
 
   it('disables Travel Mode without a confirmation dialog', async () => {
     mockCurrentEnabled = true;
-    const { findByTestId } = render(<TravelMode />);
+    const { findByTestId } = render(<TravelModeWithLocale />);
 
     fireEvent.click(await findByTestId('setting-travel-mode-switch'));
 
@@ -221,5 +236,39 @@ describe('TravelMode', () => {
       }),
     );
     expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('refreshes page, confirmation and restart copy when the locale changes', async () => {
+    const { container, findByTestId, rerender } = render(
+      <TravelModeWithLocale />,
+    );
+    await findByTestId('setting-travel-mode-switch');
+    expect(container.querySelector('header')?.textContent).toBe('Travel Mode');
+
+    rerender(<TravelModeWithLocale locale="zh-CN" />);
+
+    expect(container.querySelector('header')?.textContent).toBe('旅行模式');
+    expect(container.textContent).toContain('你的钱包已准备就绪');
+    expect(container.textContent).toContain('密码保护仍然有效。');
+    expect(container.textContent).not.toContain('Your wallet is ready to use');
+    fireEvent.click(await findByTestId('setting-travel-mode-switch'));
+    expect(mockDialogShow).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: '开启旅行模式？',
+        onCancelText: '以后再说',
+        onConfirmText: '开启旅行模式',
+      }),
+    );
+    const dialogOptions = mockDialogShow.mock.calls.at(-1)?.[0] as {
+      onConfirm: (params: { close: () => Promise<void> }) => Promise<void>;
+    };
+    const close = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
+    await act(async () => {
+      await dialogOptions.onConfirm({ close });
+    });
+    expect(mockDialogLoading).toHaveBeenLastCalledWith({
+      title: '正在重启 OneKey…',
+      description: '正在应用新的保护模式。',
+    });
   });
 });

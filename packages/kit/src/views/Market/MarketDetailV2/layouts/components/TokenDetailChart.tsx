@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  ScrollView,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import { TradingViewDesktopToolbarContext } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/TradingViewDesktopToolbarContext';
 import {
   type IMarketDetailChartDisplayMode,
   useMarketDetailChartDisplayModePersistAtom,
@@ -33,7 +40,7 @@ function TokenChartModeControl({
   const intl = useIntl();
 
   return (
-    <XStack height={32} alignItems="center" gap="$0.5">
+    <XStack height={32} flexShrink={0} alignItems="center" gap="$0.5">
       <Button
         testID="market-token-chart-mode-simple"
         minWidth={62}
@@ -88,9 +95,39 @@ export function TokenDetailChart({
     useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
-  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
-    setChartDisplayMode({ mode: nextMode });
-  };
+  const handleModeChange = useCallback(
+    (nextMode: IMarketDetailChartDisplayMode) => {
+      setChartDisplayMode({ mode: nextMode });
+    },
+    [setChartDisplayMode],
+  );
+
+  const proToolbar = useMemo(
+    () =>
+      isChartFullscreen ? null : (
+        <MarketDetailProChartControls
+          inline
+          testID="market-token-chart-mode-control-pro"
+          top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
+          fullscreenTestID="trading-view-native-fullscreen-toggle"
+          chartMode={chartMode}
+          isChartSwitchDisabled={isChartSwitchDisabled}
+          onChartSwitch={onChartSwitch}
+          onEnterChartFullscreen={onEnterChartFullscreen}
+        >
+          <TokenChartModeControl mode={mode} onChange={handleModeChange} />
+        </MarketDetailProChartControls>
+      ),
+    [
+      isChartFullscreen,
+      chartMode,
+      isChartSwitchDisabled,
+      onChartSwitch,
+      onEnterChartFullscreen,
+      mode,
+      handleModeChange,
+    ],
+  );
 
   return (
     // Simple mode stacks a 40px toolbar, a 16px gap and the flexible chart
@@ -106,14 +143,22 @@ export function TokenDetailChart({
     >
       {isSimpleMode ? (
         <>
-          <XStack
+          <ScrollView
             testID="market-token-chart-toolbar"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            width="100%"
             height={40}
-            py="$1"
-            alignItems="center"
-            justifyContent="space-between"
+            flexGrow={0}
+            flexShrink={0}
+            contentContainerStyle={{
+              flexGrow: 1,
+              py: '$1',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
           >
-            <XStack alignItems="center" gap="$0.5">
+            <XStack flexShrink={0} alignItems="center" gap="$0.5">
               {TOKEN_SIMPLE_CHART_RANGES.map((item) => {
                 const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
                 return (
@@ -144,7 +189,7 @@ export function TokenDetailChart({
               })}
             </XStack>
             <TokenChartModeControl mode={mode} onChange={handleModeChange} />
-          </XStack>
+          </ScrollView>
           <StockSimpleChart
             marketAssetId={marketAssetId}
             range={range}
@@ -153,22 +198,31 @@ export function TokenDetailChart({
         </>
       ) : (
         <>
-          <Stack flex={1} minWidth={0} overflow="hidden">
-            {marketTradingView}
-          </Stack>
-          {isChartFullscreen ? null : (
-            <MarketDetailProChartControls
-              testID="market-token-chart-mode-control-pro"
-              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
-              fullscreenTestID="trading-view-native-fullscreen-toggle"
-              chartMode={chartMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onEnterChartFullscreen={onEnterChartFullscreen}
+          {(marketTradingView === null || marketTradingView === undefined) &&
+          proToolbar ? (
+            <ScrollView
+              testID="market-token-chart-fallback-toolbar"
+              horizontal
+              width="100%"
+              height={40}
+              flexGrow={0}
+              flexShrink={0}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexGrow: 1,
+                py: '$1',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
             >
-              <TokenChartModeControl mode={mode} onChange={handleModeChange} />
-            </MarketDetailProChartControls>
-          )}
+              {proToolbar}
+            </ScrollView>
+          ) : null}
+          <TradingViewDesktopToolbarContext.Provider value={proToolbar}>
+            <Stack flex={1} minWidth={0} overflow="hidden">
+              {marketTradingView}
+            </Stack>
+          </TradingViewDesktopToolbarContext.Provider>
         </>
       )}
     </YStack>
