@@ -99,8 +99,7 @@ export async function preloadNetworkImagesV2(networks: IServerNetwork[]) {
       uri,
       width: 32,
       height: 32,
-      resizeWidth: 32,
-      optimize: false,
+      optimize: true,
       cachePolicy: 'memory-disk',
     })),
   );

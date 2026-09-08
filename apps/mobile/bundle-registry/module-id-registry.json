@@ -22645,6 +22645,7 @@
     "packages/kit/src/views/Setting/pages/DevBundleSwitcher/VersionList.tsx": 11562,
     "packages/kit/src/views/Setting/pages/DevBundleUpdateStatus/index.tsx": 13207,
     "packages/kit/src/views/Setting/pages/DevDrawingOrderStress/index.tsx": 77,
+    "packages/kit/src/views/Setting/pages/DevLargeWalletDataCreation/index.tsx": 20625,
     "packages/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck/index.tsx": 23733,
     "packages/kit/src/views/Setting/pages/DevSplitBundleTest/index.tsx": 15365,
     "packages/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests.tsx": 5685,

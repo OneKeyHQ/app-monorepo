@@ -64,8 +64,7 @@ describe('network currency presentation V2', () => {
         uri: 'https://example.com/eth.png',
         width: 32,
         height: 32,
-        resizeWidth: 32,
-        optimize: false,
+        optimize: true,
         cachePolicy: 'memory-disk',
       },
     ]);
