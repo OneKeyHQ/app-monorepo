@@ -34,9 +34,17 @@ Both modes use `upsert`. Do not silently switch modes to bypass a rejected overw
 
 Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
 For `<wrapper>`, use the configured `op` (default), `keychain` or `oenv`.
+If one wrapper is unavailable, check the other installed/configured wrappers
+before asking the user to sign in or change credentials; do not configure a new
+account on their behalf.
 **In Codex, oenv requires approved execution outside the sandbox.** A sandbox
 signature error does not authorize bypassing signature checks or reinstalling the app.
 Never print credentials.
+Credential loading and remote sync can be silent for tens of seconds. Poll a
+running command and allow at least three minutes before diagnosing a timeout;
+silence alone is not evidence of missing credentials or an authorization dialog.
+An explicit error or user cancellation can stop the wait earlier. Keep the user
+informed while waiting, and inspect the process/receipt before retrying a command.
 
 1. **Pull before selecting or translating copy**, in both modes:
    `yarn <wrapper> yarn i18n:workflow sync --project-name "Monorepo v5" --out <dir>/sync.json`.
