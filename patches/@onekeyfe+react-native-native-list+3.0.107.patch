@@ -1,0 +1,137 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift
+index ef5fe41..9b0ed93 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift
++++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListModels.swift
+@@ -62,6 +62,7 @@ struct NativeListConfig {
+   let endReachedThreshold: Double
+   let sectionIndexEnabled: Bool
+   let sectionIndexHapticsEnabled: Bool
++  let sectionIndexCenteredInWindow: Bool
+   let theme: [String: Any]?
+   let fixedFooter: NativeListItem?
+   var items: [NativeListItem]
+@@ -123,6 +124,7 @@ struct NativeListConfig {
+       endReachedThreshold: capabilities?["endReachedThreshold"] as? Double ?? 0.2,
+       sectionIndexEnabled: sectionIndex?["enabled"] as? Bool ?? false,
+       sectionIndexHapticsEnabled: sectionIndex?["hapticsEnabled"] as? Bool ?? true,
++      sectionIndexCenteredInWindow: sectionIndex?["centeredInWindow"] as? Bool ?? false,
+       theme: root["theme"] as? [String: Any],
+       fixedFooter: footer,
+       items: items
+diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
+index 4006301..622950b 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
++++ b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
+@@ -872,7 +872,8 @@ final class NativeListView: UIView {
+       titles: sectionIndexEntries.map(\.title),
+       textColor: nativeListColor(config.theme, "secondaryText", "#646464"),
+       activeColor: nativeListColor(config.theme, "accent", "#108303"),
+-      activeTextColor: nativeListColor(config.theme, "inverseText", "#FCFCFC")
++      activeTextColor: nativeListColor(config.theme, "inverseText", "#FCFCFC"),
++      centeredInWindow: config.sectionIndexCenteredInWindow
+     )
+     sectionIndexView.isHidden = sectionIndexEntries.isEmpty
+     sectionIndexPreview.backgroundColor = nativeListColor(
+@@ -1112,6 +1113,7 @@ final class NativeListView: UIView {
+           current.endReachedThreshold == next.endReachedThreshold,
+           current.sectionIndexEnabled == next.sectionIndexEnabled,
+           current.sectionIndexHapticsEnabled == next.sectionIndexHapticsEnabled,
++          current.sectionIndexCenteredInWindow == next.sectionIndexCenteredInWindow,
+           dictionariesEqual(current.theme, next.theme),
+           current.fixedFooter?.content == next.fixedFooter?.content,
+           current.items.count == next.items.count else { return false }
+@@ -1755,6 +1757,7 @@ private final class NativeListSectionIndexView: UIControl, UIGestureRecognizerDe
+   private var textColor: UIColor = .secondaryLabel
+   private var activeColor: UIColor = .tintColor
+   private var activeTextColor: UIColor = .white
++  private var centeredInWindow = false
+   private var lastTouchIndex: Int?
+   private(set) var activeIndex: Int?
+ 
+@@ -1795,12 +1798,14 @@ private final class NativeListSectionIndexView: UIControl, UIGestureRecognizerDe
+     titles: [String],
+     textColor: UIColor,
+     activeColor: UIColor,
+-    activeTextColor: UIColor
++    activeTextColor: UIColor,
++    centeredInWindow: Bool
+   ) {
+     self.titles = titles
+     self.textColor = textColor
+     self.activeColor = activeColor
+     self.activeTextColor = activeTextColor
++    self.centeredInWindow = centeredInWindow
+     labels.forEach { $0.removeFromSuperview() }
+     labels = titles.map { title in
+       let label = UILabel()
+@@ -1828,7 +1833,9 @@ private final class NativeListSectionIndexView: UIControl, UIGestureRecognizerDe
+     super.layoutSubviews()
+     guard !labels.isEmpty else { return }
+     let height = min(16, max(8, bounds.height / CGFloat(labels.count)))
+-    let originY = (bounds.height - height * CGFloat(labels.count)) / 2
++    // OneKey patch: keep selector rails stable when sibling content changes list bounds.
++    // let originY = (bounds.height - height * CGFloat(labels.count)) / 2
++    let originY = indexOriginY(cellHeight: height, count: labels.count)
+     for (index, label) in labels.enumerated() {
+       label.frame = CGRect(
+         x: 6,
+@@ -1874,13 +1881,26 @@ private final class NativeListSectionIndexView: UIControl, UIGestureRecognizerDe
+ 
+   private func select(at y: CGFloat, interacting: Bool) {
+     let height = min(16, max(8, bounds.height / CGFloat(titles.count)))
+-    let originY = (bounds.height - height * CGFloat(titles.count)) / 2
++    // OneKey patch: use the rendered rail origin for touch selection as well.
++    // let originY = (bounds.height - height * CGFloat(titles.count)) / 2
++    let originY = indexOriginY(cellHeight: height, count: titles.count)
+     let index = Int(floor((y - originY) / height)).clamped(to: 0...(titles.count - 1))
+     if interacting && lastTouchIndex == index { return }
+     lastTouchIndex = interacting ? index : nil
+     select(index: index, interacting: interacting)
+   }
+ 
++  private func indexOriginY(cellHeight: CGFloat, count: Int) -> CGFloat {
++    let totalHeight = cellHeight * CGFloat(count)
++    let centeredOriginY = (bounds.height - totalHeight) / 2
++    guard centeredInWindow, let window else { return centeredOriginY }
++    let windowCenterY = window.safeAreaLayoutGuide.layoutFrame.midY
++    let localCenterY = convert(CGPoint(x: 0, y: windowCenterY), from: window).y
++    return (localCenterY - totalHeight / 2).clamped(
++      to: 0...max(0, bounds.height - totalHeight)
++    )
++  }
++
+   private func select(index: Int, interacting: Bool) {
+     onSelect?(index, interacting)
+     setActiveIndex(index)
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+index c40c112..40c5209 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+@@ -409,6 +409,7 @@ export type NativeListTheme = Readonly<{
+ export type SectionIndexConfig = Readonly<{
+   enabled: boolean;
+   hapticsEnabled?: boolean;
++  centeredInWindow?: boolean;
+ }>;
+ 
+ export type NativeListSnapshot = Readonly<{
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+index f20eef3..82b8c8c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+@@ -698,6 +698,15 @@ export function validateSnapshot(
+         'must be a boolean'
+       );
+     }
++    if (
++      sectionIndex.centeredInWindow !== undefined &&
++      typeof sectionIndex.centeredInWindow !== 'boolean'
++    ) {
++      fail(
++        'snapshot.capabilities.sectionIndex.centeredInWindow',
++        'must be a boolean'
++      );
++    }
+     if (
+       sectionIndex.enabled &&
+       (snapshot.layout.kind !== 'sectioned' ||

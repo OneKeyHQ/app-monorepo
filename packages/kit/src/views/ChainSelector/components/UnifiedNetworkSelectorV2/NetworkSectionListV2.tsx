@@ -321,7 +321,12 @@ export function NetworkSectionListV2({
         itemSpacing: 0,
       },
       rows,
-      capabilities: { sectionIndex: { enabled: !searchText } },
+      capabilities: {
+        sectionIndex: {
+          enabled: !searchText,
+          centeredInWindow: platformEnv.isNativeIOS,
+        },
+      },
       selection: { mode: 'none', selectedKeys: [] },
     }),
     [bottom, nativeTheme, rows, searchText],

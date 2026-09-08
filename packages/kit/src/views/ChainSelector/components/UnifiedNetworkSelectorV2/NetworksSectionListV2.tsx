@@ -287,7 +287,12 @@ export default function NetworksSectionListV2() {
         itemSpacing: 0,
       },
       rows,
-      capabilities: { sectionIndex: { enabled: !searchKey.trim() } },
+      capabilities: {
+        sectionIndex: {
+          enabled: !searchKey.trim(),
+          centeredInWindow: platformEnv.isNativeIOS,
+        },
+      },
       selection: {
         mode: 'multiple',
         selectedKeys: rows
