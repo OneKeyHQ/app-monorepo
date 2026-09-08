@@ -329,7 +329,9 @@ export function useTrendingColumnsDesktop({
               },
               {
                 field: 'price',
-                label: `/${intl.formatMessage({
+                // The slash is the separator between the two sort controls, so
+                // it needs air on the label side rather than sitting flush.
+                label: `/ ${intl.formatMessage({
                   id: ETranslations.global_price,
                 })}`,
               },
