@@ -2146,7 +2146,7 @@ async function prepareWebEmbedForDevSession(
       ),
   } = {},
 ) {
-  const cached = await getCache();
+  const cached = await Promise.resolve(getCache());
   if (cached) {
     report.webEmbed = { ...cached, status: 'ready' };
     await writeRunReport(report);
@@ -2166,7 +2166,7 @@ async function prepareWebEmbedForDevSession(
       status: 'building',
     };
     await writeRunReport(report);
-    await build();
+    await Promise.resolve(build());
     report.webEmbed.status = 'ready';
     printFallbackDone(report, 'web-embed');
   }
