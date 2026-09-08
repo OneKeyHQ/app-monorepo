@@ -20054,6 +20054,7 @@
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useAutoKLineUpdate.ts": 12564,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useAutoTokenDetailUpdate.ts": 16905,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useHyperLiquidKlineSource.ts": 20336,
+    "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewIntervalSync.ts": 16154,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2.ts": 1488,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2WebSocket.ts": 1734,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/messageHandlers/analyticsHandler/eventHandler.ts": 12153,
