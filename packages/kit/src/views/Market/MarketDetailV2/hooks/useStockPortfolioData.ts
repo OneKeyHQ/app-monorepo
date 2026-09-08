@@ -182,8 +182,11 @@ export async function fetchStockPortfolioData({
 
   return {
     items: portfolioGroups.flatMap((group) => group.items),
-    unresolvedVariantKeys: portfolioGroups
-      .filter((group) => !group.resolved)
+    // Reported as what the run did establish rather than what it missed, so a
+    // variant this payload never covered at all — the previous stock's result
+    // still standing while the new one loads — reads as unknown too.
+    resolvedVariantKeys: portfolioGroups
+      .filter((group) => group.resolved)
       .map((group) => group.variantKey),
   };
 }
@@ -287,18 +290,15 @@ export function useStockPortfolioData() {
   );
 
   const portfolioData = portfolioResult?.items ?? [];
-  // Until the first run settles nothing has been established, so every variant
-  // counts as unresolved rather than as a zero holding.
-  const unresolvedVariantKeys = useMemo(
-    () =>
-      portfolioResult?.unresolvedVariantKeys ??
-      tokenVariants.map(getStockPortfolioVariantKey),
-    [portfolioResult, tokenVariants],
+  // Empty until a run settles, so nothing counts as established before then.
+  const resolvedVariantKeys = useMemo(
+    () => portfolioResult?.resolvedVariantKeys ?? [],
+    [portfolioResult],
   );
 
   return {
     portfolioData,
-    unresolvedVariantKeys,
+    resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
     fetchPortfolio,

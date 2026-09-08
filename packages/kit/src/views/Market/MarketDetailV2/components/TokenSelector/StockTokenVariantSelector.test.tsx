@@ -281,7 +281,9 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={[]}
-          unresolvedVariantKeys={[]}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
         />,
       );
 
@@ -328,8 +330,8 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={[]}
-          unresolvedVariantKeys={[
-            getStockPortfolioVariantKey(sameAddressVariants[1]),
+          resolvedVariantKeys={[
+            getStockPortfolioVariantKey(sameAddressVariants[0]),
           ]}
         />,
       );
@@ -346,6 +348,33 @@ describe('StockTokenVariantSelector', () => {
       ).toBeNull();
     });
 
+    it('does not lend the previous stock resolution to the new one', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // Switching stocks on a mounted page leaves the previous stock's result
+      // standing until the new request lands. It resolved its own variants,
+      // never these, so these stay unknown instead of reading as zero.
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          resolvedVariantKeys={['evm--1:0xPREVIOUSSTOCK']}
+        />,
+      );
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+    });
+
     it('never lends the fetched balance to a same-address variant on another chain', () => {
       mockStockDetailState.tokenVariants = sameAddressVariants;
       mockStockDetailState.selectedTokenId = 'aapl-ethereum';
@@ -354,7 +383,9 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={position('0xSAME', '12.5')}
-          unresolvedVariantKeys={[]}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
         />,
       );
 
@@ -380,7 +411,9 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={position('0xSAME', '8.5')}
-          unresolvedVariantKeys={[]}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
         />,
       );
 
@@ -401,7 +434,7 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={position('0x01', '0.001')}
-          unresolvedVariantKeys={[]}
+          resolvedVariantKeys={mockVariants.map(getStockPortfolioVariantKey)}
         />,
       );
 

@@ -48,12 +48,13 @@ const StockTokenVariantPortfolioContext = createContext<
   IMarketAccountPortfolioDisplayItem[] | undefined
 >(undefined);
 
-// Variants whose balance could not be established: no account, the first fetch
-// still in flight, or a request that failed with nothing cached. Their absence
-// from the portfolio says nothing, so they render the fallback.
-const StockTokenVariantUnresolvedContext = createContext<
-  Set<string> | undefined
->(undefined);
+// Variants whose balance this payload actually established. Anything outside
+// it is unknown — no account, the first fetch still in flight, a request that
+// failed with nothing cached, or a variant the standing result never covered
+// because the page has since switched stocks.
+const StockTokenVariantResolvedContext = createContext<Set<string>>(
+  new Set<string>(),
+);
 
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
@@ -127,11 +128,10 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
-  const unresolvedVariantKeys = useContext(StockTokenVariantUnresolvedContext);
+  const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
-    isBalanceResolved: Boolean(
-      unresolvedVariantKeys &&
-      !unresolvedVariantKeys.has(getStockPortfolioVariantKey(variant)),
+    isBalanceResolved: resolvedVariantKeys.has(
+      getStockPortfolioVariantKey(variant),
     ),
     portfolioData,
     variant,
@@ -323,10 +323,10 @@ function StockTokenVariantSelectorContent({
 
 export function StockTokenVariantSelector({
   portfolioData,
-  unresolvedVariantKeys,
+  resolvedVariantKeys,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
-  unresolvedVariantKeys?: string[];
+  resolvedVariantKeys?: string[];
 }) {
   const intl = useIntl();
   const {
@@ -342,11 +342,11 @@ export function StockTokenVariantSelector({
     () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
     [selectedTokenId, tokenVariants],
   );
-  // Left undefined when the caller supplies nothing: that is no evidence the
-  // balances were read, so the rows fall back rather than claim a zero.
-  const unresolvedKeySet = useMemo(
-    () => (unresolvedVariantKeys ? new Set(unresolvedVariantKeys) : undefined),
-    [unresolvedVariantKeys],
+  // Empty when the caller supplies nothing: that is no evidence the balances
+  // were read, so the rows fall back rather than claim a zero.
+  const resolvedKeySet = useMemo(
+    () => new Set(resolvedVariantKeys ?? []),
+    [resolvedVariantKeys],
   );
 
   if (!selectedTokenVariant) {
@@ -440,9 +440,9 @@ export function StockTokenVariantSelector({
 
   return (
     <StockTokenVariantPortfolioContext.Provider value={portfolioData}>
-      <StockTokenVariantUnresolvedContext.Provider value={unresolvedKeySet}>
+      <StockTokenVariantResolvedContext.Provider value={resolvedKeySet}>
         {popover}
-      </StockTokenVariantUnresolvedContext.Provider>
+      </StockTokenVariantResolvedContext.Provider>
     </StockTokenVariantPortfolioContext.Provider>
   );
 }

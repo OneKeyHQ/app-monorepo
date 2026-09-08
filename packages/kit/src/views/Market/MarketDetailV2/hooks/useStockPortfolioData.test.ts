@@ -214,7 +214,7 @@ describe('fetchStockPortfolioData', () => {
 
     expect(result.items.map((item) => item.amount)).toEqual(['1', '4']);
     // The failed variant still has a cached row, so its balance is known.
-    expect(result.unresolvedVariantKeys).toEqual([]);
+    expect(result.resolvedVariantKeys).toHaveLength(2);
   });
 
   it('does not render zero-balance variants', async () => {
@@ -235,7 +235,9 @@ describe('fetchStockPortfolioData', () => {
     });
 
     expect(result.items).toEqual([]);
-    expect(result.unresolvedVariantKeys).toEqual([]);
+    expect(result.resolvedVariantKeys).toEqual([
+      getStockPortfolioVariantKey(ondoVariant),
+    ]);
   });
 
   it('reports a variant whose account cannot be resolved as unresolved', async () => {
@@ -258,8 +260,8 @@ describe('fetchStockPortfolioData', () => {
     expect(result.items.map((item) => item.amount)).toEqual(['5']);
     // Nothing was read for the Solana variant, so its balance stays unknown
     // rather than being reported as a zero holding.
-    expect(result.unresolvedVariantKeys).toEqual([
-      getStockPortfolioVariantKey(xStocksVariant),
+    expect(result.resolvedVariantKeys).toEqual([
+      getStockPortfolioVariantKey(ondoVariant),
     ]);
   });
 
@@ -278,9 +280,7 @@ describe('fetchStockPortfolioData', () => {
     });
 
     expect(result.items).toEqual([]);
-    expect(result.unresolvedVariantKeys).toEqual([
-      getStockPortfolioVariantKey(ondoVariant),
-    ]);
+    expect(result.resolvedVariantKeys).toEqual([]);
   });
 });
 
