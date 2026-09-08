@@ -13,10 +13,15 @@ const { chromium } = require('playwright-core');
 
 const { LavaMoatError } = require('./error.cjs');
 
+// Use the existing jsdom dependency's parser without creating a DOM or running
+// scripts. HTML comments, template content, and script text are not elements.
+const { parse } = createRequire(require.resolve('jsdom'))('parse5');
+
 const { values } = parseArgs({
   options: {
     chrome: { type: 'string' },
     output: { type: 'string' },
+    'live-health-check': { type: 'boolean', default: false },
   },
 });
 const root = fs.realpathSync(
@@ -52,12 +57,21 @@ function validateProtectedArtifact() {
     }
   }
   assert.ok(wrappedAssets > 0, 'Application modules must use LavaMoat');
-  const scripts = [
-    ...html
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi),
-  ].map((match) => {
-    const url = new URL(match[1], 'http://localhost/');
+  const sources = [];
+  const visit = (node) => {
+    if (
+      node.tagName === 'script' &&
+      node.namespaceURI === 'http://www.w3.org/1999/xhtml'
+    ) {
+      const src = node.attrs.find((attribute) => attribute.name === 'src');
+      if (src) sources.push(src.value);
+    }
+    // Template contents live in a separate fragment and remain inert.
+    node.childNodes?.forEach(visit);
+  };
+  visit(parse(html, { scriptingEnabled: true }));
+  const scripts = sources.map((source) => {
+    const url = new URL(source, 'http://localhost/');
     assert.equal(url.origin, 'http://localhost', 'Scripts must be local');
     const file = decodeURIComponent(url.pathname).slice(1);
     const resolved = fs.realpathSync(path.join(root, file));
@@ -268,6 +282,11 @@ async function main() {
       const page = await context.newPage();
       const result = {
         route,
+        healthCheck: {
+          responseSource: values['live-health-check'] ? 'live' : 'fixture',
+          requests: 0,
+          responses: [],
+        },
         exceptions: [],
         unhandledRejections: [],
         consoleErrors: [],
@@ -281,6 +300,22 @@ async function main() {
       let collectConsoleStacks = true;
       let lastAssetActivity = Date.now();
       report.routes.push(result);
+      const isHealthRequest = (url) =>
+        new URL(url).pathname === '/wallet/v1/health';
+      if (!values['live-health-check']) {
+        // The app must still call its compartment's fetch and reach Chromium's
+        // network boundary. A controlled response keeps CI independent of the
+        // service's availability; it cannot hide a pre-network receiver error.
+        await page.route(
+          (url) => isHealthRequest(url.href),
+          (requestRoute) =>
+            requestRoute.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              body: '{"code":0,"data":"ok"}',
+            }),
+        );
+      }
       const cdp = await context.newCDPSession(page);
       await cdp.send('Runtime.enable');
       const rejectionBinding = '__onekeyLavaMoatSmokeRejection__';
@@ -336,7 +371,11 @@ async function main() {
         }
       });
       page.on('request', (request) => {
-        if (request.url().startsWith(`${origin}/`)) {
+        if (isHealthRequest(request.url())) result.healthCheck.requests += 1;
+        if (
+          request.url().startsWith(`${origin}/`) &&
+          !isHealthRequest(request.url())
+        ) {
           pendingAssets.add(request);
           lastAssetActivity = Date.now();
         }
@@ -356,6 +395,12 @@ async function main() {
         }
       });
       page.on('response', (response) => {
+        if (isHealthRequest(response.url())) {
+          result.healthCheck.responses.push({
+            origin: new URL(response.url()).origin,
+            status: response.status(),
+          });
+        }
         if (
           response.url().startsWith(`${origin}/`) &&
           response.status() >= 400
@@ -391,6 +436,38 @@ async function main() {
           );
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
+        const healthDeadline = Date.now() + 15_000;
+        while (
+          !result.healthCheck.responses.some(({ status }) => status === 200)
+        ) {
+          assert.ok(
+            Date.now() < healthDeadline,
+            'Application health request must reach the browser and return 200',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        if (values['live-health-check']) {
+          assert.ok(
+            result.healthCheck.responses.some(
+              (response) =>
+                response.status === 200 &&
+                response.origin !== origin &&
+                response.origin.startsWith('https://'),
+            ),
+            'Live health check must reach an external HTTPS service, not the local SPA fallback',
+          );
+        }
+        // Production minification removes caught console errors. Observe the
+        // resulting application state as well as the successful request.
+        await page.waitForFunction(
+          () =>
+            !/(?:^|\n)\s*Offline\s*(?:\n|$)|You are offline\./.test(
+              document.body.innerText,
+            ),
+          undefined,
+          { timeout: 5000 },
+        );
+        result.healthCheck.offlineIndicatorVisible = false;
         result.readyScreen = await page.evaluate(getReadyScreen, route);
         assert.ok(
           result.readyScreen,

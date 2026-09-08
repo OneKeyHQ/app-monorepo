@@ -1,117 +1,8 @@
 {
   "resources": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property>get-intrinsic": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property>get-intrinsic": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property>get-intrinsic>hasown": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property>get-intrinsic>hasown": {
-      "packages": {
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>get-intrinsic": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>gopd": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>has-property-descriptors": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>set-function-name>define-data-property": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>get-intrinsic": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>get-intrinsic>hasown": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>get-intrinsic>hasown": {
-      "packages": {
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>gopd": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>gopd>get-intrinsic": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>gopd>get-intrinsic": {
-      "globals": {
-        "AggregateError": true,
-        "FinalizationRegistry": true,
-        "WeakRef": true
-      },
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>get-intrinsic>hasown": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length>has-property-descriptors": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>define-data-property": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>object-keys": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>define-data-property": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>define-data-property>gopd": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": true,
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>define-data-property>gopd": {
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": {
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>available-typed-arrays": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>possible-typed-array-names": true
-      }
-    },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>es-to-primitive>is-date-object": {
       "packages": {
         "@onekeyhq/core>web3-utils>web3-validator>util>is-arguments>has-tostringtag": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": {
-      "globals": {
-        "document": true
       }
     },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>object-inspect": {
@@ -122,15 +13,15 @@
     },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>gopd": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>hasown": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>object-inspect": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>safe-regex-test": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>string.prototype.trim": true,
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": true,
         "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true,
         "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
       }
@@ -138,8 +29,8 @@
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive": {
       "packages": {
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>es-to-primitive>is-date-object": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive>is-symbol": true
+        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive>is-symbol": true,
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
       }
     },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive>is-symbol": {
@@ -178,21 +69,9 @@
     },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>string.prototype.trim": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>set-function-name>define-data-property": {
-      "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>set-function-name>define-data-property>gopd": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true
-      }
-    },
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>set-function-name>define-data-property>gopd": {
-      "packages": {
-        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true
       }
     },
     "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel": {
@@ -232,13 +111,13 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>es-define-property": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>has-symbols": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
@@ -252,8 +131,6 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>async-function": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>async-generator-function": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>es-define-property": true,
@@ -261,7 +138,9 @@
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>has-symbols": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
@@ -290,13 +169,13 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-weakmap>get-intrinsic>es-define-property": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-weakmap>get-intrinsic>has-symbols": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
@@ -310,8 +189,6 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>async-function": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>async-generator-function": true,
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-map>get-intrinsic>generator-function": true,
@@ -319,7 +196,9 @@
         "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>side-channel>side-channel-weakmap>get-intrinsic>has-symbols": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
@@ -1039,7 +918,6 @@
         ]
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>fast-json-stable-stringify": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/siwa": true,
@@ -1100,6 +978,7 @@
         "@onekeyhq/core>xrpl": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>big-integer": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
         "@onekeyhq/shared": true,
         "@onekeyhq/shared>axios": true,
@@ -1290,14 +1169,14 @@
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto>dunder-proto": true
       }
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto>dunder-proto": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true
       }
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": {
@@ -1835,10 +1714,10 @@
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
-        "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": true
       }
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": {
@@ -2154,10 +2033,10 @@
       "packages": {
         "@onekeyhq/core>@stellar/stellar-base>sha.js": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>int64-buffer": {
@@ -2590,7 +2469,7 @@
       "packages": {
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>@ton/core": {
@@ -2825,7 +2704,7 @@
       "packages": {
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>bip32": {
@@ -3194,7 +3073,7 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160>hash-base": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160>hash-base": {
@@ -3204,7 +3083,7 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer": {
@@ -3234,11 +3113,11 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
@@ -3253,20 +3132,112 @@
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>available-typed-arrays": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>available-typed-arrays": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bound": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>for-each": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>has-tostringtag": true
       }
     },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>available-typed-arrays": {
+      "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>available-typed-arrays>possible-typed-array-names": true
+      }
+    },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>es-define-property": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>call-bind>set-function-length": true,
-        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": {
+      "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property>get-intrinsic": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property>get-intrinsic": {
+      "globals": {
+        "AggregateError": true,
+        "FinalizationRegistry": true,
+        "WeakRef": true
+      },
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property>get-intrinsic>hasown": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property>get-intrinsic>hasown": {
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length": {
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>define-data-property": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>get-intrinsic": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>gopd": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>has-property-descriptors": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>define-data-property": {
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>define-data-property>gopd": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>define-data-property>gopd": {
+      "packages": {
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>get-intrinsic": {
+      "globals": {
+        "AggregateError": true,
+        "FinalizationRegistry": true,
+        "WeakRef": true
+      },
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>get-intrinsic>hasown": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>get-intrinsic>hasown": {
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>gopd": {
+      "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>gopd>get-intrinsic": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>gopd>get-intrinsic": {
+      "globals": {
+        "AggregateError": true,
+        "FinalizationRegistry": true,
+        "WeakRef": true
+      },
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>get-intrinsic>hasown": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>has-symbols": true,
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic>has-proto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>set-function-length>has-property-descriptors": {
+      "packages": {
+        "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bind>es-define-property": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>call-bound": {
@@ -3283,11 +3254,11 @@
         "WeakRef": true
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-object-atoms": true,
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>call-bind-apply-helpers": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>es-object-atoms": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>get-proto": true,
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>hasown>function-bind": true,
@@ -3297,7 +3268,7 @@
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>for-each": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>has-tostringtag": {
@@ -3355,7 +3326,7 @@
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": {
@@ -3451,10 +3422,10 @@
         "@onekeyhq/core>elliptic>brorand": true,
         "@onekeyhq/core>elliptic>hash.js": true,
         "@onekeyhq/core>elliptic>hmac-drbg": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "@onekeyhq/core>elliptic>minimalistic-crypto-utils": true,
-        "@onekeyhq/core>near-api-js>bn.js": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>elliptic>brorand": {
@@ -3465,8 +3436,8 @@
     },
     "@onekeyhq/core>elliptic>hash.js": {
       "packages": {
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>elliptic>minimalistic-assert": true
       }
     },
     "@onekeyhq/core>elliptic>hmac-drbg": {
@@ -3613,10 +3584,10 @@
     "@onekeyhq/core>ethereumjs-util>create-hash": {
       "packages": {
         "@onekeyhq/core>@stellar/stellar-base>sha.js": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": {
@@ -3624,28 +3595,28 @@
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": {
       "packages": {
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": {
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography": {
@@ -3666,10 +3637,10 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>buffer-xor": true,
-        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>buffer-xor": {
@@ -3764,7 +3735,7 @@
       "packages": {
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>js-conflux-sdk>rlp": {
@@ -3995,11 +3966,11 @@
     },
     "@onekeyhq/core>near-api-js>@near-js/providers>http-errors": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>near-api-js>@near-js/providers>http-errors>depd": true,
         "@onekeyhq/core>near-api-js>@near-js/providers>http-errors>statuses": true,
         "@onekeyhq/core>near-api-js>http-errors>setprototypeof": true,
-        "@onekeyhq/core>near-api-js>http-errors>toidentifier": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>near-api-js>http-errors>toidentifier": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/signers": {
@@ -4211,11 +4182,11 @@
         "process": true
       },
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-arguments": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-generator-function": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-typed-array": true,
-        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array": true
       }
     },
     "@onekeyhq/core>web3-utils>web3-validator>util>is-arguments": {
@@ -4250,7 +4221,12 @@
     },
     "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": {
+      "globals": {
+        "document": true
       }
     },
     "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>gopd": {
@@ -4379,16 +4355,16 @@
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind>set-function-length": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind>set-function-length>define-data-property": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind>set-function-length>gopd": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": true,
         "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
       }
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind>set-function-length>define-data-property": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties>has-property-descriptors": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind>set-function-length>gopd": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": true,
         "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
       }
     },
@@ -4399,14 +4375,38 @@
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": {
+      "packages": {
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>define-data-property": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign>object-keys": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>define-data-property": {
+      "packages": {
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>define-data-property>gopd": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": true,
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>define-data-property>gopd": {
+      "packages": {
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties>has-property-descriptors": {
+      "packages": {
+        "@onekeyhq/kit-bg>eth-url-parser>qs>side-channel>get-intrinsic": true
       }
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object-is": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true
       }
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec>assert>object.assign": {
@@ -4551,7 +4551,6 @@
         ]
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>fast-json-stable-stringify": true,
         "@onekeyhq/components": true,
         "@onekeyhq/components>@react-navigation/bottom-tabs": true,
         "@onekeyhq/components>@react-navigation/elements": true,
@@ -4587,6 +4586,7 @@
         "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
         "@onekeyhq/kit>expo-camera>expo>react-dom": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>lightweight-charts": true,
         "@onekeyhq/kit>react-intl": true,
         "@onekeyhq/kit>react-intl>react": true,
@@ -4731,7 +4731,6 @@
         ]
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>fast-json-stable-stringify": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core": true,
         "@onekeyhq/core>@alephium/web3": true,
@@ -4793,6 +4792,7 @@
         "@onekeyhq/kit>date-fns": true,
         "@onekeyhq/kit>date-fns>@babel/runtime": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>react-intl>react": true,
         "@onekeyhq/qr-wallet-sdk": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": true,
@@ -6008,7 +6008,6 @@
         ]
       },
       "packages": {
-        "@aaroon/workbox-rspack-plugin>fast-json-stable-stringify": true,
         "@onekeyhq/components>@react-navigation/native": true,
         "@onekeyhq/components>iso-639-1": true,
         "@onekeyhq/components>lodash": true,
@@ -6033,6 +6032,7 @@
         "@onekeyhq/kit>expo-camera>expo": true,
         "@onekeyhq/kit>expo-camera>expo>expo-file-system": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>fuse.js": true,
         "@onekeyhq/kit>react-intl": true,
         "@onekeyhq/kit>react-intl>@formatjs/intl": true,
@@ -37107,8 +37107,8 @@
     },
     "external:../../node_modules/array.prototype.flatmap/index.js": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true,
         "external:../../node_modules/array.prototype.flatmap/implementation.js": true,
         "external:../../node_modules/array.prototype.flatmap/polyfill.js": true,
         "external:../../node_modules/array.prototype.flatmap/shim.js": true
@@ -37121,7 +37121,7 @@
     },
     "external:../../node_modules/array.prototype.flatmap/shim.js": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true,
         "external:../../node_modules/array.prototype.flatmap/polyfill.js": true,
         "external:../../node_modules/es-shim-unscopables/index.js": true
       }
@@ -37133,8 +37133,8 @@
     },
     "external:../../node_modules/array.prototype.toreversed/index.js": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert>call-bind": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true,
         "external:../../node_modules/array.prototype.toreversed/implementation.js": true,
         "external:../../node_modules/array.prototype.toreversed/polyfill.js": true,
         "external:../../node_modules/array.prototype.toreversed/shim.js": true
@@ -37147,7 +37147,7 @@
     },
     "external:../../node_modules/array.prototype.toreversed/shim.js": {
       "packages": {
-        "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>define-properties": true,
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert>is-nan>define-properties": true,
         "external:../../node_modules/array.prototype.toreversed/polyfill.js": true,
         "external:../../node_modules/es-shim-unscopables/index.js": true
       }
@@ -37178,9 +37178,9 @@
     "external:../../node_modules/browserify-des/index.js": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
-        "external:../../node_modules/des.js/lib/des.js": true,
-        "rimraf>glob>inherits": true
+        "external:../../node_modules/des.js/lib/des.js": true
       }
     },
     "external:../../node_modules/browserify-rsa/index.js": {
@@ -37202,11 +37202,11 @@
       "packages": {
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "external:../../node_modules/browserify-sign/browser/algorithms.json": true,
         "external:../../node_modules/browserify-sign/browser/sign.js": true,
-        "external:../../node_modules/browserify-sign/browser/verify.js": true,
-        "rimraf>glob>inherits": true
+        "external:../../node_modules/browserify-sign/browser/verify.js": true
       }
     },
     "external:../../node_modules/browserify-sign/browser/sign.js": {
@@ -37721,8 +37721,8 @@
     },
     "external:../../node_modules/des.js/lib/des/cbc.js": {
       "packages": {
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "rimraf>glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>elliptic>minimalistic-assert": true
       }
     },
     "external:../../node_modules/des.js/lib/des/cipher.js": {
@@ -37732,18 +37732,18 @@
     },
     "external:../../node_modules/des.js/lib/des/des.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "external:../../node_modules/des.js/lib/des/cipher.js": true,
-        "external:../../node_modules/des.js/lib/des/utils.js": true,
-        "rimraf>glob>inherits": true
+        "external:../../node_modules/des.js/lib/des/utils.js": true
       }
     },
     "external:../../node_modules/des.js/lib/des/ede.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "external:../../node_modules/des.js/lib/des/cipher.js": true,
-        "external:../../node_modules/des.js/lib/des/des.js": true,
-        "rimraf>glob>inherits": true
+        "external:../../node_modules/des.js/lib/des/des.js": true
       }
     },
     "external:../../node_modules/destr/dist/index.mjs": {

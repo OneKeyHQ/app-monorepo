@@ -1,9 +1,9 @@
 {
   "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>typed-array-length>reflect.getprototypeof>which-builtin-type>function.prototype.name>es-abstract>es-to-primitive": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "@onekeyhq/components": {
     "@onekeyhq/components>@react-navigation/native": true,
@@ -258,7 +258,7 @@
     "@onekeyhq/core>xrpl>bignumber.js": true
   },
   "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>for-each": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "@onekeyhq/core>cip-23>keccak>readable-stream": {
     "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
@@ -316,7 +316,7 @@
     "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": true
   },
   "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each": {
-    "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable": true
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
   },
   "@onekeyhq/core>xrpl": {
     "@onekeyhq/core>xrpl>bignumber.js": true,

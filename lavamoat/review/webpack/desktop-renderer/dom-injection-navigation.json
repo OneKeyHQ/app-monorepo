@@ -1,11 +1,6 @@
 {
   "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
   "resources": {
-    "@electron/rebuild>debug": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyhq/components": {
       "globals": {
         "document": true
@@ -89,6 +84,11 @@
       "globals": {
         "document.createElement": true,
         "document.createElementNS": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "document": true
       }
     },
     "@onekeyhq/core>@stellar/stellar-base": {

@@ -1,19 +1,5 @@
 [
   {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@aaroon/workbox-rspack-plugin>workbox-build>@trickfilm400/rollup-plugin-off-main-thread>string.prototype.matchall>es-abstract>is-callable",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "extension-desktop-bridge",
     "name": "desktopApi.addIpcEventListener",
     "resource": "@onekeyhq/components",
@@ -997,6 +983,20 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable",
     "type": "global",
     "value": true
   },

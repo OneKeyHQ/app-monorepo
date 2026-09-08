@@ -1,17 +1,5 @@
 {
   "resources": {
-    "@electron/rebuild>debug": {
-      "globals": {
-        "console": true,
-        "document": true,
-        "localStorage": true,
-        "navigator": true,
-        "process": true
-      },
-      "packages": {
-        "@electron/rebuild>debug>ms": true
-      }
-    },
     "@onekeyhq/components": {
       "globals": {
         "__ONEKEY_MAIN_ENTRY_START__": true,
@@ -304,14 +292,19 @@
     },
     "@onekeyhq/components>@react-navigation/stack>color": {
       "packages": {
-        "@onekeyhq/components>@react-navigation/stack>color>color-string": true,
-        "concurrently>chalk>ansi-styles>color-convert": true
+        "@onekeyhq/components>@react-navigation/stack>color>color-convert": true,
+        "@onekeyhq/components>@react-navigation/stack>color>color-string": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>color>color-convert": {
+      "packages": {
+        "@onekeyhq/components>@react-navigation/stack>color>color-string>color-name": true
       }
     },
     "@onekeyhq/components>@react-navigation/stack>color>color-string": {
       "packages": {
-        "@onekeyhq/components>@react-navigation/stack>color>color-string>simple-swizzle": true,
-        "concurrently>chalk>ansi-styles>color-convert>color-name": true
+        "@onekeyhq/components>@react-navigation/stack>color>color-string>color-name": true,
+        "@onekeyhq/components>@react-navigation/stack>color>color-string>simple-swizzle": true
       }
     },
     "@onekeyhq/components>@react-navigation/stack>color>color-string>simple-swizzle": {
@@ -530,7 +523,7 @@
       "packages": {
         "@onekeyhq/components>moti>framer-motion>framesync": true,
         "@onekeyhq/kit>react-intl>react": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/components>moti>framer-motion>framesync": {
@@ -787,6 +780,7 @@
         "@onekeyhq/core>xrpl": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>big-integer": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
         "@onekeyhq/shared": true,
         "@onekeyhq/shared>axios": true,
@@ -819,8 +813,7 @@
         "external:../../node_modules/@substrate/txwrapper-polkadot/lib/index.js": true,
         "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
         "external:../../node_modules/long/index.js": true,
-        "external:../../node_modules/tonweb/src/index.js": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "external:../../node_modules/tonweb/src/index.js": true
       }
     },
     "@onekeyhq/core>@alephium/web3": {
@@ -1021,7 +1014,7 @@
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/rpc": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/toolkit": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true,
-        "webpack>events": true
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true
       }
     },
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base": {
@@ -1099,6 +1092,11 @@
         "FormData": true,
         "URLSearchParams.prototype.isPrototypeOf": true,
         "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": {
+      "globals": {
+        "console": true
       }
     },
     "@onekeyhq/core>@ckb-lumos/common-scripts": {
@@ -1485,8 +1483,8 @@
         "Buffer.from": true
       },
       "packages": {
-        "@electron/rebuild>debug": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet>ansicolors": true,
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
@@ -1497,9 +1495,9 @@
         "Buffer.alloc": true
       },
       "packages": {
-        "@electron/rebuild>debug": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana>bs58": true,
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
@@ -1512,10 +1510,10 @@
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
-        "electron-builder>dmg-builder>iconv-lite>safer-buffer": true,
-        "glob>inherits": true
+        "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": true
       }
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": {
@@ -1533,7 +1531,7 @@
         "setTimeout.apply": true
       },
       "packages": {
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
@@ -1616,9 +1614,9 @@
         "Buffer.alloc": true
       },
       "packages": {
-        "@electron/rebuild>debug": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@metaplex-foundation/beet-solana>bs58": true,
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
@@ -1640,6 +1638,18 @@
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
         "@onekeyhq/core>algosdk>buffer": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug>ms": true
       }
     },
     "@onekeyhq/core>@noble/hashes": {
@@ -1758,6 +1768,7 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bip66": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bitcoin-ops": true,
         "@onekeyhq/core>@onekeyfe/coinselect>blake-hash": true,
@@ -1776,9 +1787,8 @@
         "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
-        "@onekeyhq/shared": true,
-        "concurrently>rxjs>tslib": true,
-        "webpack>events": true
+        "@onekeyhq/kit>react-intl>tslib": true,
+        "@onekeyhq/shared": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>blake-hash": {
@@ -1819,10 +1829,10 @@
       "packages": {
         "@onekeyhq/core>@stellar/stellar-base>sha.js": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true,
-        "glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>int64-buffer": {
@@ -2255,7 +2265,7 @@
       "packages": {
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>@ton/core": {
@@ -2488,9 +2498,9 @@
     },
     "@onekeyhq/core>bchaddrjs>stream-browserify": {
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
-        "glob>inherits": true,
-        "webpack>events": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>bip32": {
@@ -2859,7 +2869,7 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160>hash-base": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160>hash-base": {
@@ -2869,7 +2879,7 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer": {
@@ -2996,11 +3006,11 @@
         "process.stdout": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true,
-        "glob>inherits": true,
-        "webpack>events": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": {
@@ -3096,10 +3106,10 @@
         "@onekeyhq/core>elliptic>brorand": true,
         "@onekeyhq/core>elliptic>hash.js": true,
         "@onekeyhq/core>elliptic>hmac-drbg": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "@onekeyhq/core>elliptic>minimalistic-crypto-utils": true,
-        "@onekeyhq/core>near-api-js>bn.js": true,
-        "glob>inherits": true
+        "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
     "@onekeyhq/core>elliptic>brorand": {
@@ -3110,8 +3120,8 @@
     },
     "@onekeyhq/core>elliptic>hash.js": {
       "packages": {
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>elliptic>minimalistic-assert": true
       }
     },
     "@onekeyhq/core>elliptic>hmac-drbg": {
@@ -3258,10 +3268,10 @@
     "@onekeyhq/core>ethereumjs-util>create-hash": {
       "packages": {
         "@onekeyhq/core>@stellar/stellar-base>sha.js": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true,
-        "glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": {
@@ -3269,28 +3279,28 @@
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>md5.js": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": {
       "packages": {
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": {
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography": {
@@ -3311,10 +3321,10 @@
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>buffer-xor": true,
-        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true,
-        "glob>inherits": true
+        "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>buffer-xor": {
@@ -3378,6 +3388,7 @@
       },
       "packages": {
         "@onekeyhq/components>lodash": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@conflux-dev/conflux-address-js": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>js-conflux-sdk>abi-util-lite": true,
@@ -3388,8 +3399,7 @@
         "@onekeyhq/core>js-conflux-sdk>secp256k1": true,
         "@onekeyhq/core>js-conflux-sdk>superagent": true,
         "@onekeyhq/core>js-conflux-sdk>websocket": true,
-        "@onekeyhq/shared": true,
-        "webpack>events": true
+        "@onekeyhq/shared": true
       }
     },
     "@onekeyhq/core>js-conflux-sdk>abi-util-lite": {
@@ -3409,7 +3419,7 @@
       "packages": {
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true
       }
     },
     "@onekeyhq/core>js-conflux-sdk>rlp": {
@@ -3576,7 +3586,7 @@
       "packages": {
         "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
         "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
-        "webpack>schema-utils>ajv>uri-js": true
+        "@onekeyhq/core>near-api-js>ajv>uri-js": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": {
@@ -3626,11 +3636,11 @@
     },
     "@onekeyhq/core>near-api-js>@near-js/providers>http-errors": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>near-api-js>@near-js/providers>http-errors>depd": true,
         "@onekeyhq/core>near-api-js>@near-js/providers>http-errors>statuses": true,
         "@onekeyhq/core>near-api-js>http-errors>setprototypeof": true,
-        "@onekeyhq/core>near-api-js>http-errors>toidentifier": true,
-        "glob>inherits": true
+        "@onekeyhq/core>near-api-js>http-errors>toidentifier": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/signers": {
@@ -3694,6 +3704,11 @@
         "@onekeyhq/core>near-api-js>borsh": true
       }
     },
+    "@onekeyhq/core>near-api-js>ajv>uri-js": {
+      "globals": {
+        "define": true
+      }
+    },
     "@onekeyhq/core>near-api-js>bn.js": {
       "globals": {
         "Buffer": true
@@ -3723,6 +3738,14 @@
     "@onekeyhq/core>near-api-js>error-polyfill>o3": {
       "packages": {
         "@onekeyhq/core>near-api-js>error-polyfill>capability": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": {
+      "globals": {
+        "process.binding": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer": true
       }
     },
     "@onekeyhq/core>ripple-keypairs": {
@@ -3829,11 +3852,11 @@
         "process": true
       },
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-arguments": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-generator-function": true,
         "@onekeyhq/core>web3-utils>web3-validator>util>is-typed-array": true,
-        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array": true,
-        "glob>inherits": true
+        "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array": true
       }
     },
     "@onekeyhq/core>web3-utils>web3-validator>util>is-arguments": {
@@ -3898,6 +3921,7 @@
       },
       "packages": {
         "@onekeyhq/components>lodash": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
         "@onekeyhq/core>ripple-keypairs": true,
@@ -3908,8 +3932,7 @@
         "@onekeyhq/core>xrpl>ripple-binary-codec": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/core>xrpl>xrpl-secret-numbers": true,
-        "@onekeyhq/shared": true,
-        "webpack>events": true
+        "@onekeyhq/shared": true
       }
     },
     "@onekeyhq/core>xrpl>bignumber.js": {
@@ -4290,6 +4313,7 @@
         "@onekeyhq/kit>expo-camera>expo>react-dom": true,
         "@onekeyhq/kit>expo-camera>expo>react-native-webview": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>lightweight-charts": true,
         "@onekeyhq/kit>react-freeze": true,
         "@onekeyhq/kit>react-intl": true,
@@ -4363,8 +4387,7 @@
         "external:../../node_modules/react-native-image-colors/build/index.js": true,
         "external:../../node_modules/worker-loader/dist/runtime/inline.js": true,
         "external:../../node_modules/zxcvbn/lib/main.js": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/kit-bg": {
@@ -4516,6 +4539,7 @@
         "@onekeyhq/kit>date-fns": true,
         "@onekeyhq/kit>date-fns>@babel/runtime": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>react-intl>react": true,
         "@onekeyhq/qr-wallet-sdk": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": true,
@@ -4615,8 +4639,7 @@
         "external:../../node_modules/viem/_esm/utils/encoding/toBytes.js": true,
         "external:../../node_modules/viem/_esm/utils/encoding/toHex.js": true,
         "external:../../node_modules/viem/_esm/utils/hash/keccak256.js": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/kit-bg>eth-url-parser": {
@@ -5009,18 +5032,18 @@
         "@onekeyhq/kit>react-intl>hoist-non-react-statics": true,
         "@onekeyhq/kit>react-intl>intl-messageformat": true,
         "@onekeyhq/kit>react-intl>react": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": {
       "packages": {
         "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser>@formatjs/icu-skeleton-parser": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser>@formatjs/icu-skeleton-parser": {
       "packages": {
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/kit>react-intl>@formatjs/intl": {
@@ -5040,7 +5063,7 @@
         "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": true,
         "@onekeyhq/kit>react-intl>@formatjs/intl>@formatjs/fast-memoize": true,
         "@onekeyhq/kit>react-intl>intl-messageformat": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/kit>react-intl>hoist-non-react-statics": {
@@ -5063,7 +5086,7 @@
       "packages": {
         "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": true,
         "@onekeyhq/kit>react-intl>@formatjs/intl>@formatjs/fast-memoize": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/kit>react-intl>tslib": true
       }
     },
     "@onekeyhq/kit>react-intl>react": {
@@ -5073,6 +5096,11 @@
         "ErrorEvent": true,
         "process": true,
         "reportError": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>tslib": {
+      "globals": {
+        "SuppressedError": true
       }
     },
     "@onekeyhq/kit>redux-persist>redux": {
@@ -5175,9 +5203,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos": {
@@ -5233,9 +5261,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>@keystonehq/bc-ur-registry>bs58check": {
@@ -5269,9 +5297,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>@keystonehq/bc-ur-registry>bs58check": {
@@ -5328,11 +5356,11 @@
         "console.warn": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>web3-utils>ethereum-cryptography": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>@ethereumjs/rlp": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": true,
-        "webpack>events": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>@ethereumjs/rlp": {
@@ -5363,9 +5391,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry>bs58check": {
@@ -5416,9 +5444,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>bs58check": {
@@ -5493,9 +5521,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>@keystonehq/bc-ur-registry>bs58check": {
@@ -5528,9 +5556,9 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>@keystonehq/bc-ur-registry>bs58check": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
-        "concurrently>rxjs>tslib": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>@keystonehq/bc-ur-registry>bs58check": {
@@ -5568,7 +5596,7 @@
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>@keystonehq/alias-sampling": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": true,
-        "electron-builder>dmg-builder>dmg-license>crc": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": {
@@ -5578,6 +5606,20 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": {
+      "packages": {
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer>ieee754": true,
+        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>pako": {
@@ -5756,6 +5798,7 @@
         "@onekeyhq/kit>expo-camera>expo": true,
         "@onekeyhq/kit>expo-camera>expo>expo-file-system": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/kit>fuse.js": true,
         "@onekeyhq/kit>react-intl": true,
         "@onekeyhq/kit>react-intl>@formatjs/intl": true,
@@ -5819,8 +5862,7 @@
         "external:../../node_modules/shamir-secret-sharing/esm/index.js": true,
         "external:../../node_modules/timeout-signal/index.js": true,
         "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/shared>async-mutex": {
@@ -6118,10 +6160,10 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>web3-utils>web3-validator>util": true,
-        "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb>node-gyp-build": true,
-        "webpack>events": true
+        "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb>node-gyp-build": true
       }
     },
     "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb>node-gyp-build": {
@@ -6250,38 +6292,6 @@
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bind>call-bind-apply-helpers": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bound>get-intrinsic>es-define-property": true,
         "@stoprocent/noble>patch-package>json-stable-stringify>call-bound>get-intrinsic>has-symbols": true
-      }
-    },
-    "concurrently>chalk>ansi-styles>color-convert": {
-      "packages": {
-        "concurrently>chalk>ansi-styles>color-convert>color-name": true
-      }
-    },
-    "concurrently>rxjs>tslib": {
-      "globals": {
-        "SuppressedError": true
-      }
-    },
-    "electron-builder>dmg-builder>dmg-license>crc": {
-      "packages": {
-        "electron-builder>dmg-builder>dmg-license>crc>buffer": true
-      }
-    },
-    "electron-builder>dmg-builder>dmg-license>crc>buffer": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
-      }
-    },
-    "electron-builder>dmg-builder>iconv-lite>safer-buffer": {
-      "globals": {
-        "process.binding": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
       }
     },
     "electron-log": {
@@ -14060,10 +14070,10 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/errors/lib-es/index.js": true,
-        "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/logs/lib-es/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/logs/lib-es/index.js": true
       }
     },
     "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/errors/lib-es/helpers.js": {
@@ -35536,6 +35546,7 @@
         "TextEncoder": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@glif/filecoin-message>uint8arrays": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@walletconnect/heartbeat/dist/index.es.js": true,
@@ -35549,8 +35560,7 @@
         "external:../../node_modules/@walletconnect/time/dist/cjs/index.js": true,
         "external:../../node_modules/@walletconnect/types/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true,
-        "external:../../node_modules/@walletconnect/window-getters/dist/cjs/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/window-getters/dist/cjs/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": {
@@ -35579,24 +35589,24 @@
         "setInterval": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "external:../../node_modules/@walletconnect/events/dist/esm/events.js": true,
         "external:../../node_modules/@walletconnect/events/dist/esm/index.js": true,
-        "external:../../node_modules/@walletconnect/time/dist/cjs/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/time/dist/cjs/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": {
       "packages": {
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": true,
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
-        "external:../../node_modules/@walletconnect/safe-json/dist/esm/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/safe-json/dist/esm/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/jsonrpc-provider/dist/index.es.js": {
       "packages": {
-        "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
-        "webpack>events": true
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
+        "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/env.js": {
@@ -35651,10 +35661,10 @@
         "WebSocket": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-ws-connection/node_modules/ws/browser.js": true,
-        "external:../../node_modules/@walletconnect/safe-json/dist/esm/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/safe-json/dist/esm/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": {
@@ -35709,13 +35719,13 @@
         "URL": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "external:../../node_modules/@walletconnect/core/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
         "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/time/dist/cjs/index.js": true,
         "external:../../node_modules/@walletconnect/types/dist/index.es.js": true,
-        "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
       }
     },
     "external:../../node_modules/@walletconnect/time/dist/cjs/constants/index.js": {
@@ -35759,9 +35769,9 @@
     },
     "external:../../node_modules/@walletconnect/types/dist/index.es.js": {
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "external:../../node_modules/@walletconnect/events/dist/esm/events.js": true,
-        "external:../../node_modules/@walletconnect/events/dist/esm/index.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/events/dist/esm/index.js": true
       }
     },
     "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": {
@@ -35774,14 +35784,14 @@
         "URL": true
       },
       "packages": {
+        "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-provider/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
         "external:../../node_modules/@walletconnect/logger/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/sign-client/dist/index.es.js": true,
-        "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true,
-        "webpack>events": true
+        "external:../../node_modules/@walletconnect/utils/dist/index.es.js": true
       }
     },
     "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
@@ -35935,7 +35945,7 @@
     },
     "external:../../node_modules/advanced-cropper/algorithms/flipImageAlgorithm.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/helpers.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/state/copyState.js": true,
@@ -35945,7 +35955,7 @@
     },
     "external:../../node_modules/advanced-cropper/algorithms/moveCoordinatesAlgorithm.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/state/setCoordinates.js": true,
         "external:../../node_modules/advanced-cropper/types/index.js": true
@@ -35953,7 +35963,7 @@
     },
     "external:../../node_modules/advanced-cropper/algorithms/resizeCoordinatesAlgorithm.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/algorithms/moveCoordinatesAlgorithm.js": true,
         "external:../../node_modules/advanced-cropper/constants/index.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
@@ -35964,7 +35974,7 @@
     },
     "external:../../node_modules/advanced-cropper/algorithms/rotateImageAlgorithm.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/approximateSize.js": true,
         "external:../../node_modules/advanced-cropper/service/helpers.js": true,
         "external:../../node_modules/advanced-cropper/service/sizeRestrictions.js": true,
@@ -35977,7 +35987,7 @@
     },
     "external:../../node_modules/advanced-cropper/algorithms/transformImageAlgorithm.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/helpers.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/state/copyState.js": true,
@@ -35988,7 +35998,7 @@
     },
     "external:../../node_modules/advanced-cropper/defaults/defaultStencilConstraints.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/state/setCoordinates.js": true,
         "external:../../node_modules/advanced-cropper/types/index.js": true,
@@ -35997,7 +36007,7 @@
     },
     "external:../../node_modules/advanced-cropper/extensions/fit-to-image/boundingBox.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/types.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/state/setCoordinates.js": true,
@@ -36006,7 +36016,7 @@
     },
     "external:../../node_modules/advanced-cropper/extensions/fit-to-image/position.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/boundingBox.js": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/types.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
@@ -36016,7 +36026,7 @@
     },
     "external:../../node_modules/advanced-cropper/extensions/fit-to-image/size.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/boundingBox.js": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/types.js": true,
         "external:../../node_modules/advanced-cropper/service/sizeRestrictions.js": true,
@@ -36032,7 +36042,7 @@
     },
     "external:../../node_modules/advanced-cropper/service/helpers.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/sizeRestrictions.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/utils/index.js": true
@@ -36040,7 +36050,7 @@
     },
     "external:../../node_modules/advanced-cropper/service/sizeRestrictions.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/service/helpers.js": true,
         "external:../../node_modules/advanced-cropper/service/utils.js": true,
         "external:../../node_modules/advanced-cropper/utils/index.js": true
@@ -36048,14 +36058,14 @@
     },
     "external:../../node_modules/advanced-cropper/service/utils.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/constants/index.js": true,
         "external:../../node_modules/advanced-cropper/utils/index.js": true
       }
     },
     "external:../../node_modules/advanced-cropper/showcase/mobile/index.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/algorithms/resizeCoordinatesAlgorithm.js": true,
         "external:../../node_modules/advanced-cropper/defaults/defaultStencilConstraints.js": true,
         "external:../../node_modules/advanced-cropper/extensions/fit-to-image/position.js": true,
@@ -36078,7 +36088,7 @@
     },
     "external:../../node_modules/advanced-cropper/state/transformImage.js": {
       "packages": {
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/algorithms/flipImageAlgorithm.js": true,
         "external:../../node_modules/advanced-cropper/algorithms/rotateImageAlgorithm.js": true,
         "external:../../node_modules/advanced-cropper/algorithms/transformImageAlgorithm.js": true,
@@ -36207,9 +36217,9 @@
     "external:../../node_modules/browserify-des/index.js": {
       "packages": {
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
-        "external:../../node_modules/des.js/lib/des.js": true,
-        "glob>inherits": true
+        "external:../../node_modules/des.js/lib/des.js": true
       }
     },
     "external:../../node_modules/browserify-rsa/index.js": {
@@ -36231,11 +36241,11 @@
       "packages": {
         "@onekeyhq/core>cip-23>keccak>readable-stream": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "external:../../node_modules/browserify-sign/browser/algorithms.json": true,
         "external:../../node_modules/browserify-sign/browser/sign.js": true,
-        "external:../../node_modules/browserify-sign/browser/verify.js": true,
-        "glob>inherits": true
+        "external:../../node_modules/browserify-sign/browser/verify.js": true
       }
     },
     "external:../../node_modules/browserify-sign/browser/sign.js": {
@@ -36750,8 +36760,8 @@
     },
     "external:../../node_modules/des.js/lib/des/cbc.js": {
       "packages": {
-        "@onekeyhq/core>elliptic>minimalistic-assert": true,
-        "glob>inherits": true
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>elliptic>minimalistic-assert": true
       }
     },
     "external:../../node_modules/des.js/lib/des/cipher.js": {
@@ -36761,18 +36771,18 @@
     },
     "external:../../node_modules/des.js/lib/des/des.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "external:../../node_modules/des.js/lib/des/cipher.js": true,
-        "external:../../node_modules/des.js/lib/des/utils.js": true,
-        "glob>inherits": true
+        "external:../../node_modules/des.js/lib/des/utils.js": true
       }
     },
     "external:../../node_modules/des.js/lib/des/ede.js": {
       "packages": {
+        "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>elliptic>minimalistic-assert": true,
         "external:../../node_modules/des.js/lib/des/cipher.js": true,
-        "external:../../node_modules/des.js/lib/des/des.js": true,
-        "glob>inherits": true
+        "external:../../node_modules/des.js/lib/des/des.js": true
       }
     },
     "external:../../node_modules/destr/dist/index.mjs": {
@@ -39239,7 +39249,7 @@
       },
       "packages": {
         "@onekeyhq/kit>react-intl>react": true,
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/classnames/index.js": true
       }
     },
@@ -39278,7 +39288,7 @@
       },
       "packages": {
         "@onekeyhq/kit>react-intl>react": true,
-        "concurrently>rxjs>tslib": true,
+        "@onekeyhq/kit>react-intl>tslib": true,
         "external:../../node_modules/advanced-cropper/showcase/mobile/index.js": true,
         "external:../../node_modules/classnames/index.js": true,
         "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": true
@@ -43405,16 +43415,6 @@
     "semver>lru-cache": {
       "packages": {
         "semver>lru-cache>yallist": true
-      }
-    },
-    "webpack>events": {
-      "globals": {
-        "console": true
-      }
-    },
-    "webpack>schema-utils>ajv>uri-js": {
-      "globals": {
-        "define": true
       }
     }
   }
