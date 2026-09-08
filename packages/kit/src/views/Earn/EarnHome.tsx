@@ -50,7 +50,11 @@ import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnMobileHomeContent } from './components/EarnMobileHomeContent';
 import { EarnPageContainer } from './components/EarnPageContainer';
 import { Overview } from './components/Overview';
-import { getEarnFocusState } from './EarnHome.utils';
+import {
+  type IEarnPageBannerLoadStatus,
+  getEarnFocusState,
+  getNextEarnPageBannerLoadStatus,
+} from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBlockRegion } from './hooks/useBlockRegion';
@@ -74,7 +78,7 @@ type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 type IEarnPageBannerState = {
   theme: IEarnBannerTheme;
   list: IEarnPageBannerListItem[];
-  isResolved: boolean;
+  status: IEarnPageBannerLoadStatus;
 };
 
 function BasicEarnHome({
@@ -121,13 +125,13 @@ function BasicEarnHome({
     useState<IEarnPageBannerState>(() => ({
       theme: earnBannerTheme,
       list: [],
-      isResolved: false,
+      status: 'loading',
     }));
   if (earnPageBannerState.theme !== earnBannerTheme) {
     setEarnPageBannerState({
       theme: earnBannerTheme,
       list: [],
-      isResolved: false,
+      status: 'loading',
     });
   }
   const earnPageBannerStateRef = useRef(earnPageBannerState);
@@ -148,6 +152,22 @@ function BasicEarnHome({
       }
       const requestTheme = earnBannerTheme;
       const requestSeq = (bannerRequestSeqRef.current += 1);
+      setEarnPageBannerState((currentState) => {
+        if (currentState.theme !== requestTheme) {
+          return {
+            theme: requestTheme,
+            list: [],
+            status: 'loading',
+          };
+        }
+        const status = getNextEarnPageBannerLoadStatus({
+          currentStatus: currentState.status,
+          event: 'requestStarted',
+        });
+        return status === currentState.status
+          ? currentState
+          : { ...currentState, status };
+      });
       const networkResultPromise = backgroundApiProxy.serviceStaking
         .getEarnPageBannerList({
           theme: requestTheme,
@@ -157,7 +177,7 @@ function BasicEarnHome({
       const currentBannerState = earnPageBannerStateRef.current;
       let hasResolvedLayout =
         currentBannerState.theme === requestTheme &&
-        currentBannerState.isResolved;
+        currentBannerState.status === 'resolved';
       let visibleList = hasResolvedLayout ? currentBannerState.list : [];
       if (!hasResolvedLayout) {
         try {
@@ -179,7 +199,10 @@ function BasicEarnHome({
           setEarnPageBannerState({
             theme: requestTheme,
             list: visibleList,
-            isResolved: true,
+            status: getNextEarnPageBannerLoadStatus({
+              currentStatus: currentBannerState.status,
+              event: 'requestResolved',
+            }),
           });
         }
       }
@@ -198,12 +221,29 @@ function BasicEarnHome({
         setEarnPageBannerState({
           theme: requestTheme,
           list,
-          isResolved: true,
+          status: getNextEarnPageBannerLoadStatus({
+            currentStatus: currentBannerState.status,
+            event: 'requestResolved',
+          }),
+        });
+      } else {
+        setEarnPageBannerState((currentState) => {
+          if (currentState.theme !== requestTheme) {
+            return currentState;
+          }
+          const status = getNextEarnPageBannerLoadStatus({
+            currentStatus: currentState.status,
+            event: 'requestFailed',
+          });
+          return status === currentState.status
+            ? currentState
+            : { ...currentState, status };
         });
       }
 
-      // Preserve the last successful layout. A cache miss followed by a network
-      // failure is still unresolved, so a later successful retry can show banners.
+      // Preserve the last successful layout. A first-load failure exits the
+      // Skeleton but remains retryable, so a later successful request can still
+      // show banners.
     },
     [earnBannerTheme, showContent],
     {
@@ -665,7 +705,7 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={!earnPageBannerState.isResolved}
+          isBannerLoading={earnPageBannerState.status === 'loading'}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
