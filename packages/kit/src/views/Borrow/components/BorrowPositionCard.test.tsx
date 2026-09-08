@@ -7,28 +7,29 @@ jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 0.33 },
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isRuntimeBrowser: true },
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
 
-  type IMockProps = {
+  type IMockProps = Record<string, unknown> & {
     children?: React.ReactNode;
-    testID?: string;
-    onPress?: (event: { stopPropagation: () => void }) => void;
-    role?: string;
-    disabled?: boolean;
-    variant?: string;
-    badgeType?: string;
-    'aria-expanded'?: boolean;
   };
 
-  // Forward only what the assertions read; onPress becomes a real DOM click so
-  // the suite exercises browser bubbling instead of simulating it.
+  // Forward the DOM-meaningful props the assertions read; onPress becomes a
+  // real click so the suite exercises browser bubbling instead of simulating
+  // it. Tamagui-only props are dropped so React does not warn about them.
   const asDom = (tag: string) => {
     function MockStack({
       children,
       testID,
       onPress,
+      onKeyDown,
       role,
+      tabIndex,
       disabled,
       variant,
       badgeType,
@@ -41,9 +42,12 @@ jest.mock('@onekeyhq/components', () => {
           'data-variant': variant,
           'data-badge-type': badgeType,
           'aria-expanded': rest['aria-expanded'],
+          'aria-label': rest['aria-label'],
           role,
+          tabIndex,
           disabled,
           type: tag === 'button' ? 'button' : undefined,
+          onKeyDown,
           onClick: onPress,
         },
         children,
@@ -76,18 +80,12 @@ jest.mock('../../Staking/components/ProtocolDetails/EarnText', () => ({
     text ? <span data-size={size}>{text.text}</span> : null,
 }));
 
-jest.mock('./BorrowTableList/ApyTextV2', () => {
-  const apyPress = jest.fn();
-  (globalThis as Record<string, unknown>).__positionCardApyMock = apyPress;
-  return {
-    __esModule: true,
-    ApyTextV2: ({ apyDetail }: { apyDetail: { apy: string } }) => (
-      <button type="button" data-testid="apy-detail-trigger" onClick={apyPress}>
-        {apyDetail.apy}
-      </button>
-    ),
-  };
-});
+jest.mock('./BorrowTableList/ApyTextV2', () => ({
+  __esModule: true,
+  ApyTextV2: ({ apyDetail }: { apyDetail: { apy: string } }) => (
+    <span data-testid="apy-detail">{apyDetail.apy}</span>
+  ),
+}));
 
 import { fireEvent, render } from '@testing-library/react';
 
@@ -96,9 +94,6 @@ import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 import { BorrowPositionCard } from './BorrowPositionCard';
 
 import type { IBorrowPositionCardAction } from './BorrowPositionCard';
-
-const apyPressMock = (globalThis as Record<string, unknown>)
-  .__positionCardApyMock as jest.Mock;
 
 const token = {
   networkId: 'evm--1',
@@ -151,10 +146,6 @@ function renderCard(
 }
 
 describe('BorrowPositionCard expand behaviour', () => {
-  beforeEach(() => {
-    apyPressMock.mockClear();
-  });
-
   it('keeps the actions out of the tree until the card is expanded', () => {
     const { queryByTestId } = renderCard({ isExpanded: false });
 
@@ -201,18 +192,33 @@ describe('BorrowPositionCard expand behaviour', () => {
     expect(onToggleExpand).toHaveBeenCalledTimes(1);
   });
 
-  it('exposes the expanded state only while the card can expand', () => {
-    const { getByTestId, rerender } = renderCard({
+  it('puts the button semantics on the asset row, never on the card itself', () => {
+    const { getByTestId, container } = renderCard({
       onToggleExpand: jest.fn(),
       isExpanded: true,
+      collateral: (
+        <span
+          data-testid="collateral-switch"
+          role="switch"
+          aria-checked="true"
+          aria-label="Use as Collateral"
+        />
+      ),
     });
 
-    expect(getByTestId('position-card').getAttribute('aria-expanded')).toBe(
-      'true',
-    );
-    expect(getByTestId('position-card').getAttribute('role')).toBe('button');
+    // The card holds the collateral switch, so it must not claim role=button:
+    // ARIA forbids a focusable descendant inside one.
+    expect(getByTestId('position-card').getAttribute('role')).toBeNull();
 
-    rerender(
+    const disclosure = container.querySelector('[role="button"]');
+    expect(disclosure).not.toBeNull();
+    expect(disclosure?.getAttribute('aria-expanded')).toBe('true');
+    expect(disclosure?.getAttribute('tabindex')).toBe('0');
+    expect(disclosure?.querySelector('[role="switch"]')).toBeNull();
+  });
+
+  it('drops the disclosure semantics when the card cannot expand', () => {
+    const { container } = render(
       <BorrowPositionCard
         testID="position-card"
         token={token}
@@ -222,41 +228,18 @@ describe('BorrowPositionCard expand behaviour', () => {
       />,
     );
 
-    expect(
-      getByTestId('position-card').getAttribute('aria-expanded'),
-    ).toBeNull();
-    expect(getByTestId('position-card').getAttribute('role')).toBeNull();
+    expect(container.querySelector('[role="button"]')).toBeNull();
   });
 
-  it('does not toggle the card when the collateral control is pressed', () => {
+  it('expands from the keyboard so the actions stay reachable without a pointer', () => {
     const onToggleExpand = jest.fn();
-    const onCollateralPress = jest.fn();
-    const { getByTestId } = renderCard({
-      onToggleExpand,
-      collateral: (
-        <button
-          type="button"
-          data-testid="collateral-switch"
-          onClick={onCollateralPress}
-        >
-          switch
-        </button>
-      ),
-    });
+    const { container } = renderCard({ onToggleExpand });
+    const disclosure = container.querySelector('[role="button"]') as Element;
 
-    fireEvent.click(getByTestId('collateral-switch'));
+    fireEvent.keyDown(disclosure, { key: 'Enter' });
+    fireEvent.keyDown(disclosure, { key: ' ' });
+    fireEvent.keyDown(disclosure, { key: 'a' });
 
-    expect(onCollateralPress).toHaveBeenCalledTimes(1);
-    expect(onToggleExpand).not.toHaveBeenCalled();
-  });
-
-  it('does not toggle the card when the APY detail is pressed', () => {
-    const onToggleExpand = jest.fn();
-    const { getByTestId } = renderCard({ onToggleExpand });
-
-    fireEvent.click(getByTestId('apy-detail-trigger'));
-
-    expect(apyPressMock).toHaveBeenCalledTimes(1);
-    expect(onToggleExpand).not.toHaveBeenCalled();
+    expect(onToggleExpand).toHaveBeenCalledTimes(2);
   });
 });

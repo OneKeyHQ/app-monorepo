@@ -69,20 +69,28 @@ jest.mock('../borrowDataStatus', () => ({
   isBorrowReservesPending: () => false,
 }));
 
-jest.mock('../BorrowProvider', () => ({
-  __esModule: true,
-  useBorrowContext: () => ({
-    reserves: { data: { supply: { assets: [] }, borrow: { assets: [] } } },
-    market: {
-      networkId: 'evm--1',
-      provider: 'aave',
-      marketAddress: '0xMarket',
-      logoURI: 'https://example.com/aave.png',
-    },
-    borrowDataStatus: {},
-    earnAccount: { data: { account: { id: 'account-1' } } },
-  }),
-}));
+jest.mock('../BorrowProvider', () => {
+  const scope = {
+    networkId: 'evm--1',
+    marketAddress: '0xMarket',
+    accountId: 'account-1',
+  };
+  (globalThis as Record<string, unknown>).__mobilePositionScope = scope;
+  return {
+    __esModule: true,
+    useBorrowContext: () => ({
+      reserves: { data: { supply: { assets: [] }, borrow: { assets: [] } } },
+      market: {
+        networkId: scope.networkId,
+        provider: 'aave',
+        marketAddress: scope.marketAddress,
+        logoURI: 'https://example.com/aave.png',
+      },
+      borrowDataStatus: {},
+      earnAccount: { data: { account: { id: scope.accountId } } },
+    }),
+  };
+});
 
 jest.mock('../borrowUtils', () => ({
   __esModule: true,
@@ -137,6 +145,11 @@ import { BorrowMobilePositions } from './BorrowMobilePositions';
 
 const entries = (globalThis as Record<string, unknown>)
   .__mobilePositionEntries as unknown[];
+const scope = (globalThis as Record<string, unknown>).__mobilePositionScope as {
+  networkId: string;
+  marketAddress: string;
+  accountId: string;
+};
 
 function buildEntry(kind: 'supplied' | 'borrowed', reserveAddress: string) {
   const amount = { title: { text: '20' }, description: { text: '$20' } };
@@ -176,6 +189,9 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
       buildEntry('supplied', '0xAaa'),
       buildEntry('borrowed', '0xBbb'),
     );
+    scope.networkId = 'evm--1';
+    scope.marketAddress = '0xMarket';
+    scope.accountId = 'account-1';
   });
 
   it('starts with every card collapsed', () => {
@@ -235,5 +251,56 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     expect(
       getByTestId(cardId('borrowed', '0xSame')).getAttribute('data-expanded'),
     ).toBe('false');
+  });
+
+  // Aave native reserves have an empty reserveAddress, and the list is not
+  // remounted when the market or account changes, so an unscoped key would
+  // leave the next market's native card pre-expanded.
+  it('does not carry a native position open across a market switch', () => {
+    entries.length = 0;
+    entries.push(buildEntry('supplied', ''));
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+
+    fireEvent.click(getByTestId(cardId('supplied', '')));
+    expect(
+      getByTestId(cardId('supplied', '')).getAttribute('data-expanded'),
+    ).toBe('true');
+
+    scope.networkId = 'evm--8453';
+    scope.marketAddress = '0xOtherMarket';
+    rerender(<BorrowMobilePositions />);
+
+    expect(
+      getByTestId(cardId('supplied', '')).getAttribute('data-expanded'),
+    ).toBe('false');
+  });
+
+  it('does not carry a position open across an account switch', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+
+    fireEvent.click(getByTestId(cardId('supplied', '0xAaa')));
+    scope.accountId = 'account-2';
+    rerender(<BorrowMobilePositions />);
+
+    expect(
+      getByTestId(cardId('supplied', '0xAaa')).getAttribute('data-expanded'),
+    ).toBe('false');
+  });
+
+  it('keeps the open card open when the indexer changes address casing', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+
+    fireEvent.click(getByTestId(cardId('supplied', '0xAaa')));
+
+    entries.length = 0;
+    entries.push(
+      buildEntry('supplied', '0xAAA'),
+      buildEntry('borrowed', '0xBbb'),
+    );
+    rerender(<BorrowMobilePositions />);
+
+    expect(
+      getByTestId(cardId('supplied', '0xAAA')).getAttribute('data-expanded'),
+    ).toBe('true');
   });
 });

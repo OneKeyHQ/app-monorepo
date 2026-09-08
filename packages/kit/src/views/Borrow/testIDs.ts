@@ -12,6 +12,12 @@ export const BorrowTestIDs = {
     kind: 'supplied' | 'borrowed',
     reserveAddress: string,
   ) => `borrow-position-card-actions-${kind}-${reserveAddress.toLowerCase()}`,
+  positionCardAction: (
+    kind: 'supplied' | 'borrowed',
+    reserveAddress: string,
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay',
+  ) =>
+    `borrow-position-card-${action}-btn-${kind}-${reserveAddress.toLowerCase()}`,
 
   // --- Overview ---
   overviewRefreshBtn: 'borrow-overview-refresh-btn',
