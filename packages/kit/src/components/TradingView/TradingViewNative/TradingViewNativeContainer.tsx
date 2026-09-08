@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -318,7 +326,9 @@ const TradingViewNativeContent = memo(
         ),
       [subIndicatorInstances],
     );
-    onPriceUpdateRef.current = onPriceUpdate;
+    useLayoutEffect(() => {
+      onPriceUpdateRef.current = onPriceUpdate;
+    }, [onPriceUpdate]);
     const handleRealtimePoint = useCallback(
       (point: { c: number; t: number }) => {
         realtimePointRef.current = point;
