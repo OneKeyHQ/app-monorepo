@@ -2142,6 +2142,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       workflowId,
       Object.assign(new Error('transfer failed'), {
         code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+        payload: { params: { resourceVerification: 'failed' } },
       }),
     );
 
@@ -2159,9 +2160,57 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
         status: 'failed',
         failureType: 'transfer',
         errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+        resourceVerification: 'failed',
       }),
     );
   });
+
+  it.each([undefined, 'header-verified'] as const)(
+    'reports only the resource verification returned by the SDK (%s)',
+    async (resourceVerification) => {
+      jest
+        .mocked(firmwareUpdateWorkflowRunningAtom.get)
+        .mockResolvedValue(true);
+      jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
+      const resultSpy = jest
+        .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
+        .mockImplementation((params) => params);
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      const releaseResult = {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult;
+      const workflowId = service.resetUpdateWorkflowTracking({
+        updateFlow: 'v2',
+        releaseResult,
+      });
+      service.recordUpdateWorkflowTransportType(
+        workflowId,
+        EHardwareTransportType.WEBUSB,
+      );
+      jest.spyOn(service, 'updateTasksResolve').mockResolvedValue(undefined);
+      service.updateTasks[1] = {
+        workflowId,
+        fn: jest
+          .fn()
+          .mockResolvedValue({ message: 'success', resourceVerification }),
+      };
+
+      await service.runUpdateTask({ id: 1 });
+      await service.completeUpdateWorkflow({
+        params: { backuped: true, usbConnected: true, releaseResult },
+      });
+
+      expect(resultSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'success', resourceVerification }),
+      );
+      service.resetUpdateWorkflowTracking({ updateFlow: 'v2', releaseResult });
+      expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
+        expect.objectContaining({ resourceVerification: undefined }),
+      );
+    },
+  );
 
   it('reports distinct transfer and total workflow durations', async () => {
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);

@@ -83,6 +83,7 @@ export class FirmwareScene extends BaseScene {
     fromFirmwareType: EFirmwareType | undefined;
     toFirmwareType: EFirmwareType | undefined;
     status: 'success' | 'failed';
+    resourceVerification?: 'header-verified' | 'failed';
     failureType?: IFirmwareUpdateFailureType;
     errorCode?: string;
     retryCount?: number;

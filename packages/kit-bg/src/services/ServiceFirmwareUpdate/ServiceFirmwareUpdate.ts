@@ -2045,6 +2045,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         startedAt: number;
         retryCount: number;
         lastFailure: IOneKeyError | undefined;
+        resourceVerification?: 'header-verified' | 'failed';
       }
     | undefined;
 
@@ -2127,6 +2128,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       return false;
     }
     tracking.lastFailure = err;
+    if (get(err, 'payload.params.resourceVerification') === 'failed') {
+      tracking.resourceVerification = 'failed';
+    }
     return true;
   }
 
@@ -2151,6 +2155,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       | ReturnType<typeof classifyFirmwareUpdateFailure>
       | undefined;
     lastErrorCode: string | undefined;
+    resourceVerification?: 'header-verified' | 'failed';
   }> {
     const tracking = this.updateWorkflowTracking;
     const now = Date.now();
@@ -2172,6 +2177,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? classifyFirmwareUpdateFailure(tracking.lastFailure)
         : undefined,
       lastErrorCode: resolveFirmwareUpdateErrorCode(tracking?.lastFailure),
+      resourceVerification: tracking?.resourceVerification,
     };
   }
 
@@ -2540,6 +2546,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         fromFirmwareType,
         toFirmwareType,
         status: 'success',
+        resourceVerification: trackingInfo.resourceVerification,
         retryCount: trackingInfo.retryCount,
         totalDurationMs: trackingInfo.totalDurationMs,
         transferredBytes: trackingInfo.transferredBytes,
@@ -2605,6 +2612,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
         toFirmwareType: updateFirmwareInfo?.toFirmwareType,
         status: 'failed',
+        resourceVerification: trackingInfo.resourceVerification,
         failureType: resultFailureType,
         errorCode:
           failureType === 'cancelled'
@@ -2951,6 +2959,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const result = await task.fn({ id });
       if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
         return;
+      }
+      if (
+        task.workflowId !== undefined &&
+        get(result, 'resourceVerification') === 'header-verified'
+      ) {
+        const tracking = this.getUpdateWorkflowTracking(task.workflowId);
+        if (tracking) tracking.resourceVerification = 'header-verified';
       }
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
