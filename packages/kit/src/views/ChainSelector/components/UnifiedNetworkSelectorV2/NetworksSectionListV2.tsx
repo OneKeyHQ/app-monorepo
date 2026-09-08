@@ -290,7 +290,7 @@ export default function NetworksSectionListV2() {
       capabilities: {
         sectionIndex: {
           enabled: !searchKey.trim(),
-          centeredInWindow: platformEnv.isNativeIOS,
+          centeredInWindow: platformEnv.isNative,
         },
       },
       selection: {
