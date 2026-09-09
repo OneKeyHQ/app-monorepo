@@ -79,6 +79,7 @@ import {
   createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
+  getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
@@ -237,7 +238,11 @@ export const TradingViewNativeChart = memo(
     );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
-    const legendText = `${candleLabels.open}${candleLabels.high}${candleLabels.low}${candleLabels.close}`;
+    const legendText = useMemo(
+      () =>
+        getTradingViewNativeSkiaLegendText({ candleLabels, chartComponents }),
+      [candleLabels, chartComponents],
+    );
     const legendFont = useMemo(
       () =>
         createTradingViewNativeSkiaFontForText({

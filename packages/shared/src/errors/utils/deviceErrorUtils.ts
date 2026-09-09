@@ -227,7 +227,10 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
     case HardwareErrorCode.DeviceNotOpenedPassphrase: {
       const deviceNotOpenedPassphraseError =
-        new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+        new HardwareErrors.DeviceNotOpenedPassphrase({
+          payload,
+          silentMode: options?.silentMode,
+        });
       return deviceNotOpenedPassphraseError;
     }
     case HardwareErrorCode.DeviceLocked:

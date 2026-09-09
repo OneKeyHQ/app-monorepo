@@ -8,7 +8,6 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
-import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -172,9 +171,6 @@ export function DesktopLayout({
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const marketAssetId = shouldUseTopCoinsDesktopLayout
-    ? marketTokenId?.trim()
-    : undefined;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
@@ -287,9 +283,6 @@ export function DesktopLayout({
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
     }
-    if (marketAssetId) {
-      return { kind: 'asset', assetId: marketAssetId };
-    }
     return getMarketDetailTradingViewNativeSource({
       hyperliquidCoin: nativeHyperliquidCoin,
       isNative,
@@ -300,7 +293,6 @@ export function DesktopLayout({
     });
   }, [
     isStockSharePrice,
-    marketAssetId,
     marketTradingViewParams?.dataSource,
     nativeHyperliquidCoin,
     isNative,
@@ -322,19 +314,6 @@ export function DesktopLayout({
             })
         : undefined,
     [stockId],
-  );
-  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
-    () =>
-      marketAssetId
-        ? ({ interval, timeFrom, timeTo }) =>
-            fetchMarketAssetKLineData({
-              assetId: marketAssetId,
-              interval,
-              timeFrom,
-              timeTo,
-            })
-        : undefined,
-    [marketAssetId],
   );
   // Redesigned desktop detail pages lay their Simple/Pro switch over the
   // trailing edge of the Pro widget's control row. Drop the row's own trailing
@@ -361,17 +340,13 @@ export function DesktopLayout({
   let marketTradingViewKey = 'token';
   if (isStockSharePrice) {
     marketTradingViewKey = `stock-share:${stockId ?? ''}`;
-  } else if (marketAssetId) {
-    marketTradingViewKey = `asset:${marketAssetId}`;
   }
   const proKLineDataFallback = isStockSharePrice
     ? stockKLineDataFallback
-    : assetKLineDataFallback;
+    : undefined;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId ||
-        tradingViewNativeSource.kind === 'asset' ||
-        tradingViewNativeSource.kind === 'stock' ? (
+      return networkId || tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
@@ -441,9 +416,7 @@ export function DesktopLayout({
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
         kLineDataFallback={proKLineDataFallback}
-        primaryKLineDataUnavailable={
-          isStockSharePrice || Boolean(marketAssetId)
-        }
+        primaryKLineDataUnavailable={isStockSharePrice}
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
@@ -457,7 +430,6 @@ export function DesktopLayout({
     isTradingViewNative,
     isStockSharePrice,
     marketTradingViewKey,
-    marketAssetId,
     shouldUseStockDesktopLayout,
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
