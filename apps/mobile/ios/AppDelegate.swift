@@ -374,6 +374,34 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
   private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
 
+  private func runtimeMetroPort() -> Int? {
+    guard
+      let value = ProcessInfo.processInfo.environment["RCT_METRO_PORT"],
+      let port = Int(value),
+      (1 ... 65_535).contains(port)
+    else {
+      return nil
+    }
+    return port
+  }
+
+  private func runtimeMetroBaseURL() -> URL? {
+    guard
+      let port = runtimeMetroPort(),
+      let ipPath = Bundle.main.path(forResource: "ip", ofType: "txt"),
+      let host = try? String(contentsOfFile: ipPath, encoding: .utf8)
+        .trimmingCharacters(in: .whitespacesAndNewlines),
+      !host.isEmpty
+    else {
+      return nil
+    }
+    var components = URLComponents()
+    components.scheme = "http"
+    components.host = host
+    components.port = port
+    return components.url.flatMap { validatedMetroBaseURL($0.absoluteString) }
+  }
+
   private func explicitDevBackgroundHMRValue() -> Bool? {
     if let envValue = ProcessInfo.processInfo.environment["ONEKEY_DEV_BG_HMR"] {
       return ["1", "true", "yes", "on"].contains(
@@ -392,7 +420,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   private func isDevBackgroundHMREnabled(fingerprint _: String) -> Bool {
-    return explicitDevBackgroundHMRValue() ?? false
+    if let explicitValue = explicitDevBackgroundHMRValue() {
+      return explicitValue
+    }
+#if targetEnvironment(simulator)
+    return false
+#else
+    return true
+#endif
   }
 
   private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
@@ -554,10 +589,19 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     guard let commonURL, let manifestURL else {
       fatalError("Dev-vendor common HBC and manifest must be embedded together")
     }
+    let runtimeMetroURL = runtimeMetroBaseURL()
+    if
+      let runtimeMetroURL,
+      let host = runtimeMetroURL.host,
+      let port = runtimeMetroURL.port
+    {
+      RCTBundleURLProvider.sharedSettings().jsLocation = "\(host):\(port)"
+    }
     guard
-      let packagerURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
-        forBundleRoot: ".expo/.virtual-metro-entry"
-      ),
+      let packagerURL = runtimeMetroURL ??
+        RCTBundleURLProvider.sharedSettings().jsBundleURL(
+          forBundleRoot: ".expo/.virtual-metro-entry"
+        ),
       var baseComponents = URLComponents(url: packagerURL, resolvingAgainstBaseURL: false)
     else {
       // Without a reachable packager the plain Metro path fails the same way
@@ -571,6 +615,11 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     baseComponents.path = ""
     baseComponents.query = nil
     baseComponents.fragment = nil
+    // The physical-device launcher owns Metro and injects its allocated port
+    // into the app process. Expo's Xcode build does not propagate --port.
+    if let port = runtimeMetroPort() {
+      baseComponents.port = port
+    }
     guard
       let metroBaseURLValue = baseComponents.url?.absoluteString,
       let metroBaseURL = validatedMetroBaseURL(metroBaseURLValue)
@@ -832,8 +881,16 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
-    // needed to return the correct URL for expo-dev-client.
-    bridge.bundleURL ?? bundleURL()
+#if DEBUG
+    // A reload may preserve Expo's full Metro URL on the bridge. Embedded
+    // DevVendor builds must always restart from common.hbc so the host can
+    // attach only the main/background deltas again.
+    if devVendorBundleInfo != nil {
+      return bundleURL()
+    }
+#endif
+    // Needed to return the correct URL for expo-dev-client.
+    return bridge.bundleURL ?? bundleURL()
   }
 
   override func bundleURL() -> URL? {

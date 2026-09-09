@@ -367,13 +367,17 @@ function StockPriceHeader({
 
   return (
     <XStack
-      height={68}
-      alignItems="flex-start"
+      testID="stock-price-header"
+      minHeight={68}
+      flexWrap="wrap-reverse"
+      alignItems="flex-end"
       justifyContent="space-between"
       gap="$2"
     >
-      <YStack flex={1} gap="$2">
-        <XStack alignItems="baseline" gap="$3.5">
+      {/* Keep the intrinsic price width when deciding whether the controls fit.
+          Reverse wrapping places the controls above the quote on narrow charts. */}
+      <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
+        <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
           {hoverPoint ? (
             <NumberSizeableText
               testID="stock-price-hover-value"
@@ -390,7 +394,7 @@ function StockPriceHeader({
               isSharePrice={isSharePrice}
             />
           )}
-          <XStack alignItems="baseline" gap="$1.5">
+          <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
               <NumberSizeableText
                 testID="stock-price-change-value"
@@ -425,7 +429,14 @@ function StockPriceHeader({
       {/* Figma widths are minimums: Spanish/Italian labels outgrow the
           English boxes, and a fixed width would truncate both options into
           the same truncated string. */}
-      <XStack minWidth={191} height={38} py="$1" gap="$0.5" alignItems="center">
+      <XStack
+        minWidth={191}
+        height={38}
+        flexShrink={0}
+        py="$1"
+        gap="$0.5"
+        alignItems="center"
+      >
         <Button
           testID="stock-price-mode-share"
           minWidth={94}
