@@ -103,7 +103,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins&resolveMarketAsset=true&marketTokenSymbol=BTC',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -113,11 +113,56 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         marketTokenId: 'bitcoin',
         marketVariantId: 'bitcoin-evm--56-0xabc',
         marketTokenCategory: 'top_coins',
+        marketTokenSymbol: 'BTC',
+        resolveMarketAsset: true,
         skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
         disableTrade: true,
         showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('restores a serialized token preview in the expand-tab runtime', () => {
+    const legacyTokenPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      price: 1,
+      selectedAt: 1,
+    };
+    const query = new URLSearchParams({
+      legacyTokenPreview: JSON.stringify(legacyTokenPreview),
+    });
+
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        `#/market/token/eth/0xabc?${query.toString()}`,
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        legacyTokenPreview,
+      },
+    });
+  });
+
+  it('ignores a malformed serialized token preview', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token/eth/0xabc?legacyTokenPreview=%7B%22name%22%3A1%7D',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
       },
     });
   });
@@ -372,6 +417,16 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       query: 'marketTokenCategory=top_coins',
       currentParams: {},
       expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+    {
+      query: 'resolveMarketAsset=true',
+      currentParams: {},
+      expectedParams: { resolveMarketAsset: true },
+    },
+    {
+      query: 'marketTokenSymbol=BTC',
+      currentParams: {},
+      expectedParams: { marketTokenSymbol: 'BTC' },
     },
   ])(
     'refreshes the same token route when $query changes',
