@@ -1,6 +1,10 @@
+import { EFirmwareUpdateTipMessages } from '../../types/device';
+import { EHardwareUiStateAction } from '../../types/hardwareUi';
+
 import {
   attachDeviceStageEscapeOwner,
   isDeviceStageAnsweredStep,
+  isDeviceStageOwnedHardwareUiAction,
   resolveDeviceStageBackPress,
   resolveDeviceStageExitGrant,
   resolveDeviceStageWaitStall,
@@ -8,6 +12,50 @@ import {
   shouldCancelDeviceOnStageClose,
   shouldEmitDeviceNotFoundDialogEvent,
 } from './deviceStageOwnership';
+
+describe('isDeviceStageOwnedHardwareUiAction', () => {
+  it('owns the device’s asks and waits, and the install confirm tip (OK-62087)', () => {
+    expect(
+      isDeviceStageOwnedHardwareUiAction({
+        action: EHardwareUiStateAction.REQUEST_PIN,
+      }),
+    ).toBe(true);
+    for (const firmwareTipMessage of [
+      EFirmwareUpdateTipMessages.ConfirmOnDevice,
+      EFirmwareUpdateTipMessages.InstallingFirmware,
+    ]) {
+      expect(
+        isDeviceStageOwnedHardwareUiAction({
+          action: EHardwareUiStateAction.FIRMWARE_TIP,
+          firmwareTipMessage,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it('leaves the update’s narration and system pairing to the page and the legacy container', () => {
+    expect(
+      isDeviceStageOwnedHardwareUiAction({
+        action: EHardwareUiStateAction.FIRMWARE_TIP,
+        firmwareTipMessage: EFirmwareUpdateTipMessages.DownloadFirmware,
+      }),
+    ).toBe(false);
+    expect(
+      isDeviceStageOwnedHardwareUiAction({
+        action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      }),
+    ).toBe(false);
+    expect(
+      isDeviceStageOwnedHardwareUiAction({
+        action: EHardwareUiStateAction.DeviceChecking,
+        eventType: EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING,
+      }),
+    ).toBe(false);
+    expect(isDeviceStageOwnedHardwareUiAction({ action: undefined })).toBe(
+      false,
+    );
+  });
+});
 
 describe('shouldEmitDeviceNotFoundDialogEvent', () => {
   afterEach(() => {

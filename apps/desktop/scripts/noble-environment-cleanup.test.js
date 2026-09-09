@@ -112,6 +112,114 @@ describeMac('Noble SDK process cleanup', () => {
     }
   }, 10_000);
 
+  test('native macOS quit completes when unused BLE cleanup resolves immediately', () => {
+    const file = path.resolve(__dirname, '../app/app.ts');
+    const appSource = ts.createSourceFile(
+      file,
+      fs.readFileSync(file, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const beforeQuit = appSource.statements.find(
+      (node) =>
+        ts.isExpressionStatement(node) &&
+        ts.isCallExpression(node.expression) &&
+        node.expression.expression.getText(appSource) === 'app.on' &&
+        node.expression.arguments[0]?.text === 'before-quit',
+    );
+    const production = ts.transpileModule(beforeQuit.getText(appSource), {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-native-quit-'),
+    );
+    try {
+      // Target only this test's PID. Calling app.quit() from JS does not reproduce
+      // the microtask checkpoint inside Electron's native before-quit callback.
+      const helperSource = path.join(directory, 'quit.swift');
+      const helper = path.join(directory, 'quit');
+      fs.writeFileSync(
+        helperSource,
+        `import AppKit
+guard let pid = Int32(CommandLine.arguments[1]),
+      let target = NSRunningApplication(processIdentifier: pid),
+      target.terminate() else { exit(1) }
+`,
+      );
+      const compile = spawnSync(
+        'xcrun',
+        ['swiftc', helperSource, '-o', helper],
+        {
+          encoding: 'utf8',
+          timeout: 30_000,
+        },
+      );
+      expect({
+        error: compile.error?.message,
+        status: compile.status,
+        stderr: compile.status === 0 ? '' : compile.stderr,
+      }).toEqual({ error: undefined, status: 0, stderr: '' });
+
+      const source = `
+        const { spawn } = require('child_process');
+        const { app, BrowserWindow } = require('electron');
+        app.setPath('userData', ${JSON.stringify(path.join(directory, 'data'))});
+        const events = [];
+        const record = (event) => { events.push(event); console.log(event); };
+        const isMac = true, logger = { info() {}, warn() {}, error() {} };
+        let bleQuitStarted = false, bleQuitReady = false, mainWindow;
+        let systemIdleInterval, disposeContextMenu;
+        const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
+        const disposeNobleBleSupport = async () => { record('dispose-done'); };
+        const store = { getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
+        const getSafelyMainWindow = () => mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+        const destroyTrayManager = () => {};
+        app.on('before-quit', () => record('before-quit'));
+        app.on('window-all-closed', () => record('window-all-closed'));
+        app.on('will-quit', () => record('will-quit'));
+        app.on('quit', () => console.log('QUIT-EVENTS:' + JSON.stringify([...events, 'quit'])));
+        ${production}
+        app.whenReady().then(async () => {
+          app.dock.hide();
+          mainWindow = new BrowserWindow({ show: false });
+          await mainWindow.loadURL('data:text/html,<html>Native quit regression</html>');
+          // Allow closing, but require a renderer round trip before the window disappears.
+          await mainWindow.webContents.executeJavaScript('window.onbeforeunload = () => undefined; void 0');
+          spawn(${JSON.stringify(helper)}, [String(process.pid)], { stdio: 'inherit' })
+            .on('error', (error) => { console.error(error); app.exit(1); })
+            .on('exit', (code) => { if (code !== 0) app.exit(1); });
+        }).catch(error => { console.error(error); app.exit(1); });
+      `;
+      const script = path.join(directory, 'quit.cjs');
+      fs.writeFileSync(script, source);
+      const env = { ...process.env };
+      delete env.ELECTRON_RUN_AS_NODE;
+      const result = spawnSync(require('electron'), [script], {
+        encoding: 'utf8',
+        env,
+        timeout: 8000,
+        killSignal: 'SIGKILL',
+      });
+      expect({
+        error: result.error?.message,
+        status: result.status,
+        stdout: result.status === 0 ? '' : result.stdout,
+        stderr: result.status === 0 ? '' : result.stderr,
+      }).toEqual({ error: undefined, status: 0, stdout: '', stderr: '' });
+      expect(result.stdout).toContain(
+        `QUIT-EVENTS:${JSON.stringify([
+          'before-quit',
+          'dispose-done',
+          'before-quit',
+          'will-quit',
+          'quit',
+        ])}`,
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  }, 45_000);
+
   test.each([
     'unused',
     'initialized',

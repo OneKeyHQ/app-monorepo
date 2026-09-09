@@ -2,7 +2,7 @@
 
 OneKey is a TypeScript React/React Native monorepo for desktop, mobile, web,
 and browser extension wallet apps. Keep changes scoped, typed, cross-platform
-aware, and aligned with existing package boundaries.
+aware, and aligned with package boundaries.
 
 ## Core Rules
 
@@ -66,10 +66,11 @@ Never violate this dependency order:
 
 ## Data And Dependencies
 
-- Local DB schema changes must keep Realm and IndexedDB definitions in sync and
-  bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts`.
-- Schema changes include Realm properties/getters, IndexedDB stores/schema maps,
-  and persisted model fields.
+- Bump `LOCAL_DB_VERSION` (`packages/kit-bg/src/dbs/local/consts.ts`)
+  for Realm schema changes (even optional fields), IndexedDB store/index
+  changes, or version-gated migrations. Name the change; align schemas.
+- Type-only edits and SimpleDB/serialized payload fields alone need no bump;
+  assess compatibility separately.
 - For third-party patches, follow `/1k-patch-package-workflow`; generated patches
   must exclude build artifacts.
 

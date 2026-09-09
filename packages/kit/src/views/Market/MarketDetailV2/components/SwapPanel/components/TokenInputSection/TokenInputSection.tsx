@@ -54,6 +54,7 @@ export interface ITokenInputSectionProps {
   disableNativeToken?: boolean;
   stockDetailDesktopLayout?: boolean;
   balanceLoading?: boolean;
+  selectedTokenLoading?: boolean;
   fiatValue?: string;
   onMaxPress?: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -73,6 +74,7 @@ function TokenInputSectionComponent(
     disableNativeToken,
     stockDetailDesktopLayout,
     balanceLoading,
+    selectedTokenLoading,
     fiatValue,
     onMaxPress,
     onSelectPercentageStage,
@@ -285,9 +287,13 @@ function TokenInputSectionComponent(
               minWidth: 132,
               justifyContent: 'flex-end',
               selectedTokenImageUri: selectedToken?.logoURI,
+              selectedTokenImageLoading: Boolean(
+                selectedToken?.symbol && !selectedToken.logoURI,
+              ),
               selectedNetworkImageUri,
               selectedTokenSymbol: selectedToken?.symbol,
               showNetworkIconBorder: false,
+              loading: selectedTokenLoading,
               disabled: !isTokenSelectorVisible,
               onPress: isTokenSelectorVisible
                 ? () => setIsPopoverOpen(true)

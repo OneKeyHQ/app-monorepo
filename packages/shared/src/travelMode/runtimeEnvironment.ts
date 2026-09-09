@@ -30,7 +30,10 @@ export interface IRuntimeEffectCapability {
   readonly kind: 'enabled' | 'suppressed';
   readonly isSuppressed: boolean;
   run<T>(operation: IRuntimeOperation<T>): Promise<T>;
-  runOrReject<T>(operation: () => Promise<T>): Promise<T>;
+  runOrReject<T>(
+    operation: () => Promise<T>,
+    options?: { allowInTravelMode?: boolean },
+  ): Promise<T>;
   runSync<T>(operation: IRuntimeSyncOperation<T>): T;
 }
 
@@ -114,7 +117,13 @@ class RuntimeEffectCapability implements IRuntimeEffectCapability {
     return operation();
   }
 
-  runOrReject<T>(operation: () => Promise<T>): Promise<T> {
+  runOrReject<T>(
+    operation: () => Promise<T>,
+    options?: { allowInTravelMode?: boolean },
+  ): Promise<T> {
+    if (options?.allowInTravelMode && !this.isTransitionBlocked()) {
+      return operation();
+    }
     return this.run({ operation, onBlocked: rejectTravelModeUnknownError });
   }
 

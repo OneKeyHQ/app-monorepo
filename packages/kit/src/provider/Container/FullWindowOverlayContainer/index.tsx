@@ -5,6 +5,7 @@ import {
   Stack,
   Toaster,
 } from '@onekeyhq/components';
+import { HARDWARE_STAGE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
@@ -32,6 +33,12 @@ export function FullWindowOverlayContainer() {
           gate before the device call ever starts). Toasts stay above
           through the providers below.
 
+          Source order alone only holds on native: on web a Dialog carries
+          an explicit z-index (useOverlayZIndex, 99 999 and up) and paints
+          over a later sibling at z-index auto, so the desktop stage sat
+          under the dialog's own scrim (OK-62228). The wrapper's z-index
+          makes the order explicit on every platform.
+
           The wrapper is what gives the stage its viewport: MorphOverlay's
           layer anchors absolute to fill it, and OverlayContainer is a
           full-window host only on iOS — everywhere else it passes its
@@ -43,6 +50,7 @@ export function FullWindowOverlayContainer() {
         left={0}
         right={0}
         bottom={0}
+        zIndex={HARDWARE_STAGE_Z_INDEX}
         pointerEvents="box-none"
         // RN 0.86 Fabric flattens this layout-only box-none container out
         // of the native hierarchy, which kills hit-testing for the whole

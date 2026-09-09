@@ -41,6 +41,7 @@ describe('TravelModeManager', () => {
     const manager = new TravelModeManager(storage, true);
 
     expect(manager.isMaskingDataSync()).toBe(true);
+    expect(manager.getRuntimeStateSync()).toBe('active');
   });
 
   test('defers asynchronous control storage reads until construction completes', async () => {
@@ -50,8 +51,10 @@ describe('TravelModeManager', () => {
     const manager = new TravelModeManager(storage, true);
 
     expect(getItem).not.toHaveBeenCalled();
+    expect(manager.getRuntimeStateSync()).toBe('initializing');
     await manager.ready;
     expect(getItem).toHaveBeenCalledTimes(1);
+    expect(manager.getRuntimeStateSync()).toBe('inactive');
   });
 
   test('treats an absent record as inactive', async () => {

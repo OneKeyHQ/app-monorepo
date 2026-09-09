@@ -62,6 +62,7 @@ import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
+import { resolveMarketPaymentTokenDisplay } from './utils/marketPaymentTokenDisplayUtils';
 
 import type {
   IEstimateMarketPresetPriorityFeeFiatValues,
@@ -98,7 +99,6 @@ function SwapPanelWrapContent({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
-  const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
@@ -331,21 +331,145 @@ function SwapPanelWrapContent({
         isStock: isStockRoute,
         stock: currentStockInfo,
       };
+  const disableNativeToken =
+    isOndoStockSource(tokenDetail?.stock?.source) &&
+    tradeType === ESwapDirection.BUY;
+
+  const currentMarketTokenForFilter = useMemo(() => {
+    const effectiveNetworkId = networkId || '';
+    if (!effectiveNetworkId) {
+      return undefined;
+    }
+
+    // Token detail is intentionally cleared during token switches to avoid
+    // showing stale data. Use the route identity first so native tokens like
+    // SOL are not mis-filtered while async detail is still loading.
+    if (tokenAddress || currentMarketTokenIsNative) {
+      return {
+        networkId: effectiveNetworkId,
+        contractAddress: tokenAddress || '',
+        symbol: tokenDetail?.symbol || '',
+        isNative: currentMarketTokenIsNative,
+      };
+    }
+
+    const hasTokenDetailIdentity =
+      !!tokenDetail?.address ||
+      !!tokenDetail?.symbol ||
+      tokenDetail?.isNative !== undefined;
+
+    if (!hasTokenDetailIdentity) {
+      return undefined;
+    }
+
+    return {
+      networkId: effectiveNetworkId,
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      isNative: tokenDetail?.isNative,
+    };
+  }, [
+    currentMarketTokenIsNative,
+    networkId,
+    tokenAddress,
+    tokenDetail?.address,
+    tokenDetail?.isNative,
+    tokenDetail?.symbol,
+  ]);
+
+  const compatibleDefaultTokens = useMemo(
+    () =>
+      isStockRoute
+        ? filterStockPayTokenCandidates(defaultTokens)
+        : defaultTokens,
+    [defaultTokens, isStockRoute],
+  );
+
+  const filterDefaultTokens = useMemo(() => {
+    if (compatibleDefaultTokens.length === 1) {
+      return [...compatibleDefaultTokens];
+    }
+
+    if (!currentMarketTokenForFilter) {
+      return [...compatibleDefaultTokens];
+    }
+
+    return compatibleDefaultTokens.filter(
+      (token) =>
+        !equalTokenNoCaseSensitive({
+          token1: token,
+          token2: currentMarketTokenForFilter,
+        }),
+    );
+  }, [compatibleDefaultTokens, currentMarketTokenForFilter]);
+
+  // --- Token preference persistence (simpledb) ---
+  const { result: savedPreferenceState, isLoading: savedPreferenceLoading } =
+    usePromiseResult(
+      async () => {
+        const effectiveNetworkId = networkId || '';
+        if (!effectiveNetworkId) return undefined;
+        const preference =
+          await backgroundApiProxy.simpleDb.marketTokenPreference
+            .getPreference({ networkId: effectiveNetworkId })
+            // A missing preference must still allow the default payment token.
+            .catch(() => undefined);
+        return { networkId: effectiveNetworkId, preference };
+      },
+      [networkId],
+      { revalidateOnFocus: true, watchLoading: true },
+    );
+
+  const savedPreference = savedPreferenceState?.preference;
+  const paymentTokenCandidates = useMemo(
+    () =>
+      disableNativeToken
+        ? filterDefaultTokens.filter((token) => !token.isNative)
+        : filterDefaultTokens,
+    [disableNativeToken, filterDefaultTokens],
+  );
+  const paymentTokenPreferenceReady =
+    savedPreferenceLoading === false &&
+    savedPreferenceState?.networkId === networkId;
+  const paymentTokenDisplay = useMemo(
+    () =>
+      resolveMarketPaymentTokenDisplay({
+        candidates: paymentTokenCandidates,
+        paymentToken,
+        preference: savedPreference,
+        preferenceReady: paymentTokenPreferenceReady,
+      }),
+    [
+      paymentToken,
+      paymentTokenCandidates,
+      paymentTokenPreferenceReady,
+      savedPreference,
+    ],
+  );
+  // Keep the stock form visible while preparing the current pair, but never
+  // quote or review with placeholder precision or the previous payment token.
+  const executionReady =
+    !stockDetailDesktopLayout ||
+    Boolean(
+      isReady &&
+      selectedVariantMatchesTokenDetail &&
+      tokenDetail?.decimalsResolved !== false &&
+      typeof tokenDetail?.decimals === 'number' &&
+      Number.isInteger(tokenDetail.decimals) &&
+      tokenDetail.decimals >= 0 &&
+      speedConfigReady &&
+      paymentTokenPreferenceReady &&
+      paymentToken &&
+      paymentTokenCandidates.some((token) =>
+        equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
+      ),
+    );
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
       : sellAmount.toFixed();
-  const currentMarketTokenKey = currentMarketToken.networkId
-    ? `${currentMarketToken.networkId}:${
-        currentMarketToken.isNative
-          ? 'native'
-          : currentMarketToken.contractAddress
-      }`
-    : undefined;
-  const isCurrentStockTokenReady =
-    Boolean(currentMarketTokenKey) &&
-    readyStockTokenKey === currentMarketTokenKey;
   const useSpeedSwapActionsParams = {
+    executionReady,
     slippageItem: {
       key: effectiveSlippageMode,
       value: effectiveSlippage,
@@ -423,105 +547,6 @@ function SwapPanelWrapContent({
     return result?.mergeDeriveAssetsEnabled;
   }, [balanceToken?.networkId]);
 
-  const disableNativeToken =
-    isOndoStockSource(tokenDetail?.stock?.source) &&
-    tradeType === ESwapDirection.BUY;
-
-  const currentMarketTokenForFilter = useMemo(() => {
-    const effectiveNetworkId = networkId || '';
-    if (!effectiveNetworkId) {
-      return undefined;
-    }
-
-    // Token detail is intentionally cleared during token switches to avoid
-    // showing stale data. Use the route identity first so native tokens like
-    // SOL are not mis-filtered while async detail is still loading.
-    if (tokenAddress || currentMarketTokenIsNative) {
-      return {
-        networkId: effectiveNetworkId,
-        contractAddress: tokenAddress || '',
-        symbol: tokenDetail?.symbol || '',
-        isNative: currentMarketTokenIsNative,
-      };
-    }
-
-    const hasTokenDetailIdentity =
-      !!tokenDetail?.address ||
-      !!tokenDetail?.symbol ||
-      tokenDetail?.isNative !== undefined;
-
-    if (!hasTokenDetailIdentity) {
-      return undefined;
-    }
-
-    return {
-      networkId: effectiveNetworkId,
-      contractAddress: tokenDetail?.address || '',
-      symbol: tokenDetail?.symbol || '',
-      isNative: tokenDetail?.isNative,
-    };
-  }, [
-    currentMarketTokenIsNative,
-    networkId,
-    tokenAddress,
-    tokenDetail?.address,
-    tokenDetail?.isNative,
-    tokenDetail?.symbol,
-  ]);
-
-  const compatibleDefaultTokens = useMemo(
-    () =>
-      isStockRoute
-        ? filterStockPayTokenCandidates(defaultTokens)
-        : defaultTokens,
-    [defaultTokens, isStockRoute],
-  );
-
-  const filterDefaultTokens = useMemo(() => {
-    if (compatibleDefaultTokens.length === 1) {
-      return [...compatibleDefaultTokens];
-    }
-
-    if (!currentMarketTokenForFilter) {
-      return [...compatibleDefaultTokens];
-    }
-
-    return compatibleDefaultTokens.filter(
-      (token) =>
-        !equalTokenNoCaseSensitive({
-          token1: token,
-          token2: currentMarketTokenForFilter,
-        }),
-    );
-  }, [compatibleDefaultTokens, currentMarketTokenForFilter]);
-
-  // --- Token preference persistence (simpledb) ---
-  const { result: savedPreference, isLoading: savedPreferenceLoading } =
-    usePromiseResult(
-      async () => {
-        const effectiveNetworkId = networkId || '';
-        if (!effectiveNetworkId) return undefined;
-        return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
-          networkId: effectiveNetworkId,
-        });
-      },
-      [networkId],
-      { revalidateOnFocus: true, watchLoading: true },
-    );
-
-  const findPreferredToken = useCallback(
-    (tokens: IToken[]): IToken | undefined => {
-      if (!savedPreference || tokens.length === 0) return undefined;
-      return tokens.find((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: savedPreference,
-        }),
-      );
-    },
-    [savedPreference],
-  );
-
   const saveTokenPreference = useCallback(
     (token: IToken) => {
       const effectiveNetworkId = networkId || '';
@@ -552,44 +577,23 @@ function SwapPanelWrapContent({
   // Initialize paymentToken: prefer saved preference, fallback to first default
   // Exclude native tokens when the current BUY flow requires it
   useEffect(() => {
-    const candidates = disableNativeToken
-      ? filterDefaultTokens.filter((t) => !t.isNative)
-      : filterDefaultTokens;
-
-    if (savedPreferenceLoading !== false) {
-      return;
-    }
-
-    if (candidates.length > 0 && !paymentToken?.networkId) {
-      const preferred = findPreferredToken(candidates);
-      setPaymentToken(preferred || candidates[0]);
-      return;
-    }
-    // Stock BUY mode: auto-switch away from native token
-    if (disableNativeToken && paymentToken?.isNative && candidates.length > 0) {
-      setPaymentToken(candidates[0]);
+    if (!paymentTokenPreferenceReady || !paymentTokenDisplay) {
       return;
     }
     if (
-      candidates.length > 0 &&
-      candidates.every(
-        (token) =>
-          token.networkId !== paymentToken?.networkId ||
-          token.contractAddress !== paymentToken?.contractAddress,
-      )
+      !paymentToken ||
+      !equalTokenNoCaseSensitive({
+        token1: paymentToken,
+        token2: paymentTokenDisplay,
+      })
     ) {
-      const preferred = findPreferredToken(candidates);
-      setPaymentToken(preferred || candidates[0]);
+      setPaymentToken(paymentTokenDisplay);
     }
   }, [
-    disableNativeToken,
-    paymentToken?.networkId,
-    paymentToken?.contractAddress,
-    paymentToken?.isNative,
+    paymentToken,
+    paymentTokenDisplay,
+    paymentTokenPreferenceReady,
     setPaymentToken,
-    filterDefaultTokens,
-    findPreferredToken,
-    savedPreferenceLoading,
   ]);
 
   useEffect(() => {
@@ -699,7 +703,12 @@ function SwapPanelWrapContent({
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
-      if (isActionLoading || isReviewOpening || marketPresetLoading) {
+      if (
+        !executionReady ||
+        isActionLoading ||
+        isReviewOpening ||
+        marketPresetLoading
+      ) {
         return;
       }
       if (!isWrap && !quoteReadyForReview) {
@@ -795,6 +804,7 @@ function SwapPanelWrapContent({
       }
     },
     [
+      executionReady,
       inPageDialog,
       intl,
       isActionLoading,
@@ -866,34 +876,6 @@ function SwapPanelWrapContent({
     speedSwapInitLoading,
   ]);
 
-  useEffect(() => {
-    if (
-      stockDetailDesktopLayout &&
-      !isActionLoading &&
-      isReady &&
-      speedConfigReady &&
-      !speedSwapInitLoading &&
-      originalSupportSpeedSwap !== undefined &&
-      savedPreferenceLoading === false &&
-      currentMarketTokenKey &&
-      selectedTokenVariant &&
-      paymentToken?.networkId
-    ) {
-      setReadyStockTokenKey(currentMarketTokenKey);
-    }
-  }, [
-    currentMarketTokenKey,
-    isActionLoading,
-    isReady,
-    originalSupportSpeedSwap,
-    paymentToken?.networkId,
-    savedPreferenceLoading,
-    selectedTokenVariant,
-    speedConfigReady,
-    speedSwapInitLoading,
-    stockDetailDesktopLayout,
-  ]);
-
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -909,20 +891,25 @@ function SwapPanelWrapContent({
       enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={currentMarketToken}
       onCloseDialog={onCloseDialog}
-      priceRate={priceRate}
-      stockQuoteDisplay={stockQuoteDisplay}
+      priceRate={executionReady ? priceRate : undefined}
+      stockQuoteDisplay={executionReady ? stockQuoteDisplay : undefined}
       stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
-      balance={balance}
+      balance={executionReady ? balance : undefined}
       balanceToken={balanceToken as IToken}
-      balanceLoading={fetchBalanceLoading}
-      paymentTokenPrice={paymentTokenPrice}
+      balanceLoading={!executionReady || fetchBalanceLoading}
+      paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
+      paymentTokenDisplay={paymentTokenDisplay}
+      paymentTokenDisplayLoading={
+        Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay
+      }
       isLoading={isActionLoading || isReviewOpening}
-      quoteLoading={quoteActionLoading}
+      quoteLoading={!executionReady || quoteActionLoading}
       isActionDisabled={
+        !executionReady ||
         (isStockRoute && !selectedVariantTradable) ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
         marketPresetLoading ||
@@ -932,7 +919,7 @@ function SwapPanelWrapContent({
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
       hasInitialReady={
-        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
+        stockDetailDesktopLayout ? executionReady : hasInitialReady
       }
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
@@ -944,10 +931,10 @@ function SwapPanelWrapContent({
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
-      quoteResult={quoteResult}
+      quoteResult={executionReady ? quoteResult : undefined}
       quoteListLength={quoteList.length}
       onOpenProviderList={handleOpenProviderList}
-      quoteError={quoteError}
+      quoteError={executionReady ? quoteError : undefined}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={
         stockDetailDesktopLayout ? undefined : marketPresetSettings

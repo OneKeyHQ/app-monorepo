@@ -98,8 +98,8 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
         <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
 
         <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
+          size={isMobile ? '$bodyXs' : '$headingSm'}
+          color={isMobile ? '$textSubdued' : '$text'}
           textAlign="center"
           maxWidth={isMobile ? 280 : 360}
         >
