@@ -24,6 +24,7 @@ import {
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
   EJotaiContextStoreNames,
   useSettingsAtom,
@@ -103,6 +104,9 @@ function SwapPanelWrapContent({
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
+  const closeReviewDialog = useCallback(async () => {
+    await reviewDialogRef.current?.close();
+  }, []);
 
   const {
     setPaymentToken,
@@ -280,9 +284,12 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
-  const stockTokenToAssetRatio =
-    selectedTokenVariant?.tokenToAssetRatio ??
-    tokenDetail?.stock?.tokenToAssetRatio;
+  const stockTokenToAssetRatio = resolveStockTokenToAssetRatio({
+    selectedVariantRatio: selectedTokenVariant?.tokenToAssetRatio,
+    tokenDetailRatio: tokenDetail?.stock?.tokenToAssetRatio,
+    hasSelectedVariant: Boolean(selectedTokenVariant),
+    selectedVariantMatchesTokenDetail,
+  });
   const currentStockInfo =
     isStockRoute && tokenDetail?.stock
       ? {
@@ -496,7 +503,7 @@ function SwapPanelWrapContent({
       : false,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
-    onCloseDialog,
+    onCloseReviewDialog: closeReviewDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);

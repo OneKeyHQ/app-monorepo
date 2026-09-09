@@ -6,6 +6,7 @@ import {
   buildSwapStockReviewDisplay,
   calculateSwapStockEstimatedShares,
   getValidStockTokenToAssetRatio,
+  resolveStockTokenToAssetRatio,
 } from './swapStockReviewUtils';
 
 const currencyMap = {
@@ -69,6 +70,34 @@ describe('swapStockReviewUtils', () => {
       }),
     ).toBe('0.24691357802469135780246913578');
   });
+
+  it('does not reuse a stale token-detail ratio for another selected variant', () => {
+    expect(
+      resolveStockTokenToAssetRatio({
+        selectedVariantRatio: '0',
+        tokenDetailRatio: '0.9985',
+        hasSelectedVariant: true,
+        selectedVariantMatchesTokenDetail: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    { hasSelectedVariant: false, selectedVariantMatchesTokenDetail: false },
+    { hasSelectedVariant: true, selectedVariantMatchesTokenDetail: true },
+  ])(
+    'allows the token-detail ratio for the current identity: %o',
+    ({ hasSelectedVariant, selectedVariantMatchesTokenDetail }) => {
+      expect(
+        resolveStockTokenToAssetRatio({
+          selectedVariantRatio: '0',
+          tokenDetailRatio: '0.9985',
+          hasSelectedVariant,
+          selectedVariantMatchesTokenDetail,
+        }),
+      ).toBe('0.9985');
+    },
+  );
 
   it('builds estimated shares and effective share price for a buy quote', () => {
     const result = buildSwapStockReviewDisplay({
