@@ -19605,6 +19605,7 @@
     "packages/kit/src/components/AccountSelector/AllNetworksManagerTrigger.tsx": 18559,
     "packages/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger.tsx": 18328,
     "packages/kit/src/components/AccountSelector/LazyAccountSelectorCreateAddressButton.tsx": 16261,
+    "packages/kit/src/components/AccountSelector/LazyAllNetworksManagerTrigger.native.tsx": 17749,
     "packages/kit/src/components/AccountSelector/LazyAllNetworksManagerTrigger.tsx": 4243,
     "packages/kit/src/components/AccountSelector/NetworkSelectorTrigger/NetworkSelectorTrigger.tsx": 15497,
     "packages/kit/src/components/AccountSelector/NetworkSelectorTrigger/NetworkSelectorTriggerApproval.tsx": 12873,
