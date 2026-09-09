@@ -1,33 +1,36 @@
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
-
 export type ISwapNavigationContext = {
   isInSwapTab: boolean;
-  isInMarketEmbeddedSwap: boolean;
+  isInMarketDetail: boolean;
   isHasSwapModal: boolean;
   isSwapModalOnTheTop: boolean;
   hasModal: boolean;
 };
 
-export function isMarketEmbeddedSwapRoute(routeName?: string) {
-  return (
-    routeName === ETabMarketRoutes.MarketDetail ||
-    routeName === ETabMarketRoutes.MarketDetailV2 ||
-    routeName === ETabMarketRoutes.MarketNativeDetail
-  );
+const activeMarketSwapApprovalFlowIds = new Set<string>();
+
+export function registerMarketSwapApprovalFlow(flowId: string) {
+  activeMarketSwapApprovalFlowIds.add(flowId);
+  return () => {
+    activeMarketSwapApprovalFlowIds.delete(flowId);
+  };
+}
+
+export function isMarketSwapApprovalFlowMounted(flowId?: string) {
+  return Boolean(flowId && activeMarketSwapApprovalFlowIds.has(flowId));
 }
 
 export function isSwapApprovalFlowActive({
   isInSwapTab,
-  isInMarketEmbeddedSwap,
+  isInMarketDetail,
   isHasSwapModal,
   isSwapModalOnTheTop,
   hasModal,
-  swapSource,
-}: ISwapNavigationContext & { swapSource?: ESwapSource }) {
+  marketSwapApprovalFlowId,
+}: ISwapNavigationContext & { marketSwapApprovalFlowId?: string }) {
   return (
     (isInSwapTab && !hasModal) ||
     (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal) ||
-    (isInMarketEmbeddedSwap && swapSource === ESwapSource.MARKET)
+    (isInMarketDetail &&
+      isMarketSwapApprovalFlowMounted(marketSwapApprovalFlowId))
   );
 }

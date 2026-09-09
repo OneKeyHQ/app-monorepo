@@ -23055,6 +23055,7 @@
     "packages/kit/src/views/Swap/components/SwapTxHistoryListCell.tsx": 13598,
     "packages/kit/src/views/Swap/components/TransactionLossNetworkFeeExceedDialog.tsx": 7797,
     "packages/kit/src/views/Swap/hooks/swapBroadcastSuccess.ts": 11528,
+    "packages/kit/src/views/Swap/hooks/swapNavigationUtils.ts": 1591,
     "packages/kit/src/views/Swap/hooks/swapStockChannelUtils.ts": 4525,
     "packages/kit/src/views/Swap/hooks/swapStockFiatValueUtils.ts": 24306,
     "packages/kit/src/views/Swap/hooks/swapStockPayTokenUtils.ts": 7275,

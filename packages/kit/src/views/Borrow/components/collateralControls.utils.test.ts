@@ -155,6 +155,27 @@ describe('hasPendingSetCollateral', () => {
     ).toBe(false);
   });
 
+  it('isolates a native reserve with an empty address from sibling rows', () => {
+    const nativeTag = 'borrow:aave:setCollateral:v1:evm--1:0xmarket:';
+
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [tx(['borrow:aave:setCollateral', nativeTag])],
+        provider: 'aave',
+        ...scope,
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [tx(['borrow:aave:setCollateral', nativeTag])],
+        provider: 'aave',
+        ...scope,
+        reserveAddress: '0xusdt',
+      }),
+    ).toBe(false);
+  });
+
   it('normalizes EVM market and reserve address casing', () => {
     expect(
       hasPendingSetCollateral({

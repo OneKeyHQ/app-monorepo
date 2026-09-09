@@ -95,4 +95,27 @@ describe('borrow set-collateral tags', () => {
       },
     });
   });
+
+  it('round-trips an empty native reserve address', () => {
+    const tag = buildBorrowTag({
+      provider: 'Aave',
+      action: 'setCollateral',
+      setCollateralScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xAbCd',
+        reserveAddress: '',
+      },
+    });
+
+    expect(tag).toBe('borrow:aave:setCollateral:v1:evm--1:0xabcd:');
+    expect(parseBorrowTag(tag)).toEqual({
+      provider: 'aave',
+      action: 'setCollateral',
+      setCollateralScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xabcd',
+        reserveAddress: '',
+      },
+    });
+  });
 });

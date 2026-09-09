@@ -110,7 +110,7 @@ export const buildBorrowTag = ({
 };
 
 function decodeBorrowTagPart(value: string | undefined): string | undefined {
-  if (!value) {
+  if (value === undefined) {
     return undefined;
   }
   try {
@@ -166,7 +166,7 @@ export const parseBorrowTag = (
     parts[2] === 'setCollateral' &&
     setCollateralScopeNetworkId &&
     setCollateralScopeMarketAddress &&
-    setCollateralScopeReserveAddress
+    setCollateralScopeReserveAddress !== undefined
       ? normalizeBorrowSetCollateralScope({
           networkId: setCollateralScopeNetworkId,
           marketAddress: setCollateralScopeMarketAddress,

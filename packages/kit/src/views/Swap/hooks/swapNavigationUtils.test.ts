@@ -1,14 +1,11 @@
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
-
 import {
-  isMarketEmbeddedSwapRoute,
   isSwapApprovalFlowActive,
+  registerMarketSwapApprovalFlow,
 } from './swapNavigationUtils';
 
 const baseNavigationContext = {
   isInSwapTab: false,
-  isInMarketEmbeddedSwap: false,
+  isInMarketDetail: false,
   isHasSwapModal: false,
   isSwapModalOnTheTop: false,
   hasModal: false,
@@ -35,49 +32,61 @@ describe('isSwapApprovalFlowActive', () => {
     ).toBe(true);
   });
 
-  it('treats a Market approval as active behind its transaction modal', () => {
+  it('treats a mounted Market embedded approval flow as active', () => {
+    const unregister = registerMarketSwapApprovalFlow('market-flow-1');
     expect(
       isSwapApprovalFlowActive({
         ...baseNavigationContext,
-        isInMarketEmbeddedSwap: true,
+        isInMarketDetail: true,
         hasModal: true,
-        swapSource: ESwapSource.MARKET,
+        marketSwapApprovalFlowId: 'market-flow-1',
       }),
     ).toBe(true);
+    unregister();
   });
 
-  it('does not treat an unrelated Swap approval as active on Market', () => {
+  it('does not treat a Market modal approval as an embedded flow', () => {
     expect(
       isSwapApprovalFlowActive({
         ...baseNavigationContext,
-        isInMarketEmbeddedSwap: true,
+        isInMarketDetail: true,
         hasModal: true,
-        swapSource: ESwapSource.TAB,
       }),
     ).toBe(false);
   });
 
-  it('allows recovery after leaving the originating Market flow', () => {
+  it('allows recovery after the originating Market flow unmounts', () => {
+    const unregister = registerMarketSwapApprovalFlow('market-flow-1');
+    unregister();
     expect(
       isSwapApprovalFlowActive({
         ...baseNavigationContext,
         hasModal: true,
-        swapSource: ESwapSource.MARKET,
+        marketSwapApprovalFlowId: 'market-flow-1',
       }),
     ).toBe(false);
   });
-});
 
-describe('isMarketEmbeddedSwapRoute', () => {
-  it.each([
-    ETabMarketRoutes.MarketDetail,
-    ETabMarketRoutes.MarketDetailV2,
-    ETabMarketRoutes.MarketNativeDetail,
-  ])('recognizes the Market route that owns embedded Swap: %s', (routeName) => {
-    expect(isMarketEmbeddedSwapRoute(routeName)).toBe(true);
+  it('does not let another mounted Market flow consume the approval', () => {
+    const unregister = registerMarketSwapApprovalFlow('market-flow-2');
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInMarketDetail: true,
+        marketSwapApprovalFlowId: 'market-flow-1',
+      }),
+    ).toBe(false);
+    unregister();
   });
 
-  it('does not treat the Market home as an active embedded Swap flow', () => {
-    expect(isMarketEmbeddedSwapRoute(ETabMarketRoutes.TabMarket)).toBe(false);
+  it('allows recovery after switching away from a cached Market detail', () => {
+    const unregister = registerMarketSwapApprovalFlow('market-flow-1');
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        marketSwapApprovalFlowId: 'market-flow-1',
+      }),
+    ).toBe(false);
+    unregister();
   });
 });

@@ -306,7 +306,7 @@ const InAppNotification = () => {
         handleSwapNavigation(
           ({
             isInSwapTab,
-            isInMarketEmbeddedSwap,
+            isInMarketDetail,
             isHasSwapModal,
             isSwapModalOnTheTop,
             hasModal,
@@ -314,11 +314,12 @@ const InAppNotification = () => {
             if (
               isSwapApprovalFlowActive({
                 isInSwapTab,
-                isInMarketEmbeddedSwap,
+                isInMarketDetail,
                 isHasSwapModal,
                 isSwapModalOnTheTop,
                 hasModal,
-                swapSource: swapApprovingTransactionRef.current?.swapSource,
+                marketSwapApprovalFlowId:
+                  swapApprovingTransactionRef.current?.marketSwapApprovalFlowId,
               })
             ) {
               if (swapApprovingTransactionRef.current) {

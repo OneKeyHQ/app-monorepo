@@ -20,8 +20,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import type { IInputProps, IStackProps } from '@onekeyhq/components';
-import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
+import type { IElement, IInputProps, IStackProps } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -164,7 +163,7 @@ const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
 
 const getStableLayoutWidth = (
   event: LayoutChangeEvent,
-  layoutTarget: TamaguiElement | null,
+  layoutTarget: IElement | null,
 ): number => {
   const measuredWidth = event.nativeEvent.layout.width;
   if (platformEnv.isNative) {
@@ -243,7 +242,7 @@ function SendAutoSizeAmountInputComponent(
   const placeholderColor = normalizeAutoSizeNativeColor(theme.textDisabled.val);
 
   const [layoutWidth, setLayoutWidth] = useState(0);
-  const layoutTargetRef = useRef<TamaguiElement | null>(null);
+  const layoutTargetRef = useRef<IElement | null>(null);
   const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
   const forceWriteBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
