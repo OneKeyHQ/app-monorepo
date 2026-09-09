@@ -4,6 +4,8 @@ import { resolveMarketTradeNetwork } from './tradeHook.utils';
 
 const KATANA = 'evm--747474';
 const ETH = 'evm--1';
+const BASE = 'evm--8453';
+const VB_USDC = '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36';
 
 const ethPlatform = {
   contract_address: '0xeth',
@@ -12,7 +14,7 @@ const ethPlatform = {
 };
 const basePlatform = {
   contract_address: '0xbase',
-  onekeyNetworkId: 'evm--8453',
+  onekeyNetworkId: BASE,
   tokenAddress: '0xbase',
 };
 const nativePlatform = {
@@ -22,8 +24,8 @@ const nativePlatform = {
 };
 
 describe('resolveMarketTradeNetwork', () => {
-  describe('with a preferred network from the caller', () => {
-    it('picks the platform entry mapped to that network', () => {
+  describe('with the asset the caller launched Market from', () => {
+    it('prefers the market entry mapped to that network over the hint', () => {
       const detailPlatforms: IMarketDetailPlatform = {
         ethereum: ethPlatform,
         base: basePlatform,
@@ -31,42 +33,71 @@ describe('resolveMarketTradeNetwork', () => {
       expect(
         resolveMarketTradeNetwork({
           detailPlatforms,
-          preferredNetworkId: 'evm--8453',
+          preferredToken: { networkId: BASE, tokenAddress: '0xstale' },
         }),
       ).toBe(basePlatform);
     });
 
-    it('trusts the caller when market data has no entry for that network', () => {
-      // Katana vbUSDC: the market service has not mapped the Katana platform,
-      // so no entry carries its onekeyNetworkId. Guessing another chain here
-      // is what made the DeFi button a silent no-op.
+    it('rebuilds the entry from the full identity when the network is unmapped', () => {
+      // Katana vbUSDC: the market service has not mapped the Katana platform.
+      // The rebuilt entry must carry the contract address, otherwise Swap is
+      // opened on a non-native token with no address.
       const detailPlatforms: IMarketDetailPlatform = {
         ethereum: ethPlatform,
       };
       expect(
         resolveMarketTradeNetwork({
           detailPlatforms,
-          preferredNetworkId: KATANA,
+          preferredToken: { networkId: KATANA, tokenAddress: VB_USDC },
         }),
-      ).toEqual({ contract_address: '', onekeyNetworkId: KATANA });
+      ).toEqual({
+        contract_address: VB_USDC,
+        tokenAddress: VB_USDC,
+        onekeyNetworkId: KATANA,
+      });
+    });
+
+    it('marks a rebuilt native entry as native with an empty address', () => {
+      expect(
+        resolveMarketTradeNetwork({
+          preferredToken: {
+            networkId: KATANA,
+            tokenAddress: '',
+            isNative: true,
+          },
+        }),
+      ).toEqual({
+        contract_address: '',
+        tokenAddress: '',
+        onekeyNetworkId: KATANA,
+        isNative: true,
+      });
+    });
+
+    it('does not tag a rebuilt ERC-20 entry as native', () => {
+      const entry = resolveMarketTradeNetwork({
+        preferredToken: { networkId: KATANA, tokenAddress: VB_USDC },
+      });
+      expect(entry).not.toHaveProperty('isNative');
     });
 
     it('still resolves when market data carries no platforms at all', () => {
-      expect(resolveMarketTradeNetwork({ preferredNetworkId: KATANA })).toEqual(
-        { contract_address: '', onekeyNetworkId: KATANA },
-      );
+      expect(
+        resolveMarketTradeNetwork({
+          preferredToken: { networkId: KATANA, tokenAddress: VB_USDC },
+        }),
+      ).toMatchObject({ onekeyNetworkId: KATANA, tokenAddress: VB_USDC });
     });
 
-    it('does not let the hint override an explicit match on another entry', () => {
+    it('lets the hint pick a mapped entry the native-first heuristic would skip', () => {
       const detailPlatforms: IMarketDetailPlatform = {
         ethereum: nativePlatform,
         base: basePlatform,
       };
-      // Native entry would win without a hint; the hint targets Base.
       expect(
         resolveMarketTradeNetwork({
           detailPlatforms,
-          preferredNetworkId: 'evm--8453',
+          preferredToken: { networkId: BASE, tokenAddress: '0xbase' },
         }),
       ).toBe(basePlatform);
     });

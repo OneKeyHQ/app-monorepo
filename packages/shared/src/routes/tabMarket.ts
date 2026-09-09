@@ -1,3 +1,4 @@
+import type { IMarketPreferredToken } from '../../types/market';
 import type { EMarketBannerType } from '../../types/marketV2';
 import type { EEnterWay } from '../logger/scopes/dex';
 
@@ -14,13 +15,13 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.MarketDetail]: {
     token: string;
     /**
-     * Network the caller already knows the token lives on. Lets the trade
-     * actions resolve a networkId even when market data has not mapped
-     * that platform; entries that only know the CoinGecko id omit it.
-     * Deliberately not named `networkId`: the MarketDetail dispatcher
-     * treats that key as "render V2", which needs `network`/`tokenAddress`.
+     * The wallet asset the caller launched Market from. Lets the trade
+     * actions resolve the network and contract address even when market
+     * data has not mapped that platform; entries that only know the
+     * CoinGecko id omit it. Deliberately not keyed `networkId`: the
+     * MarketDetail dispatcher treats that key as "render V2".
      */
-    preferredNetworkId?: string;
+    preferredToken?: IMarketPreferredToken;
   };
   [ETabMarketRoutes.MarketDetailV2]: {
     tokenAddress: string;

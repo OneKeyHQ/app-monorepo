@@ -21,7 +21,10 @@ import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketPreferredToken,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -49,11 +52,11 @@ import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror'
 function TokenDetailHeader({
   coinGeckoId,
   token: responseToken,
-  preferredNetworkId,
+  preferredToken,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
-  preferredNetworkId?: string;
+  preferredToken?: IMarketPreferredToken;
 }) {
   const { gtMd: gtMdMedia } = useMedia();
 
@@ -100,7 +103,7 @@ function TokenDetailHeader({
         coinGeckoId={coinGeckoId}
         token={token}
         accountId={account?.id ?? ''}
-        preferredNetworkId={preferredNetworkId}
+        preferredToken={preferredToken}
       />
       {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>
@@ -136,7 +139,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { token: coinGeckoId, preferredNetworkId } = route.params;
+  const { token: coinGeckoId, preferredToken } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
   const isModalPage = useIsOverlayPage();
@@ -206,7 +209,7 @@ function MarketDetail({
         <TokenDetailHeader
           coinGeckoId={coinGeckoId}
           token={tokenDetail}
-          preferredNetworkId={preferredNetworkId}
+          preferredToken={preferredToken}
         />
       );
     }
@@ -251,7 +254,7 @@ function MarketDetail({
         )}
       </YStack>
     );
-  }, [coinGeckoId, gtMd, tokenDetail, preferredNetworkId]);
+  }, [coinGeckoId, gtMd, tokenDetail, preferredToken]);
 
   const defer = useDeferredPromise();
 

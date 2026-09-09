@@ -23,6 +23,7 @@ import {
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
@@ -41,9 +42,9 @@ import { resolveMarketTradeNetwork } from './tradeHook.utils';
 
 export const useMarketTradeNetwork = (
   token: IMarketTokenDetail | null,
-  // Network the caller already knows the token lives on; see
+  // Asset the caller already knows the user came from; see
   // resolveMarketTradeNetwork for why it takes precedence over market data.
-  preferredNetworkId?: string,
+  preferredToken?: IMarketPreferredToken,
 ) => {
   const { detailPlatforms, platforms } = token || {};
   return useMemo(
@@ -51,9 +52,9 @@ export const useMarketTradeNetwork = (
       resolveMarketTradeNetwork({
         detailPlatforms,
         platforms,
-        preferredNetworkId,
+        preferredToken,
       }),
-    [detailPlatforms, platforms, preferredNetworkId],
+    [detailPlatforms, platforms, preferredToken],
   );
 };
 
@@ -68,11 +69,11 @@ export const useMarketTradeNetworkId = (
 
 export const useMarketTradeActions = (
   token: IMarketTokenDetail | null,
-  preferredNetworkId?: string,
+  preferredToken?: IMarketPreferredToken,
 ) => {
   const { symbol = '', name, image } = token || {};
   const intl = useIntl();
-  const network = useMarketTradeNetwork(token, preferredNetworkId);
+  const network = useMarketTradeNetwork(token, preferredToken);
   const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =

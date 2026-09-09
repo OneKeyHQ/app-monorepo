@@ -1,6 +1,7 @@
 import type {
   IMarketDetailPlatform,
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
 } from '@onekeyhq/shared/types/market';
 
 /**
@@ -8,12 +9,13 @@ import type {
  *
  * Market data describes a token once per CoinGecko platform, and an entry only
  * carries `onekeyNetworkId` when the market service has mapped that platform.
- * A caller that already knows which network the user came from (the
- * AssetDetails "Market" footer does) passes it as `preferredNetworkId`: the
- * matching entry wins, and when market data has no entry for that network at
- * all we trust the caller instead of guessing another chain — otherwise the
- * Earn/Swap handoffs bail out silently on a missing networkId. Katana vbUSDC
- * was the first token to hit this.
+ * A caller that already knows which asset the user came from (the
+ * AssetDetails "Market" footer does) passes it as `preferredToken`: the
+ * entry mapped to that network wins, and when market data has no entry for
+ * that network at all we rebuild one from the caller's identity instead of
+ * guessing another chain — otherwise the Earn/Swap handoffs either bail out
+ * silently on a missing networkId or, worse, open Swap on a token with no
+ * contract address. Katana vbUSDC was the first token to hit this.
  *
  * Without a hint the original heuristic is kept as-is: native entry, then the
  * entry whose address matches the token's primary platform, then the first.
@@ -21,22 +23,27 @@ import type {
 export function resolveMarketTradeNetwork({
   detailPlatforms,
   platforms,
-  preferredNetworkId,
+  preferredToken,
 }: {
   detailPlatforms?: IMarketDetailPlatform;
   platforms?: Record<string, string>;
-  preferredNetworkId?: string;
+  preferredToken?: IMarketPreferredToken;
 }): IMarketDetailPlatformNetwork | undefined {
   const values = detailPlatforms ? Object.values(detailPlatforms) : [];
 
-  if (preferredNetworkId) {
+  if (preferredToken) {
     const preferred = values.find(
-      (platform) => platform.onekeyNetworkId === preferredNetworkId,
+      (platform) => platform.onekeyNetworkId === preferredToken.networkId,
     );
     if (preferred) {
       return preferred;
     }
-    return { contract_address: '', onekeyNetworkId: preferredNetworkId };
+    return {
+      contract_address: preferredToken.tokenAddress,
+      tokenAddress: preferredToken.tokenAddress,
+      onekeyNetworkId: preferredToken.networkId,
+      ...(preferredToken.isNative ? { isNative: true as const } : {}),
+    };
   }
 
   if (!detailPlatforms) {

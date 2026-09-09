@@ -10,7 +10,7 @@ export default function MarketDetail(props: IMarketDetailProps) {
 
   // `networkId` in params means the caller targeted V2 (it also carries
   // `network`/`tokenAddress`). V1 callers must not use that key for hints;
-  // they pass `preferredNetworkId` instead.
+  // they pass `preferredToken` instead.
   if (route.params?.networkId) {
     return <MarketDetailV2 {...(props as any)} />;
   }
