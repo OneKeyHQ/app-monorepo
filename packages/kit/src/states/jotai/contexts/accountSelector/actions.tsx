@@ -42,8 +42,12 @@ import {
   type IContextAtomColdStartCacheKey,
 } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
@@ -53,6 +57,7 @@ import {
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/ledgerApps';
@@ -2210,6 +2215,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
         return res;
       } catch (error) {
+        // Creation owns recovery here; signing flows have their own dialogs.
+        if (
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+          })
+        ) {
+          appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+            errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+            payload: { params: { walletId } },
+          });
+        }
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         throw error;
       }
