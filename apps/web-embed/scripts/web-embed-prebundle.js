@@ -17,6 +17,13 @@ const {
   createBaseResolveOptions,
 } = require('../../../development/rspack/rspack.resolve.config');
 
+const {
+  createInputSnapshot,
+  getInputCacheKey,
+  readInputCache,
+  writeInputCache,
+} = require('./web-embed-input-cache');
+
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const WEB_EMBED_ROOT = path.resolve(__dirname, '..');
@@ -144,7 +151,7 @@ function toRepoPath(absolutePath, root = REPO_ROOT) {
   return path.relative(root, absolutePath).split(path.sep).join('/');
 }
 
-function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
+function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT, snapshot) {
   const files = [];
   const visit = (absolutePath) => {
     if (EXCLUDED_GENERATED_INPUT_PATHS.has(toRepoPath(absolutePath, root))) {
@@ -158,6 +165,7 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
     if (!stat.isDirectory()) {
       throw new Error(`[webEmbedPrebundle] Unsupported input: ${absolutePath}`);
     }
+    snapshot?.contextDependencies.add(absolutePath);
     for (const entry of fs
       .readdirSync(absolutePath, { withFileTypes: true })
       .toSorted((left, right) => compareStrings(left.name, right.name))) {
@@ -180,8 +188,9 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   );
 }
 
-function parseModuleSpecifiers(filePath) {
+function parseModuleSpecifiers(filePath, snapshot) {
   const source = fs.readFileSync(filePath, 'utf8');
+  snapshot?.recordContents(filePath, source);
   const commonPlugins = [
     'classProperties',
     'decorators-legacy',
@@ -257,22 +266,55 @@ function parseModuleSpecifiers(filePath) {
   return [...specifiers].toSorted(compareStrings);
 }
 
-function createWebEmbedResolver(root, inputResolveOptions) {
-  const resolveOptions =
+function getWebEmbedResolveOptions(root, inputResolveOptions) {
+  return (
     inputResolveOptions ||
     createBaseResolveOptions({
       basePath: path.join(root, 'apps/web-embed'),
       enableSentryMinimalCompat: true,
       extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
-    });
+    })
+  );
+}
+
+function createWebEmbedResolver(root, inputResolveOptions, snapshot) {
+  const resolveOptions = getWebEmbedResolveOptions(root, inputResolveOptions);
   const { fallback = {}, ...resolverOptions } = resolveOptions;
+  const resolve = enhancedResolve.create({
+    ...resolverOptions,
+    conditionNames: ['browser', 'import', 'require', 'default'],
+    modules: [path.join(root, 'node_modules'), 'node_modules'],
+    // Isolate filesystem memoization to this scan so new files cannot use an old negative lookup.
+    fileSystem: new enhancedResolve.CachedInputFileSystem(fs, 30_000),
+    useSyncFileSystemCalls: true,
+  });
+  const resolvedPaths = new Map();
   return {
     fallback,
-    resolve: enhancedResolve.create.sync({
-      ...resolverOptions,
-      conditionNames: ['browser', 'import', 'require', 'default'],
-      modules: [path.join(root, 'node_modules'), 'node_modules'],
-    }),
+    resolve(context, specifier) {
+      const key = `${context}\0${specifier}`;
+      if (resolvedPaths.has(key)) return resolvedPaths.get(key);
+      let settled = false;
+      let result;
+      let failure;
+      resolve(context, specifier, snapshot || {}, (error, resolved) => {
+        settled = true;
+        failure = error;
+        result = resolved;
+      });
+      if (!settled)
+        throw new Error(
+          '[webEmbedPrebundle] Expected synchronous module resolution.',
+        );
+      if (failure) {
+        throw new Error(
+          `[webEmbedPrebundle] Module resolution failed: ${String(failure)}`,
+          { cause: failure },
+        );
+      }
+      resolvedPaths.set(key, result);
+      return result;
+    },
   };
 }
 
@@ -288,25 +330,35 @@ function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
   return resolve(context, specifier);
 }
 
-function findPackageRoot(filePath, root) {
+function findPackageRoot(filePath, root, cache, snapshot) {
   let current = path.dirname(filePath);
+  const visited = [];
+  const finish = (result) => {
+    for (const directory of visited) cache?.set(directory, result);
+    return result;
+  };
   while (current.startsWith(root) && current !== root) {
+    if (cache?.has(current)) return finish(cache.get(current));
+    visited.push(current);
     const packagePath = path.join(current, 'package.json');
+    snapshot?.fileDependencies.add(packagePath);
     if (fs.existsSync(packagePath)) {
-      const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+      const contents = fs.readFileSync(packagePath, 'utf8');
+      snapshot?.recordContents(packagePath, contents);
+      const packageJson = JSON.parse(contents);
       if (
         typeof packageJson.name === 'string' &&
         typeof packageJson.version === 'string'
       ) {
-        return { packageJson, packagePath, packageRoot: current };
+        return finish({ packageJson, packagePath, packageRoot: current });
       }
     }
     current = path.dirname(current);
   }
-  return undefined;
+  return finish(undefined);
 }
 
-function readYarnLockResolutionRecords(root) {
+function readYarnLockResolutionRecords(root, snapshot) {
   const records = new Map();
   let activeKey;
   let activeRecord;
@@ -319,9 +371,10 @@ function readYarnLockResolutionRecords(root) {
       version: activeRecord.version,
     });
   };
-  for (const line of fs
-    .readFileSync(path.join(root, 'yarn.lock'), 'utf8')
-    .split('\n')) {
+  const lockPath = path.join(root, 'yarn.lock');
+  const contents = fs.readFileSync(lockPath, 'utf8');
+  snapshot?.recordContents(lockPath, contents);
+  for (const line of contents.split('\n')) {
     if (line && !line.startsWith(' ') && line.endsWith(':')) {
       flush();
       activeKey = line.slice(0, -1);
@@ -361,18 +414,21 @@ function getWebEmbedInputDescriptor({
   inputPaths = INPUT_PATHS,
   resolveOptions,
   root = REPO_ROOT,
+  snapshot,
 } = {}) {
-  const resolver = createWebEmbedResolver(root, resolveOptions);
-  const repoFiles = new Set(listFiles(inputPaths, root));
+  const resolver = createWebEmbedResolver(root, resolveOptions, snapshot);
+  const repoFiles = new Set(listFiles(inputPaths, root, snapshot));
   const pending = [...repoFiles];
   const visited = new Set();
   const externalPackages = new Map();
+  const packageRoots = new Map();
   while (pending.length > 0) {
     const filePath = pending.pop();
     if (!visited.has(filePath)) {
       visited.add(filePath);
+      snapshot?.fileDependencies.add(filePath);
       if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
-        const specifiers = parseModuleSpecifiers(filePath);
+        const specifiers = parseModuleSpecifiers(filePath, snapshot);
         for (const specifier of specifiers) {
           let resolved;
           try {
@@ -408,7 +464,12 @@ function getWebEmbedInputDescriptor({
                 repoFiles.add(normalizedPath);
               }
             } else {
-              const resolvedPackage = findPackageRoot(normalizedPath, root);
+              const resolvedPackage = findPackageRoot(
+                normalizedPath,
+                root,
+                packageRoots,
+                snapshot,
+              );
               if (!resolvedPackage) {
                 throw new Error(
                   `[webEmbedPrebundle] Unable to identify dependency for ${relativePath}.`,
@@ -427,7 +488,7 @@ function getWebEmbedInputDescriptor({
   }
 
   const packages = [];
-  const lockRecords = readYarnLockResolutionRecords(root);
+  const lockRecords = readYarnLockResolutionRecords(root, snapshot);
   for (const dependency of externalPackages.values()) {
     const { packageJson } = dependency;
     packages.push({
@@ -489,14 +550,44 @@ function getInputKey(options = {}) {
     resolveOptions,
     root = REPO_ROOT,
     traceDependencies = inputPaths === INPUT_PATHS,
+    inputCache = true,
   } = options;
+  const resolvedOptions = traceDependencies
+    ? getWebEmbedResolveOptions(root, resolveOptions)
+    : undefined;
+  const cachePath =
+    inputCache && traceDependencies
+      ? path.join(
+          root,
+          'apps/web-embed/out-dir-bundle/web-embed-input-cache.json',
+        )
+      : undefined;
+  const cacheKey = cachePath
+    ? getInputCacheKey({
+        root,
+        inputPaths,
+        resolveOptions: resolvedOptions,
+        platform: process.platform,
+        nodeVersion: process.versions.node,
+        scanner: sha256(fs.readFileSync(__filename)),
+        parserVersion: require('@babel/parser/package.json').version,
+        resolverVersion: require('enhanced-resolve/package.json').version,
+      })
+    : undefined;
+  const cached = readInputCache(cachePath, cacheKey);
+  if (cached) {
+    if (Object.keys(options).length === 0) cachedDefaultInputKey = cached;
+    return cached;
+  }
+  const snapshot = cacheKey ? createInputSnapshot() : undefined;
   const hash = crypto.createHash('sha256');
   hash.update(`schema:${SCHEMA_VERSION}\0`);
   if (traceDependencies) {
     const descriptor = getWebEmbedInputDescriptor({
       inputPaths,
-      resolveOptions,
+      resolveOptions: resolvedOptions,
       root,
+      snapshot,
     });
     hash.update(hashFiles(descriptor.files, root));
     hash.update('\0');
@@ -505,6 +596,7 @@ function getInputKey(options = {}) {
     hash.update(hashFiles(listFiles(inputPaths, root), root));
   }
   const inputKey = hash.digest('hex');
+  if (snapshot) writeInputCache({ cachePath, cacheKey, inputKey, snapshot });
   if (Object.keys(options).length === 0) cachedDefaultInputKey = inputKey;
   return inputKey;
 }
@@ -610,6 +702,40 @@ function assertCanonicalBuildReceipt({
       '[webEmbedPrebundle] web-build was not produced by the canonical prebundle build.',
     );
   }
+}
+
+function getPreparedWebEmbedCache({
+  inputKey = getInputKey(),
+  webBuildDirectory = path.join(WEB_EMBED_ROOT, 'web-build'),
+  buildReceiptPath = getCanonicalBuildReceiptPath(),
+  restoredReceiptPath = path.join(
+    WEB_EMBED_ROOT,
+    'out-dir-bundle/web-embed-prebundle-restored.json',
+  ),
+} = {}) {
+  for (const receiptPath of [buildReceiptPath, restoredReceiptPath]) {
+    try {
+      const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+      if (
+        receipt.schemaVersion === 1 &&
+        receipt.inputKey === inputKey &&
+        /^[0-9a-f]{64}$/u.test(receipt.outputTreeDigest || '')
+      ) {
+        const stat = fs.lstatSync(webBuildDirectory);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) return undefined;
+        const outputTreeDigest = hashFiles(
+          listOutputFiles(webBuildDirectory),
+          webBuildDirectory,
+        );
+        if (outputTreeDigest === receipt.outputTreeDigest) {
+          return { inputKey, outputTreeDigest, source: 'local-cache' };
+        }
+      }
+    } catch {
+      // Missing, obsolete, or modified output must go through restore/build again.
+    }
+  }
+  return undefined;
 }
 
 function assertSourceCommit(sourceCommit) {
@@ -1398,6 +1524,7 @@ module.exports = {
   createArchiveEntryFilter,
   getCanonicalBuildEnvironment,
   getInputKey,
+  getPreparedWebEmbedCache,
   getReleaseTag,
   getWebEmbedInputDescriptor,
   hashFiles,

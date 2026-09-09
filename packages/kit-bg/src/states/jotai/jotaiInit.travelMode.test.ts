@@ -2,6 +2,7 @@ import { createMMKV } from 'react-native-mmkv';
 
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 
@@ -171,6 +172,7 @@ describe('Travel Mode Jotai startup', () => {
       passwordAtom,
       passwordPersistAtom,
       passwordPersistManualLockStateAtom,
+      settingsPersistAtom,
     } = require('./atoms') as typeof import('./atoms');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { jotaiDefaultStore } =
@@ -253,6 +255,15 @@ describe('Travel Mode Jotai startup', () => {
     };
     expect(settingsState.instanceId).not.toBe('private-instance-id');
     expect(settingsState.sensitiveEncodeKey).not.toBe('private-encode-key');
+    await Promise.resolve(
+      jotaiDefaultStore.set(settingsPersistAtom.atom(), (value) => ({
+        ...value,
+        selectedBrowserTab: ETranslations.global_market,
+      })),
+    );
+    expect(
+      jotaiDefaultStore.get(settingsPersistAtom.atom()).selectedBrowserTab,
+    ).toBe(ETranslations.global_market);
     await expect(atoms.currencyPersistAtom.get()).resolves.toEqual(
       currencyReferenceState,
     );
@@ -260,7 +271,7 @@ describe('Travel Mode Jotai startup', () => {
       new Set([passwordKey, manualLockKey, settingsKey, currencyKey]),
     );
     expect(new Set(physicalWriteKeys)).toEqual(
-      new Set([passwordKey, manualLockKey, settingsKey]),
+      new Set([passwordKey, manualLockKey]),
     );
     expect(getAllKeysSpy).not.toHaveBeenCalled();
     expect(clearAllSpy).not.toHaveBeenCalled();
