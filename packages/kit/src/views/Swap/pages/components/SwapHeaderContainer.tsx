@@ -467,7 +467,8 @@ const SwapHeaderContainer = ({
             pageType={pageType}
             marketPresetSettings={marketPresetSettings}
             routeSwapType={defaultSwapType}
-            compact
+            iconSize="$5"
+            iconColor="$iconStrong"
             hideKLine
           />
         ) : null}
