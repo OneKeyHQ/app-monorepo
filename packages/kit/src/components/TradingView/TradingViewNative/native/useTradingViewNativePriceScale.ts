@@ -148,6 +148,26 @@ export function useTradingViewNativePriceScale({
     setIsAutoScale(nextIsAuto);
   }, []);
 
+  const restoreControls = useCallback(
+    (isAuto: boolean, priceScaleMode: ITradingViewNativePriceScaleMode) => {
+      setIsAutoScale(isAuto);
+      setMode(priceScaleMode);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    scheduleOnUI(() => {
+      'worklet';
+      const runtime = chartRuntime.value;
+      scheduleOnRN(
+        restoreControls,
+        runtime.pinnedPriceRange === null,
+        runtime.priceScaleMode,
+      );
+    });
+  }, [chartRuntime, restoreControls]);
+
   useEffect(() => {
     if (isLogScaleAvailable || mode === 'linear') {
       return;
