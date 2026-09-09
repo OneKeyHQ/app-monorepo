@@ -498,9 +498,15 @@ function getChartInitScript(): string {
           Array.isArray(nextConfig.secondaryLineData) &&
           nextConfig.secondaryLineData.length > 0;
         if (!hasSecondaryData) {
+          // Hide rather than remove. Both lines share one price scale, and
+          // removing a series from it mid-session left the chart blank on
+          // device — line and axis both gone — until the series came back
+          // (the Pendle "show underlying APY" toggle, OK-62390). Emptying the
+          // data and hiding the series keeps the scale intact and costs
+          // nothing when there was never a secondary line.
           if (window.secondarySeries) {
-            chart.removeSeries(window.secondarySeries);
-            window.secondarySeries = null;
+            window.secondarySeries.setData([]);
+            window.secondarySeries.applyOptions({ visible: false });
           }
           return;
         }
@@ -510,7 +516,9 @@ function getChartInitScript(): string {
             getSecondarySeriesOptions(nextConfig)
           );
         } else {
-          window.secondarySeries.applyOptions(getSecondarySeriesOptions(nextConfig));
+          window.secondarySeries.applyOptions(
+            Object.assign({ visible: true }, getSecondarySeriesOptions(nextConfig))
+          );
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
