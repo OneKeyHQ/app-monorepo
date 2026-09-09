@@ -167,7 +167,12 @@ const basePerformance = {
   maxEntrypointSize: 600_000,
 };
 
-module.exports = ({ platform, basePath, configName }) => {
+module.exports = ({
+  platform,
+  basePath,
+  configName,
+  firstPartyBabelPlugins = [],
+}) => {
   const babelLoaderOption = {
     babelrc: false,
     configFile: true,
@@ -393,7 +398,15 @@ module.exports = ({ platform, basePath, configName }) => {
               test: /\.(js|mjs|jsx|ts|tsx)$/,
               exclude: [/node_modules/],
               use: [
-                useBabelLoader,
+                firstPartyBabelPlugins.length
+                  ? {
+                      ...useBabelLoader,
+                      options: {
+                        ...babelLoaderOption,
+                        plugins: firstPartyBabelPlugins,
+                      },
+                    }
+                  : useBabelLoader,
                 {
                   loader: 'tamagui-loader',
                   options: {

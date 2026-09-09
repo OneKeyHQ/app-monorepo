@@ -9,8 +9,8 @@
       "resources": 73
     },
     "dom-injection-navigation": {
-      "entries": 118,
-      "resources": 68
+      "entries": 119,
+      "resources": 69
     },
     "extension-desktop-bridge": {
       "entries": 65,
@@ -35,9 +35,9 @@
   },
   "deniedOverrides": 2,
   "generatedResources": 3218,
-  "highRiskEntries": 551,
-  "highRiskResources": 216,
-  "packageEdgesToRiskyResources": 559,
+  "highRiskEntries": 552,
+  "highRiskResources": 217,
+  "packageEdgesToRiskyResources": 562,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/ext/mv3/background/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/ext/mv3/background/policy.json",

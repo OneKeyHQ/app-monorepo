@@ -11,7 +11,14 @@ Symbol.metadata ??= Symbol('metadata');
 // before application wrappers capture them; later package replacements retain
 // the core's existing write propagation and receiver behavior.
 for (const name of ['fetch', 'requestAnimationFrame']) {
-  const descriptor = Reflect.getOwnPropertyDescriptor(globalThis, name);
+  // WorkerGlobalScope exposes fetch on its prototype instead of the global.
+  let holder = globalThis;
+  let descriptor;
+  while (holder !== null && holder !== Object.prototype) {
+    descriptor = Reflect.getOwnPropertyDescriptor(holder, name);
+    if (descriptor) break;
+    holder = Reflect.getPrototypeOf(holder);
+  }
   if (descriptor?.writable && typeof descriptor.value === 'function') {
     Reflect.defineProperty(globalThis, name, {
       ...descriptor,

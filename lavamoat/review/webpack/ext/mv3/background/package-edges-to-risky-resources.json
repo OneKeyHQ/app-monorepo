@@ -532,6 +532,7 @@
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
@@ -547,6 +548,12 @@
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
