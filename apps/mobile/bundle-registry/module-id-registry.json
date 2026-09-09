@@ -19047,6 +19047,7 @@
     "packages/kit-bg/src/services/utils/borrowActionServiceUtils.ts": 18125,
     "packages/kit-bg/src/services/utils/buildSpeedSwapTxParams.ts": 8003,
     "packages/kit-bg/src/services/utils/currencySymbolSyncUtils.ts": 7359,
+    "packages/kit-bg/src/services/utils/displayComponentAddressUtils.ts": 2904,
     "packages/kit-bg/src/services/utils/marketStockUtils.ts": 10760,
     "packages/kit-bg/src/services/utils/marketTokenDetailUtils.ts": 19353,
     "packages/kit-bg/src/services/utils/permit2SignatureConfirmUtils.ts": 14635,
