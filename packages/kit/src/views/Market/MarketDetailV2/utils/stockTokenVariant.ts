@@ -9,6 +9,20 @@ export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
   );
 }
 
+export function getStockTokenVariantActionIdentity(
+  variant?: IMarketStockTokenVariant,
+) {
+  if (!variant?.networkId?.trim() || !variant.contractAddress?.trim()) {
+    return undefined;
+  }
+
+  return {
+    networkId: variant.networkId,
+    address: variant.contractAddress,
+    symbol: variant.symbol,
+  };
+}
+
 export function getDefaultStockTokenVariant(
   items: IMarketStockTokenVariant[],
   defaultTokenId?: string,
