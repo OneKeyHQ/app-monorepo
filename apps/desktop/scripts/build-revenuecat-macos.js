@@ -4,6 +4,8 @@ const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const plist = require('@expo/plist').default;
+
 const moduleDirectory = path.resolve(
   __dirname,
   '../native-modules/revenuecat-macos',
@@ -11,6 +13,71 @@ const moduleDirectory = path.resolve(
 const outputDirectory = path.join(moduleDirectory, 'build/universal');
 const sdkVersion = '5.80.3';
 const hybridVersion = '18.21.0';
+const resourceBundles = [
+  {
+    name: 'RevenueCat_RevenueCat',
+    identifier: 'com.revenuecat.RevenueCat.resources',
+    version: sdkVersion,
+    infoPath: 'RevenueCat_RevenueCat.bundle/Info.plist',
+    privacyPath: 'RevenueCat_RevenueCat.bundle/PrivacyInfo.xcprivacy',
+  },
+  {
+    name: 'PurchasesHybridCommon',
+    identifier: 'com.revenuecat.PurchasesHybridCommon',
+    version: hybridVersion,
+    infoPath: 'PurchasesHybridCommon.bundle/Contents/Info.plist',
+    privacyPath:
+      'PurchasesHybridCommon.bundle/Contents/Resources/PrivacyInfo.xcprivacy',
+  },
+];
+
+function writeResourceBundleMetadata(resources) {
+  for (const bundle of resourceBundles) {
+    const infoPath = path.join(resources, bundle.infoPath);
+    const existing = fs.existsSync(infoPath)
+      ? plist.parse(fs.readFileSync(infoPath, 'utf8'))
+      : {};
+    // SwiftPM can emit only a development region, which App Store validation rejects.
+    fs.writeFileSync(
+      infoPath,
+      plist.build({
+        ...existing,
+        CFBundleDevelopmentRegion: existing.CFBundleDevelopmentRegion || 'en',
+        CFBundleIdentifier: bundle.identifier,
+        CFBundleInfoDictionaryVersion: '6.0',
+        CFBundleName: bundle.name,
+        CFBundlePackageType: 'BNDL',
+        CFBundleShortVersionString: bundle.version,
+        CFBundleVersion: bundle.version,
+      }),
+    );
+  }
+}
+
+function verifyResourceBundles(resources) {
+  for (const bundle of resourceBundles) {
+    const info = plist.parse(
+      fs.readFileSync(path.join(resources, bundle.infoPath), 'utf8'),
+    );
+    if (
+      typeof info.CFBundleIdentifier !== 'string' ||
+      !/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(info.CFBundleIdentifier) ||
+      info.CFBundleIdentifier !== bundle.identifier ||
+      info.CFBundleInfoDictionaryVersion !== '6.0' ||
+      info.CFBundleName !== bundle.name ||
+      info.CFBundlePackageType !== 'BNDL' ||
+      info.CFBundleShortVersionString !== bundle.version ||
+      info.CFBundleVersion !== bundle.version
+    ) {
+      throw new Error(
+        `Invalid App Store resource bundle metadata: ${bundle.infoPath}`,
+      );
+    }
+    plist.parse(
+      fs.readFileSync(path.join(resources, bundle.privacyPath), 'utf8'),
+    );
+  }
+}
 
 function run(command, args, capture = false) {
   const result = spawnSync(command, args, {
@@ -63,6 +130,7 @@ function verifyBuild() {
       'x86_64',
     ]);
   }
+  verifyResourceBundles(path.join(outputDirectory, 'Resources'));
 }
 
 function build() {
@@ -193,12 +261,8 @@ function build() {
     ),
     path.join(hybridBundle, 'Resources/PrivacyInfo.xcprivacy'),
   );
-  fs.writeFileSync(
-    path.join(hybridBundle, 'Info.plist'),
-    '<?xml version="1.0" encoding="UTF-8"?>\n' +
-      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
-      '<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.revenuecat.PurchasesHybridCommon</string><key>CFBundlePackageType</key><string>BNDL</string></dict></plist>\n',
-  );
+  writeResourceBundleMetadata(resources);
+  verifyResourceBundles(resources);
   for (const checkout of ['purchases-ios-spm', 'purchases-hybrid-common']) {
     fs.copyFileSync(
       path.join(moduleDirectory, '.build/checkouts', checkout, 'LICENSE'),
@@ -233,4 +297,8 @@ if (require.main === module) {
   }
 }
 
-module.exports = { verifyBuild };
+module.exports = {
+  verifyBuild,
+  verifyResourceBundles,
+  writeResourceBundleMetadata,
+};
