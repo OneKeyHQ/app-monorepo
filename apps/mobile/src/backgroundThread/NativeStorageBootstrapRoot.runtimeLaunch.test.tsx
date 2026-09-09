@@ -80,6 +80,7 @@ jest.mock('react-native', () => ({
 
 jest.mock('./bootstrapNativeStorage', () => ({
   bootstrapNativeStorage: () => mockBootstrapNativeStorage(),
+  hydrateColdStartSnapshotAfterRuntimeLaunch: () => undefined,
   waitForColdStartCriticalImagesBeforeMount: () => Promise.resolve(),
 }));
 

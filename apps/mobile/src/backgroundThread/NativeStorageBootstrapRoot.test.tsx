@@ -37,6 +37,7 @@ const mockRunJotaiMainHydration = jest.fn(
   async (initializeFromBackground: () => Promise<void>) =>
     initializeFromBackground(),
 );
+const mockHydrateColdStartSnapshotAfterRuntimeLaunch = jest.fn();
 const mockWaitForColdStartCriticalImagesResolvers: Array<() => void> = [];
 const mockWaitForColdStartCriticalImagesBeforeMount = jest.fn(
   () =>
@@ -112,6 +113,9 @@ jest.mock('react-native', () => ({
 jest.mock('./bootstrapNativeStorage', () => ({
   bootstrapNativeStorage: (options: { force?: boolean }) =>
     mockBootstrapNativeStorage(options),
+  hydrateColdStartSnapshotAfterRuntimeLaunch: () => {
+    mockHydrateColdStartSnapshotAfterRuntimeLaunch();
+  },
   waitForColdStartCriticalImagesBeforeMount: () =>
     mockWaitForColdStartCriticalImagesBeforeMount(),
 }));
@@ -295,6 +299,23 @@ describe('NativeStorageBootstrapRoot', () => {
       mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
     ).toBeLessThan(
       mockWaitForColdStartCriticalImagesBeforeMount.mock.invocationCallOrder[0],
+    );
+    // The snapshot is readable only after the runtime launch is acknowledged,
+    // and it must be hydrated before the jotai init that precedes the mount.
+    expect(mockHydrateColdStartSnapshotAfterRuntimeLaunch).toHaveBeenCalled();
+    expect(
+      mockForceDisableTravelModeForRecovery.mock.invocationCallOrder.at(-1),
+    ).toBeLessThan(
+      mockHydrateColdStartSnapshotAfterRuntimeLaunch.mock.invocationCallOrder.at(
+        -1,
+      ) as number,
+    );
+    expect(
+      mockHydrateColdStartSnapshotAfterRuntimeLaunch.mock.invocationCallOrder.at(
+        -1,
+      ),
+    ).toBeLessThan(
+      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
     );
     expect(screen.queryByTestId('business-app')).toBeNull();
 
