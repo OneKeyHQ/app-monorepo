@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -22,9 +23,7 @@ import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { getIssuerLabel } from '../TokenSelector/StockTokenVariantSelector';
 
-// Matches the trade panel's own Output row (Figma 25672:55964). The design
-// never specs an empty state for Shares Per Token, whose ratio some issuers
-// omit, so that row reuses this convention pending design sign-off.
+// Matches the trade panel's own Output row (Figma 25672:55964).
 const VALUE_FALLBACK = '--';
 // Figma 25881:22529: the block matches the trade panel content width (344),
 // rows are 20 high with a 14 gap and the card keeps a 16 inset.
@@ -110,7 +109,9 @@ function StockTokenInfoContent({
   }, [copyText, variant.contractAddress]);
 
   const ticker = stockId || variant.symbol || '';
-  const sharesPerToken = variant.tokenToAssetRatio?.trim();
+  const sharesPerToken = getValidStockTokenToAssetRatio(
+    variant.tokenToAssetRatio,
+  );
   const tradingHours = formatTradingHours(variant.tradingHours?.days);
 
   return (
@@ -153,18 +154,18 @@ function StockTokenInfoContent({
         <InfoValueText>{ticker || VALUE_FALLBACK}</InfoValueText>
       </InfoRow>
 
-      <InfoRow
-        label={intl.formatMessage({
-          id: ETranslations.market_shares_per_token,
-        })}
-        testID="stock-token-info-shares"
-      >
-        <InfoValueText>
-          {sharesPerToken
-            ? [sharesPerToken, ticker].filter(Boolean).join(' ')
-            : VALUE_FALLBACK}
-        </InfoValueText>
-      </InfoRow>
+      {sharesPerToken ? (
+        <InfoRow
+          label={intl.formatMessage({
+            id: ETranslations.market_shares_per_token,
+          })}
+          testID="stock-token-info-shares"
+        >
+          <InfoValueText>
+            {[sharesPerToken, ticker].filter(Boolean).join(' ')}
+          </InfoValueText>
+        </InfoRow>
+      ) : null}
 
       <InfoRow
         label={intl.formatMessage({ id: ETranslations.trading_hours_title })}

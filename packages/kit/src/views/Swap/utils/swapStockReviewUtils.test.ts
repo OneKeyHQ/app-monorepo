@@ -2,7 +2,11 @@ import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { buildSwapStockReviewDisplay } from './swapStockReviewUtils';
+import {
+  buildSwapStockReviewDisplay,
+  calculateSwapStockEstimatedShares,
+  getValidStockTokenToAssetRatio,
+} from './swapStockReviewUtils';
 
 const currencyMap = {
   usd: {
@@ -42,6 +46,30 @@ const stockToken: ISwapToken = {
 };
 
 describe('swapStockReviewUtils', () => {
+  it.each([undefined, '', '  ', '0', '-1', 'NaN', 'Infinity', 'invalid'])(
+    'rejects unavailable conversion ratio %p for display and calculation',
+    (ratio) => {
+      expect(getValidStockTokenToAssetRatio(ratio)).toBeUndefined();
+      expect(
+        calculateSwapStockEstimatedShares({
+          stockTokenAmount: '2',
+          tokenToAssetRatio: ratio,
+        }),
+      ).toBeUndefined();
+    },
+  );
+
+  it('preserves valid ratio precision while trimming whitespace', () => {
+    const ratio = '0.12345678901234567890123456789';
+    expect(getValidStockTokenToAssetRatio(`  ${ratio}  `)).toBe(ratio);
+    expect(
+      calculateSwapStockEstimatedShares({
+        stockTokenAmount: '2',
+        tokenToAssetRatio: `  ${ratio}  `,
+      }),
+    ).toBe('0.24691357802469135780246913578');
+  });
+
   it('builds estimated shares and effective share price for a buy quote', () => {
     const result = buildSwapStockReviewDisplay({
       currencyMap,
