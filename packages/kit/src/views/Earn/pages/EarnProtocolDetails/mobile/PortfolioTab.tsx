@@ -6,11 +6,13 @@ import {
   Badge,
   Button,
   Icon,
+  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -83,6 +85,7 @@ function PortfolioRow({
   onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   return (
     <XStack
       minHeight={40}
@@ -98,12 +101,28 @@ function PortfolioRow({
           {item.txHash ? (
             <TransactionLink networkId={networkId} txHash={item.txHash} />
           ) : (
-            <EarnText
-              text={item.description}
-              size="$bodySm"
-              color={item.description?.color || '$textSubdued'}
-              numberOfLines={1}
-            />
+            <XStack ai="center" gap="$1.5" flexWrap="wrap">
+              <EarnText
+                text={item.description}
+                size="$bodySm"
+                color={item.description?.color || '$textSubdued'}
+                numberOfLines={1}
+              />
+              {/* The row shows the token amount; the design puts its fiat
+                  value beside the status (OK-62408). Both server paths emit
+                  fiatValue, so an empty string is the only case to skip. */}
+              {item.fiatValue ? (
+                <NumberSizeableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{ currency: currencyInfo.symbol }}
+                  numberOfLines={1}
+                >
+                  {item.fiatValue}
+                </NumberSizeableText>
+              ) : null}
+            </XStack>
           )}
         </YStack>
       </XStack>
