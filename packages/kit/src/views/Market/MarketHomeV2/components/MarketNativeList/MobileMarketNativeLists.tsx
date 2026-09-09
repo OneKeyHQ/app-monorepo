@@ -83,6 +83,7 @@ const NATIVE_LIST_STYLE = StyleSheet.create({
 });
 
 function useMarketNativeListPresentation(): IMarketNativeListPresentation {
+  const intl = useIntl();
   const theme = useTheme();
   return useMemo(
     () => ({
@@ -108,13 +109,22 @@ function useMarketNativeListPresentation(): IMarketNativeListPresentation {
         info: theme.textInfo.val,
         caution: theme.textCaution.val,
       },
+      communityRecognizedAccessibilityLabel: intl.formatMessage({
+        id: ETranslations.dexmarket_communityRecognized,
+      }),
+      leverageAccessibilityLabel: intl.formatMessage({
+        id: ETranslations.perp_leverage,
+      }),
+      providerAccessibilityLabel: intl.formatMessage({
+        id: ETranslations.swap_history_detail_provider,
+      }),
       positiveBackground: theme.bgSuccessStrong.val,
       negativeBackground: theme.bgCriticalStrong.val,
       neutralBackground: theme.neutral9.val,
       infoBackground: theme.bgInfo.val,
       infoText: theme.textInfo.val,
     }),
-    [theme],
+    [intl, theme],
   );
 }
 
@@ -178,7 +188,7 @@ type INativeMarketListProps = {
   onRowAction: (event: RowActionEvent) => void;
   onActionAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
   onEndReached?: () => void;
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<unknown> | void;
 };
 
 function NativeMarketList({
@@ -199,6 +209,19 @@ function NativeMarketList({
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const refreshingRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh || refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [onRefresh]);
   const structuralIdentity = `${rows.map((row) => row.key).join('|')}:${
     loading && rows.length === 0
   }:${Boolean(errorMessage && rows.length === 0)}:${Boolean(
@@ -212,6 +235,7 @@ function NativeMarketList({
         generation,
         presentation,
         loading,
+        refreshing,
         loadingMore,
         loadMoreError,
         errorMessage,
@@ -235,6 +259,7 @@ function NativeMarketList({
       loadingMore,
       onRefresh,
       presentation,
+      refreshing,
       rows,
       showEnd,
     ],
@@ -249,7 +274,11 @@ function NativeMarketList({
       onRowAction={onRowAction}
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
-      onRefresh={onRefresh}
+      onRefresh={
+        onRefresh
+          ? () => void handleRefresh().catch(() => undefined)
+          : undefined
+      }
     />
   );
 }
@@ -502,7 +531,10 @@ function prewarmTokenDetail(item: IMarketToken) {
 }
 
 type ISharedListProps = {
-  listContainerProps: { paddingBottom: number };
+  listContainerProps: {
+    emptyContentPaddingTop?: number;
+    paddingBottom: number;
+  };
   shouldSuppressItemPress?: () => boolean;
 };
 
@@ -612,7 +644,7 @@ function MobileMarketNativeTokenListImpl({
             void result.loadMore();
           }
         }}
-        onRefresh={() => void result.refresh()}
+        onRefresh={() => result.refresh()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -833,7 +865,9 @@ function MobileMarketNativeWatchlistImpl({
         nestedScrollEnabled
         contentInsetAdjustmentBehavior="never"
         testID="market-favorites-empty-scroll"
-        contentContainerStyle={{ paddingTop: 16 }}
+        contentContainerStyle={{
+          paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+        }}
       >
         <Stack alignItems="center">
           <MarketRecommendList
@@ -856,9 +890,9 @@ function MobileMarketNativeWatchlistImpl({
         testID={MarketTestIDs.watchList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={onActionAnchorInvalidated}
-        onRefresh={() => {
-          void actions.current.refreshWatchListV2();
-          result.refresh();
+        onRefresh={async () => {
+          await actions.current.refreshWatchListV2();
+          await result.refetch();
         }}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
@@ -948,7 +982,7 @@ function MobileMarketNativeStockListImpl({
           void result.loadMore();
         }
       }}
-      onRefresh={() => void result.refresh()}
+      onRefresh={() => result.refresh()}
     />
   );
 }

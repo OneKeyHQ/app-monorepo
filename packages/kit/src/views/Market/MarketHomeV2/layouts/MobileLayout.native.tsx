@@ -24,8 +24,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   MarketBannerList,
-  useMarketBannerList,
-} from '../components/MarketBanner';
+  useMarketBannerState,
+} from '../components/MarketBanner/MarketBannerList';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import {
@@ -48,6 +48,7 @@ import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
+import { shouldHandleMarketPagerPageSelected } from './marketTabSelectionGuards';
 import {
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
   getMarketMobileSecondaryHeaderHeight,
@@ -285,6 +286,7 @@ function MobileLayoutComponent({
   onTabChange,
   tabsRef,
   isFocused = true,
+  nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
@@ -318,17 +320,24 @@ function MobileLayoutComponent({
   const activeTabNameRef = useRef(
     tabNames[initialIndex] ?? selectedTabName ?? tabNames[0] ?? '',
   );
+  const selectedTabNameRef = useRef(selectedTabName);
+  selectedTabNameRef.current = selectedTabName;
   const [activeTabName, setActiveTabName] = useState(activeTabNameRef.current);
   const focusedTab = useSharedValue(activeTabNameRef.current);
-  const {
-    bannerList,
-    isLoading: isBannerLoading,
-    isFetched: isBannerFetched,
-  } = useMarketBannerList();
-  const headerHeight =
-    (isBannerLoading && !isBannerFetched) || bannerList?.length
-      ? MARKET_BANNER_HEADER_HEIGHT
-      : 1;
+  const { bannerList, scope: bannerScope } = useMarketBannerState();
+  const bannerDecisionRef = useRef({
+    scope: bannerScope,
+    hasBanners: bannerList.length > 0,
+  });
+  if (bannerDecisionRef.current.scope !== bannerScope) {
+    bannerDecisionRef.current = {
+      scope: bannerScope,
+      hasBanners: bannerList.length > 0,
+    };
+  }
+  const headerHeight = bannerDecisionRef.current.hasBanners
+    ? MARKET_BANNER_HEADER_HEIGHT
+    : 1;
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
     MARKET_TAB_BAR_HEIGHT + getMarketMobileSecondaryHeaderHeight(),
   );
@@ -417,17 +426,26 @@ function MobileLayoutComponent({
       getFocusedTab: () => activeTabNameRef.current,
       getCurrentIndex: () => activeIndexRef.current,
       syncCurrentPage: () => {
-        pagerRef.current?.setPageWithoutAnimation(activeIndexRef.current);
+        const selectedIndex = tabNames.indexOf(selectedTabNameRef.current);
+        const targetIndex =
+          !isTabSelectionInFlight() && selectedIndex >= 0
+            ? selectedIndex
+            : activeIndexRef.current;
+        updateActivePage(targetIndex);
+        pagerRef.current?.setPageWithoutAnimation(targetIndex);
       },
     }),
-    [setPagerIndex, tabNames],
+    [isTabSelectionInFlight, setPagerIndex, tabNames, updateActivePage],
   );
 
   useEffect(() => {
     if (!isFocused || isTabSelectionInFlight()) return;
     const targetIndex = tabNames.indexOf(selectedTabName);
-    if (targetIndex >= 0 && targetIndex !== activeIndexRef.current) {
+    if (targetIndex < 0) return;
+    if (targetIndex !== activeIndexRef.current) {
       setPagerIndex(targetIndex, false);
+    } else if (activeTabNameRef.current !== selectedTabName) {
+      updateActivePage(targetIndex);
     }
   }, [
     isFocused,
@@ -435,20 +453,27 @@ function MobileLayoutComponent({
     selectedTabName,
     setPagerIndex,
     tabNames,
+    updateActivePage,
   ]);
 
   const handleTabPress = useCallback(
     (tabName: string) => {
       const index = tabNames.indexOf(tabName);
       if (index >= 0 && index !== activeIndexRef.current) {
+        handleTabChange(tabName);
         setPagerIndex(index, true);
       }
     },
-    [setPagerIndex, tabNames],
+    [handleTabChange, setPagerIndex, tabNames],
   );
 
   const handlePageSelected = useCallback(
     (event: CollapsiblePagerViewOnPageSelectedEvent) => {
+      if (
+        !shouldHandleMarketPagerPageSelected(isPagerUserDraggingRef.current)
+      ) {
+        return;
+      }
       const index = Math.max(0, Math.trunc(event.nativeEvent.position));
       const tabName = tabNames[index];
       if (!tabName) return;
@@ -487,9 +512,12 @@ function MobileLayoutComponent({
 
   const listContainerProps = useMemo(
     () => ({
+      emptyContentPaddingTop:
+        16 +
+        (platformEnv.isNativeAndroid ? headerHeight + stickyHeaderHeight : 0),
       paddingBottom: platformEnv.isNativeIOS ? 125 : tabBarHeight + 40,
     }),
-    [tabBarHeight],
+    [headerHeight, stickyHeaderHeight, tabBarHeight],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -543,6 +571,7 @@ function MobileLayoutComponent({
         pageRetentionDistance={1}
         offscreenPageLimit={1}
         scrollEnabled
+        nestedScrollEnabled={nestedPager}
         testID="market-native-collapsible-pager"
         onPageSelected={handlePageSelected}
         onPageScrollStateChanged={handlePagerScrollStateChanged}

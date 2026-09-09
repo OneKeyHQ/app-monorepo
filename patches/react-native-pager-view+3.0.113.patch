@@ -1,0 +1,255 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
+index e38350c4ec3d7bd61391dc06cf6cbe0e7c06cabf..c622f9fe5c4115462895f8798c4eb0eebafdb4b0 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
+@@ -5,7 +5,8 @@ import android.graphics.Rect
+ import android.view.View
+ import android.view.ViewGroup
+ import android.view.ViewTreeObserver
+-import android.widget.FrameLayout
++// OneKey patch: FrameLayout is inherited through NestedScrollableHost.
++// import android.widget.FrameLayout
+ import androidx.core.view.NestedScrollingParent3
+ import androidx.core.view.NestedScrollingParentHelper
+ import androidx.core.view.ViewCompat
+@@ -67,7 +68,9 @@ internal class CollapsiblePagerAdapter : RecyclerView.Adapter<ViewPagerViewHolde
+  * vertical scroll view remains the content scroll source and horizontal gestures
+  * remain owned by ViewPager2.
+  */
+-class CollapsiblePagerHost(context: Context) : FrameLayout(context), NestedScrollingParent3 {
++// OneKey patch: Match the standard pager's nested horizontal gesture host.
++// Original: class CollapsiblePagerHost(context: Context) : FrameLayout(context), NestedScrollingParent3 {
++class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), NestedScrollingParent3 {
+   private data class RecyclerPadding(
+     val left: Int,
+     val top: Int,
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
+index c9bf6e24791fc65e94b2d8154b9b63c62d0c2144..91058c181c2814f1fb29f4d05f46793ebc17869b 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
+@@ -145,6 +145,11 @@ class CollapsiblePagerViewManager : ViewGroupManager<CollapsiblePagerHost>(),
+     }
+   }
+ 
++  @ReactProp(name = "nestedScrollEnabled", defaultBoolean = false)
++  override fun setNestedScrollEnabled(view: CollapsiblePagerHost?, value: Boolean) {
++    // OneKey patch: CollapsiblePagerHost always coordinates nested pagers on Android.
++  }
++
+   @ReactProp(name = "headerHeight", defaultInt = 0)
+   override fun setHeaderHeight(view: CollapsiblePagerHost?, value: Int) {
+     view?.headerHeightPx = PixelUtil.toPixelFromDIP(value.toDouble()).toInt()
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+index 259404ebefadc85dc83b54a80e3d7ab52b88ff33..996767ff496b2fb08a93ec02078cfc2cb21739ea 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+@@ -21,7 +21,9 @@ import kotlin.math.sign
+  * Supports multiple levels of nested PagerViews by re-asserting
+  * requestDisallowInterceptTouchEvent after child dispatch.
+  */
+-class NestedScrollableHost : FrameLayout {
++// OneKey patch: Let the collapsible pager reuse same-direction nested pager coordination.
++// Original: class NestedScrollableHost : FrameLayout {
++open class NestedScrollableHost : FrameLayout {
+   constructor(context: Context) : super(context)
+   constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
+   public var initialIndex: Int? = null
+diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
+index afb03b6cec3963d490bdd3850f175ea231140f7b..248f1eb207e58aa65de4ca199aca2c70436f5b64 100644
+--- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
++++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
+@@ -15,7 +15,8 @@ @interface RNCCollapsiblePagerViewComponentView () <
+   RCTRNCCollapsiblePagerViewViewProtocol,
+   UIPageViewControllerDataSource,
+   UIPageViewControllerDelegate,
+-  UIScrollViewDelegate
++  UIScrollViewDelegate,
++  UIGestureRecognizerDelegate
+ >
+ @end
+ 
+@@ -34,7 +35,12 @@ @implementation RNCCollapsiblePagerViewComponentView {
+   NSInteger _stickyHeaderHeight;
+   CGFloat _headerOffset;
+   BOOL _scrollEnabled;
++  // OneKey patch: Coordinate this inner pager with an outer horizontal pager.
++  BOOL _nestedScrollEnabled;
++  UIPanGestureRecognizer *_blockerGesture;
+   BOOL _transitioning;
++  // OneKey patch: Retain the latest tab tap while an animation is in flight.
++  NSInteger _pendingGoToIndex;
+   BOOL _hasAppliedInitialPage;
+   NSString *_layoutDirection;
+   NSArray<NSString *> *_pageKeys;
+@@ -73,6 +79,8 @@ - (instancetype)initWithFrame:(CGRect)frame
+     _destinationIndex = 0;
+     _pendingInitialPage = 0;
+     _scrollEnabled = YES;
++    _nestedScrollEnabled = NO;
++    _pendingGoToIndex = -1;
+     _hasAppliedInitialPage = NO;
+     _layoutDirection = @"ltr";
+ 
+@@ -113,6 +121,7 @@ - (void)initializePageViewController
+       break;
+     }
+   }
++  [self applyNestedScrollBlocker];
+ }
+ 
+ #pragma mark - React mounting
+@@ -248,6 +257,10 @@ - (void)prepareForRecycle
+   _pageViewController.dataSource = nil;
+   _pageViewController.delegate = nil;
+   _pagerScrollView.delegate = nil;
++  if (_blockerGesture != nil) {
++    [self removeGestureRecognizer:_blockerGesture];
++    _blockerGesture = nil;
++  }
+   [_pageViewController.view removeFromSuperview];
+   _pageViewController = nil;
+   _pagerScrollView = nil;
+@@ -262,7 +275,9 @@ - (void)prepareForRecycle
+   _stickyHeaderHeight = 0;
+   _headerOffset = 0;
+   _scrollEnabled = YES;
++  _nestedScrollEnabled = NO;
+   _transitioning = NO;
++  _pendingGoToIndex = -1;
+   _hasAppliedInitialPage = NO;
+   _layoutDirection = @"ltr";
+   _isBeingRecycled = NO;
+@@ -283,6 +298,10 @@ - (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &
+     _scrollEnabled = newViewProps.scrollEnabled;
+     _pagerScrollView.scrollEnabled = _scrollEnabled;
+   }
++  if (oldViewProps.nestedScrollEnabled != newViewProps.nestedScrollEnabled) {
++    _nestedScrollEnabled = newViewProps.nestedScrollEnabled;
++    [self applyNestedScrollBlocker];
++  }
+   if (oldViewProps.layoutDirection != newViewProps.layoutDirection) {
+     _layoutDirection = RCTNSStringFromString(toString(newViewProps.layoutDirection));
+   }
+@@ -553,7 +572,12 @@ - (BOOL)isLtrLayout
+ - (void)goTo:(NSInteger)index animated:(BOOL)animated
+ {
+   if (_isBeingRecycled || index < 0 || index >= _pageControllers.count) return;
+-  if (_transitioning && animated) return;
++  if (_transitioning && animated) {
++    _pendingGoToIndex = index;
++    return;
++  }
++
++  _pendingGoToIndex = -1;
+ 
+   [self detachScrollObserver];
+   _destinationIndex = index;
+@@ -576,6 +600,11 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated
+     [self attachScrollObserverForCurrentPage];
+     [self emitPageSelected:index];
+     [self emitDiagnostics:@"page-selected"];
++    NSInteger pending = self->_pendingGoToIndex;
++    if (pending >= 0 && pending != index) {
++      self->_pendingGoToIndex = -1;
++      [self goTo:pending animated:YES];
++    }
+   }];
+ }
+ 
+@@ -725,6 +754,63 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled
+   _pagerScrollView.scrollEnabled = scrollEnabled;
+ }
+ 
++#pragma mark - Nested pager gesture coordination
++
++- (void)applyNestedScrollBlocker
++{
++  if (_pagerScrollView == nil) return;
++
++  if (_nestedScrollEnabled && _blockerGesture == nil) {
++    _blockerGesture = [[UIPanGestureRecognizer alloc]
++      initWithTarget:self
++      action:@selector(blockerGestureFired:)];
++    _blockerGesture.delegate = self;
++    _blockerGesture.cancelsTouchesInView = NO;
++    _blockerGesture.delaysTouchesBegan = NO;
++    [self addGestureRecognizer:_blockerGesture];
++    [_pagerScrollView.panGestureRecognizer requireGestureRecognizerToFail:_blockerGesture];
++  } else if (!_nestedScrollEnabled && _blockerGesture != nil) {
++    [self removeGestureRecognizer:_blockerGesture];
++    _blockerGesture = nil;
++  }
++}
++
++- (void)blockerGestureFired:(UIPanGestureRecognizer *)recognizer
++{
++  if (recognizer.state == UIGestureRecognizerStateBegan) {
++    recognizer.state = UIGestureRecognizerStateCancelled;
++  }
++}
++
++- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
++{
++  if (gestureRecognizer != _blockerGesture) return YES;
++  if (!_nestedScrollEnabled) return NO;
++  if (![gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) return NO;
++
++  UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gestureRecognizer;
++  CGPoint velocity = [pan velocityInView:self];
++  NSInteger pageCount = _pageControllers.count;
++  if (pageCount == 0 || _currentIndex < 0 || _currentIndex >= pageCount) return NO;
++
++  CGFloat absVelocityX = fabs(velocity.x);
++  CGFloat absVelocityY = fabs(velocity.y);
++  if (absVelocityX <= absVelocityY || absVelocityX < 1.0f) return NO;
++
++  BOOL isLtr = self.isLtrLayout;
++  NSInteger firstPageIndex = isLtr ? 0 : pageCount - 1;
++  NSInteger lastPageIndex = isLtr ? pageCount - 1 : 0;
++  if (_currentIndex == firstPageIndex && velocity.x > 0) return YES;
++  if (_currentIndex == lastPageIndex && velocity.x < 0) return YES;
++  return NO;
++}
++
++- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
++    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
++{
++  return gestureRecognizer == _blockerGesture;
++}
++
+ + (ComponentDescriptorProvider)componentDescriptorProvider
+ {
+   return concreteComponentDescriptorProvider<RNCCollapsiblePagerViewComponentDescriptor>();
+diff --git a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
+index 9f63c47cd7e094642eea34bbf890b56cde802d53..8f5bdef303395258392dc37eb9d7e787eab22180 100644
+--- a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
++++ b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
+@@ -29,6 +29,8 @@ export interface NativeProps extends ViewProps {
+     layoutDirection?: WithDefault<"ltr" | "rtl", "ltr">;
+     initialPage?: Int32;
+     offscreenPageLimit?: Int32;
++    /** OneKey patch: Preserve nested pager gesture coordination for collapsible pages. */
++    nestedScrollEnabled?: WithDefault<boolean, false>;
+     headerHeight?: Int32;
+     stickyHeaderHeight?: Int32;
+     pageKeys?: string;
+@@ -47,4 +49,4 @@ export interface NativeCommands {
+ export declare const Commands: NativeCommands;
+ declare const _default: HostComponent<NativeProps>;
+ export default _default;
+-//# sourceMappingURL=CollapsiblePagerViewNativeComponent.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=CollapsiblePagerViewNativeComponent.d.ts.map
+diff --git a/node_modules/react-native-pager-view/src/CollapsiblePagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/CollapsiblePagerViewNativeComponent.ts
+index f2e7f31fd09a78289011c20ec1a44462adeb788c..6dbf075edea7d35e09b652a4bb7e02a838853899 100644
+--- a/node_modules/react-native-pager-view/src/CollapsiblePagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/src/CollapsiblePagerViewNativeComponent.ts
+@@ -45,6 +45,8 @@ export interface NativeProps extends ViewProps {
+   layoutDirection?: WithDefault<"ltr" | "rtl", "ltr">;
+   initialPage?: Int32;
+   offscreenPageLimit?: Int32;
++  // OneKey patch: Preserve nested pager gesture coordination for collapsible pages.
++  nestedScrollEnabled?: WithDefault<boolean, false>;
+   headerHeight?: Int32;
+   stickyHeaderHeight?: Int32;
+   pageKeys?: string;

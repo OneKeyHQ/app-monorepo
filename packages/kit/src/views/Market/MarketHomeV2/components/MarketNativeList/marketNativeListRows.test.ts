@@ -31,6 +31,9 @@ const presentation: IMarketNativeListPresentation = {
     inverseText: '#ffffff',
     info: '#0000ff',
   },
+  communityRecognizedAccessibilityLabel: 'Community recognized',
+  leverageAccessibilityLabel: 'Leverage',
+  providerAccessibilityLabel: 'Provider',
   positiveBackground: '#008000',
   negativeBackground: '#800000',
   neutralBackground: '#666666',
@@ -99,6 +102,9 @@ describe('market native list rows', () => {
       'token-tags',
       'token-tags',
     ]);
+    expect(row.badges?.[0]?.accessibilityLabel).toBe(
+      'TINY, Community recognized',
+    );
     expect(row.longPressActionKey).toBe('watchlist-menu');
     expect(row.pressInActionKey).toBe('prewarm-detail');
   });
@@ -117,6 +123,10 @@ describe('market native list rows', () => {
         }),
       ]),
     );
+    expect(row.badges?.map((badge) => badge.accessibilityLabel)).toEqual([
+      '40x, Leverage',
+      'xyz, Provider',
+    ]);
   });
 
   it('represents loading, retry, pagination, and end states in native rows', () => {
@@ -160,6 +170,17 @@ describe('market native list rows', () => {
       retryMessage: 'Retry',
       contentPaddingBottom: 20,
     });
+    const refreshing = buildMarketNativeSnapshot({
+      rows: [row],
+      generation: 5,
+      presentation,
+      loading: false,
+      refreshing: true,
+      canRefresh: true,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
 
     expect(loading.rows).toHaveLength(10);
     expect(loading.rows[0]).toMatchObject({
@@ -180,6 +201,7 @@ describe('market native list rows', () => {
       type: 'system',
       variant: 'end',
     });
+    expect(refreshing.capabilities?.refreshing).toBe(true);
   });
 
   it('uses quote-only patches and falls back to snapshots for structural changes', () => {

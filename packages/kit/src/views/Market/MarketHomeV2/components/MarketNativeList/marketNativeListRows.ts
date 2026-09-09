@@ -27,6 +27,9 @@ import type {
 
 export type IMarketNativeListPresentation = Readonly<{
   theme: NativeListTheme;
+  communityRecognizedAccessibilityLabel: string;
+  leverageAccessibilityLabel: string;
+  providerAccessibilityLabel: string;
   positiveBackground: string;
   negativeBackground: string;
   neutralBackground: string;
@@ -175,7 +178,10 @@ function firstNativeImageUri(item: IMarketToken) {
   );
 }
 
-function tokenBadges(item: IMarketToken): readonly MarketBadgeModel[] {
+function tokenBadges(
+  item: IMarketToken,
+  presentation: IMarketNativeListPresentation,
+): readonly MarketBadgeModel[] {
   const badges: MarketBadgeModel[] = [];
   if (item.communityRecognized) {
     badges.push({
@@ -183,7 +189,7 @@ function tokenBadges(item: IMarketToken): readonly MarketBadgeModel[] {
       iconName: 'verified',
       tone: 'success',
       actionKey: 'token-tags',
-      accessibilityLabel: `${item.symbol} community recognized`,
+      accessibilityLabel: `${item.symbol}, ${presentation.communityRecognizedAccessibilityLabel}`,
     });
   }
   if (item.stock?.sourceLogoUri) {
@@ -217,7 +223,7 @@ function perpsBadges({
       tone: 'info',
       textColor: presentation.infoText,
       backgroundColor: presentation.infoBackground,
-      accessibilityLabel: `Up to ${maxLeverage}x leverage`,
+      accessibilityLabel: `${maxLeverage}x, ${presentation.leverageAccessibilityLabel}`,
     });
   }
   const normalizedDexLabel = dexLabel?.toLowerCase();
@@ -233,7 +239,7 @@ function perpsBadges({
       textColor: presentation.infoText,
       backgroundColor: presentation.infoBackground,
       actionKey: 'perps-dex-info',
-      accessibilityLabel: `${normalizedDexLabel} perps provider`,
+      accessibilityLabel: `${normalizedDexLabel}, ${presentation.providerAccessibilityLabel}`,
     });
   }
   return badges;
@@ -336,7 +342,7 @@ export function buildTokenMarketRow({
           dexLabel,
           presentation,
         })
-      : tokenBadges(item),
+      : tokenBadges(item, presentation),
     pressActionKey: 'open-detail',
     pressInActionKey: isPerp ? undefined : 'prewarm-detail',
     longPressActionKey: watchlist ? 'watchlist-menu' : undefined,
@@ -461,6 +467,7 @@ export function buildMarketNativeSnapshot({
   generation,
   presentation,
   loading,
+  refreshing,
   loadingMore,
   loadMoreError,
   errorMessage,
@@ -475,6 +482,7 @@ export function buildMarketNativeSnapshot({
   generation: number;
   presentation: IMarketNativeListPresentation;
   loading: boolean;
+  refreshing?: boolean;
   loadingMore?: boolean;
   loadMoreError?: boolean;
   errorMessage?: string;
@@ -549,7 +557,7 @@ export function buildMarketNativeSnapshot({
     selection: { mode: 'none', selectedKeys: [] },
     capabilities: {
       pullToRefresh: Boolean(canRefresh),
-      refreshing: Boolean(canRefresh && loading && marketRows.length > 0),
+      refreshing: Boolean(canRefresh && refreshing),
       loadMore: Boolean(canLoadMore),
       endReachedThreshold: 0.2,
     },
