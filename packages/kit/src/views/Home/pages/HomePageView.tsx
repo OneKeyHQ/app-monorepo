@@ -968,9 +968,15 @@ export function HomePageView({
         switchToPerpsWebTab();
         return;
       }
-      const name = tabConfigs.find((i) => i.id === payload.id)?.name;
-      if (name) {
-        tabsRef.current?.jumpToTab(name);
+      const nextTab = tabConfigs.find((i) => i.id === payload.id);
+      if (nextTab) {
+        // Same press-ahead update as the tab bar: the target pane must thaw
+        // before the pager starts sliding towards it (see
+        // FreezeInactiveHomeTab).
+        setActiveTabName(nextTab.name);
+        setActiveTabId(nextTab.id);
+        lastDisplayableTabNameRef.current = nextTab.name;
+        tabsRef.current?.jumpToTab(nextTab.name);
       }
     },
     [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],

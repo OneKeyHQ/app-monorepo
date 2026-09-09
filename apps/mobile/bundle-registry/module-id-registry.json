@@ -21434,6 +21434,7 @@
     "packages/kit/src/views/Home/pages/homeOverviewBalanceHold.ts": 9327,
     "packages/kit/src/views/Home/pages/homePageContentMaxWidth.ts": 17086,
     "packages/kit/src/views/Home/pages/homePageNoWalletContent.ts": 16343,
+    "packages/kit/src/views/Home/pages/homeTabFreeze.ts": 14618,
     "packages/kit/src/views/Home/pages/hooks/historyTopFreezeUtils.ts": 18767,
     "packages/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData.native.ts": 17971,
     "packages/kit/src/views/Home/pages/hooks/useHistoryListLoadMore.ts": 6368,

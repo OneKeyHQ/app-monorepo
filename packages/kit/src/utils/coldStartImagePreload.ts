@@ -9,6 +9,7 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   type ITokenSize,
@@ -58,6 +59,11 @@ const WALLET_BANNER_IMAGE_LIMIT = 8;
 // resize URL + decode thumbnail as the first paint.
 export const HEADER_NETWORK_LOGO_SIZE = s(24);
 const HEADER_NETWORK_LOGO_LIMIT = 6;
+// Cold-start scope key of the home account-selector store (see
+// jotaiContextStore.buildJotaiContextStoreId: `store:accountSelector@<scene>`),
+// the same key SplashProvider / HomeOverviewContainer read.
+const HOME_ACCOUNT_SELECTOR_COLD_START_SCOPE_KEY = `store:accountSelector@${EAccountSelectorSceneName.home}`;
+const HOME_ACCOUNT_SELECTOR_NUM = '0';
 // AllNetworksManagerTrigger shows at most this many network avatars.
 const HEADER_ALL_NETWORKS_AVATAR_LIMIT = 2;
 const WALLET_TOKEN_OWNER_LIMIT = 2;
@@ -327,20 +333,30 @@ function collectHeaderNetworkImageItems({
   snapshot: IColdStartSnapshot;
 }) {
   const seen = new Set<string>();
-  const add = (uri: unknown) =>
-    addPreloadItem({ items, seen, uri, resizeWidth: HEADER_NETWORK_LOGO_SIZE });
-  for (const value of getSnapshotValuesByColdStartKey({
-    snapshot,
-    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
-  })) {
-    const activeAccounts = isRecord(value) ? Object.values(value) : [];
-    for (const activeAccount of activeAccounts) {
-      if (seen.size >= HEADER_NETWORK_LOGO_LIMIT) {
-        return;
-      }
-      collectHeaderNetworkImageItemsFromActiveAccount({ activeAccount, add });
+  const add = (uri: unknown) => {
+    if (seen.size < HEADER_NETWORK_LOGO_LIMIT) {
+      addPreloadItem({
+        items,
+        seen,
+        uri,
+        resizeWidth: HEADER_NETWORK_LOGO_SIZE,
+      });
     }
+  };
+  // Only the home scene's slot 0 paints in the header on the first frame;
+  // other account-selector scenes (swap, perps, ...) also persist this atom
+  // but must not spend the critical prewarm budget.
+  const value =
+    snapshot[
+      `${HOME_ACCOUNT_SELECTOR_COLD_START_SCOPE_KEY}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom}`
+    ];
+  if (!isRecord(value)) {
+    return;
   }
+  collectHeaderNetworkImageItemsFromActiveAccount({
+    activeAccount: value[HOME_ACCOUNT_SELECTOR_NUM],
+    add,
+  });
 }
 
 function collectWalletTokenImageUris({

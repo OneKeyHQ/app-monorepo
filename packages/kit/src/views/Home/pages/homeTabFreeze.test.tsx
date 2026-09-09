@@ -71,6 +71,17 @@ describe('useHomeTabFreeze', () => {
     expect(result.current).toBe(false);
   });
 
+  it('freezes a pane that mounts inactive without waiting for the delay', () => {
+    const { result, rerender } = renderHook(
+      ({ isActive }: { isActive: boolean }) => useHomeTabFreeze(isActive),
+      { initialProps: { isActive: false } },
+    );
+    expect(result.current).toBe(true);
+
+    rerender({ isActive: true });
+    expect(result.current).toBe(false);
+  });
+
   it('cancels a pending freeze when the tab regains focus in time', () => {
     const { result, rerender } = renderHook(
       ({ isActive }: { isActive: boolean }) => useHomeTabFreeze(isActive),

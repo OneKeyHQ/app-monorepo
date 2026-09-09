@@ -24,8 +24,10 @@ export function isHomeTabActive({
 
 // `true` while the pane should be frozen. Unfreezing is immediate; freezing
 // waits HOME_TAB_FREEZE_DELAY_MS so the pane survives the pager animation.
+// Panes that mount inactive were never visible, so they freeze right away
+// instead of paying a full render for nothing.
 export function useHomeTabFreeze(isActive: boolean) {
-  const [frozen, setFrozen] = useState(false);
+  const [frozen, setFrozen] = useState(() => !isActive);
   useEffect(() => {
     if (isActive) {
       setFrozen(false);

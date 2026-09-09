@@ -181,6 +181,36 @@ describe('coldStartImagePreload header network logos (OK-61505)', () => {
     expect(mockGetWithTimestamp).not.toHaveBeenCalled();
   });
 
+  it('reads only the home scene slot 0, even when other scenes come first', () => {
+    const items = getColdStartCriticalImageItemsFromSnapshot({
+      [`store:accountSelector@swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom}`]:
+        {
+          0: {
+            network: { id: 'btc--0', logoURI: btcNetworkLogoUri },
+            wallet: { id: HD_WALLET_ID },
+          },
+          1: {
+            network: { id: 'sol--101', logoURI: solNetworkLogoUri },
+            wallet: { id: HD_WALLET_ID },
+          },
+        },
+      [activeAccountsKey]: {
+        0: {
+          network: { id: 'evm--1', logoURI: ethNetworkLogoUri },
+          wallet: { id: HD_WALLET_ID },
+        },
+        1: {
+          network: { id: 'sol--101', logoURI: solNetworkLogoUri },
+          wallet: { id: HD_WALLET_ID },
+        },
+      },
+    });
+
+    expect(items).toEqual([
+      { uri: ethNetworkLogoUri, resizeWidth: HEADER_NETWORK_LOGO_SIZE },
+    ]);
+  });
+
   it('lists header logos at the header size ahead of token logos', () => {
     const items = getColdStartImageUrisFromSnapshot({
       ...snapshot,
