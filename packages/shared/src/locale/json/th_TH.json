@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "กระเป๋าเงินที่ซ่อนอยู่จะเพิ่ม Passphrase เข้าไปในวลีการกู้คืนของคุณ เพื่อสร้างกระเป๋าเงินแยกต่างหากที่ปลอดภัย",
   "add_hidden_wallet_dialog_warning_notice": "โปรดตรวจสอบให้แน่ใจว่าคุณเข้าใจวิธีการทำงานของ Passphrase ก่อนดำเนินการต่อ <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>เรียนรู้เพิ่มเติม</underline></url>",
   "add_money_to_get_started": "เติมเงินเพื่อเริ่มต้น ถอนเมื่อไหร่ก็ได้",
-  "add_position__action": "เพิ่มโพซิชัน",
+  "add_position__action": "เพิ่ม",
   "add_position__title": "เพิ่มโพซิชัน",
   "add_position_perpetuals_only__msg": "การเพิ่มโพซิชันใช้ได้เฉพาะสัญญา Perpetual เท่านั้น",
   "add_sign_in_method__desc": "เชื่อมโยง {provider} กับ OneKey ID ของคุณ คุณยังคงเข้าสู่ระบบด้วยอีเมลได้",

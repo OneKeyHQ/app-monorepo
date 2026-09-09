@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "একটি হিডেন ওয়ালেট আপনার রিকভারি ফ্রেজে একটি Passphrase যোগ করে একটি আলাদা, সুরক্ষিত ওয়ালেট তৈরি করে।",
   "add_hidden_wallet_dialog_warning_notice": "চালিয়ে যাওয়ার আগে নিশ্চিত করুন যে আপনি Passphrase কীভাবে কাজ করে তা বুঝতে পেরেছেন। <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>আরও জানুন</underline></url>",
   "add_money_to_get_started": "শুরু করতে অর্থ যোগ করুন। যেকোনো সময় উত্তোলন করুন।",
-  "add_position__action": "পজিশন বাড়ান",
+  "add_position__action": "বাড়ান",
   "add_position__title": "পজিশন বাড়ান",
   "add_position_perpetuals_only__msg": "শুধুমাত্র পারপেচুয়াল চুক্তিতে পজিশন বাড়ানো যায়।",
   "add_sign_in_method__desc": "{provider}-কে আপনার OneKey ID-এর সঙ্গে লিঙ্ক করুন। আপনি এখনও ইমেইল দিয়ে সাইন ইন করতে পারবেন।",

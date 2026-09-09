@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Ví ẩn thêm một Passphrase vào cụm từ khôi phục của bạn để tạo ra một ví riêng biệt và an toàn.",
   "add_hidden_wallet_dialog_warning_notice": "Hãy đảm bảo bạn hiểu cách Passphrase hoạt động trước khi tiếp tục. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Tìm hiểu thêm</underline></url>",
   "add_money_to_get_started": "Nạp tiền để bắt đầu. Có thể rút bất cứ lúc nào.",
-  "add_position__action": "Thêm vị thế",
+  "add_position__action": "Tăng",
   "add_position__title": "Thêm vị thế",
   "add_position_perpetuals_only__msg": "Chỉ có thể thêm vị thế đối với hợp đồng vĩnh viễn.",
   "add_sign_in_method__desc": "Liên kết {provider} với OneKey ID của bạn. Bạn vẫn có thể đăng nhập bằng email.",

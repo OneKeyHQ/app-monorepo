@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "隠しウォレットは、リカバリーフレーズにPassphraseを追加することで、別の安全なウォレットを作成します。",
   "add_hidden_wallet_dialog_warning_notice": "続行する前に、Passphraseの仕組みをよく理解しておきましょう。<url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>詳細はこちら</underline></url>",
   "add_money_to_get_started": "入金して始めましょう。いつでも出金できます。",
-  "add_position__action": "ポジション追加",
+  "add_position__action": "追加",
   "add_position__title": "ポジション追加",
   "add_position_perpetuals_only__msg": "ポジション追加は無期限契約でのみ利用できます。",
   "add_sign_in_method__desc": "{provider} を OneKey ID に連携してください。メールでも引き続きサインインできます。",

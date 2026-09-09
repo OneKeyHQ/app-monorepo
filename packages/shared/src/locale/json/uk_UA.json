@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Прихований гаманець додає passphrase до вашої фрази відновлення, щоб створити окремий, захищений гаманець.",
   "add_hidden_wallet_dialog_warning_notice": "Переконайтеся, що ви розумієте, як працює passphrase, перш ніж продовжити. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Дізнатися більше</underline></url>",
   "add_money_to_get_started": "Поповніть рахунок, щоб почати. Виводьте кошти будь-коли.",
-  "add_position__action": "Збільшити позицію",
+  "add_position__action": "Додати",
   "add_position__title": "Збільшити позицію",
   "add_position_perpetuals_only__msg": "Збільшення позиції доступне лише для безстрокових контрактів.",
   "add_sign_in_method__desc": "Пов’яжіть {provider} зі своїм OneKey ID. Ви й надалі зможете входити за допомогою електронної пошти.",

@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Eine versteckte Wallet fügt deiner Wiederherstellungsphrase eine Passphrase hinzu, um eine separate, sichere Wallet zu erstellen.",
   "add_hidden_wallet_dialog_warning_notice": "Stellen Sie sicher, dass Sie verstehen, wie eine Passphrase funktioniert, bevor Sie fortfahren. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Mehr erfahren</underline></url>",
   "add_money_to_get_started": "Geld einzahlen, um loszulegen. Jederzeit auszahlen.",
-  "add_position__action": "Position erhöhen",
+  "add_position__action": "Erhöhen",
   "add_position__title": "Position erhöhen",
   "add_position_perpetuals_only__msg": "Das Erhöhen einer Position ist nur bei Perpetuals verfügbar.",
   "add_sign_in_method__desc": "Verknüpfe {provider} mit deiner OneKey ID. Du kannst dich weiterhin per E-Mail anmelden.",

@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "एक छिपा हुआ वॉलेट आपकी रिकवरी फ्रेज़ में एक Passphrase जोड़ता है, जिससे एक अलग और सुरक्षित वॉलेट बनता है।",
   "add_hidden_wallet_dialog_warning_notice": "आगे बढ़ने से पहले यह सुनिश्चित करें कि आप Passphrase कैसे काम करता है, इसे समझते हैं। <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>और जानें</underline></url>",
   "add_money_to_get_started": "शुरू करने के लिए पैसे जोड़ें। कभी भी निकालें।",
-  "add_position__action": "पोज़िशन बढ़ाएँ",
+  "add_position__action": "बढ़ाएँ",
   "add_position__title": "पोज़िशन बढ़ाएँ",
   "add_position_perpetuals_only__msg": "पोज़िशन बढ़ाना केवल परपेचुअल कॉन्ट्रैक्ट के लिए उपलब्ध है।",
   "add_sign_in_method__desc": "{provider} को अपनी OneKey ID से लिंक करें। आप ईमेल से साइन इन करना जारी रख सकते हैं।",

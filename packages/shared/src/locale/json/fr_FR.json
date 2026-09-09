@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Un portefeuille caché ajoute une Passphrase à votre phrase de récupération pour créer un portefeuille séparé et sécurisé.",
   "add_hidden_wallet_dialog_warning_notice": "Assurez-vous de comprendre comment fonctionne un Passphrase avant de continuer. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>En savoir plus</underline></url>",
   "add_money_to_get_started": "Ajoutez de l'argent pour commencer. Retirez à tout moment.",
-  "add_position__action": "Ajouter à la position",
+  "add_position__action": "Ajouter",
   "add_position__title": "Ajouter à la position",
   "add_position_perpetuals_only__msg": "L’ajout à une position est uniquement disponible pour les contrats perpétuels.",
   "add_sign_in_method__desc": "Associez {provider} à votre OneKey ID. Vous pourrez toujours vous connecter par e-mail.",

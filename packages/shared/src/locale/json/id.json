@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Dompet tersembunyi menambahkan Passphrase ke frasa pemulihan Anda untuk membuat dompet terpisah yang aman.",
   "add_hidden_wallet_dialog_warning_notice": "Pastikan Anda memahami cara kerja Passphrase sebelum melanjutkan. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Pelajari lebih lanjut</underline></url>",
   "add_money_to_get_started": "Tambahkan uang untuk memulai. Tarik kapan saja.",
-  "add_position__action": "Tambah Posisi",
+  "add_position__action": "Tambah",
   "add_position__title": "Tambah Posisi",
   "add_position_perpetuals_only__msg": "Menambah posisi hanya tersedia untuk kontrak perpetual.",
   "add_sign_in_method__desc": "Tautkan {provider} ke OneKey ID Anda. Anda tetap dapat masuk dengan email.",

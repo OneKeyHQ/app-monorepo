@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Una billetera oculta añade una passphrase a tu frase de recuperación para crear una billetera separada y segura.",
   "add_hidden_wallet_dialog_warning_notice": "Asegúrate de entender cómo funciona una Passphrase antes de continuar. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Más información</underline></url>",
   "add_money_to_get_started": "Agrega dinero para empezar. Retíralo cuando quieras.",
-  "add_position__action": "Añadir posición",
+  "add_position__action": "Aumentar",
   "add_position__title": "Añadir posición",
   "add_position_perpetuals_only__msg": "Añadir a una posición solo está disponible para contratos perpetuos.",
   "add_sign_in_method__desc": "Vincula {provider} a tu OneKey ID. Podrás seguir iniciando sesión con tu correo electrónico.",

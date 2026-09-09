@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "Скрытый кошелек добавляет passphrase к вашей фразе восстановления, чтобы создать отдельный, защищённый кошелек.",
   "add_hidden_wallet_dialog_warning_notice": "Перед тем как продолжить, убедитесь, что вы понимаете, как работает Passphrase. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Подробнее</underline></url>",
   "add_money_to_get_started": "Пополните счёт, чтобы начать. Выводите средства в любое время.",
-  "add_position__action": "Увеличить позицию",
+  "add_position__action": "Добавить",
   "add_position__title": "Увеличить позицию",
   "add_position_perpetuals_only__msg": "Увеличение позиции доступно только для бессрочных контрактов.",
   "add_sign_in_method__desc": "Свяжите {provider} со своим OneKey ID. Вы по-прежнему сможете входить по электронной почте.",

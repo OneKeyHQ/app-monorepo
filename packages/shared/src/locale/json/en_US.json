@@ -50,7 +50,7 @@
   "add_hidden_wallet_dialog_desc": "A hidden wallet adds a passphrase to your recovery phrase to create a separate, secure wallet.",
   "add_hidden_wallet_dialog_warning_notice": "Make sure you understand how a passphrase works before continuing. <url>https://help.onekey.so/articles/11461220-passphrases-and-hidden-wallets<underline>Learn more</underline></url>",
   "add_money_to_get_started": "Add money to get started. Withdraw anytime.",
-  "add_position__action": "Add Position",
+  "add_position__action": "Add",
   "add_position__title": "Add Position",
   "add_position_perpetuals_only__msg": "Adding to a position is only available for perpetuals.",
   "add_sign_in_method__desc": "Link {provider} to your OneKey ID. You can still sign in with email.",
