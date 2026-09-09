@@ -16,6 +16,11 @@ on:
         required: false
         type: string
         default: ''
+      mas_build_number:
+        description: 'Complete positive integer CFBundleVersion for MAS only, with no appended zero. Defaults to build_number followed by 0.'
+        required: false
+        type: string
+        default: ''
       build_bundle_version:
         description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
@@ -95,6 +100,7 @@ jobs:
     env:
       NODE_ENV: production
       YARN_ENABLE_GLOBAL_CACHE: true
+      MAS_BUILD_NUMBER: ${{ github.event.inputs.mas_build_number || '' }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4

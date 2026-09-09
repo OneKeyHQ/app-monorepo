@@ -6,11 +6,17 @@ const {
 } = require('./electron-builder-files.config');
 const { verifyBuild } = require('./scripts/build-revenuecat-macos');
 
+const masBuildNumber = process.env.MAS_BUILD_NUMBER;
+if (masBuildNumber && !/^[1-9]\d*$/.test(masBuildNumber)) {
+  // oxlint-disable-next-line onekey/no-raw-error -- This build config cannot import the application runtime.
+  throw new Error('MAS_BUILD_NUMBER must be a positive integer');
+}
+
 module.exports = {
   ...baseElectronBuilderConfig,
   'beforePack': async () => verifyBuild(),
   'appId': 'so.onekey.wallet',
-  'buildVersion': `${process.env.BUILD_NUMBER}0`,
+  'buildVersion': masBuildNumber || `${process.env.BUILD_NUMBER}0`,
   'dmg': {
     'sign': false,
   },
