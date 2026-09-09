@@ -290,42 +290,29 @@ export const Overview = ({
         /* Phones keep the three headline numbers in equal-width columns so
            staggered loading results cannot move the later metrics. The tools
            stay pinned to the right and top-aligned with that row. */
-        <>
-          <XStack ai="flex-start" gap="$2">
-            <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-              <OverviewMetric
-                title={{ text: labels.netWorth }}
-                text={netWorthText}
-                isLoading={isNetWorthLoading}
-                widthMode="equal"
-              />
-              <BorrowHealthFactorSummary
-                {...healthSummaryProps}
-                widthMode="equal"
-              />
-              <OverviewMetric
-                testID={BorrowTestIDs.overviewNetApy}
-                title={{ text: labels.netApy }}
-                text={netApyText}
-                isLoading={isNetApyLoading}
-                widthMode="equal"
-              />
-            </XStack>
-            {/* Clears the metric cells' own $3 of top padding */}
-            <XStack pt="$3">{refreshButton}</XStack>
+        <XStack ai="flex-start" gap="$2">
+          <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
+            <OverviewMetric
+              title={{ text: labels.netWorth }}
+              text={netWorthText}
+              isLoading={isNetWorthLoading}
+              widthMode="equal"
+            />
+            <BorrowHealthFactorSummary
+              {...healthSummaryProps}
+              widthMode="equal"
+            />
+            <OverviewMetric
+              testID={BorrowTestIDs.overviewNetApy}
+              title={{ text: labels.netApy }}
+              text={netApyText}
+              isLoading={isNetApyLoading}
+              widthMode="equal"
+            />
           </XStack>
-          {/* E-Mode scopes the very numbers above it, so on phones it follows
-              them as a full-width row rather than trailing the summary below
-              the positions. Its $4 inset lands its label on the same left edge
-              as the metric labels, which carry $3 of cell padding on top of the
-              grid's $4. */}
-          <BorrowEModeMetric
-            eModeStatus={eModeStatus}
-            isError={isEModeError}
-            isLoading={isEModeLoading}
-            variant="bar"
-          />
-        </>
+          {/* Clears the metric cells' own $3 of top padding */}
+          <XStack pt="$3">{refreshButton}</XStack>
+        </XStack>
       )}
     </YStack>
   );

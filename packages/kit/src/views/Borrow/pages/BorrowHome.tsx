@@ -33,6 +33,7 @@ import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
 import { BorrowedCard } from '../components/BorrowedCard';
+import { BorrowEModeMetric } from '../components/BorrowEModeMetric';
 import {
   BORROW_MOBILE_ACTION_BAR_SCROLL_INSET,
   BorrowMobileActionBar,
@@ -443,6 +444,15 @@ const BorrowHomeContent = memo(
               isPositionTotalsLoading={isReservesPending}
               overviewData={overviewData}
               showPositionTotals={hasPositions}
+            />
+            {/* E-Mode is a market-wide setting rather than a headline number,
+                so on phones it closes the page under the positions and the
+                summary instead of interrupting the metrics at the top. */}
+            <BorrowEModeMetric
+              eModeStatus={eModeStatus}
+              isError={isEModeError}
+              isLoading={isEModeInitialLoading}
+              variant="bar"
             />
           </YStack>
         );
