@@ -19,7 +19,10 @@ import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBri
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
-import { bootstrapNativeStorage } from './bootstrapNativeStorage';
+import {
+  bootstrapNativeStorage,
+  waitForColdStartCriticalImagesBeforeMount,
+} from './bootstrapNativeStorage';
 import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
 
@@ -117,6 +120,13 @@ function startBootstrap(force = false) {
     }
     stage = 'jotai';
     await initializeJotaiFromBackground();
+    if (generation !== bootstrapGeneration) {
+      return false;
+    }
+    // The home header/banner images were started by bootstrapNativeStorage;
+    // give them a bounded chance to land in the memory cache before the
+    // first React frame lays them out (OK-61505).
+    await waitForColdStartCriticalImagesBeforeMount();
     return generation === bootstrapGeneration;
   })();
   const nextPromise = withNativeBootstrapTimeout(bootstrapWork)

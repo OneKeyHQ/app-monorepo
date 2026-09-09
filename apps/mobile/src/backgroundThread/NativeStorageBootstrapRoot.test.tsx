@@ -37,6 +37,13 @@ const mockRunJotaiMainHydration = jest.fn(
   async (initializeFromBackground: () => Promise<void>) =>
     initializeFromBackground(),
 );
+const mockWaitForColdStartCriticalImagesResolvers: Array<() => void> = [];
+const mockWaitForColdStartCriticalImagesBeforeMount = jest.fn(
+  () =>
+    new Promise<void>((resolve) => {
+      mockWaitForColdStartCriticalImagesResolvers.push(resolve);
+    }),
+);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),
@@ -105,6 +112,8 @@ jest.mock('react-native', () => ({
 jest.mock('./bootstrapNativeStorage', () => ({
   bootstrapNativeStorage: (options: { force?: boolean }) =>
     mockBootstrapNativeStorage(options),
+  waitForColdStartCriticalImagesBeforeMount: () =>
+    mockWaitForColdStartCriticalImagesBeforeMount(),
 }));
 
 jest.mock('./nativeStorageBootstrapSplash', () => ({
@@ -273,7 +282,27 @@ describe('NativeStorageBootstrapRoot', () => {
     expect(mockRunJotaiMainHydration).toHaveBeenCalledTimes(2);
     await act(async () => {
       mockJotaiInitResolvers[1]?.();
-      await Promise.resolve();
+      for (let index = 0; index < 5; index += 1) {
+        await Promise.resolve();
+      }
+    });
+    // First-paint images get their bounded head start after jotai hydration
+    // and before the business app mounts (OK-61505).
+    expect(mockWaitForColdStartCriticalImagesBeforeMount).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
+    ).toBeLessThan(
+      mockWaitForColdStartCriticalImagesBeforeMount.mock.invocationCallOrder[0],
+    );
+    expect(screen.queryByTestId('business-app')).toBeNull();
+
+    await act(async () => {
+      mockWaitForColdStartCriticalImagesResolvers[0]?.();
+      for (let index = 0; index < 5; index += 1) {
+        await Promise.resolve();
+      }
     });
     expect(screen.getByTestId('business-app')).toBeTruthy();
   });

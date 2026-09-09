@@ -2,6 +2,55 @@
 
 let bootstrapGeneration = 0;
 
+// Upper bound on how long the app mount waits for the first-paint images
+// (home banner cards + header network logos) started by
+// `startColdStartImagePrewarm`. Disk-cached images decode well inside this
+// window and usually finish during the jotai hydration that runs in between;
+// a cold disk cache (first launch, evicted entries) gives up and renders with
+// the skeleton as before.
+const COLD_START_CRITICAL_IMAGES_TIMEOUT_MS = 300;
+
+export async function waitForColdStartCriticalImagesBeforeMount() {
+  const startedAt = Date.now();
+  let status: 'done' | 'timeout' | 'error' = 'done';
+  let count = 0;
+  try {
+    const { waitForColdStartCriticalImages } =
+      require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(
+        () => resolve('timeout'),
+        COLD_START_CRITICAL_IMAGES_TIMEOUT_MS,
+      );
+    });
+    const result = await Promise.race([
+      waitForColdStartCriticalImages(),
+      timeout,
+    ]);
+    clearTimeout(timer);
+    if (result === 'timeout') {
+      status = 'timeout';
+    } else {
+      count = result;
+    }
+  } catch {
+    status = 'error';
+  }
+  try {
+    const { NativeLogger, LogLevel } =
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    NativeLogger.write(
+      LogLevel.Info,
+      `[StartupTiming] cold-start critical images ${status}: ${count} images, waited ${
+        Date.now() - startedAt
+      }ms (+${Date.now() - ((globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number)}ms)`,
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
+}
+
 export async function bootstrapNativeStorage({
   force = false,
 }: { force?: boolean } = {}) {
@@ -53,9 +102,9 @@ export async function bootstrapNativeStorage({
     const { warmCriticalIcons } =
       require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
     warmCriticalIcons();
-    const { prewarmColdStartImagesFromSnapshot } =
+    const { startColdStartImagePrewarm } =
       require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
-    void prewarmColdStartImagesFromSnapshot();
+    void startColdStartImagePrewarm();
   } catch (error) {
     // A corrupt best-effort display cache must not turn a successful storage
     // migration into a startup failure.
