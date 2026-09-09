@@ -15,6 +15,7 @@ import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutCon
 
 const MARKET_DESKTOP_CHART_VIEWPORT_GUTTER = 160;
 const MARKET_DESKTOP_CHART_KEYBOARD_STEP = 24;
+const MARKET_DESKTOP_CHART_SAVE_TIMEOUT = 5000;
 
 function clampChartHeight(height: number, maxHeight: number) {
   return Math.min(
@@ -45,6 +46,8 @@ export function MarketDesktopChartContainer({
   const [layoutState, setLayoutState] = useMarketDesktopLayoutAtom();
   const [dragHeight, setDragHeight] = useState<number>();
   const [pendingHeight, setPendingHeight] = useState<number>();
+  const saveQueueRef = useRef(Promise.resolve());
+  const saveRequestRef = useRef(0);
   const savedHeight = layoutState.chartHeight;
   const chartHeight = clampChartHeight(
     dragHeight ??
@@ -65,20 +68,43 @@ export function MarketDesktopChartContainer({
     | undefined
   >(undefined);
 
-  // Extension writes round-trip through bg. Keep the latest local value until
-  // it is reflected by the shared atom, independently of an active drag.
+  // A missing bridge response must not pin the local override forever.
   useEffect(() => {
-    if (pendingHeight !== undefined && savedHeight === pendingHeight) {
-      setPendingHeight(undefined);
+    if (pendingHeight === undefined) {
+      return;
     }
-  }, [pendingHeight, savedHeight]);
+    const timer = setTimeout(() => {
+      setPendingHeight(undefined);
+    }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
+    return () => clearTimeout(timer);
+  }, [pendingHeight]);
+
+  useEffect(
+    () => () => {
+      saveRequestRef.current += 1;
+    },
+    [],
+  );
 
   const saveHeight = useCallback(
     (height: number) => {
+      saveRequestRef.current += 1;
+      const request = saveRequestRef.current;
       setPendingHeight(height);
-      setLayoutState((prev) =>
-        prev.chartHeight === height ? prev : { ...prev, chartHeight: height },
-      );
+      const finish = () => {
+        if (saveRequestRef.current === request) {
+          setPendingHeight(undefined);
+        }
+      };
+      // Serialize bridge writes so an older save cannot overwrite the last
+      // input. Always send a new object, even if the UI mirror still matches.
+      saveQueueRef.current = saveQueueRef.current
+        .then(() =>
+          Promise.resolve(
+            setLayoutState((prev) => ({ ...prev, chartHeight: height })),
+          ),
+        )
+        .then(finish, finish);
     },
     [setLayoutState],
   );
