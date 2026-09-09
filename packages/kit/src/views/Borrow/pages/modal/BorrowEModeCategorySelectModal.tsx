@@ -33,19 +33,31 @@ const EMPTY_CAPABILITY = '-';
 function CapabilityRow({
   label,
   assets,
+  maxVisible,
 }: {
   label: string;
   assets: IBorrowEModeAsset[];
+  maxVisible: number;
 }) {
   return (
-    <XStack ai="center" gap="$2">
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+    <XStack ai="center" gap="$2" minWidth={0} maxWidth="100%">
+      {/* Only this label can give ground: at 320px the Russian "borrowable"
+          copy plus a group that spills into a +N badge is 19px wider than the
+          row, and shrinking it costs ~5px of one word instead of pushing the
+          badge outside the card. */}
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={1}
+      >
         {label}
       </SizableText>
       {assets.length ? (
         <TokenGroup
           size="xs"
-          maxVisible={4}
+          flexShrink={0}
+          maxVisible={maxVisible}
           tokens={assets.map((asset) => ({
             tokenImageUri: asset.token.logoURI,
           }))}
@@ -101,15 +113,17 @@ function EModeCategoryRow({
       gap="$1"
       flexShrink={0}
       ai={gtMd ? 'flex-end' : 'flex-start'}
-      {...(gtMd ? {} : { mt: '$2' })}
+      {...(gtMd ? {} : { mt: '$2', w: '100%' })}
     >
       <CapabilityRow
         label={intl.formatMessage({ id: ETranslations.defi_collateral })}
         assets={collateral}
+        maxVisible={gtMd ? 4 : 3}
       />
       <CapabilityRow
         label={intl.formatMessage({ id: ETranslations.defi_borrowable })}
         assets={borrowable}
+        maxVisible={gtMd ? 4 : 3}
       />
     </YStack>
   );
