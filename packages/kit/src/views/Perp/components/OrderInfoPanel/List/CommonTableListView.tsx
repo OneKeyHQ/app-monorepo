@@ -51,6 +51,7 @@ import {
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
 import { PullToRefresh } from '../../PullToRefresh';
+import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import {
   PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
@@ -333,7 +334,8 @@ const PaginationFooter = ({
               onSubmitEditing={handleInputSubmit}
               onBlur={handleInputBlur}
               keyboardType="numeric"
-              w={isMobile ? undefined : '$12'}
+              w={isMobile ? '100%' : '$12'}
+              containerProps={isMobile ? { w: 40 } : undefined}
               h="$7"
               p="$1"
               textAlign="center"
@@ -582,19 +584,7 @@ export function CommonTableListView<T>({
   const desktopEmptyComponent = ListEmptyComponent ? (
     emptyComponent
   ) : (
-    <YStack flex={1} justifyContent="flex-start" alignItems="flex-start" p="$5">
-      <SizableText size="$bodyMd" color="$text" textAlign="center">
-        {emptyMessage}
-      </SizableText>
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        textAlign="center"
-        mt="$2"
-      >
-        {emptySubMessage}
-      </SizableText>
-    </YStack>
+    <PerpDesktopEmptyState title={emptyMessage} />
   );
   const effectiveListLoading = Boolean(
     listLoading && paginatedData.length === 0,

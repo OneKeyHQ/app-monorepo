@@ -11,6 +11,7 @@ export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/trading
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
+export type ITradingViewNativeStorageNamespace = 'market' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
@@ -113,6 +114,7 @@ export type ITradingViewNativeChartComponentNode =
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;

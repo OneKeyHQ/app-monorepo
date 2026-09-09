@@ -254,7 +254,7 @@ describe('MarketTokenSelector stock default category', () => {
     ];
   });
 
-  it('adds Top Coins before Stocks and renders its selector data', async () => {
+  it('adds Top Coins after Stocks and renders its selector data', async () => {
     renderOpenStockSelector();
 
     const topCoinsTab = screen.getByTestId(
@@ -262,7 +262,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
     const stocksTab = screen.getByTestId('market-token-selector-tab-stocks');
     expect(
-      topCoinsTab.compareDocumentPosition(stocksTab) &
+      stocksTab.compareDocumentPosition(topCoinsTab) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
@@ -288,7 +288,9 @@ describe('MarketTokenSelector stock default category', () => {
   it('preserves category label casing', () => {
     renderOpenStockSelector();
 
-    const topCoinsLabel = screen.getByText('Top Coins');
+    // The injected category name is bound to ETranslations.market_top_coins;
+    // the intl mock above renders the raw key id.
+    const topCoinsLabel = screen.getByText('market.top_coins');
     expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
     expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
   });

@@ -62,8 +62,11 @@ export function useResolvedMarketAssetRouteIdentity({
     result.isNative === isNative,
   );
 
+  const hasResolvedIdentity = isCurrentResult && Boolean(result?.identity);
+
   useEffect(() => {
-    if (!enabled || !active || !symbol) {
+    // Keep the canonical identity for this route across focus changes.
+    if (!enabled || !active || !symbol || hasResolvedIdentity) {
       return;
     }
 
@@ -82,7 +85,15 @@ export function useResolvedMarketAssetRouteIdentity({
     return () => {
       isActive = false;
     };
-  }, [active, enabled, isNative, networkId, symbol, tokenAddress]);
+  }, [
+    active,
+    enabled,
+    hasResolvedIdentity,
+    isNative,
+    networkId,
+    symbol,
+    tokenAddress,
+  ]);
 
   return {
     identity: enabled && isCurrentResult ? result?.identity : undefined,

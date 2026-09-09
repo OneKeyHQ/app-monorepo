@@ -244,6 +244,7 @@ export function UniversalSearchV2MarketTokenItem({
         void toMarketDetailPage({
           tokenAddress: address,
           networkId: network,
+          name,
           symbol,
           isNative,
           stock,
@@ -273,6 +274,7 @@ export function UniversalSearchV2MarketTokenItem({
     isTrending,
     address,
     network,
+    name,
     symbol,
     isNative,
     stock,

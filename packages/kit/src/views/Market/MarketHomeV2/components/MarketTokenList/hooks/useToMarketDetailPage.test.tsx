@@ -163,7 +163,7 @@ describe('useToDetailPage', () => {
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
-          underlyingAssetTicker: 'AAPL',
+          stockId: 'AAPL',
         },
       });
     });
@@ -182,6 +182,32 @@ describe('useToDetailPage', () => {
       includeHeavyModules: true,
       isStockRoute: true,
       layout: 'mobile',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('navigates xStocks search items without stock metadata to stock detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xc156',
+        networkId: 'evm--196',
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'ABNB',
+      tokenAddress: '0xc156',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });

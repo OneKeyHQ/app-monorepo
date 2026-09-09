@@ -78,6 +78,7 @@ import {
   SCENE_ANIMATION,
   STEP_POSE,
   STEP_TEXT,
+  errorNoticeFits,
   resolveBtcHighIndexSub,
   resolveCapsuleText,
   resolveDeviceNotFoundText,
@@ -460,6 +461,7 @@ export function DeviceStage({
   deviceType,
   deviceName,
   connectionType,
+  waitStalled,
   onClose,
   confirmDetails,
   confirmMessage,
@@ -509,11 +511,26 @@ export function DeviceStage({
   onBtcHighIndexConfirm,
   onInstallConfirm,
 }: IDeviceStageProps) {
+  const intl = useIntl();
+  const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
+  const localizedErrorMessage = resolveErrorMessage(
+    intl,
+    errorMessage,
+    errorI18n,
+  );
+  // The failure's own words, where no reason claims it — the message the
+  // live flow's toast used to speak. A reason's considered wording wins.
+  const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
   // The actionless error is the notice — `done`'s ✗ sibling: nothing is
   // asked, so it rests as the capsule (the failure glyph beside the
   // reason's title, no second line) and leaves on its own (see the exit
-  // effect below). With an action the step keeps its ask card.
-  const errorNotice = step === 'error' && !onErrorAction;
+  // effect below) — as long as its words fit a capsule. A failure's own
+  // words past that budget (a raw SDK message, OK-62077) play the card
+  // instead: the generic title, the words on the line under it, one
+  // Got-it exit, and no self-dismissal — a wall of text needs reading.
+  // With an action the step keeps its ask card.
+  const errorNoticeForm = !onErrorAction && errorNoticeFits(errorOwnWords);
+  const errorNotice = step === 'error' && errorNoticeForm;
   const pose = errorNotice ? 'capsule' : STEP_POSE[step];
   // While the box is in flight the screen holds still: the triage
   // (2026-08-21) caught the UI thread freezing once per capsule<->card
@@ -891,7 +908,7 @@ export function DeviceStage({
   // re-creating its handler never restarts the hold; gated on the grant
   // existing at all — a driver that means the error to auto-leave grants
   // close with it (the notice is terminal, nothing to protect).
-  const errorNoticeShown = shownStep === 'error' && !onErrorAction;
+  const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const closeGranted = Boolean(onClose);
@@ -1128,15 +1145,9 @@ export function DeviceStage({
   // seat speaks for stageWordsStep (tracked above the measures); a
   // crossing's outgoing side keeps its own words because its seat
   // simply is not the one changing. App seats own their words outright;
-  // the pieces that vary (the passphrase title, the error copy) snap
-  // while parked, as StepText animates on the active seat alone.
-  const intl = useIntl();
-  const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
-  const localizedErrorMessage = resolveErrorMessage(
-    intl,
-    errorMessage,
-    errorI18n,
-  );
+  // the pieces that vary (the passphrase title, the error copy — resolved
+  // above, where the pose reads it) snap while parked, as StepText
+  // animates on the active seat alone.
   const stageText = resolveStageText(intl, stageWordsStep);
   const passphraseText = resolvePassphrasePanelText(intl, passphraseMode);
   const appStepSub = useMemo(
@@ -1282,14 +1293,23 @@ export function DeviceStage({
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    capsuleTextRef.current = resolveCapsuleText(
+    const nextCapsuleText = resolveCapsuleText(
       intl,
       step,
       deviceName,
       vendor,
       errorReason,
       localizedErrorMessage,
+      waitStalled ? (connectionType ?? 'usb') : undefined,
     );
+    // Same words, same object: the capsule row's memo then bails on
+    // every render that changed nothing it shows.
+    if (
+      nextCapsuleText.title !== capsuleTextRef.current.title ||
+      nextCapsuleText.sub !== capsuleTextRef.current.sub
+    ) {
+      capsuleTextRef.current = nextCapsuleText;
+    }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
     } else if (vendor) {
@@ -1705,14 +1725,19 @@ export function DeviceStage({
         <View onLayout={panelMeasureHandlers.error.words}>
           <StepText
             title={
-              // Same rule as the notice: the failure's own words when no
-              // reason claims it, the reason's considered wording when
-              // one does.
-              !errorReason && localizedErrorMessage
-                ? localizedErrorMessage
+              // The ask card follows the notice's rule: the failure's own
+              // words as the title when no reason claims it, the reason's
+              // considered wording when one does. The long notice keeps
+              // the generic title and speaks its words on the line under.
+              errorOwnWords && onErrorAction
+                ? errorOwnWords
                 : intl.formatMessage({ id: errorCopy.title })
             }
-            sub={intl.formatMessage({ id: errorCopy.sub })}
+            sub={
+              errorOwnWords && !onErrorAction
+                ? errorOwnWords
+                : intl.formatMessage({ id: errorCopy.sub })
+            }
             animated={errorAnimated}
           />
         </View>
@@ -1726,15 +1751,26 @@ export function DeviceStage({
               {intl.formatMessage({ id: errorCopy.action })}
             </Button>
           ) : null}
+          {!onErrorAction && onClose ? (
+            // The long notice's one exit: the same close grant the ✕
+            // fires, worn as a button so the card reads as answerable.
+            <Button
+              testID="device-stage-error-dismiss"
+              variant="primary"
+              onPress={onClose}
+            >
+              {intl.formatMessage({ id: ETranslations.global_got_it })}
+            </Button>
+          ) : null}
         </View>
       </YStack>
     ),
     [
       errorAnimated,
       errorCopy,
-      errorReason,
+      errorOwnWords,
       intl,
-      localizedErrorMessage,
+      onClose,
       onErrorAction,
       panelMeasureHandlers,
     ],
@@ -2093,6 +2129,11 @@ export function DeviceStage({
     [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
+  const dismissLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_cancel }),
+    [intl],
+  );
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2101,6 +2142,7 @@ export function DeviceStage({
       heightArrangeToken={shownPort}
       onAim={handleAim}
       onDismiss={onClose}
+      dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
       modal
       capsuleKey={capsuleText.title}

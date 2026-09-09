@@ -22,10 +22,7 @@ import {
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 
-import {
-  buildOptimizedImageSource,
-  hasCustomSourceIdentity,
-} from './optimization';
+import { hasCustomSourceIdentity } from './optimization';
 
 import type {
   IImageCachePolicy,
@@ -217,7 +214,6 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     contentFit,
     cachePolicy,
     recyclingKey,
-    resizeWidth,
     retryTimes = 1,
     canRetry = true,
     blurRadius: _blurRadius,
@@ -240,39 +236,8 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     () => normalizeSource(rawSource, style.width, style.height),
     [rawSource, style.height, style.width],
   );
-  const optimizedSourceResult = useMemo(
-    () =>
-      buildOptimizedImageSource({
-        source: rawSource,
-        resolvedSource: normalizedSource,
-        resizeWidth,
-        width: [style.width, sizeProps?.width, props.width, props.w],
-        height: [style.height, sizeProps?.height, props.height, props.h],
-      }),
-    [
-      normalizedSource,
-      props.h,
-      props.height,
-      props.w,
-      props.width,
-      rawSource,
-      resizeWidth,
-      sizeProps?.height,
-      sizeProps?.width,
-      style.height,
-      style.width,
-    ],
-  );
-  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
-    string | undefined
-  >();
-  const shouldUseRawSourceFallback =
-    optimizedSourceResult.optimized &&
-    Boolean(optimizedSourceResult.rawUri) &&
-    rawSourceFallbackUri === optimizedSourceResult.rawUri;
-  const activeSource = shouldUseRawSourceFallback
-    ? optimizedSourceResult.rawSource
-    : optimizedSourceResult.source;
+  // Native owns rendition selection and the optimized-to-original fallback.
+  const activeSource = normalizedSource;
   const [retryNonce, setRetryNonce] = useState(0);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -338,26 +303,12 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   );
   const handleError = useCallback(
     (event: OneKeyImageErrorEvent) => {
-      if (
-        optimizedSourceResult.optimized &&
-        optimizedSourceResult.rawUri &&
-        !shouldUseRawSourceFallback
-      ) {
-        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
-        return;
-      }
       if (scheduleRetry()) {
         return;
       }
       onError?.(event);
     },
-    [
-      onError,
-      optimizedSourceResult.optimized,
-      optimizedSourceResult.rawUri,
-      scheduleRetry,
-      shouldUseRawSourceFallback,
-    ],
+    [onError, scheduleRetry],
   );
 
   return (
@@ -371,11 +322,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
       recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
-      optimizeTos={
-        !hasCustomSourceIdentity(rawSource) &&
-        !optimizedSourceResult.optimized &&
-        !shouldUseRawSourceFallback
-      }
+      optimizeTos={!hasCustomSourceIdentity(rawSource)}
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
       onError={handleError}
       onLoad={onLoad ? handleLoad : undefined}

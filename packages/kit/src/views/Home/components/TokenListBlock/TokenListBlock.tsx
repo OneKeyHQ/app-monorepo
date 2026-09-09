@@ -527,7 +527,7 @@ function TokenListBlock({
   const transitionPortfolioSyncRequest = useCallback(
     (requestId: number, phase: IPortfolioSyncRequestPhase) => {
       const request = portfolioSyncRequestRef.current;
-      if (request?.id !== requestId) {
+      if (request?.id !== requestId || request.phase === 'communicating') {
         return false;
       }
       if (phase !== 'settled') {
@@ -663,6 +663,7 @@ function TokenListBlock({
       let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
       let singleNetworkRefreshGeneration = 0;
       let skipPortfolioSyncRequestFinish = false;
+      let ownsPortfolioSyncCommunication = false;
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
@@ -860,8 +861,13 @@ function TokenListBlock({
           isProtocolV2ProductType(portfolioSyncDeviceType) &&
           wallet &&
           accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isQrWallet({ walletId: wallet.id })
+          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+          transitionPortfolioSyncRequest(
+            portfolioSyncRequest.id,
+            'communicating',
+          )
         ) {
+          ownsPortfolioSyncCommunication = true;
           const portfolioTokenMap = {
             ...r.tokens.map,
             ...r.smallBalanceTokens.map,
@@ -871,13 +877,8 @@ function TokenListBlock({
             tokenMap: portfolioTokenMap,
             tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
             ...cellsIngestInputsRef.current.nonZeroInputs,
-            keepDefault:
-              cellsIngestInputsRef.current.nonZeroInputs.keepDefault ?? true,
+            keepDefault: false,
           });
-          transitionPortfolioSyncRequest(
-            portfolioSyncRequest.id,
-            'communicating',
-          );
           try {
             const portfolioSynced =
               await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
@@ -1002,7 +1003,12 @@ function TokenListBlock({
           }
         }
       } finally {
-        if (portfolioSyncRequest && !skipPortfolioSyncRequestFinish) {
+        if (
+          portfolioSyncRequest &&
+          !skipPortfolioSyncRequestFinish &&
+          (ownsPortfolioSyncCommunication ||
+            getCurrentPortfolioSyncRequest()?.phase !== 'communicating')
+        ) {
           finishPortfolioSyncRequest(portfolioSyncRequest.id);
         }
         endTokenListRefreshEvent();
@@ -2188,11 +2194,13 @@ function TokenListBlock({
               walletId: wallet.id,
               walletType: wallet.type,
             };
-            if (portfolioSyncRequest) {
+            if (
+              portfolioSyncRequest &&
               transitionPortfolioSyncRequest(
                 portfolioSyncRequest.id,
                 'communicating',
-              );
+              )
+            ) {
               try {
                 const portfolioSynced =
                   await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
@@ -2211,7 +2219,7 @@ function TokenListBlock({
                 errorToastUtils.showToastOfError(error);
                 finishPortfolioSyncRequest(portfolioSyncRequest.id);
               }
-            } else {
+            } else if (!portfolioSyncRequest) {
               void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
                 portfolioSyncPayload,
               );
@@ -3264,6 +3272,7 @@ function TokenListBlock({
   const showPortfolioSyncButton = Boolean(
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet }) &&
     !accountUtils.isQrWallet({ walletId: wallet.id }) &&
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );

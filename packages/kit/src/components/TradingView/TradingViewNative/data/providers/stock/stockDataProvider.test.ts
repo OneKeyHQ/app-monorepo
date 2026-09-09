@@ -25,7 +25,7 @@ describe('createTradingViewNativeStockDataProvider', () => {
       label: '1H',
       value: '60',
       seconds: 3600,
-      marketWsValue: '1h',
+      marketWsValue: '1H',
       hyperliquidValue: '1h',
     } as const;
 

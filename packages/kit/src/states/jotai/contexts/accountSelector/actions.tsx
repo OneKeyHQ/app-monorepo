@@ -25,7 +25,10 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -44,6 +47,7 @@ import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceE
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
@@ -86,6 +90,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from './activeAccountInitGuard';
 import {
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorAvailableNetworksAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageInitDoneAtom,
@@ -424,6 +429,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
+  // OK-62330: within RECENT_ACCOUNT_SWITCH_COLD_START_MS a recent-selection
+  // cache written by confirmAccountSelect outranks simpleDb on the next cold
+  // start. Any later in-memory change (network / derive type switch) must be
+  // mirrored into that cache, or a restart resurrects the pre-switch selection
+  // and writes it back over the newer simpleDb record. Only an existing, still
+  // valid entry is refreshed so no new cache is created outside that window.
+  async refreshRecentAccountSelectorSelectionCacheIfActive({
+    sceneName,
+    sceneUrl,
+    num,
+    selectedAccountsMap,
+    updateMeta,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    num: number;
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    updateMeta: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
+    }>;
+  }) {
+    if (!this.getRecentAccountSelectorSelectionCache({ sceneName, sceneUrl })) {
+      return;
+    }
+    await this.setRecentAccountSelectorSelectionCache({
+      sceneName,
+      sceneUrl,
+      num,
+      selectedAccountsMap,
+      updateMeta,
+    });
+    await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+  }
+
   async flushAccountSelectorColdStartSnapshot({
     sceneName,
     sceneUrl,
@@ -626,6 +665,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
               {
                 selectedAccount,
+                sceneName: get(accountSelectorContextDataAtom())?.sceneName,
               },
             ));
         } catch (_error) {
@@ -1119,6 +1159,55 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return contextData;
   });
 
+  // An account selection must always carry a network: the background treats
+  // an identity without a network as "no address" and home renders the
+  // create-address empty state with a blank network selector (OK-62137).
+  // Callers such as autoSelectToCreatedWallet inherit whatever the store had,
+  // which is nothing until useAutoSelectNetwork has run, so fill the scene
+  // default here instead of relying on that effect.
+  fillMissingNetworkIdForAccountSelection({
+    get,
+    num,
+    sceneName,
+    selectedAccount,
+  }: {
+    get: IJotaiGetter;
+    num: number;
+    sceneName: EAccountSelectorSceneName | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }): IAccountSelectorSelectedAccount {
+    if (selectedAccount.networkId) {
+      return selectedAccount;
+    }
+    const hasAccountIdentity = Boolean(
+      selectedAccount.walletId &&
+      (selectedAccount.indexedAccountId ||
+        selectedAccount.othersWalletAccountId),
+    );
+    if (!hasAccountIdentity) {
+      return selectedAccount;
+    }
+    const availableNetworks = get(accountSelectorAvailableNetworksAtom())[num];
+    const networkIds = availableNetworks?.networkIds ?? [];
+    const defaultNetworkId = availableNetworks?.defaultNetworkId;
+    let networkId: string | undefined =
+      defaultNetworkId &&
+      (networkIds.length === 0 || networkIds.includes(defaultNetworkId))
+        ? defaultNetworkId
+        : networkIds[0];
+    if (!networkId) {
+      // Discover scenes never select All Networks (see useAutoSelectNetwork).
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return selectedAccount;
+      }
+      networkId = getNetworkIdsMap().onekeyall;
+    }
+    return {
+      ...selectedAccount,
+      networkId,
+    };
+  }
+
   mutexUpdateSelectedAccount = new Semaphore(1);
 
   updateSelectedAccount = contextAtomMethod(
@@ -1143,9 +1232,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           this.getSelectedAccount.call(set, { num }) ||
             defaultSelectedAccount(),
         );
-        const newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
+        let newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
           builder(oldSelectedAccount),
         );
+        newSelectedAccount = this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: sceneInfo?.sceneName,
+          selectedAccount: newSelectedAccount,
+        });
 
         if (
           platformEnv.isWebDappMode
@@ -1277,6 +1372,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updatedAt: Date.now(),
           },
         }));
+        await this.refreshRecentAccountSelectorSelectionCacheIfActive({
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          num,
+          selectedAccountsMap: get(selectedAccountsAtom()),
+          updateMeta: get(accountSelectorUpdateMetaAtom()),
+        });
       });
     },
   );
@@ -1427,13 +1529,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         return false;
       }
 
-      const newSelectedAccount: IAccountSelectorSelectedAccount = {
-        ...oldSelectedAccount,
-        networkId: resolvedNetworkId || oldSelectedAccount.networkId,
-        walletId,
-        othersWalletAccountId: othersWalletAccount?.id,
-        indexedAccountId: indexedAccount?.id,
-      };
+      const newSelectedAccount: IAccountSelectorSelectedAccount =
+        this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: requestContextData?.sceneName,
+          selectedAccount: {
+            ...oldSelectedAccount,
+            networkId: resolvedNetworkId || oldSelectedAccount.networkId,
+            walletId,
+            othersWalletAccountId: othersWalletAccount?.id,
+            indexedAccountId: indexedAccount?.id,
+          },
+        });
       const shouldUseFastConfirm =
         !resolvedNetworkId ||
         resolvedNetworkId === oldSelectedAccount.networkId;
@@ -1911,33 +2019,45 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ? filterThirdPartyHwCreateFailureToasts(failedList)
               : failedList;
           for (const failedAccount of failedListForToast) {
-            const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-              networkId: failedAccount.networkId,
-            });
-            const deriveTypeInfo =
-              await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
-                networkId: failedAccount.networkId,
-                deriveType: failedAccount.deriveType,
-              });
             if (
-              !accountUtils.isQrWallet({
-                walletId: wallet.id,
-              })
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
             ) {
               Toast.error({
-                // eslint-disable-next-line onekey/no-app-locale-main-thread
-                title: appLocale.intl.formatMessage(
-                  {
-                    id: ETranslations.feedback_hw_create_unsupported_address_title,
-                  },
-                  {
-                    network: network?.name || failedAccount.networkId,
-                    addressType:
-                      deriveTypeInfo?.label || failedAccount.deriveType,
-                  },
-                ),
-                message: failedAccount.error.message || 'Unknown error',
+                title:
+                  ETranslations.hardware_third_party_passphrase_always_on_device,
               });
+            } else {
+              const network =
+                await backgroundApiProxy.serviceNetwork.getNetwork({
+                  networkId: failedAccount.networkId,
+                });
+              const deriveTypeInfo =
+                await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                });
+              if (
+                !accountUtils.isQrWallet({
+                  walletId: wallet.id,
+                })
+              ) {
+                Toast.error({
+                  // eslint-disable-next-line onekey/no-app-locale-main-thread
+                  title: appLocale.intl.formatMessage(
+                    {
+                      id: ETranslations.feedback_hw_create_unsupported_address_title,
+                    },
+                    {
+                      network: network?.name || failedAccount.networkId,
+                      addressType:
+                        deriveTypeInfo?.label || failedAccount.deriveType,
+                    },
+                  ),
+                  message: failedAccount.error.message || 'Unknown error',
+                });
+              }
             }
           }
         })();
@@ -2360,9 +2480,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         walletId,
         isRemoveToMocked,
+        removeSameDeviceWallets,
       }: {
         walletId: string;
         isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+        removeSameDeviceWallets?: boolean;
       },
     ) => {
       // TODO add home scene check
@@ -2375,6 +2497,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await serviceAccount.removeWallet({
           walletId,
           isRemoveToMocked,
+          removeSameDeviceWallets,
         });
         set(accountSelectorEditModeAtom(), false);
 
@@ -2842,6 +2965,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount.othersWalletAccountId),
         );
         if (!hasAccountIdentityForStorage) {
+          return;
+        }
+        // An account without a network cannot be rendered (OK-62137): never
+        // let it replace a saved record; the in-memory fill above repairs it.
+        if (!selectedAccount.networkId) {
           return;
         }
         // Skip stale async saves: the in-memory selection may have moved on

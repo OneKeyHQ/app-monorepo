@@ -8,10 +8,8 @@ const fs = require('fs');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const readline = require('readline');
 
-const {
-  getInputKey: getWebEmbedInputKey,
-} = require('../../web-embed/scripts/web-embed-prebundle');
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeNativeContractKey,
@@ -22,9 +20,15 @@ const {
   verifyManifest,
 } = require('../plugins/devVendor');
 
-const { preparePlatform } = require('./build-dev-vendor');
 const {
+  cacheLocalShellBuild,
+  getBuildDigest,
+  readLocalShellCache,
+} = require('./local-dev-shell-cache');
+const {
+  IosSimulatorEntitlementsError,
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
 } = require('./mobile-dev-shell-resource');
@@ -39,6 +43,7 @@ const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
 const ANDROID_APP_STARTUP_TIMEOUT_MS = 10_000;
 const ANDROID_APP_STARTUP_POLL_INTERVAL_MS = 500;
 const NATIVE_APP_STARTUP_GRACE_MS = 1500;
+const IOS_APP_STARTUP_GRACE_MS = 15_000;
 const NATIVE_RUNTIME_PREWARM_TIMEOUT_MS = 10 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
@@ -518,11 +523,12 @@ function parseArgs(argv = process.argv.slice(2)) {
       'compatibility',
       'contract',
       'launch',
+      'resolve',
       'session',
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -588,22 +594,19 @@ function hashValues(namespace, values) {
 function getShellCompatibility({
   nativeContractKey,
   platform,
-  webEmbedInputKey = getWebEmbedInputKey(),
+  repoRoot = REPO_ROOT,
 }) {
   const targetPlatform = assertPlatform(platform);
   const resolvedNativeContractKey =
-    nativeContractKey ?? computeNativeContractKey(targetPlatform);
+    nativeContractKey ?? computeNativeContractKey(targetPlatform, repoRoot);
   if (!/^[0-9a-f]{64}$/.test(resolvedNativeContractKey)) {
     throw new Error('[nativeDevShell] Invalid native contract key.');
   }
-  if (!/^[0-9a-f]{64}$/.test(webEmbedInputKey)) {
-    throw new Error('[nativeDevShell] Invalid web-embed input key.');
-  }
   const platformArtifact = getPlatformArtifact(targetPlatform);
   const keyInputs = {
+    nativeBuildDigest: getBuildDigest(targetPlatform, { repoRoot }),
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
-    webEmbedInputKey,
   };
   const shellCompatibilityKey = computeShellCompatibilityKey(keyInputs);
   const shellInputKey = computeShellInputKey(keyInputs);
@@ -613,9 +616,10 @@ function getShellCompatibility({
     exactTag: `mobile-dev-shell-input-v${SHELL_RELEASE_TAG_VERSION}-${platformArtifact.resourcePlatform}-${platformArtifact.architecture}-${shellInputKey}`,
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
+    // ABI compatibility alone cannot prove that a shell contains this checkout's native implementation.
+    requireExactInput: true,
     shellCompatibilityKey,
     shellInputKey,
-    webEmbedInputKey,
   };
 }
 
@@ -629,7 +633,7 @@ function getShellArtifactTag({ platform, shellArtifactKey }) {
 
 async function writeArtifactManifest({
   artifact,
-  expectedWebEmbedInputKey = getWebEmbedInputKey(),
+  expectedWebEmbedInputKey,
   output,
   platform,
   webEmbedReceipt,
@@ -644,6 +648,9 @@ async function writeArtifactManifest({
   const receipt = JSON.parse(
     fs.readFileSync(path.resolve(webEmbedReceipt), 'utf8'),
   );
+  const resolvedExpectedWebEmbedInputKey =
+    expectedWebEmbedInputKey ||
+    require('../../web-embed/scripts/web-embed-prebundle').getInputKey();
   const isRemoteReceipt = /^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '');
   const isLocalBuildReceipt =
     receipt.schemaVersion === 1 &&
@@ -656,7 +663,7 @@ async function writeArtifactManifest({
   ) {
     throw new Error('[nativeDevShell] Invalid web-embed preparation receipt.');
   }
-  if (receipt.inputKey !== expectedWebEmbedInputKey) {
+  if (receipt.inputKey !== resolvedExpectedWebEmbedInputKey) {
     throw new Error(
       '[nativeDevShell] Web-embed receipt does not match this checkout.',
     );
@@ -1033,12 +1040,22 @@ function parseIosSimulators(output) {
       cause: error,
     });
   }
-  return Object.values(parsed.devices || {})
-    .flat()
-    .filter(
-      (device) => device.isAvailable !== false && device.state === 'Booted',
+  return Object.entries(parsed.devices || {})
+    .filter(([runtime]) =>
+      runtime.startsWith('com.apple.CoreSimulator.SimRuntime.iOS-'),
     )
-    .map((device) => ({ id: device.udid, name: device.name }));
+    .flatMap(([runtime, devices]) =>
+      devices
+        .filter((device) => device.isAvailable !== false)
+        .map((device) => ({
+          id: device.udid,
+          name: device.name,
+          runtime: runtime
+            .replace('com.apple.CoreSimulator.SimRuntime.iOS-', 'iOS ')
+            .replace(/-/gu, '.'),
+          state: device.state,
+        })),
+    );
 }
 
 function selectTargetDevice({ candidates, platform, requestedDevice }) {
@@ -1051,26 +1068,76 @@ function selectTargetDevice({ candidates, platform, requestedDevice }) {
     }
     return selected;
   }
-  if (candidates.length !== 1) {
+  if (candidates.length === 0) {
     throw new Error(
-      `[nativeDevShell] --device is required when ${candidates.length === 0 ? 'no' : 'multiple'} ${platform} devices are available. Available devices:\n${formatDeviceList(candidates)}`,
+      platform === 'ios'
+        ? '[nativeDevShell] No available iOS simulators. Create an iOS simulator in Xcode, then run yarn app:ios again.'
+        : '[nativeDevShell] No connected Android devices. Start an emulator or connect a device, then run yarn app:android again.',
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `[nativeDevShell] --device is required when multiple ${platform} devices are available without interactive selection. Run yarn app:${platform} --device <${platform === 'ios' ? 'UDID' : 'serial'}>. Available devices:\n${formatDeviceList(candidates)}`,
     );
   }
   return candidates[0];
 }
 
-function formatDeviceList(candidates) {
+function formatDeviceList(candidates, numbered = false) {
   return candidates.length
-    ? candidates.map(({ id, name }) => `- ${id} (${name})`).join('\n')
+    ? candidates
+        .map(
+          ({ id, name, runtime, state }, index) =>
+            `${numbered ? `${String(index + 1)}.` : '-'} ${id} (${[name, runtime, state].filter(Boolean).join(', ')})`,
+        )
+        .join('\n')
     : '- none';
 }
 
-function resolveTargetDevice({ platform, requestedDevice }) {
+async function promptIosSimulator(
+  candidates,
+  { input = process.stdin, output = process.stdout } = {},
+) {
+  const prompt = readline.createInterface({ input, output });
+  prompt.on('SIGINT', () => prompt.close());
+  try {
+    output.write(
+      `[nativeDevShell] Available iOS simulators:\n${formatDeviceList(candidates, true)}\n`,
+    );
+    prompt.setPrompt('Select a simulator number (Ctrl+C to cancel): ');
+    prompt.prompt();
+    for await (const answer of prompt) {
+      const value = answer.trim();
+      const index = /^\d+$/u.test(value) ? Number(value) - 1 : -1;
+      if (
+        Number.isSafeInteger(index) &&
+        index >= 0 &&
+        index < candidates.length
+      ) {
+        return candidates[index];
+      }
+      output.write(`Enter a number from 1 to ${String(candidates.length)}.\n`);
+      prompt.prompt();
+    }
+  } finally {
+    prompt.close();
+  }
+  throw new Error('[nativeDevShell] iOS simulator selection cancelled.');
+}
+
+async function resolveTargetDevice({
+  platform,
+  requestedDevice,
+  interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  chooseDevice = promptIosSimulator,
+  runForOutputCommand = runForOutput,
+  runCheckedCommand = runChecked,
+}) {
   const candidates =
     platform === 'android'
-      ? parseAndroidDevices(runForOutput('adb', ['devices', '-l']))
+      ? parseAndroidDevices(runForOutputCommand('adb', ['devices', '-l']))
       : parseIosSimulators(
-          runForOutput('xcrun', [
+          runForOutputCommand('xcrun', [
             'simctl',
             'list',
             'devices',
@@ -1078,7 +1145,28 @@ function resolveTargetDevice({ platform, requestedDevice }) {
             '--json',
           ]),
         );
-  return selectTargetDevice({ candidates, platform, requestedDevice });
+  let selected;
+  if (platform === 'ios' && !requestedDevice) {
+    const booted = candidates.filter(({ state }) => state === 'Booted');
+    if (booted.length === 1) {
+      [selected] = booted;
+    } else if (candidates.length > 1 && interactive) {
+      selected = await chooseDevice(candidates);
+    }
+  }
+  selected ??= selectTargetDevice({ candidates, platform, requestedDevice });
+  if (platform === 'ios') {
+    // Wait for the selected simulator to finish booting, starting it if necessary.
+    runCheckedCommand('xcrun', ['simctl', 'bootstatus', selected.id, '-b']);
+    runCheckedCommand('open', [
+      '-a',
+      'Simulator',
+      '--args',
+      '-CurrentDeviceUDID',
+      selected.id,
+    ]);
+  }
+  return selected;
 }
 
 function assertTargetDeviceArchitecture({
@@ -1104,8 +1192,10 @@ function assertTargetDeviceArchitecture({
           runForOutputCommand('xcrun', [
             'simctl',
             'spawn',
+            // Simulator PATH may lack uname; select the required host binary slice explicitly.
+            `--arch=${requiredArchitecture}`,
             deviceId,
-            'uname',
+            '/usr/bin/uname',
             '-m',
           ]).trim(),
         ].filter(Boolean);
@@ -1693,18 +1783,24 @@ async function waitForNativeAppStartup({
         throw new Error('[nativeDevShell] Android app process exited.');
       }
     } else {
-      await wait(NATIVE_APP_STARTUP_GRACE_MS);
       if (!Number.isSafeInteger(launch.processId) || launch.processId <= 0) {
         throw new Error('[nativeDevShell] iOS app process ID is missing.');
       }
-      runForOutputCommand('xcrun', [
-        'simctl',
-        'spawn',
-        deviceId,
-        '/bin/kill',
-        '-0',
-        String(launch.processId),
-      ]);
+      for (
+        let elapsed = 0;
+        elapsed < IOS_APP_STARTUP_GRACE_MS;
+        elapsed += 1000
+      ) {
+        await wait(1000);
+        runForOutputCommand('xcrun', [
+          'simctl',
+          'spawn',
+          deviceId,
+          '/bin/kill',
+          '-0',
+          String(launch.processId),
+        ]);
+      }
     }
   } catch (error) {
     throw new Error(`[nativeDevShell] ${platform} app exited during startup.`, {
@@ -2035,15 +2131,31 @@ async function stagePrivateSession(options) {
   }
 }
 
-async function prepareWebEmbedForLocalShell(report) {
+async function prepareWebEmbedForDevSession(
+  report,
+  {
+    getCache = () =>
+      require('../../web-embed/scripts/web-embed-prebundle').getPreparedWebEmbedCache(),
+    restore = () =>
+      require('../../web-embed/scripts/web-embed-prebundle').restoreRelease(),
+    build = () =>
+      runChecked(
+        'yarn',
+        ['workspace', '@onekeyhq/web-embed', 'prebundle:build'],
+        { cwd: REPO_ROOT },
+      ),
+  } = {},
+) {
+  const cached = await Promise.resolve(getCache());
+  if (cached) {
+    report.webEmbed = { ...cached, status: 'ready' };
+    await writeRunReport(report);
+    return;
+  }
   report.webEmbed = { status: 'restoring' };
   await writeRunReport(report);
   try {
-    runChecked(
-      'yarn',
-      ['workspace', '@onekeyhq/web-embed', 'prebundle:restore'],
-      { cwd: REPO_ROOT },
-    );
+    await restore();
     report.webEmbed = { source: 'remote', status: 'ready' };
   } catch (error) {
     const reason = getErrorMessage(error);
@@ -2054,21 +2166,16 @@ async function prepareWebEmbedForLocalShell(report) {
       status: 'building',
     };
     await writeRunReport(report);
-    runChecked(
-      'yarn',
-      ['workspace', '@onekeyhq/web-embed', 'prebundle:build'],
-      { cwd: REPO_ROOT },
-    );
+    await Promise.resolve(build());
     report.webEmbed.status = 'ready';
     printFallbackDone(report, 'web-embed');
   }
   await writeRunReport(report);
 }
 
-async function buildLocalShell({ platform, report }) {
+async function buildLocalShell({ platform }) {
   const buildEnv =
     platform === 'android' ? getAndroidLocalBuildEnvironment() : process.env;
-  await prepareWebEmbedForLocalShell(report);
   const resultPath = path.join(
     REPO_ROOT,
     `node_modules/.cache/onekey-mobile-dev/build-shell-${platform}-${process.pid}.json`,
@@ -2102,17 +2209,38 @@ async function buildLocalShell({ platform, report }) {
   }
 }
 
-async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
+async function resolveAndInstallShell(
+  { deviceId, platform, report, shell },
+  {
+    build = buildLocalShell,
+    cacheBuild = cacheLocalShellBuild,
+    getCache = readLocalShellCache,
+    install = installMobileDevShell,
+    restore = restoreMobileDevShell,
+  } = {},
+) {
   if (!['auto', 'local', 'remote'].includes(shell)) {
     throw new Error(
       `[nativeDevShell] --shell must be auto, local, or remote; received ${shell}.`,
     );
   }
   const compatibility = getShellCompatibility({ platform });
+  const buildDigest = getBuildDigest(platform);
   let artifactPath;
   let releaseCacheLease;
   let usedFallback = false;
-  if (shell === 'local') {
+  const cached =
+    shell === 'auto' ? await getCache({ compatibility }) : undefined;
+  if (cached) {
+    artifactPath = cached.artifactPath;
+    report.shell = {
+      requested: shell,
+      source: 'local-cache',
+      status: 'installing',
+      compatibilityTag: compatibility.compatibilityTag,
+      exactTag: compatibility.exactTag,
+    };
+  } else if (shell === 'local') {
     report.shell = {
       requested: shell,
       source: 'local-build',
@@ -2121,7 +2249,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
-    artifactPath = await buildLocalShell({ platform, report });
+    artifactPath = await build({ platform });
   } else {
     report.shell = {
       requested: shell,
@@ -2131,7 +2259,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
     };
     await writeRunReport(report);
     try {
-      const restored = await restoreMobileDevShell({ compatibility });
+      const restored = await restore({ compatibility });
       artifactPath = restored.artifactPath;
       releaseCacheLease = restored.releaseCacheLease;
       report.shell.source = restored.source;
@@ -2154,24 +2282,50 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       report.shell.source = 'local-build';
       report.shell.status = 'building';
       await writeRunReport(report);
-      artifactPath = await buildLocalShell({ platform, report });
+      artifactPath = await build({ platform });
     }
   }
-  await runWithCacheLeaseCleanup({
-    operation: async () => {
-      report.shell.status = 'installing';
-      await writeRunReport(report);
-      await installMobileDevShell({ artifactPath, deviceId, platform });
-      if (usedFallback) printFallbackDone(report, 'shell');
-      report.shell.artifactPath = artifactPath;
-      report.shell.status = 'ready';
-      await writeRunReport(report);
-    },
-    releaseCacheLease,
-  });
+  const installArtifact = async () => {
+    report.shell.status = 'installing';
+    await writeRunReport(report);
+    const installed = await install({ artifactPath, deviceId, platform });
+    if (installed?.signing) report.shell.signing = installed.signing;
+  };
+  try {
+    await runWithCacheLeaseCleanup({
+      operation: installArtifact,
+      releaseCacheLease,
+    });
+  } catch (error) {
+    if (
+      shell !== 'auto' ||
+      report.shell.source === 'local-build' ||
+      !(error instanceof IosSimulatorEntitlementsError)
+    ) {
+      throw error;
+    }
+    const reason = getErrorMessage(error);
+    addFallbackNotice(report, { reason, resource: 'shell' });
+    usedFallback = true;
+    report.shell.fallbackReason = reason;
+    report.shell.source = 'local-build';
+    report.shell.status = 'building';
+    delete report.shell.ociDigest;
+    await writeRunReport(report);
+    artifactPath = await build({ platform });
+    await installArtifact();
+  }
+  if (report.shell.source === 'local-build') {
+    await cacheBuild({ artifactPath, compatibility, buildDigest });
+  }
+  if (usedFallback) printFallbackDone(report, 'shell');
+  report.shell.artifactPath = artifactPath;
+  report.shell.status = 'ready';
+  await writeRunReport(report);
 }
 
 async function prepareVendor({ platform, report, vendor }) {
+  const { preparePlatform } = require('./build-dev-vendor');
   if (vendor !== 'auto' && vendor !== 'local') {
     const expectedTag = getReleaseTag();
     if (vendor !== expectedTag) {
@@ -2219,7 +2373,7 @@ async function launchDevShell({
   const requestedDeviceMetroUrl = metroUrl
     ? parseMetroBaseUrl(metroUrl)
     : undefined;
-  const selectedDevice = resolveTargetDevice({
+  const selectedDevice = await resolveTargetDevice({
     platform,
     requestedDevice: device,
   });
@@ -2270,6 +2424,7 @@ async function launchDevShell({
     });
     await writeRunReport(report);
     preparationLock = await acquireWorktreePreparationLock({ report });
+    await prepareWebEmbedForDevSession(report);
     await resolveAndInstallShell({
       deviceId: selectedDevice.id,
       platform,
@@ -2408,6 +2563,12 @@ async function main() {
   } else if (args.command === 'contract') {
     const manifest = await writeContractManifest(args);
     console.log(manifest.nativeContractKey);
+  } else if (args.command === 'resolve') {
+    const result = await resolveExactMobileDevShell({
+      compatibility: getShellCompatibility(args),
+    });
+    if (args.output) await writeJson(path.resolve(args.output), result);
+    console.log(String(result.exists));
   } else if (args.command === 'session') {
     const metroPort = parseMetroPort(args.metroPort) || 8081;
     const result = await writeDevSession({
@@ -2457,10 +2618,14 @@ module.exports = {
   parseMetroBaseUrl,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
+  prepareWebEmbedForDevSession,
   printRunSummary,
+  promptIosSimulator,
   pruneSessionDirectories,
   quoteAdbShellArgument,
   renewPrivateSession,
+  resolveAndInstallShell,
+  resolveTargetDevice,
   selectTargetDevice,
   waitForNativeAppStartup,
   waitForMetroCompletionWithSessionRenewal,

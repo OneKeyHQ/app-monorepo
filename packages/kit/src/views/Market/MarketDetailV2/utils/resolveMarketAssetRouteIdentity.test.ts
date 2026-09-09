@@ -29,6 +29,7 @@ const bitcoin: IMarketAssetListItem = {
 };
 
 const bitcoinDetail: IMarketAssetDetailData = {
+  about: '',
   asset: {
     assetId: 'bitcoin',
     name: 'Bitcoin',
