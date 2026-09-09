@@ -268,8 +268,6 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
 class ServiceBatchCreateAccount extends ServiceBase {
   private readonly batchCreateFlowMutex = new Semaphore(1);
 
-  private batchCreateFlowCancellationGeneration = 0;
-
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -359,22 +357,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.progressInfo = undefined;
   }
 
-  private runBatchCreateFlowExclusive<T>(flow: () => Promise<T>): Promise<T> {
-    const cancellationGeneration = this.batchCreateFlowCancellationGeneration;
-    return this.batchCreateFlowMutex.runExclusive(() => {
-      if (
-        cancellationGeneration !== this.batchCreateFlowCancellationGeneration
-      ) {
-        throw new OneKeyLocalError(
-          appLocale.intl.formatMessage({
-            id: ETranslations.global_bulk_accounts_loading_error,
-          }),
-        );
-      }
-      return flow();
-    });
-  }
-
   async updateAccountExistsInDb({ account }: { account: IBatchCreateAccount }) {
     if (await localDb.getAccountSafe({ accountId: account.id })) {
       account.existsInDb = true;
@@ -403,7 +385,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           params: IBatchBuildAccountsNormalFlowParams;
         },
   ) {
-    return this.runBatchCreateFlowExclusive(() =>
+    return this.batchCreateFlowMutex.runExclusive(() =>
       this.startBatchCreateAccountsFlowInternal(payload),
     );
   }
@@ -1356,7 +1338,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       error: IOneKeyError;
     }[];
   }> {
-    return this.runBatchCreateFlowExclusive(() =>
+    return this.batchCreateFlowMutex.runExclusive(() =>
       this.startBatchCreateAccountsFlowForAllNetworkInternal(params),
     );
   }
@@ -1675,7 +1657,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   @backgroundMethod()
   async cancelBatchCreateAccountsFlow() {
-    this.batchCreateFlowCancellationGeneration += 1;
     this.isCreateFlowCancelled = true;
     this.progressInfo = undefined;
   }
