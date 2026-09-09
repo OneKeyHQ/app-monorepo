@@ -145,3 +145,16 @@ export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
     name: EAtomNames.marketPriceSourceAtom,
     initialValue: { source: 'share' },
   });
+
+export interface IMarketDesktopLayout {
+  chartHeight?: number;
+}
+
+export const {
+  target: marketDesktopLayoutAtom,
+  use: useMarketDesktopLayoutAtom,
+} = globalAtom<IMarketDesktopLayout>({
+  name: EAtomNames.marketDesktopLayoutAtom,
+  persist: true,
+  initialValue: {},
+});

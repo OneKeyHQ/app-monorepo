@@ -3,7 +3,31 @@ import { useEffect } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import type { IMarketDesktopLayout } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
+
 import { MarketDesktopChartContainer } from './MarketDesktopChartContainer';
+
+let mockSavedLayout: IMarketDesktopLayout = {};
+let mockViewportHeight = 900;
+const mockPersist = jest.fn();
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useMarketDesktopLayoutAtom: () => {
+      const [, refresh] = React.useState(0);
+      const set = React.useCallback(
+        (update: (prev: IMarketDesktopLayout) => IMarketDesktopLayout) => {
+          mockSavedLayout = update(mockSavedLayout);
+          mockPersist(mockSavedLayout);
+          refresh((value) => value + 1);
+        },
+        [],
+      );
+      return [mockSavedLayout, set];
+    },
+  };
+});
 
 function firePointerEvent(
   element: HTMLElement,
@@ -44,10 +68,66 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('react-native', () => ({
-  useWindowDimensions: () => ({ height: 900, width: 1440 }),
+  useWindowDimensions: () => ({ height: mockViewportHeight, width: 1440 }),
 }));
 
 describe('MarketDesktopChartContainer', () => {
+  beforeEach(() => {
+    mockSavedLayout = {};
+    mockViewportHeight = 900;
+    mockPersist.mockClear();
+  });
+
+  it('restores persisted height on remount and clamps only the display on resize', () => {
+    const chart = () => (
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>
+    );
+    const first = render(chart());
+    fireEvent.keyDown(screen.getByTestId('market-chart-resize-handle'), {
+      key: 'ArrowDown',
+    });
+    expect(mockSavedLayout.chartHeight).toBe(480);
+    first.unmount();
+    const { rerender } = render(chart());
+    const height = () =>
+      screen
+        .getByTestId('market-chart-resize-handle')
+        .getAttribute('aria-valuenow');
+    expect(height()).toBe('480');
+    mockViewportHeight = 600;
+    rerender(chart());
+    expect(height()).toBe('456');
+    expect(mockSavedLayout.chartHeight).toBe(480);
+    mockViewportHeight = 900;
+    rerender(chart());
+    expect(height()).toBe('480');
+  });
+
+  it('applies late hydration without overwriting storage and rejects invalid values', () => {
+    const renderChart = () => (
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>
+    );
+    const { rerender } = render(renderChart());
+    mockSavedLayout = { chartHeight: 700 };
+    rerender(renderChart());
+    expect(
+      screen
+        .getByTestId('market-chart-resize-handle')
+        .getAttribute('aria-valuenow'),
+    ).toBe('700');
+    mockSavedLayout = { chartHeight: Number.NaN };
+    rerender(renderChart());
+    expect(
+      screen
+        .getByTestId('market-chart-resize-handle')
+        .getAttribute('aria-valuenow'),
+    ).toBe('456');
+    expect(mockPersist).not.toHaveBeenCalled();
+  });
   it('adjusts height by dragging and enforces the minimum', () => {
     const handleChartMount = jest.fn();
     render(
@@ -66,7 +146,9 @@ describe('MarketDesktopChartContainer', () => {
 
     firePointerEvent(resizeHandle, 'pointerdown', 400);
     firePointerEvent(resizeHandle, 'pointermove', 460);
+    expect(mockPersist).not.toHaveBeenCalled();
     firePointerEvent(resizeHandle, 'pointerup', 460);
+    expect(mockSavedLayout.chartHeight).toBe(516);
     expect(resizeHandle.getAttribute('aria-valuenow')).toBe('516');
     expect(handleChartMount).toHaveBeenCalledTimes(1);
 
