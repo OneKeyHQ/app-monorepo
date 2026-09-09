@@ -19944,6 +19944,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeContainer.tsx": 3167,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeDebugPanel.native.tsx": 20991,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenButton.native.tsx": 10742,
+    "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativePresentation.native.tsx": 2791,
     "packages/kit/src/components/TradingView/TradingViewNative/chartConstants.ts": 22894,
     "packages/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter.ts": 23326,
     "packages/kit/src/components/TradingView/TradingViewNative/config.ts": 21770,
