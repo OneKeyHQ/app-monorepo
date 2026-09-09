@@ -99,9 +99,20 @@ function StockPageHeader({
   showFavoriteButton: boolean;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const { stockDetail, stockId, stockPreview } = useStockDetail();
+  const { selectedTokenVariant, stockDetail, stockId, stockPreview } =
+    useStockDetail();
   const stock = tokenDetail?.stock;
-  const tokenActionIdentity =
+  const selectedTokenActionIdentity =
+    selectedTokenVariant?.networkId &&
+    selectedTokenVariant.contractAddress &&
+    selectedTokenVariant.symbol
+      ? {
+          networkId: selectedTokenVariant.networkId,
+          address: selectedTokenVariant.contractAddress,
+          symbol: selectedTokenVariant.symbol,
+        }
+      : undefined;
+  const tokenDetailActionIdentity =
     networkId && tokenDetail?.address && tokenDetail.symbol
       ? {
           networkId,
@@ -109,6 +120,8 @@ function StockPageHeader({
           symbol: tokenDetail.symbol,
         }
       : undefined;
+  const tokenActionIdentity =
+    selectedTokenActionIdentity ?? tokenDetailActionIdentity;
 
   return (
     <XStack
