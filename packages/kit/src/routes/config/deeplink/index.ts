@@ -198,9 +198,13 @@ function parseAppClipMarketTarget(
   const network = getStringQueryParam(queryParams?.network);
   const rawIsNative = getStringQueryParam(queryParams?.is_native);
   const isNative = rawIsNative === 'true';
+  const isValidIbcDenom =
+    network?.startsWith('cosmos--') === true &&
+    /^ibc\/[A-Fa-f0-9]{64}$/u.test(tokenAddress);
   const isValidAddress =
     (isNative && tokenAddress === '') ||
-    /^[A-Za-z0-9._:%~-]{1,256}$/u.test(tokenAddress);
+    /^[A-Za-z0-9._:%~-]{1,256}$/u.test(tokenAddress) ||
+    isValidIbcDenom;
   if (
     !isValidAddress ||
     !network ||
