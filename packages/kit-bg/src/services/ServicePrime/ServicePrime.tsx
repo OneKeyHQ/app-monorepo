@@ -41,6 +41,8 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -68,6 +70,16 @@ import type {
   IIdentityExitOAuthHandoff,
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
+import type {
+  IPrimeGiftAccountEligibility,
+  IPrimeGiftClaimParams,
+  IPrimeGiftClaimProgress,
+  IPrimeGiftClaimResult,
+  IPrimeGiftEligibility,
+  IPrimeGiftMockConfig,
+  IPrimeGiftMockState,
+  IPrimeGiftVerifyV2Result,
+} from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IOneKeyIdAccount,
   IOneKeyIdOAuthBindResponse,
@@ -477,6 +489,407 @@ type IOneKeyIdAuthSnapshot = {
 };
 
 class ServicePrime extends ServiceBase {
+  private primeGiftMutex = new Semaphore(1);
+
+  private async getEnabledPrimeGiftMock(): Promise<
+    IPrimeGiftMockState | undefined
+  > {
+    if (!platformEnv.isDev) {
+      return undefined;
+    }
+    const state =
+      await this.backgroundApi.simpleDb.prime.getPrimeGiftMockState();
+    return state?.enabled ? cloneDeep(state) : undefined;
+  }
+
+  private async mockPrimeGiftVerifyV2({
+    device,
+    serialNo,
+    expectedOneKeyUserId,
+    state,
+    snapshot,
+    createStateChangedError,
+  }: IPrimeGiftClaimParams & {
+    state: IPrimeGiftMockState;
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }): Promise<IPrimeGiftVerifyV2Result> {
+    const record = state.devices[serialNo];
+    const storageKey = record.redemptionCodeStorageKey;
+    const primeRedeemCode = storageKey
+      ? await secureStorageInstance.getSecureItem(storageKey)
+      : undefined;
+    if (!primeRedeemCode) {
+      throw new OneKeyLocalError(
+        'Configure a valid test redemption code before claiming.',
+      );
+    }
+    if (record.codeOwnerOneKeyUserId !== expectedOneKeyUserId) {
+      const verification =
+        await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+          { device, serialNo },
+        );
+      if (verification.serialNo !== serialNo) {
+        throw new OneKeyLocalError(
+          'The verified device does not match the Prime gift.',
+        );
+      }
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot,
+        createStateChangedError,
+      });
+      record.codeOwnerOneKeyUserId = expectedOneKeyUserId;
+      record.claimStatus = 'codeReady';
+      await this.backgroundApi.simpleDb.prime.setPrimeGiftMockState(state);
+    }
+    // Replace this fixture boundary with the v2 verification API when ready.
+    // Certificate authentication remains real; only its code response is mocked.
+    return { serialNo, primeRedeemCode };
+  }
+
+  @backgroundMethod()
+  async configurePrimeGiftMock(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    config: IPrimeGiftMockConfig,
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'configurePrimeGiftMock');
+    if (!platformEnv.isDev) {
+      throw new OneKeyLocalError(
+        'Prime gift mock is only available in development.',
+      );
+    }
+    await this.primeGiftMutex.runExclusive(async () => {
+      const serialNo = config.serialNo.trim();
+      const giftMonths = config.giftMonths ?? 6;
+      if (!serialNo || !Number.isSafeInteger(giftMonths) || giftMonths <= 0) {
+        throw new OneKeyLocalError('Invalid Prime gift mock configuration.');
+      }
+      const state =
+        await this.backgroundApi.simpleDb.prime.getPrimeGiftMockState();
+      const previous = state?.devices[serialNo];
+      // Once verification issued a code, retries must keep that exact code.
+      if (
+        (previous?.codeOwnerOneKeyUserId || previous?.result) &&
+        config.redeemCode
+      ) {
+        throw new OneKeyLocalError(
+          'An issued Prime gift code cannot be replaced.',
+        );
+      }
+      let redemptionCodeStorageKey = previous?.redemptionCodeStorageKey;
+      if (config.redeemCode?.trim()) {
+        if (!(await secureStorageInstance.supportSecureStorage())) {
+          throw new OneKeyLocalError(
+            'Secure storage is required to configure a Prime gift code.',
+          );
+        }
+        redemptionCodeStorageKey = `prime-gift-${generateUUID()}`;
+        await secureStorageInstance.setSecureItem(
+          redemptionCodeStorageKey,
+          config.redeemCode.trim(),
+        );
+      }
+      await this.backgroundApi.simpleDb.prime.setPrimeGiftMockState({
+        enabled: config.enabled,
+        devices: {
+          ...state?.devices,
+          [serialNo]: {
+            ...previous,
+            giftMonths:
+              previous?.codeOwnerOneKeyUserId || previous?.result
+                ? previous.giftMonths
+                : giftMonths,
+            redemptionCodeStorageKey,
+          },
+        },
+      });
+      if (
+        previous?.redemptionCodeStorageKey &&
+        previous.redemptionCodeStorageKey !== redemptionCodeStorageKey
+      ) {
+        await secureStorageInstance.removeSecureItem(
+          previous.redemptionCodeStorageKey,
+        );
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeGiftEligibility({
+    serialNo,
+  }: {
+    serialNo: string;
+  }): Promise<IPrimeGiftEligibility> {
+    const state = await this.getEnabledPrimeGiftMock();
+    const record = state?.devices[serialNo];
+    if (!record) {
+      return {
+        canClaim: false,
+        status: 'unavailable',
+        giftMonths: 0,
+        reason: 'campaign_unavailable',
+      };
+    }
+    let reason: string | undefined;
+    if (record.result) {
+      reason = 'already_redeemed';
+    } else if (
+      record.claimStatus === 'submitting' ||
+      record.claimStatus === 'resultUnknown'
+    ) {
+      reason = 'claim_result_unknown';
+    }
+    return {
+      canClaim: !record.result,
+      status: record.result ? 'redeemed' : 'eligible',
+      giftMonths: record.giftMonths,
+      reason,
+    };
+  }
+
+  @backgroundMethod()
+  async apiCheckPrimeGiftAccountEligibility({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeGiftAccountEligibility> {
+    const { userInfo, primeSubscription, serverUserInfo } =
+      await this.apiFetchPrimeUserInfo({ forceRefresh: true });
+    if (!serverUserInfo) {
+      return { canClaim: false, reason: 'account_eligibility_unavailable' };
+    }
+    if (
+      !userInfo.isLoggedIn ||
+      !userInfo.isLoggedInOnServer ||
+      userInfo.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      return { canClaim: false, reason: 'account_changed' };
+    }
+    if (!primeSubscription?.isActive) {
+      return { canClaim: true };
+    }
+    const channels = primeSubscription.subscriptions?.map((subscription) =>
+      subscription.channel?.trim().toLowerCase(),
+    );
+    if (
+      channels?.some(
+        (channel) => channel === 'infini' || channel === 'revenuecat',
+      )
+    ) {
+      return { canClaim: false, reason: 'paid_prime_active' };
+    }
+    // Missing channel metadata is not evidence that a paid entitlement ended.
+    if (
+      !channels?.length ||
+      channels.some((channel) => channel !== 'redemption')
+    ) {
+      return { canClaim: false, reason: 'account_eligibility_unavailable' };
+    }
+    return { canClaim: true };
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeGiftClaimProgress({
+    serialNo,
+    expectedOneKeyUserId,
+  }: {
+    serialNo: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeGiftClaimProgress> {
+    const user = await primePersistAtom.get();
+    if (
+      !user.isLoggedIn ||
+      !user.isLoggedInOnServer ||
+      user.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      return { deviceVerified: false };
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError(
+        'OneKey ID changed. Please confirm the receiving account again.',
+      );
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const state = await this.getEnabledPrimeGiftMock();
+    const record = state?.devices[serialNo];
+    const deviceVerified = Boolean(
+      record?.codeOwnerOneKeyUserId === expectedOneKeyUserId &&
+      (record.claimStatus === 'codeReady' ||
+        record.claimStatus === 'submitting' ||
+        record.claimStatus === 'resultUnknown' ||
+        record.result?.onekeyUserId === expectedOneKeyUserId),
+    );
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    return { deviceVerified };
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeGiftClaimResult({
+    serialNo,
+    expectedOneKeyUserId,
+  }: {
+    serialNo: string;
+    expectedOneKeyUserId: string;
+  }): Promise<IPrimeGiftClaimResult | undefined> {
+    const user = await primePersistAtom.get();
+    if (
+      !user.isLoggedIn ||
+      !user.isLoggedInOnServer ||
+      user.onekeyUserId !== expectedOneKeyUserId
+    ) {
+      return undefined;
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError(
+        'OneKey ID changed. Please confirm the receiving account again.',
+      );
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const state = await this.getEnabledPrimeGiftMock();
+    const result = state?.devices[serialNo]?.result;
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    return result?.onekeyUserId === expectedOneKeyUserId ? result : undefined;
+  }
+
+  @backgroundMethod()
+  async apiClaimPrimeGift({
+    device,
+    serialNo,
+    expectedOneKeyUserId,
+  }: IPrimeGiftClaimParams): Promise<IPrimeGiftClaimResult> {
+    return this.primeGiftMutex.runExclusive(async () => {
+      const createStateChangedError = () =>
+        new OneKeyLocalError(
+          'OneKey ID changed. Please confirm the receiving account again.',
+        );
+      const snapshot = await this.captureOneKeyIdAuthSnapshot({
+        expectedOneKeyUserId,
+        createStateChangedError,
+      });
+      const state = await this.getEnabledPrimeGiftMock();
+      const record = state?.devices[serialNo];
+      if (!state || !record) {
+        throw new OneKeyLocalError('Prime gift is unavailable.');
+      }
+      if (record.result) {
+        if (record.result.onekeyUserId !== expectedOneKeyUserId) {
+          throw new OneKeyLocalError(
+            'This device has already claimed its Prime gift.',
+          );
+        }
+        await this.assertOneKeyIdAuthSnapshot({
+          snapshot,
+          createStateChangedError,
+        });
+        return record.result;
+      }
+      if (
+        (record.claimStatus === 'submitting' ||
+          record.claimStatus === 'resultUnknown') &&
+        record.codeOwnerOneKeyUserId !== expectedOneKeyUserId
+      ) {
+        throw new OneKeyLocalError(
+          'Sign in to the original receiving account to resolve the previous claim.',
+        );
+      }
+      const accountEligibility = await this.apiCheckPrimeGiftAccountEligibility(
+        { expectedOneKeyUserId },
+      );
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot,
+        createStateChangedError,
+      });
+      if (!accountEligibility.canClaim) {
+        throw new OneKeyLocalError(
+          accountEligibility.reason ||
+            'Prime gift account eligibility check failed.',
+        );
+      }
+      const storageKey = record.redemptionCodeStorageKey;
+      // This mock supplies only the v2 code response. Membership is always
+      // granted by the real redemption endpoint and never changed locally.
+      const verificationV2 = await this.mockPrimeGiftVerifyV2({
+        device,
+        serialNo,
+        expectedOneKeyUserId,
+        state,
+        snapshot,
+        createStateChangedError,
+      });
+      const receivingUser = await primePersistAtom.get();
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot,
+        createStateChangedError,
+      });
+      const wasResultUnknown =
+        record.claimStatus === 'submitting' ||
+        record.claimStatus === 'resultUnknown';
+      record.claimStatus = 'submitting';
+      await this.backgroundApi.simpleDb.prime.setPrimeGiftMockState(state);
+      let result: IPrimeGiftClaimResult | undefined;
+      try {
+        await this.redeemPrimeCode(
+          { code: verificationV2.primeRedeemCode, expectedOneKeyUserId },
+          async (redemption) => {
+            result = {
+              ...redemption,
+              serialNo: verificationV2.serialNo,
+              giftMonths: redemption.addedDays / 30,
+              onekeyUserId: expectedOneKeyUserId,
+              email: receivingUser.displayEmail ?? receivingUser.email,
+            };
+            // Preserve a confirmed receipt for the original account even if
+            // that session changed while the server was granting the code.
+            record.result = result;
+            record.redemptionCodeStorageKey = undefined;
+            record.claimStatus = undefined;
+            await this.backgroundApi.simpleDb.prime.setPrimeGiftMockState(
+              state,
+            );
+            appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, { serialNo });
+            if (storageKey) {
+              await secureStorageInstance
+                .removeSecureItem(storageKey)
+                .catch(() => undefined);
+            }
+          },
+        );
+        await this.assertOneKeyIdAuthSnapshot({
+          snapshot,
+          createStateChangedError,
+        });
+      } catch (error) {
+        if (!record.result) {
+          // Without a server receipt lookup, a transport failure is unknown.
+          // Keep the same code; never mint another code or infer activation.
+          record.claimStatus =
+            error instanceof OneKeyServerApiError && !wasResultUnknown
+              ? 'codeReady'
+              : 'resultUnknown';
+          await this.backgroundApi.simpleDb.prime.setPrimeGiftMockState(state);
+        }
+        throw error;
+      }
+      if (!result) {
+        throw new OneKeyLocalError('Prime gift confirmation is unavailable.');
+      }
+      void this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
+        () => undefined,
+      );
+      return result;
+    });
+  }
+
   private primeUserInfoFetchGeneration = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -5338,6 +5751,13 @@ class ServicePrime extends ServiceBase {
     code,
     expectedOneKeyUserId,
   }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
+    return this.redeemPrimeCode({ code, expectedOneKeyUserId });
+  }
+
+  private async redeemPrimeCode(
+    { code, expectedOneKeyUserId }: IPrimeRedemptionParams,
+    onConfirmed?: (result: IPrimeRedemptionResult) => Promise<void>,
+  ): Promise<IPrimeRedemptionResult> {
     const redemptionCode = isString(code) ? code.trim() : '';
     if (!redemptionCode) {
       throw new OneKeyLocalError({
@@ -5398,6 +5818,7 @@ class ServicePrime extends ServiceBase {
       throw error;
     }
     const redemption = validatePrimeRedemptionResponse(result?.data?.data);
+    await onConfirmed?.(redemption);
     await this.assertOneKeyIdAuthSnapshot({
       snapshot: authSnapshot,
       createStateChangedError: createSessionChangedError,

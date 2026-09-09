@@ -21,6 +21,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
+import { PrimeGiftMockConfigButton } from '../../components/PrimeDevUtils/PrimeGiftMockConfigButton';
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 
 function CloudSyncDebugTest() {
@@ -261,6 +262,7 @@ export function PrimeDebugPanel({
         </Button>
 
         <PrimeInfiniSubscriptionResetButton />
+        <PrimeGiftMockConfigButton />
 
         <Button
           onPress={() => {

@@ -2304,3 +2304,78 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
     expect(sdkCancel).not.toHaveBeenCalled();
   });
 });
+
+describe('Prime gift certificate verification', () => {
+  it.each([
+    [{ code: 0, data: 'PRO2_SERIAL' }, true],
+    [{ code: 0, data: 'DIFFERENT_SERIAL' }, false],
+    [{ code: 0 }, false],
+    [{ code: 10_104, data: 'PRO2_SERIAL' }, false],
+  ])(
+    'requires a successful server certificate check and exact serial: %j',
+    async (response, succeeds) => {
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId: '94537ae5-32e9-4417-860a-1d37c8decb3e',
+      } as Awaited<ReturnType<typeof settingsPersistAtom.get>>);
+      jest.mocked(localDb.getExistingDevice).mockResolvedValue(undefined);
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<unknown>) => callback(),
+          ),
+          closeHardwareUiStateDialog: jest.fn(async () => undefined),
+        },
+        serviceHardware: undefined as ServiceHardware | undefined,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as unknown as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerify = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { cert: 'certificate', signature: 'device-signature' },
+      });
+      const post = jest.fn().mockResolvedValue({ data: response });
+      jest
+        .spyOn(service, 'getClient')
+        .mockResolvedValue({ post } as unknown as Awaited<
+          ReturnType<typeof service.getClient>
+        >);
+      jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue({ deviceVerify } as unknown as Awaited<
+          ReturnType<typeof service.getSDKInstance>
+        >);
+      jest
+        .spyOn(service, 'getCompatibleConnectId')
+        .mockResolvedValue('PRO2_USB');
+      const operation =
+        service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
+          device: {
+            connectId: 'PRO2_USB',
+            deviceId: 'DEVICE_ID',
+            uuid: 'PRO2_SERIAL',
+            name: 'OneKey Pro 2',
+            deviceType: EDeviceType.Pro2,
+          },
+          serialNo: 'PRO2_SERIAL',
+        });
+      if (succeeds) {
+        await expect(operation).resolves.toEqual({ serialNo: 'PRO2_SERIAL' });
+      } else {
+        await expect(operation).rejects.toThrow(
+          'serial number verification failed',
+        );
+      }
+      expect(deviceVerify).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/verify',
+        expect.objectContaining({
+          cert: 'certificate',
+          signature: 'device-signature',
+          deviceType: EDeviceType.Pro2,
+        }),
+      );
+    },
+  );
+});

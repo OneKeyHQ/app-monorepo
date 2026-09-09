@@ -1,6 +1,12 @@
 /** @jest-environment jsdom */
 
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
 
 import {
   EAppEventBusNames,
@@ -10,8 +16,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKytIntroClaimResult } from '@onekeyhq/shared/types/kyt';
 
 import { KYTIntroOnMount } from './KYTIntroDialog';
+import { usePrimeGiftKyt } from './usePrimeGiftKyt';
 
 let mockCurrentUserId = 'user-a';
+let mockReceiveRiskMonitoringMap: Record<string, boolean> = {};
+const mockGetKytEnabled = jest.fn<Promise<boolean>, [unknown]>(
+  async () => false,
+);
 const mockPrimeAtomListeners = new Set<() => void>();
 let mockIsPrimeSubscriptionActive = false;
 let mockAppUpdateInfo = { status: 'checking', firstLaunch: false };
@@ -132,6 +143,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceSetting: {
+      getKytEnabled: (params: unknown) => mockGetKytEnabled(params),
       apiSetKytEnabled: (params: { enabled: boolean; onekeyUserId: string }) =>
         mockSetKytEnabled(params),
       tryClaimKytIntro: (params: Parameters<typeof mockTryClaim>[0]) =>
@@ -174,6 +186,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
     useAppUpdatePersistAtom: () => [mockAppUpdateInfo],
+    useSettingsPersistAtom: () => [
+      { receiveRiskMonitoringMap: mockReceiveRiskMonitoringMap },
+    ],
     usePrimePersistAtom: () => {
       const onekeyUserId = React.useSyncExternalStore(
         (listener) => {
@@ -273,6 +288,8 @@ describe('KYTIntroOnMount', () => {
     jest.clearAllMocks();
     setPlatformFlags({ isDesktop: true });
     mockCurrentUserId = 'user-a';
+    mockReceiveRiskMonitoringMap = {};
+    mockGetKytEnabled.mockResolvedValue(false);
     mockIsPrimeSubscriptionActive = false;
     mockAppUpdateInfo = { status: 'checking', firstLaunch: false };
     mockRootState = {
@@ -331,33 +348,25 @@ describe('KYTIntroOnMount', () => {
     );
   });
 
-  it('keeps the Home fallback behind its existing readiness gates', async () => {
+  it('never backfills an intro from Home readiness or a Prime account refresh', async () => {
     mockIsPrimeSubscriptionActive = true;
     mockAppUpdateInfo = { status: 'done', firstLaunch: false };
     render(<KYTIntroOnMount />);
 
-    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
-
     act(() => {
       mockTabFocusCallback?.(true, false);
-    });
-    expect(mockRunAfterTokensDone).toHaveBeenCalledTimes(1);
-    expect(mockDialogShow).not.toHaveBeenCalled();
-
-    act(() => {
       mockTokensDoneCallback?.('tokensDone');
+      mockSetCurrentUserId('user-b');
     });
+    await act(async () => Promise.resolve());
 
-    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
-    expect(mockIntroShownLog).toHaveBeenCalledWith(
-      expect.objectContaining({ entryPoint: 'homeAutoIntro' }),
-    );
+    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
+    expect(mockTryClaim).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
-  it('upgrades a racing Home attempt and opens only one dialog', async () => {
+  it('serializes duplicate purchase events while a claim is pending', async () => {
     let resolveClaim: ((value: IKytIntroClaimResult) => void) | undefined;
-    mockIsPrimeSubscriptionActive = true;
-    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
     mockTryClaim.mockImplementationOnce(
       () =>
         new Promise<IKytIntroClaimResult>((resolve) => {
@@ -365,27 +374,20 @@ describe('KYTIntroOnMount', () => {
         }),
     );
     render(<KYTIntroOnMount />);
-
     act(() => {
-      mockTabFocusCallback?.(true, false);
-      mockTokensDoneCallback?.('tokensDone');
+      emitPurchaseSuccess();
     });
     await waitFor(() => expect(mockTryClaim).toHaveBeenCalledTimes(1));
-
     act(() => {
       emitPurchaseSuccess();
       resolveClaim?.({
         status: 'claimed',
-        claimId: 'home-claim',
-        entryPoint: 'homeAutoIntro',
+        claimId: 'claim-a',
+        entryPoint: 'primeSubscribeSuccess',
       });
     });
-
     await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
-    expect(mockTryClaim).toHaveBeenCalledTimes(2);
-    expect(mockIntroShownLog).toHaveBeenCalledWith(
-      expect.objectContaining({ entryPoint: 'primeSubscribeSuccess' }),
-    );
+    expect(mockTryClaim).toHaveBeenCalledTimes(1);
   });
 
   it.each(['shown', 'enabled'] as const)(
@@ -658,4 +660,122 @@ describe('KYTIntroOnMount', () => {
       expect(mockTryClaim).toHaveBeenCalledTimes(1);
     },
   );
+
+  describe('manual Prime gift entry', () => {
+    it('opens only on click and can reopen after a previous dismissal', async () => {
+      mockTryClaim.mockResolvedValue({ status: 'shown' });
+      const { result } = renderHook(() =>
+        usePrimeGiftKyt({ expectedOneKeyUserId: 'user-a' }),
+      );
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      await act(async () => {
+        await result.current.open();
+      });
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+      expect(mockTryClaim).not.toHaveBeenCalled();
+      expect(mockIntroShownLog).toHaveBeenCalledWith(
+        expect.objectContaining({ entryPoint: 'primeGiftSuccess' }),
+      );
+      const options = mockDialogShow.mock.calls[0][0] as IDialogOptions;
+      act(() => {
+        options.onClose();
+      });
+      await act(async () => {
+        await result.current.open();
+      });
+      expect(mockDialogShow).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports enabled state and does not reopen the intro', async () => {
+      mockReceiveRiskMonitoringMap = { 'user-a': true };
+      const { result } = renderHook(() =>
+        usePrimeGiftKyt({ expectedOneKeyUserId: 'user-a' }),
+      );
+      expect(result.current.isEnabled).toBe(true);
+      await act(async () => {
+        await result.current.open();
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockGetKytEnabled).not.toHaveBeenCalled();
+    });
+
+    it('drops a manual open if the recipient changes during the status check', async () => {
+      let resolveEnabled: ((enabled: boolean) => void) | undefined;
+      mockGetKytEnabled.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveEnabled = resolve;
+          }),
+      );
+      const { result } = renderHook(() =>
+        usePrimeGiftKyt({ expectedOneKeyUserId: 'user-a' }),
+      );
+      let opening: Promise<void> | undefined;
+      act(() => {
+        opening = result.current.open();
+      });
+      expect(result.current.isLoading).toBe(true);
+      act(() => {
+        mockSetCurrentUserId('user-b');
+        resolveEnabled?.(false);
+      });
+      await act(async () => {
+        await opening;
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('does not enable KYT for an account switched after the intro opened', async () => {
+      const { result } = renderHook(() =>
+        usePrimeGiftKyt({ expectedOneKeyUserId: 'user-a' }),
+      );
+      await act(async () => {
+        await result.current.open();
+      });
+      const options = mockDialogShow.mock.calls[0][0] as IDialogOptions;
+      const close = jest.fn(async () => undefined);
+      act(() => {
+        mockSetCurrentUserId('user-b');
+      });
+      await act(async () => {
+        await options.onConfirm({ close });
+      });
+      expect(mockSetKytEnabled).not.toHaveBeenCalled();
+      expect(mockPromptNotificationPermission).not.toHaveBeenCalled();
+      expect(close).toHaveBeenCalledWith({ flag: 'accountChanged' });
+    });
+
+    it('enables KYT before requesting notifications that remain on the success page', async () => {
+      const { result } = renderHook(() =>
+        usePrimeGiftKyt({ expectedOneKeyUserId: 'user-a' }),
+      );
+      await act(async () => {
+        await result.current.open();
+      });
+      const options = mockDialogShow.mock.calls[0][0] as IDialogOptions;
+      const close = jest.fn(async () => {
+        options.onClose({ flag: 'confirm' });
+      });
+      await act(async () => {
+        await options.onConfirm({ close });
+      });
+      expect(mockSetKytEnabled).toHaveBeenCalledWith({
+        enabled: true,
+        onekeyUserId: 'user-a',
+      });
+      expect(mockPromptNotificationPermission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stayOnCurrentPage: true,
+          shouldContinue: expect.any(Function),
+        }),
+      );
+      expect(mockSetKytEnabled.mock.invocationCallOrder[0]).toBeLessThan(
+        mockPromptNotificationPermission.mock.invocationCallOrder[0],
+      );
+      expect(close.mock.invocationCallOrder[0]).toBeLessThan(
+        mockPromptNotificationPermission.mock.invocationCallOrder[0],
+      );
+    });
+  });
 });

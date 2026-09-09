@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   backgroundMethod,
@@ -28,6 +28,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IPrimeGiftDevice } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
@@ -124,6 +125,63 @@ function buildSkippedFirmwareHashResult(
 }
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
+  async firmwareAuthenticateForPrimeGift({
+    device,
+    serialNo,
+  }: {
+    device: IPrimeGiftDevice;
+    serialNo: string;
+  }): Promise<{ serialNo: string }> {
+    if (
+      device.deviceType !== EDeviceType.Pro2 ||
+      !device.connectId ||
+      !serialNo
+    ) {
+      throw new OneKeyLocalError('A connected Pro 2 is required.');
+    }
+    const connectId = device.connectId;
+    const dbDevice = await localDb.getExistingDevice({
+      rawDeviceId: device.deviceId || '',
+      uuid: serialNo,
+    });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const { instanceId } = await settingsPersistAtom.get();
+        const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
+        const { cert, signature } = await this.getDeviceCertWithSig({
+          connectId,
+          dataHex,
+        });
+        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+          skipDeviceCancel: true,
+          connectId,
+        });
+        const client = await this.serviceHardware.getClient(
+          EServiceEndpointEnum.Wallet,
+        );
+        const response = await client.post<{ code?: number; data?: string }>(
+          '/wallet/v1/hardware/verify',
+          { deviceType: device.deviceType, data, cert, signature },
+        );
+        // The authenticated certificate's serial must match the gift device.
+        // An advertised Bluetooth name or caller-supplied serial is not proof.
+        if (response.data.code !== 0 || response.data.data !== serialNo) {
+          throw new OneKeyLocalError(
+            'Device authentication or serial number verification failed.',
+          );
+        }
+        return { serialNo: response.data.data };
+      },
+      {
+        deviceParams: dbDevice
+          ? { dbDevice: { ...dbDevice, connectId } }
+          : undefined,
+        hideCheckingDeviceLoading: true,
+        debugMethodName: 'firmwareAuthenticateForPrimeGift',
+      },
+    );
+  }
+
   private isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
     return deviceUtils.isFirmwareVerifySupported(deviceType);
   }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +14,7 @@ import {
   useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
@@ -27,6 +29,7 @@ import type {
   ITabDeviceManagementParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -225,6 +228,15 @@ function DeviceDetailsModalV2Cmp({
                   vendorProfile?.supportsFirmwareVerify,
                 )}
               />
+              {!isQrWallet && device?.deviceType === EDeviceType.Pro2 ? (
+                <PrimeGiftOffer
+                  device={deviceUtils.dbDeviceToSearchDevice(device)}
+                  serialNo={
+                    device.deviceStateInfo?.identity.serialNo || device.uuid
+                  }
+                  source="deviceDetails"
+                />
+              ) : null}
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (

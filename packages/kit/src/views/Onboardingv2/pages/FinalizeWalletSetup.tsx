@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useNavigation } from '@react-navigation/core';
 import { range } from 'lodash';
 import { type IntlShape, useIntl } from 'react-intl';
 import {
@@ -28,6 +30,9 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
+import { usePrimeGiftMessages } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeGiftMessages';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -42,7 +47,7 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
@@ -250,7 +255,9 @@ function FinalizeWalletSetupPage({
   EOnboardingPagesV2.FinalizeWalletSetup
 >) {
   const intl = useIntl();
+  const primeGiftMessage = usePrimeGiftMessages();
   const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
 
   const [setupError, setSetupError] = useState<
     | {
@@ -270,6 +277,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
+  const isPro2Device = deviceData?.device?.deviceType === EDeviceType.Pro2;
   const connectProtocol = route?.params?.connectProtocol;
   const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
@@ -298,6 +306,10 @@ function FinalizeWalletSetupPage({
   const referralCheckPromiseRef = useRef<
     Promise<ICheckWalletBindStatusResponse | undefined>
   >(Promise.resolve(undefined));
+  const [isOptionalReferralVisible, setIsOptionalReferralVisible] =
+    useState(false);
+  const optionalReferralRequestRef = useRef(false);
+  const { getReferralCodeBindDisplayStatus } = useWalletBoundReferralCode();
 
   const closePage = useCallback(() => {
     closePageCalled.current = true;
@@ -338,9 +350,8 @@ function FinalizeWalletSetupPage({
   // Ready state waits for the user's Let's-go press instead of auto-closing.
   // The 600ms delay gives the page-dismiss animation time to finish before
   // the auto-connect dapp modal appears on top of the next (Main) screen.
-  // Before closing, check referral bind status; if the wallet is still
-  // eligible to bind a referral code, show the onboarding invite code dialog
-  // and defer the close flow to its onDone callback.
+  // Pro2 exposes referral binding as a separate optional action. Other wallets
+  // keep the existing invite dialog before entering the wallet.
   const handleLetsGo = useCallback(async () => {
     if (closePageCalled.current) return;
 
@@ -355,7 +366,7 @@ function FinalizeWalletSetupPage({
       })();
     };
 
-    if (createdWallet) {
+    if (createdWallet && !isPro2Device) {
       try {
         // Await the prefetched promise. If it already resolved while the
         // user was lingering on the success page, this returns immediately
@@ -390,7 +401,63 @@ function FinalizeWalletSetupPage({
     }
 
     proceedToWallet();
-  }, [closePage, openKeylessAutoConnectDappModal]);
+  }, [closePage, isPro2Device, openKeylessAutoConnectDappModal]);
+
+  const refreshOptionalReferralEligibility = useCallback(
+    async (createdWallet: IDBWallet) => {
+      const status = await getReferralCodeBindDisplayStatus({
+        walletId: createdWallet.id,
+        skipIfTimeout: true,
+      });
+      const isBindable = status === 'bind';
+      if (
+        !closePageCalled.current &&
+        createdWalletRef.current === createdWallet
+      ) {
+        setIsOptionalReferralVisible(isBindable);
+      }
+      return isBindable;
+    },
+    [getReferralCodeBindDisplayStatus],
+  );
+
+  const handleOptionalReferral = useCallback(async () => {
+    const createdWallet = createdWalletRef.current;
+    if (
+      !createdWallet ||
+      closePageCalled.current ||
+      optionalReferralRequestRef.current
+    ) {
+      return;
+    }
+    optionalReferralRequestRef.current = true;
+    try {
+      const isBindable =
+        await refreshOptionalReferralEligibility(createdWallet);
+      if (!isBindable) {
+        return;
+      }
+      if (
+        closePageCalled.current ||
+        createdWalletRef.current !== createdWallet ||
+        !reactNavigation.isFocused()
+      ) {
+        return;
+      }
+      showInviteCodeDialogRef.current?.({
+        wallet: createdWallet,
+        onDone: () => {
+          void refreshOptionalReferralEligibility(createdWallet).catch(
+            () => undefined,
+          );
+        },
+      });
+    } catch {
+      // Referral checks are optional and must not block entering the wallet.
+    } finally {
+      optionalReferralRequestRef.current = false;
+    }
+  }, [reactNavigation, refreshOptionalReferralEligibility]);
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {
@@ -878,6 +945,7 @@ function FinalizeWalletSetupPage({
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
     referralCheckPromiseRef.current = Promise.resolve(undefined);
+    setIsOptionalReferralVisible(false);
     setIsWalletCreationReadyForReferralCheck(false);
     setIsWalletCreationRecordHandled(false);
     // Reset the dedup guard so a retry triggered after a late, post-success
@@ -965,6 +1033,30 @@ function FinalizeWalletSetupPage({
       }
     })();
   }, [isReady, isWalletCreationReadyForReferralCheck, setupError]);
+
+  useEffect(() => {
+    if (
+      !isPro2Device ||
+      !isReady ||
+      !isWalletCreationRecordHandled ||
+      setupError
+    ) {
+      setIsOptionalReferralVisible(false);
+      return undefined;
+    }
+    let cancelled = false;
+    void referralCheckPromiseRef.current.then((checkResp) => {
+      if (cancelled) return;
+      const isBound = checkResp?.data || checkResp?.reason === 'already_bound';
+      const isExpired = checkResp?.reason === 'exceeded_bind_window';
+      setIsOptionalReferralVisible(
+        Boolean(checkResp && !isBound && !isExpired),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPro2Device, isReady, isWalletCreationRecordHandled, setupError]);
 
   // Breathe up to 0.8 during active steps; on Ready fade to a faint hold
   // (0.15) so the orb visibly "settles" before the user taps Enter wallet.
@@ -1246,6 +1338,32 @@ function FinalizeWalletSetupPage({
                 </YStack>
               </YStack>
               <StepTextSwap text={stepText} />
+              {isReadyActionVisible && isPro2Device && deviceData?.device ? (
+                <YStack w="100%" maxWidth={480} gap="$3">
+                  <PrimeGiftOffer
+                    device={{
+                      ...deviceData.device,
+                      deviceType: EDeviceType.Pro2,
+                    }}
+                    serialNo={
+                      deviceData.device.serialNo || deviceData.device.uuid
+                    }
+                    source="onboarding"
+                  />
+                  {isOptionalReferralVisible ? (
+                    <Button
+                      testID="pro2-prime-open-invite"
+                      variant="tertiary"
+                      iconAfter="ChevronRightOutline"
+                      onPress={handleOptionalReferral}
+                    >
+                      {primeGiftMessage(
+                        ETranslationsMock.prime_gift_invite__action,
+                      )}
+                    </Button>
+                  ) : null}
+                </YStack>
+              ) : null}
               {gtMd ? (
                 <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
                   {enterWalletButton}
