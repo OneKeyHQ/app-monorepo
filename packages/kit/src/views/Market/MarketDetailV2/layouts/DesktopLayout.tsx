@@ -7,6 +7,7 @@ import {
   TradingViewNative,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
+import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
@@ -401,6 +402,9 @@ export function DesktopLayout({
     return (
       <LazyDesktopMarketTradingView
         key={marketTradingViewKey}
+        intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+          tradingViewNativeSource,
+        )}
         tokenAddress={
           isStockSharePrice
             ? ''
@@ -479,7 +483,7 @@ export function DesktopLayout({
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
           }
-          disableTrade={shouldDisableTrade}
+          disableTrade={disableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
