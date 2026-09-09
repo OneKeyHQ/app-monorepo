@@ -149,8 +149,10 @@ import {
 } from '../utils/swapBalanceUtils';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
 import {
+  type ISwapStepSignAndSendProgress,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
+  markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldFallbackSwapStep,
 } from '../utils/swapReviewState';
@@ -211,6 +213,15 @@ type IEstimateNetworkFeeOptions = {
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: () => void | Promise<void>;
 };
+
+type ISwapSignAndSendProgressEvent = {
+  stage: 'entered' | 'succeeded';
+  isApprove: boolean;
+};
+
+type ISwapSignAndSendProgressCallback = (
+  event: ISwapSignAndSendProgressEvent,
+) => void;
 
 function canFallbackToSeparateTxConfirm({
   buildUnsignedParams,
@@ -934,14 +945,16 @@ export function useSwapBuildTx({
       accountId,
       unsignedTxItem,
       gasInfo,
-      onSignAndSendEntered,
+      isApprove,
+      onSignAndSendProgress,
     }: {
       stepIndex: number;
       networkId: string;
       accountId: string;
       unsignedTxItem: IUnsignedTxPro;
       gasInfo: ISwapGasInfo;
-      onSignAndSendEntered?: () => void;
+      isApprove: boolean;
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback;
     }) => {
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
@@ -1112,7 +1125,7 @@ export function useSwapBuildTx({
         context: gasAccountAnalyticsContext,
         gasAccountUiState,
         send: (uiState) => {
-          onSignAndSendEntered?.();
+          onSignAndSendProgress?.({ stage: 'entered', isApprove });
           return backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
             gasAccountUiState: uiState,
@@ -1131,6 +1144,7 @@ export function useSwapBuildTx({
           throw new OneKeyAppError({ message, autoToast: false });
         },
       });
+      onSignAndSendProgress?.({ stage: 'succeeded', isApprove });
       const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
         networkId,
         accountId,
@@ -1563,7 +1577,7 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       quoteResult?: IFetchQuoteResult,
       needFetchGas?: boolean,
-      onSignAndSendEntered?: () => void,
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback,
     ) => {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
@@ -1633,7 +1647,8 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
-                  onSignAndSendEntered,
+                  isApprove: i < unsignedTxArr.length - 1,
+                  onSignAndSendProgress,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1714,7 +1729,8 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
-                  onSignAndSendEntered,
+                  isApprove: i < unsignedTxArr.length - 1,
+                  onSignAndSendProgress,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1792,7 +1808,8 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
-                  onSignAndSendEntered,
+                  isApprove: i < unsignedTxArr.length - 1,
+                  onSignAndSendProgress,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1888,7 +1905,8 @@ export function useSwapBuildTx({
               };
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               lastTxRes = await updateUnsignedTxAndSendTx({
-                onSignAndSendEntered,
+                isApprove: false,
+                onSignAndSendProgress,
                 stepIndex,
                 networkId,
                 accountId,
@@ -1923,7 +1941,8 @@ export function useSwapBuildTx({
               }
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
-                onSignAndSendEntered,
+                isApprove: true,
+                onSignAndSendProgress,
                 stepIndex,
                 networkId,
                 accountId,
@@ -1946,7 +1965,8 @@ export function useSwapBuildTx({
         if (gasInfoFinal) {
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
-              onSignAndSendEntered,
+              isApprove,
+              onSignAndSendProgress,
               stepIndex,
               networkId,
               accountId,
@@ -2011,7 +2031,8 @@ export function useSwapBuildTx({
           );
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
-              onSignAndSendEntered,
+              isApprove,
+              onSignAndSendProgress,
               stepIndex,
               networkId,
               accountId,
@@ -2122,7 +2143,7 @@ export function useSwapBuildTx({
       shouldFallback?: boolean,
       shouldWaitApprove?: boolean,
       needFetchGas?: boolean,
-      onSignAndSendEntered?: () => void,
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback,
     ) => {
       if (data?.allowanceResult?.allowanceTarget && fromUserAddress) {
         const approveInfo: IApproveInfo = {
@@ -2165,7 +2186,7 @@ export function useSwapBuildTx({
               undefined,
               data,
               needFetchGas,
-              onSignAndSendEntered,
+              onSignAndSendProgress,
             );
             if (res) {
               void onApproveTxSuccess();
@@ -2676,7 +2697,7 @@ export function useSwapBuildTx({
       fallbackApproveInfos?: IApproveInfo[],
       needFetchGas?: boolean,
       skipLoading?: boolean,
-      onSignAndSendEntered?: () => void,
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -2772,7 +2793,7 @@ export function useSwapBuildTx({
               approveUnsignedTxArr,
               data,
               needFetchGas,
-              onSignAndSendEntered,
+              onSignAndSendProgress,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(
@@ -3037,7 +3058,7 @@ export function useSwapBuildTx({
       fromTokenInfo?: ISwapToken,
       toTokenInfo?: ISwapToken,
       needFetchGas?: boolean,
-      onSignAndSendEntered?: () => void,
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback,
     ) => {
       if (
         fromTokenInfo &&
@@ -3100,7 +3121,7 @@ export function useSwapBuildTx({
           undefined,
           data,
           needFetchGas,
-          onSignAndSendEntered,
+          onSignAndSendProgress,
         );
 
         if (sendTxRes) {
@@ -3212,7 +3233,7 @@ export function useSwapBuildTx({
       data?: IFetchQuoteResult,
       shouldFallback?: boolean,
       needFetchGas?: boolean,
-      onSignAndSendEntered?: () => void,
+      onSignAndSendProgress?: ISwapSignAndSendProgressCallback,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -3237,7 +3258,7 @@ export function useSwapBuildTx({
           fallbackApproveInfos,
           needFetchGas,
           undefined,
-          onSignAndSendEntered,
+          onSignAndSendProgress,
         );
       }
     },
@@ -3892,9 +3913,24 @@ export function useSwapBuildTx({
             status === ESwapStepStatus.READY ||
             (canRetry && status === ESwapStepStatus.FAILED)
           ) {
-            let hasEnteredSignAndSend = false;
-            const onSignAndSendEntered = () => {
-              hasEnteredSignAndSend = true;
+            const signAndSendProgress: ISwapStepSignAndSendProgress = {
+              hasUncertainSend: false,
+              succeededCount: 0,
+              succeededApproveCount: 0,
+            };
+            const onSignAndSendProgress: ISwapSignAndSendProgressCallback = ({
+              stage,
+              isApprove,
+            }) => {
+              if (stage === 'entered') {
+                signAndSendProgress.hasUncertainSend = true;
+              } else {
+                signAndSendProgress.hasUncertainSend = false;
+                signAndSendProgress.succeededCount += 1;
+                if (isApprove) {
+                  signAndSendProgress.succeededApproveCount += 1;
+                }
+              }
             };
             try {
               setSwapSteps(
@@ -3927,7 +3963,7 @@ export function useSwapBuildTx({
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
                     preSwapDataFinal?.needFetchGas,
-                    onSignAndSendEntered,
+                    onSignAndSendProgress,
                   );
                 } else {
                   approveSendTx = await approveTxNew(
@@ -3938,7 +3974,7 @@ export function useSwapBuildTx({
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
                     preSwapDataFinal?.needFetchGas,
-                    onSignAndSendEntered,
+                    onSignAndSendProgress,
                   );
                 }
                 if (
@@ -4018,7 +4054,7 @@ export function useSwapBuildTx({
                   preSwapDataFinal?.fromToken,
                   preSwapDataFinal?.toToken,
                   preSwapDataFinal?.needFetchGas,
-                  onSignAndSendEntered,
+                  onSignAndSendProgress,
                 );
               } else if (type === ESwapStepType.SEND_TX) {
                 await buildTxNew(
@@ -4031,7 +4067,7 @@ export function useSwapBuildTx({
                   undefined,
                   preSwapDataFinal?.needFetchGas,
                   undefined,
-                  onSignAndSendEntered,
+                  onSignAndSendProgress,
                 );
               } else if (type === ESwapStepType.SIGN_MESSAGE) {
                 await signMessage(
@@ -4049,7 +4085,7 @@ export function useSwapBuildTx({
                   quoteResultFinal,
                   preSwapDataFinal?.shouldFallback,
                   preSwapDataFinal?.needFetchGas,
-                  onSignAndSendEntered,
+                  onSignAndSendProgress,
                 );
               }
 
@@ -4079,7 +4115,7 @@ export function useSwapBuildTx({
               const shouldFallback = shouldFallbackSwapStep({
                 error,
                 stepType: step.type,
-                hasEnteredSignAndSend,
+                signAndSendProgress,
               });
               const oneKeyError = error as IOneKeyError;
               let errorMessage: string | undefined =
@@ -4102,13 +4138,24 @@ export function useSwapBuildTx({
                 quoteResult: swapStepsRef.current.quoteResult,
               };
               if (shouldFallback) {
-                const newSteps = [...fallbackSwapStepsValues.steps];
-                newSteps[i] = {
-                  ...newSteps[i],
-                  status: ESwapStepStatus.READY,
-                };
+                let newSteps = [...fallbackSwapStepsValues.steps];
+                if (
+                  step.type === ESwapStepType.BATCH_APPROVE_SWAP &&
+                  signAndSendProgress.succeededApproveCount > 0
+                ) {
+                  newSteps = markSubmittedSwapApprovalsCompleted({
+                    steps: buildSeparateApproveAndSwapSteps(quoteResultFinal),
+                    succeededApproveCount:
+                      signAndSendProgress.succeededApproveCount,
+                  });
+                } else {
+                  newSteps[i] = {
+                    ...newSteps[i],
+                    status: ESwapStepStatus.READY,
+                  };
+                }
                 fallbackSwapStepsValues = {
-                  steps: [...newSteps],
+                  steps: newSteps,
                   preSwapData: {
                     ...fallbackSwapStepsValues.preSwapData,
                     shouldFallback,
@@ -4122,12 +4169,18 @@ export function useSwapBuildTx({
                   preSwapData: ISwapPreSwapData;
                   quoteResult?: IFetchQuoteResult | undefined;
                 }) => {
+                  if (shouldFallback) {
+                    return {
+                      ...prevSteps,
+                      steps: fallbackSwapStepsValues.steps,
+                      preSwapData: fallbackSwapStepsValues.preSwapData,
+                      quoteResult: fallbackSwapStepsValues.quoteResult,
+                    };
+                  }
                   const newSteps = [...prevSteps.steps];
                   newSteps[i] = {
                     ...newSteps[i],
-                    status: shouldFallback
-                      ? ESwapStepStatus.READY
-                      : ESwapStepStatus.FAILED,
+                    status: ESwapStepStatus.FAILED,
                     errorMessage,
                   };
                   return {
@@ -4135,7 +4188,7 @@ export function useSwapBuildTx({
                     steps: newSteps,
                     preSwapData: {
                       ...prevSteps.preSwapData,
-                      shouldFallback,
+                      shouldFallback: false,
                     },
                   };
                 },
@@ -4175,6 +4228,7 @@ export function useSwapBuildTx({
       buildTxNew,
       signMessage,
       batchApproveSwap,
+      buildSeparateApproveAndSwapSteps,
     ],
   );
 

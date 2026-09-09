@@ -16,6 +16,7 @@ import {
   calculateMinToAmountBySlippage,
   hasInFlightSwapReviewWork,
   invalidateSwapReviewForSlippageChange,
+  markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
   shouldFallbackSwapStep,
@@ -24,12 +25,18 @@ import {
 } from './swapReviewState';
 
 describe('shouldFallbackSwapStep', () => {
+  const noSignAndSendProgress = {
+    hasUncertainSend: false,
+    succeededCount: 0,
+    succeededApproveCount: 0,
+  };
+
   it('keeps fallback available before signing starts', () => {
     expect(
       shouldFallbackSwapStep({
         error: new Error('batch estimate failed'),
         stepType: ESwapStepType.BATCH_APPROVE_SWAP,
-        hasEnteredSignAndSend: false,
+        signAndSendProgress: noSignAndSendProgress,
       }),
     ).toBe(true);
   });
@@ -46,11 +53,57 @@ describe('shouldFallbackSwapStep', () => {
         shouldFallbackSwapStep({
           error: new Error('timeout of 10000ms exceeded'),
           stepType,
-          hasEnteredSignAndSend: true,
+          signAndSendProgress: {
+            hasUncertainSend: true,
+            succeededCount: 0,
+            succeededApproveCount: 0,
+          },
         }),
       ).toBe(false);
     },
   );
+
+  it('falls back to the remaining transaction after an approval succeeded', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('swap preparation failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: false,
+          succeededCount: 1,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not fallback when the swap broadcast result is uncertain', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('swap send timed out'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: true,
+          succeededCount: 1,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fallback after the swap transaction was submitted', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('saving local history failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        signAndSendProgress: {
+          hasUncertainSend: false,
+          succeededCount: 2,
+          succeededApproveCount: 1,
+        },
+      }),
+    ).toBe(false);
+  });
 
   it.each([
     { name: 'OneKeyAppError' },
@@ -66,7 +119,7 @@ describe('shouldFallbackSwapStep', () => {
       shouldFallbackSwapStep({
         error,
         stepType: ESwapStepType.BATCH_APPROVE_SWAP,
-        hasEnteredSignAndSend: false,
+        signAndSendProgress: noSignAndSendProgress,
       }),
     ).toBe(false);
   });
@@ -76,10 +129,49 @@ describe('shouldFallbackSwapStep', () => {
       shouldFallbackSwapStep({
         error: new Error('unknown error'),
         stepType: ESwapStepType.SIGN_MESSAGE,
-        hasEnteredSignAndSend: false,
+        signAndSendProgress: noSignAndSendProgress,
       }),
     ).toBe(false);
   });
+});
+
+describe('markSubmittedSwapApprovalsCompleted', () => {
+  it.each<[number, ESwapStepStatus[]]>([
+    [
+      1,
+      [ESwapStepStatus.SUCCESS, ESwapStepStatus.READY, ESwapStepStatus.READY],
+    ],
+    [
+      2,
+      [ESwapStepStatus.SUCCESS, ESwapStepStatus.SUCCESS, ESwapStepStatus.READY],
+    ],
+  ])(
+    'marks %i submitted approvals successful and leaves later transactions ready',
+    (succeededApproveCount, expectedStatuses) => {
+      const steps: ISwapStep[] = [
+        {
+          type: ESwapStepType.APPROVE_TX,
+          status: ESwapStepStatus.READY,
+          isResetApprove: true,
+        },
+        {
+          type: ESwapStepType.APPROVE_TX,
+          status: ESwapStepStatus.READY,
+        },
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ];
+
+      expect(
+        markSubmittedSwapApprovalsCompleted({
+          steps,
+          succeededApproveCount,
+        }).map((step) => step.status),
+      ).toEqual(expectedStatuses);
+    },
+  );
 });
 
 describe('shouldShowNativeBtcLowSlippageWarning', () => {
