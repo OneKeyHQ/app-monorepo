@@ -28,7 +28,7 @@ import Animated, {
 
 import {
   TamaguiTheme as Theme,
-  useTheme,
+  getTokenValue,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
 
@@ -470,13 +471,16 @@ function PanelSeat({
 function CloseButton({
   onPress,
   testID,
+  label,
 }: {
   onPress: () => void;
   testID: string;
+  label?: string;
 }) {
   return (
     <IconButton
       testID={testID}
+      accessibilityLabel={label}
       icon="CrossedLargeOutline"
       variant="secondary"
       size="medium"
@@ -716,6 +720,11 @@ export interface IMorphOverlayProps<T> {
    */
   onDismiss?: () => void;
   /**
+   * What the close buttons say to a screen reader — the dismissal's
+   * meaning in the caller's words ("Cancel" for the hardware flows).
+   */
+  dismissLabel?: string;
+  /**
    * Whether the app behind is blocked while the shell is there. On, an
    * invisible wall takes every touch outside the shell — the person
    * stays with the overlay until it leaves; the wall itself never
@@ -770,6 +779,7 @@ export function MorphOverlay<T>({
   heightArrangeToken,
   onAim,
   onDismiss,
+  dismissLabel,
   onGeometrySettled,
   modal = false,
   scrim = false,
@@ -796,13 +806,12 @@ export function MorphOverlay<T>({
   const { width: screenWidth } = useWindowDimensions();
   const keyboard = useAnimatedKeyboard();
   const themeName = useThemeName();
-  const theme = useTheme();
-  // The shell's edge definition, resolved from the ambient theme (the
-  // dark pin only starts inside the face): the native ring's hairline
-  // border, the web outline.
-  const shellEdgeColor = platformEnv.isNative
-    ? theme.borderDisabled.val
-    : theme.neutral3.val;
+  // The shell's edge definition — the native ring's hairline border, the
+  // web outline — is the dark theme's neutral3 whatever the app's theme:
+  // the shell is committed dark, and a light-theme edge on it read as a
+  // pale halo. (borderDisabled maps to neutral3 in both themes, so the
+  // native ring and the web outline are one value.)
+  const shellEdgeColor = getTokenValue('$neutral3Dark', 'color');
   const media = useMedia();
   // The posture switch, on the Dialog's own sheet↔panel line (md, a
   // phone-class window): phone posture rests the shell on the bottom
@@ -812,6 +821,30 @@ export function MorphOverlay<T>({
   // anchor flips, and the card's width cap applies only to the wide
   // side.
   const phonePosture = media.md;
+  // Android draws edge to edge, so the layer's bottom edge is the
+  // screen's — under the navigation bar — and the phone-posture shell
+  // lifts by that inset on top of its own clearance (OK-62279: the
+  // capsule and the card sat behind the bar). iOS keeps the constants:
+  // PILL.lift and CARD.margin + bottomPad were sized against the
+  // home-indicator zone already. The wide posture hangs from the top,
+  // where no bottom inset applies.
+  //
+  // The keyboard ADDS to it on purpose, no max: reanimated's Android
+  // keyboard height is the IME inset minus the system bar (it treats the
+  // bar as opaque unless told otherwise), so inset + keyboard is exactly
+  // the keyboard's top edge measured from the screen bottom; a max would
+  // rest the shell one bar height under the keyboard.
+  //
+  // A shared value, so the drag worklets and the position worklet read
+  // the same clearance (an inset change — a nav-mode switch — re-aims
+  // both without rebuilding the gesture).
+  const insets = useSafeAreaInsets();
+  const bottomInset =
+    platformEnv.isNativeAndroid && phonePosture ? insets.bottom : 0;
+  const bottomClearance = useSharedValue(bottomInset);
+  useEffect(() => {
+    bottomClearance.value = bottomInset;
+  }, [bottomClearance, bottomInset]);
   const cardWidth = phonePosture
     ? screenWidth - CARD.margin * 2
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
@@ -879,7 +912,8 @@ export function MorphOverlay<T>({
     // provably off screen, instead of visibly springing under the
     // reveal.
     const offscreenBelow =
-      EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
+      EXIT_OVERSHOOT /
+      (targets.height + targets.lift + bottomInset + EXIT_OVERSHOOT);
     const arriving = prevPose === 'hidden' || presence.value < offscreenBelow;
     if (first || reducedMotion || arriving) {
       width.value = targets.width;
@@ -940,6 +974,7 @@ export function MorphOverlay<T>({
   }, [
     onGeometrySettled,
     activeSeatKey,
+    bottomInset,
     cardContentMeasured,
     cardHeight,
     cardRadius,
@@ -981,7 +1016,9 @@ export function MorphOverlay<T>({
           // the bottom, up off the top. Normalized here, the rest of the
           // math never knows which way the shell hangs.
           const drag = phonePosture ? event.translationY : -event.translationY;
-          const travel = height.value + lift.value + EXIT_OVERSHOOT;
+          // The same door the position worklet opens (see positionStyle).
+          const travel =
+            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
           const pull = drag >= 0 ? drag : -rubberBand(-drag, height.value);
           presence.value = 1 - pull / travel;
         })
@@ -990,7 +1027,8 @@ export function MorphOverlay<T>({
           const dragVelocity = phonePosture
             ? event.velocityY
             : -event.velocityY;
-          const travel = height.value + lift.value + EXIT_OVERSHOOT;
+          const travel =
+            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
           // Finger velocity, in presence units per second.
           const velocity = -dragVelocity / travel;
           const projected = drag + dragVelocity * DRAG_PROJECTION_S;
@@ -1007,7 +1045,15 @@ export function MorphOverlay<T>({
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
-    [dismiss, dragEnabled, height, lift, phonePosture, presence],
+    [
+      bottomClearance,
+      dismiss,
+      dragEnabled,
+      height,
+      lift,
+      phonePosture,
+      presence,
+    ],
   );
 
   // Size and position ride separate styles on purpose: the size worklet
@@ -1035,17 +1081,21 @@ export function MorphOverlay<T>({
     // pulls presence under 1 (and a breath over it, rubber-banded), so
     // the finger rides this same line either way.
     const travel =
-      (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
+      (1 - presence.value) *
+      (height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT);
     return {
       transform: [
         {
           translateY: phonePosture
-            ? travel - lift.value - keyboard.height.value
+            ? travel -
+              lift.value -
+              bottomClearance.value -
+              keyboard.height.value
             : lift.value - travel,
         },
       ],
     };
-  }, [height, keyboard, lift, phonePosture, presence]);
+  }, [bottomClearance, height, keyboard, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike.
   const scrimFadeStyle = useAnimatedStyle(
@@ -1252,6 +1302,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>
@@ -1283,6 +1334,7 @@ export function MorphOverlay<T>({
                     >
                       <CloseButton
                         testID="morph-overlay-capsule-close"
+                        label={dismissLabel}
                         onPress={dismiss}
                       />
                     </Animated.View>

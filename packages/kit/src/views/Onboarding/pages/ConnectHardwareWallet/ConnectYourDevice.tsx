@@ -43,6 +43,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/useOnboardingDeviceScanErrorHandler';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
@@ -1123,6 +1124,8 @@ export function ConnectYourDevicePage() {
   // Shared connection logic - extract from ConnectByUSBOrBLE
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
+  const { beginBurst: beginStageBurst, endBurst: endStageBurst } =
+    useDeviceStageBurst();
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
   const { showSelectAddWalletTypeDialog } = useSelectAddWalletTypeDialog();
   const fwUpdateActions = useFirmwareUpdateActions();
@@ -1405,61 +1408,91 @@ export function ConnectYourDevicePage() {
       isFirmwareVerified?: boolean;
     }) => {
       setIsChecking(true);
-
-      const showDeviceProcessLoadingDialog = () =>
-        backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
-          connectId: device.connectId ?? '',
-        });
-      // The iOS wait is for the legacy Sheet's mount acknowledgement —
-      // with the stage owning the surface no Sheet mounts, so waiting
-      // can only time out and kill the flow (OK-59934).
-      if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
-        await hardwareUiStateDialogLifecycle.openAndWait(
-          showDeviceProcessLoadingDialog,
-        );
-      } else {
-        void showDeviceProcessLoadingDialog();
-      }
-
-      let features: IOneKeyDeviceFeatures | undefined;
-      let deviceState: IOneKeyDeviceState;
-
+      // The stage is held across this whole run, the way the v2 page
+      // holds it (OK-59934). The run reads the device state, may stop on
+      // the wallet-type fork — a card with no device call behind it —
+      // and only then creates the wallet: three beats with seams between
+      // them where the stage would otherwise leave, taking an unanswered
+      // fork card with it. Released in the finally below; the holder's
+      // unmount is the safety net.
+      let stageError: unknown;
+      await beginStageBurst({
+        connectId: device.connectId ?? undefined,
+        deviceType: device.deviceType,
+        deviceName: deviceUtils.buildDeviceStageName({
+          features: connectedFeatures,
+          fallbackName: device.name,
+        }),
+      });
       try {
-        const connectProtocol =
-          connectedFeatures.protocol === 'V1' ||
-          connectedFeatures.protocol === 'V2'
-            ? connectedFeatures.protocol
-            : undefined;
-        deviceState = await getWalletCreationDeviceState({
-          serviceHardware: backgroundApiProxy.serviceHardware,
-          connectId: device.connectId ?? '',
-          connectProtocol,
-        });
-        features = projectLegacyDeviceFeaturesFromState(deviceState);
-      } catch (_error) {
-        await closeDialogAndReturn(device, { skipDelayClose: true });
-        return;
+        const showDeviceProcessLoadingDialog = () =>
+          backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
+            connectId: device.connectId ?? '',
+          });
+        // The iOS wait is for the legacy Sheet's mount acknowledgement —
+        // with the stage owning the surface no Sheet mounts, so waiting
+        // can only time out and kill the flow (OK-59934).
+        if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
+          await hardwareUiStateDialogLifecycle.openAndWait(
+            showDeviceProcessLoadingDialog,
+          );
+        } else {
+          void showDeviceProcessLoadingDialog();
+        }
+
+        let features: IOneKeyDeviceFeatures | undefined;
+        let deviceState: IOneKeyDeviceState;
+
+        try {
+          const connectProtocol =
+            connectedFeatures.protocol === 'V1' ||
+            connectedFeatures.protocol === 'V2'
+              ? connectedFeatures.protocol
+              : undefined;
+          deviceState = await getWalletCreationDeviceState({
+            serviceHardware: backgroundApiProxy.serviceHardware,
+            connectId: device.connectId ?? '',
+            connectProtocol,
+          });
+          features = projectLegacyDeviceFeaturesFromState(deviceState);
+        } catch (_error) {
+          await closeDialogAndReturn(device, { skipDelayClose: true });
+          return;
+        }
+
+        const strategy = await determineWalletCreationStrategy(
+          deviceState,
+          device,
+        );
+
+        if (!strategy) {
+          await closeDialogAndReturn(device, { skipDelayClose: true });
+          return;
+        }
+
+        await createHwWallet(
+          device,
+          strategy,
+          features,
+          isFirmwareVerified,
+          deviceState,
+        );
+      } catch (error) {
+        stageError = error;
+        throw error;
+      } finally {
+        // One release for the hold opened above. The error rides out with
+        // it so the stage speaks the failure instead of simply leaving.
+        await endStageBurst({ error: stageError });
       }
-
-      const strategy = await determineWalletCreationStrategy(
-        deviceState,
-        device,
-      );
-
-      if (!strategy) {
-        await closeDialogAndReturn(device, { skipDelayClose: true });
-        return;
-      }
-
-      await createHwWallet(
-        device,
-        strategy,
-        features,
-        isFirmwareVerified,
-        deviceState,
-      );
     },
-    [determineWalletCreationStrategy, createHwWallet, closeDialogAndReturn],
+    [
+      beginStageBurst,
+      endStageBurst,
+      determineWalletCreationStrategy,
+      createHwWallet,
+      closeDialogAndReturn,
+    ],
   );
 
   // Shared device connection handler
@@ -1495,7 +1528,10 @@ export function ConnectYourDevicePage() {
           deviceName: device.name ?? undefined,
         });
 
-        const handleBootloaderMode = (existsFirmware: boolean) => {
+        const handleBootloaderMode = async (existsFirmware: boolean) => {
+          // The checking beat stands on stage behind its touch wall; the
+          // dialog must not open under it (OK-62105). Yield first.
+          await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
@@ -1513,7 +1549,7 @@ export function ConnectYourDevicePage() {
             await deviceUtils.existsFirmwareFromSearchDevice({
               device: device as any,
             });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 
@@ -1544,7 +1580,7 @@ export function ConnectYourDevicePage() {
           const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
             features,
           });
-          handleBootloaderMode(existsFirmware);
+          await handleBootloaderMode(existsFirmware);
           return;
         }
 

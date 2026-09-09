@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -12,6 +14,8 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
@@ -19,14 +23,11 @@ import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { getIssuerLabel } from '../TokenSelector/StockTokenVariantSelector';
 
-// Matches the trade panel's own Output row (Figma 25672:55964). The design
-// never specs an empty state for Shares Per Token, whose ratio some issuers
-// omit, so that row reuses this convention pending design sign-off.
+// Matches the trade panel's own Output row (Figma 25672:55964).
 const VALUE_FALLBACK = '--';
 // Figma 25881:22529: the block matches the trade panel content width (344),
 // rows are 20 high with a 14 gap and the card keeps a 16 inset.
 const POPOVER_WIDTH = 344;
-const POPOVER_TITLE = 'Token Info';
 const ADDRESS_FORMAT_OPTIONS = { leadingLength: 6, trailingLength: 4 };
 const PRESSABLE_HOVER_STYLE = { opacity: 0.8 } as const;
 
@@ -93,6 +94,7 @@ function StockTokenInfoContent({
   variant: IMarketStockTokenVariant;
   stockId?: string;
 }) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
 
   const website = variant.website?.trim();
@@ -107,7 +109,9 @@ function StockTokenInfoContent({
   }, [copyText, variant.contractAddress]);
 
   const ticker = stockId || variant.symbol || '';
-  const sharesPerToken = variant.tokenToAssetRatio?.trim();
+  const sharesPerToken = getValidStockTokenToAssetRatio(
+    variant.tokenToAssetRatio,
+  );
   const tradingHours = formatTradingHours(variant.tradingHours?.days);
 
   return (
@@ -117,7 +121,12 @@ function StockTokenInfoContent({
       p="$4"
       gap="$3.5"
     >
-      <InfoRow label="Token issuer" testID="stock-token-info-issuer">
+      <InfoRow
+        label={intl.formatMessage({
+          id: ETranslations.trade_stocks_token_issuer,
+        })}
+        testID="stock-token-info-issuer"
+      >
         <XStack
           alignItems="center"
           gap="$1.5"
@@ -136,30 +145,51 @@ function StockTokenInfoContent({
         </XStack>
       </InfoRow>
 
-      <InfoRow label="Underlying asset" testID="stock-token-info-underlying">
+      <InfoRow
+        label={intl.formatMessage({
+          id: ETranslations.trade_stocks_underlying_asset,
+        })}
+        testID="stock-token-info-underlying"
+      >
         <InfoValueText>{ticker || VALUE_FALLBACK}</InfoValueText>
       </InfoRow>
 
-      <InfoRow label="Shares Per Token" testID="stock-token-info-shares">
-        <InfoValueText>
-          {sharesPerToken
-            ? [sharesPerToken, ticker].filter(Boolean).join(' ')
-            : VALUE_FALLBACK}
-        </InfoValueText>
-      </InfoRow>
+      {sharesPerToken ? (
+        <InfoRow
+          label={intl.formatMessage({
+            id: ETranslations.market_shares_per_token,
+          })}
+          testID="stock-token-info-shares"
+        >
+          <InfoValueText>
+            {[sharesPerToken, ticker].filter(Boolean).join(' ')}
+          </InfoValueText>
+        </InfoRow>
+      ) : null}
 
-      <InfoRow label="Trading Hours" testID="stock-token-info-trading-hours">
+      <InfoRow
+        label={intl.formatMessage({ id: ETranslations.trading_hours_title })}
+        testID="stock-token-info-trading-hours"
+      >
         <InfoValueText>{tradingHours}</InfoValueText>
       </InfoRow>
 
-      <InfoRow label="Network" testID="stock-token-info-network">
+      <InfoRow
+        label={intl.formatMessage({ id: ETranslations.global_network })}
+        testID="stock-token-info-network"
+      >
         {variant.networkLogoUrl ? (
           <Token size="xxs" tokenImageUri={variant.networkLogoUrl} />
         ) : null}
         <InfoValueText>{variant.networkName || VALUE_FALLBACK}</InfoValueText>
       </InfoRow>
 
-      <InfoRow label="Contract Address" testID="stock-token-info-contract">
+      <InfoRow
+        label={intl.formatMessage({
+          id: ETranslations.trade_stocks_contract_address,
+        })}
+        testID="stock-token-info-contract"
+      >
         {variant.contractAddress ? (
           <>
             <InfoValueText>
@@ -184,6 +214,7 @@ function StockTokenInfoContent({
 }
 
 export function StockTokenInfoPopover() {
+  const intl = useIntl();
   const { selectedTokenVariant, stockId } = useStockDetail();
 
   // Without a resolved variant there is nothing to show, so the icon stays
@@ -201,7 +232,9 @@ export function StockTokenInfoPopover() {
 
   return (
     <Popover
-      title={POPOVER_TITLE}
+      title={intl.formatMessage({
+        id: ETranslations.trade_stocks_token_details,
+      })}
       placement="bottom-end"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={

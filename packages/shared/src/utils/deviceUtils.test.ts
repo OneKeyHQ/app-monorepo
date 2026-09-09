@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareTransportType } from '../../types';
+import { EHardwareVendor } from '../../types/device';
 
 import deviceUtils, { ESupportSettings } from './deviceUtils';
 import {
@@ -10,9 +11,68 @@ import {
   supportsHardwareQrWallet,
 } from './hardwareDeviceTypes';
 
+import type { IOneKeyDeviceFeatures } from '../../types/device';
+
 const mockGetAutoLockOptions = jest.fn();
 const mockGetAutoShutDownOptions = jest.fn();
 const PROTOCOL_V2_NEVER_TIMEOUT_MS = 0x10_00_00_00;
+
+describe('isSamePhysicalDevice', () => {
+  it('matches reset records by serial number after BLE aliases are cleared', () => {
+    expect(
+      deviceUtils.isSamePhysicalDevice(
+        { uuid: 'SERIAL', deviceId: 'old-seed', connectId: '' },
+        { uuid: 'SERIAL', deviceId: 'new-seed', connectId: 'new-ble' },
+      ),
+    ).toBe(true);
+  });
+
+  it('uses the persisted feature serial for legacy records', () => {
+    expect(
+      deviceUtils.isSamePhysicalDevice(
+        {
+          featuresInfo: { onekey_serial_no: 'SERIAL' } as IOneKeyDeviceFeatures,
+        },
+        { uuid: 'SERIAL' },
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps different serial numbers separate despite a stale shared BLE alias', () => {
+    expect(
+      deviceUtils.isSamePhysicalDevice(
+        { uuid: 'SERIAL-A', bleConnectId: 'BLE-ID' },
+        { uuid: 'SERIAL-B', connectId: 'BLE-ID' },
+      ),
+    ).toBe(false);
+  });
+
+  it.each([{ uuid: 'SERIAL' }, { deviceId: 'DEVICE-ID' }])(
+    'matches %j without depending on vendor metadata',
+    (identity) => {
+      expect(
+        deviceUtils.isSamePhysicalDevice(
+          { ...identity, vendor: EHardwareVendor.onekey },
+          { ...identity, vendor: EHardwareVendor.trezor },
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it('preserves case-insensitive transport matching without serial numbers', () => {
+    expect(
+      deviceUtils.isSamePhysicalDevice(
+        { connectId: 'BLE-ID', deviceId: 'old-seed' },
+        { bleConnectId: 'ble-id', deviceId: 'new-seed' },
+      ),
+    ).toBe(true);
+  });
+
+  it('does not group devices by empty identifiers', () => {
+    expect(deviceUtils.isSamePhysicalDevice({}, { connectId: '' })).toBe(false);
+    expect(deviceUtils.isSamePhysicalDevice(undefined, undefined)).toBe(false);
+  });
+});
 
 describe('getFixedUpdatingConnectId', () => {
   const device = {

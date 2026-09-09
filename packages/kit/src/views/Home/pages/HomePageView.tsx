@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
+  HeaderScrollGestureWrapper,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -40,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -130,6 +132,18 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
       return children;
     };
 
+// Placement differs by platform — see the renderHeader comment in HomePageView.
+function HomeAlerts() {
+  return (
+    <>
+      <RiskApprovalAlert />
+      <WatchOnlyAlert />
+      <NetworkAlert />
+      <NotificationPermissionRecoveryAlert scene="home" initialDelayMs={6000} />
+    </>
+  );
+}
+
 function HistoryTabNotificationAlertSlot() {
   const intl = useIntl();
   const focusedTab = useFocusedTab();
@@ -207,6 +221,9 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isTravelModeRuntime =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { md: isSmallScreen } = useMedia();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
@@ -461,13 +478,26 @@ export function HomePageView({
     ],
   );
 
-  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
-  // Keeping them inside renderHeader made them scroll through the sticky
-  // TabBar area — a partially-scrolled alert would leave a visible band
+  // Web: alerts sit outside Tabs.Container (rendered next to TabPageHeader
+  // below). Keeping them inside renderHeader made them scroll through the
+  // sticky TabBar area — a partially-scrolled alert would leave a visible band
   // between TabPageHeader and the tabs.
+  //
+  // Native: alerts live inside the collapsible header instead. Tabs.Container
+  // never moves; its header only translates up by its own height, so anything
+  // left in normal flow above the container keeps its slot when collapsed, and
+  // the header's opaque top container paints over that slot with its own
+  // bottom edge (the banner card). That read as "the banner keeps occupying
+  // the top" whenever an alert was showing (OK-62183). Inside the header the
+  // alerts collapse away with everything else.
   const renderHeader = useCallback(() => {
     return (
       <Stack {...homePageContentMaxWidthSx}>
+        {platformEnv.isNative ? (
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <HomeAlerts />
+          </HeaderScrollGestureWrapper>
+        ) : null}
         <HomeHeaderContainer />
       </Stack>
     );
@@ -1129,6 +1159,7 @@ export function HomePageView({
   const activeWalletUnavailable =
     accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
+    forceNoWalletContent: isTravelModeRuntime,
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
@@ -1139,7 +1170,7 @@ export function HomePageView({
   });
 
   const homePage = useMemo(() => {
-    if (!ready) {
+    if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
@@ -1162,15 +1193,15 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            <Stack {...homePageContentMaxWidthSx}>
-              <RiskApprovalAlert />
-              <WatchOnlyAlert />
-              <NetworkAlert />
-              <NotificationPermissionRecoveryAlert
-                scene="home"
-                initialDelayMs={6000}
-              />
-            </Stack>
+            {/* Native keeps the alerts inside the collapsible header (see
+                renderHeader), but that header only mounts with the wallet
+                content. Without a usable wallet fall back to the outer slot
+                so the offline and notification-permission alerts still run. */}
+            {platformEnv.isNative && !hasNoUsableWallet ? null : (
+              <Stack {...homePageContentMaxWidthSx}>
+                <HomeAlerts />
+              </Stack>
+            )}
             {content}
             {platformEnv.isNative ? (
               <YStack
@@ -1194,6 +1225,7 @@ export function HomePageView({
     );
   }, [
     ready,
+    isTravelModeRuntime,
     hasNoUsableWallet,
     showNoWalletContent,
     tabPageHeight,

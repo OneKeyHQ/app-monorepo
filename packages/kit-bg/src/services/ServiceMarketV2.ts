@@ -1,3 +1,4 @@
+// cspell:ignore financials
 import { isNil } from 'lodash';
 
 import {
@@ -8,6 +9,7 @@ import {
   DEFAULT_MARKET_STOCK_SORT_BY,
   DEFAULT_MARKET_STOCK_SORT_TYPE,
 } from '@onekeyhq/shared/src/consts/marketConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,6 +24,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IStockFinancialPeriod,
+  IStockFinancials,
+} from '@onekeyhq/shared/types/marketStockFinancials';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketAccountTokenTransactionsResponse,
@@ -1078,6 +1084,35 @@ class ServiceMarketV2 extends ServiceBase {
       message: string;
       data: IMarketStockPublicDetail | null;
     }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}`, requestConfig);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockFinancials({
+    stockId,
+    period,
+  }: {
+    stockId: string;
+    period: IStockFinancialPeriod;
+  }): Promise<IStockFinancials | null> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: { period, limit: 5 },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IStockFinancials | null;
+    }>(
+      `/utility/v1/stocks/${encodeURIComponent(stockId)}/financials`,
+      requestConfig,
+    );
+    if (response.data.code !== 0) {
+      throw new OneKeyError('Unable to load stock financials');
+    }
     return response.data.data;
   }
 

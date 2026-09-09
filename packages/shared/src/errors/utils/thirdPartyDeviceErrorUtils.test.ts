@@ -321,6 +321,25 @@ describe('filterThirdPartyHwCreateFailureToasts', () => {
     ]);
   });
 
+  it('keeps only one passphrase-always-on-device failure for toast display', () => {
+    const first = {
+      error: {
+        code: ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice,
+        message: 'Turn off always-on-device passphrase entry',
+      },
+    };
+    const second = {
+      error: {
+        code: ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice,
+        message: 'Turn off always-on-device passphrase entry',
+      },
+    };
+
+    expect(filterThirdPartyHwCreateFailureToasts([first, second])).toEqual([
+      first,
+    ]);
+  });
+
   it('drops failures explicitly marked as autoToast=false', () => {
     const first = {
       error: {

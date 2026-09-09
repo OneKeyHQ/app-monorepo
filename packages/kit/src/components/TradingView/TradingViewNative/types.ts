@@ -11,6 +11,7 @@ export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/trading
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
+export type ITradingViewNativeStorageNamespace = 'market' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
@@ -103,8 +104,24 @@ export interface ITradingViewNativeChartComponentGroup {
   children: readonly ITradingViewNativeChartComponentNode[];
 }
 
+export interface ITradingViewNativeTradeMark {
+  id: string;
+  label: 'B' | 'S';
+  text: string;
+  time: number;
+}
+
+export interface ITradingViewNativeTradeMarksComponent {
+  id: string;
+  type: 'tradeMarks';
+  props: {
+    marks: readonly ITradingViewNativeTradeMark[];
+  };
+}
+
 export type ITradingViewNativeChartLeafComponent =
-  ITradingViewNativeReferenceLineComponent;
+  | ITradingViewNativeReferenceLineComponent
+  | ITradingViewNativeTradeMarksComponent;
 
 export type ITradingViewNativeChartComponentNode =
   | ITradingViewNativeChartComponentGroup
@@ -113,6 +130,7 @@ export type ITradingViewNativeChartComponentNode =
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;

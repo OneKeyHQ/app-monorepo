@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
   buildSwapDefaultSelectedTokensForNetwork,
   resolveSwapTokenNetworkLogoURI,
@@ -151,6 +152,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
+  swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -2603,6 +2605,35 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
+      const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
+      // Replacing a refresh must not fall back to its previously cached balance.
+      const shouldFetchBalance =
+        fetchBalance || get(swapSelectTokenDetailFetchingAtom())[type];
+      set(swapSelectTokenDetailRequestIdAtom(), (previous) => ({
+        ...previous,
+        [type]: requestId,
+      }));
+      if (shouldFetchBalance) {
+        set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+          ...previous,
+          [type]: true,
+        }));
+      }
+      const isCurrentRequest = () => {
+        const selectedToken =
+          type === ESwapDirectionType.FROM
+            ? get(swapSelectFromTokenAtom())
+            : get(swapSelectToTokenAtom());
+        return (
+          get(swapSelectTokenDetailRequestIdAtom())[type] === requestId &&
+          get(swapTypeSwitchAtom()) === currentSwapType &&
+          (equalTokenNoCaseSensitive({
+            token1: selectedToken,
+            token2: token,
+          }) ||
+            (!selectedToken && !token))
+        );
+      };
       let accountAddress: string | undefined;
       let accountNetworkId: string | undefined;
       let accountId: string | undefined;
@@ -2644,6 +2675,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay: string | undefined;
       let hasAuthoritativeBalance = false;
+      if (!isCurrentRequest()) {
+        if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
+          set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+            ...previous,
+            [type]: false,
+          }));
+        }
+        return;
+      }
+      set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+        ...previous,
+        [type]: false,
+      }));
       if (
         (token &&
           accountAddress &&
@@ -2655,7 +2699,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
-          !fetchBalance
+          !shouldFetchBalance
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
@@ -2674,15 +2718,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             } else {
               set(swapSelectedToTokenBalanceAtom(), '');
             }
+            const contractAddress =
+              await getSwapTokenBalanceContractAddress(token);
+            // A superseded lookup must not cancel the newer detail request.
+            if (!isCurrentRequest()) {
+              return;
+            }
             const detailInfo =
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,
                 accountAddress,
                 accountId,
-                contractAddress: token.contractAddress,
+                contractAddress,
                 direction: type,
                 currency: USD_CURRENCY_ID,
               });
+            if (!isCurrentRequest()) {
+              return;
+            }
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
                 detailInfo[0].balanceParsed ?? 0,
@@ -2757,21 +2810,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceDisplay = '0.0';
             }
           } finally {
-            set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
-              ...pre,
-              [type]: false,
-            }));
+            if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
+              set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
+                ...pre,
+                [type]: false,
+              }));
+            }
           }
         }
       }
-      const newToken =
-        type === ESwapDirectionType.FROM
-          ? get(swapSelectFromTokenAtom())
-          : get(swapSelectToTokenAtom());
-      if (
-        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
-        (!token && !newToken)
-      ) {
+      if (isCurrentRequest()) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {

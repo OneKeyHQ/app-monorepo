@@ -228,6 +228,20 @@ function MobileBrowser() {
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  // Pages the outer pager is actually painting. Tracked separately from
+  // selectedHeaderTab, which only commits after the swipe finishes — the
+  // gap between the two is what showed a blank page mid-swipe (OK-60300).
+  const [visibleOuterPages, setVisibleOuterPages] = useState<number[]>([]);
+  const handleVisiblePagesChange = useCallback((pages: number[]) => {
+    setVisibleOuterPages((prev) =>
+      prev.length === pages.length && prev.every((v, i) => v === pages[i])
+        ? prev
+        : pages,
+    );
+  }, []);
+  const isEarnPageVisible =
+    selectedHeaderTab === ETranslations.global_earn ||
+    visibleOuterPages.includes(1);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
@@ -285,7 +299,8 @@ function MobileBrowser() {
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
-    isBrowserHeaderTabSelected && showDiscoveryPage;
+    showDiscoveryPage &&
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
@@ -580,6 +595,7 @@ function MobileBrowser() {
               marketTabsRef={marketTabsRef}
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
+              onVisiblePagesChange={handleVisiblePagesChange}
               marketContent={
                 <MarketHomeWithProvider
                   isFocused={selectedHeaderTab === ETranslations.global_market}
@@ -591,6 +607,7 @@ function MobileBrowser() {
                 <EarnHomeWithProvider
                   showHeader={false}
                   showContent={selectedHeaderTab === ETranslations.global_earn}
+                  isVisible={isEarnPageVisible}
                   defaultTab={earnTab}
                   tabsRef={earnTabsRef}
                   useSwipePager={useOuterPager}

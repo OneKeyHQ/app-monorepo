@@ -27,4 +27,5 @@ export interface ITimeRangeSelectorProps {
   value: string;
   onChange: (value: string) => void;
   isLoading?: boolean;
+  desktopRedesign?: boolean;
 }
