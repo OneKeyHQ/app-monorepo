@@ -1301,9 +1301,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
-  // Redeem is only offered when the server says this protocol supports it for
-  // this account — never derived from the balance alone.
-  const canRedeem = Boolean(detailInfo?.mobilePortfolio?.capabilities.redeem);
 
   const pageFooter = useMemo(() => {
     if (gtMd) {
@@ -1318,9 +1315,22 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
 
-    // With a position the phone layout gains a Redeem button beside the primary
-    // action; without one the footer stays single-button as before.
-    const showRedeem = isMobileLayout && canRedeem;
+    // The phone footer is driven by the server's actions, which already model
+    // what the design asks for: both buttons stay put, and one that cannot be
+    // used right now is disabled rather than removed (OK-62410, OK-62406).
+    // Deriving it from capabilities.redeem meant "no ability, no button", so a
+    // token with no position lost its Redeem entirely. A protocol whose
+    // actions carry no deposit/withdraw at all (hold-to-earn) keeps the single
+    // primary button it always had.
+    const depositAction = detailInfo?.actions?.find(
+      (action) => action.type === 'deposit',
+    );
+    const withdrawAction = detailInfo?.actions?.find(
+      (action) => action.type === 'withdraw',
+    );
+    const showRedeem = isMobileLayout && Boolean(withdrawAction);
+    const depositDisabled = Boolean(depositAction?.disabled);
+    const withdrawDisabled = Boolean(withdrawAction?.disabled);
 
     return (
       <Page.Footer
@@ -1328,6 +1338,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         confirmButtonProps={{
           variant: 'primary',
           onPress,
+          disabled: depositDisabled,
           mb: tabBarHeight,
         }}
         {...(showRedeem
@@ -1337,6 +1348,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               }),
               cancelButtonProps: {
                 variant: 'secondary',
+                disabled: withdrawDisabled,
                 // ManagePosition defaults to the deposit tab, so Redeem has to
                 // name its own or it opens the wrong side of the modal.
                 onPress: () => handleOpenManageModal('withdraw'),
@@ -1353,7 +1365,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
-    canRedeem,
+    detailInfo?.actions,
   ]);
 
   return (
