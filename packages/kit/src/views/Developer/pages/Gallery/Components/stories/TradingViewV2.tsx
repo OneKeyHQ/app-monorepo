@@ -10,6 +10,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import {
+  TradingViewChartSettings,
+  TradingViewIndicatorSettings,
+  createTradingViewChartSettingsValue,
+  createTradingViewIndicatorSettingsValue,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import {
   type ITradingViewDisabledFeature,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
@@ -68,6 +74,18 @@ const DEFAULT_DISABLED_FEATURES = ALL_DISABLED_FEATURES.filter(
 );
 const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
 
+function TradingViewChartSettingsGalleryExample() {
+  const [value, setValue] = useState(createTradingViewChartSettingsValue);
+
+  return <TradingViewChartSettings value={value} onConfirm={setValue} />;
+}
+
+function TradingViewIndicatorSettingsGalleryExample() {
+  const [value, setValue] = useState(createTradingViewIndicatorSettingsValue);
+
+  return <TradingViewIndicatorSettings value={value} onConfirm={setValue} />;
+}
+
 const TradingViewV2Gallery = () => {
   const [disabledFeatures, setDisabledFeatures] = useState<
     ITradingViewDisabledFeature[]
@@ -111,6 +129,14 @@ const TradingViewV2Gallery = () => {
         getFilePath={() => __CURRENT_FILE_PATH__}
         componentName="TradingViewV2"
         elements={[
+          {
+            title: 'OKX-style chart settings UI mock',
+            element: <TradingViewChartSettingsGalleryExample />,
+          },
+          {
+            title: 'OKX-style indicator settings UI mock',
+            element: <TradingViewIndicatorSettingsGalleryExample />,
+          },
           {
             title: 'Market USDC',
             element: (

@@ -8,9 +8,22 @@ import { ipcMessageKeys } from '../app/config';
 
 const LONG_TASK_MIN_MS = 200;
 const SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN = 10;
+const MAX_PENDING_SENTRY_BREADCRUMBS = 20;
 const INTERVAL_CENSUS_DUMP_MS = 60_000;
 
 let installed = false;
+
+type ILongTaskBreadcrumb = {
+  category: 'longtask';
+  level: 'warning';
+  message: string;
+  data: {
+    durationMs: number;
+    name: string;
+  };
+};
+
+const pendingSentryBreadcrumbs: ILongTaskBreadcrumb[] = [];
 
 export function installDesktopWatchdog(): void {
   if (installed) return;
@@ -50,7 +63,7 @@ function installLongTaskObserver() {
 
           if (breadcrumbsInWindow < SENTRY_BREADCRUMB_RATE_LIMIT_PER_MIN) {
             breadcrumbsInWindow += 1;
-            void addLongTaskBreadcrumb(entry);
+            queueLongTaskBreadcrumb(entry);
           }
         }
       }
@@ -61,21 +74,26 @@ function installLongTaskObserver() {
   }
 }
 
-async function addLongTaskBreadcrumb(entry: PerformanceEntry) {
-  try {
-    const { addBreadcrumb } =
-      await import('@onekeyhq/shared/src/modules3rdParty/sentry');
-    addBreadcrumb({
-      category: 'longtask',
-      level: 'warning',
-      message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
-      data: {
-        durationMs: Math.round(entry.duration),
-        name: entry.name,
-      },
-    });
-  } catch {
-    // Sentry not initialized yet (e.g. dev build) — ignore.
+function queueLongTaskBreadcrumb(entry: PerformanceEntry) {
+  pendingSentryBreadcrumbs.push({
+    category: 'longtask',
+    level: 'warning',
+    message: `LongTask ${Math.round(entry.duration)}ms (${entry.name})`,
+    data: {
+      durationMs: Math.round(entry.duration),
+      name: entry.name,
+    },
+  });
+  if (pendingSentryBreadcrumbs.length > MAX_PENDING_SENTRY_BREADCRUMBS) {
+    pendingSentryBreadcrumbs.shift();
+  }
+}
+
+export function flushDesktopWatchdogBreadcrumbs(
+  addBreadcrumb: (breadcrumb: ILongTaskBreadcrumb) => void,
+): void {
+  for (const breadcrumb of pendingSentryBreadcrumbs.splice(0)) {
+    addBreadcrumb(breadcrumb);
   }
 }
 

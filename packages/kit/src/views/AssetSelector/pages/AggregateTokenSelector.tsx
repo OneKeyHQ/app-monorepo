@@ -27,6 +27,7 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   sortTokensByOrder,
   sortTokensCommon,
@@ -40,6 +41,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
+import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -60,7 +62,7 @@ import type { RouteProp } from '@react-navigation/core';
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
 
-function AggregateTokenListItem({
+export function AggregateTokenListItem({
   token,
   aggKey,
   network,
@@ -109,9 +111,11 @@ function AggregateTokenListItem({
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
-  const { result: accountId, run } = usePromiseResult(async () => {
+  // Settles to an object so a pending lookup (undefined) stays distinguishable
+  // from a settled "no address on this network" ({ accountId: undefined }).
+  const { result: networkAccountLookup, run } = usePromiseResult(async () => {
     if (token.accountId) {
-      return token.accountId;
+      return { accountId: token.accountId };
     }
 
     const deriveType =
@@ -128,11 +132,17 @@ function AggregateTokenListItem({
         },
       );
 
-      return account?.id;
+      return { accountId: account?.id };
     } catch {
-      return undefined;
+      return { accountId: undefined };
     }
   }, [indexedAccount?.id, token.networkId, token.accountId]);
+  const accountId = networkAccountLookup?.accountId;
+  // OK-61879: a network with no created address has no balance to show, so
+  // the value column is dropped once the lookup settles without an account.
+  // While pending it stays put, so rows that do have an address never blink
+  // their balance in after the first frame.
+  const isAddressMissing = networkAccountLookup !== undefined && !accountId;
 
   const handleOnPress = useCallback(async () => {
     if (accountId) {
@@ -222,9 +232,14 @@ function AggregateTokenListItem({
       testID={AssetSelectorTestIDs.aggregateTokenListItem}
       key={token.$key}
       title={token.networkName || network?.name}
-      avatarProps={{
-        src: network?.logoURI,
-      }}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isCustomNetwork={network?.isCustomNetwork}
+          networkName={network?.name}
+          size="$10"
+        />
+      }
       onPress={handleOnPress}
       disabled={isOtherTokenProcessing}
       opacity={isOtherTokenProcessing ? 0.5 : 1}
@@ -234,7 +249,7 @@ function AggregateTokenListItem({
           : intl.formatMessage({ id: ETranslations.global_create_address }),
       })}
     >
-      {hideBalanceAndValue ? null : (
+      {hideBalanceAndValue || isAddressMissing ? null : (
         <ListItem.Text
           align="right"
           primary={
@@ -243,7 +258,16 @@ function AggregateTokenListItem({
               formatter="balance"
               textAlign="right"
             >
-              {tokenInfo?.balanceParsed}
+              {
+                // tokenInfo is a per-network sub-token entry (not a summed
+                // aggregate row), so it carries its own balanceMultiplier —
+                // scale the raw balanceParsed to display basis (OK-58046 Plan
+                // A). fiatValue is server-multiplied already; do not touch it.
+                tokenRebaseUtils.applyBalanceMultiplier({
+                  amount: tokenInfo?.balanceParsed,
+                  balanceMultiplier: tokenInfo?.balanceMultiplier,
+                })
+              }
             </NumberSizeableText>
           }
           secondary={
@@ -542,14 +566,22 @@ function AggregateTokenSelector() {
     hideBalanceAndValue,
   ]);
 
+  const aggregateTokenSymbol =
+    aggregateToken.commonSymbol || aggregateToken.symbol;
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={
           title ||
-          intl.formatMessage({
-            id: ETranslations.global_select_network,
-          })
+          (aggregateTokenSymbol
+            ? intl.formatMessage(
+                { id: ETranslations.select_token_network__title },
+                { token: aggregateTokenSymbol },
+              )
+            : intl.formatMessage({
+                id: ETranslations.global_select_network,
+              }))
         }
         headerSearchBarOptions={{
           onSearchTextChange: handleSearchTextChange,

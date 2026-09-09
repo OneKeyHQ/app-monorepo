@@ -15,7 +15,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IUniversalSearchAddress } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchAddress,
+} from '@onekeyhq/shared/types/search';
 
 import { AccountAddress } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountAddress';
 import { AccountValueWithSpotlight } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue';
@@ -25,12 +28,14 @@ interface IUniversalSearchAddressItemProps {
   item: IUniversalSearchAddress;
   contextNetworkId?: string;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchAddressItem({
   item,
   contextNetworkId,
   getSearchInput,
+  source,
 }: IUniversalSearchAddressItemProps) {
   const navigation = useAppNavigation();
   const accountSelectorActions = useAccountSelectorActions();
@@ -67,6 +72,7 @@ export function UniversalSearchAddressItem({
 
   const handleAccountPress = useCallback(async () => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId:
@@ -145,11 +151,13 @@ export function UniversalSearchAddressItem({
     item.payload,
     item.type,
     navigation,
+    source,
     universalSearchActions,
   ]);
 
   const handleAddressPress = useCallback(() => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: item.payload.addressInfo?.displayAddress ?? '',
@@ -192,6 +200,7 @@ export function UniversalSearchAddressItem({
     item.payload,
     item.type,
     navigation,
+    source,
     universalSearchActions,
   ]);
 

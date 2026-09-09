@@ -17,6 +17,23 @@ export const IP_TABLE_SPEED_TEST_COOLDOWN_MS = timerUtils.getTimeDurationMs({
 });
 
 /**
+ * Domain Failover Threshold
+ * After this many consecutive real-request network failures on the direct
+ * domain, immediately switch selection to the last known-good IP (service)
+ * or fail-open to a builtin IP (adapter) without waiting for a speed test.
+ */
+export const IP_TABLE_DOMAIN_FAILOVER_THRESHOLD = 3;
+
+/**
+ * Adapter fail-open window. While active, hosts of the affected root domain
+ * resolve to a fallback IP even when no runtime selection exists (covers the
+ * main runtime and the cold-start window where simpleDb config is absent).
+ */
+export const IP_TABLE_ADAPTER_FAILOVER_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
+
+/**
  * Performance Improvement Threshold
  * Only use IP routing if it's at least this percentage faster than direct domain access
  * @default 0.3 (30% improvement required)

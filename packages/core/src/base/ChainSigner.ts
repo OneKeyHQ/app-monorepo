@@ -1,10 +1,15 @@
 /* eslint-disable max-classes-per-file */
 
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { N, decryptAsync, sign, uncompressPublicKey, verify } from '../secret';
 
 import type { ICurveName } from '../types';
+
+type IChainSignerKdfParams = IPbkdf2KdfParams & {
+  debugCryptoProbeId?: string;
+};
 
 export interface IVerifier {
   getPubkey: (compressed?: boolean) => Promise<Buffer>;
@@ -100,6 +105,7 @@ export class ChainSigner extends Verifier implements ISigner {
     encryptedPrivateKey: Buffer,
     password: string,
     protected override curve: ICurveName,
+    private readonly kdfParams?: IChainSignerKdfParams,
   ) {
     // Initialize with empty public key, will be set in init()
     super('', curve);
@@ -117,6 +123,7 @@ export class ChainSigner extends Verifier implements ISigner {
           chainCode: Buffer.alloc(32),
         },
         this.password,
+        this.kdfParams,
       )
     ).key.toString('hex');
     this.initByPubSync(pub);
@@ -127,6 +134,7 @@ export class ChainSigner extends Verifier implements ISigner {
     const privateKey = await decryptAsync({
       password: this.password,
       data: this.encryptedPrivateKey,
+      ...this.kdfParams,
     });
     return privateKey;
   }
@@ -143,6 +151,7 @@ export class ChainSigner extends Verifier implements ISigner {
       this.encryptedPrivateKey,
       digest,
       this.password,
+      this.kdfParams,
     );
     if (this.curve === 'secp256k1') {
       return [signature.slice(0, -1), signature[signature.length - 1]];

@@ -1,7 +1,10 @@
 import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpTokenSelectorConfigPersistAtom,
+  usePerpsActiveAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IPerpTokenSelectorConfig,
@@ -31,6 +34,7 @@ function BaseSortableHeaderCell({
 }: ISortableHeaderCellProps) {
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const headerActiveTab =
     selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const isCurrentFieldActive = isPerpTokenSelectorSortFieldActive({
@@ -57,12 +61,13 @@ function BaseSortableHeaderCell({
       direction: nextConfig.direction,
       previousField,
       previousDirection,
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
 
     setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
       return getNextPerpTokenSelectorSortConfig({ prev, field });
     });
-  }, [field, selectorConfig, setSelectorConfig]);
+  }, [activePerpsAccount.walletType, field, selectorConfig, setSelectorConfig]);
 
   const isActive = isCurrentFieldActive;
   let iconName: string;

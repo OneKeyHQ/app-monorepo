@@ -1,51 +1,53 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
-import { type DPDay, useDatePickerContext } from '@rehookify/datepicker';
+import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { SizableText, Stack, YStack } from '../../primitives';
 
 import { DayCell } from './DayCell';
 import { callOnClick } from './utils';
 
+import type { IDayCellProps } from './type';
+
 const DayCellWrapper = memo(
   ({
-    dpDay,
+    dateStr,
+    dayLabel,
+    active,
+    inCurrentMonth,
+    selected,
     disabled,
+    range,
     hideOutOfMonth,
     fullWidth,
     onPress,
   }: {
-    dpDay: DPDay;
+    dateStr: string;
+    dayLabel: string;
+    active: boolean;
+    inCurrentMonth: boolean;
+    selected: boolean;
     disabled: boolean;
+    range?: IDayCellProps['day']['range'];
     hideOutOfMonth?: boolean;
     fullWidth?: boolean;
     onPress: (date: string) => void;
   }) => {
-    const dateStr = dpDay.$date.toString();
     const day = useMemo(
       () => ({
-        day: dpDay.$date.getDate().toString(),
+        day: dayLabel,
         date: dateStr,
-        active: dpDay.now,
-        inCurrentMonth: dpDay.inCurrentMonth,
-        selected: dpDay.selected,
+        active,
+        inCurrentMonth,
+        selected,
         disabled,
-        range: dpDay.range || undefined,
+        range,
       }),
-      [
-        dateStr,
-        dpDay.$date,
-        dpDay.now,
-        dpDay.inCurrentMonth,
-        dpDay.selected,
-        dpDay.range,
-        disabled,
-      ],
+      [dayLabel, dateStr, active, inCurrentMonth, selected, disabled, range],
     );
 
     return (
       <DayCell
-        key={dateStr}
         hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
         day={day}
@@ -57,7 +59,32 @@ const DayCellWrapper = memo(
 
 DayCellWrapper.displayName = 'DayCellWrapper';
 
-export function DayGrid({
+export function WeekdayRow() {
+  const { data } = useDatePickerContext();
+  const { weekDays } = data;
+
+  return (
+    <Stack flexDirection="row" flexWrap="wrap" marginBottom="$1">
+      {weekDays.map((day) => (
+        <Stack
+          key={day}
+          flexBasis="14.28%"
+          flexGrow={0}
+          flexShrink={0}
+          height="$8"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
+            {day}
+          </SizableText>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
+export function MonthDaysGrid({
   calendarIndex,
   hideOutOfMonth,
   fullWidth,
@@ -67,53 +94,74 @@ export function DayGrid({
   fullWidth?: boolean;
 }) {
   const { data, propGetters } = useDatePickerContext();
-  const { calendars, weekDays } = data;
+  const { calendars } = data;
   const { dayButton } = propGetters;
   const cal = calendars[calendarIndex];
 
-  const handleDayPress = useCallback(
-    (dateStr: string) => {
-      const matchedDay = cal?.days.find((d) => d.$date.toString() === dateStr);
-      if (matchedDay) {
-        callOnClick(dayButton(matchedDay));
-      }
-    },
-    [cal, dayButton],
-  );
+  // Latest-value refs keep handleDayPress identity stable across rehookify
+  // context updates (rehookify recreates cal/dayButton every render), so the
+  // memoized day cells can bail out on unchanged primitive props.
+  const calRef = useRef(cal);
+  const dayButtonRef = useRef(dayButton);
+  // Commit-time-only updates: render-time writes could leak values from an
+  // abandoned concurrent render into a press that lands on the old committed UI.
+  useLayoutEffect(() => {
+    calRef.current = cal;
+    dayButtonRef.current = dayButton;
+  });
+
+  const handleDayPress = useCallback((dateStr: string) => {
+    const matchedDay = calRef.current?.days.find(
+      (d) => d.$date.toString() === dateStr,
+    );
+    if (matchedDay) {
+      callOnClick(dayButtonRef.current(matchedDay));
+    }
+  }, []);
 
   if (!cal) return null;
 
   return (
-    <YStack>
-      <Stack flexDirection="row" flexWrap="wrap" marginBottom="$1">
-        {weekDays.map((day) => (
-          <Stack
-            key={day}
-            flexBasis="14.28%"
-            flexGrow={0}
-            flexShrink={0}
-            height="$8"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
-              {day}
-            </SizableText>
-          </Stack>
-        ))}
-      </Stack>
-      <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
-        {cal.days.map((day) => (
+    <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
+      {cal.days.map((day) => {
+        const dateStr = day.$date.toString();
+        return (
           <DayCellWrapper
-            key={day.$date.toString()}
-            dpDay={day}
-            disabled={dayButton(day).disabled || false}
+            key={dateStr}
+            dateStr={dateStr}
+            dayLabel={day.$date.getDate().toString()}
+            active={day.now}
+            inCurrentMonth={day.inCurrentMonth}
+            selected={day.selected}
+            disabled={day.disabled}
+            range={day.range || undefined}
             hideOutOfMonth={hideOutOfMonth}
             fullWidth={fullWidth}
             onPress={handleDayPress}
           />
-        ))}
-      </Stack>
+        );
+      })}
+    </Stack>
+  );
+}
+
+export function DayGrid({
+  calendarIndex,
+  hideOutOfMonth,
+  fullWidth,
+}: {
+  calendarIndex: number;
+  hideOutOfMonth?: boolean;
+  fullWidth?: boolean;
+}) {
+  return (
+    <YStack>
+      <WeekdayRow />
+      <MonthDaysGrid
+        calendarIndex={calendarIndex}
+        hideOutOfMonth={hideOutOfMonth}
+        fullWidth={fullWidth}
+      />
     </YStack>
   );
 }

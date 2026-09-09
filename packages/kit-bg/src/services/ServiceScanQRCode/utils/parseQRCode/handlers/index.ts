@@ -37,6 +37,8 @@ export const PARSE_HANDLER_LOADERS: Record<
   [EQRCodeHandlerNames.sui]: () => loadHandler(() => import('./sui')),
   [EQRCodeHandlerNames.lightningNetwork]: () =>
     loadHandler(() => import('./lightningNetwork')),
+  [EQRCodeHandlerNames.featuredChangelogPreview]: () =>
+    loadHandler(() => import('./featuredChangelogPreview')),
 };
 
 export function getParseHandler(handlerName: EQRCodeHandlerNames) {

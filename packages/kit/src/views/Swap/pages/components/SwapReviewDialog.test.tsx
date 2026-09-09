@@ -6,12 +6,15 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { initialSwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 import { ESwapReviewApproveTransactionSource } from '../../utils/swapReviewState';
 
 import { SwapReviewDialog } from './SwapReviewDialog';
 
 const useSwapReviewActionsMock = jest.fn();
 const removeStoreMock = jest.fn();
+const reviewConfirmMock = jest.fn();
+const preSwapDialogPropsMock = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore', () => ({
   jotaiContextStore: {
@@ -55,31 +58,41 @@ jest.mock('./PreSwapDialogContent', () => ({
     disableGlobalApproveSync,
     onConfirm,
     onDone,
+    disableSaveSlippageForFutureOrders,
+    saveSlippageForFutureOrders,
   }: {
     disableGlobalApproveSync?: boolean;
     onConfirm: () => void;
     onDone: () => void;
-  }) => (
-    <div
-      data-disable-global-approve-sync={
-        disableGlobalApproveSync ? 'true' : 'false'
-      }
-      data-testid="pre-swap-dialog-content"
-    >
-      <button data-testid="review-confirm" onClick={onConfirm} type="button">
-        confirm
-      </button>
-      <button data-testid="review-done" onClick={onDone} type="button">
-        done
-      </button>
-    </div>
-  ),
+    disableSaveSlippageForFutureOrders?: boolean;
+    saveSlippageForFutureOrders?: (slippagePercentage: number) => void;
+  }) => {
+    preSwapDialogPropsMock({
+      disableSaveSlippageForFutureOrders,
+      saveSlippageForFutureOrders,
+    });
+    return (
+      <div
+        data-disable-global-approve-sync={
+          disableGlobalApproveSync ? 'true' : 'false'
+        }
+        data-testid="pre-swap-dialog-content"
+      >
+        <button data-testid="review-confirm" onClick={onConfirm} type="button">
+          confirm
+        </button>
+        <button data-testid="review-done" onClick={onDone} type="button">
+          done
+        </button>
+      </div>
+    );
+  },
 }));
 
 jest.mock('../../hooks/useSwapReviewActions', () => ({
   useSwapReviewActions: (props: unknown) =>
     useSwapReviewActionsMock(props) as {
-      onConfirm: () => void;
+      onConfirm: (onConfirmStart?: () => void) => void;
       preSwapBeforeStepActions: () => void;
       preSwapStepsStart: () => void;
     },
@@ -102,17 +115,28 @@ jest.mock('./SwapReviewInitializer', () => ({
 describe('SwapReviewDialog', () => {
   beforeEach(() => {
     removeStoreMock.mockClear();
+    preSwapDialogPropsMock.mockClear();
+    reviewConfirmMock.mockClear();
+    reviewConfirmMock.mockImplementation((onConfirmStart?: () => void) =>
+      onConfirmStart?.(),
+    );
     useSwapReviewActionsMock.mockReturnValue({
-      onConfirm: jest.fn(),
+      onConfirm: reviewConfirmMock,
       preSwapBeforeStepActions: jest.fn(),
       preSwapStepsStart: jest.fn(),
+      rebuildReviewWithSlippage: jest.fn(),
+      reviewRebuildState: initialSwapReviewRebuildState,
+      resetUncommittedReviewRebuildError: jest.fn(),
     });
   });
 
   it('renders the reusable swap review shell with the provided store and adapter', () => {
     const onDone = jest.fn();
+    const onConfirmStart = jest.fn();
+    const saveSlippageForFutureOrders = jest.fn();
     const adapter = {
       prepareReview: jest.fn(),
+      saveSlippageForFutureOrders,
       sendApproveTx: jest.fn(),
       sendSwapTx: jest.fn(),
       sendWrappedTx: jest.fn(),
@@ -123,6 +147,7 @@ describe('SwapReviewDialog', () => {
     render(
       <SwapReviewDialog
         onDone={onDone}
+        onConfirmStart={onConfirmStart}
         adapter={adapter}
         reviewState={{
           steps: [],
@@ -131,6 +156,7 @@ describe('SwapReviewDialog', () => {
         }}
         storeName={EJotaiContextStoreNames.marketSwapReview}
         disableGlobalApproveSync
+        disableSaveSlippageForFutureOrders
         approveTransactionSource={ESwapReviewApproveTransactionSource.SpeedSwap}
       />,
     );
@@ -153,10 +179,19 @@ describe('SwapReviewDialog', () => {
       adapter,
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
     });
+    expect(preSwapDialogPropsMock).toHaveBeenCalledWith({
+      disableSaveSlippageForFutureOrders: true,
+      saveSlippageForFutureOrders,
+    });
 
     fireEvent.click(screen.getByTestId('review-confirm'));
     fireEvent.click(screen.getByTestId('review-done'));
 
+    expect(onConfirmStart).toHaveBeenCalledTimes(1);
+    expect(reviewConfirmMock).toHaveBeenCalledWith(onConfirmStart);
+    expect(reviewConfirmMock.mock.invocationCallOrder[0]).toBeLessThan(
+      onConfirmStart.mock.invocationCallOrder[0],
+    );
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 

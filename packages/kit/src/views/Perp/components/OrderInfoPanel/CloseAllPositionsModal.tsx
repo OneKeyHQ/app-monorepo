@@ -15,6 +15,7 @@ import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -39,6 +40,7 @@ function CloseAllPositionsContent({
   scopedAccountAddress,
 }: ICloseAllPositionsContentProps) {
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
@@ -56,6 +58,7 @@ function CloseAllPositionsContent({
 
     setIsSubmitting(true);
     try {
+      await ensureTradingEnabled();
       await actions.current.closeAllPositions(closeType, filterByCoin);
       // Small delay to ensure all operations complete and toast is visible
       // Reset state when dialog closes to prevent race condition
@@ -67,7 +70,15 @@ function CloseAllPositionsContent({
       console.error('Close all positions failed:', error);
       setIsSubmitting(false);
     }
-  }, [actions, canSubmit, closeType, filterByCoin, isSubmitting, onClose]);
+  }, [
+    actions,
+    canSubmit,
+    closeType,
+    ensureTradingEnabled,
+    filterByCoin,
+    isSubmitting,
+    onClose,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {

@@ -33,6 +33,7 @@ import {
 import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
 import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -203,7 +204,12 @@ function BasicEditAddress() {
             {
               id: ETranslations.referral_address_update_desc,
             },
-            { mail: userInfo.displayEmail ?? '' },
+            {
+              mail: getDisplayEmailOrUnknown({
+                intl,
+                displayEmail: userInfo.displayEmail,
+              }),
+            },
           ),
       });
 

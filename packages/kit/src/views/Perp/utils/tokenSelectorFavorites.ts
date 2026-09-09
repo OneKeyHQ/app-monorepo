@@ -1,9 +1,11 @@
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type { ITokenSelectorFavoriteOrderEntry } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   dedupeTokenSelectorFavoriteCoins,
   dedupeTokenSelectorFavoritesOrder,
   getTokenSelectorFavoriteOrderKey,
   reconcileTokenSelectorFavoritesOrder,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
@@ -17,7 +19,6 @@ import type {
   IPerpsAssetCtx,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 type ITokenSelectorFavoriteItem = {
   mode: 'perp' | 'spot';
@@ -197,10 +198,10 @@ function getTokenSelectorFavoriteSortEntry<
   }
 
   const itemAssetId = item.assetId ?? item.index;
-  const normalizedAssetId =
-    item.dexIndex === 1 ? itemAssetId - XYZ_ASSET_ID_OFFSET : itemAssetId;
   const sortValues = computePerpSortValues(
-    perpAssetCtxsByDex?.[item.dexIndex]?.[normalizedAssetId],
+    perpAssetCtxsByDex?.[item.dexIndex]?.[
+      toCtxIndex(itemAssetId, item.dexIndex)
+    ],
   );
   return {
     item,
@@ -303,6 +304,7 @@ export {
   getTokenSelectorListItemKey,
   reconcileTokenSelectorFavoritesOrder,
   sortTokenSelectorFavoriteItems,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 };

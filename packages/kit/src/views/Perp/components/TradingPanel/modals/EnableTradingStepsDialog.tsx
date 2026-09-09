@@ -10,11 +10,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useHyperLiquidAgentPasswordStatusAtom,
   usePerpsAbstractionModeAtom as usePerpsAbstractionMode,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getPerpsOrderPanelEnableTradingSteps } from '../../../utils/perpsOrderPanelEnableTrading';
@@ -40,10 +43,12 @@ type IEnableTradingStepsDialogConfirm = (
   context: IEnableTradingStepsDialogConfirmContext,
 ) => Promise<IEnableTradingWithDepositFallbackResult | undefined>;
 
-function getEnableTradingSignatureDescription(
+function getEnableTradingStepDescription(
   step: IPerpsOrderPanelEnableTradingStep,
 ): ETranslations | undefined {
   switch (step.key) {
+    case 'password':
+      return step.labelId;
     case 'builderFee':
       return ETranslations.perp_enable_trading_steps_builder_fee__desc;
     case 'agentRemoval':
@@ -60,7 +65,7 @@ function getEnableTradingSignatureDescription(
 function isEnableTradingConfirmationStep(
   step: IPerpsOrderPanelEnableTradingStep,
 ) {
-  return step.requiresSignature;
+  return step.requiresSignature || step.key === 'password';
 }
 
 function renderEnableTradingSummaryUnderline(chunks: ReactNode) {
@@ -89,16 +94,18 @@ function EnableTradingStepsContent({
   const [isConfirming, setIsConfirming] = useState(false);
   const [liveAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [abstractionMode] = usePerpsAbstractionMode();
+  const [passwordStatus] = useHyperLiquidAgentPasswordStatusAtom();
   const buttonStyleProps = getTradingButtonStyleProps('long');
   const accountStatus = liveAccountStatus ?? initialAccountStatus;
   const steps = useMemo(
     () =>
       getPerpsOrderPanelEnableTradingSteps(accountStatus, {
         abstractionMode,
+        passwordStatus,
       }),
-    [abstractionMode, accountStatus],
+    [abstractionMode, accountStatus, passwordStatus],
   );
-  const signatureSteps = useMemo(
+  const confirmationSteps = useMemo(
     () => steps.filter(isEnableTradingConfirmationStep),
     [steps],
   );
@@ -117,10 +124,10 @@ function EnableTradingStepsContent({
   return (
     <YStack gap="$6" p="$1">
       <YStack gap="$4">
-        {signatureSteps.length ? (
+        {confirmationSteps.length ? (
           <YStack gap="$3">
-            {signatureSteps.map((step, index) => {
-              const descriptionId = getEnableTradingSignatureDescription(step);
+            {confirmationSteps.map((step, index) => {
+              const descriptionId = getEnableTradingStepDescription(step);
 
               return (
                 <XStack key={step.key} gap="$2.5" alignItems="center">
@@ -201,13 +208,15 @@ function EnableTradingStepsHeader({
   const intl = useIntl();
   const [liveAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [abstractionMode] = usePerpsAbstractionMode();
+  const [passwordStatus] = useHyperLiquidAgentPasswordStatusAtom();
   const accountStatus = liveAccountStatus ?? initialAccountStatus;
   const steps = useMemo(
     () =>
       getPerpsOrderPanelEnableTradingSteps(accountStatus, {
         abstractionMode,
+        passwordStatus,
       }),
-    [abstractionMode, accountStatus],
+    [abstractionMode, accountStatus, passwordStatus],
   );
   const signatureCount = steps.filter((step) => step.requiresSignature).length;
 
@@ -233,13 +242,19 @@ function EnableTradingStepsHeader({
   );
 }
 
-export function showEnableTradingStepsDialog({
+export async function showEnableTradingStepsDialog({
   accountStatus,
   onConfirm,
 }: {
   accountStatus: IPerpsActiveAccountStatusAtom;
   onConfirm: IEnableTradingStepsDialogConfirm;
 }): Promise<IEnableTradingWithDepositFallbackResult | undefined> {
+  try {
+    await backgroundApiProxy.servicePassword.refreshHyperLiquidAgentPasswordStatus();
+  } catch (error) {
+    errorToastUtils.toastIfError(error);
+  }
+
   return new Promise((resolve) => {
     let settled = false;
     const settle = (
@@ -275,6 +290,12 @@ export function showEnableTradingStepsDialog({
                 void dialogInstance.close();
               };
               let result: IEnableTradingWithDepositFallbackResult | undefined;
+              try {
+                await backgroundApiProxy.servicePassword.promptHyperLiquidAgentPasswordSetupOrVerify();
+              } catch (error) {
+                errorToastUtils.toastIfError(error);
+                return;
+              }
               try {
                 result = await onConfirm({ closeDialog });
               } catch {

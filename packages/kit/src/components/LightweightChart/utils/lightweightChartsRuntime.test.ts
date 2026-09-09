@@ -69,8 +69,151 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     });
 
     expect(html).toContain('LightweightCharts');
+    expect(html).toContain('LightweightCharts.LineType.WithSteps');
+    expect(html).toContain("getPriceScaleOptions(nextConfig, 'left')");
     expect(html).not.toContain('<script src=');
     expect(html).not.toContain('unpkg.com');
+  });
+
+  it('serializes the configured time zone into the native chart template', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      locale: 'zh-CN',
+      timeZone: 'Asia/Shanghai',
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"locale":"zh-CN"');
+    expect(html).toContain('"timeZone":"Asia/Shanghai"');
+    expect(html).toContain('getTimeScaleOptions(nextConfig)');
+  });
+
+  it('creates a dashed reference line in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      referenceLine: {
+        price: 0,
+        color: '#555555',
+        lineWidth: 1,
+        lineStyle: 'dashed',
+        axisLabelVisible: false,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"referenceLine":{"price":0');
+    expect(html).toContain("lineStyle === 'dashed'");
+    expect(html).toContain('window.series.createPriceLine');
+  });
+
+  it('creates a signed histogram series in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [
+        { time: 1 as UTCTimestamp, value: 2, color: '#00aa00' },
+        { time: 2 as UTCTimestamp, value: -3, color: '#ee0000' },
+      ],
+      lineWidth: 2,
+      seriesType: 'histogram',
+      histogramOptions: {
+        positiveColor: '#00aa00',
+        negativeColor: '#ee0000',
+        base: 0,
+        barWidthRatio: 0.5,
+        maxBarWidth: 24,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#00aa00',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"seriesType":"histogram"');
+    expect(html).toContain('"color":"#00aa00"');
+    expect(html).toContain('"color":"#ee0000"');
+    expect(html).toContain('createHistogramSeriesPaneView()');
+    expect(html).toContain('barWidthRatio: 0.5');
+    expect(html).toContain('maxBarWidth: 24');
+    expect(html).toContain('value === options.base) return');
+    expect(html).toContain('getHistogramSeriesOptions(nextConfig)');
+  });
+
+  it('preserves native adaptive tick labels when no time zone is provided', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('if (nextConfig.timeZone)');
+    expect(html).toContain('options.tickMarkFormatter =');
+    expect(html).not.toContain('date.toLocaleDateString');
+  });
+
+  it('hides the native crosshair price label only when requested', () => {
+    const config = {
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    };
+    const defaultHtml = generateChartHTML(config);
+    const requestedHtml = generateChartHTML({
+      ...config,
+      hideCrosshairPriceLabel: true,
+    });
+
+    expect(defaultHtml).not.toContain('"hideCrosshairPriceLabel":true');
+    expect(requestedHtml).toContain('"hideCrosshairPriceLabel":true');
+    expect(requestedHtml).toContain(
+      'labelVisible: !config.hideCrosshairPriceLabel',
+    );
+  });
+
+  it('serializes caller-provided percent precision for native charts', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 0.001 }],
+      lineWidth: 2,
+      priceFormatterType: 'percent',
+      priceFormatterPrecision: 4,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"priceFormatterPrecision":4');
+    expect(html).toContain('price.toFixed(precision)');
   });
 });
 
@@ -94,6 +237,12 @@ describe('resolveSerializablePriceFormatterType', () => {
     expect(
       resolveSerializablePriceFormatterType({
         seriesType: 'area',
+        priceFormatter: (value) => `$${value.toFixed(2)}`,
+      }),
+    ).toBe('usd');
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'histogram',
         priceFormatter: (value) => `$${value.toFixed(2)}`,
       }),
     ).toBe('usd');

@@ -267,7 +267,7 @@ export class LedgerAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Ledger] connectDevice threw: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       void thirdPartyHardwareUiStateAtom.set(undefined);

@@ -1,3 +1,5 @@
+import { getDeviceTimeZone } from '@onekeyhq/shared/src/utils/timeZoneUtils';
+
 import type { Calendar } from 'expo-localization';
 
 /**
@@ -5,9 +7,5 @@ import type { Calendar } from 'expo-localization';
  * Uses expo-localization first, fallback to Intl API, then to UTC
  */
 export const getTradingViewTimezone = (calendars?: Calendar[]): string => {
-  return (
-    calendars?.[0]?.timeZone ||
-    Intl.DateTimeFormat().resolvedOptions().timeZone ||
-    'Etc/UTC'
-  );
+  return getDeviceTimeZone(calendars?.[0]?.timeZone);
 };

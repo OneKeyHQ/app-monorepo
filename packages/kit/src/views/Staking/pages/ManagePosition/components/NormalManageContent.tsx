@@ -33,7 +33,10 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
-import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from './ManagePositionContent';
 
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
@@ -54,6 +57,7 @@ interface INormalManageContentProps {
   withdrawDisabled: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   historyAction?: IEarnHistoryActionIcon;
   onHistory?: (params?: { filterType?: string }) => void;
   indicatorAccountId?: string;
@@ -89,6 +93,7 @@ export function NormalManageContent({
   withdrawDisabled,
   stakeBeforeFooter,
   withdrawBeforeFooter,
+  footerActionOverride,
   historyAction,
   onHistory,
   indicatorAccountId,
@@ -640,70 +645,59 @@ export function NormalManageContent({
     ],
   );
 
-  // When the model is opened directly in Withdraw / Repay mode, the paired
-  // Supply / Borrow tab is disabled, so the type switcher is pointless — hide
-  // it and keep only the form (HeaderRight stays right-aligned).
-  const hideTypeSwitch = [
-    EManagePositionType.Withdraw,
-    EManagePositionType.Repay,
-  ].includes(type);
-
   return (
     <>
-      <XStack jc={hideTypeSwitch ? 'flex-end' : 'space-between'} px="$5">
-        {hideTypeSwitch ? null : (
-          <Tabs.TabBar
-            divider={false}
-            onTabPress={handleTabChange}
-            tabNames={tabNames}
-            focusedTab={focusedTab}
-            renderItem={({ name, isFocused }) => {
-              const isDisabled =
-                shouldDisablePrimaryTab && name === tabNames[0];
-              let textColor: '$textDisabled' | '$text' | '$textSubdued' =
-                '$textSubdued';
+      <XStack jc="space-between" px="$5">
+        <Tabs.TabBar
+          divider={false}
+          onTabPress={handleTabChange}
+          tabNames={tabNames}
+          focusedTab={focusedTab}
+          renderItem={({ name, isFocused }) => {
+            const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
+            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+              '$textSubdued';
 
-              if (isDisabled) {
-                textColor = '$textDisabled';
-              } else if (isFocused) {
-                textColor = '$text';
-              }
+            if (isDisabled) {
+              textColor = '$textDisabled';
+            } else if (isFocused) {
+              textColor = '$text';
+            }
 
-              return (
-                <XStack
-                  px="$2"
-                  py="$1.5"
-                  mr="$1"
-                  bg={isFocused ? '$bgActive' : '$bg'}
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  opacity={isDisabled ? 0.4 : 1}
-                  hoverStyle={
-                    !isFocused && !isDisabled
-                      ? {
-                          bg: '$bgHover',
-                        }
-                      : null
+            return (
+              <XStack
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={isFocused ? '$bgActive' : '$bg'}
+                borderRadius="$2"
+                borderCurve="continuous"
+                opacity={isDisabled ? 0.4 : 1}
+                hoverStyle={
+                  !isFocused && !isDisabled
+                    ? {
+                        bg: '$bgHover',
+                      }
+                    : null
+                }
+                onPress={() => {
+                  if (isDisabled) {
+                    return;
                   }
-                  onPress={() => {
-                    if (isDisabled) {
-                      return;
-                    }
-                    handleTabChange(name);
-                  }}
+                  handleTabChange(name);
+                }}
+              >
+                <SizableText
+                  size="$headingMd"
+                  color={textColor}
+                  letterSpacing={-0.15}
                 >
-                  <SizableText
-                    size="$headingMd"
-                    color={textColor}
-                    letterSpacing={-0.15}
-                  >
-                    {name}
-                  </SizableText>
-                </XStack>
-              );
-            }}
-          />
-        )}
+                  {name}
+                </SizableText>
+              </XStack>
+            );
+          }}
+        />
         <HeaderRight
           accountId={indicatorAccountId || earnAccount?.accountId}
           networkId={networkId}
@@ -732,6 +726,7 @@ export function NormalManageContent({
           isDisabled={depositDisabled}
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
@@ -760,6 +755,7 @@ export function NormalManageContent({
           isDisabled={withdrawDisabled}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}

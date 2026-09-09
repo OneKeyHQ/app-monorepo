@@ -1,0 +1,158 @@
+diff --git a/node_modules/bytebuffer/dist/bytebuffer-node.js b/node_modules/bytebuffer/dist/bytebuffer-node.js
+index 1088689..edfa692 100644
+--- a/node_modules/bytebuffer/dist/bytebuffer-node.js
++++ b/node_modules/bytebuffer/dist/bytebuffer-node.js
+@@ -60,7 +60,9 @@ module.exports = (function() {
+          * @type {!Buffer}
+          * @expose
+          */
+-        this.buffer = capacity === 0 ? EMPTY_BUFFER : new Buffer(capacity);
++        // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++        // this.buffer = capacity === 0 ? EMPTY_BUFFER : new Buffer(capacity);
++        this.buffer = capacity === 0 ? EMPTY_BUFFER : Buffer.allocUnsafe(capacity);
+ 
+         /**
+          * Absolute read/write offset.
+@@ -185,7 +187,9 @@ module.exports = (function() {
+      * @type {!Buffer}
+      * @inner
+      */
+-    var EMPTY_BUFFER = new Buffer(0);
++    // OneKey patch: avoid Node's deprecated Buffer constructor.
++    // var EMPTY_BUFFER = new Buffer(0);
++    var EMPTY_BUFFER = Buffer.alloc(0);
+ 
+     /**
+      * String.fromCharCode reference for compile-time renaming.
+@@ -354,7 +358,9 @@ module.exports = (function() {
+             k = 0,
+             b;
+         if (buffer instanceof Uint8Array) { // Extract bytes from Uint8Array
+-            b = new Buffer(buffer.length);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // b = new Buffer(buffer.length);
++            b = Buffer.allocUnsafe(buffer.length);
+             if (memcpy) { // Fast
+                 memcpy(b, 0, buffer.buffer, buffer.byteOffset, buffer.byteOffset + buffer.length);
+             } else { // Slow
+@@ -363,7 +369,9 @@ module.exports = (function() {
+             }
+             buffer = b;
+         } else if (buffer instanceof ArrayBuffer) { // Convert ArrayBuffer to Buffer
+-            b = new Buffer(buffer.byteLength);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // b = new Buffer(buffer.byteLength);
++            b = Buffer.allocUnsafe(buffer.byteLength);
+             if (memcpy) { // Fast
+                 memcpy(b, 0, buffer, 0, buffer.byteLength);
+             } else { // Slow
+@@ -376,7 +384,9 @@ module.exports = (function() {
+         } else if (!(buffer instanceof Buffer)) { // Create from octets if it is an error, otherwise fail
+             if (Object.prototype.toString.call(buffer) !== "[object Array]")
+                 throw TypeError("Illegal buffer");
+-            buffer = new Buffer(buffer);
++            // OneKey patch: replace Node's deprecated value constructor.
++            // buffer = new Buffer(buffer);
++            buffer = Buffer.from(buffer);
+         }
+         bb = new ByteBuffer(0, littleEndian, noAssert);
+         if (buffer.length > 0) { // Avoid references to more than one EMPTY_BUFFER
+@@ -2320,7 +2330,9 @@ module.exports = (function() {
+     ByteBufferPrototype.clone = function(copy) {
+         var bb = new ByteBuffer(0, this.littleEndian, this.noAssert);
+         if (copy) {
+-            var buffer = new Buffer(this.buffer.length);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // var buffer = new Buffer(this.buffer.length);
++            var buffer = Buffer.allocUnsafe(this.buffer.length);
+             this.buffer.copy(buffer);
+             bb.buffer = buffer;
+         } else {
+@@ -2364,7 +2376,9 @@ module.exports = (function() {
+             this.limit = 0;
+             return this;
+         }
+-        var buffer = new Buffer(len);
++        // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++        // var buffer = new Buffer(len);
++        var buffer = Buffer.allocUnsafe(len);
+         this.buffer.copy(buffer, 0, begin, end);
+         this.buffer = buffer;
+         if (this.markedOffset >= 0) this.markedOffset -= begin;
+@@ -2603,7 +2617,9 @@ module.exports = (function() {
+         if (len <= 0) return this; // Nothing to prepend
+         var diff = len - offset;
+         if (diff > 0) { // Not enough space before offset, so resize + move
+-            var buffer = new Buffer(this.buffer.length + diff);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // var buffer = new Buffer(this.buffer.length + diff);
++            var buffer = Buffer.allocUnsafe(this.buffer.length + diff);
+             this.buffer.copy(buffer, len, offset, this.buffer.length);
+             this.buffer = buffer;
+             this.offset += diff;
+@@ -2691,7 +2707,9 @@ module.exports = (function() {
+                 throw RangeError("Illegal capacity: 0 <= "+capacity);
+         }
+         if (this.buffer.length < capacity) {
+-            var buffer = new Buffer(capacity);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // var buffer = new Buffer(capacity);
++            var buffer = Buffer.allocUnsafe(capacity);
+             this.buffer.copy(buffer);
+             this.buffer = buffer;
+         }
+@@ -2790,7 +2808,9 @@ module.exports = (function() {
+                 throw RangeError("Illegal range: 0 <= "+offset+" <= "+limit+" <= "+this.buffer.length);
+         }
+         if (forceCopy) {
+-            var buffer = new Buffer(limit - offset);
++            // OneKey patch: preserve legacy uninitialized allocation without Node's deprecated Buffer constructor.
++            // var buffer = new Buffer(limit - offset);
++            var buffer = Buffer.allocUnsafe(limit - offset);
+             this.buffer.copy(buffer, 0, offset, limit);
+             return buffer;
+         } else {
+@@ -2896,7 +2916,9 @@ module.exports = (function() {
+      * @expose
+      */
+     ByteBuffer.fromBase64 = function(str, littleEndian) {
+-        return ByteBuffer.wrap(new Buffer(str, "base64"), littleEndian);
++        // OneKey patch: replace Node's deprecated string constructor.
++        // return ByteBuffer.wrap(new Buffer(str, "base64"), littleEndian);
++        return ByteBuffer.wrap(Buffer.from(str, "base64"), littleEndian);
+         return bb;
+     };
+ 
+@@ -2952,7 +2974,9 @@ module.exports = (function() {
+      * @expose
+      */
+     ByteBuffer.fromBinary = function(str, littleEndian) {
+-        return ByteBuffer.wrap(new Buffer(str, "binary"), littleEndian);
++        // OneKey patch: replace Node's deprecated string constructor.
++        // return ByteBuffer.wrap(new Buffer(str, "binary"), littleEndian);
++        return ByteBuffer.wrap(Buffer.from(str, "binary"), littleEndian);
+         return bb;
+     };
+ 
+@@ -3185,7 +3209,9 @@ module.exports = (function() {
+                 throw TypeError("Illegal str: Length not a multiple of 2");
+         }
+         var bb = new ByteBuffer(0, littleEndian, true);
+-        bb.buffer = new Buffer(str, "hex");
++        // OneKey patch: replace Node's deprecated string constructor.
++        // bb.buffer = new Buffer(str, "hex");
++        bb.buffer = Buffer.from(str, "hex");
+         bb.limit = bb.buffer.length;
+         return bb;
+     };
+@@ -3429,7 +3455,9 @@ module.exports = (function() {
+             if (typeof str !== 'string')
+                 throw TypeError("Illegal str: Not a string");
+         var bb = new ByteBuffer(0, littleEndian, noAssert);
+-        bb.buffer = new Buffer(str, "utf8");
++        // OneKey patch: replace Node's deprecated string constructor.
++        // bb.buffer = new Buffer(str, "utf8");
++        bb.buffer = Buffer.from(str, "utf8");
+         bb.limit = bb.buffer.length;
+         return bb;
+     };

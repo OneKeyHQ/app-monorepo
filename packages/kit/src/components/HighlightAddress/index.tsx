@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { SizableText } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 
 type IHighlightAddressProps = {
   address: string;
@@ -8,6 +9,8 @@ type IHighlightAddressProps = {
   trailingHighlightCount?: number;
   groupSize?: number;
   variant?: 'grouped' | 'inline';
+  size?: ISizableTextProps['size'];
+  fontFamily?: ISizableTextProps['fontFamily'];
 };
 
 function HighlightAddress({
@@ -16,6 +19,8 @@ function HighlightAddress({
   trailingHighlightCount = 6,
   groupSize = 4,
   variant = 'grouped',
+  size,
+  fontFamily = '$monoMedium',
 }: IHighlightAddressProps) {
   const parts = useMemo(() => {
     if (!address) {
@@ -79,19 +84,19 @@ function HighlightAddress({
 
   if (!middle && !trailing) {
     return (
-      <SizableText fontFamily="$monoMedium" color="$textInteractive">
+      <SizableText size={size} fontFamily={fontFamily} color="$textInteractive">
         {leading}
       </SizableText>
     );
   }
 
   return (
-    <SizableText fontFamily="$monoMedium" color="$text">
-      <SizableText fontFamily="$monoMedium" color="$textInteractive">
+    <SizableText size={size} fontFamily={fontFamily} color="$text">
+      <SizableText size={size} fontFamily={fontFamily} color="$textInteractive">
         {leading}
       </SizableText>
       {middle}
-      <SizableText fontFamily="$monoMedium" color="$textInteractive">
+      <SizableText size={size} fontFamily={fontFamily} color="$textInteractive">
         {trailing}
       </SizableText>
     </SizableText>

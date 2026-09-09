@@ -68,7 +68,7 @@ function ListItemGroupBase({
     <YStack>
       {title ? (
         <XStack ai="center" h="$10" px="$5">
-          <SizableText size="$headingXs" color="$textSubdued">
+          <SizableText size="$headingSm" color="$textSubdued">
             {title}
           </SizableText>
         </XStack>

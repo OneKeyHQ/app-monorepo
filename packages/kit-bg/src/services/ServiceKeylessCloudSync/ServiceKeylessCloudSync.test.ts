@@ -1,14 +1,35 @@
+import { decryptRevealableSeed } from '@onekeyhq/core/src/secret';
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
+import localDb from '../../dbs/local/localDb';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 
+const mockNonDbKdfParams = {
+  kdfBackend: 'webcrypto' as const,
+  enablePbkdf2Cache: true,
+};
+
+jest.mock('@onekeyhq/shared/src/appCrypto/modules/pbkdf2', () => ({
+  getPbkdf2KdfParamsForNonDbTx: jest.fn(() => mockNonDbKdfParams),
+}));
+
+jest.mock('@onekeyhq/core/src/secret', () => ({
+  decryptRevealableSeed: jest.fn(),
+}));
+
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    getCredentialInner: jest.fn(),
+  },
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
@@ -32,9 +53,207 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
+jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
+  __esModule: true,
+  default: {
+    getCredential: jest.fn(),
+    removeAllCredentials: jest.fn(),
+    saveCredential: jest.fn(),
+  },
+}));
+
 describe('ServiceKeylessCloudSync', () => {
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
+  });
+
+  test('toggle keyless sync surfaces local secret envelope recovery dialog', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(false);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(showDialog).toHaveBeenCalledWith(error);
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
+  });
+
+  test('silent keyless sync enable does not surface local secret envelope recovery dialog', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(true);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(showDialog).not.toHaveBeenCalled();
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(true);
+  });
+
+  test('explicit keyless migration surfaces local secret envelope recovery without force-enabling', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrime: {
+          apiFetchPrimeUserInfo: jest.fn(),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const showDialog = jest
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .mockReturnValue(true);
+
+    const prepareCloudSyncKeyless = jest
+      .spyOn(service, 'prepareCloudSyncKeyless')
+      .mockRejectedValue(error);
+    const setCloudSyncEnabledKeyless = jest
+      .spyOn(service, 'setCloudSyncEnabledKeyless')
+      .mockResolvedValue(false);
+
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+        handleLocalSecretEnvelopeUnavailable: true,
+      }),
+    ).rejects.toBe(error);
+
+    expect(prepareCloudSyncKeyless).toHaveBeenCalledWith({
+      silentEnable: true,
+      throwOnLocalSecretEnvelopeUnavailable: true,
+    });
+    expect(showDialog).toHaveBeenCalledWith(error);
+    expect(setCloudSyncEnabledKeyless).toHaveBeenCalledWith(false);
+  });
+
+  test('prepare keyless sync does not swallow local secret envelope repair errors', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePassword: {
+          promptPasswordVerify: jest.fn(async () => ({ password: 'pwd' })),
+        },
+      },
+    });
+    const error = new LocalSecretEnvelopeUnavailable();
+    const repair = jest
+      .spyOn(service, 'repairKeylessSyncCredentialIfNeeded')
+      .mockRejectedValue(error);
+
+    jest.spyOn(service, 'getKeylessWallet').mockResolvedValue({
+      id: 'hd-keyless-wallet-id',
+    } as Awaited<ReturnType<ServiceKeylessCloudSync['getKeylessWallet']>>);
+
+    await expect(service.prepareCloudSyncKeyless()).rejects.toBe(error);
+
+    expect(repair).toHaveBeenCalledWith({
+      password: 'pwd',
+      throwOnLocalSecretEnvelopeUnavailable: true,
+    });
+  });
+
+  test('keyless credential repair detects local secret envelope errors by className', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {},
+    });
+    const error = {
+      className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+      message: 'Local secret envelope wrapping key unavailable',
+    };
+
+    jest
+      .spyOn(service, 'getCurrentCloudSyncKeylessWalletId')
+      .mockResolvedValue('hd-keyless-wallet-id');
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockResolvedValue(null);
+    jest.spyOn(localDb, 'getCredentialInner').mockRejectedValue(error);
+
+    await expect(
+      service.repairKeylessSyncCredentialIfNeeded({
+        password: 'pwd',
+        throwOnLocalSecretEnvelopeUnavailable: true,
+      }),
+    ).rejects.toBe(error);
+  });
+
+  test('repairs a missing keyless credential with the non-transaction KDF backend', async () => {
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {},
+    });
+    const credential = {
+      keylessWalletId: 'hd-keyless-wallet-id',
+      signingPrivateKey: 'signing-private-key',
+      signingPublicKey: 'signing-public-key',
+      encryptionKey: 'encryption-key',
+      pwdHash: 'keyless-pwd-hash',
+    };
+
+    jest
+      .spyOn(service, 'getCurrentCloudSyncKeylessWalletId')
+      .mockResolvedValue(credential.keylessWalletId);
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockResolvedValue(null);
+    jest.mocked(localDb).getCredentialInner.mockResolvedValue({
+      id: credential.keylessWalletId,
+      credential: 'encrypted-revealable-seed',
+    });
+    jest.mocked(decryptRevealableSeed).mockResolvedValue({
+      seed: '00',
+    } as never);
+    jest
+      .spyOn(keylessCloudSyncUtils, 'deriveKeylessCredential')
+      .mockResolvedValue(credential);
+
+    await service.repairKeylessSyncCredentialIfNeeded({
+      password: 'encoded-password',
+    });
+
+    expect(decryptRevealableSeed).toHaveBeenCalledWith({
+      ...mockNonDbKdfParams,
+      rs: 'encrypted-revealable-seed',
+      password: 'encoded-password',
+    });
+    expect(keylessSyncCredentialStorage.saveCredential).toHaveBeenCalledWith(
+      credential,
+    );
   });
 
   test('silent keyless sync enable replays scene sync items', async () => {

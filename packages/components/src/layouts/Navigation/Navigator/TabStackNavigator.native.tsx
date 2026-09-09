@@ -8,20 +8,33 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
+import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 import {
   ESplitViewType,
   useIsSplitView,
+  useSplitMainView,
   useSplitViewType,
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
+
+import {
+  rootNavigationRef,
+  tabletMainViewNavigationRef,
+  willTabFocusTransition,
+} from './NavigationContainer';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 
@@ -83,13 +96,14 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // Keep root tab content mounted so native tab selection can display an
+  // already-loaded scene without waiting for a JS unfreeze commit.
+  // iOS also needs this to prevent react-freeze from suspending tab
   // content when a modal is on top. When frozen, Jotai/React state updates
   // (e.g. network switch) don't commit until the tab regains focus — but
   // the unfreeze path on iOS can fail to flush pending commits, leaving
   // the UI visually stale until a touch forces re-layout.
-  // Android keeps freeze enabled (no observed issue).
-  freezeOnBlur: !platformEnv.isNativeIOS,
+  freezeOnBlur: false,
   preventsDefault: false,
   lazy: true,
 };
@@ -100,6 +114,8 @@ export function TabStackNavigator<RouteName extends string>({
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
+  const { hapticFeedbackEnabled } = useSettingConfig();
+  const isSplitMainView = useSplitMainView();
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
   useThemeName();
@@ -117,18 +133,31 @@ export function TabStackNavigator<RouteName extends string>({
   }, []);
 
   // Handle tab press events for logging and event bus notifications
-  const handleTabPress = useCallback((routeName: string) => {
-    if (routeName === ETabRoutes.Swap) {
-      defaultLogger.swap.enterSwap.enterSwap({
-        enterFrom: ESwapSource.TAB,
-      });
-    }
-    if (routeName === ETabRoutes.Market) {
-      appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-        from: EEnterWay.HomeTab,
-      });
-    }
-  }, []);
+  const handleTabPress = useCallback(
+    (routeName: string) => {
+      if (routeName === ETabRoutes.Swap) {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+      if (routeName === ETabRoutes.Market) {
+        appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+          from: EEnterWay.HomeTab,
+        });
+      }
+      if (
+        (routeName === ETabRoutes.Perp ||
+          routeName === ETabRoutes.WebviewPerpTrade) &&
+        willTabFocusTransition(
+          routeName,
+          isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+        )
+      ) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
+    },
+    [isSplitMainView],
+  );
 
   const tabScreens = useMemo(() => {
     const screens = config
@@ -223,19 +252,20 @@ export function TabStackNavigator<RouteName extends string>({
   );
 
   return (
-    <NativeTab.Navigator
-      labeled
-      hapticFeedbackEnabled
-      disablePageAnimations
-      ignoreBottomInsets
-      sidebarAdaptable={false}
-      tabBarHidden={hidden}
-      tabBarActiveTintColor={theme.iconActive.val}
-      tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={tabBarStyle}
-      screenOptions={nativeTabScreenOptions}
-    >
-      {tabScreens}
-    </NativeTab.Navigator>
+    <BottomTabBarVisibilityContext.Provider value={!hidden}>
+      <NativeTab.Navigator
+        labeled
+        hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
+        disablePageAnimations
+        sidebarAdaptable={false}
+        tabBarHidden={hidden}
+        tabBarActiveTintColor={theme.iconActive.val}
+        tabBarInactiveTintColor={theme.iconSubdued.val}
+        tabBarStyle={tabBarStyle}
+        screenOptions={nativeTabScreenOptions}
+      >
+        {tabScreens}
+      </NativeTab.Navigator>
+    </BottomTabBarVisibilityContext.Provider>
   );
 }

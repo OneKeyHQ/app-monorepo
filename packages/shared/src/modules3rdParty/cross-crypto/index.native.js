@@ -31,12 +31,10 @@ const { randomBytes } = require('@noble/hashes/utils');
 const crypto = require('react-native-crypto');
 const _uuid = require('react-native-uuid');
 
-// TODO polyfill randomUUID may cause RevenueCat not ready
-// const randomUUID = () => {
-//   const result = uuid.v4();
-//   console.log('randomUUID', result);
-//   return result;
-// };
+// Do not polyfill randomUUID on Native. Some third-party SDKs use its presence
+// as a Web Crypto capability signal and may select browser-only initialization
+// paths. Generate UUIDs through stringUtils instead; its Native fallback uses
+// this runtime's cryptographically secure getRandomValues implementation.
 const randomUUID = undefined;
 
 // re-assign randomBytes from global.crypto.getRandomValues

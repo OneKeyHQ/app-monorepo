@@ -8,6 +8,19 @@ import type { IToastConfig } from './types';
 
 const t = (id: ETranslations) => () => appLocale.intl.formatMessage({ id });
 
+export const getPerpsOrderChangedMessage = t(
+  ETranslations.order_changed_try_again__msg,
+);
+export const getPerpsOrderNoLongerEligibleForChaseMessage = t(
+  ETranslations.order_no_longer_eligible_for_chase__msg,
+);
+export const getPerpsTokenInfoNotFoundMessage = t(
+  ETranslations.perp_token_info_not_found__msg,
+);
+export const getPerpsTradingNotEnabledMessage = t(
+  ETranslations.perp_error_enable,
+);
+
 export const ERROR_PATTERNS: Record<EErrorType, string[]> = {
   [EErrorType.INVALID_AGENT]: ['User or API Wallet', 'does not exist'],
 };
@@ -101,10 +114,8 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.MODIFY_ORDER]: {
-    // TODO(i18n): swap for ETranslations.perp_toast_modifying_order once PM adds the key.
-    loading: 'Modifying order…',
-    // TODO(i18n): swap for ETranslations.perp_toast_order_modified once PM adds the key.
-    successTitle: 'Order modified',
+    loading: t(ETranslations.perp_toast_modifying_order),
+    successTitle: t(ETranslations.perp_toast_order_modified),
   },
 
   [EActionType.WITHDRAW]: {

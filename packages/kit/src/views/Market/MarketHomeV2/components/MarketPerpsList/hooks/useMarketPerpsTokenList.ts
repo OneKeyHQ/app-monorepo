@@ -2,48 +2,19 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketPerpsTokenFromServer } from '@onekeyhq/shared/types/marketV2';
 
 import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../constants';
 
-export interface IMarketPerpsToken {
-  name: string;
-  displayName: string;
-  maxLeverage: number;
-  subtitle?: string;
-  tokenImageUrl: string;
-  markPrice: string;
-  prevDayPrice: string;
-  change24hPercent: number;
-  volume24h: string;
-  openInterest: string;
-  fundingRate: string;
-}
+import { mapServerToken } from './marketPerpsTokenUtils';
+
+import type { IMarketPerpsToken } from './marketPerpsTokenUtils';
+
+export { mapServerToken };
+export type { IMarketPerpsToken };
 
 interface IUseMarketPerpsTokenListParams {
   selectedCategoryId: string;
-}
-
-export function mapServerToken(
-  token: IMarketPerpsTokenFromServer,
-  tokenSearchAliases: ITokenSearchAliases | undefined,
-): IMarketPerpsToken {
-  return {
-    name: token.name,
-    displayName: token.displayName,
-    maxLeverage: token.maxLeverage,
-    subtitle: getTokenSubtitle(token.name, tokenSearchAliases),
-    tokenImageUrl: token.tokenImageUrl,
-    markPrice: token.markPrice,
-    prevDayPrice: token.prevDayPrice,
-    change24hPercent: token.change24hPercent,
-    volume24h: token.volume24h,
-    openInterest: token.openInterest,
-    fundingRate: token.fundingRate,
-  };
 }
 
 export function useMarketPerpsTokenList({

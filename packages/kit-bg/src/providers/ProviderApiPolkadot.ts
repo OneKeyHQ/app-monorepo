@@ -127,6 +127,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
 
   @providerApiMethod()
   public web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
+    this.tryFocusPendingApprovalWindow(request);
     return this._queue.runExclusive(async () => {
       if (await this.account(request)) {
         return true;

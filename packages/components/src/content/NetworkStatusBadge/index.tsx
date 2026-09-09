@@ -17,6 +17,7 @@ export type INetworkStatusBadgeProps = {
   monoLabel?: string;
   badgeSize?: ComponentProps<typeof Badge>['badgeSize'];
   minWidth?: ComponentProps<typeof Badge>['minWidth'];
+  cursor?: ComponentProps<typeof Badge>['cursor'];
 };
 
 export function NetworkStatusBadge({
@@ -26,6 +27,7 @@ export function NetworkStatusBadge({
   monoLabel,
   badgeSize = 'md',
   minWidth,
+  cursor = 'default',
 }: INetworkStatusBadgeProps) {
   const intl = useIntl();
 
@@ -80,18 +82,17 @@ export function NetworkStatusBadge({
       borderRadius="$full"
       pl="$2"
       px="$3"
-      gap="$1.5"
-      cursor="default"
+      gap={monoLabel ? '$0.5' : '$1.5'}
+      cursor={cursor}
     >
       {indicatorElement}
       <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
       {monoLabel ? (
         <Badge.Text
-          flex={1}
           size="$bodySmMedium"
           fontFamily="$monoRegular"
           fontVariant={fontVariant}
-          minWidth={40}
+          width={40}
           textAlign="right"
         >
           {monoLabel}

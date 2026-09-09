@@ -1,4 +1,5 @@
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IOrderAmendKind } from '@onekeyhq/shared/types/hyperliquid/types';
 
 export type ITpSlKind = 'tp' | 'sl';
 
@@ -78,4 +79,42 @@ export function classifyTpSlOrder(
     return null;
   }
   return { kind, isMarket: resolveTpSlIsMarket(order) };
+}
+
+export function getPerpsOrderAmendKind(
+  order: IPerpsFrontendOrder,
+): IOrderAmendKind | null {
+  const trigger = classifyTpSlOrder(order);
+  if (trigger) {
+    return {
+      kind: 'trigger',
+      isMarket: trigger.isMarket,
+      tpsl: trigger.kind,
+    };
+  }
+
+  if (order.isTrigger || order.isPositionTpsl) {
+    return null;
+  }
+
+  if (order.tif === 'Gtc' || order.tif === 'Ioc' || order.tif === 'Alo') {
+    return { kind: 'limit', tif: order.tif };
+  }
+
+  return null;
+}
+
+export function getPerpsChaseOrderAmendKind(
+  order: IPerpsFrontendOrder,
+): Extract<IOrderAmendKind, { kind: 'limit' }> | null {
+  if (
+    order.orderType !== 'Limit' ||
+    order.tif !== 'Gtc' ||
+    order.isTrigger ||
+    order.isPositionTpsl
+  ) {
+    return null;
+  }
+
+  return { kind: 'limit', tif: 'Gtc' };
 }

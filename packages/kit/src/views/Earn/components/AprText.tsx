@@ -8,6 +8,7 @@ import {
   buildAprText,
   formatRewardText,
 } from './AprText.utils';
+import { EarnAprSuffixText } from './EarnAprSuffixText';
 
 // APR text component with aprInfo support
 export function AprText({
@@ -40,22 +41,21 @@ export function AprText({
 
   if (aprRangeText) {
     return (
-      <SizableText
+      // Figma spec: APY/APR suffix renders one type-scale step below the value
+      <EarnAprSuffixText
         size={size}
-        textAlign="right"
         color={
           minAprInfo?.normal?.color ||
           maxAprInfo?.normal?.color ||
           aprInfo?.normal?.color ||
           '$text'
         }
-      >
-        {formatRewardText({
+        text={formatRewardText({
           text: aprRangeText,
           rewardUnit,
           hideSuffix,
         })}
-      </SizableText>
+      />
     );
   }
 
@@ -72,17 +72,15 @@ export function AprText({
               color={highlight.icon.color || '$textSuccess'}
             />
           ) : null}
-          <SizableText
+          <EarnAprSuffixText
             size={size}
-            textAlign="right"
             color={highlight.color || '$textSuccess'}
-          >
-            {formatRewardText({
+            text={formatRewardText({
               text: highlight.text,
               rewardUnit,
               hideSuffix,
             })}
-          </SizableText>
+          />
         </XStack>
         <SizableText
           size="$bodyMd"
@@ -112,17 +110,15 @@ export function AprText({
             color={highlight.icon.color || '$textSuccess'}
           />
         ) : null}
-        <SizableText
+        <EarnAprSuffixText
           size={size}
-          textAlign="right"
           color={highlight.color || '$textSuccess'}
-        >
-          {formatRewardText({
+          text={formatRewardText({
             text: highlight.text,
             rewardUnit,
             hideSuffix,
           })}
-        </SizableText>
+        />
       </XStack>
     );
   }
@@ -131,17 +127,15 @@ export function AprText({
   if (aprInfo?.normal) {
     const { normal } = aprInfo;
     return (
-      <SizableText
+      <EarnAprSuffixText
         size={size}
-        textAlign="right"
         color={normal.color || '$text'}
-      >
-        {formatRewardText({
+        text={formatRewardText({
           text: normal.text,
           rewardUnit,
           hideSuffix,
         })}
-      </SizableText>
+      />
     );
   }
 
@@ -166,8 +160,11 @@ export function AprText({
 
   // Priority 4: fallback to current logic
   return (
-    <SizableText size={size} textAlign="right">
-      {hideSuffix ? aprWithoutFee : buildAprText(aprWithoutFee, rewardUnit)}
-    </SizableText>
+    <EarnAprSuffixText
+      size={size}
+      text={
+        hideSuffix ? aprWithoutFee : buildAprText(aprWithoutFee, rewardUnit)
+      }
+    />
   );
 }

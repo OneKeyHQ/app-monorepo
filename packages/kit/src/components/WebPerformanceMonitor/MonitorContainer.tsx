@@ -98,7 +98,7 @@ export const MonitorContainer = () => {
     e.stopPropagation();
     setVisible(false);
     void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-      'showPerformanceMonitor',
+      'showPerformanceMonitorV2',
       false,
     );
   };

@@ -14,6 +14,8 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -50,19 +52,28 @@ export function WalletRenameButton({
     return profile.isThirdParty && !profile.supportsDeviceSettings;
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
-  // Trezor device labels only hold printable ASCII, so restrict the label
-  // input for Trezor (OneKey accepts CJK and keeps the shared dialog as-is).
+  // Trezor and Protocol V2 labels only hold printable ASCII. Protocol V2
+  // additionally follows the firmware's 14-byte limit.
+  const isProtocolV2Product = useMemo(
+    () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),
+    [wallet?.associatedDeviceInfo?.deviceType],
+  );
+
   const labelAsciiOnly = useMemo(
-    () => wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor,
-    [wallet?.associatedDeviceInfo?.vendor],
+    () =>
+      wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor ||
+      isProtocolV2Product,
+    [isProtocolV2Product, wallet?.associatedDeviceInfo?.vendor],
   );
 
   return (
     <>
       <XStack
+        testID={AccountManagerTestIDs.walletRenameButton}
         py="$1"
         px="$1.5"
         flexShrink={1}
+        minWidth={0}
         alignItems="center"
         borderRadius="$2"
         {...(canRename && {
@@ -84,10 +95,20 @@ export function WalletRenameButton({
                   asciiOnly: labelAsciiOnly,
                 },
                 {
+                  maxLength: isProtocolV2Product
+                    ? PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH
+                    : undefined,
+                  disabledMaxLengthLabel: !isProtocolV2Product,
+                  trimOuterWhitespace: isProtocolV2Product,
+                  description: isProtocolV2Product
+                    ? intl.formatMessage({
+                        id: ETranslations.hardware_label_allowed_characters__desc,
+                      })
+                    : undefined,
                   onSubmit: async (name) => {
                     await backgroundApiProxy.serviceHardware.setDeviceLabel({
                       walletId: wallet?.id || '',
-                      label: name,
+                      label: isProtocolV2Product ? name.trim() : name,
                     });
                   },
                 },
@@ -139,7 +160,7 @@ export function WalletRenameButton({
         })}
         {...rest}
       >
-        <SizableText size={textSize} pr="$1.5" numberOfLines={1}>
+        <SizableText size={textSize} pr="$1.5" numberOfLines={1} flexShrink={1}>
           {wallet?.name}
         </SizableText>
         {canRename ? (

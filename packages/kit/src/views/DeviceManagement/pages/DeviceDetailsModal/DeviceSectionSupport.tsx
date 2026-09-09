@@ -70,7 +70,7 @@ function DeviceSectionSupport({
   return (
     <ListItemGroup withSeparator itemProps={{ minHeight: '$12' }}>
       <ListItem
-        key="authRequest"
+        key="aboutDevice"
         title={intl.formatMessage({
           id: ETranslations.global_about_device,
         })}

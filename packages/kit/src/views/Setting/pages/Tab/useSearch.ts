@@ -1,93 +1,117 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { groupBy } from 'lodash';
-
-import { rootNavigationRef } from '@onekeyhq/components';
+import { useDebouncedCallback } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+
+import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
 import {
-  EModalSettingRoutes,
-  ESettingsTabNames,
-} from '@onekeyhq/shared/src/routes';
+  SETTINGS_SEARCH_LOG_IDLE_MS,
+  getSettingsAnalyticsLayout,
+  getSettingsItemAnalyticsId,
+} from './settingsAnalytics';
+import { getDefaultSettingsTab } from './settingsRootLayout';
+import {
+  SETTINGS_SEARCH_KEYS,
+  normalizeSettingsSearchQuery,
+} from './settingsSearchUtils';
+import { useSettingsLayout } from './useIsTabNavigator';
+import { flattenSettingsSearchItems } from './useSettingsSearchItems';
 
-import { useSettingsConfig } from './config';
-import { useIsTabNavigator } from './useIsTabNavigator';
-
-import type { ISubSettingConfig } from './config';
+import type { ISettingsConfig } from './config';
+import type { IFlatSettingsSearchItem } from './useSettingsSearchItems';
 import type { FuseResult } from 'fuse.js';
 
-export interface ISettingsSearchResult {
-  title: string;
-  icon?: string;
-  configs: FuseResult<ISubSettingConfig>[];
-}
+export type ISettingsSearchResult = FuseResult<IFlatSettingsSearchItem>;
 
-export const useSearch = () => {
-  const settingsConfig = useSettingsConfig();
-  const flattenSettingsConfig = useMemo(() => {
-    return settingsConfig.filter(Boolean).flatMap((config) =>
-      config
-        ? config?.configs
-            .filter(Boolean)
-            .flat()
-            .map((i) => ({
-              ...i,
-              sectionTitle: config.title,
-              sectionIcon: config.icon,
-            }))
-        : [],
-    );
-  }, [settingsConfig]);
+export const useSearch = (settingsConfig: ISettingsConfig) => {
+  const { isTabNavigator, isMobileLayout, preferMobileNaming } =
+    useSettingsLayout();
+  const flattenSettingsConfig = useMemo(
+    () => flattenSettingsSearchItems(settingsConfig, preferMobileNaming),
+    [preferMobileNaming, settingsConfig],
+  );
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
+  const [searchText, setSearchText] = useState('');
   const searchFuse = useFuse(flattenSettingsConfig, {
-    keys: ['title', 'keywords'],
-    shouldSort: false,
+    keys: [...SETTINGS_SEARCH_KEYS],
+    shouldSort: true,
   });
 
-  const isTabNavigator = useIsTabNavigator();
   const searchTextRef = useRef<string>('');
+  const lastLoggedQueryRef = useRef('');
+  const layoutRef = useRef({ isTabNavigator, isMobileLayout });
+  layoutRef.current = { isTabNavigator, isMobileLayout };
   const previousTabRoute = useRef<ESettingsTabNames>(
-    settingsConfig[0]?.name || ESettingsTabNames.Backup,
+    getDefaultSettingsTab(settingsConfig),
+  );
+  const logIdleSearch = useDebouncedCallback(
+    (query: string, resultCount: number, topResultId: string | null) => {
+      if (!query || query === lastLoggedQueryRef.current) {
+        return;
+      }
+      lastLoggedQueryRef.current = query;
+      defaultLogger.setting.page.settingsSearched({
+        queryLength: query.length,
+        resultCount,
+        topResultId,
+        layout: getSettingsAnalyticsLayout(layoutRef.current),
+      });
+    },
+    SETTINGS_SEARCH_LOG_IDLE_MS,
   );
   const onFocus = useCallback(() => {
     if (isTabNavigator && searchTextRef.current.length > 0) {
-      rootNavigationRef.current?.navigate(
-        EModalSettingRoutes.SettingListModal,
-        {
-          screen: ESettingsTabNames.Search,
-        },
-      );
+      navigateToSettingsTabInModal(ESettingsTabNames.Search);
     }
   }, [isTabNavigator]);
   const onSearch = useCallback(
-    (searchText: string) => {
-      searchTextRef.current = searchText;
-      const result = searchFuse.search(searchText);
-      const sections = groupBy(result, 'item.sectionTitle');
-      const keys = Object.keys(sections);
-      const list = keys.map((key) => ({
-        title: key,
-        icon: sections[key][0]?.item?.sectionIcon || '',
-        configs: sections[key] as FuseResult<ISubSettingConfig>[],
-      }));
-      if (isTabNavigator) {
-        rootNavigationRef.current?.navigate(
-          EModalSettingRoutes.SettingListModal,
-          {
-            screen:
-              searchText.length === 0 && previousTabRoute.current
-                ? previousTabRoute.current
-                : ESettingsTabNames.Search,
-          },
+    (nextSearchText: string) => {
+      const query = normalizeSettingsSearchQuery(nextSearchText);
+      if (query === searchTextRef.current) {
+        return;
+      }
+      searchTextRef.current = query;
+      // Only the list layout reads `searchText` from this hook. The sidebar
+      // search pane gets the query from the event bus; updating state here
+      // would re-render the sidebar on every keystroke.
+      if (!isTabNavigator) {
+        setSearchText(query);
+      }
+      const list = query ? searchFuse.search(query) : [];
+      logIdleSearch.cancel();
+      if (!query) {
+        lastLoggedQueryRef.current = '';
+      } else {
+        const topItem = list[0]?.item;
+        logIdleSearch(
+          query,
+          list.length,
+          topItem ? getSettingsItemAnalyticsId(topItem) : null,
         );
+      }
+      if (isTabNavigator) {
+        let targetTab = ESettingsTabNames.Search;
+        if (!query) {
+          // The restore target can disappear at runtime (e.g. leaving dev mode
+          // removes the Dev tab), so validate it before navigating.
+          targetTab = settingsConfig.some(
+            (category) => category?.name === previousTabRoute.current,
+          )
+            ? previousTabRoute.current
+            : getDefaultSettingsTab(settingsConfig);
+        }
+        navigateToSettingsTabInModal(targetTab);
         appEventBus.emitToSelf({
           type: EAppEventBusNames.SettingsSearchResult,
           payload: {
             list,
-            searchText,
+            searchText: query,
           },
           cloned: false,
         });
@@ -95,23 +119,16 @@ export const useSearch = () => {
         setSearchResult(list);
       }
     },
-    [isTabNavigator, searchFuse],
+    [isTabNavigator, logIdleSearch, searchFuse, settingsConfig],
   );
   return useMemo(() => {
-    return isTabNavigator
-      ? {
-          isSearching: false,
-          searchResult: [],
-          onFocus,
-          onSearch,
-          previousTabRoute,
-        }
-      : {
-          isSearching: searchTextRef.current.length > 0,
-          searchResult,
-          onSearch,
-          onFocus,
-          previousTabRoute,
-        };
-  }, [isTabNavigator, onFocus, onSearch, searchResult]);
+    return {
+      isSearching: !isTabNavigator && searchText.length > 0,
+      searchResult,
+      searchText,
+      onFocus,
+      onSearch,
+      previousTabRoute,
+    };
+  }, [isTabNavigator, onFocus, onSearch, searchResult, searchText]);
 };

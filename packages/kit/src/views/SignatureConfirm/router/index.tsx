@@ -4,6 +4,10 @@ import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
+// The current send flow is hosted by SignatureConfirmModal. TxConfirm is the
+// shared send/transaction confirmation screen used by wallet, DApp, and swap
+// entries. Legacy SendModal confirmation routes are expected to be removed in
+// 6.7.0; debug confirmation issues in TxConfirm instead.
 const TxConfirmFromDApp = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'),
@@ -52,6 +56,16 @@ const TxConfirm = LazyLoadPage(
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'),
 );
 
+const BatchTxConfirm = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/BatchTxConfirm/BatchTxConfirm'),
+);
+
+const BatchTxConfirmFromDApp = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/BatchTxConfirm/BatchTxConfirmFromDApp'),
+);
+
 const MessageConfirm = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'),
@@ -84,6 +98,14 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
     component: TxConfirm,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.BatchTxConfirm,
+    component: BatchTxConfirm,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp,
+    component: BatchTxConfirmFromDApp,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirm,

@@ -1,0 +1,215 @@
+diff --git a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
+index ea68667..46d67a0 100644
+--- a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
++++ b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
+@@ -27,7 +27,10 @@ __export(mediaQueryList_exports, {
+   NativeMediaQueryList: () => NativeMediaQueryList
+ });
+ module.exports = __toCommonJS(mediaQueryList_exports);
++var ExpoDevice = require("expo-device");
++var ScreenOrientation = require("expo-screen-orientation");
+ var import_react_native = require("react-native");
++var import_react_native_device_utils = require("@onekeyfe/react-native-device-utils");
+ var import_matchQuery = require("./matchQuery.native.js");
+ function _class_call_check(instance, Constructor) {
+   if (!(instance instanceof Constructor)) {
+@@ -61,6 +64,27 @@ function _define_property(obj, key, value) {
+   }
+   return obj;
+ }
++var MAX_OVERRIDE_WIDTH = 767;
++var isDualScreen;
++function isDualScreenDevice() {
++  if (isDualScreen === void 0) {
++    isDualScreen = import_react_native_device_utils.ReactNativeDeviceUtils.isDualScreenDevice();
++  }
++  return isDualScreen;
++}
++function getMediaDimensions() {
++  var dimensions = import_react_native.Dimensions.get("window");
++  var isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
++  var isLandscape = dimensions.width > dimensions.height;
++  var isSpanning = isDualScreenDevice() && import_react_native_device_utils.ReactNativeDeviceUtils.isSpanning();
++  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
++  var shouldClampWidth = shouldUseHalfWidth || isTablet || import_react_native.Platform.OS === "android";
++  if (!shouldClampWidth) return dimensions;
++  return {
++    ...dimensions,
++    width: Math.min(shouldUseHalfWidth ? dimensions.width / 2 : dimensions.width, MAX_OVERRIDE_WIDTH)
++  };
++}
+ var NativeMediaQueryList = /* @__PURE__ */function () {
+   "use strict";
+ 
+@@ -75,6 +99,16 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+     import_react_native.Dimensions.addEventListener("change", function () {
+       _this.notify();
+     });
++    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++      ScreenOrientation.addOrientationChangeListener(function () {
++        _this.notify();
++      });
++    }
++    if (isDualScreenDevice()) {
++      import_react_native_device_utils.ReactNativeDeviceUtils.addSpanningChangedListener(function () {
++        _this.notify();
++      });
++    }
+   }
+   _create_class(NativeMediaQueryList2, [{
+     key: "orientation",
+@@ -118,7 +152,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+   }, {
+     key: "matches",
+     get: function get() {
+-      var windowDimensions = import_react_native.Dimensions.get("window");
++      var windowDimensions = getMediaDimensions();
+       var matches = (0, import_matchQuery.matchQuery)(this.query, {
+         type: "screen",
+         orientation: this.orientation,
+diff --git a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
+index 91e7740..3ec88c9 100644
+--- a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
++++ b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
+@@ -1,4 +1,7 @@
+-import { Dimensions } from "react-native";
++import * as ExpoDevice from "expo-device";
++import * as ScreenOrientation from "expo-screen-orientation";
++import { Dimensions, Platform } from "react-native";
++import { ReactNativeDeviceUtils } from "@onekeyfe/react-native-device-utils";
+ import { matchQuery } from "./matchQuery.native.js";
+ function _class_call_check(instance, Constructor) {
+   if (!(instance instanceof Constructor)) {
+@@ -32,6 +35,27 @@ function _define_property(obj, key, value) {
+   }
+   return obj;
+ }
++var MAX_OVERRIDE_WIDTH = 767;
++var isDualScreen;
++function isDualScreenDevice() {
++  if (isDualScreen === void 0) {
++    isDualScreen = ReactNativeDeviceUtils.isDualScreenDevice();
++  }
++  return isDualScreen;
++}
++function getMediaDimensions() {
++  var dimensions = Dimensions.get("window");
++  var isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET;
++  var isLandscape = dimensions.width > dimensions.height;
++  var isSpanning = isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning();
++  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
++  var shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === "android";
++  if (!shouldClampWidth) return dimensions;
++  return {
++    ...dimensions,
++    width: Math.min(shouldUseHalfWidth ? dimensions.width / 2 : dimensions.width, MAX_OVERRIDE_WIDTH)
++  };
++}
+ var NativeMediaQueryList = /* @__PURE__ */function () {
+   "use strict";
+ 
+@@ -46,6 +70,16 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+     Dimensions.addEventListener("change", function () {
+       _this.notify();
+     });
++    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++      ScreenOrientation.addOrientationChangeListener(function () {
++        _this.notify();
++      });
++    }
++    if (isDualScreenDevice()) {
++      ReactNativeDeviceUtils.addSpanningChangedListener(function () {
++        _this.notify();
++      });
++    }
+   }
+   _create_class(NativeMediaQueryList2, [{
+     key: "orientation",
+@@ -89,7 +123,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+   }, {
+     key: "matches",
+     get: function get() {
+-      var windowDimensions = Dimensions.get("window");
++      var windowDimensions = getMediaDimensions();
+       var matches = matchQuery(this.query, {
+         type: "screen",
+         orientation: this.orientation,
+diff --git a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
+index 0c33f42..543ebf5 100644
+--- a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
++++ b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
+@@ -1,5 +1,9 @@
+ import type { MediaQueryList } from '@tamagui/web'
+-import { Dimensions } from 'react-native'
++import * as ExpoDevice from 'expo-device'
++import * as ScreenOrientation from 'expo-screen-orientation'
++import { Dimensions, Platform } from 'react-native'
++
++import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils'
+ 
+ import { matchQuery } from './matchQuery'
+ 
+@@ -7,6 +11,37 @@ type Orientation = 'landscape' | 'portrait'
+ 
+ type Listener = (orientation: Orientation) => void
+ 
++// OneKey patch: Normalize responsive widths for tablets and dual-screen devices.
++const MAX_OVERRIDE_WIDTH = 767
++let isDualScreen: boolean | undefined
++
++function isDualScreenDevice() {
++  isDualScreen ??= ReactNativeDeviceUtils.isDualScreenDevice()
++  return isDualScreen
++}
++
++function getMediaDimensions() {
++  const dimensions = Dimensions.get('window')
++  const isTablet = ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET
++  const isLandscape = dimensions.width > dimensions.height
++  const isSpanning =
++    isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()
++  const shouldUseHalfWidth = isSpanning || (isTablet && isLandscape)
++  const shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === 'android'
++
++  if (!shouldClampWidth) {
++    return dimensions
++  }
++
++  return {
++    ...dimensions,
++    width: Math.min(
++      shouldUseHalfWidth ? dimensions.width / 2 : dimensions.width,
++      MAX_OVERRIDE_WIDTH
++    ),
++  }
++}
++
+ export class NativeMediaQueryList implements MediaQueryList {
+   private listeners: Listener[] = []
+ 
+@@ -20,6 +55,16 @@ export class NativeMediaQueryList implements MediaQueryList {
+     Dimensions.addEventListener('change', () => {
+       this.notify()
+     })
++    if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
++      ScreenOrientation.addOrientationChangeListener(() => {
++        this.notify()
++      })
++    }
++    if (isDualScreenDevice()) {
++      ReactNativeDeviceUtils.addSpanningChangedListener(() => {
++        this.notify()
++      })
++    }
+   }
+ 
+   private notify() {
+@@ -47,7 +92,7 @@ export class NativeMediaQueryList implements MediaQueryList {
+   }
+ 
+   get matches(): boolean {
+-    const windowDimensions = Dimensions.get('window')
++    const windowDimensions = getMediaDimensions()
+     const matches = matchQuery(this.query, {
+       type: 'screen',
+       orientation: this.orientation,

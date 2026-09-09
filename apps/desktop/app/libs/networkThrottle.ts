@@ -13,6 +13,7 @@ import type {
   IDesktopStoreNetworkThrottleProfile,
 } from '@onekeyhq/shared/types/desktop';
 
+import { buildDesktopOneKeyOriginNetworkConditionRules } from './desktopNetworkThrottlePolicy';
 import * as store from './store';
 
 const DESKTOP_WEBVIEW_PARTITION = 'persist:onekey';
@@ -194,23 +195,11 @@ function getWebContentsAppliedLogMessage(
   const profile = DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
   return (
     `[desktop-network-throttle] debugger applied state=${config.profile} ` +
+    `scope=onekey-origins ` +
     `webContents=${label} latencyMs=${profile.latency} ` +
     `downloadBps=${profile.downloadThroughput} ` +
     `uploadBps=${profile.uploadThroughput}`
   );
-}
-
-function getDebuggerNetworkConditions(config: IDesktopStoreNetworkThrottle) {
-  if (!config.enabled) {
-    return {
-      offline: false,
-      latency: 0,
-      downloadThroughput: -1,
-      uploadThroughput: -1,
-    };
-  }
-
-  return DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
 }
 
 function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
@@ -223,7 +212,9 @@ function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
     return false;
   }
 
-  return true;
+  // Only the app's own renderer is throttled. DApp browser tabs and the
+  // overlay run in their own partitions and must keep full speed.
+  return contents.session === session.defaultSession;
 }
 
 function clearDesktopNetworkThrottleDebuggerReapply(
@@ -364,7 +355,27 @@ function applyDesktopNetworkThrottleToSession(
   }
 }
 
-async function applyDesktopNetworkThrottleToWebContentsDebugger({
+// Startup applies the throttle from several entry points at once. Serializing
+// per webContents lets the applied-state guard below actually dedupe them,
+// instead of every call passing the guard and re-sending the same commands.
+const webContentsDebuggerApplyChain = new WeakMap<WebContents, Promise<void>>();
+
+async function applyDesktopNetworkThrottleToWebContentsDebugger(
+  entry: IDesktopNetworkThrottleWebContentsEntry,
+): Promise<void> {
+  const previous =
+    webContentsDebuggerApplyChain.get(entry.contents) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => runDesktopNetworkThrottleDebuggerApply(entry));
+  webContentsDebuggerApplyChain.set(
+    entry.contents,
+    next.catch(() => undefined),
+  );
+  return next;
+}
+
+async function runDesktopNetworkThrottleDebuggerApply({
   contents,
   label,
   config,
@@ -412,10 +423,18 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     }
 
     await targetDebugger.sendCommand('Network.enable');
-    await targetDebugger.sendCommand(
-      'Network.emulateNetworkConditions',
-      getDebuggerNetworkConditions(config),
-    );
+    // The whole policy is one command, so only OneKey origins are affected and
+    // concurrent applies cannot interleave into a state that throttles nothing.
+    // Sending it also resets any global profile a previous build left behind,
+    // and an empty rule list is how throttling is removed.
+    await targetDebugger.sendCommand('Network.emulateNetworkConditionsByRule', {
+      offline: false,
+      matchedNetworkConditions: config.enabled
+        ? buildDesktopOneKeyOriginNetworkConditionRules(
+            DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile],
+          )
+        : [],
+    });
     clearDesktopNetworkThrottleDebuggerReapply(contents);
     appliedStateByWebContentsDebugger.set(contents, stateKey);
     if (config.enabled || previousStateKey) {
@@ -436,6 +455,9 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       }
     }
   } catch (error) {
+    // There is no fallback: the standard emulation command can only throttle
+    // the whole session, which would also slow DApp traffic. A failure here
+    // means no throttling, and the warning is the signal for that.
     if (!suppressFailureLog) {
       logger.warn(
         `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
@@ -510,10 +532,12 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
 
   const closeConnectionTasks: Array<Promise<void>> = [];
   for (const entry of entries) {
+    // Sessions are never throttled as a whole; this only clears emulation left
+    // behind by an earlier build so no session keeps a stale global profile.
     const appliedSession = applyDesktopNetworkThrottleToSession(
       entry.targetSession,
       entry.label,
-      config,
+      DEFAULT_NETWORK_THROTTLE_CONFIG,
       options?.throwOnFailure,
     );
     if (options?.closeConnections && appliedSession) {
@@ -541,16 +565,17 @@ export function applyDesktopNetworkThrottleToWebContents(
   if (contents.isDestroyed()) {
     return;
   }
-  const config = getRuntimeNetworkThrottleConfig();
+  // Session-level emulation would slow every request in the session, so it is
+  // always cleared; the per-URL rules below carry the whole policy.
   applyDesktopNetworkThrottleToSession(
     contents.session,
     `webContents:${contents.id}:${contents.getType()}`,
-    config,
+    DEFAULT_NETWORK_THROTTLE_CONFIG,
   );
   void applyDesktopNetworkThrottleToWebContentsDebugger({
     label: 'webContents',
     contents,
-    config,
+    config: getRuntimeNetworkThrottleConfig(),
   });
 }
 

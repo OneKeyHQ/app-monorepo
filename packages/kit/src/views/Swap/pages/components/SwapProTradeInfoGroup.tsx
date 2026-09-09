@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -12,119 +13,91 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useSwapLimitPriceUseRateAtom,
-  useSwapProDirectionAtom,
-  useSwapProSelectTokenAtom,
-  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
-  useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
+  useSwapQuoteFetchingAtom,
+  useSwapQuoteListAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import SellForSelector from '../../../Market/MarketDetailV2/components/SwapPanel/components/SellForSelector';
-import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
-import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
-
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
-  defaultTokens: ISwapTokenBase[];
-  defaultLimitTokens: ISwapTokenBase[];
   onBalanceMax: () => void;
+  storeName: EJotaiContextStoreNames;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
-  defaultTokens,
-  defaultLimitTokens,
+  storeName,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
-  const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
+  const [swapProQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProDirection] = useSwapProDirectionAtom();
-  const swapQuoteLoading = useSwapQuoteLoading();
-  const [swapProSellToToken, setSwapProSellToToken] =
-    useSwapProSellToTokenAtom();
-  const [, setSwapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
-  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
-  const defaultTokensFromType = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return defaultTokens;
-    }
-    return defaultLimitTokens;
-  }, [swapProTradeType, defaultTokens, defaultLimitTokens]);
-  const { result: enableAddressTypeSelector } = usePromiseResult(async () => {
-    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: inputToken?.networkId ?? '',
-    });
-    return result?.mergeDeriveAssetsEnabled;
-  }, [inputToken?.networkId]);
+  const navigation = useAppNavigation();
 
-  const limitPriceValue = useMemo(() => {
-    const swapLimitPriceUseRateBN = new BigNumber(
-      swapLimitPriceUseRate.rate || 0,
-    );
-    if (swapLimitPriceUseRateBN.isZero() || swapLimitPriceUseRateBN.isNaN()) {
-      return {
-        fromValue: '-',
-        toValue: '-',
-        toSymbol: '-',
-      };
+  const handleOpenProviderList = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName,
+      },
+    });
+  }, [navigation, storeName]);
+
+  const handleDepositPress = useCallback(() => {
+    if (!inputToken || !activeAccount) {
+      return;
     }
-    const displayLimitRate =
-      swapProDirection === ESwapDirection.BUY
-        ? new BigNumber(1).dividedBy(swapLimitPriceUseRateBN)
-        : swapLimitPriceUseRateBN;
-    const fromSymbol =
-      swapProDirection === ESwapDirection.BUY
-        ? toToken?.symbol
-        : inputToken?.symbol;
-    const toSymbol =
-      swapProDirection === ESwapDirection.BUY
-        ? inputToken?.symbol
-        : toToken?.symbol;
-    if (displayLimitRate.isZero() || displayLimitRate.isNaN()) {
-      return {
-        fromValue: '-',
-        toValue: '-',
-      };
-    }
-    return {
-      fromValue: `1 ${fromSymbol ?? '-'} = `,
-      toValue: displayLimitRate.toFixed(),
-      toSymbol: toSymbol ?? '-',
-    };
-  }, [
-    swapLimitPriceUseRate.rate,
-    swapProDirection,
-    toToken?.symbol,
-    inputToken?.symbol,
-  ]);
+    pushSwapReceiveSelector({
+      navigation,
+      token: inputToken,
+      accountInfo: activeAccount,
+    });
+  }, [navigation, inputToken, activeAccount]);
+
+  const inputTokenNetworkId = inputToken?.networkId;
+  const { result: enableAddressTypeSelector } = usePromiseResult(
+    async () => {
+      if (!inputTokenNetworkId) {
+        return false;
+      }
+      const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: inputTokenNetworkId,
+      });
+      return result?.mergeDeriveAssetsEnabled;
+    },
+    [inputTokenNetworkId],
+    { initResult: false },
+  );
+
   const balanceValue = useMemo(() => {
     const balanceBN = new BigNumber(inputToken?.balanceParsed ?? '0');
     if (balanceBN.isZero() || balanceBN.isNaN()) {
@@ -133,18 +106,7 @@ const SwapProTradeInfoGroup = ({
     return balanceBN.toFixed();
   }, [inputToken]);
 
-  const swapProQuoteResult = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapCurrentQuoteResult;
-    }
-    return swapProQuoteResultPro;
-  }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
-  const swapProQuoteFetching = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapQuoteLoading;
-    }
-    return swapProQuoteFetchingPro;
-  }, [swapProQuoteFetchingPro, swapQuoteLoading, swapProTradeType]);
+  const swapProQuoteResult = swapCurrentQuoteResult;
 
   const receiveValue = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -159,31 +121,6 @@ const SwapProTradeInfoGroup = ({
     }
     return '';
   }, [toTokenAmount?.value, swapProQuoteResult?.toAmount, swapProTradeType]);
-
-  const handleTokenSelect = useCallback(
-    (token: IToken) => {
-      setSwapProSellToToken(token);
-      // Sync BUY counterparty so both directions use the same token
-      setSwapProUseSelectBuyToken(token);
-      // Save preference (shared with Instant Mode) via simpledb
-      const networkId = swapProSelectToken?.networkId || '';
-      if (networkId) {
-        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
-          networkId,
-          preference: {
-            contractAddress: token.contractAddress,
-            symbol: token.symbol,
-            networkId: token.networkId,
-          },
-        });
-      }
-    },
-    [
-      setSwapProSellToToken,
-      setSwapProUseSelectBuyToken,
-      swapProSelectToken?.networkId,
-    ],
-  );
 
   const selectorTrigger = useMemo(
     () => (
@@ -232,6 +169,14 @@ const SwapProTradeInfoGroup = ({
                 renderSelectorTrigger={selectorTrigger}
               />
             ) : null}
+            <XStack
+              onPress={handleDepositPress}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+              hoverStyle={{ opacity: 0.7 }}
+              pressStyle={{ opacity: 0.5 }}
+            >
+              <Icon name="PlusCircleOutline" size="$4" color="$iconSubdued" />
+            </XStack>
           </XStack>
         }
         titleProps={ITEM_TITLE_PROPS}
@@ -241,54 +186,6 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {swapProDirection === ESwapDirection.SELL ? (
-        <SellForSelector
-          defaultTokens={defaultTokensFromType}
-          currentSelectToken={swapProSelectToken as ISwapTokenBase}
-          onTokenSelect={(token) => handleTokenSelect(token as IToken)}
-          symbol={swapProSellToToken?.symbol ?? '-'}
-          isLoading={swapProQuoteFetching}
-        />
-      ) : null}
-      {swapProTradeType === ESwapProTradeType.LIMIT ? (
-        <SwapCommonInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.dexmarket_pro_trigger_price,
-          })}
-          valueComponent={
-            <YStack>
-              <SizableText
-                size="$bodySmMedium"
-                numberOfLines={1}
-                textAlign="right"
-                maxWidth="$36"
-              >
-                {limitPriceValue.fromValue}
-              </SizableText>
-              <NumberSizeableText
-                size="$bodySmMedium"
-                numberOfLines={1}
-                textAlign="right"
-                formatter="balance"
-                formatterOptions={{
-                  tokenSymbol: limitPriceValue.toSymbol,
-                }}
-                maxWidth="$36"
-              >
-                {limitPriceValue.toValue}
-              </NumberSizeableText>
-            </YStack>
-          }
-          titleProps={ITEM_TITLE_PROPS}
-          valueProps={ITEM_VALUE_PROPS}
-          isLoading={false}
-          containerProps={{
-            py: '$1',
-            alignItems: 'flex-start',
-            minHeight: '$10',
-          }}
-        />
-      ) : null}
       <SwapCommonInfoItem
         title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
         titleProps={ITEM_TITLE_PROPS}
@@ -316,6 +213,23 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
+      {swapProTradeType === ESwapProTradeType.MARKET ? (
+        <SwapProviderInfoItem
+          providerIcon={swapProQuoteResult?.info.providerLogo ?? ''}
+          providerName={swapProQuoteResult?.info.providerName ?? ''}
+          titleProps={ITEM_TITLE_PROPS}
+          valueProps={ITEM_VALUE_PROPS}
+          compact
+          showEmptyPlaceholder
+          fromToken={inputToken}
+          toToken={toToken}
+          percentageFee={swapProQuoteResult?.fee?.percentageFee}
+          percentOriginFee={swapProQuoteResult?.fee?.percentOriginFee}
+          onPress={
+            swapQuoteList.length > 1 ? handleOpenProviderList : undefined
+          }
+        />
+      ) : null}
     </YStack>
   );
 };

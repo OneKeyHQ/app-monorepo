@@ -1,7 +1,12 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { buildDefaultAddAccountNetworks } from './defaultNetworkAccountsConfig';
+import {
+  buildDefaultAddAccountNetworks,
+  buildDefaultAddAccountNetworksForQrWallet,
+} from './defaultNetworkAccountsConfig';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -82,5 +87,43 @@ describe('buildDefaultAddAccountNetworks', () => {
     });
 
     expect(networks).toEqual([]);
+  });
+});
+
+describe('buildDefaultAddAccountNetworksForQrWallet', () => {
+  const backgroundApi = {
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: jest.fn(async () => undefined),
+    },
+  } as unknown as IBackgroundApi;
+
+  it('excludes Solana from Pro2 QR wallet defaults', async () => {
+    const networkIdsMap = getNetworkIdsMap();
+    const networks = await buildDefaultAddAccountNetworksForQrWallet({
+      backgroundApi,
+      walletId: 'qr-pro2-wallet',
+      deviceType: EDeviceType.Pro2,
+      firmwareType: undefined,
+      includingNetworkWithGlobalDeriveType: true,
+    });
+
+    expect(new Set(networks.map((network) => network.networkId))).toEqual(
+      new Set([networkIdsMap.btc, networkIdsMap.eth]),
+    );
+  });
+
+  it('keeps Solana in legacy Pro QR wallet defaults', async () => {
+    const networkIdsMap = getNetworkIdsMap();
+    const networks = await buildDefaultAddAccountNetworksForQrWallet({
+      backgroundApi,
+      walletId: 'qr-pro-wallet',
+      deviceType: EDeviceType.Pro,
+      firmwareType: undefined,
+      includingNetworkWithGlobalDeriveType: true,
+    });
+
+    expect(new Set(networks.map((network) => network.networkId))).toEqual(
+      new Set([networkIdsMap.btc, networkIdsMap.eth, networkIdsMap.sol]),
+    );
   });
 });

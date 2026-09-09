@@ -37,6 +37,7 @@ export async function buildMarketExecutionPayload({
   currentToToken,
   deriveAddressEncoding,
   fromAmount,
+  receivingAccountId,
   receivingAddress,
   slippage,
   swapType,
@@ -52,6 +53,7 @@ export async function buildMarketExecutionPayload({
   currentToToken: ISwapToken;
   deriveAddressEncoding?: EAddressEncodings | string;
   fromAmount: string;
+  receivingAccountId?: string;
   receivingAddress: string;
   slippage: number;
   swapType?: ESwapTabSwitchType;
@@ -188,7 +190,7 @@ export async function buildMarketExecutionPayload({
       amount: buildRes.result.toAmount ?? '',
       token: currentToToken,
       accountInfo: {
-        accountId,
+        accountId: receivingAccountId ?? accountId,
         networkId: currentToToken.networkId,
       },
     },

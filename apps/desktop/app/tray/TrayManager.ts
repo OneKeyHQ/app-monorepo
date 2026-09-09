@@ -88,7 +88,7 @@ export function initTrayManager(
   cachedGetMainWindow = getMainWindow;
 
   // __dirname resolves to <app>/dist in both dev and inside asar. In prod,
-  // build/ holds the packed webpack renderer output; in dev, build/ doesn't
+  // build/ holds the packed Rspack renderer output; in dev, build/ doesn't
   // exist (renderer runs via dev-server), so we read from public/static/.
   // Don't use app.getAppPath(): dev returns <app>/dist, prod returns the
   // asar root — different levels.

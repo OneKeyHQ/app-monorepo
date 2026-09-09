@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
@@ -8,6 +10,7 @@ import {
   getReduceOnlyPositionMaxSize,
   getScaleOrderReferencePrice,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -16,7 +19,6 @@ import {
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -38,6 +40,7 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData: useHyperliquidContextData,
 } = createJotaiContext();
 export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 
@@ -190,6 +193,14 @@ export function useBboForOrderPrice(
   return bbo;
 }
 
+export function useGetBboForOrderPrice() {
+  const { store } = useHyperliquidContextData();
+  return useCallback(
+    (): IPerpsBboWithLocalReceivedAt | null => store?.get(bboAtom()) ?? null,
+    [store],
+  );
+}
+
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
@@ -258,8 +269,8 @@ export const {
 
 export type IBBOPriceMode =
   | null
-  | { type: 'counterparty'; level: number }
-  | { type: 'queue'; level: number };
+  | { type: 'counterparty'; offsetTicks: 0 | 5 }
+  | { type: 'queue'; offsetTicks: 0 | 5 };
 
 export interface ITradingFormData {
   side: 'long' | 'short';
@@ -387,7 +398,7 @@ function isBboPriceModeEqual(
   if (!a || !b) {
     return false;
   }
-  return a.type === b.type && a.level === b.level;
+  return a.type === b.type && a.offsetTicks === b.offsetTicks;
 }
 
 function isTradingFormOrderPriceParamsEqual(
@@ -926,7 +937,7 @@ function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
   const key = `${dexIndex}-${assetId}`;
   let entry = perpsCtxByCoinAtomCache.get(key);
   if (!entry) {
-    const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
+    const ctxIndex = toCtxIndex(assetId, dexIndex);
     // selectAtom passes prevSlice to the selector. Returning prevSlice when
     // fields are unchanged makes Jotai's Object.is check pass, so the derived
     // atom's value stays the same reference → dependents skip re-evaluation.

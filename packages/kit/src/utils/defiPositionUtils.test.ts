@@ -8,7 +8,6 @@ import {
   buildLocalizedProtocolPositionItems,
   buildProtocolCategoryGroups,
   getProtocolPositionDisplayName,
-  getSectionActionPlacement,
   isSectionedPosition,
 } from './defiPositionUtils';
 
@@ -655,14 +654,5 @@ describe('isSectionedPosition', () => {
       ],
     });
     expect(isSectionedPosition(firstLocalizedPosition(position))).toBe(true);
-  });
-});
-
-describe('getSectionActionPlacement', () => {
-  it('maps each section asset type to the action placement under it', () => {
-    expect(getSectionActionPlacement('supplied')).toBe('balance');
-    expect(getSectionActionPlacement('other')).toBe('balance');
-    expect(getSectionActionPlacement('borrowed')).toBe('debt');
-    expect(getSectionActionPlacement('rewards')).toBe('rewards');
   });
 });

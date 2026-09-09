@@ -1,18 +1,31 @@
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  canAttemptTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityJsonRpc,
+  createCheckFailedTransactionSecurityResult,
+  createCheckUnavailableTransactionSecurityResult,
+  createNetworkNotSupportedTransactionSecurityResult,
+  createUnableToAssessTransactionSecurityResult,
+  resolveTransactionSecurityServerResult,
+} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
+import {
+  checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
   convertDecodedTxActionsToSignatureConfirmTxDisplayTitle,
   convertNetworkToSignatureConfirmNetwork,
+  mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
@@ -32,6 +45,11 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ITransactionSecurityCheckResult,
+  ITransactionSecurityCheckResultRaw,
+  ITransactionSecurityJsonRpc,
+} from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
   type IDecodedTx,
@@ -42,11 +60,38 @@ import {
   type IRecentRecipientEntry,
   RECENT_RECIPIENTS_BUCKET_CAP,
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
+import {
+  getPermit2ServerDisplayExtras,
+  shouldUseLocalPermit2Display,
+} from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
+
+type ICheckTransactionSecurityParamsBase = {
+  networkId: string;
+  accountId: string;
+  accountAddress?: string;
+};
+
+type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
+  (
+    | {
+        encodedTx: IEncodedTx;
+        jsonRpc?: never;
+      }
+    | {
+        encodedTx?: never;
+        jsonRpc: ITransactionSecurityJsonRpc;
+      }
+  );
+
+const TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE = 31_403;
+const TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE = 31_501;
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -351,14 +396,31 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    if (
+    const shouldUseLocalTxDisplay = Boolean(
       parsedTx &&
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-      parsedTx?.type === EParseTxType.Unknown &&
-      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow)
-    ) {
-      parsedTx.display = null;
-    }
+      parsedTx.type === EParseTxType.Unknown &&
+      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
+    );
+
+    const useLocalPermit2Display = shouldUseLocalPermit2Display({
+      hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
+      parsedTx,
+    });
+
+    const shouldUseLocalDisplay =
+      shouldUseLocalTxDisplay || useLocalPermit2Display;
+    const localDisplayExtras = getPermit2ServerDisplayExtras(
+      shouldUseLocalDisplay ? parsedTx?.display : undefined,
+    );
+    // Earn fallback and locally validated Permit2 both retain server risk
+    // alerts. Simulation is retained for staking fallback and Permit2 only.
+    const serverSimulationComponents =
+      useLocalPermit2Display ||
+      (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
+        ? localDisplayExtras.simulationComponents
+        : [];
+    const serverAlerts = localDisplayExtras.alerts;
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -385,7 +447,18 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx && parsedTx.display) {
+    // Scaled-UI (rebase) tokens: the server display would carry raw
+    // amounts (and editable approve components) for scaling tokens; the
+    // local decode is display-correct and fail-closes approve editing, so
+    // force the local path. Server risk alerts are retained below.
+    const hasScalingRebaseAction =
+      checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+
+    if (
+      parsedTx?.display &&
+      !shouldUseLocalDisplay &&
+      !hasScalingRebaseAction
+    ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -401,12 +474,50 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
+      // Rebase-forced local display: the server parse ran but the rebase
+      // condition (not shouldUseLocalDisplay) forced the local path.
+      const isRebaseForcedLocal =
+        hasScalingRebaseAction &&
+        !shouldUseLocalDisplay &&
+        Boolean(parsedTx?.display);
+
+      // The rebase-forced path did not receive `parsedTx.display` above
+      // (shouldUseLocalDisplay was false), so `serverAlerts` is empty for
+      // it. Recompute alerts directly from the server display here so
+      // rebase-forced local rendering still surfaces server risk alerts.
+      // `simulationComponents` are deliberately NOT consumed here: a server
+      // Simulation panel carries raw (non-multiplied) server amounts and
+      // would reintroduce the display/raw mismatch this mechanism removes —
+      // do not "restore" it for the rebase-forced case.
+      const rebaseDisplayExtras = isRebaseForcedLocal
+        ? getPermit2ServerDisplayExtras(parsedTx?.display)
+        : undefined;
+
+      // The server may flag a risky counterparty only via `Address.tags`
+      // (no `display.alerts`); local Address components carry `tags: []`,
+      // so merge the server risk tags back or SecurityCheckCard would
+      // report "No issues" for a flagged address on the rebase-forced path.
+      const rebaseMergedComponents = isRebaseForcedLocal
+        ? mergeServerAddressRiskTagsIntoComponents({
+            localComponents: txDisplayComponents,
+            serverComponents: parsedTx?.display?.components,
+          })
+        : txDisplayComponents;
+
       decodedTx.txDisplay = {
         title: '',
-        components: txDisplayComponents,
-        alerts: [],
+        components: [...rebaseMergedComponents, ...serverSimulationComponents],
+        alerts: rebaseDisplayExtras?.alerts?.length
+          ? rebaseDisplayExtras.alerts
+          : serverAlerts,
       };
       decodedTx.isLocalParsed = true;
+      // Scaled-UI forced-local: the server parse ran and its alerts are
+      // retained above — mark it so SecurityCheckCard does not report a
+      // false "Unverified" for this tx.
+      if (isRebaseForcedLocal) {
+        decodedTx.hasServerSecurityAnalysis = true;
+      }
     }
 
     // Backfill approveType/spender/amount on server-built Approve components
@@ -474,6 +585,16 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (transferPayload?.isCustomHexData) {
       decodedTx.isCustomHexData = true;
+    }
+
+    // Display-only: align EVM addresses with the checksum form hardware
+    // devices render. Runs last so server, local-fallback and private-send
+    // rewrites are all covered.
+    if (decodedTx.txDisplay?.components) {
+      decodedTx.txDisplay.components = await checksumDisplayComponentAddresses({
+        networkId,
+        components: decodedTx.txDisplay.components,
+      });
     }
 
     return decodedTx;
@@ -585,6 +706,117 @@ class ServiceSignatureConfirm extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkTransactionSecurity(
+    params: ICheckTransactionSecurityParams,
+  ): Promise<ITransactionSecurityCheckResult | undefined> {
+    const { accountId, networkId, encodedTx, jsonRpc } = params;
+    if ((!encodedTx && !jsonRpc) || (encodedTx && jsonRpc)) {
+      return undefined;
+    }
+
+    const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+      await primePersistAtom.get();
+    if (!isLoggedIn || !isLoggedInOnServer || !primeSubscription?.isActive) {
+      return createCheckUnavailableTransactionSecurityResult();
+    }
+
+    if (
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
+    ) {
+      return createNetworkNotSupportedTransactionSecurityResult();
+    }
+
+    if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
+      return undefined;
+    }
+
+    let authHeaders;
+    try {
+      authHeaders = await this.getOneKeyIdAuthHeaders();
+    } catch {
+      return createCheckFailedTransactionSecurityResult();
+    }
+    const authToken = authHeaders['X-Onekey-Request-Token']?.trim();
+    if (!authToken) {
+      return createCheckFailedTransactionSecurityResult();
+    }
+
+    try {
+      let accountAddress = params.accountAddress;
+      if (!accountAddress) {
+        accountAddress =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+      }
+
+      const body: {
+        networkId: string;
+        accountAddress: string;
+        encodedTx?: unknown;
+        jsonRpc?: ITransactionSecurityJsonRpc;
+      } = {
+        networkId,
+        accountAddress,
+      };
+
+      if (encodedTx) {
+        const vault = await vaultFactory.getVault({
+          networkId,
+          accountId,
+        });
+        const { encodedTx: encodedTxToCheck } =
+          await vault.buildParseTransactionParams({
+            encodedTx,
+          });
+        // The UI starts a scan when the raw payload looks attemptable
+        // (EVM objects still carry gas). After vault normalize, leftover
+        // extra keys must not skip back to a silent success.
+        if (!canSubmitTransactionSecurityEncodedTx(encodedTxToCheck)) {
+          return canAttemptTransactionSecurityEncodedTx(encodedTx)
+            ? createUnableToAssessTransactionSecurityResult()
+            : undefined;
+        }
+        body.encodedTx = encodedTxToCheck;
+      } else if (jsonRpc) {
+        body.jsonRpc = jsonRpc;
+      }
+      const walletTypeHeaders =
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        });
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const resp = await client.post<{
+        data: ITransactionSecurityCheckResultRaw;
+      }>('/utility/v1/transaction/check', body, {
+        timeout: 5000,
+        headers: {
+          ...walletTypeHeaders,
+          'X-Onekey-Request-Token': authToken,
+        },
+      });
+      return resolveTransactionSecurityServerResult(resp.data.data);
+    } catch (error) {
+      const serverError = error as { className?: string; code?: number };
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code === TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE
+      ) {
+        return createCheckUnavailableTransactionSecurityResult();
+      }
+      if (
+        serverError.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+        serverError.code ===
+          TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE
+      ) {
+        return createNetworkNotSupportedTransactionSecurityResult();
+      }
+      return createCheckFailedTransactionSecurityResult();
+    }
+  }
+
+  @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
     const { accountId, networkId, message, swapInfo, origin } = params;
 
@@ -650,6 +882,14 @@ class ServiceSignatureConfirm extends ServiceBase {
             component.tags = [];
           }
         });
+      }
+
+      if (parsedMessage?.display?.components) {
+        parsedMessage.display.components =
+          await checksumDisplayComponentAddresses({
+            networkId,
+            components: parsedMessage.display.components,
+          });
       }
 
       return parsedMessage;

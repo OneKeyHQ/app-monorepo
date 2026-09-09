@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,10 +31,12 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
+import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
+import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { isMarketStockCategory } from './utils';
+import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -61,6 +63,7 @@ const useMarketHomeLayoutProps = () => {
   const {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
+    stockCategories: apiStockCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
@@ -108,10 +111,18 @@ const useMarketHomeLayoutProps = () => {
   const [selectedCategory, setSelectedCategory] = useState(
     selectedSpotCategory || 'trending',
   );
+  // The category most recently applied by an explicit intent (user tap or
+  // deep link). The bg-synced atom echoes writes back asynchronously, so this
+  // ref is the freshest truth; the atom may lag behind it.
+  const pendingSpotCategoryRef = useRef<string | undefined>(undefined);
+  const applySelectedCategory = useCallback((categoryId: string) => {
+    pendingSpotCategoryRef.current = categoryId;
+    setSelectedCategory(categoryId);
+  }, []);
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => {
+      const mappedCategories = apiSpotCategories.map((c) => {
         const category = {
           id: c.type,
           name: c.name,
@@ -122,16 +133,33 @@ const useMarketHomeLayoutProps = () => {
           isStockCategory: isMarketStockCategory(category),
         };
       });
+
+      return ensureMarketTopCoinsCategory(
+        mappedCategories,
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
+      );
     }
 
     // Fallback before API responds
-    return [
-      {
-        id: 'trending',
-        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-      },
-    ];
+    return ensureMarketTopCoinsCategory(
+      [
+        {
+          id: 'trending',
+          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+        },
+      ],
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
+    );
   }, [apiSpotCategories, intl]);
+
+  const stockCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiStockCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiStockCategories],
+  );
 
   const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
   const shouldWaitForSpotCategoryReady = Boolean(
@@ -147,12 +175,24 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    // The atom echoes UI writes back after a bg round-trip; until it carries
+    // the latest locally-applied category, restoring from it would revert the
+    // user's selection and make the pager jump back (OK-57367).
+    if (
+      !shouldRestoreSpotCategoryFromAtom({
+        pendingSpotCategoryId: pendingSpotCategoryRef.current,
+        atomSpotCategoryId: selectedSpotCategory,
+      })
+    ) {
+      return;
+    }
+
     const hasSelectedCategory = categories.some(
       (item) => item.id === selectedSpotCategory,
     );
     if (hasSelectedCategory) {
       if (selectedCategory !== selectedSpotCategory) {
-        setSelectedCategory(selectedSpotCategory);
+        applySelectedCategory(selectedSpotCategory);
       }
       return;
     }
@@ -160,7 +200,7 @@ const useMarketHomeLayoutProps = () => {
     if (isMarketBasicConfigLoading === false) {
       const nextSelectedCategory = categories[0]?.id ?? 'trending';
       if (selectedCategory !== nextSelectedCategory) {
-        setSelectedCategory(nextSelectedCategory);
+        applySelectedCategory(nextSelectedCategory);
       }
       setMarketSelectedTab((prev) => {
         if (prev.selectedSpotCategory !== selectedSpotCategory) {
@@ -173,6 +213,7 @@ const useMarketHomeLayoutProps = () => {
       });
     }
   }, [
+    applySelectedCategory,
     categories,
     isMarketBasicConfigLoading,
     selectedCategory,
@@ -205,7 +246,7 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
-    setSelectedCategory(spotCategoryToSelect);
+    applySelectedCategory(spotCategoryToSelect);
     setMarketSelectedTab((prev) => ({
       ...prev,
       tab: 'trending',
@@ -213,6 +254,7 @@ const useMarketHomeLayoutProps = () => {
       spotCategoryToSelect: undefined,
     }));
   }, [
+    applySelectedCategory,
     categories,
     isMarketBasicConfigLoading,
     setMarketSelectedTab,
@@ -237,7 +279,8 @@ const useMarketHomeLayoutProps = () => {
         onLiquidityFilterChange: setLiquidityFilter,
         selectedCategory,
         categories,
-        onCategoryChange: setSelectedCategory,
+        stockCategories,
+        onCategoryChange: applySelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
       liquidityFilter,
@@ -251,6 +294,8 @@ const useMarketHomeLayoutProps = () => {
       handleTabChange,
       selectedCategory,
       categories,
+      stockCategories,
+      applySelectedCategory,
     ],
   );
 
@@ -274,7 +319,9 @@ function BaseMarketHomeLayout() {
 
   if (shouldWaitForSpotCategoryReady) {
     return (
-      <LazyPageContainer eager={platformEnv.isWeb}>{null}</LazyPageContainer>
+      <LazyPageContainer eager={platformEnv.isWeb}>
+        {md && !platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+      </LazyPageContainer>
     );
   }
 

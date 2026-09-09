@@ -27,6 +27,9 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
+const {
+  patchTransformFileForPackedMaps,
+} = require('@expo/metro-config/build/serializer/packedMap');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
@@ -59,6 +62,8 @@ const {
 } = require('../plugins/startupProfilePrologue');
 
 const {
+  assertEntryStartsWithPolyfills,
+  assertPolyfillBootstrapSynchronous,
   buildPostSection,
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
@@ -72,6 +77,7 @@ const {
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   mergeSharedSegmentOutputs,
+  removeCommonModulesFromSegmentAllocation,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
@@ -116,7 +122,6 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
-const projectRootPath = path.resolve(mobileDirPath, '../..');
 
 // Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256
@@ -128,8 +133,10 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
 );
 
 function runHermescAsync({ outPath, inputPath }) {
@@ -399,6 +406,9 @@ function collectSegmentSyncEdges(graph, moduleToSegment, eagerModuleIds) {
     }
 
     for (const [, dep] of moduleData.dependencies) {
+      if (!dep.absolutePath) {
+        continue;
+      }
       if (dep.data?.data?.asyncType === 'async') {
         continue;
       }
@@ -1051,6 +1061,139 @@ function detectStartupViolations(moduleIds, moduleIdToAbsPath) {
     .toSorted();
 }
 
+function getDependencyEdgeType(dep) {
+  return dep?.data?.data?.asyncType ? 'dynamic' : 'sync';
+}
+
+function buildMetroImportChain({
+  graph,
+  roots,
+  target,
+  allowedAbsPaths,
+  maxDepth = 32,
+}) {
+  const queue = roots
+    .filter((root) => graph.dependencies.has(root))
+    .map((root) => ({ absPath: root, depth: 0 }));
+  const visited = new Set(queue.map((item) => item.absPath));
+  const parent = new Map();
+
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (item.absPath === target) {
+      const chain = [];
+      let current = target;
+      while (parent.has(current)) {
+        const edge = parent.get(current);
+        chain.push(edge);
+        current = edge.from;
+      }
+      return chain.toReversed();
+    }
+    if (item.depth >= maxDepth) {
+      continue;
+    }
+
+    const moduleData = graph.dependencies.get(item.absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [specifier, dep] of moduleData.dependencies) {
+      const to = dep.absolutePath;
+      if (!to || visited.has(to) || !allowedAbsPaths.has(to)) {
+        continue;
+      }
+      const edgeType = getDependencyEdgeType(dep);
+      if (edgeType !== 'sync') {
+        continue;
+      }
+      visited.add(to);
+      parent.set(to, {
+        from: item.absPath,
+        to,
+        specifier,
+        edgeType,
+      });
+      queue.push({ absPath: to, depth: item.depth + 1 });
+    }
+  }
+  return null;
+}
+
+function buildStartupImportChains({
+  runtimeTarget,
+  entryAbsPaths,
+  startupModuleIds,
+  graph,
+  moduleIdToAbsPath,
+  violations,
+  maxChains = 20,
+}) {
+  const startupAbsPaths = [...startupModuleIds]
+    .map((moduleId) => moduleIdToAbsPath.get(moduleId))
+    .filter(Boolean);
+  const startupAbsPathSet = new Set(startupAbsPaths);
+  const violationAbsPaths = (violations || []).map((relPath) =>
+    path.resolve(monorepoRoot, relPath),
+  );
+  const topStartupAbsPaths = startupAbsPaths
+    .map((absPath) => ({
+      absPath,
+      size: estimateModuleSize(graph.dependencies.get(absPath)),
+    }))
+    .toSorted((a, b) => b.size - a.size)
+    .map((item) => item.absPath);
+  const targets = [
+    ...new Set([...violationAbsPaths, ...topStartupAbsPaths]),
+  ].slice(0, maxChains);
+  const roots = entryAbsPaths.filter(Boolean);
+  let graphEdgeCount = 0;
+  for (const absPath of startupAbsPathSet) {
+    const moduleData = graph.dependencies.get(absPath);
+    if (!moduleData?.dependencies) {
+      continue;
+    }
+    for (const [, dep] of moduleData.dependencies) {
+      if (
+        dep.absolutePath &&
+        startupAbsPathSet.has(dep.absolutePath) &&
+        getDependencyEdgeType(dep) === 'sync'
+      ) {
+        graphEdgeCount += 1;
+      }
+    }
+  }
+  const chains = targets.map((target) => {
+    const chain = buildMetroImportChain({
+      graph,
+      roots,
+      target,
+      allowedAbsPaths: startupAbsPathSet,
+    });
+    return {
+      target: relativePath(target),
+      status: chain ? 'found' : 'unreachable',
+      chain:
+        chain?.map((edge) => ({
+          from: relativePath(edge.from),
+          to: relativePath(edge.to),
+          specifier: edge.specifier,
+          edgeType: edge.edgeType,
+        })) || [],
+    };
+  });
+
+  return {
+    kind: 'metro-startup-import-chain',
+    runtimeTarget,
+    graphNodeCount: startupAbsPathSet.size,
+    graphEdgeCount,
+    roots: roots.map(relativePath),
+    targetCount: targets.length,
+    chains,
+  };
+}
+
 function buildAllocationReport({
   runtimeTarget,
   startupModuleIds,
@@ -1059,6 +1202,7 @@ function buildAllocationReport({
   moduleIdToAbsPath,
   segmentModules,
   violations,
+  entryAbsPaths,
 }) {
   const startupModules = [...startupModuleIds]
     .map((moduleId) => moduleIdToAbsPath.get(moduleId))
@@ -1092,6 +1236,14 @@ function buildAllocationReport({
       estimatedSizeBytes,
       modules: startupModules,
     },
+    importChains: buildStartupImportChains({
+      runtimeTarget,
+      entryAbsPaths,
+      startupModuleIds,
+      graph,
+      moduleIdToAbsPath,
+      violations,
+    }),
     segments,
     violations,
   };
@@ -1285,7 +1437,7 @@ async function writeSegments({
   sharedEquivalentAbsPaths,
   mainEagerAbsPaths,
   bgEagerAbsPaths,
-  runtimeOwnership,
+  commonEagerAbsPaths,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -1518,7 +1670,7 @@ async function writeSegments({
   const commonReferencedSegmentKeys = collectCommonReferencedSegmentKeys({
     mainGraph: mainRuntime.graph,
     backgroundGraph: backgroundRuntime.graph,
-    sharedStartupAbsPaths: runtimeOwnership?.sharedStartupAbsPaths,
+    sharedStartupAbsPaths: commonEagerAbsPaths,
     mainSegmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
     backgroundSegmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
   });
@@ -1791,7 +1943,7 @@ async function main() {
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
-  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v3`;
 
   // On EAS Android workers the main + background graphs are held in memory at
   // the same time; with Metro's default worker count (6 on the 8-vCPU `large`
@@ -1817,6 +1969,7 @@ async function main() {
   }
 
   const metroServer = await Metro.runMetro(config, { watch: false });
+  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();
@@ -1865,6 +2018,31 @@ async function main() {
     console.log(
       `Background graph modules: ${backgroundGraph.dependencies.size}`,
     );
+
+    const polyfillsPath = path.resolve(
+      mobileDirPath,
+      '../../packages/shared/src/polyfills',
+    );
+    const polyfillsEntryPath = path.resolve(polyfillsPath, 'index.ts');
+    assertEntryStartsWithPolyfills({
+      entryPath: mainEntry,
+      graph: mainGraph.dependencies,
+      polyfillsEntryPath,
+      runtimeLabel: 'main',
+    });
+    assertEntryStartsWithPolyfills({
+      entryPath: bgEntry,
+      graph: backgroundGraph.dependencies,
+      polyfillsEntryPath,
+      runtimeLabel: 'background',
+    });
+    assertPolyfillBootstrapSynchronous({
+      polyfillsPathPrefix: `${polyfillsPath}${path.sep}`,
+      runtimeGraphs: [
+        { graph: mainGraph.dependencies, runtimeLabel: 'main' },
+        { graph: backgroundGraph.dependencies, runtimeLabel: 'background' },
+      ],
+    });
 
     const mainPrepend = await getPrependedScripts(
       config,
@@ -1925,15 +2103,6 @@ async function main() {
       `BG startup-only modules:   ${runtimeOwnership.bgStartupAbsPaths.size}`,
     );
 
-    const segmentIdMap = allocateSegmentIds(
-      [
-        ...new Set([
-          ...mainAllocation.segmentModules.keys(),
-          ...backgroundAllocation.segmentModules.keys(),
-        ]),
-      ].toSorted(),
-    );
-
     const createModuleId = metroServer.getCreateModuleId();
     const getGraphModuleId = (absolutePath) => fileToIdMap.get(absolutePath);
     const mainModuleIndex = buildGraphModuleIndex(mainGraph, createModuleId);
@@ -1941,61 +2110,6 @@ async function main() {
       backgroundGraph,
       createModuleId,
     );
-    const mainAbsPathToSegment = createAbsolutePathToSegmentMap({
-      graph: mainGraph,
-      moduleToSegment: mainAllocation.moduleToSegment,
-      getGraphModuleId,
-    });
-    const backgroundAbsPathToSegment = createAbsolutePathToSegmentMap({
-      graph: backgroundGraph,
-      moduleToSegment: backgroundAllocation.moduleToSegment,
-      getGraphModuleId,
-    });
-    const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
-      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      absPathToSegment: mainAbsPathToSegment,
-    });
-    const backgroundSerializedModuleToSegment =
-      createSerializedModuleToSegmentMap({
-        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
-        absPathToSegment: backgroundAbsPathToSegment,
-      });
-    const _mainRuntimeAsyncPaths = {
-      absPathToSegment: mainAbsPathToSegment,
-      eagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
-        ...runtimeOwnership.mainStartupAbsPaths,
-      ]),
-    };
-    const _backgroundRuntimeAsyncPaths = {
-      absPathToSegment: backgroundAbsPathToSegment,
-      eagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
-    };
-    const mainSegmentDeps = buildSegmentDeps(
-      mainGraph,
-      mainAllocation.segmentAbsPathsByKey,
-      mainAbsPathToSegment,
-    );
-    const backgroundSegmentDeps = buildSegmentDeps(
-      backgroundGraph,
-      backgroundAllocation.segmentAbsPathsByKey,
-      backgroundAbsPathToSegment,
-    );
-    // Each runtime's moduleFilter must only exclude its OWN segment paths.
-    // Using the union of both runtimes' segments causes a module that is
-    // segmented in one runtime but eager in another to be incorrectly
-    // excluded from the eager bundle → "Requiring unknown module" crash.
-    const mainSegmentAbsPaths = mainAllocation.segmentAbsPaths;
-    const bgSegmentAbsPaths = backgroundAllocation.segmentAbsPaths;
-    // Keep the union for common bundle (shared modules should not be in
-    // any runtime-specific segment).
-    const allSegmentAbsPaths = new Set([
-      ...mainSegmentAbsPaths,
-      ...bgSegmentAbsPaths,
-    ]);
 
     const commonBundleOptions = createBundleOptions({
       metroServer,
@@ -2033,6 +2147,120 @@ async function main() {
       moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
     }).serializedEntries;
 
+    const initiallyAllocatedSegmentAbsPaths = new Set([
+      ...mainAllocation.segmentAbsPaths,
+      ...backgroundAllocation.segmentAbsPaths,
+    ]);
+    const initialCommonAbsPaths = new Set(
+      mainSerializedEntries
+        .filter(
+          ({ absolutePath }) =>
+            runtimeOwnership.sharedStartupAbsPaths.has(absolutePath) &&
+            !initiallyAllocatedSegmentAbsPaths.has(absolutePath),
+        )
+        .map(({ absolutePath }) => absolutePath),
+    );
+    const plannedCommonEagerAbsPaths = expandSyncDependencyClosure({
+      serializedEntries: mainSerializedEntries,
+      initialIncludedAbsPaths: initialCommonAbsPaths,
+      externalAbsPaths: new Set(
+        [...runtimeOwnership.allAbsPaths].filter(
+          (absolutePath) =>
+            !runtimeOwnership.sharedEquivalentAbsPaths.has(absolutePath),
+        ),
+      ),
+    });
+    const commonExternalAbsPaths = new Set(
+      [...runtimeOwnership.allAbsPaths].filter(
+        (absolutePath) => !plannedCommonEagerAbsPaths.has(absolutePath),
+      ),
+    );
+
+    const mainRemovedCommonAbsPaths = removeCommonModulesFromSegmentAllocation({
+      allocation: mainAllocation,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
+      sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
+      getGraphModuleId,
+    });
+    const bgRemovedCommonAbsPaths = removeCommonModulesFromSegmentAllocation({
+      allocation: backgroundAllocation,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
+      sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
+      getGraphModuleId,
+    });
+    if (
+      mainRemovedCommonAbsPaths.size > 0 ||
+      bgRemovedCommonAbsPaths.size > 0
+    ) {
+      console.log(
+        `[unionBuild] Removed common module duplicates from segments: main -${mainRemovedCommonAbsPaths.size}, background -${bgRemovedCommonAbsPaths.size}`,
+      );
+    }
+
+    const segmentIdMap = allocateSegmentIds(
+      [
+        ...new Set([
+          ...mainAllocation.segmentModules.keys(),
+          ...backgroundAllocation.segmentModules.keys(),
+        ]),
+      ].toSorted(),
+    );
+    const mainAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: mainGraph,
+      moduleToSegment: mainAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const backgroundAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: backgroundGraph,
+      moduleToSegment: backgroundAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      absPathToSegment: mainAbsPathToSegment,
+    });
+    const backgroundSerializedModuleToSegment =
+      createSerializedModuleToSegmentMap({
+        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+        absPathToSegment: backgroundAbsPathToSegment,
+      });
+    const mainRuntimeAsyncPaths = {
+      absPathToSegment: mainAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...plannedCommonEagerAbsPaths,
+        ...runtimeOwnership.mainStartupAbsPaths,
+      ]),
+    };
+    const backgroundRuntimeAsyncPaths = {
+      absPathToSegment: backgroundAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...plannedCommonEagerAbsPaths,
+        ...runtimeOwnership.bgStartupAbsPaths,
+      ]),
+    };
+    const mainSegmentDeps = buildSegmentDeps(
+      mainGraph,
+      mainAllocation.segmentAbsPathsByKey,
+      mainAbsPathToSegment,
+    );
+    const backgroundSegmentDeps = buildSegmentDeps(
+      backgroundGraph,
+      backgroundAllocation.segmentAbsPathsByKey,
+      backgroundAbsPathToSegment,
+    );
+    // Each runtime's moduleFilter must only exclude its OWN segment paths.
+    // Using the union of both runtimes' segments causes a module that is
+    // segmented in one runtime but eager in another to be incorrectly
+    // excluded from the eager bundle → "Requiring unknown module" crash.
+    const mainSegmentAbsPaths = mainAllocation.segmentAbsPaths;
+    const bgSegmentAbsPaths = backgroundAllocation.segmentAbsPaths;
+    // Keep the union for common bundle (shared modules should not be in
+    // any runtime-specific segment).
+    const allSegmentAbsPaths = new Set([
+      ...mainSegmentAbsPaths,
+      ...bgSegmentAbsPaths,
+    ]);
+
     const {
       mainManifest,
       backgroundManifest,
@@ -2058,14 +2286,14 @@ async function main() {
       segmentIdMap,
       sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
       mainEagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...plannedCommonEagerAbsPaths,
         ...runtimeOwnership.mainStartupAbsPaths,
       ]),
       bgEagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...plannedCommonEagerAbsPaths,
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
-      runtimeOwnership,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
     });
 
     // ── Common bundle ──────────────────────────────────────────────────
@@ -2074,15 +2302,13 @@ async function main() {
     // loading (common.bundle first, then the runtime-specific bundle).
     //
     // Async require path strategy:
-    //   Common code runs in both runtimes, so its import() paths must
-    //   work everywhere. We use the MERGED segment map (main ∪ background)
-    //   instead of per-runtime variants. Shared segments (like locale JSON)
-    //   get a simple segment key — no {"main":…,"background":…} branching.
-    //   Both runtimes resolve the same key via the merged manifest.
+    //   Common code runs in both runtimes, so every import() path must reflect
+    //   the module's ownership in each runtime. A module may be eager in one
+    //   runtime but segmented in the other; that case requires a dispatch
+    //   record such as {"main":null,"background":"seg:key"}.
     //
-    //   For modules that are eager in main/background (not in a segment),
-    //   externalModulePaths covers both runtimes' eager sets so the
-    //   rewriter marks them as null (already loaded).
+    //   runtimeVariants collapses identical ownership to a simple segment key
+    //   or null, while preserving per-runtime records for asymmetric modules.
     const commonModuleToSegment = new Map([
       ...mainSerializedModuleToSegment,
       ...backgroundSerializedModuleToSegment,
@@ -2104,13 +2330,11 @@ async function main() {
       bundleOptions: commonBundleOptions,
       moduleToSegment: commonModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: new Set([
-        ...runtimeOwnership.mainStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
-      // No runtimeVariants — common code uses the merged segment map
-      // directly. Both runtimes share the same manifest and can load
-      // any shared segment by key.
+      externalModulePaths: commonExternalAbsPaths,
+      runtimeVariants: {
+        main: mainRuntimeAsyncPaths,
+        background: backgroundRuntimeAsyncPaths,
+      },
     });
 
     // Main bundle: main-only eager modules + entry require
@@ -2131,7 +2355,7 @@ async function main() {
       bundleOptions: mainBundleOptions,
       moduleToSegment: mainSerializedModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
+      externalModulePaths: plannedCommonEagerAbsPaths,
     });
 
     // Background bundle: bg-only eager modules + entry require
@@ -2152,7 +2376,7 @@ async function main() {
       bundleOptions: backgroundBundleOptions,
       moduleToSegment: backgroundSerializedModuleToSegment,
       moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
+      externalModulePaths: plannedCommonEagerAbsPaths,
     });
 
     // --- Bundle completeness validation ---
@@ -2252,6 +2476,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.common,
           violations: commonViolations,
+          entryAbsPaths: [mainEntry, bgEntry],
         }),
         null,
         2,
@@ -2269,6 +2494,7 @@ async function main() {
           moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.main,
           violations: mainViolations,
+          entryAbsPaths: [mainEntry],
         }),
         null,
         2,
@@ -2286,6 +2512,7 @@ async function main() {
           moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
           segmentModules: reportSegmentModules.background,
           violations: backgroundViolations,
+          entryAbsPaths: [bgEntry],
         }),
         null,
         2,

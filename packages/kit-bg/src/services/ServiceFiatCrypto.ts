@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -7,9 +9,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFiatCryptoToken,
+  IFiatCryptoTokenListWithNetworks,
   IFiatCryptoType,
   IGenerateWidgetUrl,
   IGenerateWidgetUrlResponse,
@@ -115,6 +119,47 @@ class ServiceFiatCrypto extends ServiceBase {
       }
     }
     return result;
+  }
+
+  @backgroundMethod()
+  public async getTokensListWithNetworks(
+    params: IGetTokensListParams,
+  ): Promise<IFiatCryptoTokenListWithNetworks> {
+    const tokens = await this.getTokensList(params);
+    const networkIds = uniq(tokens.map((token) => token.networkId));
+    const { serviceNetwork } = this.backgroundApi;
+    const [{ networks }, mergeDeriveFlags] = await Promise.all([
+      // Network metadata only decorates the rows (name / icon). Before it
+      // moved into this response the page loaded it separately, so a failed
+      // lookup merely left rows unlabeled; keep that contract instead of
+      // letting it hide a token list the fiat API already returned.
+      serviceNetwork
+        .getNetworksByIds({ networkIds })
+        .catch((): { networks: IServerNetwork[] } => ({ networks: [] })),
+      Promise.all(
+        networkIds.map(async (networkId): Promise<boolean> => {
+          try {
+            const vaultSettings = await serviceNetwork.getVaultSettings({
+              networkId,
+            });
+            return Boolean(vaultSettings?.mergeDeriveAssetsEnabled);
+          } catch {
+            return false;
+          }
+        }),
+      ),
+    ]);
+    const networksMap: Record<string, IServerNetwork> = {};
+    for (const network of networks) {
+      networksMap[network.id] = network;
+    }
+    return {
+      tokens,
+      networksMap,
+      mergeDeriveAssetsNetworkIds: networkIds.filter(
+        (_, index) => mergeDeriveFlags[index],
+      ),
+    };
   }
 
   @backgroundMethod()

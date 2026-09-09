@@ -85,6 +85,7 @@ class ProviderApiCardano extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async connect(request: IJsBridgeMessagePayload) {
+    this.tryFocusPendingApprovalWindow(request);
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
       const connectedAddress = await this.cardano_accounts(request);

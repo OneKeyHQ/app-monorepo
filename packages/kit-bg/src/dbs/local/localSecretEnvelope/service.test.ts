@@ -47,13 +47,17 @@ function buildDeferred<TValue>(): {
 
 function buildService({
   indexedDbCryptoKeyAvailable,
+  mmkvProfileKeyAvailable = true,
   onIndexedDbCryptoKeyProbe,
+  onMmkvProfileKeyProbe,
   onSecureStorageProbe,
   platform,
   secureStorageAvailable,
 }: {
   indexedDbCryptoKeyAvailable: boolean;
+  mmkvProfileKeyAvailable?: boolean;
   onIndexedDbCryptoKeyProbe?: () => void;
+  onMmkvProfileKeyProbe?: () => void;
   onSecureStorageProbe?: () => void;
   platform: ILocalSecretEnvelopeRuntimePlatform;
   secureStorageAvailable: boolean;
@@ -61,11 +65,17 @@ function buildService({
   return new LocalSecretEnvelopeService({
     buildIndexedDbCryptoKeyLayerAdapter: () =>
       buildMockLayerAdapter('indexeddb-cryptokey'),
+    buildMmkvProfileKeyLayerAdapter: () =>
+      buildMockLayerAdapter('mmkv-profile-key'),
     buildSecureStorageLayerAdapter: () =>
       buildMockLayerAdapter('secure-storage'),
     isIndexedDbCryptoKeyLayerAvailable: async () => {
       onIndexedDbCryptoKeyProbe?.();
       return indexedDbCryptoKeyAvailable;
+    },
+    isMmkvProfileKeyLayerAvailable: async () => {
+      onMmkvProfileKeyProbe?.();
+      return mmkvProfileKeyAvailable;
     },
     isSecureStorageLayerAvailable: async () => {
       onSecureStorageProbe?.();
@@ -109,13 +119,17 @@ describe('LocalSecretEnvelopeService platform composition', () => {
     ]);
   });
 
-  it('uses only secureStorage on native and does not probe IndexedDB CryptoKey', async () => {
+  it('uses MMKV profile key then secureStorage on native without probing IndexedDB', async () => {
     let indexedDbCryptoKeyProbeCount = 0;
+    let mmkvProfileKeyProbeCount = 0;
     let secureStorageProbeCount = 0;
     const service = buildService({
       indexedDbCryptoKeyAvailable: true,
       onIndexedDbCryptoKeyProbe: () => {
         indexedDbCryptoKeyProbeCount += 1;
+      },
+      onMmkvProfileKeyProbe: () => {
+        mmkvProfileKeyProbeCount += 1;
       },
       onSecureStorageProbe: () => {
         secureStorageProbeCount += 1;
@@ -127,16 +141,33 @@ describe('LocalSecretEnvelopeService platform composition', () => {
     const config = await service.buildCredentialMigrationConfig();
 
     expect(indexedDbCryptoKeyProbeCount).toBe(0);
+    expect(mmkvProfileKeyProbeCount).toBe(1);
     expect(secureStorageProbeCount).toBe(1);
     expect(config?.runtimePlatform).toBe('native');
     expect(config?.strength).toBe('secure-storage-bound');
     expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
+      'mmkv-profile-key',
       'secure-storage',
     ]);
   });
 
+  it('falls back to the mandatory MMKV base layer on native when secureStorage is unsupported', async () => {
+    const service = buildService({
+      indexedDbCryptoKeyAvailable: true,
+      platform: 'native',
+      secureStorageAvailable: false,
+    });
+
+    const config = await service.buildCredentialMigrationConfig();
+
+    expect(config?.strength).toBe('profile-bound');
+    expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
+      'mmkv-profile-key',
+    ]);
+  });
+
   it.each(['web', 'extension'] as const)(
-    'uses only IndexedDB CryptoKey on %s and does not probe secureStorage',
+    'adds secureStorage after IndexedDB CryptoKey on %s when non-interactive access is supported',
     async (platform) => {
       let indexedDbCryptoKeyProbeCount = 0;
       let secureStorageProbeCount = 0;
@@ -155,7 +186,27 @@ describe('LocalSecretEnvelopeService platform composition', () => {
       const config = await service.buildCredentialMigrationConfig();
 
       expect(indexedDbCryptoKeyProbeCount).toBe(1);
-      expect(secureStorageProbeCount).toBe(0);
+      expect(secureStorageProbeCount).toBe(1);
+      expect(config?.runtimePlatform).toBe(platform);
+      expect(config?.strength).toBe('secure-storage-bound');
+      expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
+        'indexeddb-cryptokey',
+        'secure-storage',
+      ]);
+    },
+  );
+
+  it.each(['web', 'extension'] as const)(
+    'keeps the IndexedDB CryptoKey base layer on %s when secureStorage is unsupported',
+    async (platform) => {
+      const service = buildService({
+        indexedDbCryptoKeyAvailable: true,
+        platform,
+        secureStorageAvailable: false,
+      });
+
+      const config = await service.buildCredentialMigrationConfig();
+
       expect(config?.runtimePlatform).toBe(platform);
       expect(config?.strength).toBe('profile-bound');
       expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
@@ -175,6 +226,57 @@ describe('LocalSecretEnvelopeService platform composition', () => {
       undefined,
     );
     await expect(service.buildLayerAdapterResolver()).resolves.toBe(undefined);
+  });
+
+  it('never writes with secureStorage alone when the mandatory base layer is unavailable', async () => {
+    const service = buildService({
+      indexedDbCryptoKeyAvailable: false,
+      platform: 'desktop',
+      secureStorageAvailable: true,
+    });
+
+    await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
+      undefined,
+    );
+  });
+
+  it('still resolves a historical secureStorage-only envelope when the new base layer is unavailable', async () => {
+    let indexedDbCryptoKeyProbeCount = 0;
+    let secureStorageProbeCount = 0;
+    const service = buildService({
+      indexedDbCryptoKeyAvailable: false,
+      onIndexedDbCryptoKeyProbe: () => {
+        indexedDbCryptoKeyProbeCount += 1;
+      },
+      onSecureStorageProbe: () => {
+        secureStorageProbeCount += 1;
+      },
+      platform: 'desktop',
+      secureStorageAvailable: true,
+    });
+
+    await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
+      undefined,
+    );
+    const resolver = await service.buildRequiredLayerAdapterResolver({
+      requiredLayerKinds: ['secure-storage'],
+    });
+
+    expect(indexedDbCryptoKeyProbeCount).toBe(1);
+    expect(secureStorageProbeCount).toBe(1);
+    expect(
+      resolver?.({
+        alg: 'AES-256-GCM',
+        capabilities: {
+          extractable: true,
+          keyAccess: 'raw-key-readable',
+          sync: 'unknown',
+        },
+        iv: 'secure-storage:iv',
+        keyRef: 'secure-storage:key',
+        kind: 'secure-storage',
+      })?.kind,
+    ).toBe('secure-storage');
   });
 
   it('caches the credential migration config for the current service session', async () => {
@@ -198,6 +300,36 @@ describe('LocalSecretEnvelopeService platform composition', () => {
     expect(firstConfig).toBe(secondConfig);
     expect(indexedDbCryptoKeyProbeCount).toBe(1);
     expect(secureStorageProbeCount).toBe(1);
+  });
+
+  it('does not session-cache a base-only config caused by a transient enhancement outage', async () => {
+    let secureStorageProbeCount = 0;
+    let secureStorageAvailability: 'temporarily-unavailable' | 'available' =
+      'temporarily-unavailable';
+    const service = new LocalSecretEnvelopeService({
+      buildIndexedDbCryptoKeyLayerAdapter: () =>
+        buildMockLayerAdapter('indexeddb-cryptokey'),
+      buildSecureStorageLayerAdapter: () =>
+        buildMockLayerAdapter('secure-storage'),
+      getSecureStorageLayerAvailability: async () => {
+        secureStorageProbeCount += 1;
+        return secureStorageAvailability;
+      },
+      isIndexedDbCryptoKeyLayerAvailable: async () => true,
+      platform: 'desktop',
+    });
+
+    const degradedConfig = await service.buildCredentialMigrationConfig();
+    expect(
+      degradedConfig?.layerAdapters.map((adapter) => adapter.kind),
+    ).toEqual(['indexeddb-cryptokey']);
+
+    secureStorageAvailability = 'available';
+    const recoveredConfig = await service.buildCredentialMigrationConfig();
+    expect(
+      recoveredConfig?.layerAdapters.map((adapter) => adapter.kind),
+    ).toEqual(['indexeddb-cryptokey', 'secure-storage']);
+    expect(secureStorageProbeCount).toBe(2);
   });
 
   it('does not cache an unavailable credential migration config and re-probes on the next call', async () => {

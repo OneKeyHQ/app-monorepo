@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { saveLoggerConfigToAllRuntimes } from '@onekeyhq/kit/src/utils/loggerConfigUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
@@ -53,7 +54,7 @@ const LoggingConfigCheckbox = () => {
     async () => {
       // use debounce to wait state update
       await timerUtils.wait(0);
-      void defaultLoggerConfig.saveLoggerConfig({
+      void saveLoggerConfigToAllRuntimes({
         ...configRef.current,
         highlightDurationGt: highlightDurationGtRef.current,
         enabled: enabledConfigRef.current as any,
@@ -154,6 +155,22 @@ const LoggingConfigCheckbox = () => {
           }}
         />
       ) : null}
+
+      <Stack py="$4" flexDirection="row" alignItems="center" gap="$2">
+        <Switch
+          value={config.enableAllScenes}
+          onChange={(v) => {
+            setConfig((prev) => ({
+              ...prev,
+              enableAllScenes: v,
+            }));
+            void saveLoggerConfig();
+          }}
+        />
+        <SizableText>
+          Enable all scenes (persist logs like production)
+        </SizableText>
+      </Stack>
 
       <Stack py="$4" flexDirection="row" alignItems="center" gap="$2">
         <Switch

@@ -288,6 +288,7 @@ function BasicStakePage() {
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
@@ -390,20 +391,25 @@ function BasicStakePage() {
       approveType,
       permitSignature,
       unsignedMessage,
+      message,
       effectiveApy,
+      validatorPubkey,
       stakeType: confirmStakeType,
       onStepChange,
     }: IApproveConfirmFnParams) => {
       if (!token) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,
         unsignedMessage,
+        message,
         effectiveApy,
+        validatorPublicKey: validatorPubkey,
         stakeType: effectiveStakeType,
         postWrapStakeToken:
           effectiveStakeType === 'wrap' ? nativeWrappedStakeToken : undefined,

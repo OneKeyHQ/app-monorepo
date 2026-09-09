@@ -1,0 +1,414 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
+import {
+  TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
+  createTradingViewIndicatorSettingsValue,
+  getDefaultTradingViewIndicatorIdForScope,
+  getTradingViewSettingsMockIndicatorsByScope,
+  normalizeTradingViewActiveSubIndicators,
+  normalizeTradingViewMaxActiveSubIndicatorCount,
+  resetTradingViewSettingsMockIndicator,
+  toggleTradingViewSettingsMockIndicator,
+  toggleTradingViewSettingsMockLine,
+  updateTradingViewSettingsMockIndicatorOpacity,
+  updateTradingViewSettingsMockIndicatorOpacityColor,
+  updateTradingViewSettingsMockIndicatorParameter,
+  updateTradingViewSettingsMockLineColor,
+  updateTradingViewSettingsMockLinePeriod,
+  updateTradingViewSettingsMockLineSecondaryStyle,
+  updateTradingViewSettingsMockLineStyle,
+} from './TradingViewSettingsMockState';
+import { useSettingsDraftValue } from './TradingViewSettingsShared';
+
+import type {
+  ITradingViewIndicatorSettingsValue,
+  ITradingViewSettingsMockIndicatorScope,
+} from './TradingViewSettingsMockState';
+
+export type ITradingViewIndicatorSettingsProps = {
+  /** Use value for controlled committed state, or defaultValue for local state. */
+  value?: ITradingViewIndicatorSettingsValue;
+  defaultValue?: ITradingViewIndicatorSettingsValue;
+  /** Creates the value used by Reset. */
+  createDefaultValue?: () => ITradingViewIndicatorSettingsValue;
+  /** Set to null to allow any number of active sub-indicators. */
+  maxActiveSubIndicatorCount?: number | null;
+  displayMode?: 'focused' | 'full';
+  initialIndicatorId?: string;
+  isSubmitting?: boolean;
+  /** Called when the editable draft changes. */
+  onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
+  /** Receives the complete value after the user confirms the draft. */
+  onConfirm?: (
+    value: ITradingViewIndicatorSettingsValue,
+  ) => void | Promise<void>;
+  /** Called after the confirmed draft has been committed locally. */
+  onConfirmSuccess?: () => void | Promise<void>;
+  /** Called when the external confirmation fails. */
+  onConfirmError?: (error: unknown) => void;
+  onCancel?: () => void;
+  onClose?: () => void;
+};
+
+function reconcileActiveSubIndicatorOrder(
+  value: ITradingViewIndicatorSettingsValue,
+  currentOrder: readonly string[] = [],
+) {
+  const activeSubIndicatorIds = value.indicators
+    .filter((indicator) => indicator.scope === 'sub' && indicator.active)
+    .map((indicator) => indicator.id);
+  const activeSubIndicatorIdSet = new Set(activeSubIndicatorIds);
+  const nextOrder = currentOrder.filter((indicatorId) =>
+    activeSubIndicatorIdSet.has(indicatorId),
+  );
+  const nextOrderSet = new Set(nextOrder);
+  for (const indicatorId of activeSubIndicatorIds) {
+    if (!nextOrderSet.has(indicatorId)) {
+      nextOrder.push(indicatorId);
+    }
+  }
+  return nextOrder;
+}
+
+export function TradingViewIndicatorSettings({
+  value,
+  defaultValue,
+  createDefaultValue = createTradingViewIndicatorSettingsValue,
+  maxActiveSubIndicatorCount = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
+  displayMode = 'full',
+  initialIndicatorId,
+  isSubmitting = false,
+  onChange,
+  onConfirm,
+  onConfirmSuccess,
+  onConfirmError,
+  onCancel,
+  onClose,
+}: ITradingViewIndicatorSettingsProps) {
+  const activeSubIndicatorOrderRef = useRef<string[]>([]);
+  const normalizedMaxActiveSubIndicatorCount = useMemo(
+    () =>
+      normalizeTradingViewMaxActiveSubIndicatorCount(
+        maxActiveSubIndicatorCount,
+      ),
+    [maxActiveSubIndicatorCount],
+  );
+  const handleSettingsChange = useCallback(
+    (nextValue: ITradingViewIndicatorSettingsValue) => {
+      const normalizedNextValue = normalizeTradingViewActiveSubIndicators(
+        nextValue,
+        activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
+      );
+      activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
+        normalizedNextValue,
+        activeSubIndicatorOrderRef.current,
+      );
+      onChange?.(normalizedNextValue);
+    },
+    [normalizedMaxActiveSubIndicatorCount, onChange],
+  );
+  const [
+    settingsValue,
+    updateSettingsValue,
+    commitSettingsValue,
+    cancelSettingsValue,
+  ] = useSettingsDraftValue({
+    value,
+    defaultValue,
+    createDefaultValue,
+    onChange: handleSettingsChange,
+  });
+  const normalizedSettingsValue = useMemo(
+    () =>
+      normalizeTradingViewActiveSubIndicators(
+        settingsValue,
+        activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
+      ),
+    [normalizedMaxActiveSubIndicatorCount, settingsValue],
+  );
+  const initialIndicator = normalizedSettingsValue.indicators.find(
+    (indicator) => indicator.id === initialIndicatorId,
+  );
+  const initialIndicatorScope = initialIndicator?.scope ?? 'main';
+  const [selectedIndicatorScope, setSelectedIndicatorScope] =
+    useState<ITradingViewSettingsMockIndicatorScope>(initialIndicatorScope);
+  const [selectedIndicatorId, setSelectedIndicatorId] = useState(
+    () =>
+      initialIndicator?.id ??
+      getDefaultTradingViewIndicatorIdForScope(
+        normalizedSettingsValue.indicators,
+        initialIndicatorScope,
+      ),
+  );
+  const [isConfirming, setIsConfirming] = useState(false);
+  const submitInProgress = isSubmitting || isConfirming;
+
+  useEffect(() => {
+    activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
+      normalizedSettingsValue,
+      activeSubIndicatorOrderRef.current,
+    );
+    if (normalizedSettingsValue !== settingsValue) {
+      updateSettingsValue(() => normalizedSettingsValue);
+    }
+  }, [normalizedSettingsValue, settingsValue, updateSettingsValue]);
+
+  const visibleIndicators = useMemo(
+    () =>
+      getTradingViewSettingsMockIndicatorsByScope(
+        normalizedSettingsValue,
+        selectedIndicatorScope,
+      ),
+    [normalizedSettingsValue, selectedIndicatorScope],
+  );
+  const selectedIndicator = useMemo(
+    () =>
+      visibleIndicators.find(
+        (indicator) => indicator.id === selectedIndicatorId,
+      ) ?? visibleIndicators[0],
+    [selectedIndicatorId, visibleIndicators],
+  );
+  const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
+
+  const handleReset = useCallback(() => {
+    if (displayMode === 'focused') {
+      const defaultSettingsValue = createDefaultValue();
+      updateSettingsValue((currentValue) =>
+        resetTradingViewSettingsMockIndicator(
+          currentValue,
+          defaultSettingsValue,
+          effectiveSelectedIndicatorId,
+        ),
+      );
+      return;
+    }
+
+    const nextValue = normalizeTradingViewActiveSubIndicators(
+      createDefaultValue(),
+      undefined,
+      normalizedMaxActiveSubIndicatorCount,
+    );
+    activeSubIndicatorOrderRef.current =
+      reconcileActiveSubIndicatorOrder(nextValue);
+    updateSettingsValue(() => nextValue);
+    if (
+      !nextValue.indicators.some(
+        (indicator) => indicator.id === selectedIndicatorId,
+      )
+    ) {
+      setSelectedIndicatorId(
+        getDefaultTradingViewIndicatorIdForScope(
+          nextValue.indicators,
+          selectedIndicatorScope,
+        ),
+      );
+    }
+  }, [
+    createDefaultValue,
+    displayMode,
+    effectiveSelectedIndicatorId,
+    normalizedMaxActiveSubIndicatorCount,
+    selectedIndicatorId,
+    selectedIndicatorScope,
+    updateSettingsValue,
+  ]);
+
+  const handleToggleIndicator = useCallback(
+    (indicatorId: string, active: boolean) => {
+      const targetIndicator = normalizedSettingsValue.indicators.find(
+        (indicator) => indicator.id === indicatorId,
+      );
+      if (targetIndicator?.scope === 'sub') {
+        const currentOrder = reconcileActiveSubIndicatorOrder(
+          normalizedSettingsValue,
+          activeSubIndicatorOrderRef.current,
+        );
+        activeSubIndicatorOrderRef.current = active
+          ? [
+              ...currentOrder.filter(
+                (activeIndicatorId) => activeIndicatorId !== indicatorId,
+              ),
+              indicatorId,
+            ]
+          : currentOrder.filter(
+              (activeIndicatorId) => activeIndicatorId !== indicatorId,
+            );
+      }
+      updateSettingsValue((currentValue) =>
+        toggleTradingViewSettingsMockIndicator(
+          currentValue,
+          indicatorId,
+          active,
+          activeSubIndicatorOrderRef.current,
+          normalizedMaxActiveSubIndicatorCount,
+        ),
+      );
+    },
+    [
+      normalizedMaxActiveSubIndicatorCount,
+      normalizedSettingsValue,
+      updateSettingsValue,
+    ],
+  );
+
+  const handleClose = () => {
+    cancelSettingsValue();
+    onCancel?.();
+    onClose?.();
+  };
+
+  const handleConfirm = async () => {
+    if (submitInProgress) {
+      return;
+    }
+
+    let didConfirm = false;
+    setIsConfirming(true);
+    try {
+      if (normalizedSettingsValue !== settingsValue) {
+        updateSettingsValue(() => normalizedSettingsValue);
+      }
+      await onConfirm?.(normalizedSettingsValue);
+      commitSettingsValue();
+      didConfirm = true;
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      setIsConfirming(false);
+    }
+
+    if (didConfirm) {
+      try {
+        await onConfirmSuccess?.();
+      } catch (error) {
+        onConfirmError?.(error);
+      }
+    }
+  };
+
+  return (
+    <TradingViewIndicatorSettingsDialog
+      displayMode={displayMode}
+      value={normalizedSettingsValue}
+      maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}
+      selectedIndicatorScope={selectedIndicatorScope}
+      selectedIndicatorId={effectiveSelectedIndicatorId}
+      visibleIndicators={visibleIndicators}
+      selectedIndicator={selectedIndicator}
+      onScopeChange={(scope) => {
+        setSelectedIndicatorScope(scope);
+        const currentIndicator = normalizedSettingsValue.indicators.find(
+          (indicator) => indicator.id === effectiveSelectedIndicatorId,
+        );
+        if (currentIndicator?.scope !== scope) {
+          setSelectedIndicatorId(
+            getDefaultTradingViewIndicatorIdForScope(
+              normalizedSettingsValue.indicators,
+              scope,
+            ),
+          );
+        }
+      }}
+      onSelectIndicator={(indicatorId) => {
+        const indicator = normalizedSettingsValue.indicators.find(
+          (item) => item.id === indicatorId,
+        );
+        if (indicator) {
+          setSelectedIndicatorScope(indicator.scope);
+          setSelectedIndicatorId(indicatorId);
+        }
+      }}
+      onToggleIndicator={handleToggleIndicator}
+      onToggleLine={(lineId, enabled) => {
+        updateSettingsValue((currentValue) =>
+          toggleTradingViewSettingsMockLine(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            enabled,
+          ),
+        );
+      }}
+      onLinePeriodChange={(lineId, period) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockLinePeriod(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            period,
+          ),
+        );
+      }}
+      onLineStyleChange={(lineId, style) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockLineStyle(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            style,
+          ),
+        );
+      }}
+      onLineSecondaryStyleChange={(lineId, style) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockLineSecondaryStyle(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            style,
+          ),
+        );
+      }}
+      onLineColorChange={(lineId, color) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockLineColor(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            color,
+          ),
+        );
+      }}
+      onOpacityChange={(indicatorId, opacity) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockIndicatorOpacity(
+            currentValue,
+            indicatorId,
+            opacity,
+          ),
+        );
+      }}
+      onOpacityColorChange={(indicatorId, role, color) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockIndicatorOpacityColor(
+            currentValue,
+            indicatorId,
+            role,
+            color,
+          ),
+        );
+      }}
+      onParameterChange={(parameterId, nextValue) => {
+        updateSettingsValue((currentValue) =>
+          updateTradingViewSettingsMockIndicatorParameter(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            parameterId,
+            nextValue,
+          ),
+        );
+      }}
+      onReset={handleReset}
+      onConfirm={() => void handleConfirm()}
+      onClose={handleClose}
+      isSubmitting={submitInProgress}
+    />
+  );
+}
+
+export function TradingViewIndicatorSettingsMockGallery() {
+  return <TradingViewIndicatorSettings />;
+}

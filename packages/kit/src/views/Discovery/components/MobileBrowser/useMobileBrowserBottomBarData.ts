@@ -185,7 +185,8 @@ export function useMobileBrowserBottomBarData({
   const handleBrowserOpen = useCallback(() => {
     const urlToOpen = tab?.displayUrl ?? tab?.url;
     if (urlToOpen) {
-      openUrlExternal(urlToOpen);
+      // Explicit "open in browser" action: the user intends to leave the app.
+      openUrlExternal(urlToOpen, { useSystemBrowser: true });
     }
   }, [tab?.displayUrl, tab?.url]);
 

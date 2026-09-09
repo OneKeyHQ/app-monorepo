@@ -32,7 +32,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
@@ -42,6 +41,7 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
+import { KeylessWalletBackupInfo } from '../components/KeylessWalletBackupInfo';
 import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { OnboardingTestIDs } from '../testIDs';
@@ -103,7 +103,11 @@ export default function ICloudBackup() {
     }
 
     if (!allBackups?.items?.length) {
-      return <CloudBackupListEmptyView />;
+      return (
+        <YStack flex={1} justifyContent="center">
+          <CloudBackupListEmptyView />
+        </YStack>
+      );
     }
 
     return (
@@ -191,16 +195,19 @@ export default function ICloudBackup() {
       contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
     >
       <CloudAccountBar />
-      {renderContent()}
-      {showLegacyBackupsButton ? (
-        <Button
-          testID={OnboardingTestIDs.iCloudBackupViewOlderBackupsBtn}
-          size="large"
-          onPress={handleOpenLegacyBackups}
-        >
-          {intl.formatMessage({ id: ETranslations.view_older_backups })}
-        </Button>
-      ) : null}
+      <YStack flex={1} gap="$3">
+        {renderContent()}
+        {showLegacyBackupsButton ? (
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupViewOlderBackupsBtn}
+            size="large"
+            onPress={handleOpenLegacyBackups}
+          >
+            {intl.formatMessage({ id: ETranslations.view_older_backups })}
+          </Button>
+        ) : null}
+        <KeylessWalletBackupInfo />
+      </YStack>
 
       <MultipleClickStack
         h="$10"
@@ -436,29 +443,20 @@ export default function ICloudBackup() {
                   },
                   onCancelText: 'Cancel',
                   onConfirm: async () => {
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                      {
-                        reason: EReasonForNeedPassword.Security,
-                      },
-                    );
-                    for (const item of items) {
-                      try {
-                        await backgroundApiProxy.serviceCloudBackupV2.deleteSilently(
-                          {
-                            recordId: item.recordID,
-                            skipManifestUpdate: false,
-                          },
-                        );
-                      } catch (_e) {
-                        // continue deleting other items; errors are already toasted by @toastIfError
-                      }
-                    }
+                    const result =
+                      await backgroundApiProxy.serviceCloudBackupV2.deleteAllBackups();
                     await onboardingCloudBackupListRefreshAtom.set(
                       (v) => v + 1,
                     );
-                    Toast.success({
-                      title: 'All backups deleted',
-                    });
+                    if (result.failedCount) {
+                      Toast.error({
+                        title: 'Some backups could not be deleted',
+                      });
+                    } else {
+                      Toast.success({
+                        title: 'All backups deleted',
+                      });
+                    }
                   },
                 });
               }}

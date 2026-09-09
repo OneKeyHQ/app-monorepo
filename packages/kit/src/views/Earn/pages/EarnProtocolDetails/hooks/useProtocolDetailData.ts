@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
@@ -19,6 +22,7 @@ export function useProtocolDetailData({
   symbol,
   provider,
   vault,
+  includeAccountContext = false,
 }: {
   accountId: string;
   networkId: string;
@@ -26,7 +30,14 @@ export function useProtocolDetailData({
   symbol: string;
   provider: string;
   vault: string | undefined;
+  // Sends the account address with the detail request, which makes the server
+  // return this account's portfolio/rewards/balance and enqueue a position
+  // refresh. Only the phone layout needs it; desktop/web read positions from
+  // /earn/v1/manage-page and must keep their current request shape.
+  includeAccountContext?: boolean;
 }) {
+  const { locale } = useIntl();
+  const { id: currencyId } = useCurrency();
   const {
     earnAccount,
     refreshAccount,
@@ -37,6 +48,13 @@ export function useProtocolDetailData({
     indexedAccountId,
     btcOnlyTaproot: true,
   });
+
+  // Identifies whose balances a response describes. Kept out of the request
+  // itself so an account switch produces a different cache entry instead of
+  // reusing the previous account's numbers.
+  const accountScopeKey = includeAccountContext
+    ? `${accountId || ''}|${indexedAccountId || ''}`
+    : undefined;
 
   const {
     result: detailInfo,
@@ -49,10 +67,57 @@ export function useProtocolDetailData({
         symbol,
         provider,
         vault,
+        ...(includeAccountContext ? { accountId, indexedAccountId } : {}),
       }),
-    [networkId, symbol, provider, vault],
-    { watchLoading: true },
+    // Locale and currency invalidate interceptor-owned request headers even
+    // though getProtocolDetailsV2 does not receive them as explicit params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      symbol,
+      provider,
+      vault,
+      locale,
+      currencyId,
+      includeAccountContext,
+      accountScopeKey,
+    ],
+    {
+      watchLoading: true,
+      swrKey: swrKeys.earnProtocolDetail({
+        networkId,
+        symbol,
+        provider,
+        vault,
+        locale,
+        currencyId,
+        accountScopeKey,
+      }),
+      // Account-scoped responses carry balances and rewards; keep them in
+      // memory only rather than persisting them alongside the shared protocol
+      // response.
+      swrShouldPersist: (result) =>
+        !includeAccountContext &&
+        Boolean(result.protocol || result.subscriptionValue?.token),
+    },
   );
+
+  // For an indexed account, useEarnAccount re-resolves the address after a
+  // GlobalDeriveTypeUpdate / NetworkDeriveTypeChanged, but the request above
+  // only carries the unchanged accountId/indexedAccountId, so nothing would
+  // refetch: protocolInfo below would move to the new address while
+  // mobilePortfolio, balances and rewards still described the old one.
+  // Guarded on a previous value so the initial undefined -> resolved
+  // transition does not fire a second request on every cold open.
+  const derivedAddress = earnAccount?.accountAddress;
+  const lastDerivedAddressRef = useRef(derivedAddress);
+  useEffect(() => {
+    const previous = lastDerivedAddressRef.current;
+    lastDerivedAddressRef.current = derivedAddress;
+    if (previous && derivedAddress && previous !== derivedAddress) {
+      void run();
+    }
+  }, [derivedAddress, run]);
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
     if (detailInfo?.subscriptionValue?.token) {
@@ -93,6 +158,7 @@ export function useProtocolDetailData({
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
+        protocolVault: detailInfo.protocol.vault ?? vault,
       }),
       overflowBalance: detailInfo.nums?.overflow,
       maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
@@ -106,7 +172,7 @@ export function useProtocolDetailData({
         detailInfo.protocol.morphoTokenRate,
       morphoTokenRate: detailInfo.protocol.morphoTokenRate,
     };
-  }, [detailInfo, earnAccount, provider, symbol]);
+  }, [detailInfo, earnAccount, provider, symbol, vault]);
 
   return {
     earnAccount,

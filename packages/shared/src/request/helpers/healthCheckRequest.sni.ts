@@ -58,6 +58,14 @@ function extractHostname(url: string): string | null {
   }
 }
 
+function sanitizeHttpHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([, value]) => typeof value === 'string'),
+  );
+}
+
 function hashForLog(value: string | null | undefined): string {
   if (!value) return 'none';
   let hash = 0x81_1c_9d_c5;
@@ -107,7 +115,14 @@ function logHealthCheckSniDecision(
 export async function healthCheckRequest(
   config: IHealthCheckConfig,
 ): Promise<IHealthCheckResponse> {
-  const { url, method = 'GET', timeout = 10_000, headers = {} } = config;
+  const {
+    url,
+    method = 'GET',
+    timeout = 10_000,
+    headers: rawHeaders = {},
+  } = config;
+  const headers = sanitizeHttpHeaders(rawHeaders);
+  const normalizedConfig = { ...config, headers };
   const startedAt = Date.now();
 
   // Extract hostname from URL
@@ -131,7 +146,7 @@ export async function healthCheckRequest(
       reason: 'sni_unsupported',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   let proxyActive: boolean | null;
@@ -155,7 +170,7 @@ export async function healthCheckRequest(
       errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   const selectedIp = await getSelectedIpForHost(hostname);
@@ -176,7 +191,7 @@ export async function healthCheckRequest(
       reason: 'no_selected_ip',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   // Use SNI direct IP connection
@@ -196,6 +211,7 @@ export async function healthCheckRequest(
     durationMs: Date.now() - startedAt,
   });
 
+  let replayBlockedError: OneKeyLocalError | undefined;
   try {
     const urlObj = new URL(url);
     const path = urlObj.pathname + urlObj.search;
@@ -211,6 +227,7 @@ export async function healthCheckRequest(
     });
 
     if (!sniResponse) {
+      const fallbackAllowed = method === 'GET';
       logHealthCheckSniDecision('warn', {
         hostname,
         method,
@@ -222,11 +239,20 @@ export async function healthCheckRequest(
             : 'confirmed_direct',
         hasSelectedIp: true,
         selectedIpHash: hashForLog(selectedIp),
-        decision: 'fetch',
-        reason: 'sni_null_response',
+        decision: fallbackAllowed ? 'fetch' : 'throw',
+        reason: fallbackAllowed
+          ? 'sni_null_response'
+          : 'sni_null_response_non_idempotent',
         durationMs: Date.now() - startedAt,
       });
-      return await fallbackToFetch(config);
+      if (!fallbackAllowed) {
+        const error = new OneKeyLocalError(
+          '[HealthCheck] SNI POST returned no response; fallback disabled to avoid replay',
+        );
+        replayBlockedError = error;
+        throw error;
+      }
+      return await fallbackToFetch(normalizedConfig);
     }
 
     logHealthCheckSniDecision('info', {
@@ -250,6 +276,9 @@ export async function healthCheckRequest(
       ok: sniResponse.statusCode >= 200 && sniResponse.statusCode < 300,
     };
   } catch (error) {
+    if (error === replayBlockedError) {
+      throw error;
+    }
     if (isSniFailClosedError(error)) {
       logHealthCheckSniDecision('error', {
         hostname,
@@ -271,7 +300,8 @@ export async function healthCheckRequest(
       throw error;
     }
 
-    logHealthCheckSniDecision('warn', {
+    const fallbackAllowed = method === 'GET';
+    logHealthCheckSniDecision(fallbackAllowed ? 'warn' : 'error', {
       hostname,
       method,
       sniSupported,
@@ -282,12 +312,15 @@ export async function healthCheckRequest(
           : 'confirmed_direct',
       hasSelectedIp: true,
       selectedIpHash: hashForLog(selectedIp),
-      decision: 'fetch',
-      reason: 'sni_error',
+      decision: fallbackAllowed ? 'fetch' : 'throw',
+      reason: fallbackAllowed ? 'sni_error' : 'sni_error_non_idempotent',
       errorCode: getErrorCode(error),
       errorMessage: getErrorMessage(error),
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    if (!fallbackAllowed) {
+      throw error;
+    }
+    return fallbackToFetch(normalizedConfig);
   }
 }

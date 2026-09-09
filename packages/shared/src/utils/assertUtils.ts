@@ -106,12 +106,12 @@ type ISerializableCheckingDisabledConfig = {
   updateAt: number;
 };
 
-export function toggleBgApiSerializableChecking(enabled: boolean) {
+export async function toggleBgApiSerializableChecking(enabled: boolean) {
   const data: ISerializableCheckingDisabledConfig = {
     disabled: !enabled,
     updateAt: Date.now(),
   };
-  appGlobals.$appStorage?.syncStorage.setObject(
+  await appGlobals.$appStorage?.syncStorage.setObject(
     EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
     data,
   );
@@ -217,4 +217,25 @@ export function ensureLocalDbNotOnNativeMainThread() {
       'LocalDb (Realm) must be opened on the background runtime, not the native UI/main thread',
     );
   }
+}
+
+export function ensureWebembedApiProxyAvailable() {
+  if (
+    !platformEnv.isJest &&
+    platformEnv.enableNativeBackgroundThread &&
+    platformEnv.isNativeMainThread
+  ) {
+    throw new OneKeyLocalError(
+      'WebembedApiProxy must be used from the background JS runtime in native dual-runtime builds. Route this call through backgroundApiProxy instead of calling webembed APIs from the UI/main runtime.',
+    );
+  }
+
+  const webembedApiProxy = appGlobals.$webembedApiProxy;
+  if (!webembedApiProxy) {
+    throw new OneKeyLocalError(
+      'WebembedApiProxy is not registered in this JS runtime. Importing code should route through backgroundApiProxy or initialize webembedApiProxy before use.',
+    );
+  }
+
+  return webembedApiProxy;
 }

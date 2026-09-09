@@ -98,11 +98,10 @@ async function waitBeforeRetry(
 
 /**
  * OCDS v1.1 §5.11 — definitive terminal "gave up" outcome. Thrown when the
- * persisted cross-restart attempt budget or the overall wall-clock deadline is
- * exhausted, OR when a single-stream fallback failure is treated as the
- * download's terminal failure. Distinct from the underlying transport error so
- * the caller can surface "we have stopped retrying" rather than a transient
- * network blip.
+ * configured attempt budget or deadline is exhausted, OR when a single-stream
+ * fallback failure is treated as the download's terminal failure. Distinct from
+ * the underlying transport error so the caller can surface "we have stopped
+ * retrying" rather than a transient network blip.
  */
 export type IDownloadGaveUpReason =
   | 'maxAttempts'
@@ -131,21 +130,20 @@ export class DownloadGaveUpError extends OneKeyLocalError {
 }
 
 /**
- * Per-target persisted-budget hooks (OCDS §5.11). Owned by ServiceAppUpdate
+ * Per-target attempt-budget hooks (OCDS §5.11). Owned by ServiceAppUpdate
  * (kit-bg) and injected here so this module stays pure / unit-testable. When a
- * caller does not supply them, the loop runs with the legacy in-memory bound
- * only (no cross-restart persistence) — used by existing tests.
+ * caller does not supply them, the loop uses only its per-invocation retry cap.
  */
 export interface IDownloadRetryBudgetResult {
   givenUp: boolean;
   reason?: 'maxAttempts' | 'deadline';
 }
 export interface IDownloadRetryOptions {
-  // Read the persisted budget WITHOUT mutating it (checked on entry).
+  // Read the current budget without mutating it (checked on entry).
   getBudget?: () => Promise<IDownloadRetryBudgetResult>;
-  // Increment + persist the attempt counter; returns the post-increment state.
+  // Increment the attempt counter; returns the post-increment state.
   recordAttempt?: () => Promise<IDownloadRetryBudgetResult>;
-  // Clear the persisted budget (on success).
+  // Clear the attempt budget on success.
   resetBudget?: () => Promise<void>;
   // OCDS §4 — obtain a fresh signed URL after a 401/403 (permanent-this-URL).
   // Returns true if a fresh URL is now available to retry against, false if
@@ -197,34 +195,34 @@ export function isSingleStreamFallbackFailure(error: unknown): boolean {
  * 401/403/404/410/501/505, config errors) so we don't waste backoff windows on
  * deterministic dead states.
  *
- * OCDS v1.1 §5.11 termination contract (active only when `options` carries the
- * persisted-budget hooks — kit-bg's ServiceAppUpdate provides them):
- *   - On entry, if the persisted cross-restart budget is already exhausted the
- *     download is terminal immediately (no in-memory retry budget re-spend).
- *   - Each attempt increments the persisted counter; when the counter or the
- *     wall-clock deadline trips, the loop ends with a DownloadGaveUpError.
+ * OCDS v1.1 §5.11 termination contract (active only when `options` carries
+ * attempt-budget hooks — kit-bg's ServiceAppUpdate provides them):
+ *   - On entry, if the service-instance budget is already exhausted, the
+ *     download is terminal immediately.
+ *   - Each attempt increments the budget; when the counter or a caller-supplied
+ *     deadline trips, the loop ends with a DownloadGaveUpError.
  *   - A 401/403 (permanent-this-URL) triggers a single bounded URL refresh and
  *     one more attempt against the freshly-signed URL before going terminal.
- *   - On success the persisted budget is reset.
+ *   - On success the attempt budget is reset.
  */
 export async function runDownloadWithRetry<T>(
   operation: () => Promise<T>,
   context: string,
   options?: IDownloadRetryOptions,
 ): Promise<T> {
-  // §5.11 entry guard: a target that already exhausted its budget on a prior
-  // launch is terminal before we spend a single in-memory attempt.
+  // §5.11 entry guard: a target that already exhausted the current service
+  // instance's budget is terminal before we run another download attempt.
   if (options?.getBudget) {
     const entry = await options.getBudget();
     if (entry.givenUp) {
       defaultLogger.app.appUpdate.log(
-        `${context}: persisted budget already exhausted on entry reason=${
+        `${context}: attempt budget already exhausted on entry reason=${
           entry.reason ?? ''
         } — terminal`,
       );
       throw new DownloadGaveUpError({
         reason: entry.reason ?? 'maxAttempts',
-        message: `${context}: download gave up (persisted ${
+        message: `${context}: download gave up (budget ${
           entry.reason ?? 'maxAttempts'
         })`,
       });
@@ -235,20 +233,20 @@ export async function runDownloadWithRetry<T>(
   let urlRefreshed = false;
 
   for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
-    // §5.11 — record this attempt in durable storage BEFORE running it so a
-    // crash mid-attempt still counts toward the budget on the next launch.
+    // §5.11 — record before running so every native operation counts against
+    // the current service instance's attempt budget.
     if (options?.recordAttempt) {
       // eslint-disable-next-line no-await-in-loop
       const budget = await options.recordAttempt();
       if (budget.givenUp) {
         defaultLogger.app.appUpdate.log(
-          `${context}: persisted budget exhausted reason=${
+          `${context}: attempt budget exhausted reason=${
             budget.reason ?? ''
           } — terminal`,
         );
         throw new DownloadGaveUpError({
           reason: budget.reason ?? 'maxAttempts',
-          message: `${context}: download gave up (persisted ${
+          message: `${context}: download gave up (budget ${
             budget.reason ?? 'maxAttempts'
           })`,
         });
@@ -257,8 +255,8 @@ export async function runDownloadWithRetry<T>(
     try {
       // eslint-disable-next-line no-await-in-loop
       const result = await operation();
-      // §5.11 — success clears the persisted budget so the next target starts
-      // fresh and a stale give-up never lingers.
+      // §5.11 — success clears the attempt budget so the next target starts
+      // fresh and a stale give-up does not linger in this service instance.
       if (options?.resetBudget) {
         // eslint-disable-next-line no-await-in-loop
         await options.resetBudget().catch(() => undefined);

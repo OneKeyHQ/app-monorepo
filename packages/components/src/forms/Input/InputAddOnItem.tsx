@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,7 +69,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
               ...(platformEnv.isNative
                 ? undefined
                 : {
-                    onKeyDown: (e: KeyboardEvent) => {
+                    onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         onPress?.(e as any);

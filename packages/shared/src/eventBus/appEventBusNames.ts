@@ -29,6 +29,7 @@ export enum EAppEventBusNames {
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
+  NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
@@ -44,9 +45,14 @@ export enum EAppEventBusNames {
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
+  FirmwareUpdateDetectStatusChanged = 'FirmwareUpdateDetectStatusChanged',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  DeviceStageAuthAction = 'DeviceStageAuthAction',
+  DeviceStagePassphraseIntroContinue = 'DeviceStagePassphraseIntroContinue',
+  DeviceStageWalletTypeSelected = 'DeviceStageWalletTypeSelected',
+  DeviceStageOff = 'DeviceStageOff',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',
@@ -59,6 +65,7 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   LocalPendingTxConfirmed = 'LocalPendingTxConfirmed',
   DeFiPositionRefreshed = 'DeFiPositionRefreshed',
+  DeFiEnabledNetworksChanged = 'DeFiEnabledNetworksChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
@@ -71,6 +78,8 @@ export enum EAppEventBusNames {
   // risky-token snapshot for an owner with its OWN monotonic version (independent
   // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
   TokenListRiskyFrame = 'TokenListRiskyFrame',
+  TokenListUpdate = 'TokenListUpdate',
+  AllNetworksTokenListSettled = 'AllNetworksTokenListSettled',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -102,6 +111,19 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
+  // bg -> main: the shared keyless Supabase auth session storage was cleared
+  // by the bg runtime (e.g. keyless wallet removal); main-runtime holders
+  // must sign out their isolated in-memory keyless client copy.
+  KeylessAuthSessionCleared = 'KeylessAuthSessionCleared',
+  // bg -> main: a OneKey ID auth session source was committed
+  // (login / legacy OAuth bind / migration). A bind commit switches the
+  // source WITHOUT flipping primePersistAtom.isLoggedIn, and bg-side
+  // setSession writes never emit auth events in the main runtime, so
+  // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
+  // and re-read both persisted session slots when this arrives.
+  PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
+  PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
@@ -119,6 +141,8 @@ export enum EAppEventBusNames {
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
+  HardwareDeviceStateUpdate = 'HardwareDeviceStateUpdate',
+  HardwareConnectionStateUpdate = 'HardwareConnectionStateUpdate',
   UnlockApp = 'UnlockApp',
   LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
@@ -147,8 +171,10 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
+  ModalNavigatorMounted = 'ModalNavigatorMounted',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',
@@ -157,10 +183,16 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
+  PerpsUnifoldDepositTerminalDelivery = 'PerpsUnifoldDepositTerminalDelivery',
+  PerpsSubscriptionsRecovered = 'PerpsSubscriptionsRecovered',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
+  PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
+  PerpShowFundingHistory = 'PerpShowFundingHistory',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
+  DevLargeWalletDataCreationProgress = 'DevLargeWalletDataCreationProgress',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchEarnMode = 'SwitchEarnMode',

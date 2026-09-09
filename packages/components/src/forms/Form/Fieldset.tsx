@@ -3,7 +3,7 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const Fieldset = styled(YStack, {
   name: 'Fieldset',
-  tag: 'fieldset',
+  render: 'fieldset',
 
   variants: {
     horizontal: {

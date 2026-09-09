@@ -11,23 +11,15 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
-  swapInitialSelectedTokensSyncedAtom,
-  swapSelectFromTokenAtom,
-  swapSelectToTokenAtom,
-  swapSelectedTokensColdStartContextAtom,
-  swapStockSelectedTokenAtom,
-  swapTypeSwitchAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
-  useSwapStockSelectedTokenAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
-import { getSwapDefaultSelectedTokensFromGlobalHomeSnapshot } from '../hooks/useSwapColdStartDisplayTokens';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensFromHomeAccount,
@@ -35,44 +27,15 @@ import {
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
+import { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
-type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
-
-export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
-  store: ISwapContextStore,
-) {
-  const hasSelectedTokens = Boolean(
-    store.get(swapSelectFromTokenAtom()) || store.get(swapSelectToTokenAtom()),
-  );
-  if (hasSelectedTokens || store.get(swapInitialSelectedTokensSyncedAtom())) {
-    return false;
-  }
-
-  const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
-    swapType: store.get(swapTypeSwitchAtom()),
-  });
-  if (!defaultTokens) {
-    return false;
-  }
-
-  store.set(swapSelectFromTokenAtom(), defaultTokens.fromToken);
-  store.set(swapSelectToTokenAtom(), defaultTokens.toToken);
-  store.set(swapStockSelectedTokenAtom(), undefined);
-  store.set(swapSelectedTokensColdStartContextAtom(), defaultTokens.context);
-  store.set(
-    swapTypeSwitchAtom(),
-    getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
-      defaultTokens.swapType,
-  );
-  return true;
-}
+export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 
 function SwapColdStartCacheSync() {
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken, setSwapToToken] = useSwapSelectToTokenAtom();
-  const [, setSwapStockSelectedToken] = useSwapStockSelectedTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
@@ -108,7 +71,6 @@ function SwapColdStartCacheSync() {
     const clearSelectedTokens = () => {
       setSwapFromToken(undefined);
       setSwapToToken(undefined);
-      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(undefined);
       markInitialSelectedTokensSynced();
     };
@@ -126,7 +88,6 @@ function SwapColdStartCacheSync() {
 
       setSwapFromToken(defaultTokens.fromToken);
       setSwapToToken(defaultTokens.toToken);
-      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(defaultTokens.context);
       setSwapTypeSwitch(
         getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
@@ -203,7 +164,6 @@ function SwapColdStartCacheSync() {
     setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
-    setSwapStockSelectedToken,
     setSwapToToken,
     setSwapTypeSwitch,
   ]);

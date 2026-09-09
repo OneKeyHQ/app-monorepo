@@ -58,7 +58,8 @@ function ActionButton({
 export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('holdings');
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 
@@ -97,8 +98,8 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
         <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
 
         <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
+          size={isMobile ? '$bodyXs' : '$headingSm'}
+          color={isMobile ? '$textSubdued' : '$text'}
           textAlign="center"
           maxWidth={isMobile ? 280 : 360}
         >
@@ -122,7 +123,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
               id: ETranslations.perp_trade_deposit,
             })}
             onPress={() => void showDepositWithdrawModal('deposit')}
-            disabled={!hasAccountAddress}
+            disabled={!hasAccountAddress || isDepositDisabled}
           />
           {useGuidePopover ? (
             <YStack width={buttonWidth}>

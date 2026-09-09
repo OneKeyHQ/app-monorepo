@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -63,20 +63,28 @@ function ConfirmPinPage() {
     [getKeylessOnboardingPin, handleKeylessOnboardingTimeout, intl],
   );
 
+  const isConfirmingRef = useRef(false);
   const handleConfirm = useCallback(async () => {
-    setConfirmPin('');
-    const originalPin = await getKeylessOnboardingPin();
-    if (!originalPin) {
-      handleKeylessOnboardingTimeout();
+    if (isConfirmingRef.current) {
       return;
     }
+    // Close the same-tick re-entry window before isLoading commits; the
+    // isLoading gate only takes effect after the first await settles.
+    isConfirmingRef.current = true;
+    setConfirmPin('');
     try {
+      const originalPin = await getKeylessOnboardingPin();
+      if (!originalPin) {
+        handleKeylessOnboardingTimeout();
+        return;
+      }
       setIsLoading(true);
       await confirmKeylessOnboardingPin({
         pin: originalPin || '',
         action,
       });
     } finally {
+      isConfirmingRef.current = false;
       setIsLoading(false);
     }
   }, [

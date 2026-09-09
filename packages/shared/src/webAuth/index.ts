@@ -1,8 +1,21 @@
 import { Base64 } from 'js-base64';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
+
+// Diagnostic sink for the lock-screen log-upload gate. Mirrors to console
+// UNCONDITIONALLY (the defaultLogger local transport only console-logs in dev,
+// and its background bridge may be unavailable on the lock screen when the
+// keychain is broken — exactly the case we are debugging) AND to defaultLogger
+// so it can also be exported when the bridge is up.
+function diagLog(msg: string) {
+  // eslint-disable-next-line no-console
+  console.log(msg);
+  const { webAuth } = defaultLogger.app;
+  webAuth.log(msg);
+}
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(arraybuffer);
@@ -97,14 +110,32 @@ export const verifiedWebAuth = async (
     }
     return cred;
   } catch (e) {
+    // Capture the RAW WebAuthn error before it is collapsed into
+    // cancelError/undefined, so a lost/corrupted platform credential can be
+    // told apart from a genuine user cancel (see AppStateLock log-upload gate).
+    const rawErr = e as { name?: string; message?: string; code?: number };
+    diagLog(
+      `[KeychainLogUploadDiag] verifiedWebAuth raw error ${JSON.stringify({
+        name: rawErr?.name,
+        message: rawErr?.message,
+        code: rawErr?.code,
+        ctor: (e as { constructor?: { name?: string } })?.constructor?.name,
+        isDOMException: e instanceof DOMException,
+        str: String(e),
+      })}`,
+    );
     if (
       e instanceof DOMException &&
       (e.name === 'NotAllowedError' || e.name === 'AbortError')
     ) {
+      diagLog('[KeychainLogUploadDiag] verifiedWebAuth -> throw cancelError');
       const cancelError = new Error('');
       cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
       throw cancelError;
     }
+    diagLog(
+      '[KeychainLogUploadDiag] verifiedWebAuth -> return undefined (non-cancel error)',
+    );
     return undefined;
   }
 };
@@ -116,14 +147,22 @@ export const registerWebAuth = async (credId?: string) => {
   if (!navigator?.credentials) {
     throw new OneKeyLocalError('navigator.credentials API is not available');
   }
-  try {
-    if (credId) {
-      const cred = await verifiedWebAuth(credId);
-      if (cred?.id) {
-        return cred.id;
-      }
-      return undefined;
+  if (credId) {
+    // Reuse-if-valid: verify the existing credential first. On success we
+    // return its id and NEVER create a new one (so repeated enable toggles do
+    // not pile up credentials). A NotAllowedError here is ambiguous (user
+    // cancel vs. lost credential) and surfaces as BIOLOGY_AUTH_CANCEL_ERROR.
+    // This block is kept OUTSIDE the create try/catch below so that
+    // cancelError PROPAGATES to the caller (setWebAuthEnable) — which can then
+    // ask the user whether to register a fresh credential — rather than being
+    // swallowed to undefined.
+    const cred = await verifiedWebAuth(credId);
+    if (cred?.id) {
+      return cred.id;
     }
+    return undefined;
+  }
+  try {
     const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
     const createCredentialOptions: CredentialCreationOptions = {
       publicKey: {

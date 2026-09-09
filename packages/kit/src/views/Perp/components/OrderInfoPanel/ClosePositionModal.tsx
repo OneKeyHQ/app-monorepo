@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -13,7 +13,9 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -25,22 +27,25 @@ import {
   calculateProfitLoss,
   formatHlSize,
   formatPriceToSignificantDigits,
+  getValidPerpsPrice,
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
-
-import type { IntlShape } from 'react-intl';
+import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLimitPriceWarning';
 
 type IPosition =
   IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
@@ -66,6 +71,7 @@ interface IClosePositionFormProps extends IClosePositionParams {
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
     const intl = useIntl();
+    const { gtMd } = useMedia();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -77,8 +83,8 @@ const ClosePositionForm = memo(
     const szDecimals = tokenInfo?.universe?.szDecimals ?? 2;
     const assetId = tokenInfo?.assetId;
 
-    const midPrice = useMemo(() => {
-      return allMids?.mids?.[position.coin] || '0';
+    const atomMidPrice = useMemo(() => {
+      return getValidPerpsPrice(allMids?.mids?.[position.coin]);
     }, [allMids?.mids, position.coin]);
 
     const tokenDisplayName = useMemo(() => {
@@ -110,9 +116,49 @@ const ClosePositionForm = memo(
     const initPriceRef = useRef(false);
     const isMountedRef = useRef(true);
 
+    const [referencePriceResolved, setReferencePriceResolved] = useState(false);
+    // The main runtime only sees mids the WebSocket has already forwarded,
+    // which lags by seconds on cold start, so the gate polls the same
+    // background price source the submit uses instead of waiting on the atom.
+    const { result: referencePrice } = usePromiseResult(
+      async () => {
+        if (atomMidPrice) {
+          return atomMidPrice;
+        }
+        const price =
+          await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+            position.coin,
+          );
+        if (isMountedRef.current) {
+          setReferencePriceResolved(true);
+        }
+        return price;
+      },
+      [atomMidPrice, position.coin],
+      { pollingInterval: 2000, checkIsFocused: false },
+    );
+    const midPrice = atomMidPrice ?? getValidPerpsPrice(referencePrice);
+    const isMarketPriceUnavailable = !midPrice && referencePriceResolved;
+    const priceUnavailableToastShownRef = useRef(false);
+
     useEffect(() => {
       setSliderPercentage(formData.percentage);
     }, [formData.percentage, setSliderPercentage]);
+
+    useEffect(() => {
+      if (
+        formData.type === 'market' &&
+        isMarketPriceUnavailable &&
+        !priceUnavailableToastShownRef.current
+      ) {
+        priceUnavailableToastShownRef.current = true;
+        // TODO(i18n): pre-existing English literal shared with the submit
+        // path below and closeAllPositions; needs a Lokalise key.
+        Toast.error({
+          title: 'Unable to get current market price',
+        });
+      }
+    }, [formData.type, isMarketPriceUnavailable]);
 
     useEffect(() => {
       if (!midPrice) return;
@@ -133,6 +179,27 @@ const ClosePositionForm = memo(
     }, []);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submittingRef = useRef(false);
+    const orderBookTop = useCoinOrderBookTop(position.coin);
+
+    const aggressiveLimitPriceWarning = useMemo(
+      () =>
+        formData.type === 'limit'
+          ? getAggressiveLimitPriceWarning({
+              side: isLongPosition ? 'short' : 'long',
+              limitPrice: formData.limitPrice,
+              bestBid: orderBookTop.bestBid,
+              bestAsk: orderBookTop.bestAsk,
+            })
+          : undefined,
+      [
+        formData.limitPrice,
+        formData.type,
+        isLongPosition,
+        orderBookTop.bestAsk,
+        orderBookTop.bestBid,
+      ],
+    );
 
     const calculatedAmount = useMemo(() => {
       const percentage = Number.isNaN(formData.percentage)
@@ -215,7 +282,7 @@ const ClosePositionForm = memo(
 
     const handleUseMid = useCallback(() => {
       const latestMidPrice = midPrice;
-      if (latestMidPrice && latestMidPrice !== '0') {
+      if (latestMidPrice) {
         setFormData((prev) => ({
           ...prev,
           limitPrice: formatPriceToSignificantDigits(latestMidPrice),
@@ -233,6 +300,13 @@ const ClosePositionForm = memo(
     }, []);
 
     const handleSubmit = useCallback(async () => {
+      // The disabled state lands one render late, so same-frame double taps
+      // would otherwise send a second reduce-only order for the full size.
+      if (submittingRef.current) {
+        return;
+      }
+      submittingRef.current = true;
+      let submitted = false;
       try {
         if (isNil(assetId) || Number.isNaN(assetId)) {
           return;
@@ -252,8 +326,11 @@ const ClosePositionForm = memo(
         }
 
         if (formData.type === 'market') {
-          const latestMidPrice = midPrice;
-          if (!latestMidPrice || latestMidPrice === '0') {
+          const latestMidPrice =
+            await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+              position.coin,
+            );
+          if (!latestMidPrice) {
             Toast.error({
               title: 'Unable to get current market price',
             });
@@ -288,12 +365,18 @@ const ClosePositionForm = memo(
         }
 
         hyperliquidActions.current.resetTradingForm();
+        // The dialog stays mounted through its exit animation, so the guard
+        // must stay armed after success or a tap there places a second order.
+        submitted = true;
         if (isMountedRef.current) {
           onClose();
         }
       } finally {
-        if (isMountedRef.current) {
-          setIsSubmitting(false);
+        if (!submitted) {
+          submittingRef.current = false;
+          if (isMountedRef.current) {
+            setIsSubmitting(false);
+          }
         }
       }
     }, [
@@ -302,7 +385,7 @@ const ClosePositionForm = memo(
       formData.limitPrice,
       calculatedAmount,
       assetId,
-      midPrice,
+      position.coin,
       isLongPosition,
       hyperliquidActions,
       onClose,
@@ -384,6 +467,10 @@ const ClosePositionForm = memo(
 
     return (
       <YStack gap="$4">
+        {aggressiveLimitPriceWarning ? (
+          <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+        ) : null}
+
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -463,7 +550,7 @@ const ClosePositionForm = memo(
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
             onUseMidPrice={handleUseMid}
-            disabled={!midPrice}
+            midPriceDisabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
           />
@@ -490,7 +577,9 @@ const ClosePositionForm = memo(
           onChange={handlePercentageChange}
           max={100}
           min={0}
-          segments={0}
+          segments={4}
+          snapTapToSegment
+          sliderHeight={gtMd ? 4 : 2}
         />
 
         <XStack justifyContent="space-between" gap="$1">
@@ -513,7 +602,12 @@ const ClosePositionForm = memo(
             variant="primary"
             onPress={handleSubmit}
             disabled={!isFormValid || isSubmitting}
-            loading={isSubmitting}
+            loading={
+              isSubmitting ||
+              (formData.type === 'market' &&
+                !isPriceValid &&
+                !isMarketPriceUnavailable)
+            }
           >
             {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
@@ -527,28 +621,52 @@ const ClosePositionForm = memo(
 
 ClosePositionForm.displayName = 'ClosePositionForm';
 
+// Dialog.show mounts its portal asynchronously, so isExist() reports false
+// during the first frames; the grace window covers same-frame double taps.
+const CLOSE_DIALOG_MOUNT_GRACE_MS = 1000;
+let activeCloseDialog: IDialogInstance | undefined;
+let activeCloseDialogShownAt = 0;
+
 export function showClosePositionDialog({
   position,
   type,
   intl,
 }: IClosePositionParams & { intl: IntlShape }) {
+  // Rapid taps would stack dialogs, each holding its own position snapshot,
+  // so only one close dialog is kept alive at a time.
+  if (
+    activeCloseDialog &&
+    (activeCloseDialog.isExist() ||
+      Date.now() - activeCloseDialogShownAt < CLOSE_DIALOG_MOUNT_GRACE_MS)
+  ) {
+    return activeCloseDialog;
+  }
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.perp_close_position_title,
     }),
     disableDrag: true,
+    onClose: () => {
+      if (activeCloseDialog === dialogInstance) {
+        activeCloseDialog = undefined;
+      }
+    },
     renderContent: (
       <PerpsProviderMirror>
-        <ClosePositionForm
-          position={position}
-          type={type}
-          onClose={() => dialogInstance.close()}
-        />
+        <PerpKeyboardAwareDialogContent>
+          <ClosePositionForm
+            position={position}
+            type={type}
+            onClose={() => dialogInstance.close()}
+          />
+        </PerpKeyboardAwareDialogContent>
       </PerpsProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
+  activeCloseDialog = dialogInstance;
+  activeCloseDialogShownAt = Date.now();
 
   return dialogInstance;
 }

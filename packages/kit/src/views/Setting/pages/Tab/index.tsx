@@ -1,4 +1,11 @@
-import { memo, useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -22,16 +29,30 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
-import { ConfigContext } from './configContext';
+import { ConfigContext, useConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
+import {
+  getSettingsAnalyticsLayout,
+  logSettingCategoryOpened,
+} from './settingsAnalytics';
+import {
+  getSettingsDisplayIcon,
+  getSettingsDisplayTitle,
+} from './settingsDisplay';
+import {
+  findSidebarOrphans,
+  getDefaultSettingsTab,
+  resolveSidebarItems,
+} from './settingsRootLayout';
 import { SubSettings } from './SubSettings';
-import { useIsTabNavigator } from './useIsTabNavigator';
+import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
 import type {
@@ -51,6 +72,7 @@ function TabItemView({
   options: BottomTabNavigationOptions & {
     tabbarOnPress?: () => void;
     trackId?: string;
+    testID?: string;
     tabBarItemStyle?: IStackStyle;
     tabBarIconStyle?: IIconProps;
     tabBarLabelStyle?: ISizableTextProps;
@@ -62,7 +84,7 @@ function TabItemView({
     }>;
   };
 }) {
-  useMemo(() => {
+  useEffect(() => {
     // @ts-expect-error
     const activeIcon = options?.tabBarIcon?.(true) as IKeyOfIcons;
     // @ts-expect-error
@@ -91,16 +113,57 @@ function TabItemView({
       return null;
     }
 
+    const selectedBackgroundColor =
+      platformEnv.isDesktop && isActive
+        ? (options.tabBarItemStyle?.backgroundColor ?? '$bgStrong')
+        : undefined;
+    let tabBarIconStyle = options.tabBarIconStyle as IIconProps | undefined;
+    if (platformEnv.isDesktop) {
+      tabBarIconStyle = {
+        size: '$4.5',
+        ...(isActive ? { color: '$iconStrong' } : undefined),
+        ...tabBarIconStyle,
+      };
+    } else if (isActive) {
+      tabBarIconStyle = {
+        color: '$iconStrong',
+        ...tabBarIconStyle,
+      };
+    }
+    let tabBarLabelStyle = options.tabBarLabelStyle as
+      | ISizableTextProps
+      | undefined;
+    if (platformEnv.isDesktop) {
+      tabBarLabelStyle = {
+        ...tabBarLabelStyle,
+        mx: '$1.5',
+      };
+    } else if (isActive) {
+      tabBarLabelStyle = {
+        ...tabBarLabelStyle,
+        size: '$bodyMdMedium',
+      };
+    }
+
     return (
       <DesktopTabItem
         onPress={options.tabbarOnPress ?? onPress}
         trackId={options.trackId}
+        testID={options.testID}
+        // Keep a stable 20px leading slot while desktop Settings renders an
+        // optically lighter 18px glyph inside it.
+        size="small"
+        // 36px rows on desktop/web; keep native iPad at the compact 32px size.
+        py={platformEnv.isNative ? '$1.5' : '$2'}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
         tabBarItemStyle={options.tabBarItemStyle}
-        tabBarIconStyle={options.tabBarIconStyle}
-        tabBarLabelStyle={options.tabBarLabelStyle}
+        {...(selectedBackgroundColor
+          ? { bg: selectedBackgroundColor }
+          : undefined)}
+        tabBarIconStyle={tabBarIconStyle}
+        tabBarLabelStyle={tabBarLabelStyle}
         showDot={options.showDot}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
@@ -114,42 +177,69 @@ function TabItemView({
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
-  const { onSearch, onFocus, previousTabRoute } = useSearch();
-  const tabs = useMemo(
-    () =>
-      routes.map((route, index) => {
-        const focus = index === state.index;
-        const { options } = descriptors[route.key];
-        const onPress = () => {
-          Keyboard.dismiss();
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
+  const { settingsConfig } = useConfigContext();
+  const { onSearch, onFocus, previousTabRoute } = useSearch(settingsConfig);
+  const activeRouteName = routes[state.index]?.name as
+    | ESettingsTabNames
+    | undefined;
+  // Track the search-restore target from the navigator state so every
+  // selection mechanism (sidebar press, promoted-item redirect, universal
+  // search deep link, initial route) is covered by one write.
+  useEffect(() => {
+    if (activeRouteName && activeRouteName !== ESettingsTabNames.Search) {
+      previousTabRoute.current = activeRouteName;
+    }
+  }, [activeRouteName, previousTabRoute]);
+  const tabs = useMemo(() => {
+    const routeEntries = new Map(
+      routes.map((route, index) => [route.name, { route, index }] as const),
+    );
+    const visibleNames = routes
+      .filter(
+        (route) =>
+          !(descriptors[route.key].options as { isHidden?: boolean }).isHidden,
+      )
+      .map((route) => route.name);
+    return resolveSidebarItems(visibleNames).map((name) => {
+      const entry = routeEntries.get(name);
+      if (!entry) {
+        return null;
+      }
+      const { route, index } = entry;
+      const focus = index === state.index;
+      const { options } = descriptors[route.key];
+      const onPress = () => {
+        Keyboard.dismiss();
+        const event = navigation.emit({
+          type: 'tabPress',
+          target: route.key,
+          canPreventDefault: true,
+        });
+        if (!focus && !event.defaultPrevented) {
+          logSettingCategoryOpened({
+            category: route.name as ESettingsTabNames,
+            source: 'sidebar',
           });
-          previousTabRoute.current = route.name as ESettingsTabNames;
-          if (!focus && !event.defaultPrevented) {
-            navigation.dispatch({
-              ...CommonActions.navigate({
-                name: route.name,
-                merge: true,
-              }),
-              target: state.key,
-            });
-          }
-        };
-
-        return (
+          navigation.dispatch({
+            ...CommonActions.navigate({
+              name: route.name,
+              merge: true,
+            }),
+            target: state.key,
+          });
+        }
+      };
+      return (
+        <YStack key={route.key} w="100%">
           <TabItemView
-            key={route.key}
             onPress={onPress}
             isActive={focus}
             options={options as any}
           />
-        );
-      }),
-    [routes, state.index, state.key, descriptors, navigation, previousTabRoute],
-  );
+        </YStack>
+      );
+    });
+  }, [routes, state.index, state.key, descriptors, navigation]);
 
   const { top, bottom } = useSafeAreaInsets();
   return (
@@ -174,7 +264,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <YStack gap="$1">{tabs}</YStack>
+          <YStack gap="$0.5">{tabs}</YStack>
         </ScrollView>
       </YStack>
       <Divider borderColor="$neutral3" />
@@ -192,16 +282,29 @@ function SettingsTabNavigator() {
       if (!config) {
         return null;
       }
-      const { icon, title, name, Component, ...options } = config;
+      const {
+        icon,
+        mobileIcon,
+        title,
+        mobileTitle,
+        name,
+        Component,
+        ...options
+      } = config;
       return (
         <Tab.Screen
-          key={title}
+          key={name}
           name={name}
           component={(Component || SubSettings) as any}
           options={{
             ...(options as any),
-            tabBarLabel: title,
-            tabBarIcon: () => icon,
+            // The sidebar keeps the outline icon in both states; TabItemView
+            // applies the stronger semantic color to the selected state.
+            tabBarLabel: getSettingsDisplayTitle({ title, mobileTitle }, true),
+            tabBarIcon: () =>
+              getSettingsDisplayIcon({ icon, mobileIcon }, true),
+            // No trackId: DesktopTabItem would report it via the main tab
+            // bar's `tabBarClick` server event, polluting that vocabulary.
             tabBarPosition: 'left',
           }}
         />
@@ -214,16 +317,37 @@ function SettingsTabNavigator() {
     [],
   );
   const contextValue = useMemo(() => {
-    return { settingsConfig };
+    return { settingsConfig, insideTabNavigator: true };
+  }, [settingsConfig]);
+  const initialRouteName = useMemo(
+    () => getDefaultSettingsTab(settingsConfig),
+    [settingsConfig],
+  );
+  // Config-level drift guard: every visible category must appear in
+  // SETTINGS_SIDEBAR_ORDER, or the sidebar would silently drop its tab.
+  // Checked here (against the memoized config) rather than in SideBar so it
+  // shares the exact source the Tab.Screens register from.
+  useEffect(() => {
+    if (!platformEnv.isDev) {
+      return;
+    }
+    const orphans = findSidebarOrphans(
+      settingsConfig
+        .filter(Boolean)
+        .filter((category) => !category.isHidden)
+        .map((category) => category.name),
+    );
+    if (orphans.length) {
+      console.warn(
+        '[settings] visible tabs missing from SETTINGS_SIDEBAR_ORDER:',
+        orphans,
+      );
+    }
   }, [settingsConfig]);
   return (
     <ConfigContext.Provider value={contextValue}>
       <Tab.Navigator
-        initialRouteName={
-          platformEnv.isWebDappMode
-            ? ESettingsTabNames.Preferences
-            : ESettingsTabNames.Backup
-        }
+        initialRouteName={initialRouteName}
         tabBar={tabBarCallback}
         screenOptions={{
           headerShown: false,
@@ -240,8 +364,18 @@ function SettingsTabNavigator() {
 const MemoizedSettingsTabNavigator = memo(SettingsTabNavigator);
 
 function SettingTab() {
-  const isTabNavigator = useIsTabNavigator();
+  const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   const appNavigation = useAppNavigation();
+  const hasLoggedOpenRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedOpenRef.current) {
+      return;
+    }
+    hasLoggedOpenRef.current = true;
+    defaultLogger.setting.page.settingsOpened({
+      layout: getSettingsAnalyticsLayout({ isTabNavigator, isMobileLayout }),
+    });
+  }, [isMobileLayout, isTabNavigator]);
   useLayoutEffect(() => {
     if (isTabNavigator) {
       appNavigation.setOptions({

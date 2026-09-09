@@ -1,7 +1,13 @@
 import { BigNumber } from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IPrimePaymentMethod,
+  IPrimeSubscribeFailedReason,
+} from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
@@ -49,6 +55,7 @@ function extractWebFreeTrial(
     periodIso: trial.periodDuration,
     periodNumber: trial.period.number,
     periodUnit: trial.period.unit,
+    source: 'web',
   };
 }
 
@@ -85,6 +92,7 @@ function extractNativeFreeTrial(
         periodIso: introPrice.period,
         periodNumber: introPrice.periodNumberOfUnits,
         periodUnit,
+        source: 'native',
       };
     }
   }
@@ -104,6 +112,7 @@ function extractNativeFreeTrial(
           periodIso: freePhase.billingPeriod.iso8601,
           periodNumber: freePhase.billingPeriod.value,
           periodUnit,
+          source: 'native',
         };
       }
     }
@@ -165,11 +174,17 @@ function trackPrimeSubscriptionSuccess({
   currency,
   subscriptionPeriod,
   featureName,
+  paymentMethod,
 }: {
   amount: number;
   currency?: string;
   subscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  // Required so every success event carries its payment channel: the event
+  // pairs with primeSubscribeIntent (logged per channel) to measure the
+  // attempt → success rate per channel, which breaks if success events
+  // report paymentMethod: undefined
+  paymentMethod: IPrimePaymentMethod;
 }) {
   const planType = subscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
   defaultLogger.prime.subscription.primeSubscribeSuccess({
@@ -177,14 +192,89 @@ function trackPrimeSubscriptionSuccess({
     amount,
     currency: currency || 'USD',
     featureName,
+    paymentMethod,
   });
 }
 
-// RevenueCat React Native SDK returns prices in micros on Android, in major
-// units on iOS — normalize to major units here.
-function normalizeNativePrice(rawPrice: number): number {
-  if (!platformEnv.isNativeAndroid) return rawPrice;
-  return new BigNumber(rawPrice || 0).div(1_000_000).toNumber();
+// Mirrors ErrorCode.UserCancelledError in @revenuecat/purchases-js. Kept as a
+// literal so this shared util never pulls the web SDK into native bundles.
+const REVENUECAT_WEB_USER_CANCELLED_ERROR_CODE = 1;
+const REVENUECAT_NATIVE_CANCELLED_MESSAGE = 'Purchase was cancelled.';
+
+function classifyPurchaseError(error: unknown): {
+  reason: IPrimeSubscribeFailedReason;
+  errorCode?: string;
+  errorMessage?: string;
+} {
+  const e = error as
+    | {
+        userCancelled?: boolean | null;
+        errorCode?: unknown;
+        code?: unknown;
+        message?: unknown;
+      }
+    | null
+    | undefined;
+  const errorMessage = typeof e?.message === 'string' ? e.message : undefined;
+  const rawCode = e?.errorCode ?? e?.code;
+  const errorCode =
+    rawCode === undefined || rawCode === null ? undefined : String(rawCode);
+  const isUserCancelled =
+    // react-native-purchases sets PurchasesError.userCancelled; older
+    // bridges only expose the readable message.
+    e?.userCancelled === true ||
+    errorMessage === REVENUECAT_NATIVE_CANCELLED_MESSAGE ||
+    // @revenuecat/purchases-js reports cancellation via
+    // PurchasesError.errorCode.
+    e?.errorCode === REVENUECAT_WEB_USER_CANCELLED_ERROR_CODE;
+  let reason: IPrimeSubscribeFailedReason = 'paymentFailed';
+  if (isUserCancelled) {
+    reason = 'userCancelled';
+  } else if (
+    errorUtils.isErrorByClassName({
+      error,
+      className: EOneKeyErrorClassNames.OneKeyLocalError,
+    })
+  ) {
+    reason = 'clientError';
+  }
+  return {
+    reason,
+    errorCode,
+    errorMessage,
+  };
+}
+
+// Returns the classification so callers can gate UX (e.g. skip the error
+// toast on user cancellation) without classifying the same error twice.
+function trackPrimeSubscriptionFailed({
+  error,
+  paymentMethod,
+  subscriptionPeriod,
+  featureName,
+}: {
+  error: unknown;
+  paymentMethod: IPrimePaymentMethod;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures;
+}): ReturnType<typeof classifyPurchaseError> {
+  const classification = classifyPurchaseError(error);
+  defaultLogger.prime.subscription.primeSubscribeFailed({
+    paymentMethod,
+    subscriptionPeriod,
+    featureName,
+    ...classification,
+  });
+  return classification;
+}
+
+function normalizeNativePrice(
+  rawPrice: number,
+  priceUnit: 'major' | 'micros',
+): number {
+  return priceUnit === 'micros'
+    ? new BigNumber(rawPrice || 0).div(1_000_000).toNumber()
+    : rawPrice;
 }
 
 function extractWebPaywallPrice(paywallPackage: {
@@ -217,6 +307,8 @@ function formatPriceString(
 const primePaymentUtils = {
   extractCurrencySymbol,
   trackPrimeSubscriptionSuccess,
+  classifyPurchaseError,
+  trackPrimeSubscriptionFailed,
   normalizeNativePrice,
   extractWebPaywallPrice,
   formatPriceString,

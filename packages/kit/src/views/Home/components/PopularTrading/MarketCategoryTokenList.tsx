@@ -14,7 +14,9 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 import { RichTable } from '../RichTable';
 
@@ -32,6 +34,16 @@ type IMarketCategoryTokenListProps = {
   onTokenPress: (record: IFavoriteTokenDisplay) => void;
   onViewMore: () => void;
 };
+
+function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
+  if (item.marketAsset) {
+    return `market-${item.marketAsset.assetId}`;
+  }
+  if (item.perpsCoin) {
+    return `perps-${item.perpsCoin}`;
+  }
+  return `${item.chainId}-${item.contractAddress}`;
+}
 
 function MarketCategoryTokenList({
   tokens,
@@ -82,7 +94,25 @@ function MarketCategoryTokenList({
     return getPopularTradingColumns({
       intl,
       shouldUseTableLayout,
-      renderStarButton,
+      renderStarButton: (record) =>
+        record.marketAsset ? (
+          <MarketListingStar
+            kind="asset"
+            listingId={record.marketAsset.assetId}
+            from={EWatchlistFrom.Homepage}
+            renderButton={(identity) =>
+              renderStarButton({
+                ...record,
+                marketAsset: undefined,
+                chainId: identity.chainId,
+                contractAddress: identity.contractAddress,
+                isNative: identity.isNative,
+              })
+            }
+          />
+        ) : (
+          renderStarButton(record)
+        ),
     });
   }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
 
@@ -114,11 +144,7 @@ function MarketCategoryTokenList({
         showHeader={shouldUseTableLayout}
         dataSource={tokens}
         columns={columns}
-        keyExtractor={(item) =>
-          item.perpsCoin
-            ? `perps-${item.perpsCoin}`
-            : `${item.chainId}-${item.contractAddress}`
-        }
+        keyExtractor={getMarketCategoryTokenKey}
         estimatedItemSize={56}
         rowProps={{
           mx: '$2',

@@ -21,6 +21,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -29,7 +30,10 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -60,8 +64,9 @@ import {
 } from '../../utils/animationConstants';
 
 import { Content } from './Content';
-import { DialogContext } from './context';
+import { DialogContext, DialogSheetContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
+import { DialogScrollView } from './DialogScrollView';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -91,28 +96,48 @@ import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
+type IDialogFormModule = typeof import('./DialogForm');
 type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
-const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
-  const { DialogForm } = await import('./DialogForm');
-  return { default: DialogForm };
-});
-
-function LazyDialogForm(props: IDialogFormProps) {
-  return <LazyDialogFormComponent {...props} />;
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
 }
 
-const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
-  async () => {
-    const { DialogFormField } = await import('./DialogForm');
-    return { default: DialogFormField };
-  },
-);
+const LazyDialogFormFieldComponent = createLazyModuleComponent<
+  IDialogFormFieldProps,
+  IDialogFormModule
+>(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
 
-function LazyDialogFormField(props: IDialogFormFieldProps) {
-  return <LazyDialogFormFieldComponent {...props} />;
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
+
+export function preloadDialogFormComponents() {
+  return preloadLazyComponents([
+    LazyDialogFormComponent,
+    LazyDialogFormFieldComponent,
+  ]);
 }
 
 export * from './dialogInstances';
@@ -125,9 +150,9 @@ export type {
   IDialogShowProps,
 } from './type';
 
-export const FIX_SHEET_PROPS: IYStackProps = {
+export const FIX_SHEET_PROPS = {
   display: 'block',
-};
+} satisfies IYStackProps;
 
 const MAX_CONTENT_WIDTH = 400;
 
@@ -146,10 +171,21 @@ const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
 } as any;
 const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
 const EMPTY_DIALOG_STYLE = {} as const;
+const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
-const useSafeKeyboardAnimationStyle = () => {
+const useSafeKeyboardAnimationStyle = ({
+  useInitialSafeAreaBottomInsetFallback = false,
+}: {
+  useInitialSafeAreaBottomInsetFallback?: boolean;
+}) => {
   const { bottom } = useSafeAreaInsets();
+  // Root-sibling portals can report zero before safe-area context propagates.
+  // Opt in only for flows that must preserve the initial window inset.
+  const safeAreaBottom =
+    useInitialSafeAreaBottomInsetFallback && bottom === 0
+      ? INITIAL_BOTTOM_INSET
+      : bottom;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -158,7 +194,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // They must not stack — once the keyboard is up it already covers the
   // safe area, so take the larger of the two instead of summing them.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, bottom),
+    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
   }));
 
   useKeyboardEventWithoutNavigation({
@@ -176,7 +212,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // clear the home indicator there too — footers only carry their design
   // padding now, and rely on the frame for the inset on every platform.
   if (!platformEnv.isNative) {
-    return bottom ? { paddingBottom: bottom } : undefined;
+    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
   }
   return animatedStyles;
 };
@@ -202,6 +238,7 @@ function DialogFrame({
   onConfirmText,
   onCancel,
   onOpen,
+  onOpenAutoFocus,
   onCancelText,
   tone,
   confirmButtonProps,
@@ -221,6 +258,7 @@ function DialogFrame({
   isAsync,
   trackID,
   forceMount,
+  useInitialSafeAreaBottomInsetFallback = false,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -293,7 +331,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+  });
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
       {showHeader ? (
@@ -351,7 +391,7 @@ function DialogFrame({
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
-        animation="quick"
+        transition="quick"
         zIndex={zIndex}
         // OK-36893 OK-38624
         // When modal is false, multiple Tamagui sheets may collapse into position:relative
@@ -361,7 +401,7 @@ function DialogFrame({
       >
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={DIALOG_ENTER_STYLE_OPACITY}
           exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -386,12 +426,19 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
-            <Stack>
-              {!disableDrag ? <SheetGrabber /> : null}
-              {renderDialogContent}
-            </Stack>
-          </FocusScope>
+          <DialogSheetContext.Provider value>
+            <FocusScope
+              enabled={open}
+              trapped={open ? effectiveTrapFocus : undefined}
+              onMountAutoFocus={onOpenAutoFocus}
+              loop
+            >
+              <Stack>
+                {!disableDrag ? <SheetGrabber /> : null}
+                {renderDialogContent}
+              </Stack>
+            </FocusScope>
+          </DialogSheetContext.Provider>
         </Sheet.Frame>
       </Sheet>
     );
@@ -423,7 +470,7 @@ function DialogFrame({
               key="overlay"
               backgroundColor="$bgBackdrop"
               animateOnly={ANIMATE_ONLY_OPACITY}
-              animation="quick"
+              transition="quick"
               forceMount={forceMount || undefined}
               enterStyle={DIALOG_ENTER_STYLE_OPACITY}
               exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -444,7 +491,7 @@ function DialogFrame({
               key="content"
               testID={testID}
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              animation={DIALOG_CONTENT_ANIMATION}
+              transition={DIALOG_CONTENT_ANIMATION}
               enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               borderRadius="$4"
@@ -462,6 +509,9 @@ function DialogFrame({
               width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
+              onOpenAutoFocus={
+                onOpenAutoFocus ?? floatingPanelProps?.onOpenAutoFocus
+              }
               zIndex={floatingPanelProps?.zIndex || zIndex}
             >
               {renderDialogContent}
@@ -810,14 +860,16 @@ function dialogLoading(props: IDialogLoadingProps) {
 
 export const Dialog = {
   Header: SetDialogHeader,
+  ScrollView: DialogScrollView,
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: LazyDialogForm,
-  FormField: LazyDialogFormField,
+  Form: LazyDialogFormComponent,
+  FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

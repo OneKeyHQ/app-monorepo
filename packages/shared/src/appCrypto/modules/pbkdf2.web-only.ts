@@ -379,6 +379,21 @@ function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
   };
 }
 
+// Private-key handling paths skip the cache only where the non-blocking
+// webcrypto backend applies; platforms without it keep the transaction-safe
+// cached default, since disabling the cache there would only repeat slow
+// derivations without switching to a faster backend.
+function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams | undefined {
+  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
+  if (kdfParams.kdfBackend !== 'webcrypto') {
+    return undefined;
+  }
+  return {
+    ...kdfParams,
+    enablePbkdf2Cache: false,
+  };
+}
+
 async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   return runPbkdf2WithCache(params, () => {
     if (shouldUseWebCryptoPbkdf2(params)) {
@@ -471,6 +486,7 @@ export {
   getPbkdf2InvocationByProbeId,
   getPbkdf2BackendForCurrentPlatform,
   getPbkdf2KdfParamsForNonDbTx,
+  getPbkdf2KdfParamsForNonDbTxNoCache,
   getPbkdf2NativeBackend,
   isWebCryptoPbkdf2Supported,
   setPbkdf2NativeBackend,

@@ -7,3 +7,5 @@ export { default as OnekeyDevice } from './OnekeyDevice';
 export { default as RestartToUpdate } from './RestartToUpdate';
 export { default as Shortcuts } from './Shortcuts';
 export { default as SidebarLeftArrow } from './SidebarLeftArrow';
+export { default as TradingViewExitFullscreen } from './TradingViewExitFullscreen';
+export { default as TradingViewFullscreen } from './TradingViewFullscreen';

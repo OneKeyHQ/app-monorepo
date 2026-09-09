@@ -1,8 +1,6 @@
-import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { createFont, createTokens } from '@tamagui/web';
-import { Easing } from 'react-native-reanimated';
 import { createTamagui } from 'tamagui';
 
 import {
@@ -40,13 +38,18 @@ import {
   whiteA as primitiveWhiteA,
   purple,
   purpleDark,
+  red,
+  redDark,
   success,
   successDark,
   teal,
   tealDark,
+  yellow,
+  yellowDark,
 } from './colors';
 import { fs, s } from './src/utils/scale';
 import { webFontFamily } from './src/utils/webFontFamily';
+import { animations } from './tamagui.animations';
 
 import type { Variable } from '@tamagui/web';
 
@@ -162,6 +165,12 @@ const basicFontVariants = {
 };
 
 const tamaguiWebFontFamily = webFontFamily;
+const monoRegularFontFamily = isTamaguiNative
+  ? 'GeistMono-Regular'
+  : '"GeistMono-Regular", monospace';
+const monoMediumFontFamily = isTamaguiNative
+  ? 'GeistMono-Medium'
+  : '"GeistMono-Medium", "GeistMono-Regular", monospace';
 
 const font = createFont({
   family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
@@ -179,89 +188,13 @@ const font = createFont({
 });
 
 const monoRegularFont = createFont({
-  family: 'GeistMono-Regular',
+  family: monoRegularFontFamily,
   ...basicFontVariants,
 });
 
 const monoMediumFont = createFont({
-  family: 'GeistMono-Medium',
+  family: monoMediumFontFamily,
   ...basicFontVariants,
-});
-
-// https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
-const animations = createAnimations({
-  '0ms': {
-    type: 'timing',
-    duration: 0,
-  },
-  '50ms': {
-    type: 'timing',
-    duration: 50,
-  },
-  '100ms': {
-    type: 'timing',
-    duration: 100,
-  },
-  repeat: {
-    type: 'timing',
-    duration: 300,
-    repeat: 2,
-  },
-  quick: {
-    type: 'spring',
-    damping: 20,
-    mass: 0.1,
-    stiffness: 100,
-  },
-  popoverQuick: {
-    type: 'timing',
-    duration: 150,
-    easing: Easing.out(Easing.cubic),
-  },
-  // Critically-damped spring for label/icon transitions where ease-out
-  // cubic feels "front-loaded" (max velocity at t=0 reads as a snap). A
-  // critical spring ramps acceleration up and back down — second-order
-  // continuous motion, perceived as "physical" rather than "scripted".
-  //
-  // Parameters reproduce Framer Motion's `spring(duration:0.3, bounce:0)`
-  // using its internal formula:
-  //   angularFreq = 2π / duration         = 20.94 rad/s
-  //   stiffness   = angularFreq² × mass   ≈ 438
-  //   damping     = 2 × √(stiffness × mass) ≈ 42  (dampingRatio = 1)
-  //
-  // The Sonner / Linear-style "duration:0.3, bounce:0" feel: starts from
-  // rest, peaks acceleration in the middle, glides to a stop with no
-  // overshoot. Perceived ~300ms (full settle is a touch longer, but the
-  // last <5% is below visual threshold).
-  smooth: {
-    type: 'spring',
-    mass: 1,
-    stiffness: 438,
-    damping: 42,
-  },
-  fast: {
-    type: 'spring',
-    damping: 20,
-    mass: 1.2,
-    stiffness: 250,
-  },
-  medium: {
-    type: 'spring',
-    damping: 10,
-    mass: 0.9,
-    stiffness: 100,
-  },
-  slow: {
-    type: 'spring',
-    damping: 20,
-    stiffness: 60,
-  },
-  switch: {
-    type: 'spring',
-    damping: 30,
-    mass: 1,
-    stiffness: 300,
-  },
 });
 
 const { whiteA } = primitiveWhiteA;
@@ -279,6 +212,7 @@ const lightColors = {
   ...critical,
   ...purple,
   ...pink,
+  ...red,
   ...gray,
   ...blue,
   ...orange,
@@ -286,6 +220,7 @@ const lightColors = {
   ...green,
   ...cyan,
   ...amber,
+  ...yellow,
   ...lime,
   ...jade,
   bg: '#FFFFFF',
@@ -389,6 +324,7 @@ const darkColors: typeof lightColors = {
   ...criticalDark,
   ...purpleDark,
   ...pinkDark,
+  ...redDark,
   ...grayDark,
   ...blueDark,
   ...orangeDark,
@@ -396,6 +332,7 @@ const darkColors: typeof lightColors = {
   ...greenDark,
   ...cyanDark,
   ...amberDark,
+  ...yellowDark,
   ...limeDark,
   ...jadeDark,
   bg: '#1b1b1b',
@@ -633,9 +570,14 @@ const config = createTamagui({
 
   defaultTheme: 'light',
 
-  shouldAddPrefersColorThemes: false,
-
-  themeClassNameOnRoot: false,
+  settings: {
+    defaultFont: '$body',
+    styleCompat: isTamaguiNative ? 'react-native' : 'legacy',
+    defaultPosition: 'relative',
+    shouldAddPrefersColorThemes: false,
+    // Static extraction only parses the config and must not register media listeners.
+    disableSSR: !isTamaguiStatic,
+  },
 
   shorthands,
 
@@ -701,9 +643,6 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
-  // Tamagui static extraction runs in Node with the native target. Avoid
-  // registering native media listeners while the config is only being parsed.
-  disableSSR: !isTamaguiStatic,
 });
 
 export type IAppConfig = typeof config;
@@ -723,7 +662,8 @@ declare module 'tamagui' {
       | 'nftItem'
       | 'card'
       | 'sidebarClearButton'
-      | 'sidebarBrowserDivider';
+      | 'sidebarBrowserDivider'
+      | 'marketTokenRow';
   }
 }
 

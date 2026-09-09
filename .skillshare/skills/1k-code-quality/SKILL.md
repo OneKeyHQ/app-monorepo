@@ -1,6 +1,6 @@
 ---
 name: 1k-code-quality
-description: Code quality standards — lint (eslint/oxlint), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
+description: Code quality standards — lint (oxlint), format (oxfmt), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -11,27 +11,37 @@ Linting, documentation, and general code quality standards for OneKey.
 ## Lint Commands
 
 ```bash
-# Pre-commit (fast, only staged files)
-yarn lint:staged
-yarn tsc:staged
+# Agent pre-commit gate (fast, only staged files)
+yarn agent:check --profile commit
+
+# Agent PR readiness gate (local staged checks + GitHub CI/review summary)
+yarn agent:check --profile pr
 
 # CI only (full project check)
-yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
-yarn lint:only   # Quick: oxlint only
+yarn lint        # Comprehensive: TypeScript, oxlint, folder structure, i18n
+yarn lint:only   # Oxlint and oxfmt
 yarn tsc:only    # Full type check
+yarn lint:agent-context # Skill metadata and startup-context budgets
 ```
 
-**Note:** `yarn lint` is for CI only. For pre-commit, always use `yarn lint:staged`.
+**Note:** `yarn lint` is for CI only. For agent workflows, always use
+`yarn agent:check` first; use lower-level commands only when debugging the log
+path reported by `agent:check`.
+
+This repository uses **oxlint**, not ESLint, for active lint validation. Do not
+run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`; those entries are
+legacy compatibility remnants and `yarn eslint` runs a whole-repository
+auto-fix. For a read-only targeted diagnostic, run:
+
+```bash
+npx oxlint --tsconfig ./tsconfig.json --type-aware packages/example/src/file.ts --deny-warnings
+```
 
 ## Pre-Commit Workflow
 
 For fast pre-commit validation:
 ```bash
-# Lint only modified files (recommended)
-yarn lint:staged
-
-# Or with type check
-yarn lint:staged && yarn tsc:staged
+yarn agent:check --profile commit
 ```
 
 ## Common Lint Fixes
@@ -161,11 +171,19 @@ grep -i "yourword" development/spellCheckerSkipWords.txt
 echo "yourword" >> development/spellCheckerSkipWords.txt
 ```
 
+## Agent Context Harness
+
+`yarn lint:agent-context` enforces repository skill discovery and startup
+context budgets. Configuration lives in
+`development/lint/agent-context.config.json`. When adding or restructuring a
+skill, keep detailed guidance in references, use Codex explicit policy for
+operational workflows, and stay within the configured catalog and instruction
+budgets.
+
 ## Checklist
 
 ### Pre-commit
-- [ ] `yarn lint:staged` passes
-- [ ] `yarn tsc:staged` passes
+- [ ] `yarn agent:check --profile commit` passes
 
 ### Code Quality
 - [ ] All comments are in English
@@ -176,6 +194,6 @@ echo "yourword" >> development/spellCheckerSkipWords.txt
 
 ## Related Skills
 
-- `/1k-sentry-analysis` - Sentry error analysis and fixes
+- `/1k-sentry` - Sentry error analysis and fixes
 - `/1k-test-version` - Test version creation workflow
 - `/1k-coding-patterns` - General coding patterns

@@ -1,5 +1,5 @@
 import { rspack } from '@rspack/core';
-import ReactRefreshPlugin from '@rspack/plugin-react-refresh';
+import { ReactRefreshRspackPlugin } from '@rspack/plugin-react-refresh';
 
 import { webPort } from './constant';
 
@@ -17,9 +17,7 @@ export function createDevelopmentConfig({
     devtool: 'cheap-module-source-map',
     plugins: [
       new rspack.HotModuleReplacementPlugin(),
-      new ReactRefreshPlugin({
-        overlay: false,
-      }) as unknown as RspackPluginInstance,
+      new ReactRefreshRspackPlugin() as unknown as RspackPluginInstance,
       new rspack.DefinePlugin({
         __CURRENT_FILE_PATH__: JSON.stringify(
           '__CURRENT_FILE_PATH__--rspack-dev',

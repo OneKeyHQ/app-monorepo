@@ -1,4 +1,12 @@
-import { check, checkIsDefined, checkIsUndefined } from './assertUtils';
+import appGlobals from '../appGlobals';
+import platformEnv from '../platformEnv';
+
+import {
+  check,
+  checkIsDefined,
+  checkIsUndefined,
+  ensureWebembedApiProxyAvailable,
+} from './assertUtils';
 
 test('Check statement expect correct', () => {
   check(true);
@@ -46,4 +54,36 @@ test('check is undefined', () => {
   expect(() => checkIsUndefined(hold.a)).toThrow(
     'Expect undefined but actually 1',
   );
+});
+
+test('ensure webembed api proxy reports missing registration', () => {
+  const originalWebembedApiProxy = appGlobals.$webembedApiProxy;
+  try {
+    appGlobals.$webembedApiProxy = undefined as never;
+    expect(() => ensureWebembedApiProxyAvailable()).toThrow(
+      'WebembedApiProxy is not registered in this JS runtime',
+    );
+  } finally {
+    appGlobals.$webembedApiProxy = originalWebembedApiProxy;
+  }
+});
+
+test('ensure webembed api proxy rejects native main runtime', () => {
+  const originalIsJest = platformEnv.isJest;
+  const originalEnableNativeBackgroundThread =
+    platformEnv.enableNativeBackgroundThread;
+  const originalIsNativeMainThread = platformEnv.isNativeMainThread;
+  try {
+    platformEnv.isJest = false;
+    platformEnv.enableNativeBackgroundThread = true;
+    platformEnv.isNativeMainThread = true;
+    expect(() => ensureWebembedApiProxyAvailable()).toThrow(
+      'WebembedApiProxy must be used from the background JS runtime',
+    );
+  } finally {
+    platformEnv.isJest = originalIsJest;
+    platformEnv.enableNativeBackgroundThread =
+      originalEnableNativeBackgroundThread;
+    platformEnv.isNativeMainThread = originalIsNativeMainThread;
+  }
 });

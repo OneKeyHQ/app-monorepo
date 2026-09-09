@@ -1,13 +1,13 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import QRCodeUtil from 'qrcode';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
+import { drawDotQRCodeOnCanvas } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
@@ -37,6 +37,10 @@ function toCanvasFont(size: number, weight: string | number = 'bold'): string {
   return `${weight} ${size}px MiSans, system-ui, -apple-system, sans-serif`;
 }
 
+// A stalled CDN response fires neither load nor error, so without a deadline the
+// whole card generation would hang. Mirrors the native capture timeout.
+const IMAGE_LOAD_TIMEOUT_MS = 3000;
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   if (imageCache.has(src)) {
     return Promise.resolve(imageCache.get(src) ?? null);
@@ -44,12 +48,23 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 
   return new Promise((resolve) => {
     const img = new Image();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (result: HTMLImageElement | null) => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      img.onload = null;
+      img.onerror = null;
+      resolve(result);
+    };
+    timer = setTimeout(() => settle(null), IMAGE_LOAD_TIMEOUT_MS);
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       imageCache.set(src, img);
-      resolve(img);
+      settle(img);
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => settle(null);
     img.src = src;
   });
 }
@@ -66,7 +81,9 @@ export const ShareImageGenerator = forwardRef<
       config,
       referralQrCodeUrl,
       referralDisplayText,
-      isReferralReady = true,
+      // Kept so this signature stays interchangeable with the native generator.
+      // Readiness no longer gates drawing: the referral block always paints.
+      isReferralReady: _isReferralReady,
     },
     ref,
   ) => {
@@ -86,7 +103,7 @@ export const ShareImageGenerator = forwardRef<
       const {
         side,
         mode,
-        token: _token,
+        token,
         tokenDisplayName,
         tokenImageUrl,
         pnl,
@@ -98,8 +115,12 @@ export const ShareImageGenerator = forwardRef<
       const pnlBn = new BigNumber(pnl || '0');
       const isProfit = pnlBn.isGreaterThan(0);
       const pnlColor = isProfit ? colors.long : colors.short;
+      // Same reasoning as ShareContentRenderer.
       const tokenImage =
-        tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
+        tokenImageUrl ||
+        getHyperliquidTokenImageUris(
+          mode !== 'spot' && token ? token : tokenDisplayName,
+        )[0];
       const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
       const pnlFontSize =
         pnlDisplayText.length > 6
@@ -287,7 +308,9 @@ export const ShareImageGenerator = forwardRef<
           }
         }
 
-        if (SHOW_REFERRAL_CODE && isReferralReady) {
+        // Always painted: referralQrCodeUrl carries a working default, so
+        // waiting for the invite code would only delay the card.
+        if (SHOW_REFERRAL_CODE) {
           const rectHeight = layout.referralHeight;
           const rectY = size - rectHeight;
           const rectWidth = size;
@@ -306,28 +329,12 @@ export const ShareImageGenerator = forwardRef<
           ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
 
           try {
-            const qrCodeDataUrl = await QRCodeUtil.toDataURL(
-              referralQrCodeUrl ?? '',
-              {
-                width: qrCodeInnerSize,
-                margin: 0,
-                color: {
-                  dark: '#000000',
-                  light: '#FFFFFF',
-                },
-              },
-            );
-
-            const qrCodeImg = await loadImage(qrCodeDataUrl);
-            if (qrCodeImg) {
-              ctx.drawImage(
-                qrCodeImg,
-                qrCodeX + qrCodePadding,
-                qrCodeY + qrCodePadding,
-                qrCodeInnerSize,
-                qrCodeInnerSize,
-              );
-            }
+            await drawDotQRCodeOnCanvas(ctx, {
+              value: referralQrCodeUrl ?? '',
+              x: qrCodeX + qrCodePadding,
+              y: qrCodeY + qrCodePadding,
+              size: qrCodeInnerSize,
+            });
           } catch (error) {
             if (platformEnv.isDev) {
               console.error('Failed to generate QR code:', error);
@@ -363,14 +370,7 @@ export const ShareImageGenerator = forwardRef<
         }
         return '';
       }
-    }, [
-      data,
-      config,
-      referralQrCodeUrl,
-      referralDisplayText,
-      isReferralReady,
-      intl,
-    ]);
+    }, [data, config, referralQrCodeUrl, referralDisplayText, intl]);
 
     useImperativeHandle(ref, () => ({ generate }));
 

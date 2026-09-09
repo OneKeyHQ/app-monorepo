@@ -7,6 +7,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   MorphoBaseBundlerContract,
   MorphoBundlerContract,
+  MorphoKatanaBundlerContract,
 } from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -66,7 +67,10 @@ export function useEarnPermitApprove() {
             MorphoBundlerContract.toLowerCase()) ||
         (networkId === getNetworkIdsMap().base &&
           permit2Data.message.spender.toLowerCase() !==
-            MorphoBaseBundlerContract.toLowerCase())
+            MorphoBaseBundlerContract.toLowerCase()) ||
+        (networkId === getNetworkIdsMap().katana &&
+          permit2Data.message.spender.toLowerCase() !==
+            MorphoKatanaBundlerContract.toLowerCase())
       ) {
         const error = new Error(
           `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,

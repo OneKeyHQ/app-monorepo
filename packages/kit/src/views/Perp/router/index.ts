@@ -14,6 +14,12 @@ import {
 } from '../../../components/LazyLoadPage';
 import { RootTabLoadingFallback } from '../../../routes/Tab/RootTabLoadingFallback';
 import {
+  getLoadedPerpsDepositSelectTokenModal,
+  loadPerpsDepositSelectTokenModal,
+} from '../utils/preloadPerpsDepositSelectTokenModal';
+import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import { loadPerpsMobileMarketPage } from '../utils/preloadPerpsMobileMarketPage';
+import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
 } from '../utils/preloadPerpsTokenSelector';
@@ -26,9 +32,7 @@ const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
-const MobilePerpMarketPage = LazyLoadPage(
-  () => import('../pages/MobilePerpMarket'),
-);
+const MobilePerpMarketPage = LazyLoadPage(loadPerpsMobileMarketPage);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,
@@ -46,16 +50,32 @@ const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
 );
 
-const MobileDepositWithdrawModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+const MobileDepositWithdrawModal = LazyLoadPage(loadPerpsDepositWithdrawModal);
+
+const MobileDepositSelectTokenLazyModal = LazyLoadPage(
+  loadPerpsDepositSelectTokenModal,
 );
 
-const MobileDepositSelectTokenModal = LazyLoadPage(
-  () => import('../components/TradingPanel/modals/DepositSelectTokenModal'),
-);
+function MobileDepositSelectTokenModal() {
+  const LoadedMobileDepositSelectTokenModal =
+    getLoadedPerpsDepositSelectTokenModal()?.default;
+  return createElement(
+    LoadedMobileDepositSelectTokenModal ?? MobileDepositSelectTokenLazyModal,
+  );
+}
 
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
+);
+
+const MobileUnifoldDepositTransferModal = LazyLoadPage(
+  () =>
+    import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTransferModal'),
+);
+
+const MobileUnifoldDepositTrackerModal = LazyLoadPage(
+  () =>
+    import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTrackerModal'),
 );
 
 const MobilePortfolioPage = LazyLoadPage(
@@ -91,6 +111,14 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileDepositSelectToken,
     component: MobileDepositSelectTokenModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
+    component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTracker,
+    component: MobileUnifoldDepositTrackerModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
@@ -134,6 +162,14 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositSelectToken,
     component: MobileDepositSelectTokenModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
+    component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTracker,
+    component: MobileUnifoldDepositTrackerModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,

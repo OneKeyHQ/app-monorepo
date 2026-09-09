@@ -27,6 +27,16 @@ const reportPath =
 const budgetPath =
   process.env.WEB_STARTUP_BUDGET_PATH ||
   path.join(repoRoot, 'development', 'perf-ci', 'thresholds', 'web.cold.json');
+const {
+  WEB_BUDGET_ARTIFACT,
+  createWebStartupAiHints,
+  defaultSiblingPath,
+  printAiTriageInstructions,
+  writeAiHints,
+} = require(path.join(repoRoot, 'development/perf-ci/lib/budgetAiHints'));
+const { createStaticImportChainReport } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/importChain'),
+);
 
 const DEFAULT_BUDGETS = {
   moduleCount: 3500,
@@ -63,6 +73,13 @@ function csvEnv(name, fallback) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function getExistingExtraReportPaths() {
+  return csvEnv('WEB_STARTUP_EXTRA_REPORT_PATHS', []).filter((item) => {
+    const fullPath = path.isAbsolute(item) ? item : path.join(repoRoot, item);
+    return fs.existsSync(fullPath);
+  });
 }
 
 function readJsonIfExists(filePath) {
@@ -355,6 +372,25 @@ function main() {
     failures.push('No startup modules found. Check source map generation.');
   }
 
+  const topModules = moduleRows
+    .toSorted((a, b) => b.bytes - a.bytes)
+    .slice(0, 80);
+  const topPackages = Object.entries(packageBytes)
+    .map(([name, bytes]) => ({ name, bytes }))
+    .toSorted((a, b) => b.bytes - a.bytes)
+    .slice(0, 80);
+  const importChainTargets = [
+    ...forbiddenModulesFound.map((row) => row.source),
+    ...topModules.slice(0, 20).map((row) => row.source),
+  ];
+  const importChains = createStaticImportChainReport({
+    repoRoot,
+    modules: moduleRows.map((row) => row.source),
+    roots: ['apps/web/index.js', 'apps/web/App.tsx'],
+    targets: importChainTargets,
+    platform: 'web',
+  });
+
   const report = {
     createdAt: new Date().toISOString(),
     buildDir,
@@ -365,18 +401,34 @@ function main() {
     summary,
     budgetChecks,
     forbiddenModulesFound,
-    topModules: moduleRows.toSorted((a, b) => b.bytes - a.bytes).slice(0, 80),
-    topPackages: Object.entries(packageBytes)
-      .map(([name, bytes]) => ({ name, bytes }))
-      .toSorted((a, b) => b.bytes - a.bytes)
-      .slice(0, 80),
+    topModules,
+    topPackages,
+    importChains,
     initialScripts: initialScripts.toSorted((a, b) => b.bytes - a.bytes),
     pass: failures.length === 0,
     failures,
   };
+  const aiHints = createWebStartupAiHints({
+    report,
+    moduleRows,
+    initialScripts,
+    buildDir,
+    repoRoot,
+  });
+  const aiHintsJsonPath =
+    process.env.WEB_STARTUP_AI_HINTS_JSON_PATH ||
+    defaultSiblingPath(reportPath, '-ai-hints.json');
+  const aiHintsMarkdownPath =
+    process.env.WEB_STARTUP_AI_HINTS_MD_PATH ||
+    defaultSiblingPath(reportPath, '-ai-hints.md');
 
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  writeAiHints({
+    hints: aiHints,
+    jsonPath: aiHintsJsonPath,
+    markdownPath: aiHintsMarkdownPath,
+  });
 
   console.log('=== Web Startup Graph Budget Check ===\n');
   console.log(`Build dir:              ${buildDir}`);
@@ -430,12 +482,26 @@ function main() {
   }
 
   console.log(`\nReport: ${reportPath}`);
+  console.log(`AI hints JSON: ${aiHintsJsonPath}`);
+  console.log(`AI hints Markdown: ${aiHintsMarkdownPath}`);
 
   if (failures.length > 0 && process.env.WEB_STARTUP_BUDGET_FAIL !== '0') {
     console.log('\n=== WEB STARTUP GRAPH BUDGET CHECK FAILED ===');
     for (const failure of failures) {
       console.log(`  FAIL: ${failure}`);
     }
+    printAiTriageInstructions({
+      artifactName: WEB_BUDGET_ARTIFACT,
+      aiHintsJsonPath,
+      aiHintsMarkdownPath,
+      reportPath,
+      extraPaths: getExistingExtraReportPaths(),
+      notes: [
+        'Fix startup graph and web cold budgets together; avoid creating many one-file lazy chunks.',
+        'Read initialScriptHints and topModules in the JSON before editing imports.',
+      ],
+      log: console.log,
+    });
     process.exit(1);
   }
 

@@ -163,6 +163,41 @@ describe('useMarketWSSubscriptionRecovery', () => {
     });
   });
 
+  it('restores native-token ohlcv subscriptions by symbol', async () => {
+    renderHook(() =>
+      useMarketWSSubscriptionRecovery({
+        enabled: true,
+        networkId: 'btc--0',
+        tokenAddress: '',
+        symbol: 'BTC',
+        currency: 'usd',
+        chartType: '1m',
+        channel: 'ohlcv',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(typeof visibilityHandler).toBe('function');
+    });
+
+    act(() => {
+      visibilityHandler?.(true);
+    });
+
+    await waitFor(() => {
+      expect(
+        globalMockBag.__marketRecoverySvc?.ensureSubscription,
+      ).toHaveBeenCalledWith({
+        networkId: 'btc--0',
+        tokenAddress: '',
+        symbol: 'BTC',
+        currency: 'usd',
+        chartType: '1m',
+        channel: 'ohlcv',
+      });
+    });
+  });
+
   it('restores subscriptions only after data has been stale for one minute', async () => {
     const { result } = renderHook(() =>
       useMarketWSSubscriptionRecovery({

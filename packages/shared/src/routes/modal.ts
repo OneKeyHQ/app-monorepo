@@ -9,6 +9,7 @@ import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
 import type { IModalBulkCopyAddressesParamList } from './bulkCopyAddresses';
+import type { IModalBulkExportHistoryParamList } from './bulkExportHistory';
 import type { IModalBulkSendParamList } from './bulkSend';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { ICloudBackupParamList } from './cloudBackup';
@@ -77,6 +78,7 @@ export enum EModalRoutes {
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
   BulkCopyAddressesModal = 'BulkCopyAddressesModal',
+  BulkExportHistoryModal = 'BulkExportHistoryModal',
   BulkSendModal = 'BulkSendModal',
   ApprovalManagementModal = 'ApprovalManagementModal',
   SignAndVerifyModal = 'SignAndVerifyModal',
@@ -121,6 +123,7 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
+  [EModalRoutes.BulkExportHistoryModal]: IModalBulkExportHistoryParamList;
   [EModalRoutes.BulkSendModal]: IModalBulkSendParamList;
   [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
   [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;

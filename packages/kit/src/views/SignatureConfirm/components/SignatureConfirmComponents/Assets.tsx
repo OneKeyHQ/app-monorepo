@@ -23,6 +23,7 @@ import {
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   EParseTxComponentType,
@@ -343,15 +344,28 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     spender: component.spender,
   });
 
+  // Scaled-UI (rebase) tokens: /swap/v1/allowance returns the raw-basis
+  // allowance; convert to display basis so the final-allowance sum
+  // (current + delta) stays on one basis — the delta (amountParsed) is
+  // already display-basis from decode. No-op for every other token.
+  const displayAllowanceParsed = useMemo(
+    () =>
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: currentAllowanceParsed ?? undefined,
+        balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(token),
+      }),
+    [currentAllowanceParsed, token],
+  );
+
   const finalAllowanceParsed = useMemo(() => {
-    if (!isIncrease || !currentAllowanceParsed) return null;
+    if (!isIncrease || !displayAllowanceParsed) return null;
     const deltaBN = new BigNumber(component.amountParsed);
     // Non-finite delta (e.g. increaseAllowance(MaxUint256)) cannot be summed
     // into a meaningful absolute value — fall through so the display can
     // render the increment with explicit "+" semantics instead.
     if (!deltaBN.isFinite()) return null;
-    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
-  }, [component.amountParsed, currentAllowanceParsed, isIncrease]);
+    return new BigNumber(displayAllowanceParsed).plus(deltaBN).toFixed();
+  }, [component.amountParsed, displayAllowanceParsed, isIncrease]);
 
   useEffect(() => {
     updateTokenApproveInfo({

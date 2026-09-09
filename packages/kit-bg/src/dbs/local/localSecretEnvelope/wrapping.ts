@@ -121,6 +121,41 @@ async function cleanupWrappingLayerKeysBestEffort({
   );
 }
 
+type ILocalSecretEnvelopeTopologyUpgradeLayer = {
+  adapter: ILocalSecretEnvelopeLayerAdapter;
+  isNew: boolean;
+  layer: ILocalSecretEnvelopeLayer;
+  layerIndex: number;
+};
+
+async function cleanupNewTopologyUpgradeLayerKeysBestEffort({
+  dataType,
+  layers,
+  recordId,
+}: {
+  dataType: ILocalSecretEnvelopeDataType;
+  layers: ILocalSecretEnvelopeTopologyUpgradeLayer[];
+  recordId: string;
+}): Promise<void> {
+  await Promise.all(
+    layers.map(async ({ adapter, isNew, layer, layerIndex }) => {
+      if (!isNew || !adapter.deleteLayerKey) {
+        return;
+      }
+      try {
+        await adapter.deleteLayerKey({
+          dataType,
+          layer,
+          layerIndex,
+          recordId,
+        });
+      } catch {
+        // Best-effort cleanup must never mask the topology-upgrade error.
+      }
+    }),
+  );
+}
+
 export async function wrapLocalSecretEnvelopeV1({
   dataType,
   layerAdapters,
@@ -195,6 +230,170 @@ export async function wrapLocalSecretEnvelopeV1({
       layerAdapters,
       layers: wrappingLayers,
       recordId,
+    });
+    throw error;
+  }
+}
+
+export async function upgradeLocalSecretEnvelopeLayerTopologyV1({
+  envelope,
+  expectedDataType,
+  expectedRecordId,
+  layerAdapters,
+  plaintext,
+  randomBytes = defaultRandomBytes,
+  strength,
+}: {
+  envelope: string;
+  expectedDataType?: ILocalSecretEnvelopeDataType;
+  expectedRecordId?: string;
+  layerAdapters: ILocalSecretEnvelopeLayerAdapter[];
+  plaintext: string;
+  randomBytes?: (length: number) => Uint8Array;
+  strength: ILocalSecretEnvelopeStrength;
+}): Promise<string> {
+  const parsed = parseLocalSecretEnvelopeV1(envelope);
+  invariant(
+    !expectedDataType || parsed.dataType === expectedDataType,
+    'Local secret envelope dataType mismatch',
+  );
+  invariant(
+    !expectedRecordId || parsed.recordId === expectedRecordId,
+    'Local secret envelope recordId mismatch',
+  );
+  invariant(
+    layerAdapters.length > parsed.wrappingLayers.length,
+    'Local secret envelope topology upgrade requires additional layers',
+  );
+  invariant(
+    strength !== 'unavailable',
+    'Local secret envelope topology upgrade requires an available strength',
+  );
+
+  const originalLayersByKind = new Map(
+    parsed.wrappingLayers.map((layer) => [layer.kind, layer]),
+  );
+  invariant(
+    originalLayersByKind.size === parsed.wrappingLayers.length,
+    'Local secret envelope topology upgrade requires unique persisted layer kinds',
+  );
+  const targetLayerKinds = new Set(
+    layerAdapters.map((adapter) => adapter.kind),
+  );
+  invariant(
+    targetLayerKinds.size === layerAdapters.length,
+    'Local secret envelope topology upgrade requires unique target layer kinds',
+  );
+  invariant(
+    parsed.wrappingLayers.every((layer) => targetLayerKinds.has(layer.kind)),
+    'Local secret envelope topology upgrade cannot remove persisted layers',
+  );
+
+  const topologyLayers: ILocalSecretEnvelopeTopologyUpgradeLayer[] = [];
+  try {
+    for (
+      let layerIndex = 0;
+      layerIndex < layerAdapters.length;
+      layerIndex += 1
+    ) {
+      const adapter = layerAdapters[layerIndex];
+      const originalLayer = originalLayersByKind.get(adapter.kind);
+      if (originalLayer) {
+        invariant(
+          originalLayer.alg === 'AES-256-GCM',
+          buildLayerErrorMessage({
+            layer: originalLayer,
+            layerIndex,
+            message:
+              'Local secret envelope layer cannot be reused for topology upgrade',
+          }),
+        );
+        topologyLayers.push({
+          adapter,
+          isNew: false,
+          layer: {
+            ...originalLayer,
+            iv: bufferUtils.bytesToHex(randomBytes(AES_GCM_NONCE_BYTES)),
+          },
+          layerIndex,
+        });
+      } else {
+        const layer = await adapter.prepareLayer({
+          dataType: parsed.dataType,
+          layerIndex,
+          recordId: parsed.recordId,
+        });
+        invariant(
+          layer.kind === adapter.kind,
+          'Local secret envelope layer adapter kind mismatch',
+        );
+        topologyLayers.push({ adapter, isNew: true, layer, layerIndex });
+      }
+    }
+
+    const wrappingLayers = topologyLayers.map(({ layer }) => layer);
+    const innerPrefix =
+      getLocalSecretEnvelopeInnerPrefix(plaintext) ?? parsed.innerPrefix;
+    const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
+      dataType: parsed.dataType,
+      innerPrefix,
+      recordId: parsed.recordId,
+      wrappingLayers,
+    });
+    const aad = buildLocalSecretEnvelopeAadV1({
+      dataType: parsed.dataType,
+      recordId: parsed.recordId,
+      protectedHeader,
+    });
+
+    let ciphertext = plaintext;
+    for (const { adapter, isNew, layer, layerIndex } of topologyLayers) {
+      if (isNew) {
+        ciphertext = await adapter.encrypt({
+          aad,
+          dataType: parsed.dataType,
+          layer,
+          layerIndex,
+          plaintext: ciphertext,
+          recordId: parsed.recordId,
+        });
+      } else {
+        const encryptWithExistingKey = adapter.encryptWithExistingKey;
+        invariant(
+          typeof encryptWithExistingKey === 'function',
+          buildLayerErrorMessage({
+            layer,
+            layerIndex,
+            message:
+              'Local secret envelope layer existing-key encrypt is unavailable',
+          }),
+        );
+        ciphertext = await encryptWithExistingKey({
+          aad,
+          dataType: parsed.dataType,
+          layer,
+          layerIndex,
+          plaintext: ciphertext,
+          recordId: parsed.recordId,
+        });
+      }
+    }
+
+    return serializeLocalSecretEnvelopeV1({
+      version: LOCAL_SECRET_ENVELOPE_VERSION,
+      dataType: parsed.dataType,
+      ...(innerPrefix ? { innerPrefix } : undefined),
+      recordId: parsed.recordId,
+      wrappingLayers,
+      strength,
+      protectedHeader,
+      ciphertext,
+    });
+  } catch (error) {
+    await cleanupNewTopologyUpgradeLayerKeysBestEffort({
+      dataType: parsed.dataType,
+      layers: topologyLayers,
+      recordId: parsed.recordId,
     });
     throw error;
   }
@@ -306,8 +505,10 @@ export async function rewrapLocalSecretEnvelopeV1({
       iv: bufferUtils.bytesToHex(randomBytes(AES_GCM_NONCE_BYTES)),
     };
   });
+  // Re-encryption may also migrate the inner credential format (for example,
+  // HLP to HLE). Bind the protected header to the new prefix when known.
   const innerPrefix =
-    parsed.innerPrefix ?? getLocalSecretEnvelopeInnerPrefix(plaintext);
+    getLocalSecretEnvelopeInnerPrefix(plaintext) ?? parsed.innerPrefix;
   const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
     dataType: parsed.dataType,
     innerPrefix,
@@ -376,4 +577,22 @@ export async function rewrapLocalSecretEnvelopeV1({
     protectedHeader,
     ciphertext,
   });
+}
+
+export function isLocalSecretEnvelopeLayerTopologyDowngrade({
+  currentEnvelope,
+  nextEnvelope,
+}: {
+  currentEnvelope: string;
+  nextEnvelope: string;
+}): boolean {
+  const current = parseLocalSecretEnvelopeV1(currentEnvelope);
+  const next = parseLocalSecretEnvelopeV1(nextEnvelope);
+  const nextLayerKinds = new Set(
+    next.wrappingLayers.map((layer) => layer.kind),
+  );
+  return (
+    next.wrappingLayers.length < current.wrappingLayers.length ||
+    current.wrappingLayers.some((layer) => !nextLayerKinds.has(layer.kind))
+  );
 }

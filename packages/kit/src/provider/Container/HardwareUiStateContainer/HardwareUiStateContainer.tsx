@@ -35,13 +35,20 @@ import {
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
+  useDeviceStageAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isDeviceStageOwnedHardwareUiAction,
+  isLegacyHardwareUiActive,
+  shouldLegacyContainerRaiseHardwareErrorDialog,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -66,7 +73,9 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
+  buildBleBondError,
   buildBleNotifyChangeError,
+  buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
   buildWebDeviceAccessDialogProps,
 } from '../../../components/Hardware/HardwareDialog';
@@ -75,7 +84,13 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import {
+  createHardwareErrorDialogEventHandler,
+  isTrezorHardwareErrorDialogPayload,
+  shouldReplaceHardwareErrorDialog,
+} from './hardwareErrorDialogUtils';
+import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
+import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
 let globalShowDeviceProgressDialogEnabled = true;
 
@@ -277,6 +292,7 @@ function HardwareSingletonDialogCmp(
           onConfirm={async (value) => {
             await serviceHardwareUI.sendPinToDevice({
               pin: value,
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
             });
             await serviceHardwareUI.closeHardwareUiStateDialog({
               skipDeviceCancel: true,
@@ -298,7 +314,10 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-      const isSingleInput = !!state?.payload?.passphraseState;
+      const isSingleInput = !!(
+        state?.payload?.passphraseState ||
+        state?.payload?.expectedPassphraseState
+      );
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -318,12 +337,17 @@ function HardwareSingletonDialogCmp(
         <EnterPhase
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
+          deviceOnly={state?.payload?.deviceOnly === true}
+          allowProtocolV2Utf8={
+            state?.payload?.source === 'wallet-session-coordinator'
+          }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
             });
             await serviceHardwareUI.sendPassphraseToDevice({
               passphrase,
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
             });
             // The device will not emit a loading event
             // so we need to manually display the loading to inform the user that the device is currently processing
@@ -340,13 +364,17 @@ function HardwareSingletonDialogCmp(
             await saveCachedHiddenWalletOptions({
               hideImmediately,
             });
-            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog({
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
+            });
           }}
           switchOnDeviceAttachPin={async ({ hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
             });
-            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog();
+            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog({
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
+            });
           }}
         />
       );
@@ -453,6 +481,27 @@ function HardwareUiStateContainerCmpControlled() {
   const [state] = useHardwareUiStateAtom();
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // OK-59934: the DeviceStage plays the interactions it owns, so this
+  // container renders only what is left to it — bluetooth pairing, the
+  // firmware update's own narration (the tips that are not the install
+  // confirm; the device's asks during an update play on the stage since
+  // OK-62087), and the permission popups below (whose listeners always
+  // stay live). One shared table decides, so an action is never shown
+  // twice or by nobody.
+  // Whether the stage is on stage right now — the failure it is mid-flow
+  // on is the failure it will land.
+  const [deviceStage] = useDeviceStageAtom();
+  const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
+  const stageIsShowingRef = useRef(stageIsShowing);
+  stageIsShowingRef.current = stageIsShowing;
+  const stageOwnsAction =
+    !isLegacyHardwareUiActive() &&
+    isDeviceStageOwnedHardwareUiAction({
+      action: state?.action,
+      eventType: state?.payload?.eventType,
+      firmwareTipMessage: state?.payload?.firmwareTipData?.message,
+    });
 
   const { serviceHardwareUI } = backgroundApiProxy;
 
@@ -630,29 +679,21 @@ function HardwareUiStateContainerCmpControlled() {
     [],
   );
 
-  const shouldSkipCancel = useMemo(() => {
-    // TODO atom firmware is updating
-    if (
-      action &&
-      [
-        EHardwareUiStateAction.FIRMWARE_TIP,
-        EHardwareUiStateAction.FIRMWARE_PROGRESS,
-        EHardwareUiStateAction.FIRMWARE_PROCESSING,
-        EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
-      ].includes(action)
-    ) {
-      return true;
-    }
-
-    return false;
-  }, [action]);
+  const shouldSkipCancel = useMemo(
+    () =>
+      shouldSkipHardwareDeviceCancel({
+        action,
+      }),
+    [action],
+  );
 
   const shouldSkipCancelRef = useRef(shouldSkipCancel);
   shouldSkipCancelRef.current = shouldSkipCancel;
 
   const actionStatus = useMemo(() => {
-    const isToastAction = hasToastAction(state);
-    const isDialogAction = hasDialogAction(state);
+    // Stage-owned actions render on the stage, not here.
+    const isToastAction = !stageOwnsAction && hasToastAction(state);
+    const isDialogAction = !stageOwnsAction && hasDialogAction(state);
     const isToastCloseAction = hasToastCloseAction(state);
     const isOperationAction = hasOperationAction(state);
     const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
@@ -672,8 +713,20 @@ function HardwareUiStateContainerCmpControlled() {
     hasOperationAction,
     hasToastAction,
     hasToastCloseAction,
+    stageOwnsAction,
     state,
   ]);
+
+  useEffect(() => {
+    hardwareUiStateDialogLifecycle.updateOpenState(actionStatus.isDialogAction);
+  }, [actionStatus.isDialogAction]);
+
+  useEffect(
+    () => () => {
+      hardwareUiStateDialogLifecycle.updateOpenState(false);
+    },
+    [],
+  );
 
   // Block Android back button when hardware toast is showing
   const handleBackPress = useCallback(() => true, []);
@@ -682,6 +735,7 @@ function HardwareUiStateContainerCmpControlled() {
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const hardwareErrorDialogTypeRef = useRef<string | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
@@ -712,8 +766,11 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             skipDeviceCancel: shouldSkipCancelRef.current,
+            immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            deviceType: state?.payload?.deviceType,
           });
         }
       }}
@@ -751,9 +808,12 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             reason: 'HardwareUiStateContainer onClose',
             skipDeviceCancel: shouldSkipCancelRef.current,
+            immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            deviceType: state?.payload?.deviceType,
           });
         }
       }}
@@ -765,23 +825,77 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
-    const callback = throttle(
+    let isDisposed = false;
+    let isReplacingWithBleBondError = false;
+    const showBleBondErrorDialog = () => {
+      hardwareErrorDialogTypeRef.current =
+        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+      hardwareErrorDialogInstanceRef.current = Dialog.show(
+        buildBleBondError(intl),
+      );
+    };
+    const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        // Only handle DeviceNotFound errors for now, can be extended for other error types
-        if (errorType !== 'DeviceNotFound') {
+        const isDeviceNotFound =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
+        const isBleDeviceBondError =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+        // OK-59934: one failure, one surface — the stage lands the failure
+        // itself while it is on, and this dialog speaks for everything the
+        // stage is not carrying (device search, the firmware update
+        // workflow, any call that never opened a burst).
+        if (
+          !isBleDeviceBondError &&
+          !shouldLegacyContainerRaiseHardwareErrorDialog({
+            errorType,
+            stageIsShowing: stageIsShowingRef.current,
+          })
+        ) {
           return;
         }
-        // Prevent duplicate dialog instances
-        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
+        if (isDeviceNotFound && isReplacingWithBleBondError) {
+          return;
+        }
+        const existingDialog = hardwareErrorDialogInstanceRef.current;
+        if (existingDialog?.isExist()) {
+          if (
+            shouldReplaceHardwareErrorDialog({
+              currentErrorType: hardwareErrorDialogTypeRef.current,
+              nextErrorType: errorType,
+            })
+          ) {
+            void serviceHardwareUI.cleanHardwareUiState();
+            hardwareErrorDialogTypeRef.current =
+              HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+            isReplacingWithBleBondError = true;
+            void (async () => {
+              try {
+                await existingDialog.close();
+              } catch {
+                // Keep the repair guidance visible even if closing fails.
+              }
+              if (!isDisposed) {
+                showBleBondErrorDialog();
+              }
+              isReplacingWithBleBondError = false;
+            })();
+          }
           return;
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
 
+        if (isBleDeviceBondError) {
+          showBleBondErrorDialog();
+          return;
+        }
+
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
+        hardwareErrorDialogTypeRef.current =
+          HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: isTrezorError
@@ -801,13 +915,16 @@ function HardwareUiStateContainerCmpControlled() {
           ),
         });
       },
-      2500, // Same throttle duration as other hardware dialog instances
+      2500,
     );
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
+      isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+      callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
+      hardwareErrorDialogTypeRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
 
@@ -830,6 +947,11 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
         ) {
           dialogProps = buildBleNotifyChangeError(intl);
+        } else if (
+          uiRequestType === EHardwareUiStateAction.LOCATION_PERMISSION ||
+          uiRequestType === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
+        ) {
+          dialogProps = buildBlePermissionDialogProps(intl);
         } else if (
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION

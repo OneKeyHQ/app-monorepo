@@ -26,7 +26,7 @@ const handlePress = (e: GestureResponderEvent) => {
 interface ITokenTagsPopoverProps {
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
-  /** Show subtitle & stock status badges in trigger. Defaults to false. */
+  /** Show the subtitle badge in trigger. Defaults to false. */
   showAllInTrigger?: boolean;
   /** Hide community badge from trigger (shown separately e.g. in header). */
   hideCommunityInTrigger?: boolean;
@@ -57,7 +57,7 @@ function TokenTagsPopover({
     !!customTrigger ||
     hasStockSource ||
     (communityRecognized && !hideCommunityInTrigger) ||
-    (showAllInTrigger && (hasSubtitle || hasStockStatus));
+    (showAllInTrigger && hasSubtitle);
 
   const stockLabelId = useMemo(() => {
     if (!stock?.source) return undefined;
@@ -89,9 +89,6 @@ function TokenTagsPopover({
           subtitle={stock.subtitle ?? ''}
           noTruncate={noTruncateSubtitle}
         />
-      ) : null}
-      {showAllInTrigger && hasStockStatus ? (
-        <StockIsOpenBadge stock={stock} />
       ) : null}
     </XStack>
   );

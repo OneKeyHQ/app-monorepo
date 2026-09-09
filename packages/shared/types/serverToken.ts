@@ -26,6 +26,10 @@ export interface IServerTokenInfo {
   adaName?: string;
   networkId?: string;
   dappName?: string | null;
+  // See IToken.balanceMultiplier. (RPC-fallback wire shape; /wallet/v1
+  // responses are typed as IFetchAccountTokensResp / IFetchTokenDetailItem
+  // directly.)
+  balanceMultiplier?: string;
 }
 
 export interface IServerTokenItemWithInfo extends IServerPriceItem {
@@ -36,6 +40,10 @@ export interface IServerAccountTokenItem extends IServerTokenItemWithInfo {
   fiatValue: IFiatAmount;
   balance: IAmountUnit;
   balanceParsed: IAmount;
+  // See IToken.balanceMultiplier. (RPC-fallback wire shape; /wallet/v1
+  // responses are typed as IFetchAccountTokensResp / IFetchTokenDetailItem
+  // directly.)
+  balanceMultiplier?: string;
   frozenBalance?: string;
   frozenBalanceParsed?: string;
   frozenBalanceFiatValue?: IFiatAmount;

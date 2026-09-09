@@ -41,7 +41,7 @@ async function aesCbcEncryptByRNAes({
   data,
 }: IAesCbcInvokeParams): Promise<Buffer> {
   _aesCbcInvokeCheck({ iv, key, data });
-  /* 
+  /*
     data:[clearText dataUsingEncoding:NSUTF8StringEncoding]
     NSData *keyData = [self fromHex:key];
     NSData *ivData = [self fromHex:iv];

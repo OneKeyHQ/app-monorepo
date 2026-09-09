@@ -26,6 +26,7 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EBulkSendMode,
   type ITransferInfoErrors,
@@ -551,7 +552,7 @@ function BatchAccordionItem({
               </SizableText>
             </XStack>
             <View
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"
@@ -618,10 +619,25 @@ function BulkSendTxDetails(props: IProps) {
   const tokenSymbol = tokenInfo.symbol;
 
   const resolveTransferAmount = useCallback(
-    (transfer: ITransferInfo) =>
-      shouldResolveMaxAmounts
+    (transfer: ITransferInfo) => {
+      const amount = shouldResolveMaxAmounts
         ? senderBalances?.[transfer.from]
-        : transfer.amount,
+        : transfer.amount;
+      // Scaled-UI (rebase) tokens: post-submit transfers carry raw amounts
+      // with the snapshot multiplier stamped on tokenInfo at conversion time
+      // — re-derive the display amount so rows match the display-basis
+      // totals. Pre-submit transfers are display-basis and carry no
+      // multiplier (stripped at creation), so this passes through, as it
+      // does for ordinary tokens and max-mode sender balances.
+      return (
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount,
+          balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(
+            transfer.tokenInfo,
+          ),
+        }) ?? amount
+      );
+    },
     [shouldResolveMaxAmounts, senderBalances],
   );
 

@@ -68,7 +68,7 @@ function BannerItem<T extends IBannerData>({
       borderTopRightRadius={isLast ? '$3' : 0}
       borderBottomRightRadius={isLast ? '$3' : 0}
       overflow="hidden"
-      tag="section"
+      render="section"
       flex={1}
       position="relative"
       userSelect="none"
@@ -88,8 +88,8 @@ function BannerItem<T extends IBannerData>({
       {item.isAd ? <AdCornerBadge badgeSize="lg" placement="top-left" /> : null}
 
       <Stack position="absolute" {...itemTitleContainerStyle}>
-        {// TODO：Lokalise processes \n as \\n when handling translations
-        item.title?.split(/\n|\\n/).map((text, index) => (
+        {/* TODO: Lokalise processes \n as \\n when handling translations */}
+        {item.title?.split(/\n|\\n/).map((text, index) => (
           <SizableText
             key={index}
             color={item.theme === 'dark' ? '$textDark' : '$textLight'}
@@ -162,6 +162,7 @@ export function Banner<T extends IBannerData>({
   indicatorContainerStyle,
   showPaginationButton = !platformEnv.isNative,
   showCloseButton = false,
+  autoplayEnabled = true,
   onBannerClose,
   ...props
 }: IStackStyle & {
@@ -175,6 +176,7 @@ export function Banner<T extends IBannerData>({
   emptyComponent?: ReactElement;
   showCloseButton?: boolean;
   showPaginationButton?: boolean;
+  autoplayEnabled?: boolean;
   onBannerClose?: (bannerId: string) => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
@@ -297,6 +299,7 @@ export function Banner<T extends IBannerData>({
   );
 
   const isFocused = useIsFocused();
+  const shouldAutoplay = isFocused && autoplayEnabled;
 
   if (isNil(isLoading) || isLoading || data.length === 0) {
     return emptyComponent;
@@ -311,9 +314,9 @@ export function Banner<T extends IBannerData>({
     >
       <Swiper
         position="relative"
-        autoplay={isFocused}
-        autoplayLoop={isFocused}
-        autoplayLoopKeepAnimation={isFocused}
+        autoplay={shouldAutoplay}
+        autoplayLoop={shouldAutoplay}
+        autoplayLoopKeepAnimation={shouldAutoplay}
         autoplayDelayMs={3000}
         keyExtractor={keyExtractor}
         data={data}

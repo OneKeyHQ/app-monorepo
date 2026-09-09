@@ -71,7 +71,8 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
   const { gtMd } = useMedia();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('positions');
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 
@@ -142,22 +143,26 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
       <YStack
         width="100%"
         maxWidth={isMobile ? 320 : 420}
-        gap={isMobile ? '$3' : '$2'}
+        gap="$3"
         alignItems="center"
         onLayout={(event) => handleTraceLayout('content', event)}
       >
-        <YStack h={isMobile ? 64 : 96} alignItems="center" overflow="visible">
-          <Illustration name="Orders" size={isMobile ? 88 : 124} />
-        </YStack>
+        {isMobile ? (
+          <YStack h={64} alignItems="center" overflow="visible">
+            <Illustration name="Orders" size={88} />
+          </YStack>
+        ) : (
+          <Illustration name="Orders" size={100} mb={-24} />
+        )}
 
         <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
+          size="$headingSm"
+          color="$text"
           textAlign="center"
           maxWidth={isMobile ? 280 : 360}
         >
           {intl.formatMessage({
-            id: ETranslations.perp_position_empty_desc,
+            id: ETranslations.perp_position_empty,
           })}
         </SizableText>
 
@@ -177,7 +182,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
               id: ETranslations.perp_trade_deposit,
             })}
             onPress={() => void showDepositWithdrawModal('deposit')}
-            disabled={!hasAccountAddress}
+            disabled={!hasAccountAddress || isDepositDisabled}
           />
           {useGuidePopover ? (
             <YStack width={buttonWidth}>

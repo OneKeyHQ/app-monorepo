@@ -11,6 +11,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'BUILD_TIME',
     'ONEKEY_PLATFORM',
     'PUBLIC_URL',
+    'TRADINGVIEW_EMBED_MANIFEST_URL',
     'EXT_INJECT_RELOAD_BUTTON',
     'EXT_INJECT_MODE',
     'EXT_CHANNEL',

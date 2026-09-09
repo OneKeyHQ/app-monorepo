@@ -1,17 +1,21 @@
 import { useCallback, useMemo } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
+
 import {
   IconButton,
   Page,
   SizableText,
   XStack,
   YStack,
+  useIsModalPage,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalStakingRoutes,
   ETabEarnRoutes,
@@ -30,9 +34,14 @@ const ReserveDetailsPage = () => {
   const route = useAppRoute<
     ITabEarnParamList & IModalStakingParamList,
     | ETabEarnRoutes.BorrowReserveDetails
+    | ETabEarnRoutes.BorrowReserveDetailsShare
     | EModalStakingRoutes.BorrowReserveDetails
   >();
   const { shareText } = useShare();
+  const isModalPage = useIsModalPage();
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop =
+    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
   const [devSettings] = useDevSettingsPersistAtom();
 
   const {
@@ -40,30 +49,44 @@ const ReserveDetailsPage = () => {
     provider,
     marketAddress,
     reserveAddress,
-    symbol,
-    logoURI,
+    symbol: routeSymbol,
+    logoURI: routeLogoURI,
     accountId: routeAccountId,
     indexedAccountId,
   } = route.params;
 
-  const { details, isLoading, refreshData } = useBorrowReserveDetailData({
-    accountId: routeAccountId,
-    networkId,
-    indexedAccountId,
-    provider,
-    marketAddress,
-    reserveAddress,
-  });
+  const { details, reserveToken, isLoading, refreshData } =
+    useBorrowReserveDetailData({
+      accountId: routeAccountId,
+      networkId,
+      indexedAccountId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      resolveTokenMetadata: !routeLogoURI,
+    });
+
+  const symbol = reserveToken?.symbol || routeSymbol;
+  const logoURI = reserveToken?.logoURI || routeLogoURI;
+  const isShareMetadataReady = Boolean(routeLogoURI || reserveToken?.logoURI);
 
   const shareUrl = useMemo(() => {
-    if (!symbol || !provider || !networkId || !marketAddress || !reserveAddress)
+    if (
+      !symbol ||
+      !provider ||
+      !networkId ||
+      !marketAddress ||
+      reserveAddress === undefined
+    ) {
       return undefined;
+    }
     return BorrowNavigation.generateBorrowShareLink({
       networkId,
       symbol,
       provider,
       marketAddress,
       reserveAddress,
+      logoURI,
       isDevMode: devSettings.enabled,
     });
   }, [
@@ -72,13 +95,14 @@ const ReserveDetailsPage = () => {
     networkId,
     marketAddress,
     reserveAddress,
+    logoURI,
     devSettings.enabled,
   ]);
 
   const handleShare = useCallback(() => {
-    if (!shareUrl) return;
+    if (!shareUrl || !isShareMetadataReady) return;
     void shareText(shareUrl);
-  }, [shareUrl, shareText]);
+  }, [isShareMetadataReady, shareUrl, shareText]);
 
   // Native modal header: Token icon + Symbol
   const headerTitle = useCallback(
@@ -101,16 +125,17 @@ const ReserveDetailsPage = () => {
         size="small"
         variant="tertiary"
         iconColor="$iconSubdued"
+        disabled={!shareUrl || !isShareMetadataReady}
         onPress={handleShare}
       />
     ),
-    [handleShare],
+    [handleShare, isShareMetadataReady, shareUrl],
   );
 
   return (
     <Page>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
-      <Page.Body>
+      <Page.Body pt={bodyPaddingTop}>
         <YStack flex={1}>
           <DetailsPart
             details={details}

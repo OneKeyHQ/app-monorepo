@@ -23,10 +23,11 @@ import SignatureConfirmDetails from './SignatureConfirmDetails';
 type IProps = {
   accountId: string;
   networkId: string;
+  hideSimulation?: boolean;
 };
 
 function TxConfirmDetails(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, hideSimulation } = props;
 
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
@@ -116,6 +117,12 @@ function TxConfirmDetails(props: IProps) {
         finalComponents = components;
       }
 
+      if (hideSimulation) {
+        finalComponents = finalComponents.filter(
+          (component) => component.type !== EParseTxComponentType.Simulation,
+        );
+      }
+
       txDisplayComponents = flatMap(
         txDisplayComponents.concat(
           finalComponents.map((component) => ({
@@ -140,6 +147,7 @@ function TxConfirmDetails(props: IProps) {
   }, [
     accountId,
     decodedTxs,
+    hideSimulation,
     isMultiTxs,
     networkId,
     unsignedTxs,

@@ -6,6 +6,18 @@ type IAccountScopedDataParams<T> = {
   data: T[];
 };
 
+export function getPerpsAccountKey(account: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+}) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
+}
+
 export function isPerpsAccountScopedDataReady({
   activeAccountAddress,
   dataAccountAddress,
@@ -30,6 +42,36 @@ export function isPerpsAccountAddressMatched({
   const activeAddress = normalizePerpsAccountAddress(activeAccountAddress);
   const dataAddress = normalizePerpsAccountAddress(dataAccountAddress);
   return Boolean(activeAddress && dataAddress && activeAddress === dataAddress);
+}
+
+export function isPerpsAccountSelectionResolved({
+  selectedWalletReady,
+  selectAccountLoading,
+  selectedAccountId,
+  selectedIndexedAccountId,
+  activeAccountId,
+  activeIndexedAccountId,
+}: {
+  selectedWalletReady: boolean;
+  selectAccountLoading: boolean;
+  selectedAccountId?: string | null;
+  selectedIndexedAccountId?: string | null;
+  activeAccountId?: string | null;
+  activeIndexedAccountId?: string | null;
+}) {
+  if (!selectedWalletReady || selectAccountLoading) {
+    return false;
+  }
+
+  if (!selectedAccountId && !selectedIndexedAccountId) {
+    return !activeAccountId && !activeIndexedAccountId;
+  }
+
+  return Boolean(
+    (selectedAccountId && selectedAccountId === activeAccountId) ||
+    (selectedIndexedAccountId &&
+      selectedIndexedAccountId === activeIndexedAccountId),
+  );
 }
 
 export function getPerpsAccountScopedListData<T>({

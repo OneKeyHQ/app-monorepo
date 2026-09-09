@@ -7,27 +7,25 @@ Linting, documentation, and general code quality standards for OneKey.
 ### Lint Commands
 
 ```bash
-# Recommended for daily development (fast, only staged files)
-yarn lint:staged   # Lint staged files only
-yarn tsc:staged    # Type check staged files only
+# Recommended for agent workflows (fast, only staged files)
+yarn agent:check --profile commit
+
+# PR readiness (local checks + GitHub CI/review summary)
+yarn agent:check --profile pr
 
 # Full project check (for CI or comprehensive pre-PR validation)
 yarn lint          # Comprehensive lint (~1 minute)
 ```
 
-**✅ Recommended**: For daily development, use `yarn lint:staged` and `yarn tsc:staged` to run checks only on your staged files. This is much faster than full project checks.
+**✅ Recommended**: For agent workflows, use `yarn agent:check --profile commit` to run the staged lint and type checks behind a compact summary. This keeps detailed logs out of conversation context.
 
-**Note:** `yarn lint` runs a comprehensive check and takes ~1 minute. Use it for CI or final pre-PR validation.
+**Note:** `yarn lint` runs a comprehensive check and takes ~1 minute. Use it for CI or debugging a failed `agent:check` step.
 
 ### Pre-Commit Workflow
 
 For fast pre-commit validation:
 ```bash
-# Lint only modified files (recommended)
-yarn lint:staged
-
-# Or with type check
-yarn lint:staged && yarn tsc:staged
+yarn agent:check --profile commit
 ```
 
 ### Common Lint Fixes
@@ -172,8 +170,7 @@ async function validateInput() {}
 ## Checklist
 
 ### Pre-commit
-- [ ] `yarn lint:staged` passes
-- [ ] `yarn tsc:staged` passes
+- [ ] `yarn agent:check --profile commit` passes
 
 ### CI (automated)
 - [ ] `yarn lint` passes (~1 minute)

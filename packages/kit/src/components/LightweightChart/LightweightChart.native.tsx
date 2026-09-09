@@ -34,16 +34,30 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  horzLineColor,
+  horzLineStyle,
+  priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
   priceFormatter,
+  priceFormatterPrecision,
   priceFormatterTickStep,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
+  histogramOptions,
+  referenceLine,
   showLastValue,
   showLastPointMarker,
   showTimeScale,
+  useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
+  hideCrosshairPriceLabel,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -61,20 +75,37 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    horzLineColor,
+    horzLineStyle,
+    priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
+    crosshairVertLineColor,
+    crosshairVertLineStyle,
+    patternColor,
     priceFormatter,
+    priceFormatterPrecision,
     priceFormatterTickStep,
     fontSize,
     seriesType,
+    lineType,
     baselineOptions,
+    histogramOptions,
+    referenceLine,
     showLastValue,
     showLastPointMarker,
     showTimeScale,
+    useTimeScaleTickMarkWithoutUnit,
+    timeZone,
+    locale,
   });
   const nativeConfig = useMemo(
-    () => ({ ...chartConfig, showLastValue: !!showLastValue }),
-    [chartConfig, showLastValue],
+    () => ({
+      ...chartConfig,
+      showLastValue: !!showLastValue,
+      hideCrosshairPriceLabel,
+    }),
+    [chartConfig, hideCrosshairPriceLabel, showLastValue],
   );
   const [webViewSource] = useState(() =>
     buildStaticWebViewSource(nativeConfig),
@@ -89,11 +120,13 @@ export function LightweightChart({
           setWebViewReady(true);
         } else if (message.type === 'hover' && onHover) {
           onHover({
-            time: message.time ? Number(message.time) : undefined,
-            price: message.price ? Number(message.price) : undefined,
-            secondaryPrice: message.secondaryPrice
-              ? Number(message.secondaryPrice)
-              : undefined,
+            time: message.time !== undefined ? Number(message.time) : undefined,
+            price:
+              message.price !== undefined ? Number(message.price) : undefined,
+            secondaryPrice:
+              message.secondaryPrice !== undefined
+                ? Number(message.secondaryPrice)
+                : undefined,
             x: message.x,
             y: message.y,
           });

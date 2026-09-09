@@ -14,7 +14,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable prettier/prettier */
+/* Formatting is intentionally disabled for this vendored source. */
 /* eslint-disable no-lonely-if */
 /* eslint-disable no-else-return */
 /* eslint-disable @typescript-eslint/no-use-before-define */

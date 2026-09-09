@@ -1,2 +1,2 @@
-export { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
-export type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
+export { TradingViewNativeIntervalSelector } from '../../TradingViewChartControls/intervalSelector/NativeIntervalSelector';
+export type { ITradingViewNativeIntervalControlMode } from '../../TradingViewChartControls/intervalSelector/NativeIntervalSelector';

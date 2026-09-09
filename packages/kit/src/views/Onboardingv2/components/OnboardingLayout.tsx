@@ -194,7 +194,7 @@ const OnboardingLayoutConstrainedContent = memo(
         }}
         gap="$5"
         {...(!platformEnv.isNativeIOS && {
-          animation: 'quick',
+          transition: 'quick',
           animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
           enterStyle: {
             opacity: 0,

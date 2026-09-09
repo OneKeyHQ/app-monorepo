@@ -25,7 +25,10 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -50,8 +53,12 @@ import {
 } from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+import { formatBboModeLabel } from '../selectors/bboDisplay';
+
+import { AggressiveLimitPriceWarning } from './AggressiveLimitPriceWarning';
 
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
+import type { IAggressiveLimitPriceWarning } from '../../../utils/aggressiveLimitPrice';
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
@@ -68,7 +75,7 @@ function formatOrderPriceDisplay({
   const formattedPrice = isSpot
     ? formatSpotPriceToValid(price, szDecimals)
     : formatPriceToSignificantDigits(price, szDecimals);
-  return `$${formattedPrice}`;
+  return `$${formatLocalizedNumberString(formattedPrice)}`;
 }
 
 interface IOrderConfirmContentProps {
@@ -85,6 +92,7 @@ interface IOrderConfirmContentProps {
   // Coin the override ticket was built for; submit aborts if the live active
   // instrument no longer matches (active-asset switch between press and confirm).
   expectedCoin?: string;
+  aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }
@@ -116,6 +124,7 @@ function OrderConfirmContent({
   formDataOverride,
   priceOverride,
   expectedCoin,
+  aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: IOrderConfirmContentProps) {
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
@@ -345,7 +354,7 @@ function OrderConfirmContent({
   ]);
 
   const priceDisplay = useMemo(() => {
-    if (formData.type === 'market' || !formData.price) {
+    if (formData.type === 'market') {
       return (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
@@ -356,7 +365,7 @@ function OrderConfirmContent({
     }
 
     if (formData.bboPriceMode) {
-      const { type } = formData.bboPriceMode;
+      const { offsetTicks, type } = formData.bboPriceMode;
       const modeName = intl.formatMessage({
         id:
           type === 'counterparty'
@@ -366,8 +375,20 @@ function OrderConfirmContent({
 
       return (
         <YStack alignItems="flex-end" gap="$1">
-          <SizableText size="$bodyMdMedium">{modeName}</SizableText>
+          <SizableText size="$bodyMdMedium">
+            {formatBboModeLabel(modeName, offsetTicks)}
+          </SizableText>
         </YStack>
+      );
+    }
+
+    if (!formData.price) {
+      return (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          })}
+        </SizableText>
       );
     }
 
@@ -555,6 +576,10 @@ function OrderConfirmContent({
 
   return (
     <YStack gap="$4" p="$1">
+      {aggressiveLimitPriceWarning ? (
+        <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+      ) : null}
+
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
@@ -834,20 +859,22 @@ function OrderConfirmContent({
         ) : null}
 
         {/* skip order confirm checkbox */}
-        <XStack justifyContent="space-between" alignItems="center" gap="$2">
-          <Checkbox
-            testID="perp-checkbox"
-            labelProps={{
-              fontSize: '$bodyMdMedium',
-              color: '$textSubdued',
-            }}
-            label={intl.formatMessage({
-              id: ETranslations.perp_confirm_not_show,
-            })}
-            value={perpsCustomSettings.skipOrderConfirm}
-            onChange={(checked) => setSkipOrderConfirm(!!checked)}
-          />
-        </XStack>
+        {!aggressiveLimitPriceWarning ? (
+          <XStack justifyContent="space-between" alignItems="center" gap="$2">
+            <Checkbox
+              testID="perp-checkbox"
+              labelProps={{
+                fontSize: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+              label={intl.formatMessage({
+                id: ETranslations.perp_confirm_not_show,
+              })}
+              value={perpsCustomSettings.skipOrderConfirm}
+              onChange={(checked) => setSkipOrderConfirm(!!checked)}
+            />
+          </XStack>
+        ) : null}
       </YStack>
 
       <TradingGuardWrapper
@@ -881,6 +908,7 @@ export function showOrderConfirmDialog({
   formData,
   price,
   expectedCoin,
+  aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: {
   overrideSide?: 'long' | 'short';
@@ -895,6 +923,7 @@ export function showOrderConfirmDialog({
   price?: string;
   // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
   expectedCoin?: string;
+  aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }) {
@@ -915,6 +944,7 @@ export function showOrderConfirmDialog({
             formDataOverride={formData}
             priceOverride={price}
             expectedCoin={expectedCoin}
+            aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
             onConfirmSuccess={onConfirmSuccess}
           />
         </PerpsProviderMirror>

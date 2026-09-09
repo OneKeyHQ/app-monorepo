@@ -33,7 +33,13 @@ import {
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
 } from '../components/Layout';
+import { showLegacyDevicesDialog } from '../components/LegacyDevicesDialog';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
+import PixelShimmer from '../components/PixelShimmer';
+
+// Neutral shimmer for the non-OneKey "use another device" card; OneKey device
+// cards fall back to PixelShimmer's brand-green default.
+const SHIMMER_NEUTRAL = ['#94A3B8', '#CBD5E1', '#A0AEC0'];
 
 export default function PickYourDevice() {
   const intl = useIntl();
@@ -45,12 +51,23 @@ export default function PickYourDevice() {
       tags?: string[];
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
+      colors?: string[];
+      dialog?: 'legacy' | 'others';
     }>
-  >(() => {
-    const devices = [
+  >(
+    () => [
       {
-        name: 'OneKey Pro',
-        deviceType: [EDeviceType.Pro],
+        name: 'OneKey Pro series',
+        // Pro 2 launch art must stay out of the repo until release; the
+        // release ticket (OK-59937) swaps in the real series key visual.
+        deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
+        image: require('@onekeyhq/kit/assets/pick-pro.png'),
+      },
+      {
+        name: 'OneKey Neo',
+        // Same launch embargo: reuse Pro art until the Neo assets land
+        // (OK-59935).
+        deviceType: [EDeviceType.Neo],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
@@ -59,31 +76,35 @@ export default function PickYourDevice() {
         deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
         image: require('@onekeyhq/kit/assets/pick-classic.png'),
       },
-      {
-        name: 'OneKey Touch',
-        deviceType: [EDeviceType.Touch],
-        image: require('@onekeyhq/kit/assets/pick-touch.png'),
-      },
-      {
-        name: 'OneKey Mini',
-        deviceType: [EDeviceType.Mini],
-        image: require('@onekeyhq/kit/assets/pick-mini.png'),
-      },
+      // Mini has no Bluetooth, so native skips the Legacy (Mini/Touch)
+      // picker and offers Touch directly.
+      platformEnv.isNative
+        ? {
+            name: 'OneKey Touch',
+            deviceType: [EDeviceType.Touch],
+            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+          }
+        : {
+            name: 'Legacy',
+            tags: ['Mini', 'Touch'],
+            deviceType: [],
+            // Touch art stands in until a dedicated Legacy visual is
+            // designed.
+            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+            colors: SHIMMER_NEUTRAL,
+            dialog: 'legacy',
+          },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
         tags: ['Ledger', 'Trezor'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
+        colors: SHIMMER_NEUTRAL,
+        dialog: 'others',
       },
-    ];
-
-    // Mini does not support Bluetooth, so hide it on native platforms
-    if (platformEnv.isNative) {
-      return devices.filter((device) => device.name !== 'OneKey Mini');
-    }
-
-    return devices;
-  }, [intl]);
+    ],
+    [intl],
+  );
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
@@ -118,7 +139,7 @@ export default function PickYourDevice() {
           px: 0,
         }}
       >
-        {DEVICES.map(({ name, tags, image, deviceType }) => (
+        {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
             group="card"
@@ -126,9 +147,13 @@ export default function PickYourDevice() {
             $gtMd={{ flex: 1 }}
             onPress={() => {
               defaultLogger.onboarding.page.pickYourDevice(
-                deviceType.length > 0 ? deviceType.join(',') : 'others',
+                dialog ?? deviceType.join(','),
               );
-              if (deviceType.length === 0) {
+              if (dialog === 'legacy') {
+                showLegacyDevicesDialog();
+                return;
+              }
+              if (dialog === 'others') {
                 showOtherDevicesDialog();
                 return;
               }
@@ -155,11 +180,12 @@ export default function PickYourDevice() {
                 borderWidth: 0,
                 borderRadius: 0,
                 gap: '$16',
+                overflow: 'hidden',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {/* Hover/press bg layer — no responsive overrides so
+              {/* Hover bg layer — no responsive overrides so
                   $group-card-* always wins over $gtMd cascade */}
               <Stack
                 position="absolute"
@@ -167,7 +193,7 @@ export default function PickYourDevice() {
                 left={0}
                 right={0}
                 bottom={0}
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_BG_BORDER_COLOR}
                 pointerEvents="none"
                 $gtMd={{
@@ -177,17 +203,16 @@ export default function PickYourDevice() {
                   borderRightColor: '$transparent',
                 }}
                 $group-card-hover={{
-                  bg: '$bgHover',
-                  borderColor: '$borderSubdued',
-                }}
-                $group-card-press={{
-                  bg: '$bgActive',
                   borderColor: '$borderSubdued',
                 }}
               />
+              {/* Clerk-style pixel shimmer on hover (web + desktop wide layout
+                  only); renders null on native. Painted above the hover tint
+                  but behind the device image and text. */}
+              {gtMd ? <PixelShimmer colors={colors} /> : null}
               <YStack
                 position="absolute"
-                animation="quick"
+                transition="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={{
                   opacity: 0,
@@ -215,11 +240,15 @@ export default function PickYourDevice() {
                   width="100%"
                   height="90%"
                   $gtMd={{ height: '100%' }}
+                  resizeWidth={240}
                   resizeMode="contain"
                 />
               </YStack>
               <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
-                <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>
+                <SizableText
+                  size="$headingXl"
+                  $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
+                >
                   {name}
                 </SizableText>
                 <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { differenceInDays } from 'date-fns';
 import { isEmpty } from 'lodash';
@@ -8,6 +8,7 @@ import {
   Alert,
   Divider,
   Icon,
+  IconButton,
   Popover,
   SizableText,
   Stack,
@@ -24,6 +25,7 @@ import { Token } from '../../../components/Token';
 import { EarnIcon } from '../../Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { BorrowNavigation } from '../borrowUtils';
+import { BorrowTestIDs } from '../testIDs';
 
 export const BorrowBonusTooltip = ({
   data,
@@ -41,6 +43,18 @@ export const BorrowBonusTooltip = ({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [open, setOpen] = useState(false);
+  const pendingExternalUrlRef = useRef<string | undefined>(undefined);
+  const platformBonusLabel = intl.formatMessage({
+    id: ETranslations.defi_platform_bonus,
+  });
+
+  useEffect(() => {
+    if (open || !pendingExternalUrlRef.current) return;
+
+    const link = pendingExternalUrlRef.current;
+    pendingExternalUrlRef.current = undefined;
+    void openUrlExternal(link);
+  }, [open]);
 
   const handleHistoryClick = useCallback(() => {
     if (!accountId || !networkId || !provider || !marketAddress) return;
@@ -93,6 +107,14 @@ export const BorrowBonusTooltip = ({
     return String(Math.max(0, days));
   }, [data?.data?.endsIn]);
 
+  const handleOpenPlatformBonusLink = useCallback(() => {
+    const link = data?.data?.button?.data?.link;
+    if (!link) return;
+
+    pendingExternalUrlRef.current = link;
+    setOpen(false);
+  }, [data?.data?.button?.data?.link]);
+
   if (!data) {
     return null;
   }
@@ -104,18 +126,17 @@ export const BorrowBonusTooltip = ({
         onOpenChange={setOpen}
         placement="bottom-end"
         renderTrigger={
-          <XStack cursor="pointer" ai="center" gap="$1">
-            <EarnText
-              size="$bodySmMedium"
-              color="$textSubdued"
-              text={{
-                text: intl.formatMessage({ id: ETranslations.global_details }),
-              }}
-            />
-            <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
-          </XStack>
+          <IconButton
+            testID={BorrowTestIDs.overviewBonusInfoBtn}
+            title={platformBonusLabel}
+            accessibilityLabel={platformBonusLabel}
+            icon="InfoCircleOutline"
+            size="small"
+            variant="tertiary"
+            iconColor="$iconSubdued"
+          />
         }
-        title={intl.formatMessage({ id: ETranslations.defi_platform_bonus })}
+        title={platformBonusLabel}
         renderContent={
           <YStack p="$5" overflow="hidden" borderRadius="$3">
             {/* Total received header with History button */}
@@ -330,7 +351,7 @@ export const BorrowBonusTooltip = ({
                   <XStack
                     gap="$0.5"
                     cursor="pointer"
-                    onPress={() => openUrlExternal(data.data.button.data.link)}
+                    onPress={handleOpenPlatformBonusLink}
                   >
                     <EarnText
                       text={data.data.button.text}

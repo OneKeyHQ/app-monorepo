@@ -12,20 +12,25 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
-import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -142,10 +147,7 @@ export const SupplyCard = () => {
     [navigation, market, gtMd, handleManageSupply, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
 
   // Per-row disabled state: dim + block tap for disabled supply assets on mobile.
   // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
@@ -166,16 +168,26 @@ export const SupplyCard = () => {
 
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
-    if (!reserves.data?.supply?.assets) return [];
+    const supportedAssets = filterUnsupportedAaveNativeReserveAssets({
+      assets: reserves.data?.supply?.assets,
+      networkId: market?.networkId,
+      providerName: market?.provider,
+    });
     // Mobile: always show all assets
-    if (!gtMd) return reserves.data.supply.assets;
+    if (!gtMd) return supportedAssets;
     // Desktop: filter based on showZeroBalance toggle
-    if (showZeroBalance) return reserves.data.supply.assets;
-    return reserves.data.supply.assets.filter((asset) => {
+    if (showZeroBalance) return supportedAssets;
+    return supportedAssets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves.data?.supply?.assets, showZeroBalance, gtMd]);
+  }, [
+    gtMd,
+    market?.networkId,
+    market?.provider,
+    reserves.data?.supply?.assets,
+    showZeroBalance,
+  ]);
 
   const labels = useMemo(
     () => ({
@@ -228,10 +240,10 @@ export const SupplyCard = () => {
         render: (item: ISupplyAsset) => (
           <AssetWithAmountField
             token={item.token}
-            canBeCollateral={false}
+            canBeCollateral={item.canBeCollateral}
+            amountLabel={{ text: `${labels.balance}:` }}
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
-            showWalletIcon
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -252,15 +264,19 @@ export const SupplyCard = () => {
   const desktopColumns = useMemo(
     () => [
       {
+        // The collateral mark stays on the symbol, the way the mobile list
+        // shows it — it labels the asset, not a value of its own.
         label: labels.assetCanBeCollateral,
         key: 'asset',
         render: (item: ISupplyAsset) => (
           <AssetField
             token={item.token}
+            canBeCollateral={item.canBeCollateral}
             platformBonusApy={item.platformBonusApy}
           />
         ),
-        flex: 1.5,
+        flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
         label: labels.balance,
@@ -279,6 +295,8 @@ export const SupplyCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.supplyApy,
@@ -287,6 +305,7 @@ export const SupplyCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       {
         label: '',
@@ -294,7 +313,7 @@ export const SupplyCard = () => {
         key: 'actions',
         render: (item: ISupplyAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: labels.supply }} />}
+            actionLabel={labels.supply}
             item={item}
             onPress={() => handleManageSupply(item)}
             needAdditionButton={showAdditionalActions}
@@ -304,8 +323,10 @@ export const SupplyCard = () => {
             disabled={noConnectedWallet ? false : item.supplyButton?.disabled}
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: showAdditionalActions
+          ? BORROW_TABLE_ACTION_COLUMN_WIDTH
+          : BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [

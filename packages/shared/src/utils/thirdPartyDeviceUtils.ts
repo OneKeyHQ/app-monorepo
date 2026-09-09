@@ -1,5 +1,4 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
-import { isTrezorBleSupportedModel as isSdkTrezorBleSupportedModel } from '@onekeyfe/hwk-trezor-adapter';
 
 import type { EHardwareVendor } from '../../types/device';
 
@@ -57,8 +56,27 @@ const PERSISTED_FEATURE_FIELD_ALLOWLIST = [
   'wireless_connected',
 ] as const;
 
+// Local mirror of @onekeyfe/hwk-trezor-adapter's isTrezorBleSupportedModel:
+// this file lands in every platform's main bundle, and a runtime import of
+// the adapter drags in hwk-trezor-core (~620KB). The unit test compares this
+// against the SDK original and fails if the two drift.
+const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
+  't3w1',
+  'safe 7',
+  'trezor safe 7',
+] as const;
+
+function normalizeThirdPartyModelName(model?: string): string {
+  if (!model) return '';
+  return model.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 function isTrezorBleSupportedModel(model?: string): boolean {
-  return isSdkTrezorBleSupportedModel(model);
+  const normalizedModel = normalizeThirdPartyModelName(model);
+  if (!normalizedModel) return false;
+  return (TREZOR_BLE_SUPPORTED_MODEL_NAMES as readonly string[]).includes(
+    normalizedModel,
+  );
 }
 
 function getDeviceSettings(
@@ -83,6 +101,50 @@ function getStringField(
 ): string | undefined {
   const value = source?.[field];
   return typeof value === 'string' && value ? value : undefined;
+}
+
+function getBooleanField(
+  source: IThirdPartyFeaturesLike,
+  field: string,
+): boolean | undefined {
+  const value = source?.[field];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function getNumberField(
+  source: IThirdPartyFeaturesLike,
+  field: string,
+): number | undefined {
+  const value = source?.[field];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function getDeviceId(features: IThirdPartyFeaturesLike): string | undefined {
+  return (
+    getStringField(features, 'device_id') ||
+    getStringField(features, 'deviceId')
+  );
+}
+
+function getDeviceState({ features }: { features: IThirdPartyFeaturesLike }) {
+  const autoLockDelayMs =
+    getNumberField(features, 'auto_lock_delay_ms') ??
+    getNumberField(features, 'autoLockDelayMs');
+  return {
+    autoLockDelayMs,
+    autoShutDownDelayMs:
+      getNumberField(features, 'auto_shutdown_delay_ms') ??
+      getNumberField(features, 'autoShutdownDelayMs') ??
+      autoLockDelayMs,
+    hapticFeedback:
+      getBooleanField(features, 'haptic_feedback') ??
+      getBooleanField(features, 'hapticFeedback'),
+    initialized: getBooleanField(features, 'initialized'),
+    passphraseProtection:
+      getBooleanField(features, 'passphrase_protection') ??
+      getBooleanField(features, 'passphraseProtection'),
+    unlocked: getBooleanField(features, 'unlocked'),
+  };
 }
 
 function getKnownStringField(
@@ -291,8 +353,10 @@ function getSerialNo(features: IThirdPartyFeaturesLike): string | undefined {
 
 export default {
   buildPersistedFeatures,
+  getDeviceId,
   getDeviceModelName,
   getDeviceName,
+  getDeviceState,
   getDeviceVersion,
   getFirmwareType,
   getSerialNo,
@@ -300,4 +364,5 @@ export default {
   isTrezorBleBindingSupportedPlatform,
   isTrezorBleSupportedDevice,
   isTrezorBleSupportedModel,
+  normalizeThirdPartyModelName,
 };

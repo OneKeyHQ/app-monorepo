@@ -2,17 +2,18 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 import {
-  ResponsiveThreeColumnLayout,
+  ResponsiveFourColumnLayout,
   SimpleTabs,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
-import { PerpsReward, usePerpsCumulativeRewards } from '../PerpsReward';
+import { PerpsReward } from '../PerpsReward';
 import { SectionHeader } from '../SectionHeader';
+import { SwapReward } from '../SwapReward';
 
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
@@ -20,21 +21,22 @@ import { useInviteCodeList } from './hooks/useInviteCodeList';
 import { EInvitationDetailsTab } from './types';
 
 import type { IInvitationDetailsSectionProps } from './types';
+import type { IPerpsRewardBalances } from '../PerpsReward/types';
+
+const EMPTY_PERPS_REWARDS: IPerpsRewardBalances = [];
 
 export function InvitationDetailsSection({
   summaryInfo,
   fetchSummaryInfo,
 }: IInvitationDetailsSectionProps) {
   const intl = useIntl();
+  const { lg } = useMedia();
   const [selectedTab, setSelectedTab] = useState<EInvitationDetailsTab>(
     EInvitationDetailsTab.REWARD,
   );
 
   // Fetch invite code list data
   const { codeListData, isLoading, refetch } = useInviteCodeList();
-
-  // Fetch Perps cumulative rewards
-  const { perpsCumulativeRewards } = usePerpsCumulativeRewards();
 
   const handleCodeCreated = useCallback(() => {
     void refetch();
@@ -73,7 +75,8 @@ export function InvitationDetailsSection({
     return null;
   }
 
-  const { HardwareSales, Onchain, cumulativeRewards, inviteUrl } = summaryInfo;
+  const { HardwareSales, Onchain, Perp, cumulativeRewards, inviteUrl } =
+    summaryInfo;
 
   return (
     <YStack gap="$4" pb="$6" $md={{ flexDirection: 'column' }}>
@@ -104,7 +107,8 @@ export function InvitationDetailsSection({
       </XStack>
 
       {selectedTab === EInvitationDetailsTab.REWARD ? (
-        <ResponsiveThreeColumnLayout
+        <ResponsiveFourColumnLayout
+          gap={lg ? '$3' : '$4'}
           firstColumn={
             <HardwareSalesReward
               hardwareSales={HardwareSales}
@@ -112,9 +116,12 @@ export function InvitationDetailsSection({
             />
           }
           secondColumn={
-            <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
+            <PerpsReward
+              perpsRewards={Perp?.available ?? EMPTY_PERPS_REWARDS}
+            />
           }
-          thirdColumn={<OnChainReward onChain={Onchain} />}
+          thirdColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
+          fourthColumn={<OnChainReward onChain={Onchain} />}
         />
       ) : (
         <YStack px="$pagePadding" gap="$4">

@@ -136,6 +136,16 @@ yarn perf:web:cold
 PERF_WEB_COLD_SCENARIOS=perps,swap,defi,refer-friends yarn perf:web:cold --headed
 ```
 
+Budget CI also writes AI-oriented diagnostic artifacts next to the raw reports:
+
+- Web cold: `web-cold-budget-report-ai-hints.json` and `.md`
+- Web startup graph: `web-startup-graph-budget-report-ai-hints.json` and `.md`
+- Native startup graph: `budget-check-ai-hints-main.*` and `budget-check-ai-hints-background.*`
+
+Use the Markdown file as a compact prompt/context block, and the JSON file for
+tooling that needs script/module candidates, failed budget deltas, runtime scope,
+small chunks, duplicate script URLs, and package/prefix counts.
+
 Desktop:
 
 ```bash

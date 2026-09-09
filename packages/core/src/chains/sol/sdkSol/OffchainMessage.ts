@@ -7,14 +7,18 @@ import { EOffChainMessageType } from '../types';
 
 import type {
   ICreateOffChainMessageOptions,
+  ICreateOffChainMessageV1Options,
   IOffChainMessageHeaderLegacy,
   IOffChainMessageHeaderStandard,
+  IOffChainMessageHeaderV1,
 } from '../types';
 
 // Max off-chain message length supported by Ledger
 const OFFCM_MAX_LEDGER_LEN = 1212;
 // Max length of version 0 off-chain message
 const OFFCM_MAX_V0_LEN = 65_515;
+// Version 1 has no length prefix and no ceiling in the spec; this bounds the body anyway.
+const OFFCM_MAX_V1_LEN = 1024 * 1024;
 
 function isValidUTF8(data: Uint8Array): boolean {
   const length = data.length;
@@ -69,6 +73,24 @@ function isValidUTF8(data: Uint8Array): boolean {
     }
   }
   return true;
+}
+
+/**
+ * The only place that knows which offchain message versions exist. Callers map the
+ * result to whatever error they owe their own caller — a dapp gets invalidParams, a
+ * hardware account gets the firmware message — but none of them repeat this list.
+ * Adding a version here makes every `switch` over the result fail to compile until
+ * it says what to do with it.
+ */
+export type IOffchainMessageVersionKind = 'v0' | 'v1' | 'unsupported';
+
+export function classifyOffchainMessageVersion(
+  version: number | undefined,
+): IOffchainMessageVersionKind {
+  // Absent means version 0: it predates the field.
+  if (version === undefined || version === 0) return 'v0';
+  if (version === 1) return 'v1';
+  return 'unsupported';
 }
 
 export class OffchainMessage {
@@ -330,9 +352,102 @@ export class OffchainMessage {
     return this.createOffChainMessage({ message, isLegacy: true });
   }
 
+  /** Byte-wise lexicographic order, matching `@solana/offchain-messages`. */
+  private static compareRequiredSigners(a: Uint8Array, b: Uint8Array): number {
+    if (a.length !== b.length) {
+      return a.length < b.length ? -1 : 1;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i] === b[i]) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      return a[i] < b[i] ? -1 : 1;
+    }
+    return 0;
+  }
+
+  /**
+   * Builds the bytes of a version 1 offchain message.
+   *
+   * Version 0 is a separate code path on purpose: v1 has no message format enum, no u16 length
+   * prefix and no application domain, and it requires the signer list to be unique and sorted.
+   */
+  static createOffChainMessageV1Bytes({
+    message,
+    requiredSigners,
+  }: ICreateOffChainMessageV1Options): Uint8Array {
+    if (message.length === 0) {
+      throw new OneKeyLocalError('Message cannot be empty');
+    }
+    if (!requiredSigners || requiredSigners.length === 0) {
+      throw new OneKeyLocalError('At least one required signer is required');
+    }
+    if (requiredSigners.length > 255) {
+      throw new OneKeyLocalError('At most 255 required signers are allowed');
+    }
+    if (Buffer.byteLength(message, 'utf8') > OFFCM_MAX_V1_LEN) {
+      throw new OneKeyLocalError(
+        `Message exceeds the maximum (${OFFCM_MAX_V1_LEN} bytes) for version 1`,
+      );
+    }
+    for (const signer of requiredSigners) {
+      if (signer.length !== 32) {
+        throw new OneKeyLocalError('Each required signer must be 32 bytes');
+      }
+    }
+
+    const signers = requiredSigners
+      .map((signer) => Uint8Array.from(signer))
+      // oxlint-disable-next-line unicorn/no-array-sort -- sorting a freshly mapped copy
+      .sort((a, b) => this.compareRequiredSigners(a, b));
+    for (let i = 1; i < signers.length; i += 1) {
+      if (this.compareRequiredSigners(signers[i - 1], signers[i]) === 0) {
+        throw new OneKeyLocalError('Required signers must be unique');
+      }
+    }
+
+    const { signingDomain } = this.createBasicHeader();
+    const contentBytes = new TextEncoder().encode(message);
+
+    const result = new Uint8Array(
+      signingDomain.length + 1 + 1 + signers.length * 32 + contentBytes.length,
+    );
+
+    let offset = 0;
+    result.set(signingDomain, offset);
+    offset += signingDomain.length;
+
+    result[offset] = 1; // version 1
+    offset += 1;
+
+    result[offset] = signers.length;
+    offset += 1;
+
+    for (const signer of signers) {
+      result.set(signer, offset);
+      offset += 32;
+    }
+
+    result.set(contentBytes, offset);
+
+    return result;
+  }
+
+  static createOffChainMessageV1(
+    options: ICreateOffChainMessageV1Options,
+  ): string {
+    return Buffer.from(this.createOffChainMessageV1Bytes(options)).toString(
+      'hex',
+    );
+  }
+
   static detectOffChainMessageType(message: Uint8Array): {
     type: EOffChainMessageType;
-    header?: IOffChainMessageHeaderLegacy | IOffChainMessageHeaderStandard;
+    header?:
+      | IOffChainMessageHeaderLegacy
+      | IOffChainMessageHeaderStandard
+      | IOffChainMessageHeaderV1;
   } {
     const SIGNING_DOMAIN = new Uint8Array([
       0xff, 0x73, 0x6f, 0x6c, 0x61, 0x6e, 0x61, 0x20, 0x6f, 0x66, 0x66, 0x63,
@@ -357,7 +472,41 @@ export class OffchainMessage {
         const version = message[offset];
         offset += 1;
 
-        if (message.length >= offset + 32) {
+        // Version 1 replaces the whole version 0 preamble:
+        // signerCount(1) | signers(32 each) | content, no application domain, no format,
+        // no length prefix.
+        if (version === 1) {
+          const signersOffset = offset + 1;
+          // The signer count byte itself has to be there: reading past the end yields undefined,
+          // which turns every length check below into a NaN comparison that never trips.
+          if (message.length < signersOffset) {
+            return { type: EOffChainMessageType.INVALID };
+          }
+
+          const signersCount = message[offset];
+          const contentOffset = signersOffset + signersCount * 32;
+          // Content is trailing and must not be empty.
+          if (signersCount === 0 || message.length <= contentOffset) {
+            return { type: EOffChainMessageType.INVALID };
+          }
+          return {
+            type: EOffChainMessageType.V1,
+            header: {
+              version: 1,
+              signersCount,
+              requiredSigners: Array.from({ length: signersCount }, (_, i) =>
+                message.slice(
+                  signersOffset + i * 32,
+                  signersOffset + (i + 1) * 32,
+                ),
+              ),
+            },
+          };
+        }
+
+        // Version 0 only. Without this gate a newer version byte is parsed with the version 0
+        // layout and reported as STANDARD with fields read from the wrong offsets.
+        if (version === 0 && message.length >= offset + 32) {
           const applicationDomain = message.slice(offset, offset + 32);
           offset += 32;
 

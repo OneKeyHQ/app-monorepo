@@ -44,13 +44,27 @@ import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { EModalMarketRoutes, IModalMarketParamList } from '../router';
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 type IMarketBannerDetailRouteParams = RouteProp<
   ITabMarketParamList & IModalMarketParamList,
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
+
+// Spot banner lists are dominated by tokenized stocks, whose liquidity is not
+// reported by the market API, so the column is dropped instead of rendering a
+// near-empty one. Perps banners use their own columns and never had it.
+//
+// The `liquidity` dataIndex is shared: in stock metadata mode the same column
+// renders 24h volume instead. This list keeps the default `showStockSubtitle`
+// (not 'auto'), so that mode is currently unreachable here. Revisit this
+// constant before enabling stock metadata columns, or 24h volume disappears
+// with no type or test failure.
+const BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS = ['liquidity'] as const;
 
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
@@ -101,6 +115,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const handleItemPress = useCallback(
     (item: IMarketToken) => {
       void toDetailPage({
+        ...item,
         tokenAddress: item.address,
         networkId: item.networkId,
         symbol: item.symbol,
@@ -183,8 +198,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // Native mobile: use FlatList + TokenListItem to match watchlist layout
-    if (platformEnv.isNative && !gtMd) {
+    // Narrow layouts use the compact list to avoid the desktop table's
+    // intrinsic width overflowing the viewport.
+    if (!gtMd) {
       return (
         <BannerDetailTokenFlatList
           data={mobileData}
@@ -207,6 +223,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
         change24hColumnTitle={change24hColumnTitle}
+        hiddenDesktopColumns={BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS}
       />
     );
     if (platformEnv.isNative) {

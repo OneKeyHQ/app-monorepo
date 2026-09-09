@@ -82,6 +82,10 @@ export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
 
+export interface IFeaturedChangelogPreviewValue extends IBaseValue {
+  version?: string;
+}
+
 export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;

@@ -53,6 +53,10 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -469,6 +473,14 @@ function HistoryDetails() {
         accountAddress,
         txid,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
+        // narrow vault extra params (btc find-address) to the addresses the
+        // tapped tx involves; deep links have no tx context and fall back
+        // to the vault's full claimed set
+        txInvolvedAddresses: historyTxParam
+          ? collectDecodedTxInvolvedAddresses({
+              decodedTx: historyTxParam.decodedTx,
+            })
+          : undefined,
       });
       historyInit.current = true;
       if (
@@ -607,9 +619,17 @@ function HistoryDetails() {
       historyTx.decodedTx.actions[0]?.assetTransfer?.receives ?? [];
 
     if (vaultSettings?.isUtxo) {
-      const utxoSends = sends.filter((send) => send.from !== accountAddress);
-      const utxoReceives = receives.filter(
-        (receive) => receive.to !== accountAddress,
+      // count external parties only: a UTXO account spans many addresses
+      // (rotated receive/change addresses, claimed find-address entries).
+      // When the server's isOwn flag is present, trust it exclusively;
+      // when it is missing (locally built txs before server backfill),
+      // fall back to the display address comparison instead of treating
+      // undefined as external
+      const utxoSends = sends.filter((send) =>
+        isNil(send.isOwn) ? send.from !== accountAddress : !send.isOwn,
+      );
+      const utxoReceives = receives.filter((receive) =>
+        isNil(receive.isOwn) ? receive.to !== accountAddress : !receive.isOwn,
       );
 
       const from =
@@ -776,17 +796,40 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
+    // Only let the indexer label win when it actually has one: networks the
+    // indexer cannot parse return an empty label, and overwriting with it
+    // wiped out the title derived above.
     if (
-      !historyTx.isLocalCreated ||
-      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+      label &&
+      (!historyTx.isLocalCreated ||
+        decodedTx.status !== EDecodedTxStatus.Pending)
     ) {
       title = label;
     }
 
-    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+    const action = decodedTx.actions[0];
+
+    // Same fallbacks the history list item uses, so the row and its details
+    // page never disagree on the action type.
+    if (!title && action?.assetTransfer?.isInternalSwap) {
       title = intl.formatMessage({
         id: ETranslations.global_swap,
       });
+    } else if (!title && action?.assetTransfer?.isInternalStaking) {
+      title =
+        action.assetTransfer.internalStakingLabel ||
+        (historyTx.stakingInfo
+          ? getStakingActionLabel({ stakingInfo: historyTx.stakingInfo })
+          : '');
+    }
+
+    if (!title && (action?.functionCall || action?.unknownAction)) {
+      title =
+        action.functionCall?.functionName ||
+        action.unknownAction?.label ||
+        intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        });
     }
 
     return title;
@@ -1026,6 +1069,11 @@ function HistoryDetails() {
           confirmationETABlocks: txDetails?.confirmationETABlocks,
           broadcastTimeMs,
           nowMs: Date.now(),
+          // Mirror only the real speed-up entry (renderReplaceButtons requires
+          // canReplaceTx); the "Order inquiry" button is not an accelerate
+          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+          // Stays undefined until the async capability check resolves.
+          canSpeedUp: canReplaceTx,
         })
       : null;
 
@@ -1067,6 +1115,7 @@ function HistoryDetails() {
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
+    canReplaceTx,
   ]);
 
   const renderTxFlow = useCallback(() => {

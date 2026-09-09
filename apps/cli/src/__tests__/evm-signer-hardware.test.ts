@@ -7,7 +7,7 @@
  *   - passphrase mode 'none' → useEmptyPassphrase branch, no keychain reads
  *   - passphrase mode 'on_host' → keychain preload hits session cache
  *   - passphrase mode 'on_host' with deviceWasLocked → keychain skipped,
- *     resolvePassphraseStateByMode fallback, result re-persisted
+ *     resolvePassphraseSessionByMode fallback, result re-persisted
  *   - buildHardwareEvmTransaction + buildSignedTxFromSignatureEvm wired in
  *     for both EIP-1559 and legacy shapes
  *   - signMessage throws when path missing
@@ -45,9 +45,8 @@ const MOCK_SID_FROM_KEYCHAIN = 'sess_N1fKj3BvP4kRZ';
 const MOCK_STALE_PS = 'stalePsXyz7HkLm9';
 const MOCK_STALE_SID = 'staleSidAbc4JkRp';
 const MOCK_RESOLVED_PS = 'freshResolveWxYz23';
-// Returned by sdk.searchDevices() after a fresh getPassphraseState — this
-// is the session_id that persistPassphraseState must capture and write to
-// the keychain to replace the now-invalid stale one.
+// Returned by getPassphraseState after a fresh hidden-wallet resolve. The
+// session_id must be written with the matching passphraseState.
 const MOCK_FRESH_SID_AFTER_RESOLVE = 'sess_freshAfterUnlockK7';
 
 const DEVICE: DeviceInfo = {
@@ -71,7 +70,7 @@ function makeDeps(
     keychainGet: jest.Mock;
     keychainSet: jest.Mock;
     installPassphraseProvider: jest.Mock;
-    resolvePassphraseStateByMode: jest.Mock;
+    resolvePassphraseSessionByMode: jest.Mock;
     preloadSessionCache: jest.Mock;
     stderrWrite: jest.Mock;
   };
@@ -90,21 +89,16 @@ function makeDeps(
   });
 
   const sdk = {
-    getFeatures: jest.fn(async () =>
-      makeSuccess({ unlocked: overrides.unlocked ?? true }),
+    getDeviceState: jest.fn(async () =>
+      makeSuccess({ status: { unlocked: overrides.unlocked ?? true } }),
     ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),
-    // searchDevices is invoked by persistPassphraseState to discover the
-    // session_id the device just minted for the freshly-resolved passphrase.
     searchDevices: jest.fn(async () =>
       makeSuccess([
         {
           connectId: DEVICE.connectId,
           deviceId: DEVICE.deviceId,
-          features: {
-            device_id: DEVICE.deviceId,
-            session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
-          },
+          sessionId: MOCK_FRESH_SID_AFTER_RESOLVE,
         },
       ]),
     ),
@@ -125,8 +119,12 @@ function makeDeps(
   // passphraseState from the SDK is an opaque ASCII token (base58-ish,
   // not hex). The default here matches the real-world shape so the
   // keychain utf-8 round-trip stays honest under test.
-  const resolvePassphraseStateByMode =
-    overrides.resolveByMode ?? jest.fn(async () => MOCK_RESOLVED_PS);
+  const resolvePassphraseSessionByMode =
+    overrides.resolveByMode ??
+    jest.fn(async () => ({
+      passphraseState: MOCK_RESOLVED_PS,
+      sessionId: MOCK_FRESH_SID_AFTER_RESOLVE,
+    }));
   const preloadSessionCache = overrides.preloadSessionCache ?? jest.fn();
   const stderrWrite = jest.fn(() => true);
 
@@ -134,8 +132,8 @@ function makeDeps(
     ensureSDKReady:
       ensureSDKReady as unknown as ISignerHardwareDeps['ensureSDKReady'],
     installPassphraseProvider,
-    resolvePassphraseStateByMode:
-      resolvePassphraseStateByMode as unknown as ISignerHardwareDeps['resolvePassphraseStateByMode'],
+    resolvePassphraseSessionByMode:
+      resolvePassphraseSessionByMode as unknown as ISignerHardwareDeps['resolvePassphraseSessionByMode'],
     keychainFactory: () => ({
       get: keychainGet,
       set: keychainSet,
@@ -152,7 +150,7 @@ function makeDeps(
       keychainGet,
       keychainSet,
       installPassphraseProvider,
-      resolvePassphraseStateByMode,
+      resolvePassphraseSessionByMode,
       preloadSessionCache,
       stderrWrite,
     },
@@ -229,7 +227,7 @@ describe('SignerHardware', () => {
 
       expect(addr).toEqual({ address: '0xabc', path: "m/44'/60'/0'/0/0" });
       expect(mocks.keychainGet).not.toHaveBeenCalled();
-      expect(mocks.resolvePassphraseStateByMode).not.toHaveBeenCalled();
+      expect(mocks.resolvePassphraseSessionByMode).not.toHaveBeenCalled();
       expect(mocks.preloadSessionCache).not.toHaveBeenCalled();
 
       const callArgs = mocks.sdk.evmGetAddress.mock.calls[0];
@@ -280,7 +278,7 @@ describe('SignerHardware', () => {
         MOCK_PS_FROM_KEYCHAIN,
         MOCK_SID_FROM_KEYCHAIN,
       );
-      expect(mocks.resolvePassphraseStateByMode).not.toHaveBeenCalled();
+      expect(mocks.resolvePassphraseSessionByMode).not.toHaveBeenCalled();
       const params = mocks.sdk.evmGetAddress.mock.calls[0][2];
       expect(params).toMatchObject({
         passphraseState: MOCK_PS_FROM_KEYCHAIN,
@@ -309,8 +307,9 @@ describe('SignerHardware', () => {
       await signer.getAddress('evm--1');
 
       expect(mocks.sdk.deviceUnlock).toHaveBeenCalledWith(DEVICE.connectId, {});
-      expect(mocks.resolvePassphraseStateByMode).toHaveBeenCalledWith(
+      expect(mocks.resolvePassphraseSessionByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
+        DEVICE.deviceId,
         'on_host',
       );
 
@@ -328,8 +327,9 @@ describe('SignerHardware', () => {
         Buffer.from(MOCK_FRESH_SID_AFTER_RESOLVE, 'utf-8'),
       );
 
-      // searchDevices is the source of the fresh session_id post-resolve.
-      expect(mocks.sdk.searchDevices).toHaveBeenCalled();
+      // session_id now comes from the getPassphraseState payload directly.
+      // searchDevices may still run during signer init for connectId refresh,
+      // but it is no longer the source of the freshly resolved session_id.
 
       // After persisting, warm the SDK in-process cache with the new
       // (deviceId, freshPassphraseState, freshSessionId) triple so any
@@ -358,8 +358,9 @@ describe('SignerHardware', () => {
 
       await signer.getAddress('evm--1');
 
-      expect(mocks.resolvePassphraseStateByMode).toHaveBeenCalledWith(
+      expect(mocks.resolvePassphraseSessionByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
+        DEVICE.deviceId,
         'on_host',
       );
       // Both keys must be written so the next process can preload a valid
@@ -376,7 +377,7 @@ describe('SignerHardware', () => {
 
     it('throws when hidden wallet resolve returns undefined instead of silently using standard wallet', async () => {
       const { deps } = makeDeps({
-        resolveByMode: jest.fn(async () => undefined),
+        resolveByMode: jest.fn(async () => ({})),
       });
       const signer = new SignerHardware({
         device: DEVICE,
@@ -563,10 +564,7 @@ describe('SignerHardware', () => {
               {
                 connectId: FRESH_CONNECT_ID,
                 deviceId: DEVICE.deviceId,
-                features: {
-                  device_id: DEVICE.deviceId,
-                  session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
-                },
+                sessionId: MOCK_FRESH_SID_AFTER_RESOLVE,
               },
             ]),
           ),
@@ -620,7 +618,6 @@ describe('SignerHardware', () => {
               {
                 connectId: 'other-device-connect',
                 deviceId: 'other-device-id',
-                features: { device_id: 'other-device-id' },
               },
             ]),
           ),

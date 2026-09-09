@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
   useFocusedTab,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -33,24 +34,29 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useUnifiedNetworkSelectorTrigger } from '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
+import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePerpTabConfig } from '../../../hooks/usePerpTabConfig';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
@@ -69,12 +75,16 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
-import { shouldShowNoWalletContent } from './homePageNoWalletContent';
+import {
+  isWalletListResolvedNoWallet,
+  shouldShowNoWalletContent,
+} from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -86,6 +96,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -197,24 +208,30 @@ export function HomePageView({
   const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isTravelModeRuntime =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const { md: isSmallScreen } = useMedia();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const {
-    activeAccount: {
-      account,
-      accountName,
-      network,
-      deriveInfo,
-      wallet,
-      ready,
-      device,
-      indexedAccount,
-      vaultSettings: cachedVaultSettings,
-    },
-  } = useActiveAccount({ num: 0 });
+    account,
+    accountName,
+    network,
+    deriveInfo,
+    wallet,
+    ready,
+    device,
+    indexedAccount,
+    vaultSettings: cachedVaultSettings,
+  } = activeAccount;
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num: 0,
+  });
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
     useIsAccountSelectorActiveAccountInitDone(0);
-  const { result: walletListResult } = usePromiseResult(
+  const { result: walletListResult, run: refreshWalletList } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
         ignoreEmptySingletonWalletAccounts: true,
@@ -303,27 +320,11 @@ export function HomePageView({
     (vaultSettings?.NFTEnabled &&
       networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''));
 
-  const { result: isDeFiEnabled = true } = usePromiseResult(
-    async () => {
-      if (!network?.id) return false;
-      if (networkUtils.isAllNetwork({ networkId: network.id })) return true;
-      const enabledNetworks =
-        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
-      return !!enabledNetworks[network.id];
-    },
-    [network?.id],
-    {
-      initResult: true,
-      swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
-    },
-  );
-  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-
-  const isPerpsEnabled = useMemo(() => {
-    if (perpDisabled) return false;
-    if (network?.isAllNetworks) return true;
-    return networkUtils.isEvmNetwork({ networkId: network?.id });
-  }, [network?.id, network?.isAllNetworks, perpDisabled]);
+  const {
+    isDeFiSupported: isDeFiEnabled,
+    isPerpsSupported: isPerpsEnabled,
+    perpTabShowWeb,
+  } = useHomeWalletTabSupport({ network });
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -433,6 +434,15 @@ export function HomePageView({
         autoCreateAddress
         createAllDeriveTypes
         createAllEnabledNetworks
+        onCreateAddress={
+          network?.isAllNetworks
+            ? () =>
+                showUnifiedNetworkSelector({
+                  recordNetworkHistoryEnabled: true,
+                  defaultTab: 'portfolio',
+                })
+            : undefined
+        }
         name={accountName}
         chain={network?.name ?? ''}
         type={
@@ -444,7 +454,15 @@ export function HomePageView({
         }
       />
     ),
-    [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
+    [
+      accountName,
+      deriveInfo?.label,
+      deriveInfo?.labelKey,
+      intl,
+      network?.isAllNetworks,
+      network?.name,
+      showUnifiedNetworkSelector,
+    ],
   );
 
   // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
@@ -557,6 +575,7 @@ export function HomePageView({
   }, [tabConfigs]);
 
   const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 
@@ -655,6 +674,8 @@ export function HomePageView({
 
   const renderTabBar = useCallback(
     (tabBarProps: any) => {
+      // Design: plain-text tabs on small screens only; pill elsewhere.
+      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
@@ -672,10 +693,11 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
+            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
-            variant="pill"
+            variant={tabBarVariant}
             renderItem={handleRenderItem}
             renderToolbar={renderToolbar}
           />
@@ -702,7 +724,7 @@ export function HomePageView({
                 perpTabShowWeb ? undefined : tabBarProps.indexDecimal
               }
               onTabPress={handleTabPress}
-              variant="pill"
+              variant={tabBarVariant}
               renderItem={handleRenderItem}
               renderToolbar={renderToolbar}
               containerStyle={{ position: 'relative' as any }}
@@ -728,6 +750,7 @@ export function HomePageView({
       renderToolbar,
       switchToPerpsWebTab,
       perpTabShowWeb,
+      isSmallScreen,
       tabConfigs,
       tabBarTabNames,
     ],
@@ -839,12 +862,28 @@ export function HomePageView({
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
+    // The remount key resets the pager to the first tab while HomePageView's
+    // activeTab state still points at the previously selected tab, so seed
+    // the remounted container with that tab. But the new pagerTabConfigs and
+    // the stale activeTabName can land in the same render (the reset effect
+    // above runs only after it), and the web Tabs.Container initializes
+    // focusedTab with whatever name it receives without falling back when
+    // the name is missing from the tab set — leaving content, highlight and
+    // active state out of sync. Validate here and fall back to the first tab.
+    const seedTabName = pagerTabConfigs.some(
+      (tab) => tab.name === activeTabName,
+    )
+      ? activeTabName
+      : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // Both implementations only read this prop at mount.
+        initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
-        headerHeight={platformEnv.isNative ? 312 : undefined}
+        disableWebTabContentVisibility
+        headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -880,6 +919,7 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
+    activeTabName,
     activeTabId,
     mountedHomeTabIds,
   ]);
@@ -913,10 +953,28 @@ export function HomePageView({
     const clearCache = async () => {
       await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
     };
+    // Keep the no-wallet gate's wallet list fresh: it feeds
+    // shouldShowNoWalletContent, and a stale mount-time list can hold Home on
+    // the blank fallback after wallets are removed while mounted.
+    const refreshWalletListForNoWalletGate = () => {
+      void refreshWalletList();
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
     appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    appEventBus.on(
+      EAppEventBusNames.WalletUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountUpdate,
+      refreshWalletListForNoWalletGate,
+    );
+    appEventBus.on(
+      EAppEventBusNames.AccountRemove,
+      refreshWalletListForNoWalletGate,
+    );
     appEventBus.on(
       EAppEventBusNames.SwitchWalletHomeTab,
       handleSwitchWalletHomeTab,
@@ -926,15 +984,27 @@ export function HomePageView({
       appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
       appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
       appEventBus.off(
+        EAppEventBusNames.WalletUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountUpdate,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
+        EAppEventBusNames.AccountRemove,
+        refreshWalletListForNoWalletGate,
+      );
+      appEventBus.off(
         EAppEventBusNames.SwitchWalletHomeTab,
         handleSwitchWalletHomeTab,
       );
     };
-  }, [handleSwitchWalletHomeTab]);
+  }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
-      if (!network?.id) return undefined;
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
       const checkResult =
         await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
           {
@@ -985,12 +1055,13 @@ export function HomePageView({
 
     if (
       !account &&
-      !(
-        vaultSettings?.mergeDeriveAssetsEnabled &&
-        networkAccounts &&
-        networkAccounts.networkAccounts &&
-        networkAccounts.networkAccounts.length > 0
-      )
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts &&
+          networkAccounts.networkAccounts &&
+          networkAccounts.networkAccounts.length > 0
+        ))
     ) {
       return (
         <YStack flex={1}>
@@ -1026,6 +1097,7 @@ export function HomePageView({
     watchingAccountEnabled,
     emptyAccountView,
     network?.id,
+    network?.isAllNetworks,
     tabs,
   ]);
 
@@ -1044,6 +1116,10 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
+  const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
+    wallets: walletListResult?.wallets,
+  });
   const walletPageContent = useMemo(
     () =>
       platformEnv.isNative ? (
@@ -1053,15 +1129,22 @@ export function HomePageView({
       ),
     [homePageContent],
   );
+  const activeWalletId = wallet?.id;
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
+    forceNoWalletContent: isTravelModeRuntime,
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+    walletListResolvedNoWallet,
+    activeWalletUnavailable,
+    activeWalletId,
+    walletListWalletIds,
   });
 
   const homePage = useMemo(() => {
-    if (!ready) {
+    if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
@@ -1088,6 +1171,10 @@ export function HomePageView({
               <RiskApprovalAlert />
               <WatchOnlyAlert />
               <NetworkAlert />
+              <NotificationPermissionRecoveryAlert
+                scene="home"
+                initialDelayMs={6000}
+              />
             </Stack>
             {content}
             {platformEnv.isNative ? (
@@ -1112,6 +1199,7 @@ export function HomePageView({
     );
   }, [
     ready,
+    isTravelModeRuntime,
     hasNoUsableWallet,
     showNoWalletContent,
     tabPageHeight,

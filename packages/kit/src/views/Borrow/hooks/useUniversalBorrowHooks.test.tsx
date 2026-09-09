@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => {
   const actualReactIntl =
     jest.requireActual<typeof import('react-intl')>('react-intl');
@@ -51,6 +62,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     getBorrowRepayWithCollateralQuote: jest.fn(),
     borrowBuildRepayWithCollateralTransaction: jest.fn(),
     borrowBuildSetupLutTransaction: jest.fn(),
+    borrowBuildSupplyTransaction: jest.fn(),
     updateEarnOrder: jest.fn(),
     updateOrderStatusByTxId: jest.fn(),
     waitForSolTxFinalized: jest.fn(),
@@ -89,7 +101,12 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 
-import { useUniversalBorrowRepayWithCollateral } from './useUniversalBorrowHooks';
+import {
+  useUniversalBorrowRepay,
+  useUniversalBorrowRepayWithCollateral,
+  useUniversalBorrowSupply,
+  useUniversalBorrowWithdraw,
+} from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
 // jest.mock('@onekeyhq/components') can't replace the Toast export.
@@ -110,6 +127,7 @@ const backgroundMock = (globalThis as any).__borrowBackgroundMock as {
     updateEarnOrder: jest.Mock;
     updateOrderStatusByTxId: jest.Mock;
     waitForSolTxFinalized: jest.Mock;
+    borrowBuildSupplyTransaction: jest.Mock;
   };
 };
 
@@ -521,5 +539,123 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       slippageBps: undefined,
     });
     expect(toastErrorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
+  beforeEach(() => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockReset();
+    mockEnsureRiskAccepted.mockReset();
+  });
+
+  it('builds and hands off the supply transaction once accepted', async () => {
+    mockEnsureRiskAccepted.mockResolvedValue(true);
+    backgroundMock.serviceStaking.borrowBuildSupplyTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'supply-order-id',
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+      });
+    });
+
+    expect(started).toBe(true);
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false and builds nothing when the disclaimer is rejected', async () => {
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+
+    const { result } = renderHook(() =>
+      useUniversalBorrowSupply({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44',
+      }),
+    );
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+      });
+    });
+
+    expect(started).toBe(false);
+    expect(
+      backgroundMock.serviceStaking.borrowBuildSupplyTransaction,
+    ).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('rejected disclaimer stays observable to the caller', () => {
+  beforeEach(() => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    mockEnsureRiskAccepted.mockReset();
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+  });
+
+  // The lending action dialog takes its submit guard before calling and
+  // releases it from these callbacks, so "no callback + no throw" is exactly
+  // the contract it relies on to know it must release the guard itself.
+  it.each([
+    ['withdraw', useUniversalBorrowWithdraw],
+    ['repay', useUniversalBorrowRepay],
+  ])('%s returns false without firing any callback', async (_name, useHook) => {
+    const onSuccess = jest.fn();
+    const onFail = jest.fn();
+    const onCancel = jest.fn();
+    const onSettleResult = jest.fn();
+    const onBeforeNavigate = jest.fn();
+
+    const { result } = renderHook(() =>
+      useHook({ networkId: 'evm--1', accountId: 'hd-1--m/44' }),
+    );
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        onBeforeNavigate,
+        onSettleResult,
+        onSuccess,
+        onFail,
+        onCancel,
+      });
+    });
+
+    expect(started).toBe(false);
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    for (const callback of [
+      onSuccess,
+      onFail,
+      onCancel,
+      onSettleResult,
+      onBeforeNavigate,
+    ]) {
+      expect(callback).not.toHaveBeenCalled();
+    }
   });
 });

@@ -1,6 +1,7 @@
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-export const MAX_BUFFERED_TRANSACTIONS = 100;
+export const MARKET_DETAIL_MAX_TRANSACTIONS = 50;
+export const MAX_BUFFERED_TRANSACTIONS = 50;
 
 export function mergeUniqueTransactions(
   transactions: IMarketTokenTransaction[],

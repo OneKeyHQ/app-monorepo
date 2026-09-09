@@ -1,3 +1,4 @@
+import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   ISwapToken,
   ISwapTxHistory,
@@ -7,7 +8,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { SimpleDbEntitySwapHistory } from './SimpleDbEntitySwapHistory';
+import {
+  type ISwapTxHistoryPersistList,
+  SimpleDbEntitySwapHistory,
+} from './SimpleDbEntitySwapHistory';
 
 const baseToken: ISwapToken = {
   networkId: 'evm--1',
@@ -26,6 +30,26 @@ function createToken(
 
 const usdc = createToken('USDC', '0xUSDC');
 const stockToken = createToken('AAPLon', '0xAAPLon', { isStock: true });
+const dynamicToken = createToken('RHE', '0xRHE', {
+  networkId: 'evm--4663',
+  networkLogoURI: 'https://example.com/robinhood-token.png',
+});
+const dynamicNetwork: IServerNetwork = {
+  id: 'evm--4663',
+  impl: 'evm',
+  chainId: '4663',
+  name: 'Robinhood',
+  code: 'robinhood',
+  shortname: 'Robinhood',
+  shortcode: 'robinhood',
+  symbol: 'ETH',
+  logoURI: 'https://example.com/robinhood.png',
+  decimals: 18,
+  feeMeta: { decimals: 18, symbol: 'ETH' },
+  defaultEnabled: true,
+  status: ENetworkStatus.LISTED,
+  isTestnet: false,
+};
 
 function createHistoryItem({
   id,
@@ -130,15 +154,16 @@ async function runDelete(
 ): Promise<ISwapTxHistory[]> {
   const entity = new SimpleDbEntitySwapHistory();
   jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories });
-  const setRawData = jest
-    .spyOn(entity, 'setRawData')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .mockResolvedValue(undefined as any);
+  let written: ISwapTxHistoryPersistList | undefined;
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (dataOrBuilder) => {
+    written =
+      typeof dataOrBuilder === 'function'
+        ? await dataOrBuilder({ histories })
+        : dataOrBuilder;
+    return written;
+  });
   await entity.deleteSwapHistoryItem(...args);
-  const written = setRawData.mock.calls[0]?.[0] as {
-    histories: ISwapTxHistory[];
-  };
-  return written.histories;
+  return written?.histories ?? [];
 }
 
 describe('SimpleDbEntitySwapHistory.deleteSwapHistoryItem onlyStock', () => {
@@ -186,5 +211,212 @@ describe('SimpleDbEntitySwapHistory.deleteSwapHistoryItem onlyStock', () => {
       { onlyStock: true },
     );
     expect(kept).toEqual([stockSuccess, swapSuccess]);
+  });
+});
+
+describe('SimpleDbEntitySwapHistory.repairSwapHistoryNetworkInfo', () => {
+  it('does not write complete history rows', async () => {
+    const history = createHistoryItem({
+      id: 'complete',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.SUCCESS,
+      fromToken: dynamicToken,
+      toToken: dynamicToken,
+    });
+    history.baseInfo.fromNetwork = {
+      networkId: dynamicNetwork.id,
+      name: dynamicNetwork.name,
+      symbol: dynamicNetwork.symbol,
+    };
+    history.baseInfo.toNetwork = history.baseInfo.fromNetwork;
+    const entity = new SimpleDbEntitySwapHistory();
+    jest
+      .spyOn(entity, 'getRawData')
+      .mockResolvedValue({ histories: [history] });
+    const setRawData = jest.spyOn(entity, 'setRawData');
+
+    const result = await entity.repairSwapHistoryNetworkInfo([dynamicNetwork]);
+
+    expect(result).toEqual({ histories: [history], changed: false });
+    expect(setRawData).not.toHaveBeenCalled();
+  });
+
+  it('repairs the current locked blob and preserves concurrent rows', async () => {
+    const legacy = createHistoryItem({
+      id: 'legacy',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.PENDING,
+      fromToken: dynamicToken,
+      toToken: dynamicToken,
+    });
+    legacy.baseInfo.fromNetwork = {
+      networkId: '',
+      name: '',
+      symbol: '',
+    };
+    legacy.baseInfo.toNetwork = legacy.baseInfo.fromNetwork;
+    const concurrent = createHistoryItem({
+      id: 'concurrent',
+      protocol: EProtocolOfExchange.SWAP,
+      status: ESwapTxHistoryStatus.SUCCESS,
+    });
+    concurrent.baseInfo.fromNetwork = {
+      networkId: baseToken.networkId,
+      name: 'Ethereum',
+      symbol: 'ETH',
+    };
+    concurrent.baseInfo.toNetwork = concurrent.baseInfo.fromNetwork;
+
+    const entity = new SimpleDbEntitySwapHistory();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories: [legacy] });
+    let writtenData: ISwapTxHistoryPersistList | undefined;
+    const setRawData = jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        expect(typeof dataOrBuilder).toBe('function');
+        if (typeof dataOrBuilder !== 'function') {
+          return dataOrBuilder;
+        }
+        writtenData = await dataOrBuilder({
+          histories: [legacy, concurrent],
+          previewReadSeeded: true,
+        });
+        return writtenData;
+      });
+
+    const result = await entity.repairSwapHistoryNetworkInfo([dynamicNetwork]);
+
+    expect(setRawData).toHaveBeenCalledTimes(1);
+    expect(writtenData?.previewReadSeeded).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(result.histories).toHaveLength(2);
+    expect(result.histories[0].baseInfo.fromNetwork).toMatchObject({
+      networkId: dynamicNetwork.id,
+      name: dynamicNetwork.name,
+      symbol: dynamicNetwork.symbol,
+    });
+    expect(result.histories[1]).toBe(concurrent);
+  });
+});
+
+async function runUpdate(
+  data: ISwapTxHistoryPersistList,
+  ...args: Parameters<SimpleDbEntitySwapHistory['updateSwapHistoryItem']>
+): Promise<ISwapTxHistoryPersistList | null> {
+  const entity = new SimpleDbEntitySwapHistory();
+  jest.spyOn(entity, 'getRawData').mockResolvedValue(data);
+  let written: ISwapTxHistoryPersistList | undefined;
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (dataOrBuilder) => {
+    written =
+      typeof dataOrBuilder === 'function'
+        ? await dataOrBuilder(data)
+        : dataOrBuilder;
+    return written;
+  });
+  await entity.updateSwapHistoryItem(...args);
+  return written ?? null;
+}
+
+describe('SimpleDbEntitySwapHistory durable mutations', () => {
+  const resolved: ISwapTxHistory = {
+    ...swapPending,
+    status: ESwapTxHistoryStatus.SUCCESS,
+  };
+
+  it('replaces the stored row in place', async () => {
+    const written = await runUpdate(
+      { histories: [swapPending, swapSuccess] },
+      resolved,
+    );
+    expect(written?.histories).toEqual([resolved, swapSuccess]);
+  });
+
+  it('promotes a durably staged pending write', async () => {
+    const written = await runUpdate(
+      { histories: [swapSuccess], pendingWrites: [swapPending] },
+      resolved,
+    );
+    expect(written).toEqual({
+      histories: [resolved, swapSuccess],
+      pendingWrites: [],
+    });
+  });
+
+  it('leaves a cleared row deleted when a late status update arrives', async () => {
+    const written = await runUpdate({ histories: [swapSuccess] }, resolved);
+    expect(written).toBeNull();
+  });
+
+  it('does not revive a staged row when deletion races its status update', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    let stored: ISwapTxHistoryPersistList = {
+      histories: [],
+      pendingWrites: [swapPending],
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+    jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        stored =
+          typeof dataOrBuilder === 'function'
+            ? await dataOrBuilder(stored)
+            : dataOrBuilder;
+        return stored;
+      });
+
+    const deletion = entity.deleteOneSwapHistory({
+      txId: resolved.txInfo.txId,
+    });
+    const update = entity.updateSwapHistoryItem(resolved);
+    await Promise.all([deletion, update]);
+
+    expect(stored).toEqual({ histories: [], pendingWrites: [] });
+  });
+
+  it('does not commit a staged write after that stage is deleted', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    let stored: ISwapTxHistoryPersistList = {
+      histories: [],
+      pendingWrites: [swapPending],
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+    jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        stored =
+          typeof dataOrBuilder === 'function'
+            ? await dataOrBuilder(stored)
+            : dataOrBuilder;
+        return stored;
+      });
+
+    await entity.deleteOneSwapHistory({ txId: swapPending.txInfo.txId });
+    await entity.commitPendingSwapHistoryItem(swapPending);
+
+    expect(stored).toEqual({ histories: [], pendingWrites: [] });
+  });
+
+  it('recovers staged pending writes after a runtime restart', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    let stored: ISwapTxHistoryPersistList = {
+      histories: [swapSuccess],
+      pendingWrites: [swapPending],
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+    jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        stored =
+          typeof dataOrBuilder === 'function'
+            ? await dataOrBuilder(stored)
+            : dataOrBuilder;
+        return stored;
+      });
+
+    await expect(entity.recoverPendingSwapHistoryItems()).resolves.toBe(1);
+    expect(stored).toEqual({
+      histories: [swapPending, swapSuccess],
+      pendingWrites: [],
+    });
   });
 });

@@ -9,6 +9,7 @@ import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { setGlassHeaderUIStyle } from '../../primitives/Button/GlassHeaderContext';
+import { Haptics } from '../../primitives/Haptics';
 
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
@@ -16,6 +17,8 @@ import { SettingConfigContext } from './hooks/useProviderValue';
 import { TamaguiProvider } from './TamaguiProvider';
 
 import type { TamaguiConfig } from 'tamagui';
+
+export { setSystemBarsOverride } from './hooks/useAppearanceTheme';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -37,6 +40,8 @@ export type IUIProviderProps = PropsWithChildren<{
   waitFontLoaded?: boolean;
 
   onLocaleChange?: (locale: ILocaleSymbol) => void;
+
+  hapticFeedbackEnabled?: boolean;
 
   HyperlinkText: typeof HyperlinkText;
 }>;
@@ -66,6 +71,7 @@ export function ConfigProvider({
   locale,
   HyperlinkText,
   onLocaleChange,
+  hapticFeedbackEnabled = true,
 }: IUIProviderProps) {
   // On iOS 26 the Liquid Glass nav bar's light/dark variant is driven by
   // react-navigation's theme, which resolves a frame late on each navigation
@@ -77,15 +83,17 @@ export function ConfigProvider({
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(theme);
   }
+  Haptics.setEnabled(hapticFeedbackEnabled);
 
   const providerValue = useMemo(
     () => ({
       theme,
       themeSetting,
       locale,
+      hapticFeedbackEnabled,
       HyperlinkText,
     }),
-    [theme, themeSetting, locale, HyperlinkText],
+    [theme, themeSetting, locale, hapticFeedbackEnabled, HyperlinkText],
   );
 
   const config = useMemo(

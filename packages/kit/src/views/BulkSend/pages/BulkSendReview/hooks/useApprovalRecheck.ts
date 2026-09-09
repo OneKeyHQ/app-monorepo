@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
@@ -17,7 +19,6 @@ type IUseApprovalRecheckParams = {
   accountId: string | undefined;
   tokenInfo: IToken;
   transfersInfo: ITransferInfo[];
-  totalTokenAmount: string;
   approvesInfo: IApproveInfo[];
   setApprovesInfo: React.Dispatch<React.SetStateAction<IApproveInfo[]>>;
   setUnsignedTxs: React.Dispatch<React.SetStateAction<IUnsignedTxPro[]>>;
@@ -29,7 +30,6 @@ export function useApprovalRecheck({
   accountId,
   tokenInfo,
   transfersInfo,
-  totalTokenAmount,
   approvesInfo,
   setApprovesInfo,
   setUnsignedTxs,
@@ -76,6 +76,18 @@ export function useApprovalRecheck({
     const sender = transfersInfo[0]?.from;
     if (!sender) return false;
 
+    // The allowance to verify is the raw on-chain total the approve tx
+    // granted. transfersInfo amounts are raw here (scaled-UI display amounts
+    // were converted at submit), while the route's totalTokenAmount stays
+    // display-basis for the summary — summing transfers keeps this check on
+    // the same basis as the approval itself.
+    const rawTotalAmount = transfersInfo
+      .reduce(
+        (acc, transfer) => acc.plus(transfer.amount || '0'),
+        new BigNumber(0),
+      )
+      .toFixed();
+
     try {
       const result = await backgroundApiProxy.serviceSwap.fetchApproveAllowance(
         {
@@ -84,20 +96,14 @@ export function useApprovalRecheck({
           spenderAddress: bulkSendContractAddress,
           walletAddress: sender,
           accountId,
-          amount: totalTokenAmount,
+          amount: rawTotalAmount,
         },
       );
       return !!result?.isApproved;
     } catch {
       return false;
     }
-  }, [
-    accountId,
-    networkId,
-    transfersInfo,
-    tokenInfo.address,
-    totalTokenAmount,
-  ]);
+  }, [accountId, networkId, transfersInfo, tokenInfo.address]);
 
   const startApprovalRecheck = useCallback(() => {
     // Skip if no approvals to recheck

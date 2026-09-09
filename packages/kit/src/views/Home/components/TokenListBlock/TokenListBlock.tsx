@@ -13,10 +13,8 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  IconButton,
   Skeleton,
   Stack,
-  XStack,
   onVisibilityStateChange,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -26,7 +24,6 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
-import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import {
   type IScopedActiveTokenList,
   type IScopedActiveTokenListState,
@@ -74,6 +71,8 @@ import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simp
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   EJotaiContextStoreNames,
+  useFirmwareUpdateWorkflowRunningAtom,
+  useHardwareUiStateAtom,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -85,6 +84,7 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -103,6 +103,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
@@ -111,6 +112,7 @@ import {
 import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
+  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
@@ -137,9 +139,16 @@ import {
   evaluateWalletAssetStatus,
   getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
+  shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
+import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import { PortfolioSyncButton } from './PortfolioSyncButton';
+import {
+  countFundedHardwarePortfolioTokens,
+  selectHardwarePortfolioTokens,
+} from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -154,6 +163,7 @@ const networkIdsMap = getNetworkIdsMap();
  * call — flip it to `false` to stop feeding the BG VM in an emergency.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
+const PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS = 1500;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -177,6 +187,23 @@ type IAggregateTokenListMapWithCommonToken = Record<
   }
 >;
 
+function pickTokenListFiatMap({
+  tokens,
+  tokenListMap,
+}: {
+  tokens: IAccountToken[];
+  tokenListMap: Record<string, ITokenFiat>;
+}) {
+  const map: Record<string, ITokenFiat> = {};
+  tokens.forEach((token) => {
+    const fiat = tokenListMap[token.$key];
+    if (fiat) {
+      map[token.$key] = fiat;
+    }
+  });
+  return map;
+}
+
 type IActiveAccountTokenListRequestContext = {
   accountId: string;
   indexedAccountId: string;
@@ -184,6 +211,35 @@ type IActiveAccountTokenListRequestContext = {
   mergeDeriveAddressData: boolean;
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
 };
+
+type IPortfolioSyncRequestPhase =
+  | 'queued'
+  | 'refreshing'
+  | 'settled'
+  | 'communicating';
+
+type IPortfolioSyncRequest = {
+  id: number;
+  minimumAllNetworksGeneration?: number;
+  phase: IPortfolioSyncRequestPhase;
+  targetKey: string;
+};
+
+type IPortfolioSyncTarget = {
+  deviceDbId: string;
+  indexedAccountId: string;
+  networkId: string;
+  walletId: string;
+};
+
+function buildPortfolioSyncTargetKey({
+  deviceDbId,
+  indexedAccountId,
+  networkId,
+  walletId,
+}: IPortfolioSyncTarget) {
+  return [walletId, indexedAccountId, networkId, deviceDbId].join('|');
+}
 
 function buildTokenSelectorFilterMode(
   lpToken: boolean,
@@ -225,6 +281,7 @@ function TokenListBlock({
       accountName,
       network,
       wallet,
+      device,
       indexedAccount,
       isOthersWallet,
       deriveInfo,
@@ -233,6 +290,10 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [firmwareUpdateWorkflowRunning] =
+    useFirmwareUpdateWorkflowRunningAtom();
+  const [hardwareUiState] = useHardwareUiStateAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
   // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
@@ -247,7 +308,7 @@ function TokenListBlock({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
-  // The all-network LWW orchestration pipeline (design §2 收口 facade): owns the
+  // The all-network LWW orchestration pipeline (design §2 facade): owns the
   // FloorView (LwwMaterializedView, SWR floor + IVM full-overwrite +
   // intersection-evict + generation guard) + the merge + the `ingestRound` feed.
   // The render-state writes (worth/overview/tokenListState) stay in this
@@ -271,8 +332,7 @@ function TokenListBlock({
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
   } = pipeline;
-  const [tokenSelectorFilter, setTokenSelectorFilter] =
-    useTokenSelectorFilterPersistAtom();
+  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
   const showLpTokenFilterSwitch =
     isTokenSelectorDappTokenFilterSupportedNetwork({
@@ -295,7 +355,6 @@ function TokenListBlock({
       isRefreshing: false,
       initialized: false,
     });
-  const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
   const [tokenListState] = useTokenListStateAtom();
   const [allNetworkAccounts, setAllNetworkAccounts] = useState<
     IAllNetworkAccountInfo[] | undefined
@@ -345,7 +404,163 @@ function TokenListBlock({
     tokenSelectorFilterMode,
   };
   const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
+  const singleNetworkRefreshGenerationRef = useRef(0);
+  const portfolioSyncRequestIdRef = useRef(0);
+  const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
+    undefined,
+  );
+  const portfolioSyncAllNetworksFallbackTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const portfolioSyncSuccessTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const allowEmptyInteractivePortfolioSyncRequestIdRef = useRef<
+    number | undefined
+  >(undefined);
+  const allNetworksTokenListUpdateInFlightRef = useRef(false);
+  const allNetworksTokenListUpdatePendingRef = useRef(false);
+  const allNetworksPublishedResultRef = useRef<{
+    generation: number;
+    result: IAllNetworkTokenListResp[] | null | undefined;
+  }>({ generation: 0, result: undefined });
+  const updateAllNetworksTokenListRef = useRef<() => Promise<void>>(
+    async () => {},
+  );
+  const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
+    useState<IPortfolioSyncRequestPhase>();
+  const [portfolioSyncFeedback, setPortfolioSyncFeedback] = useState<
+    'idle' | 'success'
+  >('idle');
+  const portfolioSyncDeviceDbId =
+    device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
+  const portfolioSyncDeviceType =
+    device?.deviceType ?? wallet?.associatedDeviceInfo?.deviceType;
+  const portfolioSyncIndexedAccountId =
+    indexedAccount?.id ?? account?.indexedAccountId ?? '';
+  const portfolioSyncNetworkId = network?.id ?? '';
+  const portfolioSyncWalletId = wallet?.id ?? '';
+  const hasPortfolioSyncTarget = Boolean(
+    portfolioSyncDeviceDbId &&
+    portfolioSyncIndexedAccountId &&
+    portfolioSyncNetworkId &&
+    portfolioSyncWalletId,
+  );
+  const portfolioSyncTargetKey = buildPortfolioSyncTargetKey({
+    deviceDbId: portfolioSyncDeviceDbId,
+    indexedAccountId: portfolioSyncIndexedAccountId,
+    networkId: portfolioSyncNetworkId,
+    walletId: portfolioSyncWalletId,
+  });
+  const portfolioSyncTargetKeyRef = useRef(portfolioSyncTargetKey);
+  portfolioSyncTargetKeyRef.current = portfolioSyncTargetKey;
+
+  const getPortfolioSyncRequestForTarget = useCallback((targetKey: string) => {
+    const request = portfolioSyncRequestRef.current;
+    return request?.targetKey === targetKey ? request : undefined;
+  }, []);
+
+  const getCurrentPortfolioSyncRequest = useCallback(
+    () => getPortfolioSyncRequestForTarget(portfolioSyncTargetKeyRef.current),
+    [getPortfolioSyncRequestForTarget],
+  );
+
+  const clearPortfolioSyncFallbackTimer = useCallback(() => {
+    const timer = portfolioSyncAllNetworksFallbackTimerRef.current;
+    if (timer) {
+      clearTimeout(timer);
+      portfolioSyncAllNetworksFallbackTimerRef.current = undefined;
+    }
+  }, []);
+
+  const clearPortfolioSyncSuccessTimer = useCallback(() => {
+    const timer = portfolioSyncSuccessTimerRef.current;
+    if (timer) {
+      clearTimeout(timer);
+      portfolioSyncSuccessTimerRef.current = undefined;
+    }
+  }, []);
+
+  const finishPortfolioSyncRequest = useCallback(
+    (requestId: number) => {
+      if (portfolioSyncRequestRef.current?.id !== requestId) {
+        return;
+      }
+      clearPortfolioSyncFallbackTimer();
+      if (
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
+      ) {
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+      }
+      portfolioSyncRequestRef.current = undefined;
+      setPortfolioSyncRequestPhase(undefined);
+    },
+    [clearPortfolioSyncFallbackTimer],
+  );
+
+  const completePortfolioSyncRequest = useCallback(
+    (requestId: number) => {
+      const request = portfolioSyncRequestRef.current;
+      if (request?.id !== requestId) {
+        return;
+      }
+      clearPortfolioSyncFallbackTimer();
+      clearPortfolioSyncSuccessTimer();
+      if (
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
+      ) {
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+      }
+      portfolioSyncRequestRef.current = undefined;
+      setPortfolioSyncRequestPhase(undefined);
+      setPortfolioSyncFeedback('success');
+      portfolioSyncSuccessTimerRef.current = setTimeout(() => {
+        portfolioSyncSuccessTimerRef.current = undefined;
+        if (portfolioSyncTargetKeyRef.current === request.targetKey) {
+          setPortfolioSyncFeedback('idle');
+        }
+      }, PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS);
+    },
+    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
+  );
+
+  const transitionPortfolioSyncRequest = useCallback(
+    (requestId: number, phase: IPortfolioSyncRequestPhase) => {
+      const request = portfolioSyncRequestRef.current;
+      if (request?.id !== requestId || request.phase === 'communicating') {
+        return false;
+      }
+      if (phase !== 'settled') {
+        clearPortfolioSyncFallbackTimer();
+      }
+      portfolioSyncRequestRef.current = { ...request, phase };
+      setPortfolioSyncRequestPhase(phase);
+      return true;
+    },
+    [clearPortfolioSyncFallbackTimer],
+  );
   const syncTokenFilterToOverview = true;
+
+  useEffect(() => {
+    const request = portfolioSyncRequestRef.current;
+    if (request && request.targetKey !== portfolioSyncTargetKey) {
+      finishPortfolioSyncRequest(request.id);
+    }
+    clearPortfolioSyncSuccessTimer();
+    setPortfolioSyncFeedback('idle');
+  }, [
+    clearPortfolioSyncSuccessTimer,
+    finishPortfolioSyncRequest,
+    portfolioSyncTargetKey,
+  ]);
+
+  useEffect(
+    () => () => {
+      clearPortfolioSyncFallbackTimer();
+      clearPortfolioSyncSuccessTimer();
+    },
+    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
+  );
 
   const accountTokensValue = useMemo(
     () =>
@@ -435,37 +650,6 @@ function TokenListBlock({
   const tokenListStore = useTokenListContextData().store!;
   const [listStructure] = useListStructureAtom();
 
-  const handleLpTokenFilterChange = useCallback(
-    (value: boolean) => {
-      if (value === showLpTokensOnly) {
-        return;
-      }
-      setIsLpTokenSwitchLoading(!!value && !!account?.id && !!network?.id);
-      if (value && account?.id && network?.id) {
-        setScopedLpTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        setScopedLpTokenList({
-          tokens: [],
-          keys: '',
-        });
-        setScopedLpTokenListMap({});
-      } else {
-        setScopedLpTokenListState({
-          initialized: true,
-          isRefreshing: false,
-        });
-        setIsLpTokenSwitchLoading(false);
-      }
-      setTokenSelectorFilter((prev) => ({
-        ...prev,
-        homeShowLpTokensOnly: value,
-      }));
-    },
-    [account?.id, network?.id, setTokenSelectorFilter, showLpTokensOnly],
-  );
-
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
     return r;
@@ -474,6 +658,12 @@ function TokenListBlock({
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
+      let portfolioTotalFiat = '0';
+      let portfolioTotalFiatCurrency: string | undefined;
+      let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
+      let singleNetworkRefreshGeneration = 0;
+      let skipPortfolioSyncRequestFinish = false;
+      let ownsPortfolioSyncCommunication = false;
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
@@ -490,13 +680,24 @@ function TokenListBlock({
       try {
         if (!network) return;
 
+        if (network.isAllNetworks) return;
+
+        singleNetworkRefreshGenerationRef.current += 1;
+        singleNetworkRefreshGeneration =
+          singleNetworkRefreshGenerationRef.current;
+        portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+          portfolioSyncTargetKey,
+        );
+
         if (!mergeDeriveAddressData) {
           if (!account) return;
         } else {
           accountId = indexedAccount?.id ?? '';
         }
 
-        if (network.isAllNetworks) return;
+        if (portfolioSyncRequest?.phase === 'queued') {
+          transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
+        }
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -535,6 +736,14 @@ function TokenListBlock({
               }),
             ),
           );
+          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);
+          portfolioTotalFiat = resp
+            .reduce(
+              (total, item) =>
+                total.plus(sumTokenGroupsFiatValueIgnoringUnavailable(item)),
+              new BigNumber(0),
+            )
+            .toFixed();
 
           const {
             tokenList,
@@ -616,7 +825,9 @@ function TokenListBlock({
             ...walletTokenFilterParams,
           });
 
+          portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+          portfolioTotalFiat = accountWorth;
 
           if (syncTokenFilterToOverview) {
             updateAccountOverviewState({
@@ -636,6 +847,77 @@ function TokenListBlock({
               createAtNetworkWorth: accountWorth,
               merge: false,
             });
+          }
+        }
+
+        const activePortfolioSyncRequest = getPortfolioSyncRequestForTarget(
+          portfolioSyncTargetKey,
+        );
+        if (
+          portfolioSyncRequest &&
+          activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
+          currencyInfo?.id &&
+          portfolioTotalFiatCurrency &&
+          isProtocolV2ProductType(portfolioSyncDeviceType) &&
+          wallet &&
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+          transitionPortfolioSyncRequest(
+            portfolioSyncRequest.id,
+            'communicating',
+          )
+        ) {
+          ownsPortfolioSyncCommunication = true;
+          const portfolioTokenMap = {
+            ...r.tokens.map,
+            ...r.smallBalanceTokens.map,
+            ...r.riskTokens.map,
+          };
+          const portfolioTokens = selectHardwarePortfolioTokens({
+            tokenMap: portfolioTokenMap,
+            tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+            ...cellsIngestInputsRef.current.nonZeroInputs,
+            keepDefault: false,
+          });
+          try {
+            const portfolioSynced =
+              await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                {
+                  eventPayload: {
+                    accountAddress: account?.address,
+                    accountId: account?.id,
+                    accountName,
+                    aggregateTokenMap: {},
+                    deviceConnectId:
+                      device?.connectId ??
+                      wallet.associatedDeviceInfo?.connectId,
+                    deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+                    indexedAccountId: indexedAccount?.id,
+                    indexedAccountIndex: indexedAccount?.index,
+                    indexedAccountName: indexedAccount?.name,
+                    networkId: network.id,
+                    ownerAccountId: account?.id,
+                    ownerNetworkId: network.id,
+                    totalFiat: portfolioTotalFiat,
+                    totalFiatCurrency: portfolioTotalFiatCurrency,
+                    totalTokenCount: portfolioTokens.length,
+                    tokenMap: portfolioTokenMap,
+                    tokens: portfolioTokens,
+                    walletId: wallet.id,
+                    walletType: wallet.type,
+                  },
+                  syncMode: 'interactive',
+                },
+              );
+            if (portfolioSynced) {
+              completePortfolioSyncRequest(portfolioSyncRequest.id);
+            } else {
+              finishPortfolioSyncRequest(portfolioSyncRequest.id);
+            }
+          } catch (error) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+            finishPortfolioSyncRequest(portfolioSyncRequest.id);
           }
         }
 
@@ -702,26 +984,62 @@ function TokenListBlock({
       } catch (e) {
         endTokenListRefreshEvent();
         if (e instanceof CanceledError) {
+          // A successor refresh aborts this fetch after capturing the same
+          // request. Finishing here would clear it before that run transfers.
+          skipPortfolioSyncRequestFinish =
+            singleNetworkRefreshGeneration <
+            singleNetworkRefreshGenerationRef.current;
           console.log('fetchAccountTokens canceled');
         } else {
-          throw e;
+          const activePortfolioSyncRequest = getCurrentPortfolioSyncRequest();
+          if (
+            activePortfolioSyncRequest &&
+            activePortfolioSyncRequest.id === portfolioSyncRequest?.id
+          ) {
+            errorToastUtils.toastIfError(e);
+            errorToastUtils.showToastOfError(e);
+          } else {
+            throw e;
+          }
         }
       } finally {
+        if (
+          portfolioSyncRequest &&
+          !skipPortfolioSyncRequestFinish &&
+          (ownsPortfolioSyncCommunication ||
+            getCurrentPortfolioSyncRequest()?.phase !== 'communicating')
+        ) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
         endTokenListRefreshEvent();
         setIsHeaderRefreshing(false);
       }
     },
     [
       account,
+      accountName,
+      completePortfolioSyncRequest,
+      currencyInfo?.id,
+      device?.connectId,
+      device?.id,
+      finishPortfolioSyncRequest,
+      getCurrentPortfolioSyncRequest,
+      getPortfolioSyncRequestForTarget,
       network,
+      portfolioSyncTargetKey,
+      portfolioSyncDeviceType,
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
       indexedAccount?.id,
+      indexedAccount?.index,
+      indexedAccount?.name,
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
+      transitionPortfolioSyncRequest,
       walletTokenFilterParams,
+      wallet,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -735,7 +1053,6 @@ function TokenListBlock({
   const { run: runLpTokenList } = usePromiseResult(
     async () => {
       if (!showLpTokensOnly || !account?.id || !network?.id) {
-        setIsLpTokenSwitchLoading(false);
         return;
       }
 
@@ -757,9 +1074,6 @@ function TokenListBlock({
         requestContext.tokenSelectorFilterMode !== 'lp-dapp-token' ||
         !isLatestRequest()
       ) {
-        if (requestContext.tokenSelectorFilterMode !== 'lp-dapp-token') {
-          setIsLpTokenSwitchLoading(false);
-        }
         return;
       }
 
@@ -806,7 +1120,6 @@ function TokenListBlock({
             initialized: true,
             isRefreshing: false,
           });
-          setIsLpTokenSwitchLoading(false);
         }
         setIsHeaderRefreshing(false);
       }
@@ -833,7 +1146,20 @@ function TokenListBlock({
 
   useLayoutEffect(() => {
     if (!showLpTokensOnly || !account?.id || !network?.id) {
-      setIsLpTokenSwitchLoading(false);
+      // Leaving DeFi-token mode must drop the scoped list/map, restoring the
+      // invariant "scoped map populated ⟹ LP mode ON". The residue is not
+      // rendered while the mode is off, but stale data outliving its mode is
+      // exactly what blanked the home list when the seam gate still keyed on
+      // map content. Functional no-op guards: this effect re-fires on owner
+      // changes while the mode is off.
+      setScopedLpTokenList((prev) =>
+        prev.tokens.length === 0 && prev.keys === ''
+          ? prev
+          : { tokens: [], keys: '' },
+      );
+      setScopedLpTokenListMap((prev) =>
+        Object.keys(prev).length === 0 ? prev : {},
+      );
       return;
     }
 
@@ -890,7 +1216,6 @@ function TokenListBlock({
   const cellsOwnerKey = useHomeTokenListOwnerKey();
   // Current settings currency id — the slim cold-start bundle stores fiat in
   // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
-  const [{ currencyInfo }] = useSettingsPersistAtom();
   const cellsCurrencyId = currencyInfo?.id ?? '';
   // T0 cold-start fan-out hydrate (spec §7). Runs eagerly, once per owner,
   // before the async fetch — paints rows + price + name/icon at cold start via
@@ -1069,6 +1394,20 @@ function TokenListBlock({
       }
       r.allTokens = allTokens;
 
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-fetch-settled',
+        networkId,
+        isAllNetworks: true,
+        allNetworkDataInit,
+        tokenCount: r.tokens.data.length,
+        smallBalanceCount: r.smallBalanceTokens.data.length,
+        riskyCount: r.riskTokens.data.length,
+        aggregateCount: Object.keys(r.aggregateTokenListMap ?? {}).length,
+        ownerPresent: !!account?.id,
+        indexedAccountPresent: !!indexedAccount?.id,
+      });
+
       // The active owner may have changed during the awaits above (detached
       // history-loop refresh, un-aborted fetch from a previous owner). Writing
       // would land this owner's data on atoms already cleared and re-stamped
@@ -1178,8 +1517,49 @@ function TokenListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+
+      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
+      if (
+        portfolioSyncRequest?.phase === 'refreshing' ||
+        portfolioSyncRequest?.phase === 'settled'
+      ) {
+        clearPortfolioSyncFallbackTimer();
+        portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
+          const currentRequest = getPortfolioSyncRequestForTarget(
+            portfolioSyncTargetKey,
+          );
+          if (currentRequest?.id !== portfolioSyncRequest.id) {
+            return;
+          }
+          if (currentRequest.phase === 'settled') {
+            // All network requests finished; upload the current snapshot
+            // even if aggregation is still missing failed accounts.
+            allowEmptyInteractivePortfolioSyncRequestIdRef.current =
+              currentRequest.id;
+            void updateAllNetworksTokenListRef.current();
+            return;
+          }
+          if (currentRequest.phase === 'refreshing') {
+            if (
+              allNetworksTokenListUpdateInFlightRef.current ||
+              allNetworksTokenListUpdatePendingRef.current
+            ) {
+              allNetworksTokenListUpdatePendingRef.current = true;
+              return;
+            }
+            finishPortfolioSyncRequest(currentRequest.id);
+          }
+        }, POLLING_DEBOUNCE_INTERVAL);
+      }
     },
-    [],
+    [
+      clearPortfolioSyncFallbackTimer,
+      finishPortfolioSyncRequest,
+      getPortfolioSyncRequestForTarget,
+      portfolioSyncTargetKey,
+    ],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -1207,10 +1587,26 @@ function TokenListBlock({
     async ({
       accountId,
       networkId,
+      allNetworkDataInit,
     }: {
       accountId?: string;
       networkId?: string;
+      allNetworkDataInit?: boolean;
     }) => {
+      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
+      if (portfolioSyncRequest?.phase === 'queued') {
+        transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
+      }
+      const updateCurrentAccountTask =
+        accountId && networkId
+          ? backgroundApiProxy.serviceToken.updateCurrentAccount({
+              accountId,
+              networkId,
+            })
+          : Promise.resolve();
+
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
       // eslint-disable-next-line prefer-const
@@ -1219,6 +1615,7 @@ function TokenListBlock({
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+        updateCurrentAccountTask,
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
@@ -1226,6 +1623,18 @@ function TokenListBlock({
       if (!a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      } else {
+        // Refresh the cached wallet config in the background when it is stale
+        // (app version changed or TTL expired) so delisted networks get purged
+        // from the persisted aggregate-token maps. Not awaited: the current
+        // refresh renders with the cached data and the next one picks up the
+        // fresh config.
+        backgroundApiProxy.serviceSetting
+          .syncWalletConfigIfNeeded()
+          .catch(() => {
+            // Background refresh failure is non-fatal; the stale cache heals on
+            // the next refresh attempt.
+          });
       }
 
       customTokensRawData.current = c ?? undefined;
@@ -1243,6 +1652,16 @@ function TokenListBlock({
         networkId: networkId ?? '',
       });
 
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-run-started',
+        networkId,
+        isAllNetworks: true,
+        allNetworkDataInit,
+        ownerPresent: !!account?.id,
+        indexedAccountPresent: !!indexedAccount?.id,
+      });
+
       if (syncTokenFilterToOverview) {
         setOverviewTokenCacheState({
           ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
@@ -1252,9 +1671,13 @@ function TokenListBlock({
     },
     [
       account?.id,
+      getPortfolioSyncRequestForTarget,
+      indexedAccount?.id,
       network?.id,
+      portfolioSyncTargetKey,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
+      transitionPortfolioSyncRequest,
     ],
   );
 
@@ -1419,6 +1842,29 @@ function TokenListBlock({
       }
 
       if (hasAnyCache) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-cache-hydrate',
+          networkId,
+          isAllNetworks: true,
+          hasCache: true,
+          cacheCount: data.length,
+          tokenCount: data.reduce(
+            (total, item) => total + item.tokenList.length,
+            0,
+          ),
+          smallBalanceCount: data.reduce(
+            (total, item) => total + item.smallBalanceTokenList.length,
+            0,
+          ),
+          riskyCount: data.reduce(
+            (total, item) => total + item.riskyTokenList.length,
+            0,
+          ),
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+        });
+
         if (syncTokenFilterToOverview) {
           // All items share the storage currency (same multi-network fetch);
           // fall back to USD when the cache is empty.
@@ -1507,9 +1953,30 @@ function TokenListBlock({
   // guard + ingest + throttle all live in the facade now (design §2).
   const handleAllNetworkRequestSettled = useCallback(
     (result: IAllNetworkTokenListResp, generation: number) => {
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-progressive-settled',
+        networkId: result.networkId,
+        isAllNetworks: true,
+        tokenCount: result.tokens.data.length,
+        smallBalanceCount: result.smallBalanceTokens.data.length,
+        riskyCount: result.riskTokens.data.length,
+        aggregateCount: Object.keys(result.aggregateTokenListMap ?? {}).length,
+        source: `generation:${generation}`,
+      });
       ingestLiveRound(result, generation);
     },
     [ingestLiveRound],
+  );
+
+  const handleAllNetworkResultPublished = useCallback(
+    (
+      result: IAllNetworkTokenListResp[] | null | undefined,
+      generation: number,
+    ) => {
+      allNetworksPublishedResultRef.current = { generation, result };
+    },
+    [],
   );
 
   const {
@@ -1530,226 +1997,457 @@ function TokenListBlock({
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
+    onResultPublished: handleAllNetworkResultPublished,
     shouldAlwaysFetch,
+    clearRetainedResultOnAcceptedRun: true,
   });
 
+  const getPortfolioSyncRequestForAllNetworksResult = useCallback(() => {
+    const request = getPortfolioSyncRequestForTarget(portfolioSyncTargetKey);
+    const publishedResult = allNetworksPublishedResultRef.current;
+    if (
+      request?.minimumAllNetworksGeneration === undefined ||
+      publishedResult.result !== allNetworksResult ||
+      publishedResult.generation < request.minimumAllNetworksGeneration
+    ) {
+      return undefined;
+    }
+    return request;
+  }, [
+    allNetworksResult,
+    getPortfolioSyncRequestForTarget,
+    portfolioSyncTargetKey,
+  ]);
+
   const updateAllNetworksTokenList = useCallback(async () => {
-    if (!allNetworksResult?.length) {
+    if (allNetworksTokenListUpdateInFlightRef.current) {
+      allNetworksTokenListUpdatePendingRef.current = true;
       return;
     }
-    const resultTokenSelectorFilterMode =
-      allNetworksResult[0].tokenSelectorFilterMode;
-    const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
-      (result) =>
-        result.tokenSelectorFilterMode !== resultTokenSelectorFilterMode,
-    );
-    if (
-      resultTokenSelectorFilterMode !== 'wallet-token' ||
-      hasMixedTokenSelectorFilterResult
-    ) {
-      return;
-    }
-    // This callback's identity changes on owner switch, re-firing the
-    // consuming effect while `allNetworksResult` still holds the PREVIOUS
-    // owner's completed fan-out (usePromiseResult keeps the last resolved
-    // value). Reprocessing it would replace every token atom with that
-    // owner's data, write its worth under the new owner's accountId, and
-    // stamp `allTokenList` with the new owner — vouching for foreign data.
-    if (
-      allNetworksResult[0].ownerAccountId !== account?.id ||
-      allNetworksResult[0].ownerNetworkId !== network?.id
-    ) {
-      return;
-    }
-    const shouldSyncTokenFilterToOverview =
-      allNetworksResult[0].syncTokenFilterToOverview;
-    const isStaleOwnerRequest = () =>
-      activeOwnerRef.current.accountId !== account?.id ||
-      activeOwnerRef.current.networkId !== network?.id;
-
-    // Build the authoritative snapshot THROUGH the LWW materialized view (facade,
-    // design §2): ∩ enabledKeys so failed-but-still-enabled networks keep their
-    // cache floor (I2) while removed/disabled networks evict; per-round
-    // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
-    // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
-    const snapshot = await buildAuthoritativeSnapshot();
-    if (isStaleOwnerRequest()) {
-      return;
-    }
-
-    const assetStatusAggregationComplete =
-      isWalletAssetStatusAggregationComplete({
-        expectedAccounts: allNetworkAccounts,
-        result: allNetworksResult,
-      });
-    const assetStatusCurrency = getWalletAssetStatusCurrency(allNetworksResult);
-    if (
-      assetStatusAggregationComplete &&
-      assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
-    ) {
-      const reportNow = Date.now();
-      const assetStatusAnalytics =
-        await backgroundApiProxy.simpleDb.appStatus.getWalletAssetStatusAnalytics();
-      const { wallets: eligibleWallets } =
-        await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
-          includingAccounts: true,
-        });
-      if (isStaleOwnerRequest()) {
+    allNetworksTokenListUpdateInFlightRef.current = true;
+    try {
+      const portfolioSyncRequest =
+        getPortfolioSyncRequestForAllNetworksResult();
+      if (!allNetworksResult?.length) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
         return;
       }
-      const eligibleAccountIds = Array.from(
-        new Set(
-          eligibleWallets.flatMap((eligibleWallet) =>
-            (eligibleWallet.dbIndexedAccounts ?? []).map(
-              (indexedAccountItem) => indexedAccountItem.id,
-            ),
-          ),
-        ),
+      const resultTokenSelectorFilterMode =
+        allNetworksResult[0].tokenSelectorFilterMode;
+      const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
+        (result) =>
+          result.tokenSelectorFilterMode !== resultTokenSelectorFilterMode,
       );
-
-      if (eligibleAccountIds.length) {
-        const accountValues =
-          await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
-            {
-              accounts: eligibleAccountIds.map((accountId) => ({
-                accountId,
-              })),
-            },
-          );
-        if (isStaleOwnerRequest()) {
-          return;
+      if (
+        resultTokenSelectorFilterMode !== 'wallet-token' ||
+        hasMixedTokenSelectorFilterResult
+      ) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
         }
-        const currentAccountValueId =
-          indexedAccount?.id ?? account?.indexedAccountId;
-        const currentAccountValue =
-          currentAccountValueId &&
-          eligibleAccountIds.includes(currentAccountValueId)
-            ? {
-                accountId: currentAccountValueId,
-                value: snapshot.accountsWorth,
-                currency: USD_CURRENCY_ID,
-              }
-            : undefined;
-        const assetStatusEvaluation = evaluateWalletAssetStatus({
-          accountValues,
-          currentAccountValue,
-          eligibleWalletCount: eligibleWallets.length,
+        return;
+      }
+      // This callback's identity changes on owner switch, re-firing the
+      // consuming effect while `allNetworksResult` still holds the PREVIOUS
+      // owner's completed fan-out (usePromiseResult keeps the last resolved
+      // value). Reprocessing it would replace every token atom with that
+      // owner's data, write its worth under the new owner's accountId, and
+      // stamp `allTokenList` with the new owner — vouching for foreign data.
+      if (
+        allNetworksResult[0].ownerAccountId !== account?.id ||
+        allNetworksResult[0].ownerNetworkId !== network?.id
+      ) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
+        return;
+      }
+      if (portfolioSyncRequest?.phase === 'refreshing') {
+        transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'settled');
+      }
+      const shouldSyncTokenFilterToOverview =
+        allNetworksResult[0].syncTokenFilterToOverview;
+      const isStaleOwnerRequest = () =>
+        activeOwnerRef.current.accountId !== account?.id ||
+        activeOwnerRef.current.networkId !== network?.id;
+
+      // Build the authoritative snapshot THROUGH the LWW materialized view (facade,
+      // design §2): ∩ enabledKeys so failed-but-still-enabled networks keep their
+      // cache floor (I2) while removed/disabled networks evict; per-round
+      // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
+      // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
+      const snapshot = await buildAuthoritativeSnapshot();
+      if (!snapshot || isStaleOwnerRequest()) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
+        return;
+      }
+
+      const assetStatusAggregationComplete =
+        isWalletAssetStatusAggregationComplete({
+          expectedAccounts: allNetworkAccounts,
+          result: allNetworksResult,
+        });
+      const assetStatusCurrency =
+        getWalletAssetStatusCurrency(allNetworksResult);
+      let keepPortfolioSyncRequest = false;
+      const isInteractivePortfolioSync = Boolean(portfolioSyncRequest);
+      if (isStaleOwnerRequest()) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
+        return;
+      }
+
+      if (shouldSyncTokenFilterToOverview) {
+        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+          aggregateTokenMap: snapshot.aggregateTokenMap,
+        });
+
+        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+          aggregateTokenListMap: snapshot.aggregateTokenListMap,
+        });
+
+        updateAccountWorth({
+          accountId: mergeDeriveAddressData
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
+          initialized: true,
+          updateAll: true,
+          worth: snapshot.accountsWorth,
+          createAtNetworkWorth: snapshot.createAtNetworkWorth,
         });
 
         if (
-          assetStatusEvaluation.assetStatus &&
-          assetStatusEvaluation.balanceBucket &&
-          assetStatusEvaluation.changeReason
+          assetStatusCurrency &&
+          isProtocolV2ProductType(portfolioSyncDeviceType) &&
+          wallet &&
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isQrWallet({ walletId: wallet.id })
         ) {
-          const baseParams = {
-            source: WALLET_ASSET_STATUS_SOURCE,
-            scope: WALLET_ASSET_STATUS_SCOPE,
-            assetStatus: assetStatusEvaluation.assetStatus,
-            balanceBucket: assetStatusEvaluation.balanceBucket,
-            thresholdUsd: WALLET_ASSET_STATUS_THRESHOLD_USD,
-            thresholdCurrency: WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
-            assetBasis: WALLET_ASSET_STATUS_BASIS,
-            eligibleWalletTypes: WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
-            eligibleWalletCount: assetStatusEvaluation.eligibleWalletCount,
-            eligibleAccountCount: assetStatusEvaluation.eligibleAccountCount,
-            knownAccountCount: assetStatusEvaluation.knownAccountCount,
-            unknownAccountCount: assetStatusEvaluation.unknownAccountCount,
-          } as const;
-          const shouldReportSnapshot = shouldReportWalletAssetStatusSnapshot({
-            lastReportedAt: assetStatusAnalytics?.lastSnapshotReportedAt,
-            now: reportNow,
+          const flattenedAggregateTokenMap = flattenAggregateTokensMap(
+            snapshot.aggregateTokenMap,
+          );
+          const portfolioTokenMap = {
+            ...snapshot.mergeTokenListMap,
+            ...flattenedAggregateTokenMap,
+          };
+          const portfolioTokens = selectHardwarePortfolioTokens({
+            tokenMap: portfolioTokenMap,
+            tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
+            ...cellsNonZeroInputs,
           });
-          const shouldReportChange = shouldReportWalletAssetStatusChange({
-            previousStatus: assetStatusAnalytics?.assetStatus,
-            currentStatus: assetStatusEvaluation.assetStatus,
+          // keepDefault includes zero-balance natives so the device matches Home.
+          // The empty-snapshot defer still needs a strict funded count, otherwise
+          // incomplete aggregation would upload those defaults too early.
+          const fundedTokenCount = countFundedHardwarePortfolioTokens({
+            tokenMap: portfolioTokenMap,
+            tokens: portfolioTokens,
           });
 
-          if (shouldReportSnapshot) {
-            defaultLogger.wallet.balance.walletAssetStatusEvaluated(baseParams);
-          }
-          if (shouldReportChange) {
-            defaultLogger.wallet.balance.walletAssetStatusChanged({
-              ...baseParams,
-              previousStatus: assetStatusAnalytics?.assetStatus ?? 'unknown',
-              currentStatus: assetStatusEvaluation.assetStatus,
-              changeReason: assetStatusEvaluation.changeReason,
+          const allowEmptyInteractivePortfolioSync = Boolean(
+            portfolioSyncRequest &&
+            allowEmptyInteractivePortfolioSyncRequestIdRef.current ===
+              portfolioSyncRequest.id,
+          );
+          const shouldDeferEmptySnapshot =
+            !allowEmptyInteractivePortfolioSync &&
+            shouldDeferEmptyHardwarePortfolioSync({
+              aggregationComplete: assetStatusAggregationComplete,
+              totalTokenCount: fundedTokenCount,
             });
-          }
-
-          if (
-            shouldReportSnapshot ||
-            shouldReportChange ||
-            assetStatusAnalytics?.assetStatus !==
-              assetStatusEvaluation.assetStatus
-          ) {
-            await backgroundApiProxy.simpleDb.appStatus.setWalletAssetStatusAnalytics(
-              {
-                assetStatus: assetStatusEvaluation.assetStatus,
-                lastSnapshotReportedAt: shouldReportSnapshot
-                  ? reportNow
-                  : assetStatusAnalytics?.lastSnapshotReportedAt,
-                lastStatusChangedAt: shouldReportChange
-                  ? reportNow
-                  : assetStatusAnalytics?.lastStatusChangedAt,
+          if (!shouldDeferEmptySnapshot) {
+            if (allowEmptyInteractivePortfolioSync) {
+              allowEmptyInteractivePortfolioSyncRequestIdRef.current =
+                undefined;
+            }
+            const portfolioSyncPayload = {
+              accountAddress: account?.address,
+              accountId: account?.id,
+              accountName,
+              aggregateTokenMap: flattenedAggregateTokenMap,
+              deviceConnectId:
+                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+              indexedAccountId: indexedAccount?.id,
+              indexedAccountIndex: indexedAccount?.index,
+              indexedAccountName: indexedAccount?.name,
+              networkId: network?.id,
+              ownerAccountId: allNetworksResult[0].ownerAccountId,
+              ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+              totalFiat: snapshot.createAtNetworkWorth,
+              totalFiatCurrency: assetStatusCurrency,
+              totalTokenCount: portfolioTokens.length,
+              tokenMap: {
+                ...snapshot.mergeTokenListMap,
+                ...snapshot.riskyTokenListMap,
+                ...flattenedAggregateTokenMap,
               },
-            );
+              tokens: portfolioTokens,
+              walletId: wallet.id,
+              walletType: wallet.type,
+            };
+            if (
+              portfolioSyncRequest &&
+              transitionPortfolioSyncRequest(
+                portfolioSyncRequest.id,
+                'communicating',
+              )
+            ) {
+              try {
+                const portfolioSynced =
+                  await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                    {
+                      eventPayload: portfolioSyncPayload,
+                      syncMode: 'interactive',
+                    },
+                  );
+                if (portfolioSynced) {
+                  completePortfolioSyncRequest(portfolioSyncRequest.id);
+                } else {
+                  finishPortfolioSyncRequest(portfolioSyncRequest.id);
+                }
+              } catch (error) {
+                errorToastUtils.toastIfError(error);
+                errorToastUtils.showToastOfError(error);
+                finishPortfolioSyncRequest(portfolioSyncRequest.id);
+              }
+            } else if (!portfolioSyncRequest) {
+              void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+                portfolioSyncPayload,
+              );
+            }
+          } else if (portfolioSyncRequest) {
+            // Empty incomplete aggregation would upload default natives too
+            // early. Keep the explicit tap until a later snapshot is funded
+            // or aggregation completes; silent sync still skips as before.
+            keepPortfolioSyncRequest = true;
           }
         }
       }
-    }
 
-    if (isStaleOwnerRequest()) {
-      return;
-    }
+      if (portfolioSyncRequest && !keepPortfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
 
-    if (shouldSyncTokenFilterToOverview) {
-      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        aggregateTokenMap: snapshot.aggregateTokenMap,
+      // Authoritative ingest (facade, design §2): ingest the FULL merged
+      // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
+      // cancel any trailing progressive flush, and bump the epoch (P1-g) so a
+      // flush already past its timer aborts after its await instead of overwriting
+      // this authoritative full list. The LWW rounds stay resident as the next
+      // warm refresh's SWR floor so the list never shrinks to settled rows only.
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-authoritative-commit',
+        networkId: network?.id,
+        isAllNetworks: true,
+        tokenCount: snapshot.orderedTokens.length,
+        smallBalanceCount: snapshot.smallBalanceTokens.length,
+        riskyCount: snapshot.riskyTokens.length,
+        aggregateCount: Object.keys(snapshot.aggregateTokenListMap).length,
+        ownerPresent: !!account?.id,
+        indexedAccountPresent: !!indexedAccount?.id,
       });
+      commitAuthoritativeIngest(snapshot);
 
-      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        aggregateTokenListMap: snapshot.aggregateTokenListMap,
-      });
-
-      updateAccountWorth({
-        accountId: mergeDeriveAddressData
-          ? (indexedAccount?.id ?? '')
-          : (account?.id ?? ''),
+      updateTokenListState({
         initialized: true,
-        updateAll: true,
-        worth: snapshot.accountsWorth,
-        createAtNetworkWorth: snapshot.createAtNetworkWorth,
+        isRefreshing: false,
       });
+
+      // Asset status analytics is non-critical for the Home refresh. Keep it
+      // after the authoritative snapshot has reached the UI so a slow background
+      // RPC cannot hold the refreshed balance/token list in a loading state.
+      if (
+        !isInteractivePortfolioSync &&
+        assetStatusAggregationComplete &&
+        assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
+      ) {
+        const reportNow = Date.now();
+        const assetStatusAnalytics =
+          await backgroundApiProxy.simpleDb.appStatus.getWalletAssetStatusAnalytics();
+        const { wallets: eligibleWallets } =
+          await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
+            includingAccounts: true,
+          });
+        if (isStaleOwnerRequest()) {
+          if (portfolioSyncRequest) {
+            finishPortfolioSyncRequest(portfolioSyncRequest.id);
+          }
+          return;
+        }
+        const eligibleAccountIds = Array.from(
+          new Set(
+            eligibleWallets.flatMap((eligibleWallet) =>
+              (eligibleWallet.dbIndexedAccounts ?? []).map(
+                (indexedAccountItem) => indexedAccountItem.id,
+              ),
+            ),
+          ),
+        );
+
+        if (eligibleAccountIds.length) {
+          const accountValues =
+            await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
+              {
+                accounts: eligibleAccountIds.map((accountId) => ({
+                  accountId,
+                })),
+              },
+            );
+          if (isStaleOwnerRequest()) {
+            if (portfolioSyncRequest) {
+              finishPortfolioSyncRequest(portfolioSyncRequest.id);
+            }
+            return;
+          }
+          const currentAccountValueId =
+            indexedAccount?.id ?? account?.indexedAccountId;
+          const currentAccountValue =
+            currentAccountValueId &&
+            eligibleAccountIds.includes(currentAccountValueId)
+              ? {
+                  accountId: currentAccountValueId,
+                  value: snapshot.accountsWorth,
+                  currency: USD_CURRENCY_ID,
+                }
+              : undefined;
+          const assetStatusEvaluation = evaluateWalletAssetStatus({
+            accountValues,
+            currentAccountValue,
+            eligibleWalletCount: eligibleWallets.length,
+          });
+
+          if (
+            assetStatusEvaluation.assetStatus &&
+            assetStatusEvaluation.balanceBucket &&
+            assetStatusEvaluation.changeReason
+          ) {
+            const baseParams = {
+              source: WALLET_ASSET_STATUS_SOURCE,
+              scope: WALLET_ASSET_STATUS_SCOPE,
+              assetStatus: assetStatusEvaluation.assetStatus,
+              balanceBucket: assetStatusEvaluation.balanceBucket,
+              thresholdUsd: WALLET_ASSET_STATUS_THRESHOLD_USD,
+              thresholdCurrency: WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
+              assetBasis: WALLET_ASSET_STATUS_BASIS,
+              eligibleWalletTypes: WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
+              eligibleWalletCount: assetStatusEvaluation.eligibleWalletCount,
+              eligibleAccountCount: assetStatusEvaluation.eligibleAccountCount,
+              knownAccountCount: assetStatusEvaluation.knownAccountCount,
+              unknownAccountCount: assetStatusEvaluation.unknownAccountCount,
+            } as const;
+            const shouldReportSnapshot = shouldReportWalletAssetStatusSnapshot({
+              lastReportedAt: assetStatusAnalytics?.lastSnapshotReportedAt,
+              now: reportNow,
+            });
+            const shouldReportChange = shouldReportWalletAssetStatusChange({
+              previousStatus: assetStatusAnalytics?.assetStatus,
+              currentStatus: assetStatusEvaluation.assetStatus,
+            });
+
+            if (shouldReportSnapshot) {
+              defaultLogger.wallet.balance.walletAssetStatusEvaluated(
+                baseParams,
+              );
+            }
+            if (shouldReportChange) {
+              defaultLogger.wallet.balance.walletAssetStatusChanged({
+                ...baseParams,
+                previousStatus: assetStatusAnalytics?.assetStatus ?? 'unknown',
+                currentStatus: assetStatusEvaluation.assetStatus,
+                changeReason: assetStatusEvaluation.changeReason,
+              });
+            }
+
+            if (
+              shouldReportSnapshot ||
+              shouldReportChange ||
+              assetStatusAnalytics?.assetStatus !==
+                assetStatusEvaluation.assetStatus
+            ) {
+              await backgroundApiProxy.simpleDb.appStatus.setWalletAssetStatusAnalytics(
+                {
+                  assetStatus: assetStatusEvaluation.assetStatus,
+                  lastSnapshotReportedAt: shouldReportSnapshot
+                    ? reportNow
+                    : assetStatusAnalytics?.lastSnapshotReportedAt,
+                  lastStatusChangedAt: shouldReportChange
+                    ? reportNow
+                    : assetStatusAnalytics?.lastStatusChangedAt,
+                },
+              );
+            }
+          }
+        }
+      }
+    } finally {
+      allNetworksTokenListUpdateInFlightRef.current = false;
+      if (allNetworksTokenListUpdatePendingRef.current) {
+        allNetworksTokenListUpdatePendingRef.current = false;
+        void updateAllNetworksTokenListRef.current();
+      }
     }
-
-    // Authoritative ingest + reset (facade, design §2): ingest the FULL merged
-    // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
-    // cancel any trailing progressive flush, bump the epoch (P1-g) so a flush
-    // already past its timer aborts after its await instead of overwriting this
-    // authoritative full list, and clear the view for the next run.
-    commitAuthoritativeIngest(snapshot);
-
-    updateTokenListState({
-      initialized: true,
-      isRefreshing: false,
-    });
   }, [
+    account?.address,
     account?.id,
     account?.indexedAccountId,
+    accountName,
+    cellsNonZeroInputs,
+    completePortfolioSyncRequest,
+    device?.connectId,
+    device?.id,
+    finishPortfolioSyncRequest,
+    getPortfolioSyncRequestForAllNetworksResult,
     indexedAccount?.id,
+    indexedAccount?.index,
+    indexedAccount?.name,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
     network?.id,
+    portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
+    transitionPortfolioSyncRequest,
+    wallet,
   ]);
+  const runUpdateAllNetworksTokenList = useCallback(async () => {
+    const portfolioSyncRequest = getPortfolioSyncRequestForAllNetworksResult();
+    try {
+      await updateAllNetworksTokenList();
+    } catch (error) {
+      const currentRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
+      if (
+        portfolioSyncRequest &&
+        currentRequest?.id === portfolioSyncRequest.id
+      ) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        return;
+      }
+      console.error('updateAllNetworksTokenList error:', error);
+    }
+  }, [
+    finishPortfolioSyncRequest,
+    getPortfolioSyncRequestForAllNetworksResult,
+    getPortfolioSyncRequestForTarget,
+    portfolioSyncTargetKey,
+    updateAllNetworksTokenList,
+  ]);
+  updateAllNetworksTokenListRef.current = runUpdateAllNetworksTokenList;
 
   // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED
   // here. Both jobs it did on home are now covered without a whole-map read:
@@ -1809,6 +2507,9 @@ function TokenListBlock({
       let tokenList: IAccountToken[] = [];
       let smallBalanceTokenList: IAccountToken[] = [];
       let riskyTokenList: IAccountToken[] = [];
+      let tokenListMap: Record<string, ITokenFiat> = {};
+      let smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
+      let riskyTokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
@@ -1860,17 +2561,26 @@ function TokenListBlock({
             tokens: {
               data: r.tokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.tokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
             smallBalanceTokens: {
               data: r.smallBalanceTokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.smallBalanceTokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
             riskTokens: {
               data: r.riskyTokenList,
               keys: '',
-              map: r.tokenListMap,
+              map: pickTokenListFiatMap({
+                tokens: r.riskyTokenList,
+                tokenListMap: r.tokenListMap,
+              }),
             },
           };
         });
@@ -1884,6 +2594,9 @@ function TokenListBlock({
         smallBalanceTokenList =
           tokenListData.smallBalanceTokenList.smallBalanceTokens;
         riskyTokenList = tokenListData.riskyTokenList.riskyTokens;
+        tokenListMap = tokenListData.tokenListMap;
+        smallBalanceTokenListMap = tokenListData.smallBalanceTokenListMap;
+        riskyTokenListMap = tokenListData.riskyTokenListMap;
       } else {
         const localTokens =
           await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -1898,6 +2611,18 @@ function TokenListBlock({
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
         riskyTokenList = localTokens.riskyTokenList;
+        tokenListMap = pickTokenListFiatMap({
+          tokens: tokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
+        smallBalanceTokenListMap = pickTokenListFiatMap({
+          tokens: smallBalanceTokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
+        riskyTokenListMap = pickTokenListFiatMap({
+          tokens: riskyTokenList,
+          tokenListMap: localTokens.tokenListMap,
+        });
         tokenListValue = localTokens.tokenListValue;
         tokenListWorth = {
           [accountUtils.buildAccountValueKey({
@@ -1911,6 +2636,58 @@ function TokenListBlock({
       // token cache — drop the result so we don't overwrite the new owner's
       // freshly hydrated atoms with this stale response.
       if (cancelled) return;
+
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'single-network-local-cache-read',
+        networkId,
+        isAllNetworks: false,
+        hasCache: hasLocalTokenCache,
+        tokenCount: tokenList.length,
+        smallBalanceCount: smallBalanceTokenList.length,
+        riskyCount: riskyTokenList.length,
+        ownerPresent: !!account?.id,
+        indexedAccountPresent: !!indexedAccount?.id,
+      });
+
+      const ingestSingleNetworkCache = ({
+        source,
+      }: {
+        source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
+      }) => {
+        void backgroundApiProxy.serviceTokenViewModel.ingestRound(
+          buildHomeTokenListCacheIngestRound({
+            ownerKey: cellsIngestInputsRef.current.ownerKey,
+            accountId: account?.id,
+            networkId,
+            tokenList,
+            smallBalanceTokenList,
+            riskyTokenList,
+            tokenListMap,
+            smallBalanceTokenListMap,
+            riskyTokenListMap,
+            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+            homeDefaultTokenMap:
+              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+            customTokens:
+              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+            source,
+          }),
+        );
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'single-network-cache-ingest',
+          networkId,
+          isAllNetworks: false,
+          hasCache: true,
+          tokenCount: tokenList.length,
+          smallBalanceCount: smallBalanceTokenList.length,
+          riskyCount: riskyTokenList.length,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+          source,
+        });
+      };
 
       if (
         isEmpty(tokenList) &&
@@ -1932,11 +2709,10 @@ function TokenListBlock({
             merge: false,
             currency: cachedWorthCurrency,
           });
-          // Without these refresh calls the token list atoms keep the
-          // previous owner's data, leaving allTokenList.accountId/networkId
-          // stale and triggering the owner-mismatch skeleton in TokenListView
-          // forever for this empty-cache target.
           handleClearAllNetworkData();
+          // Stamp the empty cached owner into the cell VM so an empty cached
+          // target renders the empty state instead of a previous-owner skeleton.
+          ingestSingleNetworkCache({ source: 'singleEmptyCacheSeed' });
           updateAccountOverviewState({
             isRefreshing: false,
             initialized: true,
@@ -1985,6 +2761,7 @@ function TokenListBlock({
           initialized: true,
         });
 
+        ingestSingleNetworkCache({ source: 'singleCacheSeed' });
         perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
         updateTokenListState({
           initialized: true,
@@ -2026,8 +2803,8 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
-    void updateAllNetworksTokenList();
-  }, [updateAllNetworksTokenList]);
+    void runUpdateAllNetworksTokenList();
+  }, [runUpdateAllNetworksTokenList]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -2127,11 +2904,19 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
+    defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+      runtime: 'main',
+      phase: 'all-network-manual-refresh',
+      networkId: network?.id,
+      isAllNetworks: true,
+      ownerPresent: !!account?.id,
+      indexedAccountPresent: !!indexedAccount?.id,
+    });
     void runAllNetworksRequests({
       alwaysSetState: true,
       skipAccountsCache: true,
     });
-  }, [runAllNetworksRequests]);
+  }, [account?.id, indexedAccount?.id, network?.id, runAllNetworksRequests]);
 
   refreshWalletTokenListRef.current = () => {
     if (network?.isAllNetworks) {
@@ -2140,6 +2925,40 @@ function TokenListBlock({
     }
     void run({ alwaysSetState: true });
   };
+
+  const handleSyncPortfolio = useCallback(() => {
+    if (getCurrentPortfolioSyncRequest()) {
+      return;
+    }
+    const refreshWalletTokenList = refreshWalletTokenListRef.current;
+    if (!refreshWalletTokenList || !hasPortfolioSyncTarget) {
+      return;
+    }
+    clearPortfolioSyncSuccessTimer();
+    setPortfolioSyncFeedback('idle');
+    allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+    portfolioSyncRequestIdRef.current += 1;
+    const request: IPortfolioSyncRequest = {
+      id: portfolioSyncRequestIdRef.current,
+      ...(network?.isAllNetworks
+        ? {
+            minimumAllNetworksGeneration:
+              allNetworksPublishedResultRef.current.generation + 1,
+          }
+        : {}),
+      phase: 'queued',
+      targetKey: portfolioSyncTargetKey,
+    };
+    portfolioSyncRequestRef.current = request;
+    setPortfolioSyncRequestPhase(request.phase);
+    refreshWalletTokenList();
+  }, [
+    clearPortfolioSyncSuccessTimer,
+    getCurrentPortfolioSyncRequest,
+    hasPortfolioSyncTarget,
+    network?.isAllNetworks,
+    portfolioSyncTargetKey,
+  ]);
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
@@ -2180,7 +2999,11 @@ function TokenListBlock({
   useEffect(() => {
     const fn = () => {
       if (network?.isAllNetworks) {
-        void runAllNetworksRequests({ alwaysSetState: true });
+        // The all-network token refresh for this event is handled inside
+        // useAllNetworkRequests (its wallet-scoped listener also bypasses the
+        // accounts cache). Kicking it again here queued a second forced
+        // fan-out per hardware-account batch; only the LP token list still
+        // needs a dedicated trigger.
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
@@ -2190,12 +3013,7 @@ function TokenListBlock({
     return () => {
       appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
     };
-  }, [
-    network?.isAllNetworks,
-    runAllNetworksRequests,
-    runLpTokenList,
-    showLpTokensOnly,
-  ]);
+  }, [network?.isAllNetworks, runLpTokenList, showLpTokensOnly]);
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
@@ -2450,6 +3268,40 @@ function TokenListBlock({
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
+  const isPortfolioSyncing = portfolioSyncRequestPhase !== undefined;
+  const showPortfolioSyncButton = Boolean(
+    wallet &&
+    accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet }) &&
+    !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+    isProtocolV2ProductType(portfolioSyncDeviceType),
+  );
+
+  const renderPortfolioSyncButton = useCallback(() => {
+    if (!showPortfolioSyncButton) {
+      return null;
+    }
+    return (
+      <PortfolioSyncButton
+        onPress={handleSyncPortfolio}
+        disabled={Boolean(
+          !hasPortfolioSyncTarget ||
+          hardwareUiState ||
+          firmwareUpdateWorkflowRunning,
+        )}
+        state={isPortfolioSyncing ? 'loading' : portfolioSyncFeedback}
+      />
+    );
+  }, [
+    handleSyncPortfolio,
+    firmwareUpdateWorkflowRunning,
+    hasPortfolioSyncTarget,
+    hardwareUiState,
+    isPortfolioSyncing,
+    portfolioSyncFeedback,
+    showPortfolioSyncButton,
+  ]);
+
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
       if (!tokenListState.initialized && tokenListState.isRefreshing) {
@@ -2479,43 +3331,8 @@ function TokenListBlock({
   ]);
 
   const renderHeaderActions = useCallback(() => {
-    const filterSwitch = showLpTokenFilterSwitch ? (
-      <TokenSelectorLpTokenSwitch
-        value={showLpTokensOnly}
-        onChange={handleLpTokenFilterChange}
-        loading={isLpTokenSwitchLoading}
-      />
-    ) : null;
-
-    if (manageTokenEnabled && tableLayout) {
-      return (
-        <XStack alignItems="center" gap="$2">
-          {filterSwitch}
-          <IconButton
-            testID="home-render-header-actions-icon-btn"
-            title={intl.formatMessage({
-              id: ETranslations.manage_token_title,
-            })}
-            variant="tertiary"
-            icon="SliderHorOutline"
-            onPress={handleOnManageToken}
-            size="medium"
-          />
-        </XStack>
-      );
-    }
-
-    return filterSwitch;
-  }, [
-    tableLayout,
-    intl,
-    manageTokenEnabled,
-    handleOnManageToken,
-    showLpTokensOnly,
-    showLpTokenFilterSwitch,
-    handleLpTokenFilterChange,
-    isLpTokenSwitchLoading,
-  ]);
+    return renderPortfolioSyncButton();
+  }, [renderPortfolioSyncButton]);
 
   const renderContent = useCallback(() => {
     return (
@@ -2548,7 +3365,7 @@ function TokenListBlock({
           showLpTokensOnly ? false : !!network?.isAllNetworks
         }
         deferTokenManagement={!!network?.isAllNetworks}
-        manageTokenEnabled={manageTokenEnabled}
+        manageTokenEnabled={Boolean(manageTokenEnabled && !showLpTokensOnly)}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}

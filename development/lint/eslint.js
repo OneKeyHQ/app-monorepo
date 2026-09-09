@@ -58,3 +58,29 @@ try {
   console.log(`[${getTimestamp()}] Oxlint check failed. (${oxlintDuration}s)`);
   exit(1);
 }
+
+// ============================================
+// Run Oxfmt separately from lint rules
+// ============================================
+console.log(`[${getTimestamp()}] Oxfmt check started...`);
+const oxfmtStartTime = Date.now();
+
+try {
+  const checkFlag = isCI ? ' --check' : '';
+  execSync(`npx oxfmt${checkFlag} "**/*.{js,jsx,ts,tsx,mjs,cjs}"`, {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
+  console.log(`[${getTimestamp()}] Oxfmt check passed. (${oxfmtDuration}s)`);
+} catch (error) {
+  const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
+  if (error.stdout) {
+    console.log(error.stdout.toString('utf-8'));
+  }
+  if (error.stderr) {
+    console.error(error.stderr.toString('utf-8'));
+  }
+  console.log(`[${getTimestamp()}] Oxfmt check failed. (${oxfmtDuration}s)`);
+  exit(1);
+}

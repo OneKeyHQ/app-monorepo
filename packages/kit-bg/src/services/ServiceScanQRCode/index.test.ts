@@ -514,6 +514,23 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+  it('should parse as featured changelog preview', async () => {
+    expect(
+      await parse('onekey-wallet://preview-featured-changelog?version=6.5.0'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.FEATURED_CHANGELOG_PREVIEW,
+        data: { version: '6.5.0' },
+      }),
+    );
+    // Without the version param the page still opens with an empty input.
+    expect(await parse('onekey-wallet://preview-featured-changelog')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.FEATURED_CHANGELOG_PREVIEW,
+        data: { version: undefined },
+      }),
+    );
+  });
   it('should parse as unknown', async () => {
     expect(await parse('abcd')).toEqual(
       expect.objectContaining({

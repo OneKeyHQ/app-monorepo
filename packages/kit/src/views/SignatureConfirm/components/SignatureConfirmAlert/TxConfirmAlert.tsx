@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IAlertType } from '@onekeyhq/components';
@@ -10,7 +9,6 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useCustomRpcStatusAtom,
-  useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
@@ -21,6 +19,7 @@ import {
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
+import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -33,20 +32,21 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 interface IProps {
   accountId: string;
   networkId: string;
   transferPayload?: ITransferPayload;
+  gasAccountScenario?: IGasAccountScenario;
 }
 
 function TxConfirmAlert(props: IProps) {
-  const { networkId, accountId, transferPayload } = props;
+  const { networkId, accountId, transferPayload, gasAccountScenario } = props;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
@@ -60,6 +60,10 @@ function TxConfirmAlert(props: IProps) {
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
+  const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
+    networkId,
+    gasAccountScenario,
+  });
 
   // Single source of truth for the token-fee alert gate so logging and
   // rendering can't drift (pay-with-token disabled → native alert).
@@ -74,6 +78,7 @@ function TxConfirmAlert(props: IProps) {
     if (isInsufficient && !insufficientFeeLoggedRef.current) {
       insufficientFeeLoggedRef.current = true;
       defaultLogger.transaction.send.insufficientFeeOnConfirm({
+        ...gasAccountAnalyticsContext,
         network: networkId,
         tokenSymbol: isTokenFeeAlert
           ? (payWithTokenInfo.symbol ?? network?.symbol)
@@ -90,25 +95,11 @@ function TxConfirmAlert(props: IProps) {
     sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
     sendTxStatus.fillUpTokenBalance,
+    gasAccountAnalyticsContext,
     networkId,
     network?.symbol,
     payWithTokenInfo.symbol,
   ]);
-
-  const renderDecodedTxsAlert = useCallback(() => {
-    const alerts = flatMap(
-      map(decodedTxs, (tx) => tx.txDisplay?.alerts),
-    ).filter(Boolean);
-
-    return alerts.map((alert) => (
-      <Alert
-        key={alert}
-        description={alert}
-        type="warning"
-        icon="InfoSquareOutline"
-      />
-    ));
-  }, [decodedTxs]);
 
   // Keep the last error message across retry cycles. The estimate flow resets
   // `errMessage` to '' the moment it flips to Loading, which would otherwise
@@ -420,7 +411,6 @@ function TxConfirmAlert(props: IProps) {
       {renderCustomRpcUnavailableAlert()}
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
-      {renderDecodedTxsAlert()}
       {renderPreCheckTxAlert()}
       {renderChainSpecialAlert()}
     </>

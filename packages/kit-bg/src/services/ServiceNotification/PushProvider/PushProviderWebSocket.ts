@@ -16,6 +16,7 @@ import {
   ENotificationPushMessageAckAction,
   EPushProviderEventNames,
 } from '@onekeyhq/shared/types/notification';
+import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type {
   IPrimeConfigChangedInfo,
   IPrimeConfigFlushInfo,
@@ -32,8 +33,13 @@ import { notificationStatusAtom } from '../../../states/jotai/atoms/notification
 import { PushProviderBase } from './PushProviderBase';
 
 import type { IPushProviderBaseProps } from './PushProviderBase';
+import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { INotificationStatusAtomData } from '../../../states/jotai/atoms/notifications';
 import type { Socket } from 'socket.io-client';
+
+type IRemoteLogoutFlowLogParams = Parameters<
+  typeof defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow
+>[0];
 
 export class PushProviderWebSocket extends PushProviderBase {
   constructor(props: IPushProviderBaseProps) {
@@ -42,6 +48,228 @@ export class PushProviderWebSocket extends PushProviderBase {
   }
 
   private socket: Socket | null = null;
+
+  private readonly remoteDeviceLogoutProcessing = new Map<
+    string,
+    Promise<void>
+  >();
+
+  private logRemoteDeviceLogoutFlow(params: IRemoteLogoutFlowLogParams): void {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow(params);
+  }
+
+  private logRemoteDeviceLogoutFailure({
+    reason,
+    error,
+    stage,
+    flowId,
+    operationId,
+    status = 'failed',
+  }: {
+    reason: string;
+    error?: unknown;
+    stage: IRemoteLogoutFlowLogParams['stage'];
+    flowId: string;
+    operationId?: string;
+    status?: Extract<
+      IRemoteLogoutFlowLogParams['status'],
+      'failed' | 'blocked'
+    >;
+  }): void {
+    let errorMessage = '';
+    if (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
+    }
+    const failureReason = errorMessage ? `${reason}: ${errorMessage}` : reason;
+    defaultLogger.prime.subscription.onekeyIdLogout({
+      reason: failureReason,
+    });
+    this.logRemoteDeviceLogoutFlow({
+      stage,
+      status,
+      flowId,
+      operationId,
+      reason: failureReason,
+    });
+  }
+
+  private async acknowledgeRemoteDeviceLogout({
+    operationId,
+    messageId,
+  }: {
+    operationId: string;
+    messageId: string;
+  }): Promise<void> {
+    this.logRemoteDeviceLogoutFlow({
+      stage: 'targetAcknowledgement',
+      status: 'started',
+      flowId: messageId,
+      operationId,
+    });
+    try {
+      await this.backgroundApi.serviceNotification.ackNotificationMessage({
+        msgId: messageId,
+        action: ENotificationPushMessageAckAction.arrived,
+      });
+      await this.backgroundApi.serviceIdentityExit.markRemoteOneKeyIdLogoutNotificationDelivered(
+        {
+          operationId,
+          messageId,
+          delivery: 'acknowledged',
+        },
+      );
+      this.logRemoteDeviceLogoutFlow({
+        stage: 'targetAcknowledgement',
+        status: 'succeeded',
+        flowId: messageId,
+        operationId,
+      });
+    } catch (error) {
+      this.logRemoteDeviceLogoutFailure({
+        reason: 'WebSocket: remote OneKey ID logout acknowledgement failed',
+        error,
+        stage: 'targetAcknowledgement',
+        flowId: messageId,
+        operationId,
+      });
+    }
+  }
+
+  private async processRemoteDeviceLogout({
+    operationId,
+    planId,
+    messageId,
+  }: {
+    operationId: string;
+    planId: IIdentityExitPlanId;
+    messageId: string;
+  }): Promise<void> {
+    const existing = this.remoteDeviceLogoutProcessing.get(messageId);
+    if (existing) {
+      this.logRemoteDeviceLogoutFlow({
+        stage: 'targetReconciliation',
+        status: 'deduplicated',
+        flowId: messageId,
+        operationId,
+      });
+      await existing;
+      return;
+    }
+    const processing = (async () => {
+      this.logRemoteDeviceLogoutFlow({
+        stage: 'targetReconciliation',
+        status: 'started',
+        flowId: messageId,
+        operationId,
+      });
+      try {
+        const receipt =
+          await this.backgroundApi.serviceIdentityExit.executeIdentityExit({
+            planId,
+          });
+        if (receipt.status !== 'completed') {
+          this.logRemoteDeviceLogoutFailure({
+            reason: `WebSocket: remote OneKey ID logout reconciliation returned ${receipt.status}`,
+            stage: 'targetReconciliation',
+            status: 'blocked',
+            flowId: messageId,
+            operationId,
+          });
+          return;
+        }
+        this.logRemoteDeviceLogoutFlow({
+          stage: 'targetReconciliation',
+          status: 'succeeded',
+          flowId: messageId,
+          operationId,
+          oneKeyIdLoggedOut: receipt.oneKeyIdLoggedOut,
+        });
+        if (receipt.oneKeyIdLoggedOut) {
+          appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, {
+            operationId,
+            messageId,
+          });
+          this.logRemoteDeviceLogoutFlow({
+            stage: 'targetPresentation',
+            status: 'succeeded',
+            flowId: messageId,
+            operationId,
+            reason: 'PrimeDeviceLogout event emitted',
+            oneKeyIdLoggedOut: true,
+          });
+        } else {
+          await this.backgroundApi.serviceIdentityExit.markRemoteOneKeyIdLogoutNotificationDelivered(
+            {
+              operationId,
+              messageId,
+              delivery: 'presentationHandled',
+            },
+          );
+          this.logRemoteDeviceLogoutFlow({
+            stage: 'targetPresentation',
+            status: 'skipped',
+            flowId: messageId,
+            operationId,
+            reason: 'OneKey ID was already logged out',
+            oneKeyIdLoggedOut: false,
+          });
+        }
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket reconciled primeDeviceLogout message',
+          { msgId: messageId },
+        );
+      } catch (error) {
+        this.logRemoteDeviceLogoutFailure({
+          reason: 'WebSocket: remote OneKey ID logout reconciliation failed',
+          error,
+          stage: 'targetReconciliation',
+          flowId: messageId,
+          operationId,
+        });
+      }
+    })();
+    this.remoteDeviceLogoutProcessing.set(messageId, processing);
+    try {
+      await processing;
+    } finally {
+      if (this.remoteDeviceLogoutProcessing.get(messageId) === processing) {
+        this.remoteDeviceLogoutProcessing.delete(messageId);
+      }
+    }
+  }
+
+  private async flushPendingRemoteDeviceLogouts(): Promise<void> {
+    try {
+      const pending =
+        await this.backgroundApi.serviceIdentityExit.getPendingRemoteOneKeyIdLogoutNotifications();
+      await Promise.all(
+        pending.map(async (entry) => {
+          this.logRemoteDeviceLogoutFlow({
+            stage: 'targetRetry',
+            status: 'started',
+            flowId: entry.messageId,
+            operationId: entry.operationId,
+            reason: `ack=${String(
+              entry.needsAcknowledgement,
+            )} presentation=${String(entry.needsPresentation)}`,
+          });
+          if (entry.needsAcknowledgement) {
+            await this.acknowledgeRemoteDeviceLogout(entry);
+          }
+          if (entry.needsPresentation) {
+            await this.processRemoteDeviceLogout(entry);
+          }
+        }),
+      );
+    } catch (error) {
+      this.logRemoteDeviceLogoutFailure({
+        reason: 'WebSocket: pending remote OneKey ID logout retry failed',
+        error,
+        stage: 'targetRetry',
+        flowId: 'pendingRemoteDeviceLogouts',
+      });
+    }
+  }
 
   async ping(payload: any) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -112,6 +340,7 @@ export class PushProviderWebSocket extends PushProviderBase {
           websocketConnected: true,
         }),
       );
+      void this.flushPendingRemoteDeviceLogouts();
     });
     this.socket.on('connect_error', (error) => {
       defaultLogger.notification.websocket.consoleLog(
@@ -163,20 +392,60 @@ export class PushProviderWebSocket extends PushProviderBase {
 
     this.socket.on(
       EAppSocketEventNames.primeDeviceLogout,
-      (payload: IPrimeDeviceLogoutInfo) => {
-        void this.backgroundApi.serviceNotification.ackNotificationMessage({
-          msgId: payload.msgId,
-          action: ENotificationPushMessageAckAction.arrived,
+      async (payload: IPrimeDeviceLogoutInfo) => {
+        this.logRemoteDeviceLogoutFlow({
+          stage: 'targetMessage',
+          status: 'succeeded',
+          flowId: payload.msgId,
         });
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason:
             'WebSocket: DEVICE_LOGOUT, EAppSocketEventNames.primeDeviceLogout',
         });
-        appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
-        defaultLogger.notification.websocket.consoleLog(
-          'WebSocket 收到 primeDeviceLogout 消息:',
-          payload,
-        );
+        let staged: Awaited<
+          ReturnType<
+            IBackgroundApi['serviceIdentityExit']['stageRemoteOneKeyIdLogoutNotification']
+          >
+        >;
+        this.logRemoteDeviceLogoutFlow({
+          stage: 'targetStaging',
+          status: 'started',
+          flowId: payload.msgId,
+        });
+        try {
+          staged =
+            await this.backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutNotification(
+              { messageId: payload.msgId },
+            );
+          this.logRemoteDeviceLogoutFlow({
+            stage: 'targetStaging',
+            status: 'succeeded',
+            flowId: payload.msgId,
+            operationId: staged.operationId,
+            reason: `acknowledged=${String(
+              staged.acknowledged,
+            )} presentationHandled=${String(staged.presentationHandled)}`,
+          });
+        } catch (error) {
+          this.logRemoteDeviceLogoutFailure({
+            reason: 'WebSocket: remote OneKey ID logout durable staging failed',
+            error,
+            stage: 'targetStaging',
+            flowId: payload.msgId,
+          });
+          return;
+        }
+        await this.acknowledgeRemoteDeviceLogout({
+          operationId: staged.operationId,
+          messageId: payload.msgId,
+        });
+        if (!staged.presentationHandled) {
+          await this.processRemoteDeviceLogout({
+            operationId: staged.operationId,
+            planId: staged.planId,
+            messageId: payload.msgId,
+          });
+        }
       },
     );
 

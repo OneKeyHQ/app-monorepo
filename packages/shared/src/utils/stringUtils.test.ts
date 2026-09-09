@@ -1,8 +1,31 @@
-import stringUtils, { stableStringify } from './stringUtils';
+import stringUtils, {
+  isPrintableASCIIString,
+  stableStringify,
+} from './stringUtils';
 
 test('stableStringify', () => {
   expect(stableStringify({ a: '1', b: '2' })).toBe(
     stableStringify({ b: '2', a: '1' }),
+  );
+});
+
+describe('isPrintableASCIIString', () => {
+  test.each([
+    'OneKeyPro2',
+    'OneKey Pro 2',
+    'OneKey-Pro2',
+    'OneKey_Pro2',
+    'ONEKEY',
+    '123456',
+  ])('%s is valid', (value) => {
+    expect(isPrintableASCIIString(value)).toBe(true);
+  });
+
+  test.each(['', 'OneKey　Pro2', '一键', '１２３'])(
+    '%s is invalid',
+    (value) => {
+      expect(isPrintableASCIIString(value)).toBe(false);
+    },
   );
 });
 

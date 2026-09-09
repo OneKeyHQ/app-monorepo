@@ -3,23 +3,36 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
-import type { IntlShape } from 'react-intl';
+
+export { getBorrowTxTitle } from './borrowTxTitle';
 
 export const BorrowNavigation = {
+  pushToBorrowHome(navigation: IAppNavigation) {
+    if (platformEnv.isNative) {
+      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+      return;
+    }
+
+    navigation.navigate(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnHome,
+      params: { mode: 'borrow' },
+    });
+  },
+
   // Navigate from deep link (when user clicks a borrow share link)
   async pushToBorrowReserveDetailsFromDeeplink(
     navigation: IAppNavigation,
@@ -29,6 +42,7 @@ export const BorrowNavigation = {
       marketAddress: string;
       reserveAddress: string;
       symbol: string;
+      logoURI?: string;
     },
   ) {
     await safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowReserveDetails, {
@@ -37,6 +51,7 @@ export const BorrowNavigation = {
       marketAddress: params.marketAddress,
       reserveAddress: params.reserveAddress,
       symbol: params.symbol,
+      logoURI: params.logoURI,
     });
   },
 
@@ -172,12 +187,39 @@ export const BorrowNavigation = {
     });
   },
 
+  pushToBorrowTokenSelect(
+    navigation: IAppNavigation,
+    params: IModalStakingParamList[EModalStakingRoutes.BorrowTokenSelect],
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowTokenSelect,
+      params,
+    });
+  },
+
+  pushToBorrowEModeSwitch(
+    navigation: IAppNavigation,
+    params: {
+      accountId: string;
+      indexedAccountId?: string;
+      networkId: string;
+      provider: string;
+      marketAddress: string;
+    },
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowEModeSwitch,
+      params,
+    });
+  },
+
   generateBorrowShareLink({
     networkId,
     symbol,
     provider,
     marketAddress,
     reserveAddress,
+    logoURI,
     isDevMode = false,
   }: {
     networkId: string;
@@ -185,6 +227,7 @@ export const BorrowNavigation = {
     provider: string;
     marketAddress: string;
     reserveAddress: string;
+    logoURI?: string;
     isDevMode?: boolean;
   }): string {
     let origin = WEB_APP_URL;
@@ -195,16 +238,19 @@ export const BorrowNavigation = {
       origin = WEB_APP_URL_DEV;
     }
 
-    // URL Format: /borrow/{networkId}/{symbol}/{provider}?marketAddress=xxx&reserveAddress=xxx
-    // Example: https://app.onekey.so/borrow/evm--1/usdc/aave?marketAddress=0x...&reserveAddress=0x...
+    // URL Format: /borrow/{networkId}/{symbol}/{provider}?marketAddress=xxx&reserveAddress=xxx&logoURI=xxx
+    // Example: https://app.onekey.so/borrow/evm--1/USDC/aave?marketAddress=0x...&reserveAddress=0x...&logoURI=https%3A%2F%2F...
     //
     // Deep link route is configured in packages/kit/src/routes/Tab/Earn/router.ts
     // as BorrowReserveDetailsShare with rewrite: '/borrow/:networkId/:symbol/:provider'
-    const baseUrl = `/borrow/${networkId}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    const baseUrl = `/borrow/${networkId}/${symbol}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     queryParams.append('marketAddress', marketAddress);
     queryParams.append('reserveAddress', reserveAddress);
+    if (logoURI) {
+      queryParams.append('logoURI', logoURI);
+    }
 
     const queryString = queryParams.toString();
     return `${origin}${baseUrl}?${queryString}`;
@@ -214,27 +260,4 @@ export const BorrowNavigation = {
 export const isBorrowTx = (unsignedTx: IUnsignedTxPro | undefined) => {
   if (!unsignedTx) return false;
   return unsignedTx?.stakingInfo?.tags?.includes(EEarnLabels.Borrow);
-};
-
-export const getBorrowTxTitle = ({
-  intl,
-  stakingInfo,
-}: {
-  intl: IntlShape;
-  stakingInfo: IStakingInfo | undefined;
-}) => {
-  switch (stakingInfo?.label) {
-    case EEarnLabels.Supply:
-      return intl.formatMessage({ id: ETranslations.defi_supply });
-    case EEarnLabels.Borrow:
-      return intl.formatMessage({ id: ETranslations.global_borrow });
-    case EEarnLabels.Repay:
-      return intl.formatMessage({ id: ETranslations.defi_repay });
-    case EEarnLabels.Withdraw:
-      return intl.formatMessage({ id: ETranslations.global_withdraw });
-    case EEarnLabels.Claim:
-      return intl.formatMessage({ id: ETranslations.earn_claim });
-    default:
-      return undefined;
-  }
 };

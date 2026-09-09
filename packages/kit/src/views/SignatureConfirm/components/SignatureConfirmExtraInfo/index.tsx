@@ -8,3 +8,4 @@
  */
 
 export { default as TxConfirmExtraInfo } from './TxConfirmExtraInfo';
+export { default as MessageConfirmExtraInfo } from './MessageConfirmExtraInfo';

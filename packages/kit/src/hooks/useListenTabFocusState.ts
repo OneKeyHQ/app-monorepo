@@ -3,15 +3,21 @@ import { useCallback, useRef } from 'react';
 import { useOnRouterChange } from '@onekeyhq/components';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+const ALL_TAB_ROUTES = Object.values(ETabRoutes);
+
 export default function useListenTabFocusState(
   tabName: ETabRoutes | ETabRoutes[],
-  callback: (isFocus: boolean, isHideByModal: boolean) => void, // do NOT useCallback to wrap the callback
+  callback: (
+    isFocus: boolean,
+    isHideByModal: boolean,
+    currentTabName: ETabRoutes | undefined,
+  ) => void, // do NOT useCallback to wrap the callback
 ) {
   const tabNames = Array.isArray(tabName) ? tabName : [tabName];
   useOnRouterChange((state) => {
     // the state may be undefined when initializing the interface on the Ext.
     if (!state) {
-      callback(tabName === ETabRoutes.Home, false);
+      callback(tabNames.includes(ETabRoutes.Home), false, ETabRoutes.Home);
       return;
     }
     const rootState = state?.routes.find(
@@ -28,10 +34,11 @@ export default function useListenTabFocusState(
     )?.key;
     const currentTabName = rootState?.routeNames
       ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
-      : (rootState?.routes[0].name as ETabRoutes);
+      : (rootState?.routes[0]?.name as ETabRoutes | undefined);
     callback(
-      tabNames.includes(currentTabName),
+      !!currentTabName && tabNames.includes(currentTabName),
       !!(modalRoutes || fullModalRoutes || fullScreenPushRoutes),
+      currentTabName,
     );
   });
 }
@@ -41,6 +48,7 @@ export function useShortcutsRouteStatus() {
   const isAtBrowserTab = useRef(false);
   const isAtPerpTab = useRef(false);
   const isAtDiscoveryTab = useRef(false);
+  const currentTabRoute = useRef<ETabRoutes | undefined>(undefined);
 
   const updateShouldReloadAppByCmdR = useCallback(() => {
     shouldReloadAppByCmdR.current =
@@ -68,7 +76,15 @@ export function useShortcutsRouteStatus() {
     updateShouldReloadAppByCmdR();
   });
 
+  useListenTabFocusState(
+    ALL_TAB_ROUTES,
+    (_isFocus, _isHideByModal, currentTabName) => {
+      currentTabRoute.current = currentTabName;
+    },
+  );
+
   return {
+    currentTabRoute,
     isAtDiscoveryTab,
     isAtBrowserTab,
     isAtPerpTab,

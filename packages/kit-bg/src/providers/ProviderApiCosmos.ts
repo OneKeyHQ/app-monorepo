@@ -214,6 +214,8 @@ class ProviderApiCosmos extends ProviderApiBase {
       return false;
     }
 
+    this.tryFocusPendingApprovalWindow(request);
+
     return this._queue.runExclusive(async () => {
       const now = Date.now();
       // Some dApps may send a large number of concurrent requests, so we need to cache the results to avoid popping up multiple connection Modals

@@ -140,85 +140,35 @@ interface IBaseResolveOptions {
   platform: string;
   configName?: string;
   basePath: string;
+  enableSentryMinimalCompat: boolean;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createBaseResolveOptions } = require('./rspack.resolve.config.js') as {
+  createBaseResolveOptions: (options: {
+    basePath: string;
+    enableSentryMinimalCompat: boolean;
+    extensions: string[];
+  }) => RspackOptions['resolve'];
+};
 
 const baseResolve = ({
   platform,
   configName,
   basePath,
-}: IBaseResolveOptions): RspackOptions['resolve'] => ({
-  mainFields: ['browser', 'module', 'main'],
-  aliasFields: ['browser', 'module', 'main'],
-  extensions: createResolveExtensions({ platform, configName }),
-  symlinks: true,
-  alias: {
-    'react-native$': 'react-native-web',
-    'react-native-fast-image': path.join(
-      __dirname,
-      '../module-resolver/react-native-fast-image-mock',
-    ),
-    'react-native-keyboard-controller': path.join(
-      __dirname,
-      '../module-resolver/react-native-keyboard-controller-mock',
-    ),
-    'react-native-aes-crypto': false,
-    'react-native-cloud-fs': false,
-    'react-native/Libraries/Components/View/ViewStylePropTypes$':
-      'react-native-web/dist/exports/View/ViewStylePropTypes',
-    'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
-      'react-native-web/dist/vendor/react-native/NativeEventEmitter/RCTDeviceEventEmitter',
-    'react-native/Libraries/vendor/emitter/EventEmitter$':
-      'react-native-web/dist/vendor/react-native/emitter/EventEmitter',
-    'react-native/Libraries/vendor/emitter/EventSubscriptionVendor$':
-      'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
-    'react-native/Libraries/EventEmitter/NativeEventEmitter$':
-      'react-native-web/dist/vendor/react-native/NativeEventEmitter',
-    '@react-aria/focus': path.join(
-      basePath,
-      '../../node_modules/@react-aria/focus/src/index.ts',
-    ),
-    '@react-aria/interactions': path.join(
-      basePath,
-      '../../node_modules/@react-aria/interactions/src/index.ts',
-    ),
-    '@react-aria/ssr': path.join(
-      basePath,
-      '../../node_modules/@react-aria/ssr/src/index.ts',
-    ),
-    '@react-aria/utils': path.join(
-      basePath,
-      '../../node_modules/@react-aria/utils/src/index.ts',
-    ),
-    'bn.js$': require.resolve('bn.js'),
-  },
-  fallback: {
-    crypto:
-      require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js'),
-    stream: require.resolve('stream-browserify'),
-    path: false,
-    https: false,
-    http: false,
-    net: false,
-    dgram: false,
-    zlib: false,
-    tls: false,
-    child_process: false,
-    process: false,
-    fs: false,
-    util: false,
-    os: false,
-    wbg: false,
-    buffer: require.resolve('buffer/'),
-    algosdk: false,
-  },
-  fullySpecified: false,
-});
+  enableSentryMinimalCompat,
+}: IBaseResolveOptions): RspackOptions['resolve'] =>
+  createBaseResolveOptions({
+    basePath,
+    enableSentryMinimalCompat,
+    extensions: createResolveExtensions({ platform, configName }),
+  });
 
 // Builds the full DefinePlugin map = webpack `transform-inline-environment-variables`
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
 // explicit/build-derived keys. Collapsing all three into one map; overlapping
 // keys are resolved by spread order — `explicitDefines` is spread LAST so the
-// pinned build-derived values win (parity with the previous hand-written map:
+// explicit build-derived values win (parity with the previous hand-written map:
 // e.g. NODE_ENV stays pinned to `nodeEnv`, not the raw process.env value).
 function buildDefineMap(
   platform: string,
@@ -235,8 +185,8 @@ function buildDefineMap(
   //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
   //     NOT here: rspack.DefinePlugin does not replace member expressions on
   //     the imported `platformEnv` binding.
-  // (3) explicit / build-derived (win last) + EXPO_OS (web only, parity with
-  //     babel-preset-expo which sets process.env.EXPO_OS).
+  // (3) explicit / build-derived (win last) + EXPO_OS (all Rspack targets use
+  //     web runtime semantics, parity with babel-preset-expo).
   const explicitDefines = {
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
@@ -261,9 +211,7 @@ function buildDefineMap(
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
     'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
-    ...(platform === 'web'
-      ? { 'process.env.EXPO_OS': JSON.stringify('web') }
-      : {}),
+    'process.env.EXPO_OS': JSON.stringify('web'),
   };
   return { ...envDefines, ...explicitDefines };
 }
@@ -289,28 +237,57 @@ const buildBasePlugins: (
         '../../packages/kit/src/views/Developer/router.empty.ts',
       ),
     ),
+  !isDev &&
+    platform === 'web' &&
+    new rspack.CssExtractRspackPlugin({
+      filename: '[name].[contenthash:10].css',
+      chunkFilename: 'static/css/[name].[contenthash:10].chunk.css',
+    }),
   isDev && new BuildDoneNotifyPlugin(),
 ];
 
-const buildBaseExperiments: (
+function buildCssLoaders(platform: string) {
+  return [
+    !isDev && platform === 'web'
+      ? rspack.CssExtractRspackPlugin.loader
+      : 'style-loader',
+    {
+      loader: 'css-loader',
+      options: {
+        importLoaders: 1,
+        sourceMap: true,
+        modules: { mode: 'global' },
+      },
+    },
+  ];
+}
+
+const buildBaseExperiments: () => RspackOptions['experiments'] = () => ({
+  asyncWebAssembly: true,
+});
+
+const buildBaseCache: (
   basePath: string,
   configName?: string,
-) => RspackOptions['experiments'] = (basePath, configName) => ({
-  cache: {
-    type: 'persistent',
-    storage: {
-      type: 'filesystem',
-      // Use separate cache directories for each config to avoid conflicts
-      // in multi-config builds (ext has 5 parallel configs)
-      directory: path.join(
-        basePath,
-        'node_modules/.cache/rspack',
-        configName || 'default',
-      ),
-    },
+) => RspackOptions['cache'] = (basePath, configName) => ({
+  type: 'persistent',
+  // The CLI only auto-tracks the app-level rspack.config.ts as a build
+  // dependency, so edits to these imported config modules would otherwise
+  // never invalidate warm persistent caches.
+  buildDependencies: fs
+    .readdirSync(__dirname)
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => path.join(__dirname, file)),
+  storage: {
+    type: 'filesystem',
+    // Use separate cache directories for each compiler domain to avoid
+    // persistent cache conflicts in multi-config builds.
+    directory: path.join(
+      basePath,
+      'node_modules/.cache/rspack',
+      configName || 'default',
+    ),
   },
-  asyncWebAssembly: true,
-  incremental: true,
 });
 
 const basePerformance: RspackOptions['performance'] = {
@@ -322,12 +299,24 @@ interface IBaseConfigOptions {
   platform: string;
   basePath: string;
   configName?: string;
+  target?: RspackOptions['target'];
+  swcTargets?: string | Record<string, string>;
+  enableImportMetaCompat?: boolean;
+  enableSentryMinimalCompat?: boolean;
+  transpileDependencies?: RegExp[];
+  removeFirstPartyConsole?: boolean;
 }
 
 export function createBaseConfig({
   platform,
   basePath,
   configName,
+  target = ['web'],
+  swcTargets = 'defaults',
+  enableImportMetaCompat = false,
+  enableSentryMinimalCompat = false,
+  transpileDependencies = [],
+  removeFirstPartyConsole = false,
 }: IBaseConfigOptions): RspackOptions {
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
@@ -343,7 +332,7 @@ export function createBaseConfig({
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
     bail: false,
-    target: ['web'],
+    target,
     watchOptions: {
       aggregateTimeout: 5,
       ignored: [
@@ -355,11 +344,35 @@ export function createBaseConfig({
         '**/.#*',
       ],
     },
-    // Build logs stay quiet ('errors-warnings'), but `--json` reuses this same
-    // stats config, and 'errors-warnings' (all:false) omits assets/chunks — so
-    // the bundle-size diff CI job would see an empty stats.json. The `stats:web`
-    // script sets RSPACK_FULL_STATS=1 to emit a full preset for the JSON path.
-    stats: process.env.RSPACK_FULL_STATS === '1' ? 'normal' : 'errors-warnings',
+    // Build logs stay quiet, while JSON stats retain the module-to-chunk graph
+    // needed for bundle-size audits. Rspack's `normal` preset is string-output
+    // oriented and omits assets, chunks, and modules from `toJson()`.
+    stats:
+      process.env.RSPACK_FULL_STATS === '1'
+        ? {
+            all: false,
+            assets: true,
+            builtAt: true,
+            cachedModules: true,
+            chunkGroups: true,
+            chunkRelations: true,
+            chunks: true,
+            children: true,
+            entrypoints: true,
+            errors: true,
+            errorsCount: true,
+            hash: true,
+            ids: true,
+            modules: true,
+            outputPath: true,
+            publicPath: true,
+            source: false,
+            timings: true,
+            version: true,
+            warnings: true,
+            warningsCount: true,
+          }
+        : 'errors-warnings',
     infrastructureLogging: { debug: false, level: 'none' },
     output: {
       publicPath: publicUrl || '/',
@@ -415,6 +428,15 @@ export function createBaseConfig({
       ...buildBasePlugins(platform, basePath).filter(Boolean),
     ],
     module: {
+      // Webpack used strictExportPresence=false. Keep the same behavior for
+      // native-only React Native exports that are guarded by platformEnv.
+      parser: {
+        javascript: {
+          exportsPresence: false,
+          importExportsPresence: false,
+          reexportExportsPresence: false,
+        },
+      },
       rules: [
         // `.text-js` = JS source imported as a RAW STRING (default export = the
         // file contents), matching babel-plugin-inline-import in the webpack
@@ -446,7 +468,7 @@ export function createBaseConfig({
           },
         },
         {
-          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/],
+          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
@@ -465,7 +487,7 @@ export function createBaseConfig({
         // Reanimated files need babel-loader with worklets plugin
         {
           test: /\.(js|mjs|jsx|ts|tsx)$/,
-          include: [/react-native-reanimated/],
+          include: [/node_modules[\\/].*react-native-reanimated/],
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -489,7 +511,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -532,21 +554,19 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
                 // lodash cherry-pick, mirrors babel-plugin-import in the webpack
                 // chain (`import { x } from 'lodash'` -> `import x from 'lodash/x'`).
                 // camelToDashComponentName:false mirrors camel2DashComponentName:false.
-                rspackExperiments: {
-                  import: [
-                    {
-                      libraryName: 'lodash',
-                      customName: 'lodash/{{ member }}',
-                      camelToDashComponentName: false,
-                      transformToDefaultImport: true,
-                    },
-                  ],
-                },
+                transformImport: [
+                  {
+                    libraryName: 'lodash',
+                    customName: 'lodash/{{ member }}',
+                    camelToDashComponentName: false,
+                    transformToDefaultImport: true,
+                  },
+                ],
               },
             },
             {
@@ -558,6 +578,7 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  '@babel/plugin-syntax-jsx',
                   ...(platform === 'web'
                     ? [
                         path.join(
@@ -581,6 +602,11 @@ export function createBaseConfig({
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',
+                  // Keep console stripping in the first-party-only rule so
+                  // dependency runtime fallbacks remain intact.
+                  ...(!isDev && removeFirstPartyConsole
+                    ? ['babel-plugin-transform-remove-console']
+                    : []),
                   // Fold platformEnv.* to literals so platform branches are
                   // dead-code-eliminated (parity with webpack babelTools). Must
                   // be a babel plugin: rspack.DefinePlugin cannot fold member
@@ -592,8 +618,16 @@ export function createBaseConfig({
           ],
           resolve: { fullySpecified: false },
         },
+        // Vendor-transpile rules below require a node_modules segment BEFORE the
+        // package-name substring on purpose: a fully unanchored regex matches
+        // the absolute path, and on EAS build machines the checkout lives under
+        // /Users/expo/, so a bare /(@?expo-*)/ matched EVERY first-party file
+        // and chained an swc pass without decorator support ("Unexpected token
+        // `@`"). Keep the substring semantics after node_modules — packages
+        // like @onekeyfe/react-native-text-input (scoped, raw .ts sources)
+        // rely on it to get transpiled at all.
         {
-          test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*(@?react-(navigation|native)).*\.(ts|js)x?$/,
 
           use: [
             {
@@ -618,18 +652,51 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(transpileDependencies.length > 0
+          ? [
+              {
+                test: /\.(c|m)?(js|jsx)$/,
+                include: transpileDependencies,
+                loader: 'builtin:swc-loader',
+                options: {
+                  jsc: {
+                    parser: {
+                      syntax: 'ecmascript',
+                      jsx: true,
+                    },
+                    transform: {
+                      react: {
+                        runtime: 'automatic',
+                        development: isDev,
+                        refresh: isDev,
+                      },
+                    },
+                    externalHelpers: true,
+                    experimental: {
+                      cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+                    },
+                  },
+                  isModule: 'unknown',
+                  env: {
+                    targets: swcTargets,
+                  },
+                },
+                resolve: { fullySpecified: false },
+              },
+            ]
+          : []),
         {
           test: [
-            /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
-            /(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
-            /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?expo-*).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
+            /node_modules[\\/].*(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
 
           use: [
@@ -655,7 +722,7 @@ export function createBaseConfig({
                 },
                 isModule: 'unknown',
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
@@ -663,11 +730,11 @@ export function createBaseConfig({
           resolve: { fullySpecified: false },
         },
         {
-          test: /@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*@onekeyfe[\\/]bitcoinforksjs-lib.*\.(ts|js)x?$/,
           resolve: { fullySpecified: false },
         },
         {
-          test: /lru-cache.*\.(ts|js)x?$/,
+          test: /node_modules[\\/].*lru-cache.*\.(ts|js)x?$/,
           use: [
             {
               loader: 'builtin:swc-loader',
@@ -687,26 +754,24 @@ export function createBaseConfig({
                   noInterop: false,
                 },
                 env: {
-                  targets: 'defaults',
+                  targets: swcTargets,
                 },
               },
             },
           ],
           resolve: { fullySpecified: false },
         },
+        ...(enableImportMetaCompat
+          ? [
+              {
+                test: /node_modules[\\/].*@polkadot/,
+                loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+              },
+            ]
+          : []),
         {
           test: /\.(css)$/,
-          use: [
-            'style-loader',
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1,
-                sourceMap: true,
-                modules: { mode: 'global' },
-              },
-            },
-          ],
+          use: buildCssLoaders(platform),
           sideEffects: true,
         },
         {
@@ -729,14 +794,21 @@ export function createBaseConfig({
         },
       ],
     },
-    resolve: baseResolve({ platform, configName, basePath }),
+    resolve: baseResolve({
+      platform,
+      configName,
+      basePath,
+      enableSentryMinimalCompat,
+    }),
     resolveLoader: {
       alias: {
         'worker-loader': require.resolve('worker-rspack-loader'),
       },
     },
     lazyCompilation: false,
-    experiments: buildBaseExperiments(basePath, configName),
+    incremental: true,
+    cache: buildBaseCache(basePath, configName),
+    experiments: buildBaseExperiments(),
     performance: basePerformance,
     optimization: {
       splitChunks: {

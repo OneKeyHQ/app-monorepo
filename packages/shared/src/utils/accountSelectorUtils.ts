@@ -49,6 +49,10 @@ function buildAccountSelectorSceneId({
     return `${sceneName}--${origin}`;
   }
 
+  if (sceneName === EAccountSelectorSceneName.rewardCenter && sceneUrl) {
+    return `${sceneName}--${sceneUrl}`;
+  }
+
   if (!sceneName) {
     throw new OneKeyLocalError('buildSceneId ERROR: sceneName is required');
   }
@@ -74,9 +78,26 @@ function buildMergedSelectedAccount({
   data: IAccountSelectorSelectedAccount | undefined;
   mergedByData: IAccountSelectorSelectedAccount;
 }): IAccountSelectorSelectedAccount {
+  // The network context travels as a (networkId, deriveType) pair. A target
+  // that already has a network keeps its own derivation, even a cleared one
+  // (an All Networks selection reads back with `deriveType: undefined`), so
+  // the source's derivation is never applied to a different network. A
+  // target without a network (e.g. a freshly created default selection with
+  // explicit `undefined` keys) inherits both from the source instead of
+  // erasing them.
+  const networkContext: Pick<
+    IAccountSelectorSelectedAccount,
+    'networkId' | 'deriveType'
+  > = data?.networkId
+    ? { networkId: data.networkId, deriveType: data.deriveType }
+    : {
+        networkId: mergedByData.networkId,
+        deriveType: mergedByData.deriveType,
+      };
   const result: IAccountSelectorSelectedAccount = {
     ...mergedByData,
     ...data,
+    ...networkContext,
     walletId: mergedByData.walletId,
     indexedAccountId: mergedByData.indexedAccountId,
     othersWalletAccountId: mergedByData.othersWalletAccountId,
@@ -126,6 +147,8 @@ function isSceneCanPersist({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
+      EAccountSelectorSceneName.rewardCenter,
     ].includes(sceneName)
   ) {
     return false;
@@ -140,7 +163,10 @@ function isSceneCanAutoSelect({
 }): boolean {
   if (
     sceneName &&
-    [EAccountSelectorSceneName.addressInput].includes(sceneName)
+    [
+      EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
+    ].includes(sceneName)
   ) {
     return false;
   }
@@ -169,6 +195,7 @@ function isSceneAutoSaveToGlobalDeriveType({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
     ].includes(sceneName)
   ) {
     return false;

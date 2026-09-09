@@ -26,6 +26,13 @@ class ContextJotaiActionsRecentSearch extends ContextJotaiActionsBase {
       const normalizedPayloadText = payload.text.trim().toLowerCase();
 
       const newItems = prev.recentSearch.filter((recentSearchItem) => {
+        // Stable ids identify the same logical item across display-text
+        // changes (locale switch, layout naming) — without this, re-saving
+        // under a new text keeps two entries sharing one id, which collides
+        // as React list keys in RecentSearched.
+        if (recentSearchItem.id === payload.id) {
+          return false;
+        }
         const normalizedItemText = recentSearchItem.text.trim().toLowerCase();
         // Deduplicate based on normalized text only (ignore type)
         // This prevents duplicate entries like "USDC" from Market and Token sections

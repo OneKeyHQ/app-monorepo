@@ -12,18 +12,22 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openReferralInvitedByFriendModalWithGuard } from './referralLandingModalGuard';
 import { ReferralLandingPage } from './ReferralLandingPage';
 
+import type { IReferralWebLandingProps } from './components';
+
 const mockNavigation = {
   switchTab: jest.fn(),
   pushModal: jest.fn(),
   reset: jest.fn(),
 };
-type IReferralWebLandingMockProps = {
-  onDownload: () => void;
-  onScrollToBind: () => void;
-  onCopyCode: () => void;
-  onBind: () => void;
-  onTrade: () => void;
-};
+type IReferralWebLandingMockProps = Pick<
+  IReferralWebLandingProps,
+  | 'variant'
+  | 'onDownload'
+  | 'onScrollToBind'
+  | 'onCopyCode'
+  | 'onBind'
+  | 'onTrade'
+>;
 let mockReferralWebLandingProps: IReferralWebLandingMockProps | undefined;
 let mockIsOneKeyInstalled = false;
 const mockBindViaExtension = jest.fn();
@@ -262,6 +266,24 @@ describe('ReferralLandingPage', () => {
     expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledTimes(1);
   });
 
+  it('renders the Swap referral variant for the Swap web landing route', async () => {
+    mockedPlatformEnv.isWeb = true;
+    mockRouteParams = {
+      code: 'LI2ZUE',
+      page: 'swap',
+    };
+
+    render(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockReferralWebLandingProps?.variant).toBe('swap');
+    expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledWith({
+      referralCode: 'LI2ZUE',
+      landingPage: '/app/swap',
+      pageVariant: 'swap',
+    });
+  });
+
   it('deduplicates repeated web enter events with the same source', () => {
     mockedPlatformEnv.isWeb = true;
     mockIsOneKeyInstalled = true;
@@ -330,6 +352,20 @@ describe('ReferralLandingPage', () => {
     expect(
       mockedOpenReferralInvitedByFriendModalWithGuard,
     ).not.toHaveBeenCalled();
+  });
+
+  it('routes a native Swap referral landing to the Swap tab', async () => {
+    mockRouteParams = {
+      code: 'R7EKUT',
+      page: 'swap',
+      fromDeepLink: true,
+      referralRequestId: createReferralLandingRequestId(),
+    };
+
+    render(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
   });
 
   it('reprocesses when a reused route receives a newer referral request id', async () => {

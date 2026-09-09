@@ -1,4 +1,5 @@
-import type { IFill, IHex, ITIF, IWithdraw3Request } from './sdk';
+import type { IUsdcWithdrawDestinationId } from './perp.constants';
+import type { IFill, IHex, ITIF } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -8,6 +9,7 @@ export enum EPerpsSubscriptionCategory {
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   L2_BOOK = 'l2Book',
+  L2 = 'l2',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
   ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
@@ -23,10 +25,10 @@ export enum ESubscriptionType {
   USER_TWAP_HISTORY = 'userTwapHistory',
   USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
+  TRADES = 'trades',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
   ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
-  // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }
@@ -100,6 +102,19 @@ export interface IOrderOpenParams {
   reduceOnly?: boolean;
 }
 
+export interface IPlaceOrderByCoinParams {
+  coin: string;
+  expectedAccountAddress: string;
+  isBuy: boolean;
+  size: string;
+  price: string;
+  orderType: 'market' | 'limit';
+  tif?: ITIF;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
+}
+
 export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
@@ -128,15 +143,26 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?:
+  orderType:
     | { limit: { tif: ITIF } }
     | { trigger: { isMarket: boolean; triggerPx: string; tpsl: 'tp' | 'sl' } };
+  cloid?: IHex | null;
   // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
   allowZeroSize?: boolean;
+  // Hyperliquid otherwise treats executable GTC modifications as ALO.
+  alwaysPlace?: true;
 }
 
-export interface IWithdrawParams extends IWithdraw3Request {
+export type IOrderAmendKind =
+  | { kind: 'limit'; tif: ITIF }
+  | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
+
+export interface IWithdrawParams {
   userAccountId: string;
+  amount: string;
+  destinationId: IUsdcWithdrawDestinationId;
+  expectedRoute?: 'bridge' | 'cctp';
+  expectedCctpFee?: string;
 }
 
 export interface ILeverageUpdateRequest {
@@ -172,6 +198,7 @@ export interface IAgentApprovalRequest {
 
 export interface IPositionTpslOrderParams {
   assetId: number;
+  expectedAccountAddress: string;
   positionSize: string;
   isBuy: boolean;
   tpTriggerPx?: string;
@@ -321,7 +348,7 @@ export interface IPerpActivityCard {
   url: string;
 }
 
-export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko';
+export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko' | 'stock';
 
 export interface IPerpAssetMeta {
   assetId: string;
@@ -361,6 +388,9 @@ export interface IPerpCommonConfig {
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
   activityCards?: IPerpActivityCard[];
+  // Unifold deposit entry. Fail-closed: the entry shows only when the server
+  // explicitly sends true (server side gates deposit-address with code 14101).
+  unifoldDepositEnabled?: boolean;
 }
 
 export enum EPerpUserType {

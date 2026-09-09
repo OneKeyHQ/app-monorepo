@@ -6,6 +6,7 @@ import type {
   IMarketBasicConfigToken,
   IMarketPerpsCategory,
   IMarketSpotCategory,
+  IMarketStockCategory,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketBasicConfigForPlatform } from './fetchMarketBasicConfigForPlatform';
@@ -21,6 +22,7 @@ const EMPTY_TOKENS: IMarketBasicConfigToken[] = [];
 const EMPTY_NETWORKS: IMarketBasicConfigNetwork[] = [];
 const EMPTY_PERPS_CATEGORIES: IMarketPerpsCategory[] = [];
 const EMPTY_SPOT_CATEGORIES: IMarketSpotCategory[] = [];
+const EMPTY_STOCK_CATEGORIES: IMarketStockCategory[] = [];
 const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 
 /**
@@ -48,6 +50,7 @@ export function useMarketBasicConfig() {
       const homeTab = configData.homeTab ?? [];
       const perpsCategories = configData.perpsCategories ?? [];
       const spotCategories = configData.spotCategories ?? [];
+      const stockCategories = configData.stockCategories ?? [];
       return {
         // Raw config data
         basicConfig: configData,
@@ -61,6 +64,7 @@ export function useMarketBasicConfig() {
         homeTab,
         perpsCategories,
         spotCategories,
+        stockCategories,
       };
     },
     [],
@@ -86,5 +90,6 @@ export function useMarketBasicConfig() {
     homeTab: result?.homeTab ?? EMPTY_HOME_TABS,
     perpsCategories: result?.perpsCategories ?? EMPTY_PERPS_CATEGORIES,
     spotCategories: result?.spotCategories ?? EMPTY_SPOT_CATEGORIES,
+    stockCategories: result?.stockCategories ?? EMPTY_STOCK_CATEGORIES,
   };
 }

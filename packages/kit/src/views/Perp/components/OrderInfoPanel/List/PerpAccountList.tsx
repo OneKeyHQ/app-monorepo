@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import {
+  type IDebugRenderTrackerProps,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsLedgerUpdatesAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -18,6 +23,7 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { usePerpDepositOrder } from '../../../hooks/usePerpDeposit';
 import { AccountRow } from '../Components/AccountRow';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -27,6 +33,37 @@ interface IPerpAccountListProps {
   useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
+}
+
+function MobileAccountHistoryLoadingSkeleton() {
+  return (
+    <YStack>
+      {[0, 1, 2, 3].map((index) => (
+        <XStack
+          key={index}
+          mx="$5"
+          my="$2"
+          p="$4"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          alignItems="center"
+          gap="$3"
+        >
+          <Skeleton w="$10" h="$10" borderRadius="$full" />
+          <YStack flex={1} gap="$1">
+            <XStack justifyContent="space-between" alignItems="center">
+              <Skeleton w="$12" h="$3.5" />
+              <Skeleton w="$16" h="$3.5" />
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <Skeleton w="$10" h="$3" />
+              <Skeleton w="$24" h="$3" />
+            </XStack>
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
 }
 
 function PerpAccountList({
@@ -174,9 +211,22 @@ function PerpAccountList({
       data={mergedData}
       isMobile={isMobile}
       renderRow={renderAccountRow}
+      mobileLoadingComponent={
+        isMobile ? <MobileAccountHistoryLoadingSkeleton /> : undefined
+      }
       // If account has no Perp address (unsupported or not created),
       // show empty state instead of skeleton loading.
       listLoading={currentUser?.accountAddress ? !isLoaded : false}
+      ListEmptyComponent={
+        isMobile ? (
+          <PerpMobileEmptyState
+            contentOffsetY={-96}
+            title={intl.formatMessage({
+              id: ETranslations.perp_trade_history_empty,
+            })}
+          />
+        ) : undefined
+      }
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}

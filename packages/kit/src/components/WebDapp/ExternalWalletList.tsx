@@ -146,7 +146,7 @@ function WalletItemView({
             overflow="hidden"
           >
             {!loading ? (
-              <Image w="100%" h="100%" source={logo} />
+              <Image w="100%" h="100%" resizeWidth={40} source={logo} />
             ) : (
               <Spinner size="small" />
             )}

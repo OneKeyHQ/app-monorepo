@@ -171,8 +171,12 @@ cmd_logs() {
   local LAST_START
   LAST_START=$(grep 'hostDidStart fired' "$LOG" | tail -1 | cut -d'|' -f1 | xargs)
 
-  echo "=== Session: $LAST_START ==="
-  grep -A999 "$LAST_START.*hostDidStart fired" "$LOG" | grep -E "$FILTER" | head -30
+  echo "=== Session: ${LAST_START:-latest available log} ==="
+  if [ -n "$LAST_START" ]; then
+    grep -A999 "$LAST_START.*hostDidStart fired" "$LOG" | grep -E "$FILTER" | tail -60 || true
+  else
+    grep -E "$FILTER" "$LOG" | tail -60 || true
+  fi
 }
 
 # --- Main ---

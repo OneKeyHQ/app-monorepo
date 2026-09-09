@@ -96,6 +96,7 @@ const MODAL_ROUTE_MAPPING: Record<string, string> = {
   EModalSignatureConfirmRoutes: 'SignatureConfirmModal',
   EModalApprovalManagementRoutes: 'ApprovalManagementModal',
   EModalBulkCopyAddressesRoutes: 'BulkCopyAddressesModal',
+  EModalBulkExportHistoryRoutes: 'BulkExportHistoryModal',
   EModalShortcutsRoutes: 'ShortcutsModal',
   EModalSignAndVerifyRoutes: 'SignAndVerifyModal',
   EModalPerpRoutes: 'PerpModal',

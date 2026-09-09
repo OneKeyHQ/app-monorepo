@@ -37,6 +37,9 @@ const SwapLazyMarketModal = LazyLoadPage(
 const SwapKLineModal = LazyLoadPage(
   () => import('../pages/modal/SwapKLineModal'),
 );
+const SwapInviteeRewardModal = LazyLoadPage(
+  () => import('../pages/modal/SwapInviteeRewardModal'),
+);
 const SwapProTokenSelectModal = LazyLoad(
   () => import('../pages/modal/SwapProSelectTokenModal'),
 );
@@ -98,6 +101,11 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapKLine,
     component: SwapKLineModal,
     translationId: ETranslations.market_chart,
+  },
+  {
+    name: EModalSwapRoutes.SwapInviteeReward,
+    component: SwapInviteeRewardModal,
+    translationId: ETranslations.referral_swap_reward,
   },
   {
     name: EModalSwapRoutes.SwapProSelectToken,

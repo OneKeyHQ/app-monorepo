@@ -132,6 +132,25 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
     expect(rawDeviceId).toBe('TREZOR-FEATURES-DEVICE-ID');
   });
 
+  it('preserves the Ledger camelCase feature identity fallback', () => {
+    const rawDeviceId = deviceUtils.getRawDeviceId({
+      device: {
+        connectId: 'LEDGER-BLE-CONNECT-ID',
+        deviceId: '',
+        name: 'Ledger Nano X',
+        deviceType: 'unknown',
+        uuid: '',
+      } as never,
+      features: {
+        vendor: 'ledger',
+        deviceId: 'LEDGER-FEATURES-DEVICE-ID',
+      } as never,
+      isThirdParty: true,
+    });
+
+    expect(rawDeviceId).toBe('LEDGER-FEATURES-DEVICE-ID');
+  });
+
   it('rejects explicit BLE devices when connectId is empty', () => {
     expect(() =>
       mapThirdPartyDeviceToSearchDevice({

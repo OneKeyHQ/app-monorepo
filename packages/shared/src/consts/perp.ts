@@ -87,3 +87,7 @@ export const DISABLE_PERPS_WALLET_BIND = false;
 // Perps config fetch retry
 export const PERPS_CONFIG_FETCH_MAX_RETRIES = 3;
 export const PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS = 3000;
+
+// Product-configured fixed fee for Unifold conversion routes. Keep the value
+// outside the UI until the supported-assets response exposes a per-route fee.
+export const UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT = 0.25;

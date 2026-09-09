@@ -17,6 +17,9 @@ export interface IOBLevel {
 }
 
 export interface IFormattedOBLevel extends IOBLevel {
+  /** Human readable representation of price for rendering (thousands-separated).
+   * `price` stays the raw numeric string for selection/order-form logic. */
+  displayPrice: string;
   /** Human readable representation of size for rendering */
   displaySize: string;
   /** Human readable representation of cumulative size for rendering */

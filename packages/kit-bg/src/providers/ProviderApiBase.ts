@@ -75,6 +75,17 @@ abstract class ProviderApiBase {
     //  throwMethodNotFound
   }
 
+  // A repeated connect click from the same dapp queues behind the
+  // provider-level mutex (each provider wraps its connect entry in a
+  // Semaphore) and never reaches ServiceDApp.openModal, so connect entries
+  // call this BEFORE acquiring their mutex to surface the pending approval
+  // window (same-origin only, checked inside ServiceDApp).
+  protected tryFocusPendingApprovalWindow(request: IJsBridgeMessagePayload) {
+    this.backgroundApi.serviceDApp.tryOpenExistingExtensionWindow({
+      origin: request.origin,
+    });
+  }
+
   getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(

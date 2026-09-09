@@ -1,0 +1,38 @@
+diff --git a/node_modules/@sentry/babel-plugin-component-annotate/dist/cjs/index.js b/node_modules/@sentry/babel-plugin-component-annotate/dist/cjs/index.js
+index 7433739..611f266 100644
+--- a/node_modules/@sentry/babel-plugin-component-annotate/dist/cjs/index.js
++++ b/node_modules/@sentry/babel-plugin-component-annotate/dist/cjs/index.js
+@@ -853,13 +853,7 @@ function sourceFileNameFromState(state) {
+   if (!name) {
+     return undefined;
+   }
+-  if (name.indexOf("/") !== -1) {
+-    return name.split("/").pop();
+-  } else if (name.indexOf("\\") !== -1) {
+-    return name.split("\\").pop();
+-  } else {
+-    return name;
+-  }
++  return name;
+ }
+ function fullSourceFileNameFromState(state) {
+   var _state$file$opts$pars;
+diff --git a/node_modules/@sentry/babel-plugin-component-annotate/dist/esm/index.mjs b/node_modules/@sentry/babel-plugin-component-annotate/dist/esm/index.mjs
+index f113831..fad9073 100644
+--- a/node_modules/@sentry/babel-plugin-component-annotate/dist/esm/index.mjs
++++ b/node_modules/@sentry/babel-plugin-component-annotate/dist/esm/index.mjs
+@@ -849,13 +849,7 @@ function sourceFileNameFromState(state) {
+   if (!name) {
+     return undefined;
+   }
+-  if (name.indexOf("/") !== -1) {
+-    return name.split("/").pop();
+-  } else if (name.indexOf("\\") !== -1) {
+-    return name.split("\\").pop();
+-  } else {
+-    return name;
+-  }
++  return name;
+ }
+ function fullSourceFileNameFromState(state) {
+   var _state$file$opts$pars;

@@ -8,13 +8,17 @@ import { fileURLToPath, format as formatUrl } from 'url';
 import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import {
+  disposeNobleBleSupport,
+  initNobleBleSupport,
+} from '@onekeyfe/hd-transport-electron';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
 import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
   app,
+  webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -35,6 +39,11 @@ import {
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -57,6 +66,11 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  DESKTOP_API_ALLOWED_MODULES,
+  isDesktopApiMethodAllowed,
+} from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -73,6 +87,8 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
+import { logTrezorBleFlags } from './process/trezorBleFlags';
+import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -229,6 +245,39 @@ const sdkConnectSrc = isLocalUnpacked
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
+
+const TRADING_VIEW_ORIGINS = new Set([
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+]);
+
+function isTradingViewWebContents(contents: Electron.WebContents): boolean {
+  try {
+    return TRADING_VIEW_ORIGINS.has(new URL(contents.getURL()).origin);
+  } catch {
+    return false;
+  }
+}
+
+// Electron zoom roles target getFocusedWebContents(), which prefers any <webview> guest in the
+// focused window. For TradingView that zooms only the chart page, so zoom its host window instead.
+function getZoomTargetWebContents(): Electron.WebContents | null {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (focused?.getType() === 'webview' && isTradingViewWebContents(focused)) {
+    return focused.hostWebContents ?? focused;
+  }
+  return focused;
+}
+
+function adjustZoomLevel(delta: number | 'reset'): void {
+  const target = getZoomTargetWebContents();
+  if (!target) {
+    return;
+  }
+  target.zoomLevel = delta === 'reset' ? 0 : target.zoomLevel + delta;
+}
+
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 
@@ -458,24 +507,19 @@ const initMenu = () => {
             ].filter(Boolean)
           : []),
         {
-          role: 'resetZoom',
           label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
+          click: () => adjustZoomLevel('reset'),
         },
-        isMac
-          ? {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-            }
-          : {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-              accelerator: 'CmdOrCtrl+Shift+]',
-            },
         {
-          role: 'zoomOut',
+          label: i18nText(ElectronTranslations.menu_zoom_in),
+          accelerator: isMac ? 'CmdOrCtrl+Plus' : 'CmdOrCtrl+Shift+]',
+          click: () => adjustZoomLevel(0.5),
+        },
+        {
           label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
+          click: () => adjustZoomLevel(-0.5),
         },
         { type: 'separator' },
         {
@@ -596,17 +640,9 @@ function handleDeepLinkUrl(
   isColdStartup?: boolean,
 ) {
   // Validate deep link scheme before forwarding to renderer
-  if (url) {
-    const allowedSchemes = [
-      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
-      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
-      'ethereum:',
-    ];
-    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
-    if (!isAllowed) {
-      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
-      return;
-    }
+  if (url && !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+    return;
   }
 
   const eventData: IDesktopOpenUrlEventData = {
@@ -681,7 +717,16 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
+let bleQuitStarted = false;
+let bleQuitReady = false;
+let nobleBleInitialization = Promise.resolve();
+let trezorBleWindowCleanup = Promise.resolve();
+// Retain retired handlers so recovery-created native instances survive until app quit.
+const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+  await trezorBleWindowCleanup;
+  if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
   // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
@@ -913,9 +958,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
   if ((isWin || isMac) && !isSoftRestart) {
-    // Keep only command line / deep linked arguments
-    const deeplinkingUrl = process.argv[1];
-    handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
+    if (deeplinkingUrl) {
+      handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    }
   }
 
   browserWindow.webContents.on('unresponsive', () => {
@@ -1132,23 +1178,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
-  const allowedModules = new Set([
-    'system',
-    'security',
-    'storage',
-    'webview',
-    'notification',
-    'dev',
-    'inAppPurchase',
-    'bluetooth',
-    'appUpdate',
-    'bundleUpdate',
-    'cloudKit',
-    'keychain',
-    'sniRequest',
-    'oauthLocalServer',
-    'appleAuth',
-  ]);
+  const allowedModules = new Set<string>(DESKTOP_API_ALLOWED_MODULES);
   ipcMain.handle(
     'DESKTOP_API_CALL',
     async (
@@ -1176,14 +1206,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: unknown module "${module}"`,
         );
       }
-      // Block inherited prototype methods and private methods
-      if (
-        typeof method !== 'string' ||
-        method.startsWith('_') ||
-        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
-          method,
-        )
-      ) {
+      if (!isDesktopApiMethodAllowed(module, method)) {
         throw new OneKeyLocalError(
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
@@ -1640,6 +1663,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
     EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
     EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
     EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
     EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
     EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
@@ -1647,8 +1671,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
     EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
   ];
+  if (bleQuitStarted) return browserWindow;
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
-  void initNobleBleSupport(browserWindow.webContents);
+  nobleBleInitialization = initNobleBleSupport(browserWindow.webContents).catch(
+    (error) => logger.error('[NobleBLE] IPC initialization failed', error),
+  );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
   // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
@@ -1682,8 +1709,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
-  initTrezorBleSupport(browserWindow.webContents, {
-    ipcMain: trezorBleSenderGatedIpcMain,
+  logTrezorBleFlags();
+  const trezorBleSupport = initTrezorBleSupport(browserWindow.webContents, {
+    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
+    // caches scan address, runs the WinRT pairing helper before noble connects.
+    // No-op on non-Windows / builds without the bundled helper.
+    ipcMain: createTrezorBlePairingIpcMain(
+      trezorBleSenderGatedIpcMain,
+      browserWindow,
+    ),
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /
@@ -1699,6 +1733,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       }
       logger.info(message, data);
     },
+  });
+
+  trezorBleSupports.add(trezorBleSupport);
+  browserWindow.webContents.once('destroyed', () => {
+    if (bleQuitStarted) return;
+    trezorBleWindowCleanup = trezorBleSupport.dispose().catch((error) => {
+      logger.error('[TrezorBLE] Window cleanup failed', error);
+    });
   });
 
   return browserWindow;
@@ -1730,7 +1772,7 @@ if (!singleInstance && !process.mas) {
 
       // Handle deep link arguments for all platforms
       // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = argv[1];
+      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
@@ -1817,6 +1859,7 @@ if (!singleInstance && !process.mas) {
 //  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
+  if (bleQuitStarted) return;
   // During a soft restart `mainWindow` is transiently null while
   // createMainWindow() runs. Skip creating a window here in that window of time,
   // otherwise a dock-icon click would spawn a SECOND main window (without
@@ -1828,7 +1871,64 @@ app.on('activate', async () => {
   showMainWindow();
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (isMac && !bleQuitReady) {
+    event.preventDefault();
+    if (bleQuitStarted) return;
+    bleQuitStarted = true;
+    logger.info('[BLE] Process dispose started');
+    const instances = new Set<{ stop?(): void }>();
+    const stopped = new Set<{ stop?(): void }>();
+    let draining = false;
+    const stopNative = (instance: { stop?(): void }) => {
+      if (stopped.has(instance)) return;
+      stopped.add(instance);
+      try {
+        instance.stop?.();
+        logger.info('[BLE] Noble native manager stopped before app quit');
+      } catch (error) {
+        logger.error('[BLE] Noble native stop failed', error);
+      }
+    };
+    const releaseNoble = (instance: { stop?(): void }) => {
+      instances.add(instance);
+      if (draining) stopNative(instance);
+    };
+    let timeout: ReturnType<typeof setTimeout>;
+    void Promise.race([
+      Promise.allSettled([
+        nobleBleInitialization,
+        disposeNobleBleSupport(releaseNoble),
+        ...Array.from(trezorBleSupports, (support) =>
+          support.disposeForAppQuit(releaseNoble),
+        ),
+      ]).then((results) => {
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            logger.error('[BLE] Process dispose failed', result.reason);
+          }
+        }
+      }),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          logger.warn('[BLE] Process dispose timed out');
+          resolve();
+        }, 5000);
+      }),
+    ]).finally(() => {
+      clearTimeout(timeout);
+      draining = true;
+      instances.forEach(stopNative);
+      trezorBleSupports.clear();
+      logger.info('[BLE] Process dispose completed; resuming app quit');
+      bleQuitReady = true;
+      // Let the native before-quit callback return before retrying. An immediately
+      // resolved cleanup can otherwise re-enter app.quit() and lose its quit state.
+      setImmediate(() => app.quit());
+    });
+    return;
+  }
+
   if (isMac) {
     destroyTrayManager();
   }
@@ -2229,8 +2329,8 @@ try {
     /[.*+?^${}()|[\]\\]/g,
     '\\$&',
   );
-  // process.env.VERSION is substituted at build time by webpack DefinePlugin
-  // (apps/desktop/scripts/build.js) — the same path every other call site
+  // process.env.VERSION is substituted by the main-process esbuild config in
+  // apps/desktop/scripts/build.js — the same path every other call site
   // uses. Falls back to '1' to match buildCustomUA()'s fallback in
   // packages/shared/src/request/customUA.ts.
   const appVersion = process.env.VERSION || '1';

@@ -10,7 +10,11 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
-import { LeverageBadge, SubtitleText } from '../../../components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  SubtitleText,
+} from '../../../components/PerpsBadges';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
@@ -30,12 +34,20 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
-      px="$5"
+      px="$4"
       py="$3"
       alignItems="center"
+      gap="$3"
     >
       {/* Left side: Token Icon + Name + Badges + Volume */}
-      <XStack flex={1} alignItems="center" gap="$3" minWidth={0}>
+      <XStack
+        flexGrow={1}
+        flexBasis={0}
+        alignItems="center"
+        gap="$2"
+        minWidth={0}
+        overflow="hidden"
+      >
         <Token
           size="md"
           borderRadius="$full"
@@ -49,19 +61,29 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
               numberOfLines={1}
               flexShrink={1}
               ellipsizeMode="tail"
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               userSelect="none"
             >
               {item.displayName}
             </SizableText>
-            <LeverageBadge leverage={item.maxLeverage} />
+            <LeverageBadge leverage={item.maxLeverage} compact />
+            <PerpDexBadge dexLabel={item.dexLabel} compact />
           </XStack>
-          <XStack alignItems="center" gap="$1" minWidth={0}>
+          <XStack
+            alignItems="center"
+            gap="$1"
+            minWidth={0}
+            overflow="hidden"
+            pr="$3"
+          >
             {item.subtitle ? <SubtitleText subtitle={item.subtitle} /> : null}
             <SkeletonContainer isLoading={!hasRealTimeData}>
               <NumberSizeableText
-                size="$bodyMd"
+                size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
+                flexShrink={0}
                 formatter="marketCap"
                 formatterOptions={{ currency: '$' }}
                 userSelect="none"
@@ -75,7 +97,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
 
       {/* Right side: Price + Change */}
       <SkeletonContainer isLoading={!hasRealTimeData}>
-        <XStack alignItems="center" gap="$2">
+        <XStack alignItems="center" gap="$2" flexShrink={0}>
           <NumberSizeableText
             userSelect="none"
             flexShrink={1}

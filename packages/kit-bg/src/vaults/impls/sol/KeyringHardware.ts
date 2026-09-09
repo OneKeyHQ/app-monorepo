@@ -2,7 +2,7 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { classifyOffchainMessageVersion } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IATADetails,
@@ -14,6 +14,7 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -40,6 +41,38 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+
+export function buildHardwareSolSignOffchainMessageV1Params({
+  message,
+  messagePayload,
+}: {
+  message: string;
+  messagePayload: IUnsignedMessageSolana['payload'];
+}) {
+  const versionKind = classifyOffchainMessageVersion(messagePayload?.version);
+  if (versionKind === 'unsupported') {
+    throw new OneKeyLocalError(
+      `sol offchain message: unsupported version ${String(
+        messagePayload?.version,
+      )}`,
+    );
+  }
+  if (messagePayload?.version !== 1) {
+    throw new OneKeyLocalError(
+      appLocale.intl.formatMessage({
+        id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
+      }),
+    );
+  }
+
+  return {
+    messageHex: Buffer.from(message).toString('hex'),
+    messageVersion: 1 as const,
+    requiredSigners: messagePayload.requiredSigners
+      .map((signer) => Buffer.from(bs58.decode(signer)).toString('hex'))
+      .toSorted(),
+  };
+}
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;
@@ -241,11 +274,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const result = await Promise.all(
       params.messages.map(
-        async (payload: {
-          type: string;
-          message: string;
-          applicationDomain?: string;
-        }) => {
+        async (payload: { type: string; message: string }) => {
           if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
             const response = await HardwareSDK.solSignMessage(
               connectId,
@@ -263,20 +292,17 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
           if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            const messagePayload = (payload as IUnsignedMessageSolana).payload;
             const response = await HardwareSDK.solSignOffchainMessage(
               connectId,
               deviceId,
               {
                 ...params.deviceParams?.deviceCommonParams,
                 path: dbAccount.path,
-                messageHex: Buffer.from(payload.message).toString('hex'),
-                applicationDomainHex: payload.applicationDomain
-                  ? Buffer.from(payload.applicationDomain).toString('hex')
-                  : undefined,
-                // @ts-expect-error
-                messageFormat: OffchainMessage.guessMessageFormat(
-                  Buffer.from(payload.message),
-                ),
+                ...buildHardwareSolSignOffchainMessageV1Params({
+                  message: payload.message,
+                  messagePayload,
+                }),
               },
             );
 

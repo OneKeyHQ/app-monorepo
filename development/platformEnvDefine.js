@@ -5,8 +5,8 @@
 // NOT share the babel config — keep them in ONE place so adding a platformEnv
 // flag never silently diverges between native and web:
 //   - babel (development/babelTools.js): React Native / metro, AND the
-//     ext/desktop webpack builds (they load babel.config.js).
-//   - rspack (development/rspack/rspack.base.config.ts): the apps/web build.
+//     extension webpack build (it loads babel.config.js).
+//   - rspack (development/rspack/rspack.base.config.ts): web-platform builds.
 //     rspack runs swc and never loads babel.config.js, so it re-applies this
 //     same map via its own babel-loader pass.
 //
@@ -32,6 +32,12 @@ function buildPlatformEnvDefineMap(buildTimeEnv) {
     'platformEnv.isDesktop': buildTimeEnv.isDesktop,
     'platformEnv.isExtension': buildTimeEnv.isExtension,
     'platformEnv.isNative': buildTimeEnv.isNative,
+    ...(!buildTimeEnv.isNative
+      ? {
+          'platformEnv.isNativeIOS': false,
+          'platformEnv.isNativeAndroid': false,
+        }
+      : {}),
     'platformEnv.isExtChrome': buildTimeEnv.isExtChrome,
     'platformEnv.isExtFirefox': buildTimeEnv.isExtFirefox,
     'platformEnv.enableNativeBackgroundThread':

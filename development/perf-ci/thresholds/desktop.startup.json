@@ -8,10 +8,7 @@
     "initialScriptBrotliBytes": 3145728,
     "allScriptRawBytes": 110100480,
     "largestModuleBytes": 665600,
-    "forbiddenSources": [
-      "@sentry/",
-      "@sentry-internal/"
-    ]
+    "forbiddenSources": ["@sentry/", "@sentry-internal/"]
   },
   "mainBundle": {
     "appRawBytes": 7864320,
@@ -43,7 +40,7 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "bytes": 471860
+        "bytes": 524288
       },
       {
         "pattern": "locale/json/",

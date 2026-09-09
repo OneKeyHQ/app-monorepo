@@ -5,10 +5,12 @@ import type {
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
+  EAppUpdateStatus,
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -25,6 +27,10 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -35,7 +41,8 @@ import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 export const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 const MAX_TASK_RETRY = 3;
-const MAX_FULL_FLOW_RETRY = 2;
+export const MAX_FULL_FLOW_RETRY = 2;
+export const APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX = 'recovery:';
 const MAX_RETRY_DELAY_MS = 10 * 60 * 1000;
 const RETRY_BASE_DELAY_MS = 30 * 1000;
 const RETRY_JITTER_MS = 5 * 1000;
@@ -330,6 +337,9 @@ class ServicePendingInstallTask {
       delete nextIgnoredTargets[targetKey];
       const nextFullFlowRetryByTarget = { ...prev.fullFlowRetryByTarget };
       delete nextFullFlowRetryByTarget[targetKey];
+      delete nextFullFlowRetryByTarget[
+        `${APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX}${targetKey}`
+      ];
       return {
         ...prev,
         ignoredTargets: nextIgnoredTargets,
@@ -899,13 +909,99 @@ class ServicePendingInstallTask {
     message: string,
     traceId: string,
     requestSeq?: number,
-  ) {
+  ): Promise<boolean> {
     const targetKey = this.getTargetKey(task);
+    const isAppPackageNotPrepared =
+      platformEnv.isDesktop &&
+      task.type === EPendingInstallTaskType.appInstall &&
+      message.includes(EAppUpdatePackageErrorCode.packageNotPrepared);
+    if (isAppPackageNotPrepared) {
+      await appUpdatePersistAtom.set((current) => {
+        if (
+          current.latestVersion !== task.targetAppVersion ||
+          current.status !== EAppUpdateStatus.ready
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          status: EAppUpdateStatus.notify,
+          errorText: undefined,
+          downloadedEvent: undefined,
+        };
+      });
+      await this.clearPendingTaskWithLog({
+        traceId,
+        requestSeq,
+        task,
+        clearReason: 'app_package_rehydrate_required',
+      });
+      const current = await appUpdatePersistAtom.get();
+      if (
+        current.latestVersion === task.targetAppVersion &&
+        current.status === EAppUpdateStatus.notify &&
+        !current.downloadedEvent &&
+        (current.updateStrategy === EUpdateStrategy.seamless ||
+          current.updateStrategy === EUpdateStrategy.silent)
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `pending app install requires updater cache rehydrate for ${task.targetAppVersion}`,
+        );
+        appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+          decision: 'appShellPackageRehydrate',
+        });
+      }
+      return false;
+    }
+    const isAppPackageMissing =
+      platformEnv.isDesktop &&
+      message.includes(EAppUpdatePackageErrorCode.packageMissing);
+    const isAppPackageUnavailable =
+      platformEnv.isDesktop &&
+      message.includes(EAppUpdatePackageErrorCode.packageUnavailable);
+    const isAppPackageInvalid = isAppPackageMissing || isAppPackageUnavailable;
     const isFullFlowRetryTrigger =
       message.includes(RETRY_TRIGGER_BUNDLE_MISSING) ||
-      message.includes(RETRY_TRIGGER_VERIFY_FAILED);
+      message.includes(RETRY_TRIGGER_VERIFY_FAILED) ||
+      isAppPackageInvalid;
 
     if (isFullFlowRetryTrigger) {
+      let fullFlowTrigger = 'verify_failed';
+      if (isAppPackageMissing) {
+        fullFlowTrigger = 'app_package_missing';
+      } else if (isAppPackageUnavailable) {
+        fullFlowTrigger = 'app_package_unavailable';
+      } else if (message.includes(RETRY_TRIGGER_BUNDLE_MISSING)) {
+        fullFlowTrigger = 'bundle_missing';
+      }
+      let didInvalidateAppPackage = !isAppPackageInvalid;
+      if (isAppPackageInvalid) {
+        await appUpdatePersistAtom.set((current) => {
+          if (
+            current.latestVersion !== task.targetAppVersion ||
+            current.status !== EAppUpdateStatus.ready
+          ) {
+            return current;
+          }
+          didInvalidateAppPackage = true;
+          return {
+            ...current,
+            status: EAppUpdateStatus.notify,
+            errorText: undefined,
+            downloadedEvent: undefined,
+          };
+        });
+      }
+      if (!didInvalidateAppPackage) {
+        await this.clearPendingTaskWithLog({
+          traceId,
+          requestSeq,
+          task,
+          clearReason: 'app_package_already_invalidated',
+          level: 'warn',
+        });
+        return false;
+      }
       const fullFlowRetryCount = await this.incrementFullFlowRetry(targetKey);
       defaultLogger.app.appUpdate.fullFlowRetryTriggered(
         {
@@ -914,9 +1010,7 @@ class ServicePendingInstallTask {
           taskId: task.taskId,
           revision: task.revision,
           action: task.action,
-          trigger: message.includes(RETRY_TRIGGER_BUNDLE_MISSING)
-            ? 'bundle_missing'
-            : 'verify_failed',
+          trigger: fullFlowTrigger,
           fullFlowRetryCount,
           target: targetKey,
         },
@@ -935,7 +1029,21 @@ class ServicePendingInstallTask {
           TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED,
           traceId,
         );
-        return;
+        if (isAppPackageInvalid) {
+          await appUpdatePersistAtom.set((current) => {
+            if (
+              current.latestVersion !== task.targetAppVersion ||
+              current.status !== EAppUpdateStatus.notify
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              status: EAppUpdateStatus.updateIncomplete,
+            };
+          });
+        }
+        return Boolean(isAppPackageInvalid);
       }
       await this.clearPendingTaskWithLog({
         traceId,
@@ -944,7 +1052,20 @@ class ServicePendingInstallTask {
         clearReason: 'full_flow_retry_fallback_to_refetch',
         level: 'warn',
       });
-      return;
+      if (isAppPackageInvalid) {
+        const current = await appUpdatePersistAtom.get();
+        if (
+          current.latestVersion === task.targetAppVersion &&
+          current.status === EAppUpdateStatus.notify &&
+          !current.downloadedEvent &&
+          isAutoUpdateStrategy(current.updateStrategy)
+        ) {
+          appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+            decision: 'appShellPackageRecovery',
+          });
+        }
+      }
+      return false;
     }
 
     const nextRetryCount = task.retryCount + 1;
@@ -962,7 +1083,7 @@ class ServicePendingInstallTask {
         TERMINAL_REASON_RETRY_EXHAUSTED,
         traceId,
       );
-      return;
+      return false;
     }
 
     const delayMs = this.getRetryDelayMs(nextRetryCount);
@@ -992,6 +1113,7 @@ class ServicePendingInstallTask {
       },
       'warn',
     );
+    return false;
   }
 
   private async executeBundleSwitchTask(
@@ -1101,9 +1223,27 @@ class ServicePendingInstallTask {
     const downloadUrl =
       appInfo.downloadedEvent?.downloadUrl || payload.downloadUrl;
     if (!appInfo.downloadedEvent?.downloadedFile || !downloadUrl) {
-      throw new OneKeyLocalError('APP_PACKAGE_MISSING');
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
     }
-    await AppUpdate.installPackage({
+    const availability = await AppUpdate.checkPackageAvailability(appInfo);
+    if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared
+    ) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
+    ) {
+      throw new OneKeyLocalError(
+        `${EAppUpdatePackageErrorCode.packageUnavailable}:${
+          availability.errorCode || 'IO_ERROR'
+        }`,
+      );
+    }
+    return AppUpdate.installPackage({
       ...appInfo,
       latestVersion: payload.latestVersion,
       updateStrategy: payload.updateStrategy,
@@ -1120,11 +1260,10 @@ class ServicePendingInstallTask {
   private async executePendingInstallTask(task: IPendingInstallTask) {
     if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
       await this.executeBundleSwitchTask(task);
-      return;
+      return true;
     }
     if (task.type === EPendingInstallTaskType.appInstall) {
-      await this.executeAppShellInstallTask(task);
-      return;
+      return this.executeAppShellInstallTask(task);
     }
     const unknownType =
       (task as unknown as { type?: string })?.type || 'unknown';
@@ -1390,6 +1529,16 @@ class ServicePendingInstallTask {
       }
 
       if (task.status === EPendingInstallTaskStatus.running) {
+        if (this.isTaskTargetAligned(task)) {
+          await this.resetTargetControlState(targetKey);
+          await this.clearPendingTaskWithLog({
+            traceId,
+            requestSeq: requestSeq ?? undefined,
+            task,
+            clearReason: 'running_task_target_aligned',
+          });
+          return;
+        }
         const runningStartedAt = task.runningStartedAt || task.createdAt;
         const runningDuration = now - runningStartedAt;
         if (runningDuration <= RUNNING_TASK_STALE_MS) {
@@ -1507,7 +1656,24 @@ class ServicePendingInstallTask {
       });
 
       try {
-        await this.executePendingInstallTask(runningTask);
+        const installStarted =
+          await this.executePendingInstallTask(runningTask);
+        if (!installStarted) {
+          await setPendingInstallTask({
+            ...runningTask,
+            status: EPendingInstallTaskStatus.pending,
+            runningStartedAt: undefined,
+            lastError: undefined,
+          });
+          defaultLogger.app.appUpdate.pendingSwitchResult({
+            traceId,
+            requestSeq,
+            result: 'cancelled',
+            durationMs: Date.now() - startedAt,
+            ...this.buildTaskLogFields(runningTask),
+          });
+          return;
+        }
         shouldEmitProcessFinishedEvent = false;
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
@@ -1522,6 +1688,7 @@ class ServicePendingInstallTask {
           durationMs,
           ...this.buildTaskLogFields(runningTask),
         });
+        return true;
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         const message = (error as Error)?.message ?? 'unknown';
@@ -1557,7 +1724,15 @@ class ServicePendingInstallTask {
             },
             'error',
           );
-          await this.markTaskFailed(runningTask, message, traceId, undefined);
+          const reachedTerminalState = await this.markTaskFailed(
+            runningTask,
+            message,
+            traceId,
+            undefined,
+          );
+          if (reachedTerminalState) {
+            shouldRunPostRefresh = false;
+          }
         }
       }
     } finally {

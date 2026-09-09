@@ -59,6 +59,7 @@ export function MobilePositionsListHeader({
         containerProps={{ p: '$0', alignItems: 'center' }}
         width="$3.5"
         height="$3.5"
+        borderWidth={1.5}
         value={filterByCurrentToken}
         onChange={handleFilterChange}
       />
@@ -72,7 +73,7 @@ export function MobilePositionsListHeader({
         onPress={handleCloseAll}
         childrenAsText={false}
       >
-        <SizableText size="$bodyXs">
+        <SizableText size="$bodyXsMedium">
           {intl.formatMessage({ id: ETranslations.perp_position_close })}
         </SizableText>
       </Button>

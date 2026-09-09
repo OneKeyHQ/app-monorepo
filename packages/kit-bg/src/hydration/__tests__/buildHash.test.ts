@@ -7,6 +7,7 @@
 import {
   computeEffectiveBuildHash,
   countNonMetaEntries,
+  filterDevSafeL2CtxSnapshot,
   shouldProceedAfterReset,
 } from '../hydrate';
 
@@ -90,6 +91,42 @@ describe('shouldProceedAfterReset', () => {
   it('refuses to proceed when recheck is undefined (timeout / throw)', () => {
     // No proof the wipe succeeded → must NOT proceed.
     expect(shouldProceedAfterReset(undefined)).toBe(false);
+  });
+});
+
+describe('filterDevSafeL2CtxSnapshot', () => {
+  it('keeps only versioned display-only Swap balance caches', () => {
+    const balanceCache = {
+      version: 1,
+      entries: [{ accountAddress: '0xabc', balance: '1' }],
+    };
+    expect(
+      filterDevSafeL2CtxSnapshot({
+        'store:swap::ctx:swapBalanceDisplayCacheAtom': balanceCache,
+        'store:swap::ctx:swapStockBalanceDisplayCacheAtom': balanceCache,
+        'store:swap::ctx:swapSelectFromTokenAtom': { symbol: 'ETH' },
+        'store:swap::ctx:swapProPositionsCacheAtom': { byOwner: {} },
+        'store:swap::ctx:swapStockBalanceDisplayCacheAtom:invalid':
+          balanceCache,
+      }),
+    ).toEqual({
+      'store:swap::ctx:swapBalanceDisplayCacheAtom': balanceCache,
+      'store:swap::ctx:swapStockBalanceDisplayCacheAtom': balanceCache,
+    });
+  });
+
+  it('rejects unversioned or malformed balance cache payloads', () => {
+    expect(
+      filterDevSafeL2CtxSnapshot({
+        'store:swap::ctx:swapBalanceDisplayCacheAtom': {
+          entries: [],
+        },
+        'store:swap::ctx:swapStockBalanceDisplayCacheAtom': {
+          version: 1,
+          entries: null,
+        },
+      }),
+    ).toEqual({});
   });
 });
 

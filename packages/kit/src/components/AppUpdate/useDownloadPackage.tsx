@@ -13,11 +13,16 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import {
+  EAppUpdateStatus,
   EUpdateFileType,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { resolveErrorI18nMessage } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -25,6 +30,7 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -48,6 +54,14 @@ import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
 import { isShowToastError } from './updateStrategy';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
+
+function isAppShellPackageInvalidError(errorCode?: string) {
+  return (
+    errorCode === EAppUpdatePackageErrorCode.packageMissing ||
+    errorCode === EAppUpdatePackageErrorCode.packageUnavailable ||
+    errorCode === EAppUpdatePackageErrorCode.packageNotPrepared
+  );
+}
 
 export const useDownloadPackage = () => {
   const intl = useIntl();
@@ -74,6 +88,52 @@ export const useDownloadPackage = () => {
     [],
   );
 
+  const recoverAppShellPackage = useCallback(
+    async ({
+      fileType,
+      errorCode,
+      showIncompleteDialog,
+    }: {
+      fileType: EUpdateFileType;
+      errorCode?: string;
+      showIncompleteDialog: boolean;
+    }): Promise<EAppUpdateStatus | undefined> => {
+      if (
+        !platformEnv.isDesktop ||
+        fileType !== EUpdateFileType.appShell ||
+        !isAppShellPackageInvalidError(errorCode)
+      ) {
+        return undefined;
+      }
+      try {
+        const info =
+          await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
+        const recoveredStatus =
+          info.status === EAppUpdateStatus.updateIncomplete ||
+          info.status === EAppUpdateStatus.notify ||
+          info.status === EAppUpdateStatus.downloadPackage
+            ? info.status
+            : undefined;
+        if (
+          showIncompleteDialog &&
+          recoveredStatus === EAppUpdateStatus.updateIncomplete
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+            undefined,
+          );
+        }
+        return recoveredStatus;
+      } catch {
+        defaultLogger.app.appUpdate.log(
+          'recoverAppShellPackage: reconciliation failed',
+        );
+        return undefined;
+      }
+    },
+    [],
+  );
+
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -88,27 +148,40 @@ export const useDownloadPackage = () => {
           }
           await BundleUpdate.installBundle(data.downloadedEvent);
         } else {
-          await AppUpdate.installPackage(data);
+          const installStarted = await AppUpdate.installPackage(data);
+          if (!installStarted) {
+            return;
+          }
         }
         defaultLogger.app.appUpdate.endInstallPackage(true);
         onSuccess();
       } catch (e: unknown) {
+        const errorCode = extractUpdateErrorCode(e);
         defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
         defaultLogger.app.appUpdate.softwareUpdateResult({
           ...buildSoftwareUpdateParams(fileType, data, getUpdateAttemptId()),
           status: 'failed',
           failedStep: 'install',
           errorMessage: sanitizeUpdateErrorMessage(e),
-          errorCode: extractUpdateErrorCode(e),
+          errorCode,
         });
-        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+        const recoveredStatus = await recoverAppShellPackage({
+          fileType,
+          errorCode,
+          showIncompleteDialog: false,
+        });
+        if (recoveredStatus) {
+          if (recoveredStatus === EAppUpdateStatus.updateIncomplete) {
+            onFail();
+          }
+        } else if (errorCode === EAppUpdatePackageErrorCode.packageMissing) {
           onFail();
         } else if (showToastError) {
           Toast.error({ title: resolveErrorI18nMessage(e, intl) });
         }
       }
     },
-    [getFileTypeFromUpdateInfo, intl],
+    [getFileTypeFromUpdateInfo, intl, recoverAppShellPackage],
   );
 
   const verifyPackage = useCallback(async () => {
@@ -121,6 +194,17 @@ export const useDownloadPackage = () => {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       if (!params) {
+        if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
+          await backgroundApiProxy.serviceAppUpdate.verifyPackage();
+        }
+        const recoveredStatus = await recoverAppShellPackage({
+          fileType,
+          errorCode: EAppUpdatePackageErrorCode.packageMissing,
+          showIncompleteDialog: true,
+        });
+        if (recoveredStatus) {
+          return;
+        }
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
@@ -141,6 +225,7 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       defaultLogger.app.appUpdate.endVerifyPackage(true);
     } catch (e) {
+      const errorCode = extractUpdateErrorCode(e);
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
         ...buildSoftwareUpdateParams(
@@ -151,11 +236,19 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'verifyPackage',
         errorMessage: sanitizeUpdateErrorMessage(e),
-        errorCode: extractUpdateErrorCode(e),
+        errorCode,
       });
+      const recoveredStatus = await recoverAppShellPackage({
+        fileType,
+        errorCode,
+        showIncompleteDialog: true,
+      });
+      if (recoveredStatus) {
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, [getSkipGPGVerification]);
+  }, [getSkipGPGVerification, recoverAppShellPackage]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -164,6 +257,17 @@ export const useDownloadPackage = () => {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       if (!params) {
+        if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
+          await backgroundApiProxy.serviceAppUpdate.verifyASC();
+        }
+        const recoveredStatus = await recoverAppShellPackage({
+          fileType,
+          errorCode: EAppUpdatePackageErrorCode.packageMissing,
+          showIncompleteDialog: true,
+        });
+        if (recoveredStatus) {
+          return;
+        }
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
@@ -186,6 +290,7 @@ export const useDownloadPackage = () => {
     } catch (e) {
       const appUpdateInfo =
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const errorCode = extractUpdateErrorCode(e);
       defaultLogger.app.appUpdate.endVerifyASC(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
         ...buildSoftwareUpdateParams(
@@ -196,11 +301,24 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'verifyASC',
         errorMessage: sanitizeUpdateErrorMessage(e),
-        errorCode: extractUpdateErrorCode(e),
+        errorCode,
       });
+      const recoveredStatus = await recoverAppShellPackage({
+        fileType,
+        errorCode,
+        showIncompleteDialog: true,
+      });
+      if (recoveredStatus) {
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyPackage]);
+  }, [
+    getFileTypeFromUpdateInfo,
+    getSkipGPGVerification,
+    recoverAppShellPackage,
+    verifyPackage,
+  ]);
 
   const downloadASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -209,6 +327,17 @@ export const useDownloadPackage = () => {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       if (!params) {
+        if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
+          await backgroundApiProxy.serviceAppUpdate.downloadASC();
+        }
+        const recoveredStatus = await recoverAppShellPackage({
+          fileType,
+          errorCode: EAppUpdatePackageErrorCode.packageMissing,
+          showIncompleteDialog: true,
+        });
+        if (recoveredStatus) {
+          return;
+        }
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
@@ -231,6 +360,7 @@ export const useDownloadPackage = () => {
     } catch (e) {
       const appUpdateInfo =
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const errorCode = extractUpdateErrorCode(e);
       defaultLogger.app.appUpdate.endDownloadASC(false, e as Error);
       defaultLogger.app.appUpdate.softwareUpdateResult({
         ...buildSoftwareUpdateParams(
@@ -241,11 +371,24 @@ export const useDownloadPackage = () => {
         status: 'failed',
         failedStep: 'downloadASC',
         errorMessage: sanitizeUpdateErrorMessage(e),
-        errorCode: extractUpdateErrorCode(e),
+        errorCode,
       });
+      const recoveredStatus = await recoverAppShellPackage({
+        fileType,
+        errorCode,
+        showIncompleteDialog: true,
+      });
+      if (recoveredStatus) {
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyASC]);
+  }, [
+    getFileTypeFromUpdateInfo,
+    getSkipGPGVerification,
+    recoverAppShellPackage,
+    verifyASC,
+  ]);
 
   const downloadPackage = useCallback(async () => {
     return withDownloadMutex(async () => {
@@ -304,11 +447,10 @@ export const useDownloadPackage = () => {
         // reuses the on-disk resume artifact (iOS .resume / Android & Desktop
         // .partial), so attempts after the first are real range-resumes.
         // Bails immediately on SHA256_MISMATCH / HTTP 4xx-permanent.
-        // OCDS §5.11 — persisted cross-restart attempt budget + wall-clock
-        // deadline. ServiceAppUpdate is the durable owner of the attempt
-        // counter, so a permanently-failing target eventually gives up
-        // (DownloadGaveUpError) instead of re-downloading from scratch on every
-        // relaunch; success resets it and a new target version starts fresh.
+        // OCDS §5.11 — ServiceAppUpdate owns the bg service instance's attempt
+        // budget, so a permanently failing target eventually gives up within
+        // that instance. A cold restart creates a fresh budget; success resets
+        // it, and a new target version also starts fresh.
         // `activeDownloadParams` is mutable so a 401/403 URL refresh can swap in
         // a freshly-signed URL for the next attempt (OCDS §4).
         const targetKey = `${asOptionalString(latestVersion) ?? ''}:${
@@ -368,10 +510,9 @@ export const useDownloadPackage = () => {
           errorCode: extractUpdateErrorCode(e),
         });
         if (e instanceof DownloadGaveUpError) {
-          // §5.11 definitive give-up: the persisted budget/deadline is spent (or
-          // the single-stream fallback itself failed). Surfaced as a terminal
-          // failure; the persisted record keeps the next relaunch from
-          // re-downloading until a new target version supersedes it.
+          // §5.11 definitive give-up: the service-instance budget is spent (or
+          // the single-stream fallback itself failed). Surface a terminal
+          // failure for this bg service instance; a cold restart starts fresh.
           defaultLogger.app.appUpdate.log(
             `downloadPackage: OCDS §5.11 terminal give-up reason=${e.reason}`,
           );
@@ -447,7 +588,23 @@ export const useDownloadPackage = () => {
       }
       defaultLogger.app.appUpdate.endManualInstallPackage(true);
     } catch (e) {
+      const errorCode = extractUpdateErrorCode(e);
       defaultLogger.app.appUpdate.endManualInstallPackage(false, e as Error);
+      const recoveredStatus = await recoverAppShellPackage({
+        fileType,
+        errorCode,
+        showIncompleteDialog: false,
+      });
+      if (recoveredStatus) {
+        if (recoveredStatus === EAppUpdateStatus.updateIncomplete) {
+          showUpdateInCompleteDialog({
+            onConfirm: () => {
+              navigation.popStack();
+            },
+          });
+        }
+        return;
+      }
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_update_failed,
@@ -460,7 +617,13 @@ export const useDownloadPackage = () => {
         },
       });
     }
-  }, [getFileTypeFromUpdateInfo, intl, navigation, showUpdateInCompleteDialog]);
+  }, [
+    getFileTypeFromUpdateInfo,
+    intl,
+    navigation,
+    recoverAppShellPackage,
+    showUpdateInCompleteDialog,
+  ]);
 
   return useMemo(
     () => ({

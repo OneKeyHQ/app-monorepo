@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';

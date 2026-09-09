@@ -1,15 +1,114 @@
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   appendBorrowRepaySetupState,
+  buildAaveNativeGatewayReceiveToken,
   buildBorrowRepayPositionKey,
+  buildBorrowRepayWithCollateralConfirmationParams,
+  getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
+  hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
+  isUnsupportedAaveNativeReserve,
+  shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
+  it('uses the raw borrow balance before rounded display values', () => {
+    const balance = {
+      number: '0.0000001',
+      amount: '0',
+      title: { text: '0' },
+    };
+
+    expect(getBorrowBalanceAmount(balance)).toBe('0.0000001');
+    expect(hasPositiveBorrowBalance(balance)).toBe(true);
+  });
+
+  it.each(['evm--1', 'evm--8453'])(
+    'routes the Aave native reserve through the gateway on %s',
+    (networkId) => {
+      expect(
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: 'Aave',
+          reserveAddress: '',
+        }),
+      ).toBe(true);
+      expect(
+        isUnsupportedAaveNativeReserve({
+          networkId,
+          providerName: 'aave',
+          reserveAddress: '',
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('uses native token metadata for an Aave gateway withdrawal', () => {
+    const wrappedToken = {
+      address: '0xWrappedToken',
+      decimals: 18,
+      isNative: false,
+      name: 'Wrapped Ether',
+      networkId: 'evm--8453',
+      symbol: 'WETH',
+    } as IToken;
+    const nativeToken = {
+      address: '',
+      decimals: 18,
+      isNative: true,
+      logoURI: 'https://example.com/eth.png',
+      name: 'Ether',
+      networkId: 'evm--8453',
+      symbol: 'ETH',
+    } as IToken;
+
+    expect(
+      buildAaveNativeGatewayReceiveToken({
+        token: wrappedToken,
+        nativeToken,
+        networkId: 'evm--8453',
+      }),
+    ).toEqual({
+      ...nativeToken,
+      address: '',
+      isNative: true,
+      networkId: 'evm--8453',
+      name: 'Ether',
+      symbol: 'ETH',
+    });
+  });
+
+  it('keeps non-gateway networks and non-native reserves off the gateway path', () => {
+    // A network without backend gateway coverage stays filtered out.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--42161',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--42161',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    // ERC20 reserves never use the gateway regardless of network.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '0xreserve',
+      }),
+    ).toBe(false);
+  });
+
   it('treats zero debt as not eligible for collateral repay entry', () => {
     expect(hasPositiveDebtBalance('0')).toBe(false);
     expect(
@@ -44,6 +143,52 @@ describe('borrowRepayPosition utils', () => {
       }),
     ).toBe('1:collateral-reserve:0:50:ready');
   });
+
+  it('invalidates repay requests when the transaction scope changes', () => {
+    const params = {
+      amount: '1',
+      collateralReserveAddress: 'collateral-reserve',
+      repayAll: false,
+      slippageBps: 50,
+      hasDebtPosition: true,
+    };
+
+    expect(
+      buildBorrowRepayPositionKey({
+        ...params,
+        scopeKey: 'account-1:market-1:debt-1',
+      }),
+    ).not.toBe(
+      buildBorrowRepayPositionKey({
+        ...params,
+        scopeKey: 'account-2:market-1:debt-1',
+      }),
+    );
+  });
+
+  it.each([true, false])(
+    'forwards repayAll=%s to collateral-repay confirmation',
+    (repayAll) => {
+      expect(
+        buildBorrowRepayWithCollateralConfirmationParams({
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          reserveAddress: '0xdebt',
+          amount: '1',
+          collateralReserveAddress: '0xcollateral',
+          repayAll,
+          slippageBps: 50,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          action: 'repayWithCollateral',
+          repayAll,
+        }),
+      );
+    },
+  );
 
   it('advances progress from setup to repay for the same input key', () => {
     const progressKey = buildBorrowRepayPositionKey({

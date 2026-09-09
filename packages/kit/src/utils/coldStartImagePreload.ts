@@ -1,15 +1,14 @@
-import {
-  primeCachedImagePaths,
-  primeCachedImageRefs,
-} from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
+
 import {
-  getHyperliquidTokenImageUrl,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+  type ITokenSize,
+  getTokenImageResizeWidth,
+} from '../components/Token/tokenSize';
 
 type IColdStartSnapshot = Record<string, unknown>;
 
@@ -20,10 +19,19 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
 type IImagePreloadOptions = {
   limit?: number;
   awaitPreload?: boolean;
-  decode?: boolean;
-  decodeTimeoutMs?: number;
-  primeTimeoutMs?: number;
-  preload?: boolean;
+  pixelRatio?: number;
+  resizeWidth?: number;
+};
+
+type IImagePreloadItem = {
+  uri: string;
+  resizeWidth?: number;
+};
+
+type IImagePreloadInput = string | IImagePreloadItem;
+
+type IPerpsTokenSelectorImagePreloadOptions = {
+  tokenSizes?: readonly ITokenSize[];
 };
 
 type ITokenSelectorImageItem = {
@@ -35,6 +43,11 @@ type ITokenSelectorImageItem = {
 
 const REMOTE_IMAGE_URI_RE = /^https?:\/\//i;
 const COLD_START_IMAGE_PRELOAD_LIMIT = 96;
+// Logical size of the image inside a home wallet banner card. WalletBanner
+// renders with this exact size, so the cold-start prewarm below produces the
+// same resize URL + decode thumbnail as the first paint (cache-key match).
+export const WALLET_BANNER_IMAGE_SIZE = 56;
+const WALLET_BANNER_IMAGE_LIMIT = 8;
 const WALLET_TOKEN_OWNER_LIMIT = 2;
 const WALLET_TOKEN_LIMIT_PER_OWNER = 24;
 const SWAP_POSITION_OWNER_LIMIT = 3;
@@ -44,6 +57,9 @@ const PERPS_OPEN_ORDER_LIMIT = 16;
 const PERPS_ALIAS_LOGO_LIMIT = 24;
 const PERPS_TOKEN_SELECTOR_LOGO_LIMIT = 72;
 const PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT = 24;
+const COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH = s(32);
+const PERPS_TOKEN_SELECTOR_NATIVE_PRELOAD_TOKEN_SIZES = ['lg'] as const;
+const PERPS_TOKEN_SELECTOR_DESKTOP_PRELOAD_TOKEN_SIZES = ['sm', 'md'] as const;
 const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
   'BTC',
   'ETH',
@@ -88,6 +104,36 @@ function addImageUri(uris: Set<string>, uri?: unknown) {
   }
 }
 
+function getImagePreloadItem(input: IImagePreloadInput): IImagePreloadItem {
+  return typeof input === 'string' ? { uri: input } : input;
+}
+
+function getPerpsTokenSelectorPreloadSizes(
+  tokenSizes?: readonly ITokenSize[],
+): readonly ITokenSize[] {
+  if (tokenSizes?.length) {
+    return tokenSizes;
+  }
+  return platformEnv.isNative
+    ? PERPS_TOKEN_SELECTOR_NATIVE_PRELOAD_TOKEN_SIZES
+    : PERPS_TOKEN_SELECTOR_DESKTOP_PRELOAD_TOKEN_SIZES;
+}
+
+function buildPerpsTokenSelectorImagePreloadItems({
+  uris,
+  tokenSizes,
+}: {
+  uris: string[];
+  tokenSizes: readonly ITokenSize[];
+}): IImagePreloadItem[] {
+  const resizeWidths = [
+    ...new Set(tokenSizes.map((size) => getTokenImageResizeWidth(size))),
+  ];
+  return uris.flatMap((uri) =>
+    resizeWidths.map((resizeWidth) => ({ uri, resizeWidth })),
+  );
+}
+
 function addTokenLikeImageUris(uris: Set<string>, token?: unknown) {
   if (!isRecord(token)) {
     return;
@@ -106,10 +152,9 @@ function addPerpsCoinLogoUri(uris: Set<string>, coin?: unknown) {
   if (typeof coin !== 'string' || !coin) {
     return;
   }
-  addImageUri(
-    uris,
-    getHyperliquidTokenImageUrl(parseDexCoin(coin).displayName),
-  );
+  // Warm both sources, otherwise the prefixed file — the one actually rendered
+  // — is never prefetched.
+  getHyperliquidTokenImageUris(coin).forEach((uri) => addImageUri(uris, uri));
 }
 
 function addTokenSelectorItemLogoUri(
@@ -139,6 +184,41 @@ function getUpdatedAt(value: unknown) {
   return isRecord(value) && typeof value.updatedAt === 'number'
     ? value.updatedAt
     : Number.MIN_SAFE_INTEGER;
+}
+
+// Wallet banner cards render their text from the cold-start snapshot on the
+// first frame; without a warm image cache the 56pt image shows a skeleton on
+// every launch (OK-61505). Prewarm them at the banner size, ahead of the
+// token logos, so the first paint hits the memory cache.
+function collectWalletBannerImageItems({
+  items,
+  snapshot,
+}: {
+  items: IImagePreloadItem[];
+  snapshot: IColdStartSnapshot;
+}) {
+  const seen = new Set<string>();
+  for (const value of getSnapshotValuesByColdStartKey({
+    snapshot,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom,
+  })) {
+    const banners =
+      isRecord(value) && Array.isArray(value.banners) ? value.banners : [];
+    for (const banner of banners) {
+      if (seen.size >= WALLET_BANNER_IMAGE_LIMIT) {
+        return;
+      }
+      const uri = isRecord(banner) ? banner.src : undefined;
+      if (
+        typeof uri === 'string' &&
+        REMOTE_IMAGE_URI_RE.test(uri) &&
+        !seen.has(uri)
+      ) {
+        seen.add(uri);
+        items.push({ uri, resizeWidth: WALLET_BANNER_IMAGE_SIZE });
+      }
+    }
+  }
 }
 
 function collectWalletTokenImageUris({
@@ -297,17 +377,19 @@ function collectPerpsImageUris({
 export function getColdStartImageUrisFromSnapshot(
   snapshot = getColdStartSnapshot(),
   limit = COLD_START_IMAGE_PRELOAD_LIMIT,
-) {
+): IImagePreloadInput[] {
+  const bannerItems: IImagePreloadItem[] = [];
   const uris = new Set<string>();
   if (!snapshot) {
     return [];
   }
 
+  collectWalletBannerImageItems({ items: bannerItems, snapshot });
   collectWalletTokenImageUris({ uris, snapshot });
   collectSwapImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
 
-  return [...uris].slice(0, limit);
+  return [...bannerItems, ...uris].slice(0, limit);
 }
 
 export function getPerpsTokenSelectorImageUrisFromItems({
@@ -338,42 +420,40 @@ export function getPerpsTokenSelectorImageUrisFromItems({
 }
 
 export async function prewarmImageUris(
-  imageUris: string[],
+  imageUris: IImagePreloadInput[],
   {
     limit = COLD_START_IMAGE_PRELOAD_LIMIT,
     awaitPreload = false,
-    decode = false,
-    decodeTimeoutMs,
-    primeTimeoutMs,
-    preload = true,
+    pixelRatio,
+    resizeWidth = COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH,
   }: IImagePreloadOptions = {},
 ) {
-  const uris = [...new Set(imageUris)].slice(0, limit);
-  if (!uris.length) {
+  const sources = [
+    ...new Map(
+      imageUris
+        .slice(0, limit)
+        .map(getImagePreloadItem)
+        .filter((item) => Boolean(item.uri))
+        .map((item) => {
+          const source = {
+            uri: item.uri,
+            resizeWidth: item.resizeWidth ?? resizeWidth,
+            pixelRatio,
+          };
+          return [`${source.uri}|${source.resizeWidth}`, source] as const;
+        }),
+    ).values(),
+  ];
+  if (!sources.length) {
     return 0;
   }
-  await primeCachedImagePaths({ uris, timeoutMs: primeTimeoutMs });
-  const tasks: Array<Promise<unknown>> = [];
-  // The decoded ImageRef cache is iOS-only (see Image/cache.ts). On Android,
-  // fall back to Image.prefetch so Glide's native cache is still warmed for
-  // decode-only callers (e.g. Perps token-selector critical logos that pass
-  // preload:false), without decoding unconsumed — and crash-prone — SharedRefs.
-  const shouldPreload = preload || (platformEnv.isNativeAndroid && decode);
-  const shouldDecode = decode && !platformEnv.isNativeAndroid;
-  if (shouldPreload) {
-    tasks.push(preloadImages(uris.map((uri) => ({ uri }))));
-  }
-  if (shouldDecode) {
-    tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
-  }
+  const task = preloadImages(sources);
   if (awaitPreload) {
-    await Promise.allSettled(tasks);
+    await task.catch(() => false);
   } else {
-    tasks.forEach((task) => {
-      void task.catch(() => undefined);
-    });
+    void task.catch(() => undefined);
   }
-  return uris.length;
+  return sources.length;
 }
 
 export async function prewarmColdStartImagesFromSnapshot(
@@ -389,24 +469,27 @@ export async function prewarmColdStartImagesFromSnapshot(
 
 export function prewarmPerpsTokenSelectorImages(
   items: ITokenSelectorImageItem[],
+  options: IPerpsTokenSelectorImagePreloadOptions = {},
 ) {
   const uris = getPerpsTokenSelectorImageUrisFromItems({ items });
   const criticalUris = uris.slice(0, PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT);
   const remainingUris = uris.slice(PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT);
-  if (remainingUris.length) {
-    void prewarmImageUris(remainingUris, {
-      decode: true,
-      limit: remainingUris.length,
-      preload: true,
-      primeTimeoutMs: 250,
+  const tokenSizes = getPerpsTokenSelectorPreloadSizes(options.tokenSizes);
+  const criticalItems = buildPerpsTokenSelectorImagePreloadItems({
+    uris: criticalUris,
+    tokenSizes,
+  });
+  const remainingItems = buildPerpsTokenSelectorImagePreloadItems({
+    uris: remainingUris,
+    tokenSizes,
+  });
+  if (remainingItems.length) {
+    void prewarmImageUris(remainingItems, {
+      limit: remainingItems.length,
     });
   }
-  return prewarmImageUris(criticalUris, {
+  return prewarmImageUris(criticalItems, {
     awaitPreload: true,
-    decode: true,
-    decodeTimeoutMs: 1500,
-    limit: PERPS_TOKEN_SELECTOR_LOGO_LIMIT,
-    preload: false,
-    primeTimeoutMs: 250,
+    limit: criticalItems.length,
   });
 }

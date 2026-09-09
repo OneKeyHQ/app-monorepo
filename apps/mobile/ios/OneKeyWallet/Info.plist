@@ -48,6 +48,10 @@
 	<string>1</string>
 	<key>ENABLE_NATIVE_BACKGROUND_THREAD</key>
 	<string>$(ENABLE_NATIVE_BACKGROUND_THREAD)</string>
+	<key>EXDefaultScreenOrientationMask</key>
+	<string>UIInterfaceOrientationMaskPortrait</string>
+	<key>EXDefaultScreenOrientationMask~ipad</key>
+	<string>UIInterfaceOrientationMaskAll</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -127,6 +131,8 @@
 	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>

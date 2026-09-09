@@ -336,7 +336,7 @@ export default function DevAppUpdateTestModal() {
               // Wipe the "what's new" marker and force the update status off
               // `done` so that isFirstLaunchAfterUpdated() + isWhatsNewShown()
               // both pass on the next cold start, replaying the changelog dialog.
-              clearWhatsNewShown();
+              await clearWhatsNewShown();
               await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
               Toast.success({
                 title: "What's New reset",

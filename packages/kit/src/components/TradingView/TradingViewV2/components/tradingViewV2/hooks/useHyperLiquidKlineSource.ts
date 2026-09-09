@@ -15,11 +15,19 @@ export function useHyperLiquidKlineSource(
   const { basicConfig, isLoading } = useMarketBasicConfig();
 
   return useMemo(() => {
-    if (isLoading || !basicConfig?.HyperLiquidKlineSourceTokens) {
+    if (!basicConfig) {
       return {
         isHyperLiquidSource: false,
         symbol: undefined,
-        isLoading: true,
+        isLoading: isLoading !== false,
+      };
+    }
+
+    if (!basicConfig.HyperLiquidKlineSourceTokens) {
+      return {
+        isHyperLiquidSource: false,
+        symbol: undefined,
+        isLoading: false,
       };
     }
 

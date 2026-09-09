@@ -8,7 +8,10 @@ import {
   Icon,
   XStack,
   rootNavigationRef,
+  tabletMainViewNavigationRef,
   useOnRouterChange,
+  useSplitMainView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
@@ -67,6 +70,7 @@ function useWebHeaderNavigation({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toReferFriendsModal = useToReferFriendsModalByRootNavigation();
+  const isSplitMainView = useSplitMainView();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
 
   useOnRouterChange((state) => {
@@ -171,14 +175,27 @@ function useWebHeaderNavigation({
         return;
       }
 
-      if (tabKey === ETabRoutes.Perp) {
+      if (
+        (tabKey === ETabRoutes.Perp ||
+          tabKey === ETabRoutes.WebviewPerpTrade) &&
+        willTabFocusTransition(
+          tabKey,
+          isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+        )
+      ) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
       if (tabKey) {
         navigation.switchTab(tabKey as ETabRoutes);
       }
     },
-    [navigation, onNavigationChange, perpTabShowWeb, toReferFriendsModal],
+    [
+      isSplitMainView,
+      navigation,
+      onNavigationChange,
+      perpTabShowWeb,
+      toReferFriendsModal,
+    ],
   );
 
   const navigationItems: IHeaderNavigationItem[] = useMemo(
@@ -238,7 +255,11 @@ export function WebHeaderNavigation({
   return (
     <XStack ai="center" gap="$4">
       <Icon name="OnekeyLogoIllus" size="$7" />
+      {/* Small screens navigate via the bottom tab bar, so the inline nav
+          links are desktop-only; the logo stays on every breakpoint. */}
       <HeaderNavigation
+        display="none"
+        $gtMd={{ display: 'flex' }}
         items={navigationItems}
         activeKey={activeNavigationKey}
         onTabChange={handleNavigationChange}

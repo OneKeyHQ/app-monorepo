@@ -23,11 +23,16 @@ export const ArbitrumSUSDai = '0x0B2b2B2076d95dda7817e785989fE353fe955ef9';
 export const ArbitrumWeETH = '0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe';
 export const BinanceSmartChainUSDT =
   '0x55d398326f99059fF775485246999027B3197955';
+export const BinanceSmartChainU = '0xce24439f2d9c6a2289f741120fe202248b666666';
+export const BinanceSmartChainBTW =
+  '0x444045b0ee1ee319a660a5e3d604ca0ffa35acaa';
 export const BinanceSmartChainLISTA =
   '0xFceB31A79F71AC9CBDCF853519c1b12D379EdC46';
 export const BinanceSmartChainSlisBNBx =
   '0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B';
 export const BaseUSDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// Vault Bridge USDC on Katana (evm--747474)
+export const KatanaVbUSDC = '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36';
 export const BaseUniBTC = '0x93919784C523f39CACaa98Ee0a9d96c3F32b593e';
 export const SuiUSDC =
   '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
@@ -48,6 +53,10 @@ export const MorphoUSDCVaultAddress =
 
 export const MorphoBaseBundlerContract =
   '0xb98c948cfa24072e58935bc004a8a7b376ae746a';
+// Morpho GeneralAdapter on Katana (permit spender), mirrors the Base contract.
+// https://docs.morpho.org/addresses/#bundlers
+export const MorphoKatanaBundlerContract =
+  '0x916aa175c36e845db45ff6ddb886ae437d403b61';
 export const PangolinsBaseUSDCVaultAddress =
   '0x1401d1271C47648AC70cBcdfA3776D4A87CE006B';
 export const SolanaUSDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

@@ -37,6 +37,26 @@ Packaging notes:
 - This README is source documentation only. It is explicitly excluded by
   `apps/desktop/electron-builder-files.config.js`.
 
+## Runtime dependency patches
+
+Externalized dependencies are loaded from this app directory at runtime, so a
+root-level `patch-package` patch does not modify the copy installed here.
+`yarn install-app-deps` first removes the generated appDir `node_modules` so
+stale patched files cannot survive a dependency reinstall. After Electron
+Builder installs pristine appDir dependencies, the command dynamically
+intersects every committed root patch with package instances found recursively
+under appDir `node_modules`. It applies the complete matching patch to every
+unpatched instance and then verifies the complete patch in reverse before
+packaging continues. The command is idempotent and fails if a dependency is
+partially patched, has drifted, or is on a different version. Runtime lookup
+never falls back to workspace `node_modules`; committed root patch files are the
+single source of truth, with no package, file, or marker allowlist to maintain.
+
+Because the Noble patch changes native macOS sources, the Desktop install flow
+then runs a targeted check that only force-rebuilds the appDir Noble copy when
+needed. It also verifies that the runtime-selected binary contains both x64 and
+arm64 architectures.
+
 Security scanner caveat:
 
 Root-level dependency scanners may still report versions from the monorepo root

@@ -28,7 +28,7 @@ function ProgressBar({ progress }: { progress: number }) {
     <Stack
       width="100%"
       opacity={progress < 100 ? 1 : 0}
-      animation="quick"
+      transition="quick"
       animateOnly={['opacity']}
     >
       <Progress

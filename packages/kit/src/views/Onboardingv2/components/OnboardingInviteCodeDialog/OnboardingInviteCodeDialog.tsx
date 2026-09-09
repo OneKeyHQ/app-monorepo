@@ -91,7 +91,7 @@ const REFERRAL_CODE_PATTERN = /^[a-zA-Z0-9]+$/;
 // <AnimatePresence> branches structurally identical so the only
 // difference between them is the child element.
 const APPLY_LABEL_MOTION_PROPS = {
-  animation: 'quick',
+  transition: 'quick',
   animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
   enterStyle: APPLY_ENTER_STYLE,
   exitStyle: APPLY_EXIT_STYLE,

@@ -1,9 +1,16 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type { ITokenDappType } from '@onekeyhq/shared/types/token';
+
+import {
+  type ISwapStableTokenIdentity,
+  fetchSwapStableTokenStatus,
+  getSwapStableTokenAddress,
+  getSwapStableTokenKey,
+  getSwapStableTokenStatusFromMap,
+} from '../../utils/swapStableCoinUtils';
 
 export type ISwapKLineToken = ISwapToken & {
   defiMarked?: boolean;
@@ -11,24 +18,18 @@ export type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
-type ISwapKLineStableTokenIdentity = {
-  networkId?: string;
-  contractAddress?: string;
-  isNative?: boolean;
-};
+type ISwapKLineTokenSymbol = Pick<ISwapToken, 'symbol'>;
 
-function normalizeSwapKLineStableTokenAddress({
-  networkId,
-  contractAddress,
+export function haveSameSwapKLineTokenSymbol({
+  fromToken,
+  toToken,
 }: {
-  networkId: string;
-  contractAddress?: string;
+  fromToken?: ISwapKLineTokenSymbol;
+  toToken?: ISwapKLineTokenSymbol;
 }) {
-  const address = contractAddress?.trim();
-  if (!address) {
-    return undefined;
-  }
-  return normalizeTokenContractAddress({ networkId, contractAddress: address });
+  const fromSymbol = fromToken?.symbol.trim().toLowerCase();
+  const toSymbol = toToken?.symbol.trim().toLowerCase();
+  return Boolean(fromSymbol && toSymbol && fromSymbol === toSymbol);
 }
 
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
@@ -39,74 +40,26 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
 }
 
 export function getSwapKLineStableTokenAddress(
-  token?: ISwapKLineStableTokenIdentity,
+  token?: ISwapStableTokenIdentity,
 ) {
-  if (!token?.networkId || token.isNative) {
-    return undefined;
-  }
-  return normalizeSwapKLineStableTokenAddress({
-    networkId: token.networkId,
-    contractAddress: token.contractAddress,
-  });
+  return getSwapStableTokenAddress(token);
 }
 
-export function getSwapKLineStableTokenKey(
-  token?: ISwapKLineStableTokenIdentity,
-) {
-  const address = getSwapKLineStableTokenAddress(token);
-  return token?.networkId && address ? `${token.networkId}:${address}` : '';
+export function getSwapKLineStableTokenKey(token?: ISwapStableTokenIdentity) {
+  return getSwapStableTokenKey(token);
 }
 
 export async function fetchSwapKLineTokenAddressesStableStatus(
-  stableTokens: (ISwapKLineStableTokenIdentity | undefined)[],
+  stableTokens: (ISwapStableTokenIdentity | undefined)[],
 ): Promise<Map<string, boolean>> {
-  const tokensByNetwork = stableTokens.reduce<Record<string, Set<string>>>(
-    (acc, token) => {
-      const address = getSwapKLineStableTokenAddress(token);
-      if (token?.networkId && address) {
-        acc[token.networkId] ??= new Set<string>();
-        acc[token.networkId].add(address);
-      }
-      return acc;
-    },
-    {},
-  );
-  const list = Object.entries(tokensByNetwork).map(
-    ([networkId, contractAddressSet]) => ({
-      networkId,
-      contractAddressList: Array.from(contractAddressSet),
-    }),
-  );
+  return fetchSwapStableTokenStatus(stableTokens);
+}
 
-  if (!list.length) {
-    return new Map();
-  }
-
-  try {
-    const stableCoinsList =
-      await backgroundApiProxy.serviceSwap.checkStableCoinsList({
-        list,
-      });
-
-    return new Map(
-      stableCoinsList.flatMap((item) =>
-        item.results.flatMap((result) => {
-          const contractAddress = normalizeSwapKLineStableTokenAddress({
-            networkId: item.networkId,
-            contractAddress: result.contractAddress,
-          });
-          if (!contractAddress) {
-            return [];
-          }
-          return [
-            [`${item.networkId}:${contractAddress}`, result.isStableCoin],
-          ] as const;
-        }),
-      ),
-    );
-  } catch {
-    return new Map();
-  }
+export function isSwapKLineStableTokenStatusUnavailable(
+  stableStatusMap: ReadonlyMap<string, boolean>,
+  ...stableTokenKeys: string[]
+) {
+  return stableStatusMap.size === 0 && stableTokenKeys.some(Boolean);
 }
 
 export async function fetchSwapKLineTokensStableStatus(
@@ -122,9 +75,10 @@ export function getSwapKLineStableTokenStatusFromMap({
   stableStatusMap: Map<string, boolean>;
   stableTokenKey?: string;
 }) {
-  return stableTokenKey
-    ? (stableStatusMap.get(stableTokenKey) ?? false)
-    : false;
+  return getSwapStableTokenStatusFromMap({
+    stableStatusMap,
+    stableTokenKey,
+  });
 }
 
 export function getSwapKLineTokenStableStatusFromMap({
@@ -145,6 +99,47 @@ export async function fetchSwapKLineTokenIsStable(
 ): Promise<boolean> {
   const stableStatusMap = await fetchSwapKLineTokensStableStatus([token]);
   return getSwapKLineTokenStableStatusFromMap({ stableStatusMap, token });
+}
+
+export async function prefetchSwapKLineTokenInfo(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  const tokenInfoRequests = new Map<
+    string,
+    { networkId: string; tokenAddress: string }
+  >();
+
+  tokens.forEach((token) => {
+    if (!token?.networkId || isKnownSwapKLineUnsupportedToken(token)) {
+      return;
+    }
+
+    const tokenAddress = token.contractAddress ?? '';
+    const requestKey = `${token.networkId}:${tokenAddress}`;
+    tokenInfoRequests.set(requestKey, {
+      networkId: token.networkId,
+      tokenAddress,
+    });
+  });
+
+  await Promise.all(
+    Array.from(tokenInfoRequests.values()).map(async (params) => {
+      try {
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly(params);
+      } catch {
+        // Prefetch must not block opening; mounted consumers own retry handling.
+      }
+    }),
+  );
+}
+
+export async function prefetchSwapKLineMetadata(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  await Promise.all([
+    prefetchSwapKLineTokenInfo(tokens),
+    fetchSwapKLineTokensStableStatus(tokens),
+  ]);
 }
 
 export function getDefaultSwapKLineSide({

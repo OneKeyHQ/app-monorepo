@@ -84,7 +84,7 @@ export type IV4DBDevice = IV4DBBaseObjectWithName & {
   name: string;
   // TODO make index for better performance (getDeviceByQuery)
   uuid: string;
-  deviceId: string; // features.device_id changed after device reset
+  deviceId: string; // rawDeviceId changed after device reset
   deviceType: IDeviceType;
   payloadJson: string; // settingsRaw
   //   settings?: IDBDeviceSettings;

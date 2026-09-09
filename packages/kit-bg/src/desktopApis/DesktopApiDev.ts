@@ -7,7 +7,6 @@ import { pathToFileURL } from 'url';
 import AdmZip from 'adm-zip';
 import { shell } from 'electron';
 import logger from 'electron-log/main';
-import fetch from 'node-fetch';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
@@ -235,11 +234,14 @@ class DesktopApiDev {
         '[client-log-upload] curl command:',
         curlParts.join(' \\\n  '),
       );
-      const response = await fetch(uploadUrl, {
+      const requestInit: RequestInit & { duplex: 'half' } = {
         method: 'POST',
         headers: finalHeaders,
-        body: fileStream as unknown as any,
-      });
+        body: fileStream as unknown as BodyInit,
+        // Node's native fetch requires duplex for a streaming request body.
+        duplex: 'half',
+      };
+      const response = await fetch(uploadUrl, requestInit);
       const text = await response.text();
       // Log only safe metadata. The response body is intentionally NOT
       // written here — for non-2xx the upstream is often a Cloudflare HTML

@@ -21,7 +21,6 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
-import { getTradingButtonStyleProps } from '../../../utils/styleUtils';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -222,7 +221,6 @@ function AccountModeContent({
   const [selectedMode, setSelectedMode] =
     useState<IPerpsAccountModeOption>(initialMode);
   const [loading, setLoading] = useState(false);
-  const confirmButtonStyleProps = getTradingButtonStyleProps('long');
   const activeAccountAddressRef = useRef(perpsActiveAccount?.accountAddress);
   activeAccountAddressRef.current = perpsActiveAccount?.accountAddress;
 
@@ -289,15 +287,8 @@ function AccountModeContent({
           loading={loading}
           disabled={loading}
           onPress={handleConfirm}
-          {...confirmButtonStyleProps}
-          childrenAsText={false}
         >
-          <SizableText
-            size="$bodyMdMedium"
-            color={confirmButtonStyleProps.textColor}
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </SizableText>
+          {intl.formatMessage({ id: ETranslations.global_confirm })}
         </Button>
       </TradingGuardWrapper>
     </YStack>

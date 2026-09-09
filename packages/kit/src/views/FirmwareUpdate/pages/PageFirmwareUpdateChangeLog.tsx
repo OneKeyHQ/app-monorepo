@@ -1,14 +1,16 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import type {
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import {
   EModalFirmwareUpdateRoutes,
-  IModalFirmwareUpdateParamList,
+  type IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EHardwareCallContext,
@@ -16,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
@@ -31,6 +34,7 @@ import {
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -40,8 +44,11 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const navigation = useAppNavigation();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -61,11 +68,13 @@ function PageFirmwareUpdateChangeLog() {
   const { result, run, isLoading } = usePromiseResult(
     async () => {
       try {
-        const compatibleConnectId =
-          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+        const resolvedTransport =
+          await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
+        const compatibleConnectId = resolvedTransport.connectId;
+        setActiveConnectId(compatibleConnectId);
 
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
@@ -73,6 +82,7 @@ function PageFirmwareUpdateChangeLog() {
               connectId: compatibleConnectId,
               firmwareType,
               baseReleaseInfoCache: baseReleaseInfo,
+              resolvedTransportType: resolvedTransport.transportType,
             },
           );
         if (r?.hasUpgrade) {
@@ -88,7 +98,9 @@ function PageFirmwareUpdateChangeLog() {
         setStepInfo({
           step: EFirmwareUpdateSteps.checkReleaseError,
           payload: {
-            error: toPlainErrorObject(error as any),
+            error: toUserFacingFirmwareUpdateError(
+              toPlainErrorObject(error as any),
+            ),
           },
         });
       }
@@ -102,17 +114,43 @@ function PageFirmwareUpdateChangeLog() {
   const shouldShowChangeLog =
     stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
     stepInfo.step === EFirmwareUpdateSteps.showCheckList;
+  const isWorkflowError =
+    stepInfo.step === EFirmwareUpdateSteps.error ||
+    stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
+
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: () =>
+      backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow(),
+  });
+
+  const retryUpdate = useCallback(async () => {
+    const releaseResult = confirmUpdateResult.current ?? result;
+    if (!retryInfo || !releaseResult) {
+      return;
+    }
+    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    setStepInfo({
+      step: EFirmwareUpdateSteps.updateStart,
+      payload: {
+        startAtTime: Date.now(),
+      },
+    });
+    navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
+      result: releaseResult,
+    });
+    await backgroundApiProxy.serviceFirmwareUpdate.retryUpdateTask({
+      id: retryInfo.id,
+      connectId: releaseResult.updatingConnectId,
+      releaseResult,
+    });
+  }, [navigation, result, retryInfo, setStepInfo]);
 
   const content = useMemo(() => {
-    // keep change log modal content when install modal back
-    if (confirmUpdateResult.current) {
-      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
-    }
     if (isLoading) {
       return (
         <>
           <FirmwareUpdateExitPrevent />
-          <FirmwareCheckingLoading connectId={connectId} />
+          <FirmwareCheckingLoading connectId={activeConnectId} />
         </>
       );
     }
@@ -132,6 +170,15 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
+    // keep change log modal content when install modal back
+    if (confirmUpdateResult.current) {
+      return (
+        <FirmwareChangeLogView
+          result={confirmUpdateResult.current}
+          onRetryClick={retryInfo ? retryUpdate : undefined}
+        />
+      );
+    }
     if (shouldShowChangeLog) {
       return (
         <FirmwareChangeLogView
@@ -144,9 +191,11 @@ function PageFirmwareUpdateChangeLog() {
     }
     return <FirmwareLatestVersionInstalled />;
   }, [
-    connectId,
+    activeConnectId,
     isLoading,
     result,
+    retryInfo,
+    retryUpdate,
     run,
     shouldShowChangeLog,
     stepInfo.payload,
@@ -154,13 +203,7 @@ function PageFirmwareUpdateChangeLog() {
   ]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateChangeLog unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout
         headerTitle={
           shouldShowChangeLog ? (
@@ -168,8 +211,7 @@ function PageFirmwareUpdateChangeLog() {
           ) : undefined
         }
         containerStyle={{
-          p:
-            stepInfo.step === EFirmwareUpdateSteps.checkReleaseError ? '$5' : 0,
+          p: isWorkflowError ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />

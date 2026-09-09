@@ -6,7 +6,7 @@ import { Anchor, SizableText } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { FormatXMLElementFn } from 'intl-messageformat';
 
@@ -25,21 +25,35 @@ export function PrimeTermsAndPrivacy() {
       //  only the last of multiple Anchors will take effect.
       platformEnv.isNative ? (
         <SizableText
+          accessibilityRole="link"
           onPress={() => {
-            openUrlExternal(link);
+            openUrlInApp(link, chunks[0]);
           }}
           size="$bodyMd"
           color="$textInteractive"
-          textDecorationLine="underline"
+          pressStyle={{ opacity: 0.8 }}
         >
-          {chunks[0]} ↗
+          {chunks[0]}
         </SizableText>
       ) : (
         <Anchor
           href={link}
           size="$bodyMd"
           color="$textInteractive"
-          target="_blank"
+          target={platformEnv.isDesktop ? '_self' : '_blank'}
+          rel={platformEnv.isDesktop ? undefined : 'noopener noreferrer'}
+          showExternalIndicator={false}
+          textDecorationLine="none"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.8 }}
+          onPress={
+            platformEnv.isDesktop
+              ? (event) => {
+                  event.preventDefault();
+                  openUrlInApp(link, chunks[0]);
+                }
+              : undefined
+          }
         >
           {chunks}
         </Anchor>
@@ -60,9 +74,9 @@ export function PrimeTermsAndPrivacy() {
   return (
     <SizableText
       size="$bodyMd"
+      width="100%"
       color="$textSubdued"
-      textAlign="center"
-      $gtMd={{ textAlign: 'left' }}
+      textAlign="left"
     >
       {intl.formatMessage(
         { id: ETranslations.prime_agree_to_terms_privacy },

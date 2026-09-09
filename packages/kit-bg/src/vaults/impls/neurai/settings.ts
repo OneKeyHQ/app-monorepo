@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   COINNAME_NEURAI,
@@ -26,6 +28,15 @@ const settings: IVaultSettings = {
   ...settingsBtc,
   // Clear inherited [ledger] — Ledger does not support Neurai.
   supportedThirdPartyVendors: undefined,
+
+  supportedDeviceTypes: [
+    EDeviceType.Classic,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro,
+  ],
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,

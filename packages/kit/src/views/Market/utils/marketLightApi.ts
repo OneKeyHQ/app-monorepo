@@ -30,6 +30,7 @@ type IMarketTokenListRequestParams = {
   minLiquidity?: number;
   maxLiquidity?: number;
   type?: string;
+  category?: string;
   timeFrame?: string;
 };
 
@@ -74,6 +75,7 @@ const shouldUseMarketHomeTokenListSeed = ({
   minLiquidity,
   maxLiquidity,
   type,
+  category,
   timeFrame,
 }: INormalizedMarketTokenListRequestParams) =>
   shouldUseMarketHomeTokenListBootstrapSeed() &&
@@ -85,6 +87,7 @@ const shouldUseMarketHomeTokenListSeed = ({
   minLiquidity === 5000 &&
   maxLiquidity === undefined &&
   type === 'trending' &&
+  category === undefined &&
   timeFrame === '2';
 
 const fetchMarketTokenListFromApi = async ({
@@ -96,6 +99,7 @@ const fetchMarketTokenListFromApi = async ({
   minLiquidity,
   maxLiquidity,
   type,
+  category,
   timeFrame,
 }: INormalizedMarketTokenListRequestParams) => {
   markMarketPerf('market-light-api-token-list-start', {
@@ -106,6 +110,7 @@ const fetchMarketTokenListFromApi = async ({
     limit,
     minLiquidity,
     type,
+    category,
     timeFrame,
   });
   const client = await getUtilityClient();
@@ -121,6 +126,7 @@ const fetchMarketTokenListFromApi = async ({
       minLiquidity,
       maxLiquidity,
       type,
+      category,
       timeFrame,
       currency: 'usd',
     },

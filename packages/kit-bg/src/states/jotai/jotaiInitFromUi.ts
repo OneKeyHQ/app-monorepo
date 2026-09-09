@@ -59,7 +59,7 @@ export async function jotaiInitFromUi({
   states,
   useSnapshotInjection,
 }: {
-  states: Record<EAtomNames, any>;
+  states: Partial<Record<EAtomNames, any>>;
   useSnapshotInjection?: boolean;
 }) {
   if (useSnapshotInjection) {

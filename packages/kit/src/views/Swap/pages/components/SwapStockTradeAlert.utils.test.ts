@@ -1,9 +1,14 @@
 import { getStockMarketClosedDescription } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert/getStockMarketClosedDescription';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
+import {
+  EStockTradeAlertType,
+  ESwapAlertLevel,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getStockErrorAlertLevel,
+  getStockTradeAlertType,
+  isCurrentStockMarketClosedQuoteEventError,
   isCurrentStockQuoteEventError,
 } from './SwapStockTradeAlertUtils';
 
@@ -100,6 +105,56 @@ describe('SwapStockTradeAlert utils', () => {
     ).toBe(true);
   });
 
+  it('matches a current Stock market-closed quote event error', () => {
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '2.0',
+        quoteEventError: {
+          message: 'Market closed',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+          isMarketOpen: false,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not treat an unknown or stale Stock market status as closed', () => {
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '2',
+        quoteEventError: {
+          message: 'Market status unavailable',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '3',
+        quoteEventError: {
+          message: 'Market closed',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+          isMarketOpen: false,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+  });
+
   it('keeps Stock min amount errors as warning alerts', () => {
     expect(
       getStockErrorAlertLevel({
@@ -116,5 +171,41 @@ describe('SwapStockTradeAlert utils', () => {
         notAvailableInRegionMessage: 'Not available in region',
       }),
     ).toBe(ESwapAlertLevel.ERROR);
+  });
+
+  it('maps Stock alert messages to analytics alertType values', () => {
+    expect(getStockTradeAlertType({ isMarketClosed: true })).toBe(
+      EStockTradeAlertType.MARKET_CLOSED,
+    );
+    expect(
+      getStockTradeAlertType({
+        message: 'Min amount/request 10 USDC',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.MIN_AMOUNT);
+    expect(
+      getStockTradeAlertType({
+        message: 'Price impact is too large. Please lower the amount.',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.MAX_AMOUNT);
+    expect(
+      getStockTradeAlertType({
+        message: 'Not available in region',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.REGION_RESTRICTED);
+    expect(
+      getStockTradeAlertType({
+        message: 'Unknown stock quote error',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.UNKNOWN);
+    expect(
+      getStockTradeAlertType({
+        message: 'Provider temporarily unavailable',
+        notAvailableInRegionMessage: 'Not available in region',
+      }),
+    ).toBe(EStockTradeAlertType.OTHER);
   });
 });

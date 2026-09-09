@@ -41,6 +41,60 @@ export function removeSwapNoConnectWalletAlerts(states: ISwapAlertState[]) {
   return states.filter((item) => !item.noConnectWallet);
 }
 
+export function shouldShowSwapLocalData({
+  accountInfoReady,
+  accountSelectorActiveAccountInitDone,
+  accountSelectorStorageInitDone,
+  hasAccount,
+  hasDbAccount,
+  hasAccountWallet,
+  hasIndexedAccount,
+}: {
+  accountInfoReady: boolean | undefined;
+  accountSelectorActiveAccountInitDone: boolean;
+  accountSelectorStorageInitDone: boolean;
+  hasAccount: boolean;
+  hasDbAccount: boolean;
+  hasAccountWallet: boolean;
+  hasIndexedAccount: boolean;
+}) {
+  if (
+    !accountInfoReady ||
+    !accountSelectorStorageInitDone ||
+    !accountSelectorActiveAccountInitDone
+  ) {
+    return false;
+  }
+
+  return hasAccountWallet && (hasAccount || hasDbAccount || hasIndexedAccount);
+}
+
+export function buildSwapLimitOrdersAccountIdKey({
+  indexedAccountId,
+  otherWalletTypeAccountId,
+}: {
+  indexedAccountId?: string;
+  otherWalletTypeAccountId?: string;
+}) {
+  return indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
+}
+
+export function shouldShowSwapLimitOrders({
+  shouldShowLocalData,
+  currentAccountIdKey,
+  limitOrdersAccountIdKey,
+}: {
+  shouldShowLocalData: boolean;
+  currentAccountIdKey: string;
+  limitOrdersAccountIdKey: string | undefined;
+}) {
+  return (
+    shouldShowLocalData &&
+    Boolean(limitOrdersAccountIdKey) &&
+    currentAccountIdKey === limitOrdersAccountIdKey
+  );
+}
+
 export function shouldShowSwapAccountUnsupportedAlert({
   hasFromToken,
   fromAddress,

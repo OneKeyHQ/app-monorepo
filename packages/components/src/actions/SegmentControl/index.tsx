@@ -1,8 +1,10 @@
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { forwardRef, useCallback } from 'react';
 
-import { styled } from '@onekeyhq/components/src/shared/tamagui';
-import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  GetProps,
+  TamaguiElement,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { SizableText, XStack, YStack } from '../../primitives';
 
@@ -17,7 +19,7 @@ const focusVisibleStyleConst = {
   outlineStyle: 'solid',
 } as const;
 
-export interface ISegmentControlProps extends IXStackProps {
+export interface ISegmentControlProps extends Omit<IXStackProps, 'onChange'> {
   fullWidth?: boolean;
   value: string | number;
   options: {
@@ -27,7 +29,7 @@ export interface ISegmentControlProps extends IXStackProps {
     disabled?: boolean;
   }[];
   onChange: (value: string | number) => void;
-  segmentControlItemStyleProps?: GetProps<typeof YStack>;
+  segmentControlItemStyleProps?: Omit<GetProps<typeof YStack>, 'onChange'>;
   slotBackgroundColor?: IXStackProps['backgroundColor'];
   activeBackgroundColor?: GetProps<typeof YStack>['bg'];
   activeTextColor?: string;
@@ -54,7 +56,7 @@ function SegmentControlItem({
   activeBackgroundColor?: GetProps<typeof YStack>['bg'];
   activeTextColor?: string;
   inactiveTextColor?: string;
-} & GetProps<typeof YStack>) {
+} & Omit<GetProps<typeof YStack>, 'onChange'>) {
   const handleChange = useCallback(() => {
     onChange(value);
   }, [onChange, value]);
@@ -103,18 +105,21 @@ function SegmentControlItem({
   );
 }
 
-function SegmentControlFrame({
-  value,
-  options,
-  onChange,
-  fullWidth,
-  segmentControlItemStyleProps,
-  slotBackgroundColor,
-  activeBackgroundColor,
-  activeTextColor,
-  inactiveTextColor,
-  ...rest
-}: ISegmentControlProps) {
+function SegmentControlFrame(
+  {
+    value,
+    options,
+    onChange,
+    fullWidth,
+    segmentControlItemStyleProps,
+    slotBackgroundColor,
+    activeBackgroundColor,
+    activeTextColor,
+    inactiveTextColor,
+    ...rest
+  }: ISegmentControlProps,
+  ref: React.ForwardedRef<TamaguiElement>,
+) {
   const handleChange = useCallback(
     (v: string | number) => {
       onChange(v);
@@ -123,6 +128,7 @@ function SegmentControlFrame({
   );
   return (
     <XStack
+      ref={ref}
       width={fullWidth ? '100%' : 'auto'}
       alignSelf={fullWidth ? undefined : 'flex-start'}
       backgroundColor={slotBackgroundColor ?? '$bgStrong'}
@@ -156,7 +162,6 @@ function SegmentControlFrame({
   );
 }
 
-export const SegmentControl = styled(
+export const SegmentControl = forwardRef<TamaguiElement, ISegmentControlProps>(
   SegmentControlFrame,
-  {} as ISegmentControlProps,
 );

@@ -97,7 +97,7 @@ const MarginModeSelector = ({
       borderRadius="$2"
       alignItems="center"
       justifyContent="center"
-      px="$3"
+      px={isMobile ? '$2.5' : '$3'}
       cursor="default"
       hoverStyle={{
         bg: '$bgStrongHover',
@@ -106,7 +106,9 @@ const MarginModeSelector = ({
         bg: '$bgStrongActive',
       }}
     >
-      <SizableText size="$bodyMdMedium">{currentModeLabel}</SizableText>
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        {currentModeLabel}
+      </SizableText>
     </XStack>
   );
 };

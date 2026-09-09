@@ -1,10 +1,8 @@
-// OCDS v1.1 §5.11 — focused unit tests for the cross-restart download retry /
-// give-up loop (`runDownloadWithRetry`). The persistence half (the durable
-// per-target budget) is tested in kit-bg's ServiceAppUpdate.test.ts; this file
-// pins the LOOP contract: it honours the injected budget hooks, accumulates the
-// persisted counter across simulated relaunches (= separate runDownloadWithRetry
-// calls sharing one store), goes terminal with a DownloadGaveUpError, and resets
-// on success.
+// OCDS v1.1 §5.11 — focused unit tests for the download retry / give-up loop
+// (`runDownloadWithRetry`). The service-instance budget is tested in kit-bg's
+// ServiceAppUpdate.test.ts; this file pins the loop contract: it honors the
+// injected budget hooks, shares the counter across retry-loop invocations,
+// goes terminal with a DownloadGaveUpError, and resets on success.
 //
 // The one heavy dependency (`@onekeyhq/components/.../useNetInfo`) and the
 // backoff timer are mocked so this runs in milliseconds and never resolves the
@@ -32,9 +30,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 // retries it up to DOWNLOAD_RETRY_MAX_ATTEMPTS.
 const transientError = () => new Error('network blip');
 
-// Persisted budget hooks backed by a shared in-memory store. The store survives
-// across separate runDownloadWithRetry() calls — that IS the cross-restart
-// semantics (a relaunch is a fresh call against the same durable store).
+// Budget hooks backed by a shared in-memory store, modeling multiple
+// runDownloadWithRetry() calls within one bg service instance.
 function budgetHooks(
   store: { count: number },
   maxAttempts: number,
@@ -53,7 +50,7 @@ function budgetHooks(
   };
 }
 
-describe('runDownloadWithRetry — OCDS §5.11 cross-restart budget', () => {
+describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
   test('entry guard: an already-exhausted budget is terminal without running the operation', async () => {
     const store = { count: 8 }; // already at the cap on entry
     const op = jest.fn(async () => 'ok');
@@ -63,23 +60,22 @@ describe('runDownloadWithRetry — OCDS §5.11 cross-restart budget', () => {
     expect(op).not.toHaveBeenCalled();
   });
 
-  test('accumulates the persisted counter across relaunches and goes terminal at the cap', async () => {
+  test('accumulates the counter across retry-loop invocations and goes terminal at the cap', async () => {
     const store = { count: 0 };
     const op = jest.fn(async () => {
       throw transientError();
     });
 
-    // Relaunch #1: the in-memory loop spends 6 attempts (0..MAX), each recording
-    // one persisted attempt. The cap (8) is not yet hit, so it ends by throwing
-    // the RAW transport error — NOT a give-up.
+    // Invocation #1 spends 6 attempts (0..MAX), each recorded in the shared
+    // service-instance budget. The cap (8) is not yet hit, so it ends by
+    // throwing the raw transport error rather than a give-up.
     await expect(
       runDownloadWithRetry(op, 'ctx', budgetHooks(store, 8)),
     ).rejects.not.toBeInstanceOf(DownloadGaveUpError);
     expect(store.count).toBe(6);
 
-    // Relaunch #2: the persisted counter resumes at 6; the 8th recorded attempt
-    // trips the cap → a definitive DownloadGaveUpError('maxAttempts'). No
-    // infinite loop across launches (scenario #9).
+    // Invocation #2 resumes at 6; the 8th recorded attempt trips the cap and
+    // produces a definitive DownloadGaveUpError('maxAttempts').
     let caught: unknown;
     try {
       await runDownloadWithRetry(op, 'ctx', budgetHooks(store, 8));
@@ -91,7 +87,7 @@ describe('runDownloadWithRetry — OCDS §5.11 cross-restart budget', () => {
     expect(store.count).toBe(8);
   });
 
-  test('success clears the persisted budget so the next target starts fresh', async () => {
+  test('success clears the service-instance budget so the next target starts fresh', async () => {
     const store = { count: 0 };
     let calls = 0;
     const op = jest.fn(async () => {

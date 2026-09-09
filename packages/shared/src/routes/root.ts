@@ -16,4 +16,7 @@ export enum ERootRoutes {
   NotFound = 'NotFound',
 
   PermissionWebDevice = 'PermissionWebDevice',
+
+  // web-only OAuth popup callback landing page (OAUTH_CALLBACK_WEB_PATH)
+  OAuthCallbackWeb = 'OAuthCallbackWeb',
 }

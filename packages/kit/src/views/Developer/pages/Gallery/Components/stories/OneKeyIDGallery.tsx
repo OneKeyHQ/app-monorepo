@@ -8,7 +8,6 @@ import {
   ScrollView,
   SizableText,
   Stack,
-  Switch,
   TextArea,
   Toast,
   XStack,
@@ -16,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -73,7 +73,6 @@ function OneKeyIDApiTests() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
-  const [persistSession, setPersistSession] = useState(false);
   const [accessToken, setAccessToken] = useState('');
   const [decodedToken, setDecodedToken] = useState<Record<
     string,
@@ -90,7 +89,8 @@ function OneKeyIDApiTests() {
     isReady,
   } = useSupabaseAuth();
 
-  const { logoutWithPurchasesSdk, signInWithSocialLogin } = useOneKeyAuth();
+  const { signInWithSocialLogin } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
 
   const onTryCloseWindow = async () => {
     if (platformEnv.isNative) {
@@ -205,13 +205,6 @@ function OneKeyIDApiTests() {
         OAuth Sign In
       </SizableText>
 
-      <XStack gap="$3" alignItems="center" mb="$2">
-        <Switch value={persistSession} onChange={setPersistSession} />
-        <SizableText size="$bodyMd">
-          Persist Session (save to storage)
-        </SizableText>
-      </XStack>
-
       <XStack gap="$3" flexWrap="wrap">
         <Button
           loading={loading === 'google'}
@@ -221,7 +214,6 @@ function OneKeyIDApiTests() {
               setLoading('google');
               const result = await signInWithSocialLogin(
                 EOAuthSocialLoginProvider.Google,
-                { persistSession },
               );
               if (result.success && result.session?.accessToken) {
                 // Set access token
@@ -255,7 +247,6 @@ function OneKeyIDApiTests() {
               setLoading('apple');
               const result = await signInWithSocialLogin(
                 EOAuthSocialLoginProvider.Apple,
-                { persistSession },
               );
               if (result.success && result.session?.accessToken) {
                 // Set access token
@@ -334,16 +325,9 @@ function OneKeyIDApiTests() {
               setLoading('verifyOtp');
               const result = await verifyOtp({ email, otp });
               demoLog(result, 'verifyOtp');
-
-              // After successful verification, login to Prime service
-              if (result.data?.session?.access_token) {
-                await backgroundApiProxy.servicePrime.apiLogin({
-                  accessToken: result.data.session.access_token,
-                });
-                Toast.success({
-                  title: 'Logged in to Prime service',
-                });
-              }
+              Toast.success({
+                title: 'Logged in to Prime service',
+              });
             } catch (e) {
               demoError(e, 'verifyOtp');
             } finally {
@@ -586,9 +570,11 @@ function OneKeyIDApiTests() {
         onPress={async () => {
           try {
             setLoading('signOut');
-            // Sign out from both Supabase and Prime service
-            await logoutWithPurchasesSdk();
-            demoLog({ success: true }, 'logout');
+            const result = await runIdentityExit({
+              type: 'logoutOneKeyId',
+              scene: 'profile',
+            });
+            demoLog(result, 'logout');
           } catch (e) {
             demoError(e, 'logout');
           } finally {

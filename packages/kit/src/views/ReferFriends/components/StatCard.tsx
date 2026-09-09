@@ -56,7 +56,7 @@ export function StatCard({
     if (isMediumScreen) {
       return '$heading3xl';
     }
-    return isWide ? '$heading5xl' : '$headingXl';
+    return isWide ? '$heading4xl' : '$headingXl';
   };
 
   return (

@@ -15,6 +15,8 @@ import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
 import { RouterScene } from './scenes/router';
+import { StorageScene } from './scenes/storage';
+import { WebAuthScene } from './scenes/webAuth';
 import { WebembedScene } from './scenes/webembed';
 
 export class AppScope extends BaseScope {
@@ -49,4 +51,8 @@ export class AppScope extends BaseScope {
   jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
 
   customUA = this.createScene('customUA', CustomUAScene);
+
+  webAuth = this.createScene('webAuth', WebAuthScene);
+
+  storage = this.createScene('storage', StorageScene);
 }

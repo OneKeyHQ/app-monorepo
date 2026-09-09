@@ -7,6 +7,7 @@ import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
 import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { REQUEST_TIMEOUT } from '../request/requestConst';
+import { createRuntimeNetworkAdapter } from '../travelMode/runtimeNetworkAdapter';
 import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 import timerUtils from '../utils/timerUtils';
 
@@ -88,10 +89,14 @@ const getBasicClient = async ({
     ? createIpTableAdapter(baseConfig)
     : undefined;
 
+  const transportAdapter = createRuntimeNetworkAdapter(
+    ipTableAdapter ?? axios.getAdapter(axios.defaults.adapter),
+  );
+
   const options = {
     ...baseConfig,
     autoHandleError,
-    adapter: ipTableAdapter,
+    adapter: transportAdapter,
   };
 
   const client = axios.create(options);
@@ -121,8 +126,8 @@ const getOneKeyIdAuthClient = memoizee(
     if (existingClient) {
       return existingClient;
     }
-    clients[params.name] = await getBasicClient(params);
-    return clients[params.name] as AxiosInstance;
+    oneKeyIdAuthClients[params.name] = await getBasicClient(params);
+    return oneKeyIdAuthClients[params.name] as AxiosInstance;
   },
   {
     promise: true,

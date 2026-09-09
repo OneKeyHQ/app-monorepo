@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+import { rspack } from '@rspack/core';
 import { merge } from 'webpack-merge';
 
 import { nodeEnv } from './constant';
@@ -134,7 +135,15 @@ export function createDesktopConfig({
   basePath,
   platform = 'desktop',
 }: IDesktopConfigOptions): RspackOptions {
-  const baseConfig = createBaseConfig({ platform, basePath });
+  const baseConfig = createBaseConfig({
+    platform,
+    basePath,
+    target: ['web', 'es2022'],
+    swcTargets: { chrome: '142' },
+    enableImportMetaCompat: true,
+    enableSentryMinimalCompat: true,
+    removeFirstPartyConsole: true,
+  });
 
   const commonDesktopConfig: RspackOptions = {
     externals: {
@@ -157,6 +166,11 @@ export function createDesktopConfig({
             crossOriginLoading: 'anonymous',
           },
           plugins: [
+            new rspack.SubresourceIntegrityPlugin({
+              hashFuncNames: ['sha384'],
+              htmlPlugin: 'html-webpack-plugin',
+              enabled: 'auto',
+            }),
             BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
           ].filter(Boolean),
         },

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 
 interface IUseSyncedMarketTabOptions {
   onBeforeJumpToTab?: (targetTabName: string) => void;
-  shouldDeferJumpToTab?: (params: {
+  shouldDeferPageSync?: (params: {
     targetTabName: string;
     currentTabName: string;
   }) => boolean;
@@ -17,18 +17,39 @@ export function useSyncedMarketTab(
   shouldResync = false,
   options?: IUseSyncedMarketTabOptions,
 ) {
-  const { onBeforeJumpToTab, shouldDeferJumpToTab } = options ?? {};
+  const { onBeforeJumpToTab, shouldDeferPageSync } = options ?? {};
   const internalTabsRef = useRef<ITabContainerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const [activeTabName, setActiveTabName] = useState(targetTabName);
   const pendingPageSyncRef = useRef(false);
   const wasResyncEnabledRef = useRef(shouldResync);
+  const targetTabNameRef = useRef(targetTabName);
+  targetTabNameRef.current = targetTabName;
+  const cancelledTargetTabNameRef = useRef<string | undefined>(undefined);
+  const [syncRequestVersion, setSyncRequestVersion] = useState(0);
+
+  const requestPageSync = useCallback(() => {
+    const wasPending = pendingPageSyncRef.current;
+    cancelledTargetTabNameRef.current = undefined;
+    pendingPageSyncRef.current = true;
+    if (!wasPending) {
+      setSyncRequestVersion((version) => version + 1);
+    }
+  }, []);
+
+  const cancelPageSync = useCallback(() => {
+    cancelledTargetTabNameRef.current = targetTabNameRef.current;
+    pendingPageSyncRef.current = false;
+    setSyncRequestVersion((version) => version + 1);
+  }, []);
 
   useEffect(() => {
     if (shouldResync && !wasResyncEnabledRef.current) {
+      cancelledTargetTabNameRef.current = undefined;
       pendingPageSyncRef.current = true;
     }
     if (!shouldResync) {
+      cancelledTargetTabNameRef.current = undefined;
       pendingPageSyncRef.current = false;
     }
   }, [shouldResync, targetTabName]);
@@ -42,30 +63,24 @@ export function useSyncedMarketTab(
     }
     if (currentTabName !== targetTabName) {
       if (shouldResync) {
+        if (cancelledTargetTabNameRef.current === targetTabName) {
+          return;
+        }
         pendingPageSyncRef.current = true;
-      }
-      if (
-        shouldResync &&
-        shouldDeferJumpToTab?.({
-          targetTabName,
-          currentTabName,
-        })
-      ) {
         return;
       }
       onBeforeJumpToTab?.(targetTabName);
       currentTabsRef?.jumpToTab(targetTabName);
-      if (!shouldResync) {
-        setActiveTabName(targetTabName);
-      }
+      setActiveTabName(targetTabName);
       return;
     }
+    cancelledTargetTabNameRef.current = undefined;
     setActiveTabName(targetTabName);
   }, [
     onBeforeJumpToTab,
     resolvedTabsRef,
-    shouldDeferJumpToTab,
     shouldResync,
+    syncRequestVersion,
     targetTabName,
   ]);
 
@@ -79,7 +94,13 @@ export function useSyncedMarketTab(
     let cancelled = false;
     let retryCount = 0;
 
-    const runResync = () => {
+    const scheduleNextSync = (runPageSync: () => void) => {
+      timeoutId = setTimeout(() => {
+        rafId = requestAnimationFrame(runPageSync);
+      }, 32);
+    };
+
+    const runPageSync = () => {
       if (cancelled) {
         return;
       }
@@ -90,24 +111,22 @@ export function useSyncedMarketTab(
       }
 
       const currentTabName = currentTabsRef.getFocusedTab();
+      pendingPageSyncRef.current = true;
+
+      if (
+        shouldDeferPageSync?.({
+          targetTabName,
+          currentTabName,
+        })
+      ) {
+        scheduleNextSync(runPageSync);
+        return;
+      }
 
       if (currentTabName === targetTabName) {
         currentTabsRef.syncCurrentPage();
         pendingPageSyncRef.current = false;
         setActiveTabName(targetTabName);
-        return;
-      }
-
-      pendingPageSyncRef.current = true;
-      if (
-        shouldDeferJumpToTab?.({
-          targetTabName,
-          currentTabName,
-        })
-      ) {
-        timeoutId = setTimeout(() => {
-          rafId = requestAnimationFrame(runResync);
-        }, 32);
         return;
       }
 
@@ -122,12 +141,10 @@ export function useSyncedMarketTab(
         return;
       }
 
-      timeoutId = setTimeout(() => {
-        rafId = requestAnimationFrame(runResync);
-      }, 32);
+      scheduleNextSync(runPageSync);
     };
 
-    rafId = requestAnimationFrame(runResync);
+    rafId = requestAnimationFrame(runPageSync);
 
     return () => {
       cancelled = true;
@@ -141,8 +158,9 @@ export function useSyncedMarketTab(
   }, [
     onBeforeJumpToTab,
     resolvedTabsRef,
-    shouldDeferJumpToTab,
+    shouldDeferPageSync,
     shouldResync,
+    syncRequestVersion,
     targetTabName,
   ]);
 
@@ -152,6 +170,8 @@ export function useSyncedMarketTab(
 
   return {
     activeTabName,
+    cancelPageSync,
+    requestPageSync,
     setActiveTabName,
     tabsRef: resolvedTabsRef,
   };

@@ -24,16 +24,15 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 export default function PrimeDeleteAccount() {
-  const { logoutWithPurchasesSdk, user, getAccessToken, sendEmailOTP } =
-    useOneKeyAuth();
+  const { user, sendEmailOTP } = useOneKeyAuth();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
   const { result: _canDeleteAccount } = usePromiseResult(
     async () => {
       // Check if user has active subscription or other restrictions
-      const token = await getAccessToken();
-      if (!token) {
+      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (!isLoggedIn) {
         return { canDelete: false, reason: 'No access token' };
       }
 
@@ -49,7 +48,7 @@ export default function PrimeDeleteAccount() {
 
       return { canDelete: true, reason: null };
     },
-    [getAccessToken, user, intl],
+    [user, intl],
     {
       watchLoading: true,
     },
@@ -67,13 +66,39 @@ export default function PrimeDeleteAccount() {
     await sendEmailOTP({
       scene: EPrimeEmailOTPScene.DeleteOneKeyId,
       onConfirm: async ({ code, uuid }) => {
-        console.log('emailOTP>>>>>>', code, uuid);
         const deleteResult =
-          await backgroundApiProxy.servicePrime.apiDeleteAccount({
+          await backgroundApiProxy.serviceIdentityExit.deleteOneKeyIdAccount({
             uuid,
             emailOTP: code,
           });
-        console.log('deleteResult>>>>>>', deleteResult);
+
+        if (
+          deleteResult.serverOutcome === 'unknown' &&
+          deleteResult.localStateCleared
+        ) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: 'PrimeDeleteAccount: server outcome unknown',
+          });
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: 'PrimeDeleteAccount: server outcome unknown',
+          });
+          navigation.popStack();
+          Dialog.show({
+            dismissOnOverlayPress: false,
+            disableDrag: true,
+            icon: 'ErrorOutline',
+            tone: 'warning',
+            // TODO: i18n
+            title: 'Account deletion could not be confirmed',
+            // TODO: i18n
+            description:
+              "You have been signed out on this device, but we couldn't confirm that your account was deleted on the server. Sign in again later to check the account.",
+            showCancelButton: false,
+            // TODO: i18n
+            onConfirmText: 'Done',
+          });
+          return;
+        }
 
         if (!deleteResult?.ok) {
           Toast.error({
@@ -84,22 +109,12 @@ export default function PrimeDeleteAccount() {
           return;
         }
 
-        try {
-          // logout supabase sdk
-          defaultLogger.prime.subscription.onekeyIdLogout({
-            reason: 'PrimeDeleteAccount: handleDeleteAccount',
-          });
-          await logoutWithPurchasesSdk();
-        } catch (error) {
-          console.error('logout error', error);
-        }
-
+        defaultLogger.prime.subscription.onekeyIdLogout({
+          reason: 'PrimeDeleteAccount: handleDeleteAccount',
+        });
         defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
           reason: 'PrimeDeleteAccount',
         });
-        //  logout atom states
-        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
-
         navigation.popStack();
         Dialog.show({
           dismissOnOverlayPress: false,
@@ -183,7 +198,7 @@ export default function PrimeDeleteAccount() {
     //     }),
     //   });
     // }
-  }, [intl, logoutWithPurchasesSdk, navigation, sendEmailOTP]);
+  }, [intl, navigation, sendEmailOTP]);
 
   const [checked, changeChecked] = useState(false);
 

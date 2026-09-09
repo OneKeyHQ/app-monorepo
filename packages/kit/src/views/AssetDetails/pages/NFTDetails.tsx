@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,6 +17,7 @@ import {
 import type { IPickerImage } from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IPro2NftUploadParams } from '@onekeyhq/kit-bg/src/services/ServiceNFT';
 import { OneKeyAppError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,8 +31,14 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
-import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
+import {
+  generatePro2NftMetadata,
+  generateUploadNFTParams,
+  isCollectNFTDeviceCompatible,
+  isCollectibleNftMediaSupportedOnDevice,
+} from '@onekeyhq/shared/src/utils/nftUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -45,16 +51,11 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
-const isCollectNFTDeviceCompatible = (device?: IDBDevice) =>
-  device &&
-  (device.deviceType === EDeviceType.Touch ||
-    device.deviceType === EDeviceType.Pro);
-
 // Disable NFT image collection on web due to CORS errors when fetching NFT image data
 const canCollectNFT = (nft?: IAccountNFT, device?: IDBDevice) =>
   !platformEnv.isWeb &&
   nft?.metadata?.image &&
-  isCollectNFTDeviceCompatible(device);
+  isCollectNFTDeviceCompatible(device?.deviceType);
 
 export default function NFTDetails() {
   const intl = useIntl();
@@ -68,6 +69,8 @@ export default function NFTDetails() {
     route.params;
 
   const [isCollecting, setIsCollecting] = useState(false);
+  const [supportedCollectibleImageSource, setSupportedCollectibleImageSource] =
+    useState<string>();
   const modalClosed = useRef(false);
 
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
@@ -107,28 +110,83 @@ export default function NFTDetails() {
   );
 
   const { network, nft, device } = result ?? {};
+  const collectibleImageSource = nft?.metadata?.image;
+  const canCollectCurrentNFT = Boolean(canCollectNFT(nft, device));
+  const isProtocolV2Product = isProtocolV2ProductType(device?.deviceType);
+  const canShowCollectNFTAction =
+    canCollectCurrentNFT &&
+    (!isProtocolV2Product ||
+      supportedCollectibleImageSource === collectibleImageSource);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const controller = new AbortController();
+    setSupportedCollectibleImageSource(undefined);
+
+    if (
+      !canCollectCurrentNFT ||
+      !isProtocolV2Product ||
+      !collectibleImageSource
+    ) {
+      return () => {
+        isCurrent = false;
+        controller.abort();
+      };
+    }
+
+    void imageUtils
+      .probeImageMimeType(collectibleImageSource, controller.signal)
+      .then((mimeType) => {
+        if (
+          isCurrent &&
+          isCollectibleNftMediaSupportedOnDevice(device?.deviceType, mimeType)
+        ) {
+          setSupportedCollectibleImageSource(collectibleImageSource);
+        }
+      })
+      .catch(() => {
+        // Unsupported or unavailable media must not expose the collect action.
+      });
+
+    return () => {
+      isCurrent = false;
+      controller.abort();
+    };
+  }, [
+    canCollectCurrentNFT,
+    collectibleImageSource,
+    device?.deviceType,
+    isProtocolV2Product,
+  ]);
 
   const handleCollectNFTToDevice = useCallback(
     async (close: () => void) => {
       close();
-      if (!nft || !nft.metadata || !nft.metadata.image || !device) return;
-
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      if (!nft || !collectibleImageSource || !device) return;
 
       setIsCollecting(true);
       let uploadResParams: DeviceUploadResourceParams | undefined;
+      let pro2UploadParams: IPro2NftUploadParams | undefined;
 
-      const config =
-        await backgroundApiProxy.serviceHardware.getDeviceHomeScreenConfig({
+      let config: Awaited<
+        ReturnType<typeof backgroundApiProxy.serviceHardware.getDeviceNftConfig>
+      >;
+      try {
+        config = await backgroundApiProxy.serviceHardware.getDeviceNftConfig({
           dbDeviceId: device?.id,
-          homeScreenType: 'Nft',
         });
+      } catch (_error) {
+        setIsCollecting(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error,
+          }),
+        });
+        return;
+      }
 
       if (!config || !config.size) {
+        setIsCollecting(false);
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_unknown_error,
@@ -138,21 +196,27 @@ export default function NFTDetails() {
       }
 
       let croppedImage: IPickerImage | undefined;
+      let actionPreparedImageCleanup: (() => Promise<void>) | undefined;
       try {
-        const imageUri = await imageUtils.prepareImageForCrop(
-          nft.metadata.image,
+        const preparedImage = await imageUtils.prepareImageForCropWithInfo(
+          collectibleImageSource,
         );
-
-        if (!imageUri) {
+        actionPreparedImageCleanup = preparedImage.cleanup;
+        if (
+          isProtocolV2Product &&
+          !isCollectibleNftMediaSupportedOnDevice(
+            device.deviceType,
+            preparedImage.mimeType,
+          )
+        ) {
           throw new OneKeyAppError({
             message: intl.formatMessage({
               id: ETranslations.global_unknown_error,
             }),
           });
         }
-
         croppedImage = await ImageCrop.openCropImage(
-          imageUri,
+          preparedImage.uri,
           config.size?.width,
           config.size?.height,
         );
@@ -174,6 +238,8 @@ export default function NFTDetails() {
           return;
         }
         // ignore error
+      } finally {
+        await actionPreparedImageCleanup?.();
       }
 
       if (!croppedImage || !croppedImage?.data) {
@@ -201,32 +267,68 @@ export default function NFTDetails() {
 
           originW,
           originH,
+          includeHex: false,
         });
 
-        const {
-          screenHex: customScreenHex,
-          thumbnailHex: customThumbnailHex,
-          blurScreenHex: customBlurScreenHex,
-        } = await deviceHomeScreenUtils.buildCustomScreenHex({
-          dbDeviceId: device.id,
-          url: img.uri,
-          deviceType: device.deviceType,
-          isUserUpload: true,
-          config,
-        });
+        if (isProtocolV2Product) {
+          if (!config.thumbnailSize) {
+            throw new OneKeyAppError({
+              message: 'Pro2 NFT thumbnail config is missing',
+            });
+          }
+          const thumbnail = await imageUtils.resizeImage({
+            uri: img.uri,
+            width: config.thumbnailSize.width,
+            height: config.thumbnailSize.height,
+            originW: config.size.width,
+            originH: config.size.height,
+            includeHex: false,
+          });
+          if (!img.base64 || !thumbnail.base64) {
+            throw new OneKeyAppError({
+              message: 'Pro2 NFT JPEG data is missing',
+            });
+          }
+          pro2UploadParams = {
+            imageJpegBase64: img.base64,
+            thumbnailJpegBase64: thumbnail.base64,
+            ...generatePro2NftMetadata({
+              title:
+                name && name.length > 0 ? name : `#${nft.collectionAddress}`,
+              subtitle: nft.collectionName ?? network?.name ?? '',
+            }),
+          };
+        } else {
+          const accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            });
+          const {
+            screenHex: customScreenHex,
+            thumbnailHex: customThumbnailHex,
+            blurScreenHex: customBlurScreenHex,
+          } = await deviceHomeScreenUtils.buildCustomScreenHex({
+            dbDeviceId: device.id,
+            url: img.uri,
+            deviceType: device.deviceType,
+            isUserUpload: true,
+            config,
+          });
 
-        uploadResParams = await generateUploadNFTParams({
-          screenHex: customScreenHex,
-          thumbnailHex: customThumbnailHex ?? '',
-          blurScreenHex: customBlurScreenHex ?? '',
-          metadata: {
-            header:
-              name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
-            subheader: nft.metadata?.description ?? '',
-            network: network?.name ?? '',
-            owner: accountAddress,
-          },
-        });
+          uploadResParams = await generateUploadNFTParams({
+            screenHex: customScreenHex,
+            thumbnailHex: customThumbnailHex ?? '',
+            blurScreenHex: customBlurScreenHex ?? '',
+            metadata: {
+              header:
+                name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
+              subheader: nft.metadata?.description ?? '',
+              network: network?.name ?? '',
+              owner: accountAddress,
+            },
+          });
+        }
       } catch (_e) {
         Toast.error({
           title: intl.formatMessage({
@@ -236,30 +338,42 @@ export default function NFTDetails() {
         setIsCollecting(false);
         return;
       }
-      if (uploadResParams && !modalClosed.current) {
-        try {
-          await backgroundApiProxy.serviceNFT.uploadNFTImageToDevice({
-            accountId,
-            uploadResParams,
-          });
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.nft_already_collected,
-            }),
-          });
-        } catch (e) {
-          Toast.error({ title: (e as Error).message });
-        } finally {
-          setIsCollecting(false);
-        }
+      if ((!uploadResParams && !pro2UploadParams) || modalClosed.current) {
+        setIsCollecting(false);
+        return;
+      }
+      try {
+        await backgroundApiProxy.serviceNFT.uploadNFTImageToDevice({
+          accountId,
+          uploadResParams,
+          pro2UploadParams,
+        });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.nft_already_collected,
+          }),
+        });
+      } catch (e) {
+        Toast.error({ title: (e as Error).message });
+      } finally {
+        setIsCollecting(false);
       }
     },
-    [accountId, device, intl, network?.name, networkId, nft],
+    [
+      accountId,
+      collectibleImageSource,
+      device,
+      intl,
+      isProtocolV2Product,
+      network?.name,
+      networkId,
+      nft,
+    ],
   );
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
-    if (device && canCollectNFT(nft, device)) {
+    if (device && canShowCollectNFTAction) {
       actions.push({
         label: intl.formatMessage(
           {
@@ -289,7 +403,13 @@ export default function NFTDetails() {
         items={actions}
       />
     );
-  }, [device, handleCollectNFTToDevice, intl, isCollecting, nft]);
+  }, [
+    canShowCollectNFTAction,
+    device,
+    handleCollectNFTToDevice,
+    intl,
+    isCollecting,
+  ]);
 
   const handleSendPress = useCallback(() => {
     if (!nft) return;

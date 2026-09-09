@@ -13,6 +13,7 @@ import type { ITableColumn } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -56,6 +57,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                   {record.displayName}
                 </SizableText>
                 <LeverageBadge leverage={record.maxLeverage} />
+                <PerpDexBadge dexLabel={record.dexLabel} />
               </XStack>
               <XStack alignItems="center" gap="$1" minWidth={0}>
                 {record.subtitle ? (

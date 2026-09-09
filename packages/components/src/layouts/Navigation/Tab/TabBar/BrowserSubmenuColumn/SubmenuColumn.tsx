@@ -17,6 +17,7 @@ export interface ISubmenuColumnProps {
 }
 
 const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
+const expandedBackgroundStyle = { transition: 'opacity 150ms ease' };
 
 export function SubmenuColumn({
   webPageTabBar,
@@ -27,7 +28,7 @@ export function SubmenuColumn({
       boxShadow: isExpanded ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)' : 'none',
       willChange: isExpanded ? ('width' as const) : ('auto' as const),
       transition:
-        'background-color 150ms ease, border-color 150ms ease, border-radius 150ms ease, box-shadow 150ms ease',
+        'border-color 150ms ease, border-radius 150ms ease, box-shadow 150ms ease',
     }),
     [isExpanded],
   );
@@ -53,11 +54,10 @@ export function SubmenuColumn({
         left={0}
         bottom={0}
         width={isExpanded ? EXPANDED_SUBMENU_WIDTH : COLLAPSED_SUBMENU_WIDTH}
-        bg={isExpanded ? '$bgApp' : '$bgSidebar'}
         pt={8}
         px="$3"
         zIndex={10}
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_WIDTH}
         borderTopRightRadius={isExpanded ? '$3' : 0}
         borderBottomRightRadius={isExpanded ? '$3' : 0}
@@ -68,6 +68,27 @@ export function SubmenuColumn({
         overflow="hidden"
         style={expandedStyle}
       >
+        {/* Static token layers follow theme CSS variables without waiting for this animated subtree to rerender. */}
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          bg="$bgSidebar"
+          pointerEvents="none"
+        />
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          bg="$bgApp"
+          opacity={isExpanded ? 1 : 0}
+          pointerEvents="none"
+          style={expandedBackgroundStyle}
+        />
         {webPageTabBar}
       </YStack>
     </Stack>

@@ -18,4 +18,11 @@ export const DeveloperTestIDs = {
   connectedSiteBtn: 'developer-connected-site-btn',
   customSignMessageInput: 'developer-custom-sign-message-input',
   customSignMessageBtn: 'developer-custom-sign-message-btn',
+
+  // --- Firmware Artifact Gallery ---
+  firmwareArtifactScreen: 'firmware-artifact-validator-screen',
+  firmwareArtifactRunFirmware: 'firmware-artifact-run-pro-firmware',
+  firmwareArtifactRunResource: 'firmware-artifact-run-pro-resource',
+  firmwareArtifactRunFullResource: 'firmware-artifact-run-pro-full-resource',
+  firmwareArtifactStatus: 'firmware-artifact-status',
 } as const;

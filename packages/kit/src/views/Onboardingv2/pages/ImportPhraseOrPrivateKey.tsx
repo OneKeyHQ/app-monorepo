@@ -397,7 +397,7 @@ export default function ImportPhraseOrPrivateKey() {
               ) : (
                 <YStack
                   key="privateKey"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
@@ -443,7 +443,7 @@ export default function ImportPhraseOrPrivateKey() {
         ) : null}
       </YStack>
       {!gtMd ? (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <Page.FooterActions
             pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
             onConfirmText={intl.formatMessage({

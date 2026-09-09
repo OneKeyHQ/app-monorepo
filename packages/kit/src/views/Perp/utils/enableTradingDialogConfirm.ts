@@ -4,6 +4,7 @@ type IEnableTradingStatusForDialogConfirm =
       details?: {
         activatedOk?: boolean | null;
       };
+      accountNotSupport?: boolean;
     }
   | undefined;
 
@@ -22,4 +23,22 @@ export function getEnableTradingDialogConfirmDecision(
     return 'deposit';
   }
   return 'stop';
+}
+
+export function shouldShowPerpsFirstDepositPrompt({
+  status,
+  isLiveStatusPending,
+  isPerpActionDisabled,
+}: {
+  status: IEnableTradingStatusForDialogConfirm;
+  isLiveStatusPending: boolean;
+  isPerpActionDisabled: boolean;
+}): boolean {
+  return Boolean(
+    status &&
+    !status.accountNotSupport &&
+    !isLiveStatusPending &&
+    !isPerpActionDisabled &&
+    getEnableTradingDialogConfirmDecision(status) === 'deposit',
+  );
 }

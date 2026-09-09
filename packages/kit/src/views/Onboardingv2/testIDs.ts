@@ -47,6 +47,9 @@ export const OnboardingTestIDs = {
   iCloudBackupPage: 'onboarding-icloud-backup-page',
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
+  iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialog:
+    'onboarding-icloud-backup-keyless-wallet-dialog',
   iCloudBackupDevMockEmptyBtn: 'onboarding-icloud-backup-dev-mock-empty-btn',
   iCloudBackupDevClearPasswordBtn:
     'onboarding-icloud-backup-dev-clear-password-btn',
@@ -117,6 +120,10 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Pick your device
+  pickYourDeviceLegacyOptionBtn: (key: string) =>
+    `onboarding-pick-your-device-legacy-${key}-btn`,
+
   // Connect your device
   connectYourDeviceTroubleshootingBtn:
     'onboarding-connect-your-device-troubleshooting-btn',
@@ -130,6 +137,7 @@ export const OnboardingTestIDs = {
     'onboarding-connect-your-device-create-qr-wallet-btn',
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
+  connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
@@ -161,4 +169,18 @@ export const OnboardingTestIDs = {
   checkAndUpdateSkipUpdateBtn: 'onboarding-check-and-update-skip-update-btn',
   checkAndUpdateRetryBtn: 'onboarding-check-and-update-retry-btn',
   checkAndUpdateSkipStepBtn: 'onboarding-check-and-update-skip-step-btn',
+  checkAndUpdateContinueToSetupBtn:
+    'onboarding-check-and-update-continue-to-setup-btn',
+
+  // Device setup
+  deviceSetupPage: 'onboarding-device-setup-page',
+  deviceSetupDoneBtn: 'onboarding-device-setup-done-btn',
+  deviceSetupRetryBtn: 'onboarding-device-setup-retry-btn',
+
+  // KeyTag import
+  importKeyTagPage: 'onboarding-import-keytag-page',
+  importKeyTagConfirm: 'onboarding-import-keytag-confirm-btn',
+  importKeyTagWordCount: 'onboarding-import-keytag-word-count',
+  importKeyTagFlipNext: 'onboarding-import-keytag-flip-next-btn',
+  importKeyTagFlipBack: 'onboarding-import-keytag-flip-back-btn',
 } as const;

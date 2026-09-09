@@ -1,143 +1,99 @@
 ---
 name: 1k-i18n
-description: Internationalization — translations (ETranslations, useIntl, formatMessage) and locale management. NEVER modify auto-generated translation files.
-allowed-tools: Read, Grep, Glob
+description: OneKey i18n and Lokalise workflow for module copy, full-language translation create/update, bilingual previews, confirmed upload, pull, and verification. Never edit generated translations.
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
-# Internationalization (i18n)
+# OneKey i18n
 
-Guidelines for internationalization and translation management in OneKey.
+Use repository scripts for scanning, merging, previews, upload and verification.
+The model selects scope, judges reuse, writes copy and translates.
 
-## Critical Restrictions
+## Rules
 
-**ABSOLUTELY FORBIDDEN** (auto-generated files):
-```typescript
-// ❌ NEVER modify these files - they are AUTO-GENERATED
-// @onekeyhq/shared/src/locale/enum/translations.ts
-// @onekeyhq/shared/src/locale/json/*.json
+- Never manually edit generated locale JSON, `translations.ts` or `localeJsonMap.ts`.
+- Runtime translations come from bundled locale JSON (`localeLoaders.ts`), not live
+  Lokalise requests. Remote deletion leaves existing released app bundles unchanged;
+  subsequent pulls and builds receive the deletion.
+- Prefer existing generic keys when meaning, placeholders, capitalization and UI role
+  match. Do not duplicate legacy keys for naming consistency or change shared copy
+  unless explicitly in scope.
+- Translate every locale listed in the draft; preserve ICU placeholders/tags and
+  product tone. Do not use English as a placeholder for untranslated languages.
+- Use compact summaries, local search and relevant source slices; do not load entire
+  locale catalogs. Review dynamic expressions and imported copy the scanner cannot resolve.
 
-// ❌ NEVER hardcode text strings
-<Text>Confirm</Text>
+| Mode                 | Missing key or empty/whitespace translation | Existing non-empty translation        |
+| -------------------- | ------------------------------------------- | ------------------------------------- |
+| `complete` (default) | Create or fill                              | Preserve                              |
+| `update`             | Create or fill                              | May update within the requested scope |
 
-// ✅ CORRECT - Always use translation keys
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-intl.formatMessage({ id: ETranslations.global__confirm })
-```
+Both modes use `upsert`. Do not silently switch modes to bypass a rejected overwrite.
 
-**Consequences of violation:**
-- Translation system corruption
-- Loss of translation work
-- Build failures in i18n pipeline
-- Breaking localization for international users
+## Workflow
 
-## Existing Keys First
+Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
+For `<wrapper>`, use the configured `op` (default), `keychain` or `oenv`.
+If one wrapper is unavailable, check the other installed/configured wrappers
+before asking the user to sign in or change credentials; do not configure a new
+account on their behalf.
+**In Codex, oenv requires approved execution outside the sandbox.** A sandbox
+signature error does not authorize bypassing signature checks or reinstalling the app.
+Never print credentials.
+Credential loading and remote sync can be silent for tens of seconds. Poll a
+running command and allow at least three minutes before diagnosing a timeout;
+silence alone is not evidence of missing credentials or an authorization dialog.
+An explicit error or user cancellation can stop the wait earlier. Keep the user
+informed while waiting, and inspect the process/receipt before retrying a command.
 
-When updating an existing translation:
+1. **Pull before selecting or translating copy**, in both modes:
+   `yarn <wrapper> yarn i18n:workflow sync --project-name "Monorepo v5" --out <dir>/sync.json`.
+   Verify the returned project name/ID. Preserve unknown local generated changes
+   if the script blocks; use [recovery guidance](references/rules/i18n.md#recovery).
+2. Locate the module with `rg`, then run
+   `yarn i18n:workflow scan --mode <mode> --sync <dir>/sync.json --module <path> --out <dir>/draft.json`.
+   Repeat `--module` for related copy. For explicit updates to already complete keys,
+   add `--include-complete` and limit edits to the requested keys/languages.
+3. Read `draft.json.summary.json` and relevant code. Search reusable keys with
+   `yarn i18n:search`. Choose `upsert`/reuse or `ignore` (with a reason); fill missing
+   or requested translations using [the patch format](references/rules/i18n.md#fill-a-draft).
+   Use `inspect --file <draft>` to check remaining work.
+4. Generate a plan with a new filename:
+   `yarn <wrapper> yarn i18n:workflow preview --file <dir>/draft.json --project-name "Monorepo v5" --out <dir>/plan.json`.
+   Scripts generate JSON, Markdown and HTML; never write one-off preview HTML.
+5. **Paste the generated Markdown into the conversation**, provide the HTML link,
+   state mode/change scope, and wait for confirmation. Markdown shows only English
+   and Simplified Chinese, including old → new wording for updates:
 
-- Do not edit generated locale files directly.
-- Update the source translation in Lokalise:
-  - Use the `lokalise` MCP if it is available in the current environment.
-  - Otherwise use Lokalise Web.
-- After the source change, sync locally with `yarn i18n:pull` or `yarn i18n:pull:keychain`.
+   | Key  | Copy         |
+   | ---- | ------------ |
+   | key1 | English text |
+   |      | 中文文案     |
 
-## Key Shape Mapping
+   If the user returns HTML feedback, follow [feedback import](references/interactive-review.md).
+   Edits/comments request a revision, not upload approval. Changes to copy, scope,
+   mode or remote baseline require a new preview and confirmation.
 
-The same translation may appear in 3 different shapes depending on where you look:
+6. After confirmation, run
+   `yarn <wrapper> yarn i18n:workflow apply --file <dir>/plan.json --approve <confirmed-hash>`.
+   This uploads, pulls and verifies. Check the receipt and full generated diff,
+   including unrelated remote changes; use recovery guidance if interrupted.
+7. Wire generated keys into the requested module, rescan and run appropriate checks.
+   Report project, locale count, upload/pull verification, unrelated generated changes
+   and code wiring. A prepared preview is not a completed upload.
+8. If keys changed, preserve the old → new mapping. After apply, pull verification
+   and code migration succeed, prepare the [old-key cleanup](references/rules/i18n.md#old-key-cleanup)
+   list and ask whether to delete it. Translation confirmation does not authorize
+   deletion; keep old keys unless the user explicitly approves that deletion scope.
 
-```text
-Lokalise / MCP source key:     global::contact_us
-Pulled local JSON key:         global.contact_us
-Generated enum member:         ETranslations.global_contact_us
-```
+## Code usage
 
-For newer suffix-style keys, Lokalise and local JSON usually match:
+New keys use `semantic_key__title`, `__action`, `__desc` or `__msg`.
+Legacy mapping: remote `global::contact_us` → JSON `global.contact_us` → enum
+`ETranslations.global_contact_us`.
 
-```text
-Lokalise / MCP source key:     address_book__action
-Pulled local JSON key:         address_book__action
-Generated enum member:         ETranslations.address_book__action
-```
+Use `useIntl().formatMessage({ id: ETranslations.some_key })` during React rendering,
+or `appLocale.intl` at call time outside React. Do not cache translated text in
+module-level constants; keep memo/callback dependencies responsive to locale changes.
 
-Query guidance:
-
-- Lokalise / MCP: prefer the exact source key. Legacy namespaced keys often use `::`.
-- Local `yarn i18n:search`: searches pulled `en_US.json`, so legacy keys should be queried with `.`, while newer suffix-style keys should be queried with `__`.
-- Code usage: refer to the generated `ETranslations` member with `_`.
-
-## Quick Reference
-
-### Using Translations in Components
-```typescript
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-function MyComponent() {
-  const intl = useIntl();
-
-  return (
-    <SizableText>
-      {intl.formatMessage({ id: ETranslations.global__confirm })}
-    </SizableText>
-  );
-}
-```
-
-### Using formatMessage Outside Components
-```typescript
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-const message = appLocale.intl.formatMessage({
-  id: ETranslations.global__cancel,
-});
-```
-
-## Translation Workflow
-
-1. **Search first**
-   - Local search: `yarn i18n:search "global.contact_us"` or `yarn i18n:search "address_book__action"`
-   - Lokalise / MCP: try the exact source key, such as `global::contact_us`
-2. **If the key already exists, update it in Lokalise** and then run `yarn i18n:pull`
-3. **If it is a new key, add it via `yarn i18n:add`** using the suffix-style underscore format
-4. **Use in code**:
-   ```tsx
-   {intl.formatMessage({ id: ETranslations.global_contact_us })}
-   ```
-
-## New Key Naming Pattern
-
-```
-semantic_key__type
-
-Examples:
-- send__title
-- confirm_send__action
-- enter_send_amount__desc
-- transaction_failed__msg
-```
-
-## Detailed Guide
-
-For comprehensive i18n guidelines and examples, see [i18n.md](references/rules/i18n.md).
-
-Topics covered:
-- Translation management restrictions
-- Using translations in components
-- Translation key naming conventions
-- Locale handling and fallbacks
-- Code examples
-- Workflow summary
-
-## Key Files
-
-| Purpose | File Path |
-|---------|-----------|
-| Translation enum (auto-generated) | `packages/shared/src/locale/enum/translations.ts` |
-| Locale JSON (auto-generated) | `packages/shared/src/locale/json/` |
-| App locale | `packages/shared/src/locale/appLocale.ts` |
-| Default locale | `packages/shared/src/locale/getDefaultLocale.ts` |
-
-## Related Skills
-
-- `/1k-date-formatting` - Date formatting with locale support
-- `/1k-coding-patterns` - General coding patterns
+For `yarn i18n:add` compatibility, see [single-key commands](references/rules/i18n.md#single-key-commands).

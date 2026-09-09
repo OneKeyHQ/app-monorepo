@@ -1,0 +1,1 @@
+export { TrendingDesktopToolbar } from './TrendingDesktopToolbar';

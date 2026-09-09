@@ -38,7 +38,11 @@ const useHeightStyle = () => {
   };
 };
 
-export function BasicPage({ children, testID }: IBasicPageProps) {
+export function BasicPage({
+  children,
+  testID,
+  backgroundColor,
+}: IBasicPageProps) {
   // fix scrolling issues on md Web
   const heightStyle = useHeightStyle();
 
@@ -63,7 +67,7 @@ export function BasicPage({ children, testID }: IBasicPageProps) {
   }, [isDesktopLayout]);
   return isLayoutMount ? (
     <Stack
-      bg="$bgApp"
+      backgroundColor={backgroundColor ?? '$bgApp'}
       flex={1}
       testID={testID}
       {...heightStyle}

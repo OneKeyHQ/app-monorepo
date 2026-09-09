@@ -122,10 +122,9 @@ function TickerTags({
   const hasTags =
     ticker.type === 'perps' ||
     ticker.maxLeverage ||
-    ticker.subtitle ||
+    ticker.dexLabel ||
     ticker.stock?.sourceLogoUri ||
     ticker.stock?.isOpen !== undefined ||
-    ticker.stock?.subtitle ||
     ticker.communityRecognized;
 
   if (!hasTags) return null;
@@ -142,9 +141,9 @@ function TickerTags({
           {ticker.maxLeverage}x
         </TickerTag>
       ) : null}
-      {ticker.subtitle ? (
-        <TickerTag bg="$bgStrong" color="$textSubdued">
-          {ticker.subtitle}
+      {ticker.dexLabel ? (
+        <TickerTag bg="$bgInfo" color="$textInfo">
+          {ticker.dexLabel.toLowerCase()}
         </TickerTag>
       ) : null}
       {ticker.stock?.sourceLogoUri ? (
@@ -161,11 +160,6 @@ function TickerTags({
           color={ticker.stock.isOpen ? '$textSuccess' : '$textCaution'}
         >
           {ticker.stock.isOpen ? stockOpenText : stockClosedText}
-        </TickerTag>
-      ) : null}
-      {ticker.stock?.subtitle ? (
-        <TickerTag bg="$bgStrong" color="$textSubdued">
-          {ticker.stock.subtitle}
         </TickerTag>
       ) : null}
       {ticker.communityRecognized ? (
@@ -196,6 +190,10 @@ function TickerRow({
     ticker.name.trim().toLowerCase() !== ticker.symbol.trim().toLowerCase()
       ? ticker.name
       : '';
+  // Market/Perps lists show the localized name (e.g. company name) as plain
+  // subdued text under the symbol, never as a badge — mirror that here.
+  const secondaryText =
+    ticker.subtitle || ticker.stock?.subtitle || secondaryName;
 
   return (
     <Stack
@@ -226,14 +224,14 @@ function TickerRow({
             stockClosedText={stockClosedText}
           />
         </XStack>
-        {secondaryName ? (
+        {secondaryText ? (
           <SizableText
             fontSize="$bodySm"
             color="$textSubdued"
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {secondaryName}
+            {secondaryText}
           </SizableText>
         ) : null}
       </Stack>

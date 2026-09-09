@@ -4,86 +4,83 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Icon,
+  IconButton,
   Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowHealthFactorRiskDetail } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { BorrowTestIDs } from '../testIDs';
 
 import { HealthFactor } from './HealthFactor';
 
-type IHealthFactorDetail =
+export type IHealthFactorDetail =
   IBorrowHealthFactorRiskDetail['data']['healthFactorDetail'];
 
 type IBorrowHealthFactorTooltipProps = {
   detail?: IHealthFactorDetail;
 };
 
+export function resolveHealthFactorValueColor(
+  detail?: IHealthFactorDetail,
+): ColorTokens {
+  if (detail?.valueColor) {
+    return detail.valueColor;
+  }
+  const badgeType = detail?.status?.badge;
+  if (badgeType === 'success') {
+    return '$textSuccess';
+  }
+  if (badgeType === 'critical') {
+    return '$textCritical';
+  }
+  return '$textCaution';
+}
+
+function parseHealthFactorBarProps(detail?: IHealthFactorDetail): {
+  value: number;
+  index?: number;
+  thresholdIndex?: number;
+  min: number;
+  max: number;
+  gradientStops?: IHealthFactorDetail['gradientStops'];
+} {
+  const numericValue = Number(detail?.value);
+  const numericIndex = Number(detail?.index);
+  const numericLiquidationIndex = Number(detail?.liquidationAtIndex);
+  const stops = (detail?.gradientStops ?? []).filter((stop) =>
+    Number.isFinite(stop.percent),
+  );
+  return {
+    value: Number.isFinite(numericValue) ? numericValue : 0,
+    index: Number.isFinite(numericIndex) ? numericIndex : undefined,
+    thresholdIndex: Number.isFinite(numericLiquidationIndex)
+      ? numericLiquidationIndex
+      : undefined,
+    min: Number(detail?.lowerLimit) || 0,
+    max: Number(detail?.upperLimit) || 3,
+    gradientStops: stops.length ? stops : undefined,
+  };
+}
+
 export const BorrowHealthFactorTooltip = ({
   detail,
 }: IBorrowHealthFactorTooltipProps) => {
   const intl = useIntl();
-  const {
-    value,
-    displayValue,
-    index,
-    liquidationIndex,
-    lowerLimit,
-    upperLimit,
-  } = useMemo(() => {
-    const numericValue = Number(detail?.value);
-    const numericIndex = Number(detail?.index);
-    const numericLiquidationIndex = Number(detail?.liquidationAtIndex);
-    return {
-      value: Number.isFinite(numericValue) ? numericValue : 0,
-      displayValue: detail?.value ?? '-',
-      index: Number.isFinite(numericIndex) ? numericIndex : undefined,
-      liquidationIndex: Number.isFinite(numericLiquidationIndex)
-        ? numericLiquidationIndex
-        : undefined,
-      lowerLimit: Number(detail?.lowerLimit) || 0,
-      upperLimit: Number(detail?.upperLimit) || 3,
-    };
-  }, [
-    detail?.index,
-    detail?.liquidationAtIndex,
-    detail?.lowerLimit,
-    detail?.upperLimit,
-    detail?.value,
-  ]);
-  const gradientStops = useMemo(() => {
-    if (!detail?.gradientStops?.length) return undefined;
-    const parsedStops = detail.gradientStops
-      .map((stop) => ({
-        percent: stop.percent,
-        level: stop.level,
-      }))
-      .filter((stop) => Number.isFinite(stop.percent));
-    return parsedStops.length ? parsedStops : undefined;
-  }, [detail?.gradientStops]);
+  const barProps = useMemo(() => parseHealthFactorBarProps(detail), [detail]);
   const healthFactorLabel = intl.formatMessage({
     id: ETranslations.defi_health_factor,
   });
-  const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
 
-  const valueColor = useMemo(() => {
-    if (detail?.valueColor) {
-      return detail.valueColor;
-    }
-    const badgeType = detail?.status?.badge;
-    if (badgeType === 'success') {
-      return '$textSuccess';
-    }
-    if (badgeType === 'critical') {
-      return '$textCritical';
-    }
-    return '$textCaution';
-  }, [detail?.status?.badge, detail?.valueColor]);
+  const valueColor = useMemo(
+    () => resolveHealthFactorValueColor(detail),
+    [detail],
+  );
 
   if (!detail) return null;
 
@@ -92,14 +89,15 @@ export const BorrowHealthFactorTooltip = ({
       placement="bottom"
       title={healthFactorLabel}
       renderTrigger={
-        <XStack cursor="pointer" ai="center" gap="$1">
-          <EarnText
-            size="$bodySmMedium"
-            color="$textSubdued"
-            text={{ text: detailsLabel }}
-          />
-          <Icon size="$4" name="InfoCircleOutline" color="$iconSubdued" />
-        </XStack>
+        <IconButton
+          testID={BorrowTestIDs.overviewHealthFactorInfoBtn}
+          title={healthFactorLabel}
+          accessibilityLabel={healthFactorLabel}
+          icon="InfoCircleOutline"
+          size="small"
+          variant="tertiary"
+          iconColor="$iconSubdued"
+        />
       }
       renderContent={
         <YStack p="$4" gap="$3">
@@ -119,7 +117,7 @@ export const BorrowHealthFactorTooltip = ({
           {/* Status description */}
           {detail.statusDescription ? (
             <EarnText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               text={detail.statusDescription}
             />
@@ -127,22 +125,16 @@ export const BorrowHealthFactorTooltip = ({
 
           {/* Health Factor progress bar */}
           <HealthFactor
-            value={value}
-            displayValue={displayValue}
+            {...barProps}
             valueColor={valueColor}
-            index={index}
-            min={lowerLimit}
-            max={upperLimit}
             thresholdValue={1}
-            thresholdIndex={liquidationIndex}
             liquidationText={detail.liquidationAt?.description}
-            gradientStops={gradientStops}
           />
 
           {/* Liquidation description */}
           {detail.liquidationAtDescription ? (
             <EarnText
-              size="$bodySm"
+              size="$bodyMd"
               color="$textSubdued"
               text={detail.liquidationAtDescription}
             />

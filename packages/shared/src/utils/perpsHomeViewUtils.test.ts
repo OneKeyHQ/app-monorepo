@@ -102,7 +102,7 @@ describe('mapSnapshotToPerpsHomeView', () => {
     expect(btc?.sizeCoin).toBe('0.1');
     expect(btc?.liqPx).toBeNull();
   });
-  it('maps holdings with spot pnl = value - entryNtl, undefined when price missing', () => {
+  it('maps holdings with perps spot pnl rules and suppresses stablecoin pnl', () => {
     const v = mapSnapshotToPerpsHomeView(snap);
     expect(v.holdings.map((h) => h.symbol)).toEqual([
       'USDC',
@@ -114,16 +114,54 @@ describe('mapSnapshotToPerpsHomeView', () => {
     expect(hype?.displaySymbol).toBe('HYPE');
     expect(hype?.spotUniverseName).toBe('HYPE/USDC');
     expect(hype?.valueUsd).toBeCloseTo(28.16);
-    expect(hype?.pnlUsd).toBeCloseTo(1.16); // 28.16 - 27.0
+    expect(hype?.pnlUsd).toBeCloseTo(1.1604); // 1.24 * 22.71 - 27.0
     const ueth = v.holdings.find((h) => h.symbol === 'UETH');
     expect(ueth?.displaySymbol).toBe('ETH');
     expect(ueth?.spotUniverseName).toBe('UETH/USDC');
+    expect(ueth?.pnlUsd).toBeCloseTo(-0.130_001_7);
     const usdc = v.holdings.find((h) => h.symbol === 'USDC');
     expect(usdc?.displaySymbol).toBe('USDC');
-    expect(usdc?.pnlUsd).toBeCloseTo(0);
+    expect(usdc?.pnlUsd).toBeUndefined();
     const weird = v.holdings.find((h) => h.symbol === 'WEIRD');
     expect(weird?.valueUsd).toBeUndefined();
     expect(weird?.pnlUsd).toBeUndefined();
+  });
+  it('keeps zero-cost spot holdings pnl visible on home', () => {
+    const v = mapSnapshotToPerpsHomeView({
+      ...snap,
+      spotBalances: [
+        {
+          coin: 'POINTS',
+          token: 99,
+          total: '10',
+          hold: '0',
+          entryNtl: '0',
+          priceUsd: '2',
+          valueUsd: '20',
+        },
+      ],
+    });
+
+    expect(v.holdings[0]?.pnlUsd).toBe(20);
+  });
+  it('suppresses pnl for stablecoin aliases', () => {
+    const v = mapSnapshotToPerpsHomeView({
+      ...snap,
+      spotBalances: [
+        {
+          coin: 'USDT0',
+          token: 99,
+          total: '10',
+          hold: '0',
+          entryNtl: '9.9',
+          priceUsd: '1',
+          valueUsd: '10',
+        },
+      ],
+    });
+
+    expect(v.holdings[0]?.displaySymbol).toBe('USDT');
+    expect(v.holdings[0]?.pnlUsd).toBeUndefined();
   });
   it('empty snapshot → empty view', () => {
     const v = mapSnapshotToPerpsHomeView({

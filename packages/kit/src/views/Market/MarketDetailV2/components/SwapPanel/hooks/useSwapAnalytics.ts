@@ -10,6 +10,7 @@ import {
   ESwapType,
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import type { IDexSwapParams } from '@onekeyhq/shared/src/logger/scopes/dex/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from './useTradeType';
 
@@ -73,20 +74,16 @@ export function useSwapAnalytics() {
       tradeType: ITradeType;
       networkId?: string;
       paymentToken?: IToken;
-      balanceToken?: IToken;
+      marketToken?: ISwapToken;
     }) => {
       try {
         // Update environment with provided params
-        const { tradeType, networkId, paymentToken, balanceToken } = params;
+        const { tradeType, networkId, paymentToken, marketToken } = params;
 
         // Only proceed if we have necessary data
-        if (!networkId || !paymentToken || !balanceToken) {
+        if (!networkId || !paymentToken || !marketToken) {
           return;
         }
-
-        const marketToken = {
-          symbol: balanceToken.symbol || '',
-        };
 
         const sourceTokenSymbol =
           tradeType === ESwapDirection.BUY

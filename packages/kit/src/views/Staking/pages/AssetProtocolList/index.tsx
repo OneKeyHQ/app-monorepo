@@ -32,6 +32,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -40,7 +41,6 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { StakingTestIDs } from '../../testIDs';
-import { capitalizeString } from '../../utils/utils';
 
 import { AssetProtocolContent } from './AssetProtocolIntro';
 
@@ -201,7 +201,7 @@ function AssetProtocolListContent({
             primary={
               <XStack gap="$1.5" ai="center">
                 <SizableText>
-                  {capitalizeString(item.provider.name)}
+                  {getEarnProviderDisplayName(item.provider.name)}
                 </SizableText>
                 <ProviderTypeBadge type={item.provider.type} />
               </XStack>

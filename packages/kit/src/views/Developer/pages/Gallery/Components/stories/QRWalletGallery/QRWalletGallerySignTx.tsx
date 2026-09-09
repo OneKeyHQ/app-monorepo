@@ -21,14 +21,17 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 // import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
 
-// Core functions loaded dynamically to avoid kit->core value import
+// These developer-only galleries intentionally exercise Core APIs directly.
 async function loadCoreBtcProviderUtils() {
+  // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
   return import('@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils');
 }
 async function loadCoreEvmSdk() {
+  // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
   return import('@onekeyhq/core/src/chains/evm/sdkEvm');
 }
 async function loadCoreTypes() {
+  // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
   return import('@onekeyhq/core/src/types');
 }
 
@@ -136,7 +139,7 @@ export function QRWalletGallerySignTx() {
           });
           Dialog.show({
             title: qrUri,
-            renderContent: <QRCode size={300} value={qrUri} drawType="line" />,
+            renderContent: <QRCode size={300} value={qrUri} />,
           });
         }}
       >
@@ -240,11 +243,7 @@ export function QRWalletGallerySignTx() {
           Dialog.show({
             title: 'PSBT QRCode',
             renderContent: (
-              <QRCode
-                size={300}
-                valueUr={airGapUrUtils.urToJson({ ur })}
-                drawType="animated"
-              />
+              <QRCode size={300} valueUr={airGapUrUtils.urToJson({ ur })} />
             ),
           });
         }}

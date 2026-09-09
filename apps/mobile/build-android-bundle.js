@@ -1,6 +1,6 @@
 /* eslint-disable onekey/no-raw-error */
 /* cspell:ignore debugid */
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 const fs = require('fs-extra');
@@ -72,10 +72,15 @@ const buildAndroidBundle = async () => {
   });
 
   log('build android bundle compress to hbc');
-  execSync(
-    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildAndroidOutputAssetPath(
-      'main.jsbundle.hbc',
-    )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
+  execFileSync(
+    HERMES_COMMAND,
+    [
+      '-O',
+      '-emit-binary',
+      '-output-source-map',
+      `-out=${buildAndroidOutputAssetPath('main.jsbundle.hbc')}`,
+      buildAndroidOutputAssetPath('main.jsbundle'),
+    ],
     {
       stdio: 'inherit',
     },
@@ -124,8 +129,15 @@ const buildAndroidBundle = async () => {
     );
 
     log('build android common bundle compress to hbc');
-    execSync(
-      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${commonBundleHbcPath} ${commonBundleJsPath}`,
+    execFileSync(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${commonBundleHbcPath}`,
+        commonBundleJsPath,
+      ],
       { stdio: 'inherit' },
     );
     log('build android common bundle compress to hbc done');
@@ -181,8 +193,15 @@ const buildAndroidBundle = async () => {
     );
 
     log('build android background bundle compress to hbc');
-    execSync(
-      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+    execFileSync(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${backgroundBundleHbcPath}`,
+        backgroundBundleJsPath,
+      ],
       { stdio: 'inherit' },
     );
     log('build android background bundle compress to hbc done');
@@ -287,9 +306,11 @@ const buildAndroidBundle = async () => {
   if (!fs.existsSync(webEmbedAndroidPath)) {
     fs.mkdirSync(webEmbedAndroidPath, { recursive: true });
   }
-  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedAndroidPath}/`, {
-    stdio: 'inherit',
-  });
+  execFileSync(
+    'rsync',
+    ['-r', '-c', '-v', `${webEmbedOutputPath}/`, `${webEmbedAndroidPath}/`],
+    { stdio: 'inherit' },
+  );
   copyModuleIdMapToPlatformDist(distPath);
 
   log('build android bundle compress dist to zip');
@@ -297,7 +318,8 @@ const buildAndroidBundle = async () => {
     requiresBackgroundBundle: 'true',
     backgroundProtocolVersion,
   });
-  execSync(`cd ${distPath} && zip -r dist.zip .`, {
+  execFileSync('zip', ['-r', 'dist.zip', '.'], {
+    cwd: distPath,
     stdio: 'inherit',
   });
 

@@ -1,8 +1,11 @@
+/* cspell:ignore Infini */
+
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
+import type { IPrimeInfiniPaymentAsset } from '@onekeyhq/shared/types/prime/primeTypes';
 import type {
   IAccountToken,
   IToken,
@@ -19,6 +22,7 @@ export enum EAssetSelectorRoutes {
   TokenSelector = 'TokenSelector',
   DeriveTypesAddressSelector = 'DeriveTypesAddressSelector',
   AggregateTokenSelector = 'AggregateTokenSelector',
+  PrimeInfiniPaymentAssetSelector = 'PrimeInfiniPaymentAssetSelector',
 }
 
 export type IDeriveTypesAddressSelectorParams = {
@@ -55,6 +59,13 @@ export type ITokenSelectorParamList = {
     initialized: boolean;
   };
   searchAll?: boolean;
+  // Main Receive only: search across all networks under a single-network scope
+  // and group results into current-network / other-networks sections.
+  enableCrossNetworkSearch?: boolean;
+  // Overrides the browse-state (no search) empty title. Callers whose flow
+  // does not care about holdings (Receive) set this so the shared selector
+  // never shows the Send-semantics "You don't hold any crypto" copy.
+  browseEmptyTitle?: string;
   isAllNetworks?: boolean;
   searchPlaceholder?: string;
   footerTipText?: string;
@@ -99,8 +110,18 @@ export type IAggregateTokenSelectorParams = {
   hideBalanceAndValue?: boolean;
 };
 
+export type IPrimeInfiniPaymentAssetSelectorParams = {
+  assets: IPrimeInfiniPaymentAsset[];
+  selectedAssetKey: string;
+  accountId?: string;
+  indexedAccountId?: string;
+  accountNetworkId?: string;
+  onSelect: (assetKey: string) => void;
+};
+
 export type IAssetSelectorParamList = {
   [EAssetSelectorRoutes.TokenSelector]: ITokenSelectorParamList;
   [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressSelectorParams;
   [EAssetSelectorRoutes.AggregateTokenSelector]: IAggregateTokenSelectorParams;
+  [EAssetSelectorRoutes.PrimeInfiniPaymentAssetSelector]: IPrimeInfiniPaymentAssetSelectorParams;
 };

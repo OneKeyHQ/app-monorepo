@@ -1,6 +1,6 @@
-// Contract for the subset of `globalThis.desktopApi` fields used by
-// platformEnv and other shared code to identify the current desktop
-// runtime (platform, arch, store channel, etc.).
+// Contract for the subset of `globalThis.desktopApi` fields used by shared
+// code to identify the desktop runtime and read synchronous device capability
+// inputs (platform, arch, logical processors, physical memory, etc.).
 //
 // There are two writers that must both satisfy this contract:
 //   1. `apps/desktop/app/libs/registerInfoHandlers.ts` — provides the IPC
@@ -22,6 +22,8 @@ export interface IDesktopApiPlatformInfo {
   platform: string;
   arch: string;
   systemVersion: string;
+  logicalProcessorCount: number;
+  totalMemoryBytes: number;
   channel?: string;
   deskChannel: string;
   isMas: boolean;
@@ -31,6 +33,12 @@ export interface IDesktopApiPlatformInfo {
   // spawn — matching the native LaunchOptionsManager — instead of renderer
   // document load. Falls back to `Date.now()` at build time if unavailable.
   processStartAt: number;
+  // True when the running BINARY implements the `system.shareImageFile` IPC
+  // (macOS ShareMenu). Capability must be declared binary-side: the renderer
+  // JS bundle hot-updates independently, so a newer bundle on an older binary
+  // reads `undefined` here and must treat it as false (hide the share entry
+  // instead of showing a button that degrades into a duplicate of "save").
+  supportsShareImageFile: boolean;
 }
 
 export interface IDesktopApiGlobal extends IDesktopApiPlatformInfo {

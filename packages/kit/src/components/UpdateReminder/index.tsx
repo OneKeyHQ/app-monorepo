@@ -41,7 +41,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
       ({
         [EAppUpdateStatus.notify]: {
           iconName: 'DownloadOutline',
-          iconColor: '$iconInfo',
+          iconColor: '$iconSuccess',
           renderText({
             updateInfo: appUpdateInfo,
           }: {
@@ -57,12 +57,12 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         },
         [EAppUpdateStatus.downloadPackage]: {
           iconName: 'RefreshCcwSolid',
-          iconColor: '$iconInfo',
+          iconColor: '$iconSuccess',
           renderText: DownloadProgress,
         },
         [EAppUpdateStatus.downloadASC]: {
           iconName: 'RefreshCcwSolid',
-          iconColor: '$iconInfo',
+          iconColor: '$iconSuccess',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_download_asc_label,
@@ -71,7 +71,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         },
         [EAppUpdateStatus.verifyASC]: {
           iconName: 'RefreshCcwSolid',
-          iconColor: '$iconInfo',
+          iconColor: '$iconSuccess',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_verify_asc_label,
@@ -80,7 +80,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         },
         [EAppUpdateStatus.verifyPackage]: {
           iconName: 'RefreshCcwSolid',
-          iconColor: '$iconInfo',
+          iconColor: '$iconSuccess',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_verify_file_signature,
@@ -248,24 +248,24 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   IStackProps | undefined
 > = {
   [EAppUpdateStatus.notify]: {
-    bg: '$bgInfoSubdued',
-    borderColor: '$borderInfoSubdued',
+    bg: '$bgSuccessSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.downloadPackage]: {
-    bg: '$bgInfoSubdued',
-    borderColor: '$borderInfoSubdued',
+    bg: '$bgSuccessSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.downloadASC]: {
-    bg: '$bgInfoSubdued',
-    borderColor: '$borderInfoSubdued',
+    bg: '$bgSuccessSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.verifyASC]: {
-    bg: '$bgInfoSubdued',
-    borderColor: '$borderInfoSubdued',
+    bg: '$bgSuccessSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.verifyPackage]: {
-    bg: '$bgInfoSubdued',
-    borderColor: '$borderInfoSubdued',
+    bg: '$bgSuccessSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.ready]: {
     bg: '$bgSuccessSubdued',

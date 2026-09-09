@@ -5,10 +5,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { jotaiInitFromUi } from './jotaiInitFromUi';
-import {
-  MMKV_MIGRATION_COMPLETE_KEY,
-  globalJotaiStorageReadyHandler,
-} from './jotaiStorage';
 
 import type { EAtomNames } from './atomNames';
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
@@ -178,37 +174,15 @@ export class JotaiBgSync {
     const jsEntry: number =
       (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
-    // Native dual-thread: MMKV per-key is always available.
-    // crossAtomBuilder reads directly from MMKV — no snapshot blob needed.
-    // Resolve ready immediately so GlobalJotaiReady can render.
-    if (
-      platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread
-    ) {
-      this.syncLog(
-        `native MMKV per-key: resolving ready immediately, +${Date.now() - jsEntry}ms from JS entry`,
-      );
-      // Signal SplashProvider: check if MMKV per-key data exists (not first install).
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { default: jotaiMMKV } =
-          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        if (jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1') {
-          (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
-        }
-      } catch {
-        /* noop */
-      }
-      globalJotaiStorageReadyHandler.resolveReady(true);
-      return;
-    }
-
-    // Extension UI: keep existing RPC path (unchanged)
+    // Native main and extension UI hydrate from the owning background runtime.
     const rpcStart = Date.now();
     this.syncLog(
       `getAtomStates RPC start at +${rpcStart - jsEntry}ms from JS entry`,
     );
     const { states } = await this.backgroundApi.getAtomStates();
+    if (Object.keys(states).length > 0) {
+      (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
+    }
     const rpcEnd = Date.now();
     this.syncLog(
       `getAtomStates RPC done in ${rpcEnd - rpcStart}ms, ${Object.keys(states).length} keys, +${rpcEnd - jsEntry}ms from JS entry`,

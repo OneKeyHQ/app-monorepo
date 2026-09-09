@@ -1,0 +1,967 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+index 0fcccb3..99d9506 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+ import com.swmansion.rnscreens.Screen.ActivityState
++import android.util.Log
+ import com.swmansion.rnscreens.events.ScreenDismissedEvent
+ import com.swmansion.rnscreens.gamma.common.FragmentProviding
+ 
+@@ -291,7 +292,24 @@ open class ScreenContainer(
+         }
+ 
+         if (hasFragments) {
+-            transaction.commitNowAllowingStateLoss()
++            // Guard against "FragmentManager is already executing transactions" crash.
++            // This race condition occurs when onDetachedFromWindow triggers removeMyFragments
++            // while performUpdates -> onUpdate is already committing a transaction on the same
++            // FragmentManager within the same UI frame (e.g. during rapid navigation).
++            // On catch, we defer the removal to the next frame where the FragmentManager
++            // will no longer be in a transaction.
++            // See: https://github.com/software-mansion/react-native-screens/issues/2318
++            // See: https://github.com/software-mansion/react-native-screens/issues/1506
++            try {
++                transaction.commitNowAllowingStateLoss()
++            } catch (e: IllegalStateException) {
++                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
++                post {
++                    if (!fragmentManager.isDestroyed) {
++                        removeMyFragments(fragmentManager)
++                    }
++                }
++            }
+         }
+     }
+ 
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
+index 9b66012..09393b0 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSScreen.mm
+@@ -8,6 +8,7 @@
+ 
+ #import <React/RCTConversions.h>
+ #import <React/RCTFabricComponentsPlugins.h>
++#import <React/RCTMountingTransactionObserving.h>
+ #import <React/RCTRootComponentView.h>
+ #import <React/RCTScrollViewComponentView.h>
+ #import <React/RCTSurfaceTouchHandler.h>
+@@ -37,6 +38,20 @@
+ constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
+ constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
+ 
++// Global flag indicating an animated UIKit screen transition is in progress
++// (modal present/dismiss, push/pop, or interactive swipe-back). Consumed by
++// UIView+ComponentViewProtocol (React Native Fabric) to wrap frame and
++// backgroundColor changes in performWithoutAnimation, preventing UIKit from
++// capturing recycled-view corrections as implicit animations during the
++// transition's animation block. Symbol name is preserved for ABI compat with
++// the RN core patch that consumes it via `extern BOOL`.
++BOOL RNSModalTransitionInProgress = NO;
++// Reference counter that protects the flag from premature clearing when
++// transitions overlap (e.g. push during modal dismiss). Each viewWillAppear
++// that begins a transition increments; the matching transitionCoordinator
++// completion decrements. Flag is cleared only on the last decrement.
++static NSInteger RNSScreenTransitionDepth = 0;
++
+ struct ContentWrapperBox {
+   __weak RNSScreenContentWrapper *contentWrapper{nil};
+   float contentHeightErrata{0.f};
+@@ -48,7 +63,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
+                              UISheetPresentationControllerDelegate,
+ #endif
+                              RCTRNSScreenViewProtocol,
+-                             CAAnimationDelegate>
++                             CAAnimationDelegate,
++                             RCTMountingTransactionObserving>
++
++- (BOOL)hasCustomScrollEdgeEffects;
++- (nullable UIScrollView *)contentScrollViewForEdgeEffects;
++- (void)resetLastContentScrollViewEdgeEffects;
+ @end
+ 
+ @implementation RNSScreenView {
+@@ -59,6 +79,7 @@ @implementation RNSScreenView {
+   ContentWrapperBox _contentWrapperBox;
+   bool _sheetHasInitialDetentSet;
+   BOOL _shouldUpdateScrollEdgeEffects;
++  __weak UIScrollView *_lastContentScrollViewForEdgeEffects;
+   UITapGestureRecognizer *_backdropTapGestureRecognizer;
+   RCTSurfaceTouchHandler *_touchHandler;
+   react::RNSScreenShadowNode::ConcreteState::Shared _state;
+@@ -95,6 +116,7 @@ - (void)initCommonProps
+   _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
+   _fullScreenSwipeShadowEnabled = YES;
+   _shouldUpdateScrollEdgeEffects = NO;
++  _lastContentScrollViewForEdgeEffects = nil;
+ #if !TARGET_OS_TV
+   _sheetExpandsWhenScrolledToEdge = YES;
+ #endif // !TARGET_OS_TV
+@@ -599,6 +621,20 @@ - (void)didMoveToWindow
+   } else {
+     [_touchHandler detachFromView:self];
+   }
++
++  if (self.window == nil) {
++    [self resetLastContentScrollViewEdgeEffects];
++  } else if ([self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
++  }
++}
++
++- (void)layoutSubviews
++{
++  [super layoutSubviews];
++  if (self.window != nil && [self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
++  }
+ }
+ 
+ - (nullable RCTSurfaceTouchHandler *)touchHandler
+@@ -1105,10 +1141,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+   }
+ }
+ 
++- (BOOL)hasCustomScrollEdgeEffects
++{
++  return self.bottomScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.leftScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.rightScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.topScrollEdgeEffect != RNSScrollEdgeEffectAutomatic;
++}
++
++- (nullable UIScrollView *)contentScrollViewForEdgeEffects
++{
++  if ([self hasCustomScrollEdgeEffects]) {
++    return [RNSScrollViewFinder findBestScrollViewInSubtreeOf:self];
++  }
++
++  return [RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self];
++}
++
++- (void)resetLastContentScrollViewEdgeEffects
++{
++  if (_lastContentScrollViewForEdgeEffects != nil) {
++    if ([_lastContentScrollViewForEdgeEffects isDescendantOfView:self]) {
++      [RNSScrollEdgeEffectApplicator resetScrollView:_lastContentScrollViewForEdgeEffects];
++    }
++    _lastContentScrollViewForEdgeEffects = nil;
++  }
++}
++
+ - (void)updateContentScrollViewEdgeEffectsIfExists
+ {
+-  [RNSScrollEdgeEffectApplicator applyToScrollView:[RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self]
+-                                      withProvider:self];
++  UIScrollView *contentScrollView = [self contentScrollViewForEdgeEffects];
++
++  if (_lastContentScrollViewForEdgeEffects != nil && _lastContentScrollViewForEdgeEffects != contentScrollView) {
++    [self resetLastContentScrollViewEdgeEffects];
++  }
++
++  if (contentScrollView != nil) {
++    [RNSScrollEdgeEffectApplicator applyToScrollView:contentScrollView withProvider:self];
++  }
++
++  _lastContentScrollViewForEdgeEffects = [self hasCustomScrollEdgeEffects] ? contentScrollView : nil;
+ }
+ 
+ #pragma mark - RNSSafeAreaProviding
+@@ -1385,6 +1457,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+ #endif // !TARGET_OS_TV && !TARGET_OS_VISION
+ }
+ 
++- (void)mountingTransactionDidMount:(const facebook::react::MountingTransaction &)transaction
++               withSurfaceTelemetry:(const facebook::react::SurfaceTelemetry &)surfaceTelemetry
++{
++  if (self.window != nil && [self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
++  }
++}
++
+ #pragma mark - Dynamic frameworks support
+ 
+ // Needed because of this: https://github.com/facebook/react-native/pull/37274
+@@ -1437,6 +1517,28 @@ - (instancetype)initWithView:(UIView *)view
+ - (void)viewWillAppear:(BOOL)animated
+ {
+   [super viewWillAppear:animated];
++
++  // Activate the freeze-implicit-animation flag during ANY animated UIKit
++  // transition: modal present/dismiss, push/pop on a navigation stack
++  // (e.g. the onboarding `card` route), and interactive swipe-back. The
++  // transitionCoordinator is non-nil exactly while UIKit is animating a
++  // transition, and `animateAlongsideTransition:completion:` reliably fires
++  // its completion even when the transition is cancelled
++  // (context.isCancelled == YES). The depth counter prevents an
++  // earlier-finishing transition from race-clearing the flag while another
++  // overlapping transition is still in flight.
++  if (animated && self.transitionCoordinator != nil) {
++    RNSScreenTransitionDepth += 1;
++    RNSModalTransitionInProgress = YES;
++    [self.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
++      RNSScreenTransitionDepth -= 1;
++      if (RNSScreenTransitionDepth <= 0) {
++        RNSScreenTransitionDepth = 0;
++        RNSModalTransitionInProgress = NO;
++      }
++    }];
++  }
++
+   if (!_isSwiping) {
+     [self.screenView notifyWillAppear];
+     if (self.transitionCoordinator.isInteractive) {
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index 192f5d2..2b6dcd1 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+@@ -20,6 +20,55 @@
+ #import "RNSScrollViewFinder.h"
+ #import "RNSTabsScreenViewController.h"
+ #import "UIScrollView+RNScreens.h"
++
++// MARK: - OneKey Native Logger Bridge (ObjC, for RNSScreenStack diagnostics)
++static void RNSScreenStackLog(NSString *message) {
++  NSString *fullMessage = [NSString stringWithFormat:@"[RNSScreenStack] %@ (ts=%.6f, main=%d)",
++                           message, CFAbsoluteTimeGetCurrent(), [NSThread isMainThread]];
++  Class logClass = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
++  if (logClass) {
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
++    [logClass performSelector:NSSelectorFromString(@"info::") withObject:@"RNSScreenStack" withObject:fullMessage];
++#pragma clang diagnostic pop
++  }
++  NSLog(@"%@", fullMessage);
++}
++
++static NSNotificationName const RNSBottomTabsContainerDidReattachNotification =
++    @"RNCTabViewContainerDidReattachNotification";
++
++static NSString *RNSSceneSummary(UIWindow *window)
++{
++#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
++  if (window == nil) {
++    return @"scene=nil";
++  }
++  if (@available(iOS 13.0, tvOS 13.0, *)) {
++    UIScene *scene = window.windowScene;
++    if (scene == nil) {
++      return @"scene=nil(windowHasNoScene)";
++    }
++    NSString *state = @"unknown";
++    switch (scene.activationState) {
++      case UISceneActivationStateForegroundActive:
++        state = @"foregroundActive";
++        break;
++      case UISceneActivationStateForegroundInactive:
++        state = @"foregroundInactive";
++        break;
++      case UISceneActivationStateBackground:
++        state = @"background";
++        break;
++      case UISceneActivationStateUnattached:
++        state = @"unattached";
++        break;
++    }
++    return [NSString stringWithFormat:@"scene=%p state=%@", scene, state];
++  }
++#endif
++  return @"scene=unavailable";
++}
+ #import "UIView+RNSUtility.h"
+ #import "integrations/RNSDismissibleModalProtocol.h"
+ #import "utils/UINavigationBar+RNSUtility.h"
+@@ -175,6 +224,11 @@ @implementation RNSScreenStackView {
+   RNSPercentDrivenInteractiveTransition *_interactionController;
+   __weak RNSScreenStackManager *_manager;
+   BOOL _updateScheduled;
++  BOOL _pendingContainerUpdate;
++  BOOL _pendingUpdateRetryScheduled;
++  NSInteger _pendingUpdateRetryCount;
++  NSInteger _pendingContainerUpdateRequestId;
++  NSInteger _pendingContainerUpdateSeq;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -213,6 +267,24 @@ - (void)initCommonProps
+   // the header will render in collapsed state which is perhaps a bug
+   // in UIKit but ¯\_(ツ)_/¯
+   [_controller setViewControllers:@[ [UIViewController new] ]];
++
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onApplicationDidBecomeActive:)
++                                               name:UIApplicationDidBecomeActiveNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onSceneDidActivate:)
++                                               name:UISceneDidActivateNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onBottomTabsContainerDidReattach:)
++                                               name:RNSBottomTabsContainerDidReattachNotification
++                                             object:nil];
++}
++
++- (void)dealloc
++{
++  [[NSNotificationCenter defaultCenter] removeObserver:self];
+ }
+ 
+ #pragma mark - helper methods
+@@ -240,6 +312,153 @@ - (void)emitOnFinishTransitioningEvent
+   }
+ }
+ 
++- (BOOL)isContainerWindowReady
++{
++  return self.window != nil;
++}
++
++- (void)schedulePendingContainerUpdateRetry:(NSString *)reason
++{
++  __weak RNSScreenStackView *weakSelf = self;
++  dispatch_async(dispatch_get_main_queue(), ^{
++    RNSScreenStackView *strongSelf = weakSelf;
++    if (!strongSelf || !strongSelf->_pendingContainerUpdate) {
++      return;
++    }
++
++    UIViewController *parentVC = strongSelf->_controller.parentViewController;
++    const BOOL selfWindowReady = strongSelf.window != nil;
++    const BOOL superviewWindowReady = strongSelf.superview.window != nil;
++    const BOOL parentWindowReady = parentVC.viewIfLoaded.window != nil;
++    const BOOL ready = [strongSelf isContainerWindowReady];
++
++    RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: reason=%@, requestId=%ld, pending=%d, ready=%d, selfWindow=%@, superviewWindow=%@, parentWindow=%@, retryScheduled=%d, retryCount=%ld, %@",
++                                                 reason ?: @"NIL",
++                                                 (long)strongSelf->_pendingContainerUpdateRequestId,
++                                                 strongSelf->_pendingContainerUpdate,
++                                                 ready,
++                                                 selfWindowReady ? @"YES" : @"NIL",
++                                                 superviewWindowReady ? @"YES" : @"NIL",
++                                                 parentWindowReady ? @"YES" : @"NIL",
++                                                 strongSelf->_pendingUpdateRetryScheduled,
++                                                 (long)strongSelf->_pendingUpdateRetryCount,
++                                                 RNSSceneSummary(strongSelf.window)]);
++
++    if (ready) {
++      strongSelf->_pendingContainerUpdate = NO;
++      strongSelf->_pendingUpdateRetryScheduled = NO;
++      strongSelf->_pendingUpdateRetryCount = 0;
++      strongSelf->_pendingContainerUpdateRequestId = 0;
++      [strongSelf updateContainer];
++      return;
++    }
++
++    if (strongSelf->_pendingUpdateRetryScheduled) {
++      return;
++    }
++
++    static const NSInteger kMaxPendingRetryCount = 50;
++    static const int64_t kPendingRetryDelayMs = 100;
++    if (strongSelf->_pendingUpdateRetryCount >= kMaxPendingRetryCount) {
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: giving up after %ld retries (requestId=%ld)",
++                                                   (long)strongSelf->_pendingUpdateRetryCount,
++                                                   (long)strongSelf->_pendingContainerUpdateRequestId]);
++      RCTLogWarn(@"[RNSScreenStack] pendingContainerUpdate retries exhausted (%ld). "
++                 "This usually means goBack()/pop was called on a navigation stack inside a "
++                 "detached native tab view (UITabBarController). The stack's window is NIL so "
++                 "updates cannot be applied. Use resetAboveMainRoute() instead of sequential "
++                 "goBack() calls when dismissing overlay routes to avoid this race condition.",
++                 (long)kMaxPendingRetryCount);
++      return;
++    }
++
++    strongSelf->_pendingUpdateRetryScheduled = YES;
++    strongSelf->_pendingUpdateRetryCount += 1;
++    const NSInteger retryCount = strongSelf->_pendingUpdateRetryCount;
++    const NSInteger requestIdAtSchedule = strongSelf->_pendingContainerUpdateRequestId;
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPendingRetryDelayMs * NSEC_PER_MSEC)),
++                   dispatch_get_main_queue(),
++                   ^{
++      RNSScreenStackView *innerSelf = weakSelf;
++      if (!innerSelf) {
++        return;
++      }
++      innerSelf->_pendingUpdateRetryScheduled = NO;
++      if (!innerSelf->_pendingContainerUpdate) {
++        innerSelf->_pendingUpdateRetryCount = 0;
++        return;
++      }
++      if (innerSelf->_pendingContainerUpdateRequestId != requestIdAtSchedule) {
++        RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: stale retry timer ignored (scheduledRequestId=%ld, currentRequestId=%ld)",
++                                                     (long)requestIdAtSchedule,
++                                                     (long)innerSelf->_pendingContainerUpdateRequestId]);
++        return;
++      }
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: retry timer fired (%ld/%ld) requestId=%ld",
++                                                   (long)retryCount,
++                                                   (long)kMaxPendingRetryCount,
++                                                   (long)requestIdAtSchedule]);
++      [innerSelf schedulePendingContainerUpdateRetry:@"retry-timer-fired"];
++    });
++  });
++}
++
++- (void)markPendingContainerUpdateWithReason:(NSString *)reason
++{
++  NSInteger previousRequestId = _pendingContainerUpdateRequestId;
++  _pendingContainerUpdateSeq += 1;
++  _pendingContainerUpdateRequestId = _pendingContainerUpdateSeq;
++  _pendingContainerUpdate = YES;
++  _pendingUpdateRetryScheduled = NO;
++  _pendingUpdateRetryCount = 0;
++  RNSScreenStackLog([NSString stringWithFormat:@"pendingContainerUpdate marked: reason=%@, requestId=%ld, previousRequestId=%ld, %@",
++                                               reason ?: @"NIL",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               (long)previousRequestId,
++                                               RNSSceneSummary(self.window)]);
++}
++
++- (void)onApplicationDidBecomeActive:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onApplicationDidBecomeActive: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"application-did-become-active"];
++}
++
++- (void)onSceneDidActivate:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onSceneDidActivate: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"scene-did-activate"];
++}
++
++- (void)onBottomTabsContainerDidReattach:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  NSString *reason = notification.userInfo[@"reason"];
++  UIViewController *parentVC = _controller.parentViewController;
++  RNSScreenStackLog([NSString
++      stringWithFormat:@"onBottomTabsContainerDidReattach: reason=%@, requestId=%ld, scheduling retry (selfWindow=%@, superviewWindow=%@, parentWindow=%@, parentVC=%@, %@)",
++                       reason ?: @"NIL",
++                       (long)_pendingContainerUpdateRequestId,
++                       self.window ? @"YES" : @"NIL",
++                       self.superview.window ? @"YES" : @"NIL",
++                       parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++                       parentVC ? NSStringFromClass([parentVC class]) : @"NIL",
++                       RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"bottom-tabs-container-reattached"];
++}
++
+ - (void)navigationController:(UINavigationController *)navigationController
+       willShowViewController:(UIViewController *)viewController
+                     animated:(BOOL)animated
+@@ -278,21 +497,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+ 
+ - (void)didMoveToWindow
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"didMoveToWindow: window=%@, viewControllers=%lu, parentVC=%@, pendingUpdate=%d, requestId=%ld, %@",
++        self.window ? @"YES" : @"NIL",
++        (unsigned long)_controller.viewControllers.count,
++        _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL",
++        _pendingContainerUpdate,
++        (long)_pendingContainerUpdateRequestId,
++        RNSSceneSummary(self.window)]);
+   [super didMoveToWindow];
+   // for handling nested stacks
+   [self maybeAddToParentAndUpdateContainer];
++  if (self.window != nil && _pendingContainerUpdate) {
++    RNSScreenStackLog(@"didMoveToWindow: retrying pending container update after window restored");
++    [self schedulePendingContainerUpdateRetry:@"didMoveToWindow-window-restored"];
++  }
++}
++
++- (void)didMoveToSuperview
++{
++  [super didMoveToSuperview];
++  if (_pendingContainerUpdate) {
++    RNSScreenStackLog([NSString stringWithFormat:@"didMoveToSuperview: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                                 (long)_pendingContainerUpdateRequestId,
++                                                 RNSSceneSummary(self.window)]);
++    [self schedulePendingContainerUpdateRetry:@"didMoveToSuperview"];
++  }
+ }
+ 
+ - (void)maybeAddToParentAndUpdateContainer
+ {
+   BOOL wasScreenMounted = _controller.parentViewController != nil;
+   if (!self.window && !wasScreenMounted) {
+-    // We wait with adding to parent controller until the stack is mounted.
+-    // If we add it when window is not attached, some of the view transitions will be blocked (i.e.
+-    // modal transitions) and the internal view controler's state will get out of sync with what's
+-    // on screen without us knowing.
++    RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: SKIPPED - window=nil, wasScreenMounted=NO"]);
++    if (_pendingContainerUpdate) {
++      [self schedulePendingContainerUpdateRetry:@"maybeAddToParentAndUpdateContainer-window-nil"];
++    }
+     return;
+   }
++  RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: window=%@, wasScreenMounted=%d",
++        self.window ? @"YES" : @"NIL", wasScreenMounted]);
+   [self updateContainer];
+   if (!wasScreenMounted) {
+     // when stack hasn't been added to parent VC yet we do two things:
+@@ -313,10 +556,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+ {
+   if (!controller.parentViewController) {
+     UIView *parentView = (UIView *)self.reactSuperview;
++    BOOL isInsideSwiftUIContainer = NO;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
+-        [self addSubview:controller.view];
++        UIViewController *candidateParent = parentView.reactViewController;
++        // Skip UIHostingController to avoid hierarchy inconsistency when used
++        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
++        // UIHostingController gets re-parented by SwiftUI during layout updates,
++        // which causes UIViewControllerHierarchyInconsistency crashes.
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          isInsideSwiftUIContainer = YES;
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        // When inside a SwiftUI container (e.g. react-native-bottom-tabs), SwiftUI's
++        // internal UIKitTabBarController may re-parent this controller during addSubview,
++        // causing UIViewControllerHierarchyInconsistency on iOS < 26.
++        // iOS 26+ relaxed this check. We catch the exception on older versions to prevent crash.
++        @try {
++          [candidateParent addChildViewController:controller];
++          [self addSubview:controller.view];
++        } @catch (NSException *exception) {
++          if (isInsideSwiftUIContainer &&
++              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
++            // SwiftUI re-parented the controller during addSubview — this is expected.
++            // Ensure the view is still in the hierarchy for rendering.
++            if (![controller.view isDescendantOfView:self]) {
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
++            }
++          } else {
++            @throw;
++          }
++        }
+ #if !TARGET_OS_TV
+         _controller.interactivePopGestureRecognizer.delegate = self;
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
+@@ -325,7 +601,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+         }
+ #endif // Check for iOS >= 26.0
+ #endif
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        [controller didMoveToParentViewController:controller.parentViewController];
+         // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
+         // get triggered when the navigation controller is instantiated. As the only thing we do in
+         // that delegate method is ask nav header to update to the current state it does not hurt to
+@@ -375,6 +651,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // prevent re-entry
+   if (_updatingModals) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: RE-ENTRY blocked, scheduling update (presentedModals=%lu, newControllers=%lu)",
++          (unsigned long)_presentedModals.count, (unsigned long)controllers.count]);
+     _scheduleModalsUpdate = YES;
+     return;
+   }
+@@ -383,12 +661,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
+   // change in the list of presented modal was made.
+   if ([_presentedModals isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: NO CHANGE (modals=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: presentedModals=%lu, newControllers=%lu, window=%@, lastModalWindow=%@",
++        (unsigned long)_presentedModals.count,
++        (unsigned long)controllers.count,
++        self.window ? @"YES" : @"NIL",
++        _presentedModals.lastObject.view.window ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+   if (self.window == nil && _presentedModals.lastObject.view.window == nil) {
++    RNSScreenStackLog(@"setModalViewControllers: SKIPPED - both window and lastModal.window are nil! setting _pendingContainerUpdate=YES");
++    [self markPendingContainerUpdateWithReason:@"setModalViewControllers-window-nil"];
++    [self schedulePendingContainerUpdateRetry:@"setModalViewControllers-window-nil"];
+     return;
+   }
+ 
+@@ -429,6 +717,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   __weak RNSScreenStackView *weakSelf = self;
+ 
+   void (^afterTransitions)(void) = ^{
++    RNSScreenStackLog(@"setModalViewControllers: afterTransitions called");
+     [weakSelf emitOnFinishTransitioningEvent];
+     weakSelf.updatingModals = NO;
+     if (weakSelf.scheduleModalsUpdate) {
+@@ -444,6 +733,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   };
+ 
+   void (^finish)(void) = ^{
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() called, changeRootIndex=%lu", (unsigned long)changeRootIndex]);
+     NSUInteger oldCount = weakSelf.presentedModals.count;
+     if (changeRootIndex < oldCount) {
+       [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
+@@ -452,10 +742,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+         changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
+ 
+     if (!isAttached || changeRootIndex >= controllers.count) {
+-      // if change controller view is not attached, presenting modals will silently fail on iOS.
+-      // In such a case we trigger controllers update from didMoveToWindow.
+-      // We also don't run any present transitions if changeRootIndex is greater or equal to the size
+-      // of new controllers array. This means that no new controllers should be presented.
++      RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() - no present needed (isAttached=%d, changeRootIndex=%lu, controllers=%lu)",
++            isAttached, (unsigned long)changeRootIndex, (unsigned long)controllers.count]);
++      if (!isAttached && changeRootIndex < controllers.count) {
++        RNSScreenStackLog(@"setModalViewControllers: finish() - detached while pending modal presentations, re-arming pending retry");
++        [weakSelf markPendingContainerUpdateWithReason:@"setModalViewControllers-finish-detached"];
++        [weakSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-finish-detached"];
++      }
+       afterTransitions();
+       return;
+     }
+@@ -532,16 +825,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+               ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
+                   RNSScreenStackAnimationNone
+               : YES;
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: DISMISSING modal (animated=%d, owned=%d, ownedByThis=%d, class=%@)",
++                firstModalToBeDismissedPrefersAnimation, firstModalToBeDismissedIsOwned, firstModalToBeDismissedIsOwnedByThisStack,
++                NSStringFromClass([firstModalToBeDismissed class])]);
+           [changeRootController dismissViewControllerAnimated:firstModalToBeDismissedPrefersAnimation
+-                                                   completion:finish];
++                                                   completion:^{
++                                                     RNSScreenStackLog(@"setModalViewControllers: DISMISS completion called");
++                                                     finish();
++                                                   }];
+         } else {
+           // We need to wait for its dismissal and then run our presentation code.
+-          // This happens, e.g. when we have foreign modal presented on top of owned one & we dismiss foreign one and
+-          // immediately present another owned one. Dismissal of the foreign one will be triggered by foreign
+-          // controller.
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: modal isBeingDismissed, waiting for transitionCoordinator (class=%@, coordinator=%@)",
++                NSStringFromClass([firstModalToBeDismissed class]),
++                [firstModalToBeDismissed transitionCoordinator] ? @"YES" : @"NIL"]);
+           [[firstModalToBeDismissed transitionCoordinator]
+               animateAlongsideTransition:nil
+                               completion:^(id<UIViewControllerTransitionCoordinatorContext> _) {
++                                RNSScreenStackLog(@"setModalViewControllers: transitionCoordinator completion called");
+                                 finish();
+                               }];
+         }
+@@ -578,12 +878,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // when there is no change we return immediately
+   if ([_controller.viewControllers isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: NO CHANGE (controllers=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: controllers=%lu, current=%lu, window=%@, transitionCoordinator=%@, superview=%@",
++        (unsigned long)controllers.count,
++        (unsigned long)_controller.viewControllers.count,
++        self.window ? @"YES" : @"NIL",
++        _controller.transitionCoordinator ? @"YES" : @"NIL",
++        self.superview ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+-  if (self.window == nil) {
++  const BOOL containerReady = [self isContainerWindowReady];
++  if (!containerReady) {
++    UIViewController *parentVC = _controller.parentViewController;
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - container window not ready! selfWindow=%@, superviewWindow=%@, parentWindow=%@, superview=%@, class=%@, setting _pendingContainerUpdate=YES",
++          self.window ? @"YES" : @"NIL",
++          self.superview.window ? @"YES" : @"NIL",
++          parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++          self.superview,
++          NSStringFromClass([self.superview class])]);
++    [self markPendingContainerUpdateWithReason:@"setPushViewControllers-window-nil"];
++    [self schedulePendingContainerUpdateRetry:@"setPushViewControllers-window-nil"];
+     return;
+   }
+   // when transition is ongoing, any updates made to the controller will not be reflected until the
+@@ -593,6 +911,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+   // making any updated when transition is ongoing and schedule updates for when the transition
+   // is complete.
+   if (_controller.transitionCoordinator != nil) {
++    RNSScreenStackLog(@"setPushViewControllers: DEFERRED - transitionCoordinator active");
+     if (!_updateScheduled) {
+       _updateScheduled = YES;
+       __weak RNSScreenStackView *weakSelf = self;
+@@ -659,8 +978,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+       NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
+       [newControllers removeLastObject];
+ 
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH path: setViewControllers(%lu) then pushViewController. controller.view.window=%@, controller.parentVC=%@",
++            (unsigned long)newControllers.count,
++            _controller.view.window ? @"YES" : @"NIL",
++            _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL"]);
+       [_controller setViewControllers:newControllers animated:NO];
+       [_controller pushViewController:top animated:YES];
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH done: viewControllers count=%lu, topVC=%@",
++            (unsigned long)_controller.viewControllers.count,
++            NSStringFromClass([_controller.topViewController class])]);
+     } else {
+       // don't really know what this case could be, but may need to handle it
+       // somehow
+@@ -674,6 +1000,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ 
+ - (void)updateContainer
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"updateContainer called, window=%@, reactSubviews=%lu",
++        self.window ? @"YES" : @"NIL", (unsigned long)_reactSubviews.count]);
++  _pendingContainerUpdate = NO;
+   NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
+   NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
+   for (RNSScreenView *screen in _reactSubviews) {
+@@ -743,6 +1072,10 @@ - (void)layoutSubviews
+       modal.view.frame = correctFrame;
+     }
+   }
++
++  if (_pendingContainerUpdate) {
++    [self schedulePendingContainerUpdateRetry:@"layoutSubviews"];
++  }
+ }
+ 
+ #pragma mark methods connected to transitioning
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 1c84484..6b3cbaa 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -381,7 +381,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+       appearance.shadowImage = shadowImage;
+     }
+   } else {
+-    [appearance configureWithOpaqueBackground];
++    // OneKey: when caller did not pass an explicit backgroundColor on iOS 26+, use
++    // configureWithDefaultBackground so UIKit applies the system Liquid Glass material.
++    // configureWithOpaqueBackground would forcibly opaque-fill the bar and suppress glass.
++    if (@available(iOS 26.0, *)) {
++      if (config.backgroundColor == nil) {
++        [appearance configureWithDefaultBackground];
++      } else {
++        [appearance configureWithOpaqueBackground];
++      }
++    } else {
++      [appearance configureWithOpaqueBackground];
++    }
+   }
+ 
+   // set background color if specified
+@@ -391,7 +402,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+ 
+   switch (config.blurEffect) {
+     case RNSBlurEffectStyleNone:
+-      appearance.backgroundEffect = nil;
++      // OneKey: on iOS 26+ with no caller-supplied backgroundColor, preserve the system
++      // Liquid Glass effect installed by configureWithDefaultBackground above. Clearing
++      // backgroundEffect here would defeat the whole point of opting in.
++      if (@available(iOS 26.0, *)) {
++        if (config.backgroundColor != nil) {
++          appearance.backgroundEffect = nil;
++        }
++      } else {
++        appearance.backgroundEffect = nil;
++      }
+       break;
+ 
+     case RNSBlurEffectStyleSystemDefault:
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
+index b1c43b7..8678802 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
+@@ -12,4 +12,5 @@
+ @interface RNSScrollEdgeEffectApplicator : NSObject
+ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
+              withProvider:(nonnull id<RNSScrollEdgeEffectProviding>)provider;
+++ (void)resetScrollView:(nonnull UIScrollView *)scrollView;
+ @end
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
+index c0fb133..90d75f8 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
+@@ -20,6 +20,22 @@ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
+ #endif
+ }
+ 
+++ (void)resetScrollView:(UIScrollView *)scrollView
++{
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26, *)) {
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.bottomEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.leftEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.rightEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.topEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++  }
++#endif
++}
++
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
+ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+                withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
+@@ -27,20 +43,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+   if (@available(iOS 26, *)) {
+     switch (effectEnum) {
+       case RNSScrollEdgeEffectAutomatic:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.automaticStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectHard:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.hardStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.hardStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.hardStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectSoft:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.softStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.softStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.softStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectHidden:
+-        edgeEffect.hidden = true;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        if (!edgeEffect.hidden) {
++          edgeEffect.hidden = true;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.automaticStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        }
+         break;
+       default:
+         RCTLogError(@"[RNScreens] unsupported edge effect");
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
+index 04d40b3..1cbeecf 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
+@@ -25,4 +25,11 @@
+  */
+ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullable UIView *)view;
+ 
++/**
++ * Searches the complete subtree for the content ScrollView. Explicit content providers take precedence; otherwise
++ * the ScrollView with the largest intersection with the root view is returned. Nested screens and header
++ * configuration views are excluded.
++ */
+++ (nullable UIScrollView *)findBestScrollViewInSubtreeOf:(nullable UIView *)view;
++
+ @end
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
+index 2434c61..e24018e 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
+@@ -1,4 +1,26 @@
+ #import "RNSScrollViewFinder.h"
++#import "RNSScreen.h"
++#import "RNSScreenStackHeaderConfig.h"
++
++static CGFloat RNSScrollViewVisibleAreaWithinRoot(UIScrollView *scrollView, UIView *rootView)
++{
++  CGRect frameInRoot = [scrollView convertRect:scrollView.bounds toView:rootView];
++  CGRect intersection = CGRectIntersection(rootView.bounds, frameInRoot);
++
++  if (!CGRectIsNull(intersection) && !CGRectIsInfinite(intersection)) {
++    CGFloat area = CGRectGetWidth(intersection) * CGRectGetHeight(intersection);
++    if (area > 0) {
++      return area;
++    }
++  }
++
++  return 0;
++}
++
++static CGFloat RNSScrollViewBoundsArea(UIScrollView *scrollView)
++{
++  return CGRectGetWidth(scrollView.bounds) * CGRectGetHeight(scrollView.bounds);
++}
+ 
+ @implementation RNSScrollViewFinder
+ 
+@@ -41,4 +63,53 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
+   return nil;
+ }
+ 
+++ (nullable UIScrollView *)findBestScrollViewInSubtreeOf:(nullable UIView *)view
++{
++  if (view == nil) {
++    return nil;
++  }
++
++  NSMutableArray<UIView *> *stack = [NSMutableArray arrayWithObject:view];
++  UIScrollView *bestScrollView = nil;
++  CGFloat bestVisibleArea = -1;
++  CGFloat bestBoundsArea = -1;
++
++  while (stack.count > 0) {
++    UIView *currentView = stack.lastObject;
++    [stack removeLastObject];
++
++    if (currentView != view && [currentView respondsToSelector:@selector(findContentScrollView)]) {
++      UIScrollView *providedScrollView =
++          [static_cast<id<RNSContentScrollViewProviding>>(currentView) findContentScrollView];
++      if (providedScrollView != nil) {
++        return providedScrollView;
++      }
++    }
++
++    if ([currentView isKindOfClass:UIScrollView.class]) {
++      UIScrollView *candidate = static_cast<UIScrollView *>(currentView);
++      CGFloat candidateVisibleArea = RNSScrollViewVisibleAreaWithinRoot(candidate, view);
++      CGFloat candidateBoundsArea = RNSScrollViewBoundsArea(candidate);
++      if (candidateVisibleArea > bestVisibleArea ||
++          (candidateVisibleArea == bestVisibleArea && candidateBoundsArea > bestBoundsArea)) {
++        bestScrollView = candidate;
++        bestVisibleArea = candidateVisibleArea;
++        bestBoundsArea = candidateBoundsArea;
++      }
++      continue;
++    }
++
++    // Push in reverse so equal-sized candidates preserve document order.
++    for (UIView *subview in [currentView.subviews reverseObjectEnumerator]) {
++      if ([subview isKindOfClass:RNSScreenView.class] ||
++          [subview isKindOfClass:RNSScreenStackHeaderConfig.class]) {
++        continue;
++      }
++      [stack addObject:subview];
++    }
++  }
++
++  return bestScrollView;
++}
++
+ @end

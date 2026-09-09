@@ -71,3 +71,10 @@ export const PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS =
   timerUtils.getTimeDurationMs({
     seconds: 15,
   });
+
+// Serving a stale snapshot while a background refresh runs keeps account
+// switches from blocking on the network; beyond this age show loading instead.
+export const PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS =
+  timerUtils.getTimeDurationMs({
+    hour: 24,
+  });

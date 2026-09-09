@@ -5,7 +5,6 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,29 +18,22 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
+import {
+  getNetworkIdByShareName,
+  getShareNameByNetworkId,
+  getShareNetworkParam,
+} from './utils/earnShareNetworkUtils';
+
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
+
+export { parseFormattedLiquidityValue } from './utils/availableAssetsUtils';
 
 type IEarnHomeParams = NonNullable<ITabEarnParamList[ETabEarnRoutes.EarnHome]>;
 type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
 
 const DEFAULT_EARN_HOME_TAB: IEarnHomeTab = 'assets';
 const EARN_HOME_TABS = new Set<IEarnHomeTab>(['assets', 'portfolio', 'faqs']);
-
-const NetworkNameToIdMap: Record<string, string> = {
-  ethereum: getNetworkIdsMap().eth,
-  btc: getNetworkIdsMap().btc,
-  sui: getNetworkIdsMap().sui,
-  solana: getNetworkIdsMap().sol,
-  aptos: getNetworkIdsMap().apt,
-  cosmos: getNetworkIdsMap().cosmoshub,
-  sbtc: getNetworkIdsMap().sbtc,
-  bsc: getNetworkIdsMap().bsc,
-  base: getNetworkIdsMap().base,
-};
-
-const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
-  Object.entries(NetworkNameToIdMap).map(([name, id]) => [id, name]),
-);
 
 function getEarnTargetTab() {
   return platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Earn;
@@ -128,48 +120,14 @@ function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
 
 export const EarnNetworkUtils = {
   // convert network name to network id
-  getNetworkIdByName(networkName: string): string | undefined {
-    return NetworkNameToIdMap[networkName.toLowerCase()];
-  },
+  getNetworkIdByName: getNetworkIdByShareName,
 
   // convert network id to network name
-  getNetworkNameById(networkId: string): string | undefined {
-    return NetworkIdToNameMap[networkId];
-  },
+  getNetworkNameById: getShareNameByNetworkId,
 
   // generate share link network param
-  getShareNetworkParam(networkId: string): string {
-    return this.getNetworkNameById(networkId) || 'unknown';
-  },
+  getShareNetworkParam,
 };
-
-const liquidityUnitMultiplierMap: Record<string, number> = {
-  k: 10 ** 3,
-  m: 10 ** 6,
-  b: 10 ** 9,
-  t: 10 ** 12,
-};
-
-export function parseFormattedLiquidityValue(value?: string): number {
-  if (!value) {
-    return 0;
-  }
-
-  const match = value.replace(/,/g, '').match(/(-?\d+(?:\.\d+)?)([kmbt])?/i);
-  if (!match) {
-    return 0;
-  }
-
-  const parsedValue = Number(match[1]);
-  if (!Number.isFinite(parsedValue)) {
-    return 0;
-  }
-
-  const unit = match[2]?.toLowerCase();
-  const multiplier = unit ? (liquidityUnitMultiplierMap[unit] ?? 1) : 1;
-
-  return parsedValue * multiplier;
-}
 
 export async function safePushToEarnRoute(
   navigation: IAppNavigation,
@@ -178,6 +136,11 @@ export async function safePushToEarnRoute(
 ) {
   const shouldSwitchToEarnMode =
     route === ETabEarnRoutes.EarnHome ||
+    route === ETabEarnRoutes.EarnPositions ||
+    route === ETabEarnRoutes.EarnTokens ||
+    route === ETabEarnRoutes.EarnFixedRateTokens ||
+    route === ETabEarnRoutes.EarnAllProtocols ||
+    route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
     route === ETabEarnRoutes.EarnProtocolDetailsShare;
@@ -232,12 +195,17 @@ export async function safePushToEarnRoute(
       // tab bar to drop the selectedPage update.
       const { topRoute, tabState } = preQueryState;
 
-      // Prevent route stack accumulation when navigating between earn
-      // pages repeatedly (e.g. search → detail → positions → search).
-      // Pop to the base route first so the stack never grows beyond
-      // depth 2 (base + one earn page). Without this, 2-3 cycles
-      // cause iOS to freeze (OK-51746).
-      if (tabState && tabState.routes.length > 1 && topRoute?.name !== route) {
+      // Preserve valid parent-child paths so Back returns to the immediate
+      // source page, while resetting sibling transitions to keep the native
+      // stack bounded and retain the OK-51746 freeze protection.
+      if (
+        tabState &&
+        shouldResetEarnRouteStackBeforePush({
+          routeCount: tabState.routes.length,
+          currentRoute: topRoute?.name,
+          targetRoute: route,
+        })
+      ) {
         dispatchToTargetStack({
           action: StackActions.popToTop(),
           rootNavigation,
@@ -295,11 +263,15 @@ export async function safePushToEarnRoute(
   const topRoute = targetStack?.topRoute;
 
   if (targetKey) {
-    // Prevent route stack accumulation (OK-51746)
+    // Preserve valid parent-child paths while preventing sibling route
+    // accumulation (OK-51746).
     if (
       targetStack?.tabState &&
-      targetStack.tabState.routes.length > 1 &&
-      topRoute?.name !== route
+      shouldResetEarnRouteStackBeforePush({
+        routeCount: targetStack.tabState.routes.length,
+        currentRoute: topRoute?.name,
+        targetRoute: route,
+      })
     ) {
       dispatchToTargetStack({
         action: StackActions.popToTop(),
@@ -349,6 +321,10 @@ export async function safePushToEarnRoute(
 }
 
 export const EarnNavigation = {
+  pushToEarnPositions(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPositions);
+  },
+
   // navigate from deep link (compatible with old format)
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
@@ -521,6 +497,33 @@ export const EarnNavigation = {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
   },
 
+  // Tokens home (OK-58505/OK-58562/OK-58508)
+  pushToEarnTokens(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnTokens);
+  },
+
+  // Fixed-rate list (OK-58879)
+  pushToEarnFixedRateTokens(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnFixedRateTokens);
+  },
+
+  // Protocols home (OK-58505/OK-58562)
+  pushToEarnAllProtocols(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnAllProtocols);
+  },
+
+  // Tokens list of a single protocol (OK-58505)
+  pushToEarnProtocolTokens(
+    navigation: IAppNavigation,
+    params: { provider: string; providerName?: string; logoURI?: string },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnProtocolTokens,
+      params,
+    );
+  },
+
   async pushToEarnProtocolDetails(
     navigation: IAppNavigation,
     params: {
@@ -528,6 +531,7 @@ export const EarnNavigation = {
       symbol: string;
       provider: string;
       vault?: string;
+      logoURI?: string;
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
@@ -535,6 +539,7 @@ export const EarnNavigation = {
       symbol: params.symbol,
       provider: params.provider,
       vault: params.vault,
+      logoURI: params.logoURI,
     });
   },
 

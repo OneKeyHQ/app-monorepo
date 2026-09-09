@@ -7,6 +7,10 @@ import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { safePushToEarnRoute } from '../../views/Earn/earnUtils';
+import {
+  openExtensionEarnHomeInExpandTab,
+  shouldOpenEarnHomeInExtensionExpandTab,
+} from '../../views/Earn/openExtensionEarnHomeInExpandTab';
 
 function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
@@ -26,6 +30,10 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
             if (tableLayout) {
               navigation.switchTab(ETabRoutes.Earn);
             } else {
+              if (shouldOpenEarnHomeInExtensionExpandTab) {
+                void openExtensionEarnHomeInExpandTab();
+                return;
+              }
               void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHome);
             }
           }}

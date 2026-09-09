@@ -329,7 +329,7 @@ function WebViewPageContent() {
   const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
     const targetUrl = event?.nativeEvent?.targetUrl;
     if (!isAllowedWebViewUrl(targetUrl)) return;
-    openUrlExternal(targetUrl);
+    openUrlExternal(targetUrl, { useSystemBrowser: true });
   }, []);
 
   // External entries (deeplink / notification) cannot suppress the header,

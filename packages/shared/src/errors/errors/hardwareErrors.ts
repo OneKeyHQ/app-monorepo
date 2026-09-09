@@ -7,6 +7,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
+import { shouldEmitDeviceNotFoundDialogEvent } from '../../hardware/deviceStageOwnership';
 import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import {
@@ -291,6 +292,7 @@ export class DeviceMethodCallTimeout extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceMethodCallTimeout',
+        defaultKey: ETranslations.global_connection_failed_help_text,
       }),
     );
   }
@@ -346,9 +348,20 @@ export class DeviceBondError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.feedback_bluetooth_pairing_failed,
+        defaultKey: ETranslations.bluetooth_pairing_invalid__desc,
+        defaultAutoToast: false,
       }),
     );
+
+    if (!props?.silentMode) {
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
+        errorMessage:
+          props?.payload?.message || props?.message || 'DeviceBondError',
+        payload: props?.payload,
+      });
+    }
   }
 
   override code = HardwareErrorCode.BleDeviceBondError;
@@ -445,6 +458,33 @@ export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
+}
+
+export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BluetoothUnavailableWhileUsbConnectedError',
+        defaultKey:
+          ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleUnavailableWhileUsbConnected;
+}
+
+export class DeviceLockedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceLockedError',
+        defaultKey: ETranslations.hardware_third_party_device_locked,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceLocked;
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
@@ -747,8 +787,14 @@ export class DeviceNotFound extends OneKeyHardwareError {
       }),
     );
 
-    // Only trigger UI event if not in silent mode
-    if (!props?.silentMode) {
+    // Silent mode aside, the emit also stands down while a DeviceStage
+    // burst is active: the stage lands this failure itself (its
+    // deviceNotFound outcome), and an at-initiation failure fires here
+    // before the stage has painted — the UI-side gate alone would let the
+    // legacy dialog and the stage card double up (OK-59934).
+    if (
+      shouldEmitDeviceNotFoundDialogEvent({ silentMode: props?.silentMode })
+    ) {
       // Trigger global event to show hardware error dialog
       // This is a generic event that can be reused by other hardware errors
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
@@ -847,6 +893,23 @@ export class FileAlreadyExistError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.FileAlreadyExists;
+}
+
+// Keep this value aligned with hd-shared until the App upgrades to the SDK release that exports it.
+export const PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE = 832;
+
+export class NftStorageLimitReachedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'NFT storage limit reached. Remove an NFT from the device and try again.',
+        defaultKey: ETranslations.nft_storage_limit_reached__msg,
+      }),
+    );
+  }
+
+  override code = PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE;
 }
 
 export class IncompleteFileError extends OneKeyHardwareError {
@@ -974,6 +1037,8 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
       }),
     );
   }
+
+  override code = HardwareErrorCode.FirmwareVerificationFailed;
 }
 
 export class CosmosInvalidJsonMessage extends OneKeyHardwareError {
@@ -1057,6 +1122,10 @@ export class UnknownHardwareError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          // Keep the raw payload so downstream UI can reach connectId/deviceId.
+          // Not `message`: setting it skips the i18n branch and drops the
+          // translated wallet_action_failed guidance.
+          payload: props?.payload,
           info: { 'message': message },
         },
         {
@@ -1068,6 +1137,8 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       ),
     );
   }
+
+  override code = ECustomOneKeyHardwareError.UnknownHardwareError;
 }
 
 // TODO

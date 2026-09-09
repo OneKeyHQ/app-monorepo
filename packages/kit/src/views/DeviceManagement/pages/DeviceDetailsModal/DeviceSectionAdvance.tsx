@@ -58,7 +58,7 @@ function DeviceSectionAdvancePassphrase() {
       })}
       titleProps={{ size: '$bodyMdMedium', color: '$text' }}
       justifyContent="center"
-      value={passphraseEnabled}
+      value={passphraseEnabled ?? false}
       onAction={onPressPassphrase}
     >
       {({ value, disabled, onChange }) => (
@@ -97,8 +97,9 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
       })}
       titleProps={{ size: '$bodyMdMedium', color: '$text' }}
       justifyContent="center"
-      value={inputPinOnSoftwareEnabled}
+      value={inputPinOnSoftwareEnabled ?? false}
       onAction={actions.updateInputPinOnSoftware}
+      disabled={inputPinOnSoftwareEnabled === undefined}
     >
       {({ value, disabled, onChange }) => (
         <Switch

@@ -1,20 +1,8 @@
+import type { IMarketWsPriceData } from '@onekeyhq/shared/types/marketV2';
+
 import type { EMessageType } from './messageType';
 
-export interface IWsPriceData {
-  o: number; // open price
-  h: number; // high price
-  l: number; // low price
-  c: number; // close price
-  eventType: 'ohlcv';
-  type: string; // time interval like '1m', '5m', '1h', etc.
-  unixTime: number;
-  v: number; // volume
-  symbol: string;
-  address: string;
-  volUsd?: number;
-  confirm?: number;
-  dataSource?: string;
-}
+export type IWsPriceData = IMarketWsPriceData;
 
 export interface IWsPriceDataMessage {
   type: EMessageType.PRICE_DATA;

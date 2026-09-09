@@ -34,6 +34,7 @@ import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
+import { stashRequestAuthTokenOfError } from './requestAuthTokenErrorStash';
 import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
@@ -42,6 +43,10 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
+
+// Keep in sync with ONEKEY_REQUEST_TOKEN_HEADER in kit-bg ServiceBase
+// (shared must not import from kit-bg).
+const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
 
 type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   $oneKeyNetworkThrottleTiming?: {
@@ -102,27 +107,6 @@ function normalizeDesktopNetworkThrottleTimingConfig(config: {
   };
 }
 
-async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
-  if (!platformEnv.isNative) {
-    return true;
-  }
-
-  const enabled = await getPersistedNativeNetworkThrottleEnabled();
-  const isStableStorageState =
-    !nativeNetworkThrottleSyncStorageHydrationTimedOut;
-  if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
-    return isStableStorageState;
-  }
-
-  await nativeNetworkThrottle.setNetworkThrottle({
-    enabled,
-    profile: 'slow4g',
-    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-  });
-  lastSyncedNativeNetworkThrottleEnabled = enabled;
-  return isStableStorageState;
-}
-
 function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
   const devModeEnabled = devSettingSyncStorage.getBoolean(
     EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
@@ -167,6 +151,27 @@ async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
   }
   nativeNetworkThrottleSyncStorageHydrationTimedOut = true;
   return false;
+}
+
+async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
+  if (!platformEnv.isNative) {
+    return true;
+  }
+
+  const enabled = await getPersistedNativeNetworkThrottleEnabled();
+  const isStableStorageState =
+    !nativeNetworkThrottleSyncStorageHydrationTimedOut;
+  if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
+    return isStableStorageState;
+  }
+
+  await nativeNetworkThrottle.setNetworkThrottle({
+    enabled,
+    profile: 'slow4g',
+    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+  });
+  lastSyncedNativeNetworkThrottleEnabled = enabled;
+  return isStableStorageState;
 }
 
 async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
@@ -383,7 +388,7 @@ axios.interceptors.response.use(
         autoToast = false;
       }
 
-      throw new OneKeyServerApiError({
+      const serverApiError = new OneKeyServerApiError({
         autoToast,
         disableFallbackMessage: true,
         message:
@@ -398,6 +403,27 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
+      // Stash ONLY the request's auth token so later response interceptors
+      // (e.g. the prime invalid-token handler in ServiceBase) can compare it
+      // against the currently active one before clearing the session.
+      // Deliberately NOT the whole axios config: the full config carries the
+      // request body and every header. And deliberately NOT written onto the
+      // error object itself: the error escapes to arbitrary catch blocks and
+      // `console.error(e)` / error-collection contexts, which must never
+      // capture a still-usable bearer token — the module-private WeakMap
+      // stash stays invisible to any serialization of the error.
+      const requestHeaders = config.headers;
+      const requestAuthToken =
+        requestHeaders?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
+      if (requestAuthToken) {
+        stashRequestAuthTokenOfError({
+          error: serverApiError,
+          requestAuthToken: String(requestAuthToken),
+        });
+      }
+      throw serverApiError;
     }
     if (isEnableLogNetwork(config.url)) {
       defaultLogger.app.network.end({

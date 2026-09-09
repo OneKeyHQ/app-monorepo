@@ -1,3 +1,5 @@
+import type { GenericAbortSignal } from 'axios';
+
 // ==================== Existing IP Table Config (Backward Compatible) ====================
 
 /**
@@ -50,7 +52,73 @@ export interface IIpTableRuntime {
   selections: {
     [domain: string]: string; // Currently selected IP for each domain
   };
+  /**
+   * Best IP measured by the most recent speed test per domain, recorded even
+   * when the final selection chose the domain. Used for fast failover when
+   * the direct domain starts failing real traffic.
+   */
+  lastBestIp?: {
+    [domain: string]: string;
+  };
+  /** Provenance of the last successfully verified CDN config */
+  lastVerified?: {
+    at: number;
+    version: number;
+    generatedAt: string;
+    /** FNV-1a correlation hash of the canonical signed payload (not a security hash) */
+    payloadHash: string;
+  };
 }
+
+// ==================== Endpoint Decision (pure selection logic) ====================
+
+export interface IIpTableEndpointDecisionInput {
+  /** Average latency of direct-domain probe; Infinity = all probes failed */
+  domainLatency: number;
+  /** ip -> average latency; Infinity = that ip failed all probes */
+  ipLatencies: Record<string, number>;
+  /** undefined = never selected; '' = domain selected; other = selected ip */
+  currentSelection: string | undefined;
+  /** true when real traffic on direct domain hit the failover threshold */
+  domainFailingRealTraffic: boolean;
+  strictMode: boolean;
+  /** e.g. 0.3 — candidate must be 30% faster to displace current endpoint */
+  improvementThreshold: number;
+}
+
+export type IIpTableEndpointDecision =
+  | {
+      action: 'select_ip';
+      ip: string;
+      reason:
+        | 'strict'
+        | 'domain_probe_failed'
+        | 'domain_failing'
+        | 'faster'
+        | 'sticky';
+    }
+  | {
+      action: 'select_domain';
+      reason: 'all_ip_failed' | 'competitive' | 'sticky' | 'faster';
+    }
+  | { action: 'no_change'; reason: 'all_failed' };
+
+// ==================== Signature Verification (structured result) ====================
+
+export type IIpTableSignatureVerifyFailureReason =
+  | 'missing_signature'
+  | 'verifier_load_failed'
+  | 'malformed_signature'
+  | 'signer_mismatch'
+  | 'unexpected_error';
+
+export type IIpTableSignatureVerifyResult =
+  | { ok: true; recoveredAddress: string }
+  | {
+      ok: false;
+      reason: IIpTableSignatureVerifyFailureReason;
+      errorMessage?: string;
+    };
 
 /**
  * IP Table configuration with runtime state
@@ -76,6 +144,60 @@ export interface ISniRequestConfig {
   body: string | null;
   timeout: number;
   port?: number;
+}
+
+/**
+ * Local-only SNI request options. These values must not cross a native or IPC
+ * bridge; platform adapters translate them into transport cancellation calls.
+ */
+export interface ISniRequestOptions {
+  signal?: GenericAbortSignal;
+  /**
+   * Diagnostics-only observation of the transport cancellation call. The
+   * request promise still rejects immediately when the signal is aborted.
+   */
+  onCancelSettled?: (
+    result: ISniRequestCancelSettledResult,
+  ) => void | PromiseLike<void>;
+  /**
+   * Diagnostics-only observation of the unwrapped transport promise. This is
+   * distinct from the request promise, which rejects immediately on abort.
+   */
+  onTransportSettled?: (
+    result: ISniRequestTransportSettledResult,
+  ) => void | PromiseLike<void>;
+}
+
+export type ISniRequestCancelSettledResult =
+  | {
+      requestId: string;
+      status: 'fulfilled';
+      success: boolean;
+    }
+  | {
+      requestId: string;
+      status: 'rejected';
+      error: unknown;
+    };
+
+export type ISniRequestTransportSettledResult =
+  | {
+      requestId: string;
+      status: 'fulfilled';
+    }
+  | {
+      requestId: string;
+      status: 'rejected';
+      error: unknown;
+    };
+
+export interface ISniRequestDebugSnapshot {
+  activeRequests: number;
+  activeRequestsForPair: number;
+  activeRequestIdsForPair?: string[];
+  pendingRequests: number;
+  pendingRequestsForPair: number;
+  pendingRequestIdsForPair?: string[];
 }
 
 /**

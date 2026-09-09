@@ -22,6 +22,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EBulkSendTxStatus,
   type IBulkSendTxStatus,
@@ -69,10 +70,25 @@ function BulkSendProcessItem(props: IProps) {
     [transferInfo.to],
   );
 
+  // Scaled-UI (rebase) tokens: transfers reaching this page carry raw
+  // amounts with the snapshot multiplier stamped on tokenInfo at submit;
+  // re-derive the display amount for rendering and fiat (price is per
+  // display unit). Passthrough for ordinary tokens.
+  const displayAmount = useMemo(
+    () =>
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: transferInfo.amount,
+        balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(
+          transferInfo.tokenInfo,
+        ),
+      }) ?? transferInfo.amount,
+    [transferInfo.amount, transferInfo.tokenInfo],
+  );
+
   const fiatAmount = useMemo(() => {
-    if (!tokenPrice || !transferInfo.amount) return undefined;
-    return new BigNumber(transferInfo.amount).times(tokenPrice).toFixed(2);
-  }, [tokenPrice, transferInfo.amount]);
+    if (!tokenPrice || !displayAmount) return undefined;
+    return new BigNumber(displayAmount).times(tokenPrice).toFixed(2);
+  }, [tokenPrice, displayAmount]);
 
   const renderStatusIcon = useCallback(() => {
     switch (status.status) {
@@ -273,7 +289,7 @@ function BulkSendProcessItem(props: IProps) {
             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
             numberOfLines={1}
           >
-            {transferInfo.amount || '0'}
+            {displayAmount || '0'}
           </NumberSizeableText>
           {fiatAmount ? (
             <SizableText size="$bodyMd" color="$textSubdued">

@@ -13,6 +13,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { format } from 'oxfmt';
+
 // Populate the registry
 import '../src/schemas/register-all';
 import { getSchemaRegistry } from '../src/schemas/registry';
@@ -253,6 +255,28 @@ function generate(): string {
 }
 
 const outPath = path.resolve(__dirname, '..', 'cli-api.d.ts');
-const content = generate();
-fs.writeFileSync(outPath, content, 'utf-8');
-console.log(`Generated ${outPath} (${content.split('\n').length} lines)`);
+
+async function writeGeneratedTypes(): Promise<void> {
+  const content = generate();
+  const { code, errors } = await format(outPath, content, {
+    printWidth: 80,
+    quoteProps: 'preserve',
+    singleQuote: true,
+    trailingComma: 'all',
+  });
+  if (errors.length > 0) {
+    throw new TypeError(
+      `Oxfmt failed for ${outPath}: ${errors
+        .map((error) => error.message)
+        .join(', ')}`,
+    );
+  }
+
+  fs.writeFileSync(outPath, code, 'utf-8');
+  console.log(`Generated ${outPath} (${code.split('\n').length} lines)`);
+}
+
+void writeGeneratedTypes().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

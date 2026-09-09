@@ -4,6 +4,35 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class PageScene extends BaseScene {
+  // OK-59196: first-trade risk disclaimer tracking
+  @LogToServer()
+  @LogToLocal()
+  public earnRiskDisclaimerAgree({
+    stakingProtocol,
+    tokenSymbol,
+    networkId,
+  }: {
+    stakingProtocol: string;
+    tokenSymbol: string;
+    networkId?: string;
+  }) {
+    return { stakingProtocol, tokenSymbol, networkId };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public earnRiskDisclaimerReject({
+    stakingProtocol,
+    tokenSymbol,
+    networkId,
+  }: {
+    stakingProtocol: string;
+    tokenSymbol: string;
+    networkId?: string;
+  }) {
+    return { stakingProtocol, tokenSymbol, networkId };
+  }
+
   @LogToServer()
   @LogToLocal()
   public staking({

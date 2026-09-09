@@ -36,7 +36,8 @@ export type ICloudKitAccountStatusName =
   | 'couldNotDetermine' /* 0 */
   | 'available' /* 1 */
   | 'restricted' /* 2 */
-  | 'noAccount' /* 3 */;
+  // CKContainer.AccountStatus.noAccount = 3
+  | 'noAccount';
 
 export interface IAppleCloudKitAccountInfo {
   status: number; // CKContainer.AccountStatus raw value

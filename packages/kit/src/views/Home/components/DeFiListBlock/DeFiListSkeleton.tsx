@@ -38,8 +38,9 @@ function DesktopProtocolSkeleton({ rows }: { rows: number }) {
         <Skeleton height={20} width={108} radius={4} />
       </XStack>
       <YStack pt="$3" pb="$3" gap="$3">
-        {/* Category badge — Badge "lg" sits at ~22 × 72 px in this layout. */}
-        <Skeleton height={22} width={72} radius={11} ml="$5" />
+        {/* Category badge — Badge "sm" sits at ~20 px tall with $1 (4px)
+            corner radius in this layout. */}
+        <Skeleton height={20} width={56} radius={4} ml="$5" />
         {Array.from({ length: rows }).map((_, i) => (
           <XStack
             // eslint-disable-next-line react/no-array-index-key

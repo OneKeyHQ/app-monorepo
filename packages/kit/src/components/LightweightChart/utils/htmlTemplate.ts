@@ -21,10 +21,85 @@ function getChartInitScript(): string {
             return numberPriceFormatter(price, nextConfig);
           };
         }
-        return pctPriceFormatter;
+        return function(price) {
+          return pctPriceFormatter(price, nextConfig);
+        };
       }
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
+      }
+      function getPriceScalePosition(nextConfig) {
+        return nextConfig.priceScalePosition === 'left' ? 'left' : 'right';
+      }
+      function getPriceScaleOptions(nextConfig, position) {
+        if (getPriceScalePosition(nextConfig) !== position) {
+          return { visible: false };
+        }
+        return Object.assign(
+          {
+            visible: Boolean(nextConfig.showPriceScale),
+            borderVisible: false,
+            entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
+          },
+          nextConfig.priceScaleMargins
+            ? { scaleMargins: nextConfig.priceScaleMargins }
+            : {}
+        );
+      }
+      var timeScaleFormatterCache = new Map();
+      function getTimeScaleFormatOptions(tickMarkType) {
+        if (tickMarkType === 0) return { year: 'numeric' };
+        if (tickMarkType === 1) return { month: 'short' };
+        if (tickMarkType === 2) return { day: 'numeric' };
+        if (tickMarkType === 3) {
+          return { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+        }
+        if (tickMarkType === 4) {
+          return {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+          };
+        }
+        return { month: 'short', day: 'numeric' };
+      }
+      function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
+        var date = new Date(time * 1000);
+        var formatterKey = [
+          nextConfig.locale || '',
+          nextConfig.timeZone,
+          tickMarkType,
+        ].join('|');
+        var formatter = timeScaleFormatterCache.get(formatterKey);
+        if (!formatter) {
+          formatter = new Intl.DateTimeFormat(
+            nextConfig.locale || undefined,
+            Object.assign(
+              { timeZone: nextConfig.timeZone },
+              getTimeScaleFormatOptions(tickMarkType)
+            )
+          );
+          timeScaleFormatterCache.set(formatterKey, formatter);
+        }
+        return formatter.format(date);
+      }
+      function getTimeScaleOptions(nextConfig) {
+        var options = {
+          visible: nextConfig.showTimeScale !== false,
+          borderVisible: false,
+          timeVisible: true,
+          secondsVisible: false,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          lockVisibleTimeRangeOnResize: true,
+        };
+        if (nextConfig.timeZone) {
+          options.tickMarkFormatter = function(time, tickMarkType) {
+            return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
+          };
+        }
+        return options;
       }
       function getChartOptions(nextConfig) {
         return {
@@ -44,30 +119,15 @@ function getChartInitScript(): string {
                 }
               : { visible: false },
           },
-          timeScale: {
-            visible: nextConfig.showTimeScale !== false,
-            borderVisible: false,
-            timeVisible: true,
-            secondsVisible: false,
-            fixLeftEdge: true,
-            fixRightEdge: true,
-            lockVisibleTimeRangeOnResize: true,
-          },
-          rightPriceScale: Object.assign(
-            {
-              visible: Boolean(nextConfig.showPriceScale),
-              borderVisible: false,
-              entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
-            },
-            nextConfig.priceScaleMargins
-              ? { scaleMargins: nextConfig.priceScaleMargins }
-              : {}
-          ),
+          timeScale: getTimeScaleOptions(nextConfig),
+          rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
+          leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
       }
       function getPrimarySeriesType(nextConfig) {
         if (nextConfig.seriesType === 'baseline') return 'baseline';
         if (nextConfig.seriesType === 'dotted-area') return 'dotted-area';
+        if (nextConfig.seriesType === 'histogram') return 'histogram';
         return 'area';
       }
       function createDottedAreaSeriesPaneView() {
@@ -188,17 +248,125 @@ function getChartInitScript(): string {
       function getDottedAreaSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
+        var patternColor = nextConfig.patternColor || nextConfig.theme.lineColor;
         return {
           color: nextConfig.theme.lineColor,
           lineColor: nextConfig.theme.lineColor,
           lineWidth: getNormalizedLineWidth(nextConfig.lineWidth, 3),
-          patternColor: nextConfig.theme.lineColor,
+          patternColor: patternColor,
           patternOpacity: 0.28,
           patternRadius: 0.9,
           patternSpacing: 10,
           showLastPointMarker: nextConfig.showLastPointMarker !== false,
-          lastPointMarkerColor: nextConfig.theme.lineColor,
+          lastPointMarkerColor: patternColor,
           lastPointMarkerRadius: 5.5,
+          priceScaleId: getPriceScalePosition(nextConfig),
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        };
+      }
+      function createHistogramSeriesPaneView() {
+        var defaultOptions = Object.assign(
+          {},
+          LightweightCharts.customSeriesDefaultOptions || {},
+          {
+            color: '#22AB15',
+            base: 0,
+            barWidthRatio: 0.52,
+            maxBarWidth: 24,
+            baseLineVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+          }
+        );
+        var renderer = {
+          data: null,
+          options: defaultOptions,
+          update: function(data, options) {
+            this.data = data;
+            this.options = options || defaultOptions;
+          },
+          draw: function(target, priceConverter) {
+            if (!this.data || !this.data.bars || !this.data.bars.length) return;
+            var options = this.options || defaultOptions;
+            var baseY = priceConverter(options.base);
+            if (baseY === null || baseY === undefined) return;
+            var barSpacing = this.data.barSpacing * Math.max(1, this.data.conflationFactor || 1);
+            var barWidthRatio = Math.min(1, Math.max(0.1, options.barWidthRatio));
+            var maxBarWidth = Math.max(1, options.maxBarWidth);
+            var bars = this.data.bars;
+            target.useBitmapCoordinateSpace(function(scope) {
+              var ctx = scope.context;
+              var horizontalRatio = scope.horizontalPixelRatio;
+              var verticalRatio = scope.verticalPixelRatio;
+              var barWidth = Math.max(
+                1,
+                Math.round(Math.min(maxBarWidth, barSpacing * barWidthRatio) * horizontalRatio)
+              );
+              var baseYInPixels = baseY * verticalRatio;
+              bars.forEach(function(bar) {
+                var value = bar.originalData.value;
+                if (!Number.isFinite(value) || value === options.base) return;
+                var valueY = priceConverter(value);
+                if (valueY === null || valueY === undefined) return;
+                var valueYInPixels = valueY * verticalRatio;
+                var top = Math.min(valueYInPixels, baseYInPixels);
+                var bottom = Math.max(valueYInPixels, baseYInPixels);
+                var centerX = bar.x * horizontalRatio;
+                var left = Math.round(centerX - barWidth / 2);
+                var topPixel = Math.round(top);
+                var bottomPixel = Math.round(bottom);
+                ctx.fillStyle = bar.barColor || options.color;
+                ctx.fillRect(
+                  left,
+                  topPixel,
+                  barWidth,
+                  Math.max(1, bottomPixel - topPixel)
+                );
+              });
+            });
+          },
+        };
+        return {
+          renderer: function() { return renderer; },
+          update: function(data, seriesOptions) { renderer.update(data, seriesOptions); },
+          priceValueBuilder: function(plotRow) {
+            return [renderer.options.base, plotRow.value, plotRow.value];
+          },
+          isWhitespace: function(data) {
+            return !data || typeof data.value !== 'number' || !Number.isFinite(data.value);
+          },
+          defaultOptions: function() { return defaultOptions; },
+        };
+      }
+      function getLineType(nextConfig) {
+        return nextConfig.lineType === 'steps'
+          ? LightweightCharts.LineType.WithSteps
+          : LightweightCharts.LineType.Simple;
+      }
+      function getReferenceLineStyle(lineStyle) {
+        if (lineStyle === 'dotted') return LightweightCharts.LineStyle.Dotted;
+        if (lineStyle === 'dashed') return LightweightCharts.LineStyle.Dashed;
+        if (lineStyle === 'large-dashed') return LightweightCharts.LineStyle.LargeDashed;
+        if (lineStyle === 'sparse-dotted') return LightweightCharts.LineStyle.SparseDotted;
+        return LightweightCharts.LineStyle.Solid;
+      }
+      function getHistogramSeriesOptions(nextConfig) {
+        var priceFormatter = getPriceFormatter(nextConfig);
+        var showLast = Boolean(nextConfig.showLastValue);
+        var histogramOptions = nextConfig.histogramOptions || {};
+        return {
+          priceScaleId: getPriceScalePosition(nextConfig),
+          base: Number.isFinite(histogramOptions.base) ? histogramOptions.base : 0,
+          color: histogramOptions.positiveColor || nextConfig.theme.lineColor,
+          barWidthRatio: Number.isFinite(histogramOptions.barWidthRatio)
+            ? histogramOptions.barWidthRatio
+            : 0.52,
+          maxBarWidth: Number.isFinite(histogramOptions.maxBarWidth)
+            ? histogramOptions.maxBarWidth
+            : 24,
+          baseLineVisible: false,
           lastValueVisible: showLast,
           priceLineVisible: showLast,
           priceFormat: { type: 'custom', formatter: priceFormatter },
@@ -216,6 +384,8 @@ function getChartInitScript(): string {
         }
         if (getPrimarySeriesType(nextConfig) === 'baseline') {
           return chart.addSeries(LightweightCharts.BaselineSeries, Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -223,7 +393,14 @@ function getChartInitScript(): string {
             priceFormat: { type: 'custom', formatter: priceFormatter },
           }));
         }
+        if (getPrimarySeriesType(nextConfig) === 'histogram') {
+          return chart.addCustomSeries(
+            createHistogramSeriesPaneView(),
+            getHistogramSeriesOptions(nextConfig)
+          );
+        }
         return chart.addSeries(LightweightCharts.AreaSeries, {
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -247,6 +424,8 @@ function getChartInitScript(): string {
         }
         if (window.seriesType === 'baseline') {
           window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -255,7 +434,12 @@ function getChartInitScript(): string {
           }));
           return;
         }
+        if (window.seriesType === 'histogram') {
+          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
+          return;
+        }
         window.series.applyOptions({
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -274,6 +458,7 @@ function getChartInitScript(): string {
           if (window.series) {
             chart.removeSeries(window.series);
           }
+          window.referencePriceLine = null;
           window.series = createPrimarySeries(nextConfig);
           window.seriesType = nextSeriesType;
         } else {
@@ -281,8 +466,26 @@ function getChartInitScript(): string {
         }
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
       }
+      function syncReferenceLine(nextConfig) {
+        if (!window.series) return;
+        if (window.referencePriceLine) {
+          window.series.removePriceLine(window.referencePriceLine);
+          window.referencePriceLine = null;
+        }
+        if (!nextConfig.referenceLine) return;
+        window.referencePriceLine = window.series.createPriceLine({
+          price: nextConfig.referenceLine.price,
+          color: nextConfig.referenceLine.color,
+          lineWidth: getNormalizedLineWidth(nextConfig.referenceLine.lineWidth, 1),
+          lineStyle: getReferenceLineStyle(nextConfig.referenceLine.lineStyle),
+          lineVisible: true,
+          axisLabelVisible: Boolean(nextConfig.referenceLine.axisLabelVisible),
+          title: '',
+        });
+      }
       function getSecondarySeriesOptions(nextConfig) {
         return {
+          priceScaleId: getPriceScalePosition(nextConfig),
           color: nextConfig.secondaryLineColor || '#0177E5',
           lineWidth: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2),
           priceLineVisible: false,
@@ -321,8 +524,12 @@ function getChartInitScript(): string {
         if (Number.isInteger(abs)) return sign + '$' + abs.toFixed(0);
         return sign + '$' + abs.toFixed(2);
       }
-      function pctPriceFormatter(price) {
-        return price.toFixed(2) + '%';
+      function pctPriceFormatter(price, nextConfig) {
+        var precision = Number(nextConfig && nextConfig.priceFormatterPrecision);
+        if (!Number.isInteger(precision) || precision < 0 || precision > 10) {
+          precision = 2;
+        }
+        return price.toFixed(precision) + '%';
       }
       function numberPriceFormatter(price, nextConfig) {
         var tickStep = Number(nextConfig && nextConfig.priceFormatterTickStep);
@@ -356,37 +563,19 @@ function getChartInitScript(): string {
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: {
-            color: 'rgba(150, 150, 150, 0.4)',
+            color: config.crosshairVertLineColor || 'rgba(150, 150, 150, 0.4)',
             width: 1,
-            style: 3,
+            style: config.crosshairVertLineStyle ?? 3,
             labelVisible: false,
           },
-          horzLine: { visible: false },
-        },
-        timeScale: {
-          visible: config.showTimeScale !== false,
-          borderVisible: false,
-          timeVisible: true,
-          secondsVisible: false,
-          fixLeftEdge: true,
-          fixRightEdge: true,
-          lockVisibleTimeRangeOnResize: true,
-          tickMarkFormatter: (time) => {
-            const date = new Date(time * 1000);
-            const month = date.toLocaleDateString('en-US', { month: 'short' });
-            const day = date.getDate().toString().padStart(2, '0');
-            return month + ' ' + day;
+          horzLine: {
+            visible: false,
+            labelVisible: !config.hideCrosshairPriceLabel,
           },
         },
-        rightPriceScale: Object.assign(
-          {
-            visible: Boolean(config.showPriceScale),
-            borderVisible: false,
-            entireTextOnly: Boolean(config.priceScaleEntireTextOnly),
-          },
-          config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
-        ),
-        leftPriceScale: { visible: false },
+        timeScale: getTimeScaleOptions(config),
+        rightPriceScale: getPriceScaleOptions(config, 'right'),
+        leftPriceScale: getPriceScaleOptions(config, 'left'),
         handleScroll: {
           mouseWheel: false,
           pressedMouseMove: false,
@@ -408,11 +597,13 @@ function getChartInitScript(): string {
       window.chart = chart;
       window.series = null;
       window.seriesType = null;
+      window.referencePriceLine = null;
       window.secondarySeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.chart.applyOptions(getChartOptions(nextConfig));
         syncPrimarySeries(nextConfig);
+        syncReferenceLine(nextConfig);
         syncSecondarySeries(nextConfig);
         window.chart.timeScale().fitContent();
       };

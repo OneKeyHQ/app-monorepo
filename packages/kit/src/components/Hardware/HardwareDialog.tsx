@@ -12,11 +12,20 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import type { IntlShape } from 'react-intl';
+
+async function openBluetoothSettings() {
+  if (platformEnv.isDesktop) {
+    await globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+    return;
+  }
+  await openBLESettings();
+}
 
 export const buildBleSettingsDialogProps = (
   intl: IntlShape,
@@ -37,7 +46,7 @@ export const buildBleSettingsDialogProps = (
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLESettings();
+      await openBluetoothSettings();
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative
@@ -83,7 +92,7 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLESettings();
+      await openBluetoothSettings();
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative
@@ -112,6 +121,45 @@ export const OpenBleNotifyChangeErrorDialog = forwardRef(
   OpenBleNotifyChangeErrorDialogContainer,
 );
 
+export const buildBleBondError = (intl: IntlShape): IDialogShowProps => ({
+  ...buildBleNotifyChangeError(intl),
+  title: intl.formatMessage({
+    id: ETranslations.bluetooth_pairing_invalid__title,
+  }),
+  description: intl.formatMessage({
+    id: ETranslations.bluetooth_pairing_invalid__desc,
+  }),
+});
+
+export const buildBlePermissionDialogProps = (
+  intl: IntlShape,
+): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_bluetooth_permission_needed,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    confirmButtonProps: {
+      testID: 'hardware-ui-ble-permission-confirm-btn',
+    },
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLEPermissionsSettings();
+    },
+    showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
+  }) as const;
+
 function RequireBlePermissionDialogContainer(
   props: any,
   ref: ForwardedRef<IDialogInstance>,
@@ -121,24 +169,7 @@ function RequireBlePermissionDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.onboarding_bluetooth_permission_needed,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      confirmButtonProps={{
-        testID: 'hardware-ui-ble-permission-confirm-btn',
-      }}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLEPermissionsSettings();
-      }}
-      showCancelButton={false}
+      {...buildBlePermissionDialogProps(intl)}
       {...props} // pass down cloneElement props
     />
   );
@@ -166,9 +197,11 @@ function WebDeviceAccessDialogContent({
         await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
           connectId,
         });
-      return (
-        device?.featuresInfo?.ble_name || `OneKey ${device?.deviceType || ''}`
-      );
+      return device?.featuresInfo
+        ? deviceUtils.buildDeviceBleName({
+            features: device.featuresInfo,
+          }) || `OneKey ${device?.deviceType || ''}`
+        : '';
     } catch (error) {
       console.log('======>: error:  ', error);
       return '';

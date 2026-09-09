@@ -15,12 +15,14 @@ const MB = 1024 * 1024;
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const desktopDir = path.resolve(__dirname, '..');
-const distDir =
+const distDir = path.resolve(
   process.env.DESKTOP_MAIN_DIST_DIR ||
-  process.argv[2] ||
-  path.join(desktopDir, 'app', 'dist');
-const metaPath =
-  process.env.DESKTOP_MAIN_META_PATH || path.join(distDir, 'meta.json');
+    process.argv[2] ||
+    path.join(desktopDir, 'app', 'dist'),
+);
+const metaPath = path.resolve(
+  process.env.DESKTOP_MAIN_META_PATH || path.join(distDir, 'meta.json'),
+);
 const outDir =
   process.env.DESKTOP_MAIN_BUDGET_OUT_DIR ||
   path.join(desktopDir, 'out-dir-analysis');
@@ -125,7 +127,29 @@ function readFileStats(relativeOutputPath) {
 }
 
 function outputFor(meta, outputPath) {
-  return meta.outputs?.[`app/dist/${outputPath}`] || null;
+  const expectedPath = path.resolve(distDir, outputPath);
+  const matches = Object.entries(meta.outputs || {}).filter(
+    ([metaOutputPath]) => {
+      const candidatePaths = path.isAbsolute(metaOutputPath)
+        ? [metaOutputPath]
+        : [
+            path.resolve(desktopDir, metaOutputPath),
+            path.resolve(repoRoot, metaOutputPath),
+          ];
+      return candidatePaths.some(
+        (candidatePath) =>
+          path.normalize(candidatePath) === path.normalize(expectedPath),
+      );
+    },
+  );
+
+  if (matches.length !== 1) {
+    throw new DesktopMainBundleBudgetError(
+      `Expected exactly one metafile output for ${expectedPath}, found ${matches.length}.`,
+    );
+  }
+
+  return matches[0][1];
 }
 
 function normalizeInputPath(input) {

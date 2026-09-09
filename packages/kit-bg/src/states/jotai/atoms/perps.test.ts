@@ -1,10 +1,13 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
+  type ITradingMode,
   getPerpsAccountDisplaySnapshotEntry,
   getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
@@ -15,11 +18,57 @@ import {
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
   perpsComputedAccountValueAtom,
+  perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
+  tradingModeAtom,
 } from './perps';
 
+import type { IAtomNameKeys } from '../atomNames';
+import type { IJotaiAtomPro } from '../types';
+
 const now = 1_000_000;
+
+describe('tradingModeAtom', () => {
+  it('persists the selected trading mode across app restarts', () => {
+    expect(
+      (tradingModeAtom.atom() as unknown as IJotaiAtomPro<ITradingMode>)
+        .persist,
+    ).toBe(true);
+  });
+
+  // The persisted write path runs `merge({}, initialValue, nextValue)` unless a
+  // config opts out. lodash spreads a string into a character-indexed object, so
+  // without this the stored mode reads back as {0:'s',1:'p',...} and every
+  // `=== 'spot'` check silently fails.
+  it('opts out of initial-value merging because the value is a bare string', () => {
+    expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
+      false,
+    );
+  });
+});
+
+describe('perpsCustomSettingsAtom', () => {
+  it('persists Arbitrum as the initial USDC withdrawal destination', () => {
+    const atom = perpsCustomSettingsAtom.atom() as unknown as IJotaiAtomPro<{
+      lastUsdcWithdrawDestinationId: string;
+    }>;
+
+    expect(atom.persist).toBe(true);
+    expect(atom.initialValue.lastUsdcWithdrawDestinationId).toBe('arbitrum');
+  });
+});
+
+// Any persisted atom holding a primitive hits the same lodash-merge trap, so the
+// opt-out is asserted for the whole class rather than one atom at a time.
+describe('persisted primitive atoms', () => {
+  it('never merge the initial value into the stored value', () => {
+    const primitiveAtoms: IAtomNameKeys[] = [EAtomNames.tradingModeAtom];
+    for (const name of primitiveAtoms) {
+      expect(atomsConfig[name]?.mergeInitialValue).toBe(false);
+    }
+  });
+});
 
 function buildEntry({
   accountAddress,
@@ -352,6 +401,13 @@ describe('perpsActiveAccountStatusAtom', () => {
 });
 
 describe('perpsActiveAccountEnableTradingModeAtom', () => {
+  beforeEach(() => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
+  });
+
   afterEach(() => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: null,
@@ -383,6 +439,29 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       canAutoEnableInOrderPanel: true,
       requiresEnableTradingDialogInOrderPanel: false,
       requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes software accounts through the dialog when agent password verification is required', () => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: true,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
     });
   });
 
@@ -630,7 +709,64 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
     });
     jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), undefined);
     jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+  });
+
+  it('not activated account: returns zero and does not keep account value loading', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: '0',
+        withdrawable: '0',
+        isLoading: false,
+      },
+    );
+  });
+
+  it('activation unknown (check pending/failed): keeps loading instead of confirmed zero', () => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountStatusInfoAtom.atom(), {
+      accountAddress: ADDR,
+      details: {
+        activatedOk: undefined,
+        agentOk: false,
+        referralCodeOk: false,
+        builderFeeOk: false,
+        internalRebateBoundOk: false,
+        abstractionOk: false,
+      },
+    });
+
+    expect(jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom())).toEqual(
+      {
+        accountValue: undefined,
+        withdrawable: undefined,
+        isLoading: true,
+      },
+    );
   });
 
   it('unified account: withdrawable = USDC available (total - hold)', () => {

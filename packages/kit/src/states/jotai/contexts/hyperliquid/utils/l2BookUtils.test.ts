@@ -5,6 +5,8 @@ import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
   shouldUpdatePerpsL2Book,
+  shouldWritePerpsL2BookColdCacheTarget,
+  upsertPerpsL2BookColdCacheTarget,
   withPerpsBboLocalReceivedAt,
   withPerpsL2BookLocalReceivedAt,
 } from './l2BookUtils';
@@ -14,17 +16,23 @@ function buildBook({
   coin = 'ETH',
   bidPx = '100',
   askPx = '101',
+  nSigFigs,
+  mantissa,
   levels,
 }: {
   time?: number;
   coin?: string;
   bidPx?: string;
   askPx?: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
   levels?: HL.IBook['levels'];
 }): HL.IBook {
   return {
     coin,
     time: time as number,
+    nSigFigs,
+    mantissa,
     levels: levels ?? [
       [{ px: bidPx, sz: '1', n: 1 }],
       [{ px: askPx, sz: '2', n: 1 }],
@@ -41,6 +49,78 @@ describe('shouldUpdatePerpsL2Book', () => {
       }),
     ).toBe(true);
   });
+
+  it('hydrates a cached snapshot when there is no current book', () => {
+    const cachedBook = Object.assign(buildBook({ time: 1000 }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: null,
+        nextBook: cachedBook,
+      }),
+    ).toBe(true);
+  });
+
+  it('replaces a cached snapshot with the first identical live frame', () => {
+    const cachedBook = Object.assign(buildBook({ time: 1000 }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: cachedBook,
+        nextBook: buildBook({ time: 1001 }),
+      }),
+    ).toBe(true);
+  });
+
+  it('does not let a late cached snapshot replace a live book', () => {
+    const cachedBook = Object.assign(buildBook({ time: 2000, bidPx: '99' }), {
+      isCachedSnapshot: true,
+    });
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({ time: 1000 }),
+        nextBook: cachedBook,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      'coin',
+      buildBook({
+        coin: 'BTC',
+        time: 2000,
+        nSigFigs: 5,
+        mantissa: 2,
+      }),
+    ],
+    ['nSigFigs', buildBook({ time: 2000, nSigFigs: 4, mantissa: 2 })],
+    ['mantissa', buildBook({ time: 2000, nSigFigs: 5, mantissa: 5 })],
+  ])(
+    'hydrates a cached snapshot when the %s target identity changes',
+    (_identityField, nextBook) => {
+      const currentBook = buildBook({
+        time: 1000,
+        nSigFigs: 5,
+        mantissa: 2,
+      });
+      const cachedBook = Object.assign(nextBook, {
+        isCachedSnapshot: true,
+      });
+
+      expect(
+        shouldUpdatePerpsL2Book({
+          currentBook,
+          nextBook: cachedBook,
+        }),
+      ).toBe(true);
+    },
+  );
 
   it('updates when the incoming book belongs to a different coin', () => {
     expect(
@@ -114,6 +194,38 @@ describe('shouldUpdatePerpsL2Book', () => {
     ).toBe(true);
   });
 
+  it('updates identical levels when source precision changes', () => {
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({
+          time: 1000,
+          nSigFigs: 5,
+          mantissa: 2,
+        }),
+        nextBook: buildBook({
+          time: 1001,
+          nSigFigs: 5,
+          mantissa: 5,
+        }),
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldUpdatePerpsL2Book({
+        currentBook: buildBook({
+          time: 1000,
+          nSigFigs: 4,
+          mantissa: null,
+        }),
+        nextBook: buildBook({
+          time: 1001,
+          nSigFigs: 5,
+          mantissa: null,
+        }),
+      }),
+    ).toBe(true);
+  });
+
   it('updates when side or level counts change', () => {
     expect(
       shouldUpdatePerpsL2Book({
@@ -128,6 +240,73 @@ describe('shouldUpdatePerpsL2Book', () => {
 });
 
 describe('perps market data local receive helpers', () => {
+  it('allows a new target into the cold cache while another target is throttled', () => {
+    const cache = {
+      eth: {
+        data: withPerpsL2BookLocalReceivedAt(
+          buildBook({ time: 1000, coin: 'ETH' }),
+          1000,
+        ),
+        updatedAt: 1000,
+      },
+    };
+
+    expect(
+      shouldWritePerpsL2BookColdCacheTarget({
+        cache,
+        targetKey: 'btc',
+        now: 1001,
+        minWriteIntervalMs: 30_000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWritePerpsL2BookColdCacheTarget({
+        cache,
+        targetKey: 'eth',
+        now: 1001,
+        minWriteIntervalMs: 30_000,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps an existing target when another target enters the cold cache', () => {
+    const ethBook = withPerpsL2BookLocalReceivedAt(
+      buildBook({ time: 1000, coin: 'ETH' }),
+      1000,
+    );
+    const btcBook = withPerpsL2BookLocalReceivedAt(
+      buildBook({ time: 2000, coin: 'BTC' }),
+      2000,
+    );
+    const cache = {
+      eth: { data: ethBook, updatedAt: 1000 },
+    };
+
+    expect(
+      upsertPerpsL2BookColdCacheTarget({
+        cache,
+        targetKeys: ['btc', 'btc-latest'],
+        data: btcBook,
+        updatedAt: 2000,
+      }),
+    ).toEqual({
+      eth: { data: ethBook, updatedAt: 1000 },
+      btc: { data: btcBook, updatedAt: 2000 },
+      'btc-latest': { data: btcBook, updatedAt: 2000 },
+    });
+  });
+
+  it('marks hydrated snapshots as cached without changing their payload', () => {
+    expect(
+      withPerpsL2BookLocalReceivedAt(buildBook({ time: 1000 }), 2000, true),
+    ).toMatchObject({
+      coin: 'ETH',
+      time: 1000,
+      localReceivedAt: 2000,
+      isCachedSnapshot: true,
+    });
+  });
+
   it('adds local receive timestamps without changing market payload fields', () => {
     expect(
       withPerpsL2BookLocalReceivedAt(buildBook({ time: 1000 }), 2000),

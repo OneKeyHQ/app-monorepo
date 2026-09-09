@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
@@ -26,6 +28,8 @@ import type { FlatListProps } from 'react-native';
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
   selectedCategory?: string;
+  stockCategory?: string;
+  hasCompactHeader?: boolean;
   timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
@@ -39,13 +43,17 @@ const EMPTY_DATA: IMarketToken[] = [];
 function MobileMarketTokenFlatListBase({
   networkId,
   selectedCategory,
+  stockCategory,
+  hasCompactHeader = false,
   timeRange,
   listContainerProps,
   onStockDataChange,
   shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({
+    marketTokenCategory: selectedCategory,
+  });
 
   // Data management
   const {
@@ -62,6 +70,7 @@ function MobileMarketTokenFlatListBase({
     initialSortType: 'desc',
     pageSize: 20,
     type: selectedCategory,
+    category: stockCategory,
     timeRange,
   });
 
@@ -86,6 +95,7 @@ function MobileMarketTokenFlatListBase({
             return;
           }
           void toMarketDetailPage({
+            ...item,
             symbol: item.symbol,
             tokenAddress: item.address,
             networkId: item.networkId,
@@ -164,7 +174,9 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
+        ...(platformEnv.isNative
+          ? getMarketNativeCompactListStyle(hasCompactHeader)
+          : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

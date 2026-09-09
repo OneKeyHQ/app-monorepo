@@ -43,6 +43,7 @@ export interface ITradingViewIntervalOption {
 }
 
 export interface ITradingViewIntervalConfigData {
+  persist?: boolean;
   intervals: ITradingViewIntervalOption[];
   activeInterval: string;
   timestamp?: number;
@@ -97,6 +98,7 @@ export interface ITradingViewNativeChartControlsConfigData {
     options: ITradingViewPriceScaleOption[];
     activeMode: ITradingViewPriceScaleMode;
   };
+  layoutRestored?: boolean;
   timestamp?: number;
 }
 

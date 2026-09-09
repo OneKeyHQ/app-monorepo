@@ -4,6 +4,7 @@ import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/Des
 import type { IAppUpdateInfo } from '../../appUpdate';
 
 export interface IDownloadPackageParams {
+  version?: string;
   downloadUrl?: string;
   latestVersion?: string;
   bundleVersion?: string;
@@ -13,6 +14,8 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
+  /** Desktop only: electron-updater was prepared from its persisted cache. */
+  isUpdaterRehydrated?: boolean;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
   skipGPGVerification?: boolean;
 }
@@ -28,7 +31,43 @@ export type IDownloadPackage = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent | null>;
 
-export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
+export type IInstallPackage = (params: IAppUpdateInfo) => Promise<boolean>;
+
+export enum EAppUpdatePackageAvailabilityStatus {
+  available = 'available',
+  missing = 'missing',
+  notPrepared = 'notPrepared',
+  unavailable = 'unavailable',
+  notApplicable = 'notApplicable',
+}
+
+export enum EAppUpdatePackageErrorCode {
+  packageMissing = 'APP_PACKAGE_MISSING',
+  packageUnavailable = 'APP_PACKAGE_UNAVAILABLE',
+  packageNotPrepared = 'APP_PACKAGE_NOT_PREPARED',
+}
+
+export type IAppUpdatePackageAvailability =
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.available;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.missing;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.unavailable;
+      errorCode?: string;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.notApplicable;
+    };
+
+export type ICheckPackageAvailability = (
+  params: IAppUpdateInfo,
+) => Promise<IAppUpdatePackageAvailability>;
 
 export type IDownloadASC = (params: IUpdateDownloadedEvent) => Promise<void>;
 
@@ -49,6 +88,7 @@ export interface IAppUpdate {
   verifyPackage: IVerifyPackage;
   verifyASC: IVerifyASC;
   downloadASC: IDownloadASC;
+  checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;

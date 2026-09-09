@@ -25,6 +25,7 @@ import type { IPageProps } from './type';
 export type {
   IPageProps,
   IPageFooterProps,
+  IPageFooterSafeAreaBottomMode,
   IPageLifeCycle,
   IPageContentContainerProps,
   IPageContentContainerLayout,
@@ -42,6 +43,7 @@ function PageProvider({
   safeAreaEnabled = true,
   fullPage,
   testID,
+  backgroundColor,
   onMounted,
   onUnmounted,
   onClose,
@@ -81,6 +83,7 @@ function PageProvider({
               lazyLoad={lazyLoad}
               fullPage={fullPage}
               testID={testID}
+              backgroundColor={backgroundColor}
             >
               {children}
             </PageContainer>

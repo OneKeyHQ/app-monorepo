@@ -417,7 +417,7 @@ export const EditableChainSelectorContent = ({
   return (
     <EditableChainSelectorContext.Provider value={context}>
       <Stack flex={1} position="relative">
-        <Stack px="$5">
+        <Stack px="$5" pb="$4">
           <SearchBar
             testID={ChainSelectorTestIDs.searchBar}
             placeholder={intl.formatMessage({
@@ -441,9 +441,6 @@ export const EditableChainSelectorContent = ({
         </Stack>
         {recentNetworksEnabled ? (
           <RecentNetworks
-            containerProps={{
-              mt: '$4',
-            }}
             onPressItem={onPressItem}
             availableNetworks={[
               ...mainnetItems,

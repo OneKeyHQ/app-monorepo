@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { range } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import {
   Easing,
   useSharedValue,
@@ -11,6 +11,7 @@ import {
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   AnimatePresence,
   Button,
   Dialog,
@@ -19,6 +20,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  resetOnboardingModal,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
@@ -47,7 +49,6 @@ import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import {
   type EOnboardingPagesV2,
-  ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -57,6 +58,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -65,8 +67,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -147,6 +151,7 @@ function getTrezorConnectFailureMessage(payload: unknown) {
 function getTrezorConnectFailureError(
   payload: unknown,
   vendor: EHardwareVendor,
+  intl: IntlShape,
 ) {
   const failure =
     payload && typeof payload === 'object'
@@ -171,7 +176,9 @@ function getTrezorConnectFailureError(
     return new OneKeyLocalError(failureMessage);
   }
   return new OneKeyLocalError({
-    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    message: intl.formatMessage({
+      id: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+    }),
   });
 }
 
@@ -201,7 +208,7 @@ function StepTextSwap({ text }: { text: string }) {
           right={0}
           size="$heading2xl"
           textAlign="center"
-          animation="medium"
+          transition="medium"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, y: 16 }}
           exitStyle={{ opacity: 0, y: -16 }}
@@ -263,6 +270,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
+  const connectProtocol = route?.params?.connectProtocol;
   const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
@@ -294,10 +302,8 @@ function FinalizeWalletSetupPage({
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
-    navigation.navigate(ERootRoutes.Main, undefined, {
-      pop: true,
-    });
-  }, [navigation]);
+    resetOnboardingModal();
+  }, []);
 
   const {
     setPendingKeylessAutoConnectWalletId,
@@ -410,7 +416,13 @@ function FinalizeWalletSetupPage({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    // The stage hold is opened inside the hardware branch below, and only
+    // there: a software wallet (new mnemonic, import, keyless restore) has
+    // no device, and a hold taken here regardless painted the connecting
+    // replica over its password prompt 120ms later. endBurst() in the
+    // finally is a no-op for a run that never held.
     try {
       let hdWalletCreatedResult:
         | {
@@ -448,22 +460,13 @@ function FinalizeWalletSetupPage({
                   if (!keylessDetailsInfo?.keylessOwnerId) {
                     return;
                   }
-                  const refreshResult =
-                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
-                      {
-                        ownerId: keylessDetailsInfo?.keylessOwnerId,
-                        forceRefresh: true,
-                      },
-                    );
-                  if (
-                    !refreshResult?.accessToken ||
-                    !refreshResult?.refreshToken
-                  ) {
+                  const token =
+                    await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
+                  if (!token) {
                     return;
                   }
-                  const { accessToken: token, refreshToken } = refreshResult;
                   const pin = await getKeylessOnboardingPin();
-                  if (!token || !pin || !refreshToken) {
+                  if (!pin) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
@@ -473,7 +476,6 @@ function FinalizeWalletSetupPage({
                   await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
                     {
                       token,
-                      refreshToken: refreshToken || undefined,
                       pin,
                     },
                   );
@@ -482,6 +484,18 @@ function FinalizeWalletSetupPage({
                     'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
                     autoResetError,
                   );
+                  // A swallowed failure here leaves the server share under
+                  // the old provider/PIN while the UI reports success —
+                  // an inconsistent keyless wallet state. Mirror the reason
+                  // into exported logs so it stays diagnosable in production
+                  // (the bg-side @toastIfError decorator already surfaces a
+                  // toast for this rejected background call).
+                  defaultLogger.wallet.keyless.dataCorruptedError({
+                    reason: `autoResetKeylessWalletPinAfterRestoreForSameEmailAccount failed: ${
+                      (autoResetError as Error | undefined)?.message ||
+                      String(autoResetError)
+                    }`,
+                  });
                 }
               })();
             }
@@ -515,6 +529,16 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // The wallet-creation run is one conversation with the device
+        // across several hardware calls (wallet, passphrase, accounts) with
+        // app work between them. Legacy showed a checking dialog per call,
+        // which is what flickered through the onboarding animation; one
+        // hold spans it.
+        await ensureBurst({
+          connectId: deviceData.device?.connectId ?? undefined,
+          deviceType: deviceData.device?.deviceType ?? undefined,
+          deviceName: deviceData.device?.name ?? undefined,
+        });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -591,41 +615,62 @@ function FinalizeWalletSetupPage({
             let featuresForCreate = {
               device_id: thirdPartyDevice?.deviceId || '',
               vendor: deviceData.vendor,
-            } as IOneKeyDeviceFeatures;
+            } as unknown as IOneKeyDeviceFeatures;
             if (
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
             ) {
+              // Route the finalize re-connect through getCompatibleConnectId
+              // (Trezor-only, inside this vendor guard). After a BLE onboarding
+              // the DB's main connectId is the deviceId (the USB handle), which
+              // the BLE transport can't resolve — passing it raw makes this
+              // connectDevice hang on a 31s noble timeout. Resolving it yields the
+              // bound bleConnectId for a BLE session; idempotent when the input is
+              // already a BLE address (device not yet in DB → returned unchanged).
+              const compatibleConnectId =
+                await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
+                  {
+                    connectId: thirdPartyDevice.connectId,
+                    featuresDeviceId: thirdPartyDevice.deviceId,
+                    vendor: deviceData.vendor,
+                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                  },
+                );
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
                     vendor: deviceData.vendor,
-                    connectId: thirdPartyDevice.connectId,
+                    connectId:
+                      compatibleConnectId || thirdPartyDevice.connectId,
                   },
                 );
               const connectedFeatures = connected.success
                 ? connected.payload.features
                 : undefined;
+              const legacyConnectedFeatures = connectedFeatures as
+                | {
+                    device_id?: string;
+                  }
+                | undefined;
               const connectedDeviceId =
                 connected.success &&
                 (connected.payload.deviceId ||
-                  (typeof connectedFeatures?.device_id === 'string'
-                    ? connectedFeatures.device_id
+                  (typeof legacyConnectedFeatures?.device_id === 'string'
+                    ? legacyConnectedFeatures.device_id
                     : ''));
               if (!connected.success) {
                 throw getTrezorConnectFailureError(
                   connected.payload,
                   deviceData.vendor,
+                  intl,
                 );
               }
-              if (!connectedDeviceId) {
-                throw new OneKeyLocalError({
-                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
-                });
-              }
-              // Device has no seed yet — block creation and prompt the user to
-              // set it up first (we can't drive third-party device setup).
-              if (connectedFeatures?.initialized === false) {
+              // No firmware or no seed yet: no device_id exists, so check this
+              // before the device_id guard to show the real reason.
+              if (
+                connectedFeatures?.firmware_present === false ||
+                connectedFeatures?.initialized === false
+              ) {
                 await trackHardwareWalletConnection({
                   status: 'failure',
                   deviceType: thirdPartyDevice.deviceType,
@@ -648,10 +693,17 @@ function FinalizeWalletSetupPage({
                 });
                 return;
               }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
+              }
               featuresForCreate = {
                 ...connectedFeatures,
                 device_id: connectedDeviceId,
-              } as IOneKeyDeviceFeatures;
+              } as unknown as IOneKeyDeviceFeatures;
               const rawThirdPartyDevice = (
                 thirdPartyDevice as SearchDevice & {
                   raw?: Record<string, unknown>;
@@ -690,6 +742,16 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            // After a reset the same device re-onboards with a new device_id;
+            // mark the stale wallet deprecated so only the current one lights
+            // up. Trezor-specific dedup, matched on the device's transport
+            // connect ids (same key set as the connection-status light).
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              await actions.current.updateTrezorWalletsDeprecatedStatus({
+                connectId: thirdPartyDevice.connectId ?? '',
+                deviceId: thirdPartyDevice.deviceId ?? '',
+              });
+            }
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',
@@ -704,10 +766,17 @@ function FinalizeWalletSetupPage({
           goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
           await connectDevice(deviceData.device as SearchDevice);
           await createHWWallet({
+            connectProtocol,
             device: deviceData.device as SearchDevice,
             isFirmwareVerified,
           });
         }
+        // The device conversation is over: release the hold and let the
+        // stage leave before the page turns to its ready state, so the
+        // processing capsule never overlaps the Enter-wallet button
+        // (OK-62092). The finally's endBurst is a no-op after this.
+        await endBurst();
+        await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -741,8 +810,12 @@ function FinalizeWalletSetupPage({
             : ETranslations.global_unknown_error,
         ) as ETranslations,
       });
+    } finally {
+      await endBurst();
     }
   }, [
+    ensureBurst,
+    endBurst,
     mnemonic,
     deviceData,
     isFirmwareVerified,
@@ -754,6 +827,7 @@ function FinalizeWalletSetupPage({
     shouldAutoResetKeylessPinAfterRestore,
     connectDevice,
     createHWWallet,
+    connectProtocol,
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
     hardwareTransportType,
@@ -790,6 +864,14 @@ function FinalizeWalletSetupPage({
   );
 
   const retrySetup = useCallback(() => {
+    // A Safe 7 mints a fresh BLE address each time it re-enters pairing mode, so
+    // the connectId in `deviceData` is dead once an attempt ends — go back and
+    // re-scan instead of retrying it. Other vendors keep in-place retry.
+    if (deviceData?.vendor === EHardwareVendor.trezor) {
+      setSetupError(undefined);
+      navigation.pop();
+      return;
+    }
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
@@ -804,7 +886,7 @@ function FinalizeWalletSetupPage({
     // instead of being short-circuited.
     created.current = false;
     void createWallet();
-  }, [createWallet, initialStep]);
+  }, [createWallet, initialStep, deviceData?.vendor, navigation]);
 
   const { gtMd } = useMedia();
   const theme = useTheme();
@@ -963,7 +1045,7 @@ function FinalizeWalletSetupPage({
     opacity: isReadyActionVisible ? 1 : 0,
     pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
-      animation: 'quick' as const,
+      transition: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
     }),
   };
@@ -975,7 +1057,7 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
-      animation="quick"
+      transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
@@ -1011,7 +1093,7 @@ function FinalizeWalletSetupPage({
               y: '$-2',
               opacity: 0,
             }}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           >
             <SizableText>
@@ -1078,44 +1160,47 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : null}
         {setupError ? (
-          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
-            <SizableText size="$heading5xl" fontWeight={600}>
-              {intl.formatMessage({
-                id: ETranslations.failed_to_create_wallet,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              maxWidth={620}
-              pl="$3"
-              borderLeftWidth={1}
-              borderLeftColor="$borderSubdued"
-            >
-              {intl.formatMessage({
-                id: setupError.messageId,
-                defaultMessage: setupError.messageId,
-              })}
-            </SizableText>
-            <XStack gap="$2.5" mt="$4" maxWidth={420}>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
-                flex={1}
-                variant="primary"
-                size="large"
-                onPress={retrySetup}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupExitBtn}
-                flex={1}
-                size="large"
-                onPress={closePage}
-              >
-                {intl.formatMessage({ id: ETranslations.global_exit })}
-              </Button>
-            </XStack>
+          <YStack flex={1} justifyContent="center" alignItems="center">
+            <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
+              {/* The size variant's 24pt line box clipped the 48pt emoji to
+                  a band on iOS (OK-62173); the line height must grow with
+                  the glyph. */}
+              <SizableText fontSize={48} lineHeight={60}>
+                💆‍♀️
+              </SizableText>
+              <SizableText size="$heading4xl" fontWeight={600}>
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <Alert
+                icon="InfoCircleOutline"
+                type="info"
+                description={intl.formatMessage({
+                  id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
+                })}
+              />
+              <XStack gap="$4" alignItems="center">
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                  variant="tertiary"
+                  onPress={closePage}
+                  minWidth="$20"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_exit })}
+                </Button>
+              </XStack>
+            </YStack>
           </YStack>
         ) : (
           <>
@@ -1129,7 +1214,7 @@ function FinalizeWalletSetupPage({
                 <YStack
                   position="absolute"
                   inset={0}
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   opacity={isReady ? 0 : 1}
                 >
@@ -1152,7 +1237,7 @@ function FinalizeWalletSetupPage({
                   bg="$brand10"
                   alignItems="center"
                   justifyContent="center"
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   opacity={isReady ? 1 : 0}
                   scale={isReady ? 1 : 0.7}

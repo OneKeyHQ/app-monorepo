@@ -11,12 +11,15 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import type { ITokenSize } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   LeverageBadge,
+  PerpDexBadge,
   StockSourceLogo,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
@@ -26,6 +29,11 @@ import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_LOGO_GAP,
+} from '../../../MarketListCell';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -95,9 +103,15 @@ interface ITokenIdentityItemProps {
    */
   perpsSubtitle?: string;
   /**
+   * HIP-3 DEX source label for perpetual tokens (e.g. "xyz", "para").
+   */
+  perpsDexLabel?: string;
+  /**
    * Whether to show the stock subtitle. Defaults to true.
    */
   showStockSubtitle?: boolean;
+  tokenSize?: ITokenSize;
+  gap?: IXStackProps['gap'];
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -116,7 +130,10 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   stock,
   maxLeverage,
   perpsSubtitle,
+  perpsDexLabel,
   showStockSubtitle = true,
+  tokenSize = 'md',
+  gap = MARKET_CELL_LOGO_GAP,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -196,19 +213,20 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     );
 
   return (
-    <XStack alignItems="center" gap="$3" userSelect="none">
+    <XStack alignItems="center" gap={gap} userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
         tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
-        size="md"
+        size={tokenSize}
       />
 
-      <Stack flex={1} minWidth={0}>
+      <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
         <XStack alignItems="center" gap="$1">
           {symbolElement}
           {maxLeverage ? <LeverageBadge leverage={maxLeverage} /> : null}
+          <PerpDexBadge dexLabel={perpsDexLabel} />
           {gtMd ? (
             <>
               <StockSourceLogo stock={stock} />

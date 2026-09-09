@@ -2,20 +2,57 @@ import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecor
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
+import {
+  setTravelModePushSuppressed,
+  travelModeManager,
+} from '@onekeyhq/shared/src/travelMode';
+import type { ITravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
+import { travelModeDappRequestIngress } from '../apis/TravelModeDappRequestIngress';
 import localDb from '../dbs/local/localDb';
+import { runtimeWalletEffectAdapter } from '../runtime/RuntimeEnvironmentAdapter';
+import {
+  passwordAtom,
+  passwordPersistAtom,
+} from '../states/jotai/atoms/password';
 
 import ServiceBase from './ServiceBase';
+import {
+  markIdentityRecoveryFailed,
+  markIdentityRecoveryReady,
+} from './ServiceIdentityExit/identityLifecycleMutex';
+import { recoverInterruptedIdentityLifecycleOperations } from './ServiceIdentityExit/recoverInterruptedIdentityLifecycleOperations';
+import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
+  private walletProfileAnalyticsChecksScheduled = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      void runtimeWalletEffectAdapter
+        .run({
+          operation: async () => {
+            const { firmwareArtifactAdapter } =
+              await import('./ServiceFirmwareUpdate/FirmwareUpdateRuntime');
+            await firmwareArtifactAdapter.sweepOrphans();
+          },
+          onUnavailable: () => undefined,
+        })
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareArtifactOrphanSweep (FAILED)',
+            0,
+          );
+        });
+    }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
         void this.initDeferred();
@@ -36,14 +73,86 @@ class ServiceBootstrap extends ServiceBase {
     }
   }
 
-  /**
-   * Critical init: only what's needed for DB readiness and RPC availability.
-   * This runs during cold start and must complete before background is "ready".
-   */
-  public async initCritical() {
-    defaultLogger.app.bootstrap.initCriticalStart();
-    const criticalStart = Date.now();
+  private async initRuntimeFoundation(
+    runtimeProfile: ITravelModeRuntimeProfile,
+  ): Promise<void> {
+    await setTravelModePushSuppressed(
+      runtimeProfile.walletEffects === 'suppressed',
+    );
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+  }
+
+  private async initStandardRuntimeCritical(): Promise<void> {
+    if (platformEnv.isExtension || platformEnv.isDesktop) {
+      let desktopAppSessionUnlocked: boolean | undefined;
+      let hyperLiquidSessionRestored = false;
+      let hyperLiquidSessionUnlocked = false;
+      if (platformEnv.isDesktop) {
+        try {
+          desktopAppSessionUnlocked =
+            await globalThis.desktopApiProxy.security.getAppSessionUnlocked();
+        } catch (_error) {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'desktopAppSessionRestore (FAILED)',
+            0,
+          );
+        }
+      }
+      try {
+        const { restored, unlocked } =
+          await localDb.restoreHyperLiquidAgentSecretSession();
+        hyperLiquidSessionRestored = restored;
+        hyperLiquidSessionUnlocked = unlocked;
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'hyperLiquidAgentSessionRestore (FAILED)',
+          0,
+        );
+      }
+      try {
+        const { appLockDuration } = await passwordPersistAtom.get();
+        const shouldRestoreAppUnlock = platformEnv.isDesktop
+          ? (desktopAppSessionUnlocked ?? hyperLiquidSessionUnlocked)
+          : hyperLiquidSessionUnlocked;
+        if (shouldRestoreAppUnlock && isNeverLockDuration(appLockDuration)) {
+          await passwordAtom.set((value) => ({ ...value, unLock: true }));
+        } else if (hyperLiquidSessionRestored) {
+          await localDb.clearHyperLiquidAgentSecretSession();
+        }
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'appSessionUnlockRestore (FAILED)',
+          0,
+        );
+      }
+    }
+    try {
+      await this.timed('identityLifecycle.recoverInterruptedOperations', () =>
+        recoverInterruptedIdentityLifecycleOperations(this.backgroundApi),
+      );
+      markIdentityRecoveryReady();
+    } catch (_error) {
+      markIdentityRecoveryFailed();
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'identityRecovery (FAILED)',
+        0,
+      );
+    }
+    try {
+      await this.timed(
+        'serviceHardware.migrateExistingDeviceConnectProtocols',
+        () =>
+          this.backgroundApi.serviceHardware.migrateExistingDeviceConnectProtocols(),
+      );
+    } catch (_error) {
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'hardwareConnectProtocolMigration (FAILED)',
+        0,
+      );
+    }
+  }
+
+  private async initControlPlaneCritical(): Promise<void> {
     try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
@@ -64,6 +173,27 @@ class ServiceBootstrap extends ServiceBase {
         0,
       );
     }
+  }
+
+  /**
+   * Critical init: only what's needed for DB readiness and RPC availability.
+   * This runs during cold start and must complete before background is "ready".
+   */
+  public async initCritical() {
+    defaultLogger.app.bootstrap.initCriticalStart();
+    const criticalStart = Date.now();
+    const runtimeProfile = await travelModeManager.getRuntimeProfile();
+    await this.initRuntimeFoundation(runtimeProfile);
+
+    if (runtimeProfile.kind === 'travel-mode') {
+      markIdentityRecoveryReady();
+      await this.initControlPlaneCritical();
+      defaultLogger.app.bootstrap.initCriticalDone(Date.now() - criticalStart);
+      return;
+    }
+
+    await this.initStandardRuntimeCritical();
+    await this.initControlPlaneCritical();
     defaultLogger.app.bootstrap.initCriticalDone(Date.now() - criticalStart);
   }
 
@@ -74,6 +204,15 @@ class ServiceBootstrap extends ServiceBase {
    */
   public async initDeferred() {
     const deferredStart = Date.now();
+
+    const runtimeProfile = await travelModeManager.getRuntimeProfile();
+    if (runtimeProfile.walletEffects === 'suppressed') {
+      // Switching Travel Mode restarts the app. This early return keeps
+      // WalletConnect from being constructed, so no relay or listeners start.
+      travelModeDappRequestIngress.installRequestBlackout();
+      defaultLogger.app.bootstrap.initDeferredDone(Date.now() - deferredStart);
+      return;
+    }
 
     // Wallet backup-status diagnostics: sample the persisted appStatus raw
     // BEFORE any deferred task runs — several concurrent migrations below
@@ -113,6 +252,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
         ),
+        timedDeferred('serviceSetting.fetchInscriptionProtectionControl', () =>
+          this.backgroundApi.serviceSetting.fetchInscriptionProtectionControl(),
+        ),
         timedDeferred(
           'servicePassword.addExtIntervalCheckLockStatusListener',
           () =>
@@ -123,6 +265,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        ),
+        timedDeferred('serviceHardwarePortfolioSync.init', async () =>
+          this.backgroundApi.serviceHardwarePortfolioSync.init(),
         ),
       ]);
     } catch (_error) {
@@ -139,9 +284,19 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
-      timedDeferred('serviceDevSetting.initAnalytics', () =>
-        this.backgroundApi.serviceDevSetting.initAnalytics(),
-      ),
+      timedDeferred('serviceDevSetting.initAnalytics', async () => {
+        await this.backgroundApi.serviceDevSetting.initAnalytics();
+        if (!this.walletProfileAnalyticsChecksScheduled) {
+          this.walletProfileAnalyticsChecksScheduled = true;
+          scheduleWalletProfileAnalyticsChecks(() =>
+            timedDeferred(
+              'serviceAccount.reportWalletProfileAnalyticsIfNeeded',
+              () =>
+                this.backgroundApi.serviceAccount.reportWalletProfileAnalyticsIfNeeded(),
+            ),
+          );
+        }
+      }),
       // ext MV3 only: re-warm providers of already-connected dapps after a
       // service-worker restart so notifyDApp* can reach them. Native/desktop
       // rebuild their webviews on restart (dapp reconnects), so no warmup
@@ -153,6 +308,15 @@ class ServiceBootstrap extends ServiceBase {
             ),
           ]
         : []),
+      // Resume persisted tracking from the runtime that owns it. The dynamic
+      // preflight keeps the full Unifold service out of an idle startup while
+      // preserving recovery after this background runtime restarts.
+      timedDeferred('serviceUnifoldDeposit.resumeDepositTracking', () =>
+        import('./ServiceUnifoldDeposit/resumeUnifoldDepositTracking').then(
+          ({ resumeUnifoldDepositTracking }) =>
+            resumeUnifoldDepositTracking(this.backgroundApi),
+        ),
+      ),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),
@@ -187,6 +351,9 @@ class ServiceBootstrap extends ServiceBase {
       ),
       timedDeferred('serviceHardware.removeDeviceHomeScreen', () =>
         this.backgroundApi.serviceHardware.removeDeviceHomeScreen(),
+      ),
+      timedDeferred('serviceHardware.migrateClassicPinInputDefault', () =>
+        this.backgroundApi.serviceHardware.migrateClassicPinInputDefault(),
       ),
       timedDeferred('systemTimeUtils.startServerTimeInterval', async () => {
         systemTimeUtils.startServerTimeInterval();

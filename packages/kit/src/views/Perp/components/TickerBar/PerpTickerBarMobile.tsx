@@ -15,10 +15,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsMaxBuilderFeeAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -32,13 +33,44 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 const MOBILE_TICKER_SUBTITLE_MAX_WIDTH = 64;
+const TOP_CHART_ACTIVE_ICON_COLOR = getTradingButtonStyleValues('long').bg;
+
+export interface IPerpTickerBarMobileProps {
+  isTopChartExpanded?: boolean;
+  onToggleTopChart?: () => void;
+  showTopChartToggle?: boolean;
+}
+
+function PerpTopChartButtonMobile({
+  isExpanded,
+  onPress,
+}: {
+  isExpanded: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <DebugRenderTracker name="PerpTopChartButtonMobile">
+      <IconButton
+        testID={PerpTestIDs.MobileTopChartToggle}
+        icon="ChartPositionOutline"
+        size="small"
+        iconProps={{
+          color: isExpanded ? TOP_CHART_ACTIVE_ICON_COLOR : '$iconSubdued',
+        }}
+        variant="tertiary"
+        accessibilityState={{ selected: isExpanded }}
+        onPress={onPress}
+      />
+    </DebugRenderTracker>
+  );
+}
 
 function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
@@ -69,10 +101,12 @@ function PerpBadgesRow() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const requestedBuilderFeeRef = useRef(false);
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
+  // The instrument is what the price and order book already render, so reading
+  // the mode from it keeps this row from labelling a pair it is not showing.
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = usePerpsMaxBuilderFeeAtom();
-  const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
+  const { baseName, rawBaseName, coin, dexLabel } = useActiveTradeDisplay();
   const [tokenSearchAliases, setTokenSearchAliases] =
     usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
@@ -201,7 +235,7 @@ function PerpBadgesRow() {
   return (
     <XStack alignItems="center" gap="$1.5" onLayout={handleLayout}>
       <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
-        <SizableText color="$textSubdued" fontSize={10}>
+        <SizableText color="$textSubdued" fontSize={10} lineHeight={16}>
           {isSpot
             ? intl.formatMessage({
                 id: ETranslations.dexmarket_spot,
@@ -211,6 +245,12 @@ function PerpBadgesRow() {
               })}
         </SizableText>
       </Badge>
+      <PerpDexBadge
+        compact
+        dexLabel={dexLabel}
+        height={20}
+        testID={PerpTestIDs.ActiveDexBadge}
+      />
       {subtitle ? (
         <Popover
           title={intl.formatMessage({
@@ -229,6 +269,7 @@ function PerpBadgesRow() {
               <SizableText
                 color="$textInfo"
                 fontSize={10}
+                lineHeight={16}
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 flexShrink={1}
@@ -248,7 +289,7 @@ function PerpBadgesRow() {
       ) : null}
       {!isSpot && builderFeeRate === 0 ? (
         <Badge radius="$1" bg="$bgSuccess" px="$0.5" py={0}>
-          <SizableText color="$textSuccess" fontSize={10}>
+          <SizableText color="$textSuccess" fontSize={10} lineHeight={16}>
             {intl.formatMessage({
               id: ETranslations.perp_0_fee,
             })}
@@ -259,7 +300,11 @@ function PerpBadgesRow() {
   );
 }
 
-export function PerpTickerBarMobile() {
+export function PerpTickerBarMobile({
+  isTopChartExpanded = false,
+  onToggleTopChart,
+  showTopChartToggle = false,
+}: IPerpTickerBarMobileProps) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
@@ -286,11 +331,19 @@ export function PerpTickerBarMobile() {
         <PerpBadgesRow />
       </YStack>
 
-      <XStack pt="$0.5" gap="$3" alignItems="center">
-        <PerpsActivityCenterAction size="small" copyAsUrl />
+      <XStack pt="$0.5" gap="$4" alignItems="center">
+        {showTopChartToggle && onToggleTopChart ? (
+          <PerpTopChartButtonMobile
+            isExpanded={isTopChartExpanded}
+            onPress={onToggleTopChart}
+          />
+        ) : null}
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          mr="$-4"
+          showActivityCenterEntry
+          showChartPositionSetting
           showGuideEntry
         />
       </XStack>

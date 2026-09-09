@@ -17,6 +17,7 @@ interface IPriceInputProps {
   error?: string;
   disabled?: boolean;
   onUseMidPrice?: () => void;
+  midPriceDisabled?: boolean;
   szDecimals?: number;
   label?: string;
   placeholder?: string;
@@ -32,6 +33,7 @@ export const PriceInput = memo(
     error,
     disabled = false,
     onUseMidPrice,
+    midPriceDisabled = false,
     szDecimals,
     label,
     placeholder,
@@ -66,11 +68,11 @@ export const PriceInput = memo(
                 label: 'Mid',
                 labelColor: '$green11',
                 onPress: onUseMidPrice,
-                disabled: false,
+                disabled: midPriceDisabled,
               },
             ]
           : undefined,
-      [onUseMidPrice],
+      [onUseMidPrice, midPriceDisabled],
     );
 
     return (

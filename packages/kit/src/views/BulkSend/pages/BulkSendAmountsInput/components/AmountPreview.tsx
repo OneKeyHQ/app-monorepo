@@ -14,6 +14,7 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EAmountInputMode,
   type IAmountInputError,
@@ -61,6 +62,24 @@ export function AmountPreview({
 }: IAmountPreviewProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+
+  // Scaled-UI (rebase) tokens: show the display-basis balance
+  // (raw × multiplier) so "Available" matches the basis of user input and
+  // totals. Passthrough for ordinary tokens. Derived from the tokenDetails
+  // prop (not context) because this component is also rendered inside
+  // dialogs that may portal outside the amounts-input provider.
+  const availableBalance = useMemo(() => {
+    const raw = tokenDetails?.balanceParsed;
+    return (
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: raw,
+        balanceMultiplier:
+          tokenDetails && !tokenDetails.info.isNative
+            ? tokenRebaseUtils.pickBalanceMultiplier(tokenDetails)
+            : undefined,
+      }) ?? raw
+    );
+  }, [tokenDetails]);
 
   // Check if range has values (for showing the section)
   const hasRangeValues = useMemo(() => {
@@ -269,7 +288,7 @@ export function AmountPreview({
               formatter="balance"
               formatterOptions={{ tokenSymbol: tokenDetails?.info.symbol }}
             >
-              {tokenDetails?.balanceParsed ?? '-'}
+              {availableBalance ?? '-'}
             </NumberSizeableText>
           </XStack>
           {onMaxPress ? (

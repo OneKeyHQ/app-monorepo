@@ -1,0 +1,77 @@
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
+import { showPrimeInfiniPaymentErrorToast } from './primeInfiniPaymentError';
+
+const mockToastError = jest.fn();
+
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+  },
+}));
+
+describe('showPrimeInfiniPaymentErrorToast', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('preserves the original meaning while scrubbing secrets', () => {
+    const error = Object.assign(
+      new Error('payment failed for user@example.com token=secret-token'),
+      {
+        config: {
+          headers: {
+            Authorization: 'Bearer should-never-be-logged',
+          },
+        },
+      },
+    );
+
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: 'Payment failed',
+    });
+
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: 'payment failed for [email] token=[redacted]',
+    });
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(error.$$autoToastErrorTriggered).toBe(true);
+  });
+
+  it('does not surface a user cancellation as an error', () => {
+    showPrimeInfiniPaymentErrorToast({
+      error: {
+        className: EOneKeyErrorClassNames.OAuthLoginCancelError,
+      },
+      fallbackMessage: 'Payment failed',
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses the caller fallback when the error has no message', () => {
+    const error: { $$autoToastErrorTriggered?: boolean } = {};
+
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: 'Localized payment failure',
+    });
+
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: 'Localized payment failure',
+    });
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(error.$$autoToastErrorTriggered).toBe(true);
+  });
+});

@@ -1,3 +1,6 @@
+export const LSE_MMKV_RESTART_TEST_PATH_PATTERN =
+  'apps/mobile/e2e/local-secret-envelope-mmkv-restart\\.(write|read)\\.harness\\.ts';
+
 /** @type {import('jest').Config} */
 export default {
   preset: 'react-native-harness',
@@ -21,6 +24,9 @@ export default {
     '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
+    // The two-phase MMKV suite has a dedicated config that guarantees write,
+    // native app restart, then read ordering.
+    LSE_MMKV_RESTART_TEST_PATH_PATTERN,
     // Keep harness tests in apps/mobile/e2e discoverable; only ignore the
     // perf guard that runs under its own Jest setup.
     'apps/mobile/e2e/perf-regression-guard\\.test\\.js',

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -37,6 +38,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -73,7 +75,11 @@ type IPrimeFeatureIntroContentProps = {
 
 const styles = StyleSheet.create({
   featureMediaFill: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: '100%',
     height: '100%',
     transform: [{ scale: 1.01 }],
@@ -482,7 +488,15 @@ export function PrimeFeatureIntroContent({
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
   const navigateToApprovalList = useNavigateToApprovalList();
-  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
+  const handlePurchaseStart = useCallback(async () => {
+    if (mode === 'dialog') {
+      await onClose?.();
+    }
+  }, [mode, onClose]);
+  const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
+    onPurchase: handlePurchaseStart,
+    networkId: networkId ?? network?.id,
+  });
 
   const features = PRIME_FEATURE_INTROS;
 
@@ -653,6 +667,16 @@ export function PrimeFeatureIntroContent({
       return;
     }
 
+    if (activeFeature.action === 'historyExport') {
+      navigation.pushModal(EModalRoutes.BulkExportHistoryModal, {
+        screen: EModalBulkExportHistoryRoutes.BulkExportHistoryModal,
+        params: {
+          networkId: networkId ?? network?.id,
+        },
+      });
+      return;
+    }
+
     if (activeFeature.action === 'receiveRiskMonitoring') {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: EModalSettingRoutes.SettingProtectModal,
@@ -709,12 +733,14 @@ export function PrimeFeatureIntroContent({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod: subscriptionPeriod,
       featureName: activeFeature.id,
+      freeTrial: selectedPackage?.freeTrial,
     });
   }, [
     activeFeature,
     ensurePrimeSubscriptionActive,
     isLoggedIn,
     isPackagesLoading,
+    selectedPackage?.freeTrial,
     subscriptionPeriod,
   ]);
 
@@ -1076,7 +1102,7 @@ export function PrimeFeatureIntroContent({
               height={MEDIA_HEIGHT}
               index={activeIndex}
               data={features}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: IPrimeFeatureIntro) => item.id}
               onChangeIndex={({ index }) => setActiveIndex(index)}
               renderItem={renderMedia}
               renderPagination={renderPagination}

@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { type ITickParam } from './tickSizeUtils';
@@ -52,6 +55,7 @@ const withDisplayFields = (
 ): IFormattedOBLevel[] =>
   levels.map((level) => ({
     ...level,
+    displayPrice: formatLocalizedNumberString(level.price),
     displaySize: formatOrderBookValue(level.size, variant),
     displayCumSize: formatOrderBookValue(level.cumSize, variant),
   }));
@@ -153,13 +157,14 @@ function getMaxSizeFromPrefix(
 function sumAndSlice(
   bids: IOBLevel[],
   asks: IOBLevel[],
-  maxLevelsPerSide: number,
+  maxBidLevels: number,
+  maxAskLevels: number,
   sizeDecimals: number,
   bidsPrefixMaxSizes: string[],
   asksPrefixMaxSizes: string[],
 ) {
-  const slicedBids = bids.slice(0, maxLevelsPerSide);
-  const slicedAsks = asks.slice(0, maxLevelsPerSide);
+  const slicedBids = bids.slice(0, maxBidLevels);
+  const slicedAsks = asks.slice(0, maxAskLevels);
   const maxBidSize = getMaxSizeFromPrefix(
     bidsPrefixMaxSizes,
     slicedBids.length,
@@ -214,8 +219,11 @@ export function useAggregatedBook(
   activeTickOption: ITickParam | undefined,
   priceDecimals: number,
   sizeDecimals: number,
+  // Vertical layout may show one extra bid row to fill leftover pane height.
+  extraBidLevels = 0,
 ): IAggregatedBookResult {
   return useMemo(() => {
+    const maxBidLevels = maxLevelsPerSide + extraBidLevels;
     // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
     const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
       convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
@@ -245,6 +253,7 @@ export function useAggregatedBook(
       } = sumAndSlice(
         convertedBids,
         convertedAsks,
+        maxBidLevels,
         maxLevelsPerSide,
         sizeDecimals,
         bidsPrefixMaxSizes,
@@ -261,7 +270,7 @@ export function useAggregatedBook(
     const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
       aggregateLevels(
         convertedBids,
-        maxLevelsPerSide,
+        maxBidLevels,
         activeTickOption.apiTick,
         'floor',
         sizeDecimals,
@@ -288,6 +297,7 @@ export function useAggregatedBook(
     activeTickOption,
     asks,
     bids,
+    extraBidLevels,
     maxLevelsPerSide,
     priceDecimals,
     sizeDecimals,

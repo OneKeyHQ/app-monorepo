@@ -2,7 +2,12 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
+import {
+  DelayedFreeze,
+  HeaderScrollGestureWrapper,
+  Tabs,
+  YStack,
+} from '@onekeyhq/components';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,7 +34,14 @@ import type {
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
 
-function MobileInformationTabsHeader(props: TabBarProps<string>) {
+function MobileInformationTabsHeader({
+  holdersTabLabel,
+  holdersTabName,
+  ...props
+}: TabBarProps<string> & {
+  holdersTabLabel: string;
+  holdersTabName: string;
+}) {
   const { tabNames, focusedTab, onTabPress } = props;
   const firstTabName = useMemo(() => {
     return tabNames[0];
@@ -45,6 +57,18 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
     },
     [focusedTab, onTabPress],
   );
+  const renderTabBarItem = useCallback(
+    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
+      <Tabs.TabBarItem
+        key={itemProps.name}
+        {...itemProps}
+        label={
+          itemProps.name === holdersTabName ? holdersTabLabel : itemProps.name
+        }
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   return (
     <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
@@ -53,6 +77,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
           {...props}
           textSize="$bodyMdMedium"
           onTabPress={handleTabPress}
+          renderItem={renderTabBarItem}
         />
         <StickyHeader firstTabName={firstTabName} />
       </YStack>
@@ -61,29 +86,34 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
 }
 
 export function MobileInformationTabs({
+  containerWidth,
   renderHeader,
   onScrollEnd,
   portfolioData,
   isRefreshing,
   tokenLogoUrl,
   scrollEnabled = true,
+  freezeContent = false,
 }: {
+  containerWidth?: number;
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
+  freezeContent?: boolean;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
     useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
-  const holdersTabName = useMemo(() => {
-    const baseTitle = intl.formatMessage({
-      id: ETranslations.dexmarket_holders,
-    });
+  const holdersTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_holders,
+  });
+  const holdersTabLabel = useMemo(() => {
+    const baseTitle = holdersTabName;
     const holders = tokenDetail?.holders;
     if (holders !== undefined && holders > 0) {
       const displayValue = String(
@@ -92,10 +122,12 @@ export function MobileInformationTabs({
       return `${baseTitle} (${displayValue})`;
     }
     return baseTitle;
-  }, [intl, tokenDetail?.holders]);
+  }, [holdersTabName, tokenDetail?.holders]);
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const tabContainerWidth = useTabContainerWidth();
+  const resolvedContainerWidth =
+    containerWidth ?? (tabContainerWidth as number);
 
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
@@ -112,12 +144,14 @@ export function MobileInformationTabs({
             id: ETranslations.dexmarket_details_transactions,
           })}
         >
-          <TransactionsHistory
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            onScrollEnd={onScrollEnd}
-            scrollEnabled={scrollEnabled}
-          />
+          <DelayedFreeze freeze={freezeContent}>
+            <TransactionsHistory
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              onScrollEnd={onScrollEnd}
+              scrollEnabled={scrollEnabled}
+            />
+          </DelayedFreeze>
         </Tabs.Tab>
       ),
       <Tabs.Tab
@@ -126,13 +160,15 @@ export function MobileInformationTabs({
           id: ETranslations.dexmarket_details_myposition,
         })}
       >
-        <Portfolio
-          portfolioData={portfolioData}
-          isRefreshing={!!isRefreshing}
-          accountAddress={accountAddress}
-          tokenLogoUrl={tokenLogoUrl}
-          scrollEnabled={scrollEnabled}
-        />
+        <DelayedFreeze freeze={freezeContent}>
+          <Portfolio
+            portfolioData={portfolioData}
+            isRefreshing={!!isRefreshing}
+            accountAddress={accountAddress}
+            tokenLogoUrl={tokenLogoUrl}
+            scrollEnabled={scrollEnabled}
+          />
+        </DelayedFreeze>
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
         <Tabs.Tab
@@ -141,24 +177,28 @@ export function MobileInformationTabs({
             id: ETranslations.global_liquidity,
           })}
         >
-          <Tabs.ScrollView scrollEnabled={scrollEnabled}>
-            <TokenLiquidityPools
-              showTitle={false}
-              variant="mobile"
-              px="$0"
-              pt="$0"
-              pb="$20"
-            />
-          </Tabs.ScrollView>
+          <DelayedFreeze freeze={freezeContent}>
+            <Tabs.ScrollView scrollEnabled={scrollEnabled}>
+              <TokenLiquidityPools
+                showTitle={false}
+                variant="mobile"
+                px="$0"
+                pt="$0"
+                pb="$20"
+              />
+            </Tabs.ScrollView>
+          </DelayedFreeze>
         </Tabs.Tab>
       ),
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
-          <Holders
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            scrollEnabled={scrollEnabled}
-          />
+          <DelayedFreeze freeze={freezeContent}>
+            <Holders
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              scrollEnabled={scrollEnabled}
+            />
+          </DelayedFreeze>
         </Tabs.Tab>
       ),
     ].filter(Boolean);
@@ -177,14 +217,22 @@ export function MobileInformationTabs({
     tokenLogoUrl,
     isStockToken,
     scrollEnabled,
+    freezeContent,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
-  const renderTabBar = useCallback(({ ...props }: any) => {
-    return <MobileInformationTabsHeader {...props} />;
-  }, []);
+  const renderTabBar = useCallback(
+    (props: TabBarProps<string>) => (
+      <MobileInformationTabsHeader
+        {...props}
+        holdersTabName={holdersTabName}
+        holdersTabLabel={holdersTabLabel}
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   // Generate unique key based on tabs composition
   const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
@@ -197,7 +245,7 @@ export function MobileInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
-      width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+      width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       headerContainerStyle={{
         width: '100%',
         shadowColor: 'transparent',

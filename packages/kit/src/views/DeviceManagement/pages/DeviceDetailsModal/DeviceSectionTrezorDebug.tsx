@@ -28,7 +28,9 @@ function DeviceSectionTrezorDebug() {
             : 'No stored THP credentials. Pair the device first.',
       });
     } catch (error) {
-      Toast.error({ title: (error as Error)?.message || 'Failed' });
+      Toast.error({
+        title: (error instanceof Error ? error.message : '') || 'Failed',
+      });
     }
   }, [dbDeviceId]);
 
@@ -44,7 +46,9 @@ function DeviceSectionTrezorDebug() {
         title: 'Cleared THP handshake + BLE binding. Reconnect to re-pair.',
       });
     } catch (error) {
-      Toast.error({ title: (error as Error)?.message || 'Failed' });
+      Toast.error({
+        title: (error instanceof Error ? error.message : '') || 'Failed',
+      });
     }
   }, [dbDeviceId]);
 

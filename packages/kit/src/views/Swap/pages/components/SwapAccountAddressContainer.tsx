@@ -2,15 +2,10 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, Stack, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapNetworksIncludeAllNetworkAtom,
@@ -41,6 +36,12 @@ const SwapAccountAddressContainer = ({
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
+  const fromAccountMatchesToken = Boolean(
+    fromToken?.networkId && activeAccount.network?.id === fromToken.networkId,
+  );
+  const toAccountMatchesToken = Boolean(
+    toToken?.networkId && activeToAccount.network?.id === toToken.networkId,
+  );
   const networkComponent = useMemo(() => {
     const token =
       displayToken ?? (type === ESwapDirectionType.FROM ? fromToken : toToken);
@@ -68,7 +69,7 @@ const SwapAccountAddressContainer = ({
           }}
         >
           {networkLogoURI ? (
-            <Image w={16} h={16} source={{ uri: networkLogoURI }} />
+            <NetworkAvatarBase logoURI={networkLogoURI} size="$4" />
           ) : null}
           <SizableText size="$bodyMd" color="$text">
             {networkName}
@@ -112,9 +113,11 @@ const SwapAccountAddressContainer = ({
       </SizableText>
       {networkComponent}
       {(type === ESwapDirectionType.FROM &&
+        fromAccountMatchesToken &&
         activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
         !!fromToken) ||
       (type === ESwapDirectionType.TO &&
+        toAccountMatchesToken &&
         activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
         !!toToken) ? (
         <AddressTypeSelector

@@ -65,7 +65,11 @@ export function GridItem({
         ) : null}
       </XStack>
       <XStack gap="$1" alignItems="center">
-        <SizableText size="$bodyLgMedium">{children}</SizableText>
+        {/* flexShrink lets long values (e.g. Morpho vault names) wrap inside
+            this grid cell instead of overflowing into the neighbor column. */}
+        <SizableText size="$bodyLgMedium" flexShrink={1}>
+          {children}
+        </SizableText>
         {link ? (
           <Stack onPress={openLink} cursor="pointer">
             <Icon name="OpenOutline" color="$iconSubdued" size="$5" />

@@ -90,7 +90,11 @@ export function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack gap="$6" alignItems="center">
+    <XStack
+      gap="$6"
+      alignItems="center"
+      $platform-native={{ gap: '$2', pl: '$3' }}
+    >
       <NetworkSelectorTriggerBrowserSingle
         num={num}
         recordNetworkHistoryEnabled

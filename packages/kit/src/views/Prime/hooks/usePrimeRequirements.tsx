@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,7 +7,6 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -15,7 +15,10 @@ import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/Prim
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 
-import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from './usePrimePaymentTypes';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../components/PrimePurchaseDialog/PrimePurchaseDialog'),
@@ -23,10 +26,16 @@ const PrimePurchaseDialog = LazyLoadPage(
   true,
 );
 
-export function usePrimeRequirements() {
-  const { user, isLoggedIn, logout, loginOneKeyId } = useOneKeyAuth();
+export function usePrimeRequirements({
+  onPurchase,
+  networkId,
+}: {
+  onPurchase?: () => void | Promise<void>;
+  networkId?: string;
+} = {}) {
+  const { user, loginOneKeyId } = useOneKeyAuth();
 
-  const { purchase } = usePrimePurchaseCallback();
+  const { purchase } = usePrimePurchaseCallback({ onPurchase, networkId });
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -37,14 +46,7 @@ export function usePrimeRequirements() {
     } = {}) => {
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (!isLoggedInInBackground || !isLoggedIn) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'usePrimeRequirements: Logout when primePersistAtom,simpleDb.prime.getAuthToken is not logged in',
-        });
-        // logout before login, make sure local supabase cache is cleared
-        void logout();
-
+      if (!isLoggedInInBackground) {
         const onConfirm = async () => {
           await loginOneKeyId();
         };
@@ -70,7 +72,7 @@ export function usePrimeRequirements() {
         throw new OneKeyLocalError('Prime is not logged in');
       }
     },
-    [isLoggedIn, logout, intl, loginOneKeyId],
+    [intl, loginOneKeyId],
   );
 
   const ensurePrimeSubscriptionActive = useCallback(
@@ -78,10 +80,12 @@ export function usePrimeRequirements() {
       skipDialogConfirm,
       selectedSubscriptionPeriod,
       featureName,
+      freeTrial,
     }: {
       skipDialogConfirm?: boolean;
       selectedSubscriptionPeriod?: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     } = {}) => {
       await ensureOneKeyIDLoggedIn({
         skipDialogConfirm,
@@ -95,7 +99,9 @@ export function usePrimeRequirements() {
           });
           if (isSandboxKey && !user.isEnableSandboxPay) {
             Toast.error({
-              title: 'Your account is not eligible for sandbox payment',
+              title: intl.formatMessage({
+                id: ETranslations.prime_sandbox_payment_unavailable__msg,
+              }),
             });
             return;
           }
@@ -103,15 +109,17 @@ export function usePrimeRequirements() {
             await purchase({
               selectedSubscriptionPeriod,
               featureName,
+              freeTrial,
             });
           } else {
-            const purchaseDialog = Dialog.show({
+            const _purchaseDialog = Dialog.show({
               renderContent: (
                 <PrimePurchaseDialog
                   onPurchase={() => {
-                    void purchaseDialog.close();
+                    return _purchaseDialog.close();
                   }}
                   featureName={featureName}
+                  networkId={networkId}
                 />
               ),
             });
@@ -139,7 +147,13 @@ export function usePrimeRequirements() {
         throw new OneKeyLocalError('Prime subscription is not active');
       }
     },
-    [ensureOneKeyIDLoggedIn, intl, purchase, user.isEnableSandboxPay],
+    [
+      ensureOneKeyIDLoggedIn,
+      intl,
+      networkId,
+      purchase,
+      user.isEnableSandboxPay,
+    ],
   );
 
   return {

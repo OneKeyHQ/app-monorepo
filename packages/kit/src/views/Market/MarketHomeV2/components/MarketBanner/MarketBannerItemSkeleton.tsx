@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { TokenGroupSkeleton } from '@onekeyhq/kit/src/components/Token';
 
+import { MarketTestIDs } from '../../testIDs';
+
 function MarketBannerItemSkeletonComponent() {
   return (
     <Stack
@@ -23,12 +25,18 @@ function MarketBannerItemSkeletonComponent() {
         maxWidth: 256,
         width: 'auto',
         h: 'auto',
+        minHeight: 96,
         p: '$4',
         gap: '$3',
         alignItems: 'center',
       }}
     >
-      <YStack gap="$0.5" flex={1} $gtMd={{ flex: 1 }}>
+      <YStack
+        testID={MarketTestIDs.bannerItemSkeleton}
+        gap="$0.5"
+        flex={1}
+        $gtMd={{ flex: 1 }}
+      >
         <Skeleton w="$16" h="$3" $gtMd={{ w: '$20', h: '$4' }} />
         <Skeleton w="$10" h="$3" $gtMd={{ w: '$12' }} />
       </YStack>

@@ -35,6 +35,12 @@ export interface ISimpleDBAggregateToken {
     }
   >;
   allAggregateTokens?: IAccountToken[];
+  // Tracks the last successful wallet-config sync so stale caches written by
+  // older app versions (with a different preset network list) get refreshed.
+  configSyncMeta?: {
+    appVersion: string;
+    syncedAt: number;
+  };
   tokenDetails?: Record<
     string, // all networks accountId
     Record<
@@ -186,6 +192,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     homeDefaultTokenMap,
     allAggregateTokenMap,
     allAggregateTokens,
+    configSyncMeta,
     merge = false,
   }: {
     allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
@@ -193,10 +200,15 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     aggregateTokenConfigMap: Record<string, IAggregateToken>;
     aggregateTokenSymbolMap: Record<string, boolean>;
     homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
+    configSyncMeta?: {
+      appVersion: string;
+      syncedAt: number;
+    };
     merge?: boolean;
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
+      configSyncMeta: configSyncMeta ?? rawData?.configSyncMeta,
       aggregateTokenSymbolMap: merge
         ? { ...rawData?.aggregateTokenSymbolMap, ...aggregateTokenSymbolMap }
         : aggregateTokenSymbolMap,
@@ -218,43 +230,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
     }));
-  }
-
-  @backgroundMethod()
-  async updateLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-    lastActiveTabName,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-    lastActiveTabName: string;
-  }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      tokenDetails: {
-        ...rawData?.tokenDetails,
-        [accountId]: {
-          ...rawData?.tokenDetails?.[accountId],
-          [aggregateTokenId]: {
-            lastActiveTabName,
-          },
-        },
-      },
-    }));
-  }
-
-  @backgroundMethod()
-  async getLastActiveTabNameInTokenDetails({
-    accountId,
-    aggregateTokenId,
-  }: {
-    accountId: string;
-    aggregateTokenId: string;
-  }) {
-    return (await this.getRawData())?.tokenDetails?.[accountId]?.[
-      aggregateTokenId
-    ]?.lastActiveTabName;
   }
 
   @backgroundMethod()

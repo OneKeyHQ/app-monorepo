@@ -1,9 +1,16 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBleFirmwareUpdateInfo,
+  IFirmwareUpdateDetectStatus,
+  IFirmwareUpdateDetectStatusSnapshot,
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectMap,
   IFirmwareUpdatesDetectStatus,
+  IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
 import { firmwareUpdatesDetectStatusPersistAtom } from '../../states/jotai/atoms';
@@ -26,13 +33,23 @@ export class FirmwareUpdateDetectMap {
 
   firstDetectTimeSpan = timerUtils.getTimeDurationMs({ minute: 1 });
 
+  getNextDetectDelay({ connectId }: { connectId: string }) {
+    const now = Date.now();
+    const firstDetectDelay =
+      this.firstDetectTimeSpan - (now - this.firstDetectAt);
+    const lastDetectAt = this.detectMapCache[connectId]?.lastDetectAt;
+    const repeatedDetectDelay = lastDetectAt
+      ? this.detectTimeSpan - (now - lastDetectAt)
+      : 0;
+
+    return Math.max(0, firstDetectDelay, repeatedDetectDelay);
+  }
+
   shouldDetect({ connectId }: { connectId: string }) {
     const now = Date.now();
 
     // Check is not allowed until one minute after the app is started
     if (now - this.firstDetectAt < this.firstDetectTimeSpan) {
-      // console.log(`skip detectFirmwareUpdates with first check: ${connectId}`);
-
       void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
         '刚启动 App，跳过检查更新',
       );
@@ -45,8 +62,6 @@ export class FirmwareUpdateDetectMap {
       lastDetectResult?.lastDetectAt &&
       now - lastDetectResult.lastDetectAt < this.detectTimeSpan
     ) {
-      // console.log(`skip detectFirmwareUpdates: ${connectId}`);
-
       void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
         '刚刚检查过，跳过检查更新',
       );
@@ -86,69 +101,100 @@ export class FirmwareUpdateDetectMap {
     };
   }
 
-  async updateDetectStatusAtom({ connectId }: { connectId: string }) {
+  private buildDetectStatus({
+    connectId,
+    detectCache,
+  }: {
+    connectId: string;
+    detectCache: IFirmwareUpdatesDetectMap[string];
+  }): IFirmwareUpdateDetectStatus | undefined {
+    const updateInfo = detectCache?.updateInfo;
+    if (!updateInfo) {
+      return undefined;
+    }
+    return {
+      connectId,
+      hasUpgrade: Boolean(
+        updateInfo.firmware?.hasUpgrade ||
+        updateInfo.ble?.hasUpgrade ||
+        updateInfo.targetsToUpdate?.length,
+      ),
+      toVersion: updateInfo.firmware?.hasUpgrade
+        ? updateInfo.firmware.toVersion
+        : undefined,
+      toFirmwareType: updateInfo.firmware?.hasUpgrade
+        ? updateInfo.firmware.toFirmwareType
+        : undefined,
+      toVersionBle: updateInfo.ble?.hasUpgrade
+        ? updateInfo.ble.toVersion
+        : undefined,
+    };
+  }
+
+  getDetectStatus({
+    connectId,
+  }: {
+    connectId: string;
+  }): IFirmwareUpdateDetectStatusSnapshot {
+    const detectCache = this.detectMapCache[connectId];
+    return {
+      requestedConnectId: connectId,
+      resolved: detectCache?.detectResultResolved === true,
+      status: this.buildDetectStatus({ connectId, detectCache }),
+    };
+  }
+
+  async updateDetectStatusAtom({
+    connectId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+  }) {
+    const staleConnectIds = [usbConnectId, bleConnectId].filter(
+      (value): value is string => Boolean(value && value !== connectId),
+    );
+    for (const staleConnectId of staleConnectIds) {
+      delete this.detectMapCache[staleConnectId];
+    }
+    const detectCache = this.detectMapCache[connectId];
+    if (detectCache?.detectResultResolved !== true) {
+      return;
+    }
     await firmwareUpdatesDetectStatusPersistAtom.set(
       (value: IFirmwareUpdatesDetectStatus | undefined) => {
-        const detectCache = this.detectMapCache[connectId];
-        const hasUpdateInfo = detectCache && detectCache?.updateInfo;
-        if (hasUpdateInfo) {
-          const hasUpgrade = Boolean(
-            detectCache?.updateInfo?.firmware?.hasUpgrade ||
-            detectCache?.updateInfo?.ble?.hasUpgrade,
-          );
-
-          let toFirmwareVersion;
-          if (detectCache?.updateInfo?.firmware?.hasUpgrade) {
-            toFirmwareVersion =
-              detectCache?.updateInfo?.firmware?.toVersion ??
-              value?.[connectId]?.toVersion;
-          }
-
-          let toFirmwareType;
-          if (detectCache?.updateInfo?.firmware?.hasUpgrade) {
-            toFirmwareType =
-              detectCache?.updateInfo?.firmware?.toFirmwareType ??
-              value?.[connectId]?.toFirmwareType;
-          }
-
-          let toVersionBle;
-          if (detectCache?.updateInfo?.ble?.hasUpgrade) {
-            toVersionBle =
-              detectCache?.updateInfo?.ble?.toVersion ??
-              value?.[connectId]?.toVersionBle;
-          }
-
-          const newValue: IFirmwareUpdatesDetectStatus = {
-            ...value,
-            [connectId]: {
-              ...value?.[connectId],
-              hasUpgrade,
-              connectId,
-              toVersion: toFirmwareVersion,
-              toFirmwareType,
-              toVersionBle,
-            },
-          };
-
-          return newValue;
+        const status = this.buildDetectStatus({ connectId, detectCache });
+        const newValue = { ...value };
+        for (const staleConnectId of staleConnectIds) {
+          delete newValue[staleConnectId];
         }
-        if (value && !hasUpdateInfo) {
-          delete value[connectId];
-          return { ...value };
+        if (status) {
+          newValue[connectId] = status;
+        } else {
+          delete newValue[connectId];
         }
-        return value;
+        return Object.keys(newValue).length ? newValue : undefined;
       },
+    );
+    appEventBus.emit(
+      EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
+      undefined,
     );
   }
 
   async updateFirmwareUpdateInfo({
     connectId,
+    usbConnectId,
+    bleConnectId,
     updateInfo,
   }: {
     connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
     updateInfo: IFirmwareUpdateInfo;
   }) {
-    // console.log('updateFirmwareUpdateInfo', { connectId, updateInfo });
     const mockAllIsUpToDate =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'allIsUpToDate',
@@ -156,22 +202,35 @@ export class FirmwareUpdateDetectMap {
     if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
         ...this.detectMapCache[connectId],
+        detectResultResolved: true,
         updateInfo: {
           ...this.detectMapCache[connectId]?.updateInfo,
           firmware: updateInfo,
         },
       };
+    } else {
+      this.detectMapCache[connectId] = {
+        ...this.detectMapCache[connectId],
+        detectResultResolved: true,
+        updateInfo: undefined,
+      };
     }
     await this.updateDetectStatusAtom({
       connectId,
+      usbConnectId,
+      bleConnectId,
     });
   }
 
   async updateBleFirmwareUpdateInfo({
     connectId,
+    usbConnectId,
+    bleConnectId,
     updateInfo,
   }: {
     connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
     updateInfo: IBleFirmwareUpdateInfo;
   }) {
     const mockAllIsUpToDate =
@@ -181,26 +240,89 @@ export class FirmwareUpdateDetectMap {
     if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
         ...this.detectMapCache[connectId],
+        detectResultResolved: true,
         updateInfo: {
           ...this.detectMapCache[connectId]?.updateInfo,
           ble: updateInfo,
         },
       };
+    } else {
+      this.detectMapCache[connectId] = {
+        ...this.detectMapCache[connectId],
+        detectResultResolved: true,
+        updateInfo: undefined,
+      };
     }
     await this.updateDetectStatusAtom({
       connectId,
+      usbConnectId,
+      bleConnectId,
     });
   }
 
-  async deleteUpdateInfo({ connectId }: { connectId: string }) {
-    // delete this.detectMapCache[connectId];
-    const cache = this.detectMapCache[connectId];
-    if (cache) {
-      // keep lastDetectAt but clear updateInfo
-      cache.updateInfo = undefined;
-    }
+  async resolveUpdateInfo({
+    connectId,
+    usbConnectId,
+    bleConnectId,
+    firmware,
+    ble,
+    targetsToUpdate,
+  }: {
+    connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+    firmware?: IFirmwareUpdateInfo;
+    ble?: IBleFirmwareUpdateInfo;
+    targetsToUpdate?: IPro2FirmwareUpdateTarget[];
+  }) {
+    const hasUpgrade = Boolean(
+      firmware?.hasUpgrade || ble?.hasUpgrade || targetsToUpdate?.length,
+    );
+    this.detectMapCache[connectId] = {
+      ...this.detectMapCache[connectId],
+      detectResultResolved: true,
+      updateInfo: hasUpgrade
+        ? {
+            firmware,
+            ble,
+            targetsToUpdate,
+          }
+        : undefined,
+    };
     await this.updateDetectStatusAtom({
       connectId,
+      usbConnectId,
+      bleConnectId,
     });
+  }
+
+  async deleteUpdateInfo({
+    connectId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+  }) {
+    this.detectMapCache[connectId] = {
+      ...this.detectMapCache[connectId],
+      detectResultResolved: true,
+      updateInfo: undefined,
+    };
+    await this.updateDetectStatusAtom({
+      connectId,
+      usbConnectId,
+      bleConnectId,
+    });
+  }
+
+  async clear() {
+    this.detectMapCache = {};
+    await firmwareUpdatesDetectStatusPersistAtom.set(undefined);
+    appEventBus.emit(
+      EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
+      undefined,
+    );
   }
 }

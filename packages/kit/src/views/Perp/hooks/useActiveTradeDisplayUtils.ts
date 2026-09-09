@@ -22,6 +22,7 @@ export function buildActiveTradeDisplay({
       displayName: formatSpotPairDisplayName(u.baseName, u.quoteName),
       baseName: getSpotTokenDisplayName(u.baseName),
       rawBaseName: u.baseName,
+      dexLabel: undefined,
       assetId: tradeInstrument.assetId,
     };
   }
@@ -36,6 +37,7 @@ export function buildActiveTradeDisplay({
     displayName: parsed.displayName,
     baseName: parsed.displayName,
     rawBaseName: parsed.displayName,
+    dexLabel: parsed.dexLabel,
     assetId:
       tradeInstrument.assetId ??
       (isPerpsAssetForCoin ? perpsAsset.assetId : undefined),

@@ -7,7 +7,7 @@ import { MonitorContainer } from './MonitorContainer';
 const BasePerformanceMonitor = () => {
   const [settings] = useDevSettingsPersistAtom();
 
-  if (!settings.enabled || !settings.settings?.showPerformanceMonitor) {
+  if (!settings.enabled || !settings.settings?.showPerformanceMonitorV2) {
     return null;
   }
 

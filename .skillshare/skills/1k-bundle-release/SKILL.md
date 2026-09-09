@@ -99,5 +99,5 @@ These steps are designed to run in sequence, but each can also run independently
 
 ## Related Skills
 
-- `/1k-git-workflow` — Branch naming, commit conventions
+- `/1k-dev-commands` — Branch naming, commit conventions
 - `/commit` — Create commits

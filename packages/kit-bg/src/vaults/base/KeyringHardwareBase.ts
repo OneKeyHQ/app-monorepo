@@ -103,7 +103,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       return false;
     };
 
-    const result = await convertDeviceResponse(async () =>
+    const result = (await convertDeviceResponse(async () =>
       sdkGetDataFn({
         connectId,
         deviceId,
@@ -114,7 +114,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         receiveAddressPath,
         showOnOnekeyFn,
       }),
-    );
+    )) as T[] | undefined;
 
     if (!result || result.length !== usedIndexes.length) {
       throw new OneKeyInternalError(errorMessage);

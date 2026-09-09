@@ -2,7 +2,11 @@ import { memo, useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IKeyOfIcons,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -61,10 +65,15 @@ function useHandleClaimAction({
   protocolInfo,
   tokenInfo,
   token,
+  onSuccess,
 }: {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  // Fires once the claim transaction is confirmed, for callers that render
+  // balances the claim invalidates. Optional: existing call sites pass nothing
+  // and keep what they do today.
+  onSuccess?: () => void;
 }) {
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
@@ -118,10 +127,11 @@ function useHandleClaimAction({
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         portfolioSymbol: token?.symbol,
+        onSuccess,
       });
       setLoading(false);
     },
-    [handleClaim, protocolInfo, tokenInfo, token],
+    [handleClaim, protocolInfo, tokenInfo, token, onSuccess],
   );
 }
 
@@ -157,14 +167,22 @@ export function ActionPopupContent({
   items,
   panel,
   description,
+  containerProps,
 }: {
   bulletList: IEarnPopupActionIcon['data']['bulletList'];
   items: IEarnPopupActionIcon['data']['items'];
   panel: IEarnPopupActionIcon['data']['panel'];
   description: IEarnPopupActionIcon['data']['description'];
+  containerProps?: IYStackProps;
 }) {
+  // The description block is separated from the content above it by a divider.
+  // When it is the only block (e.g. Spark's liquidity-request explainer), the
+  // leading divider would just add an orphan line + gap, so skip it.
+  const hasContentAbove = Boolean(
+    items?.length || bulletList?.length || panel?.length,
+  );
   return (
-    <YStack p="$5">
+    <YStack p="$5" {...containerProps}>
       {items?.length ? (
         <YStack gap="$2.5">
           {items.map(({ icon, title, value, token }) => (
@@ -238,7 +256,7 @@ export function ActionPopupContent({
       ) : null}
       {description?.length ? (
         <>
-          <Divider my="$4" />
+          {hasContentAbove ? <Divider my="$4" /> : null}
           {description.map((text) => (
             <EarnText
               key={text.text}
@@ -310,15 +328,18 @@ function BasicClaimActionIcon({
   tokenInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnClaimActionIcon;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const handleClaimAction = useHandleClaimAction({
+    onSuccess,
     protocolInfo,
     tokenInfo,
     token,
@@ -527,6 +548,7 @@ function BasicEarnActionIcon({
   token,
   onHistory,
   trigger,
+  onActionSuccess,
 }: {
   title?: string;
   actionIcon?: IEarnActionIcon;
@@ -535,6 +557,9 @@ function BasicEarnActionIcon({
   token?: IEarnToken;
   onHistory?: (params?: { filterType?: string }) => void;
   trigger?: IActionTrigger;
+  // Fires after a claim confirms, so a caller showing the balance the claim
+  // changed can refetch it. Currently only the phone Portfolio tab passes it.
+  onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
   const handleUniversalWithdraw = useUniversalWithdraw({
@@ -636,6 +661,7 @@ function BasicEarnActionIcon({
           token={token}
           actionIcon={actionIcon}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case 'claimWithKyc': {

@@ -9,6 +9,8 @@ import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
 interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
+  /** Web-only content-visibility optimization; accepted for API parity. */
+  disableWebTabContentVisibility?: boolean;
   /**
    * Web-only: slot between the sticky TabBar and tab content. On native, the
    * equivalent should live inside each tab list's ListHeaderComponent, so the
@@ -26,6 +28,7 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
       pagerProps,
       headerContainerStyle,
       renderSubHeader: _renderSubHeader,
+      disableWebTabContentVisibility: _disableWebTabContentVisibility,
       ...props
     },
     ref,

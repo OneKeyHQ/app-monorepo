@@ -16,6 +16,8 @@ import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IKeylessRealmTokenDiagnosticContext } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
+import { HEADER_REQUEST_ID_KEY } from '@onekeyhq/shared/src/request/Interceptor';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -80,10 +82,14 @@ export class JuiceboxClient {
    * This method must be called before register() or recover()
    *
    * @param supabaseAccessToken - Supabase access token for authentication
+   * @param diagnosticContext - Safe correlation data that never contains tokens
    * @returns Promise<void> - Resolves when all tokens are cached
    * @throws {OneKeyLocalError} - If token exchange fails
    */
-  async exchangeToken(supabaseAccessToken: string): Promise<void> {
+  async exchangeToken(
+    supabaseAccessToken: string,
+    diagnosticContext?: IKeylessRealmTokenDiagnosticContext,
+  ): Promise<void> {
     this.clearTokenCache();
     if (!supabaseAccessToken) {
       throw new OneKeyLocalError('Supabase access token is required');
@@ -95,48 +101,128 @@ export class JuiceboxClient {
     const isTestnet =
       !!devSettings.enabled && !!devSettings.settings?.enableTestEndpoint;
 
-    const response = await axios.post<
-      IApiClientResponse<{
-        tokens: Record<string, string>;
-        pinHash: string;
-      }>
-    >(tokenUrl, {
-      token: supabaseAccessToken,
-      isTestnet,
-    });
-    const resData = response?.data;
-    if (resData?.code === 0 && resData?.data?.tokens) {
-      const realmTokens = resData?.data?.tokens;
-      const pinHash = resData?.data?.pinHash;
-      // Validate response format
-      if (!realmTokens || typeof realmTokens !== 'object') {
+    const startedAt = Date.now();
+    let requestId: string | undefined;
+    let responseCode: number | undefined;
+    let responseMessage: string | undefined;
+    if (diagnosticContext) {
+      defaultLogger.wallet.keyless.realmTokenExchangeStarted({
+        ...diagnosticContext,
+        isTestnet,
+      });
+    }
+
+    try {
+      const response = await axios.post<
+        IApiClientResponse<{
+          tokens: Record<string, string>;
+          pinHash: string;
+        }>
+      >(tokenUrl, {
+        token: supabaseAccessToken,
+        isTestnet,
+      });
+      const resData = response?.data;
+      const requestIdHeader =
+        response.config.headers?.get?.(HEADER_REQUEST_ID_KEY) ??
+        response.config.headers?.[HEADER_REQUEST_ID_KEY];
+      requestId =
+        typeof requestIdHeader === 'string' ? requestIdHeader : undefined;
+      responseCode =
+        typeof resData?.code === 'number' ? resData.code : undefined;
+      responseMessage =
+        typeof resData?.message === 'string'
+          ? resData.message.slice(0, 300)
+          : undefined;
+      if (resData?.code === 0 && resData?.data?.tokens) {
+        const realmTokens = resData?.data?.tokens;
+        const pinHash = resData?.data?.pinHash;
+        // Validate response format
+        if (!realmTokens || typeof realmTokens !== 'object') {
+          throw new OneKeyLocalError(
+            'Invalid response format: expected object with realm tokens',
+          );
+        }
+
+        // Cache all realm tokens with pinHash
+        for (const [realmId, token] of Object.entries(realmTokens)) {
+          if (!token) {
+            throw new OneKeyLocalError(
+              `Invalid response format: missing token for realm ${realmId}`,
+            );
+          }
+          this.juiceboxTokenCache.set(realmId, { token, pinHash });
+        }
+
+        // Verify all configured realms have tokens
+        for (const realm of JUICEBOX_CONFIG.realms) {
+          if (!this.juiceboxTokenCache.has(realm.id)) {
+            throw new OneKeyLocalError(
+              `Missing token for configured realm: ${realm.id}`,
+            );
+          }
+        }
+      } else {
         throw new OneKeyLocalError(
-          'Invalid response format: expected object with realm tokens',
+          `Get Juicebox Token Error: ${resData?.code} ${resData?.message}`,
         );
       }
 
-      // Cache all realm tokens with pinHash
-      for (const [realmId, token] of Object.entries(realmTokens)) {
-        if (!token) {
-          throw new OneKeyLocalError(
-            `Invalid response format: missing token for realm ${realmId}`,
-          );
-        }
-        this.juiceboxTokenCache.set(realmId, { token, pinHash });
+      if (diagnosticContext) {
+        defaultLogger.wallet.keyless.realmTokenExchangeSucceeded({
+          ...diagnosticContext,
+          durationMs: Date.now() - startedAt,
+          isTestnet,
+          realmTokenCount: this.juiceboxTokenCache.size,
+          requestId,
+          responseCode,
+        });
       }
-
-      // Verify all configured realms have tokens
-      for (const realm of JUICEBOX_CONFIG.realms) {
-        if (!this.juiceboxTokenCache.has(realm.id)) {
-          throw new OneKeyLocalError(
-            `Missing token for configured realm: ${realm.id}`,
-          );
+    } catch (error) {
+      if (diagnosticContext) {
+        const axiosError = axios.isAxiosError(error) ? error : undefined;
+        const responseData = axiosError?.response?.data as
+          | {
+              code?: unknown;
+              message?: unknown;
+            }
+          | undefined;
+        const axiosResponseCode =
+          typeof responseData?.code === 'number'
+            ? responseData.code
+            : undefined;
+        const axiosResponseMessage =
+          typeof responseData?.message === 'string'
+            ? responseData.message.slice(0, 300)
+            : undefined;
+        const errorDetails = error as {
+          requestId?: unknown;
+        };
+        const requestIdHeader =
+          axiosError?.config?.headers?.get?.(HEADER_REQUEST_ID_KEY) ??
+          axiosError?.config?.headers?.[HEADER_REQUEST_ID_KEY];
+        let failedRequestId = requestId;
+        if (typeof requestIdHeader === 'string') {
+          failedRequestId = requestIdHeader;
         }
+        if (typeof errorDetails?.requestId === 'string') {
+          failedRequestId = errorDetails.requestId;
+        }
+        defaultLogger.wallet.keyless.realmTokenExchangeFailed({
+          ...diagnosticContext,
+          durationMs: Date.now() - startedAt,
+          errorMessage:
+            error instanceof Error
+              ? error.message.slice(0, 300)
+              : 'Unknown realm token exchange error',
+          httpStatus: axiosError?.response?.status,
+          isTestnet,
+          requestId: failedRequestId,
+          responseCode: axiosResponseCode ?? responseCode,
+          responseMessage: axiosResponseMessage ?? responseMessage,
+        });
       }
-    } else {
-      throw new OneKeyLocalError(
-        `Get Juicebox Token Error: ${resData?.code} ${resData?.message}`,
-      );
+      throw error;
     }
   }
 

@@ -13,14 +13,14 @@ interface ISwapProTimeRangeSelectorProps {
   items: { label: string; value: ESwapProTimeRange }[];
   selectedValue: { label: string; value: ESwapProTimeRange };
   onChange: (value: ESwapProTimeRange) => void;
-  supportSpeedSwap?: boolean;
+  disabled?: boolean;
 }
 
 const SwapProTimeRangeSelector = ({
   items,
   selectedValue,
   onChange,
-  supportSpeedSwap,
+  disabled,
 }: ISwapProTimeRangeSelectorProps) => {
   const intl = useIntl();
 
@@ -31,7 +31,7 @@ const SwapProTimeRangeSelector = ({
         cursor="pointer"
         userSelect="none"
         borderRadius="$2"
-        onPress={!supportSpeedSwap ? undefined : props.onPress}
+        onPress={disabled ? undefined : props.onPress}
         h="$8"
         alignItems="center"
         justifyContent="space-between"
@@ -47,14 +47,14 @@ const SwapProTimeRangeSelector = ({
         }}
       >
         <SizableText size="$bodyMd">
-          {!supportSpeedSwap ? defaultTimeRangeItem.label : selectedValue.label}
+          {disabled ? defaultTimeRangeItem.label : selectedValue.label}
         </SizableText>
-        {!supportSpeedSwap ? null : (
+        {disabled ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}
       </XStack>
     ),
-    [supportSpeedSwap, selectedValue.label],
+    [disabled, selectedValue.label],
   );
 
   return (
@@ -65,7 +65,7 @@ const SwapProTimeRangeSelector = ({
       onChange={(value) => {
         onChange(value as ESwapProTimeRange);
       }}
-      disabled={!supportSpeedSwap}
+      disabled={disabled}
       title={intl.formatMessage({ id: ETranslations.global_time_range })}
       renderTrigger={renderTrigger}
       floatingPanelProps={{

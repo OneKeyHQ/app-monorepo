@@ -41,7 +41,7 @@ function MobileTabListItem({
         onLongPress(id);
       }}
       p="$1"
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_TRANSFORM}
       pressStyle={{
         scale: 0.95,
@@ -113,6 +113,7 @@ function MobileTabListItem({
                   h="100%"
                   borderBottomLeftRadius={10}
                   borderBottomRightRadius={10}
+                  resizeWidth={240}
                   source={{ uri: tab?.thumbnail }}
                 />
               </Stack>

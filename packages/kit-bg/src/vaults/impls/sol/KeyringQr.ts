@@ -2,7 +2,10 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
 import {
@@ -270,6 +273,33 @@ export class KeyringQr extends KeyringQrBase {
           let signData = Buffer.from(payload.message).toString('hex');
 
           if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            // The air-gap data types only cover version 0 (Off_Chain_Message_Legacy /
+            // Off_Chain_Message_Standard). Signing a version 1 request here would silently
+            // produce version 0 bytes the dapp cannot verify.
+            //
+            // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
+            // read below comes off the top level instead, where it never exists.
+            // Cast: the structural annotation above cannot express a per-chain payload.
+            const offchainVersion = (
+              payload as { payload?: { version?: number } }
+            ).payload?.version;
+            const versionKind = classifyOffchainMessageVersion(offchainVersion);
+            if (versionKind === 'v1') {
+              throw new OneKeyLocalError(
+                appLocale.intl.formatMessage({
+                  id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
+                }),
+              );
+            }
+            // Only version 0 is passed on: nothing below tells the device which
+            // version this is, so anything else would be signed as version 0.
+            if (versionKind === 'unsupported') {
+              throw new OneKeyLocalError(
+                `sol offchain message: unsupported version ${String(
+                  offchainVersion,
+                )}`,
+              );
+            }
             const format = OffchainMessage.guessMessageFormat(
               Buffer.from(payload.message),
             );

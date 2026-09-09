@@ -5,21 +5,6 @@ on:
   pull_request:
     branches:
       - x
-    paths:
-      - '.github/workflows/startup-graph-budget.yml'
-      - 'packages/**'
-      - 'apps/desktop/**'
-      - 'apps/mobile/**'
-      - 'apps/web/**'
-      - 'development/babel-plugins/**'
-      - 'development/perf-ci/run-web-cold.js'
-      - 'development/perf-ci/lib/**'
-      - 'development/perf-ci/thresholds/web.cold.json'
-      - 'development/perf-ci/thresholds/desktop.startup.json'
-      - 'development/rspack/**'
-      - 'development/webpack/**'
-      - 'package.json'
-      - 'yarn.lock'
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -85,9 +70,11 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: main
-          # main entry currently: ~2544 modules / ~12.64 MB
+          # main entry currently: ~2605 modules / ~13.23 MB
+          # (AsyncStorage->MMKV migration adds the main-runtime bootstrap gate
+          # and runtime-owned MMKV instance/guard modules to the eager graph)
           STARTUP_MODULE_BUDGET: '3000'
-          STARTUP_SIZE_BUDGET_MB: '14'
+          STARTUP_SIZE_BUDGET_MB: '13.3'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
@@ -95,9 +82,10 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: background
-          # background entry currently: ~2429 modules / ~18.84 MB
+          # background entry currently: ~2377 modules / ~19.21 MB
+          # (hardware SDK 1.2.0 Pro2/Neo mainline; matches hotfix/v6.5.2's 19.5 budget)
           STARTUP_MODULE_BUDGET: '2600'
-          STARTUP_SIZE_BUDGET_MB: '20'
+          STARTUP_SIZE_BUDGET_MB: '19.5'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Architecture Check (three-bundle rules)
@@ -110,7 +98,9 @@ jobs:
           name: bundle-architecture-reports
           path: |
             apps/mobile/dist/allocation-report-*.json
-            apps/mobile/out-dir-analysis/budget-check-report.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.json
+            apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
   web-startup-graph-budget:
@@ -143,13 +133,18 @@ jobs:
       # Current GitHub Actions cold-entry median baseline, measured on
       # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
       # Keep scenario budgets in development/perf-ci/thresholds/web.cold.json
-      # close to these per-entry baselines:
-      # root: 15.86 MiB JS, 157 scripts, 206 resources, 2380 ms LCP, 1737 ms long tasks
-      # market: 15.86 MiB JS, 157 scripts, 205 resources, 2064 ms LCP, 1624 ms long tasks
-      # perps: 16.21 MiB JS, 165 scripts, 204 resources, 2024 ms LCP, 1271 ms long tasks
-      # swap: 15.81 MiB JS, 159 scripts, 192 resources, 1432 ms LCP, 971 ms long tasks
-      # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1332 ms LCP, 1092 ms long tasks
-      # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 1980 ms LCP, 692 ms long tasks
+      # close to these per-entry baselines. LCP is reported by the script but is
+      # not a hard budget because it is too sensitive to GitHub runner variance.
+      # NOTE: resourceCount, scriptCount and jsDecodedBytes remain raw
+      # PerformanceResourceTiming hard gates matching web.cold.json. Normalized
+      # URL de-duplicated diagnostics are emitted as unique* fields in the
+      # report/hints; migrate thresholds in the same PR if those become gates.
+      # root: 15.86 MiB JS, 157 scripts, 206 resources, 1737 ms long tasks
+      # market: 15.86 MiB JS, 157 scripts, 205 resources, 1624 ms long tasks
+      # perps: 16.21 MiB JS, 165 scripts, 204 resources, 1271 ms long tasks
+      # swap: 15.81 MiB JS, 159 scripts, 192 resources, 971 ms long tasks
+      # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1092 ms long tasks
+      # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 692 ms long tasks
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -196,7 +191,11 @@ jobs:
           name: web-startup-cold-budget-reports
           path: |
             apps/web/out-dir-analysis/web-startup-graph-budget-report.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-startup-graph-budget-report-ai-hints.md
             apps/web/out-dir-analysis/web-cold-budget-report.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.json
+            apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30
 
   desktop-startup-budget:
@@ -226,15 +225,15 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      - name: Build desktop renderer with Rspack
+      - name: Build desktop renderer budget artifact with release Rspack config
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn workspace @onekeyhq/desktop build:renderer:rspack
+        run: yarn workspace @onekeyhq/desktop build:renderer:startup-budget
 
       - name: Check desktop renderer startup graph budget
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn workspace @onekeyhq/desktop check:renderer-startup-budget
+        run: yarn workspace @onekeyhq/desktop check:renderer-startup-budget web-build
 
       - name: Build desktop main with esbuild metafile
         env:
@@ -255,3 +254,35 @@ jobs:
             apps/desktop/out-dir-analysis/desktop-main-bundle-budget-report.json
             apps/desktop/app/dist/meta.json
           retention-days: 30
+
+  ext-build-budget:
+    name: Extension build budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Check extension production build budgets
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn app:ext:build

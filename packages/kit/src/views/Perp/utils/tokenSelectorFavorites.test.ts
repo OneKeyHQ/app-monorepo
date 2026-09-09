@@ -1,9 +1,13 @@
+import type { IPerpsAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
+
 import {
   dedupeTokenSelectorFavoriteCoins,
   dedupeTokenSelectorFavoritesOrder,
   getTokenSelectorFavoriteItems,
+  getTokenSelectorFavoriteSortEntry,
   reconcileTokenSelectorFavoritesOrder,
   sortTokenSelectorFavoriteItems,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 } from './tokenSelectorFavorites';
@@ -186,6 +190,61 @@ describe('tokenSelectorFavorites', () => {
       { mode: 'spot', coinName: '@230' },
       { mode: 'perp', coinName: 'HYPE' },
       { mode: 'spot', coinName: '@156' },
+    ]);
+  });
+
+  it('reads sort values from a second sub dex ctx array', () => {
+    const entry = getTokenSelectorFavoriteSortEntry({
+      item: {
+        dexIndex: 2,
+        index: 19,
+        assetId: 180_019,
+        tokenName: 'para:UNITREE',
+      },
+      order: 0,
+      spotPriceSnapshot: {},
+      spotMarketCaps: {},
+      perpAssetCtxsByDex: [
+        [],
+        [],
+        [
+          ...Array.from({ length: 19 }, () => undefined),
+          { dayNtlVlm: '42' },
+        ] as IPerpsAssetCtx[],
+      ],
+      computePerpSortValues: (assetCtx) => ({
+        markPrice: 0,
+        change24hPercent: 0,
+        fundingRate: 0,
+        volume24h: Number(assetCtx?.dayNtlVlm ?? -1),
+        openInterestValue: 0,
+      }),
+    });
+
+    expect(entry.volume24h).toBe(42);
+  });
+
+  it('orders favorites by the persisted drag sequence and appends the rest', () => {
+    expect(
+      sortTokenSelectorFavoritesBySequence(
+        [
+          { mode: 'perp', coinName: 'BTC' },
+          { mode: 'perp', coinName: 'ETH' },
+          { mode: 'spot', coinName: '@142' },
+          { mode: 'perp', coinName: 'SOL' },
+        ],
+        [
+          { mode: 'perp', coinName: 'SOL' },
+          { mode: 'spot', coinName: '@142' },
+          { mode: 'perp', coinName: 'DOGE' },
+          { mode: 'perp', coinName: 'SOL' },
+        ],
+      ),
+    ).toEqual([
+      { mode: 'perp', coinName: 'SOL' },
+      { mode: 'spot', coinName: '@142' },
+      { mode: 'perp', coinName: 'BTC' },
+      { mode: 'perp', coinName: 'ETH' },
     ]);
   });
 });

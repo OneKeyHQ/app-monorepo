@@ -22,6 +22,7 @@ import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
+  IFeaturedChangelogPreviewValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
@@ -35,12 +36,12 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
-  EOnboardingPages,
+  EOnboardingPagesV2,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -195,6 +196,17 @@ export async function parseQRCodeWithDeps(
         screen: EAppUpdateRoutes.UpdatePreview,
       });
       break;
+    case EQRCodeHandlerType.FEATURED_CHANGELOG_PREVIEW: {
+      // Ops-only Featured Changelog preview (dashboard-generated QR). Route
+      // to the preview page instead of the raw Info/Copy fallback dialog.
+      const { version } = result.data as IFeaturedChangelogPreviewValue;
+      await closeScanPage();
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.FeaturedChangelogPreview,
+        params: { version },
+      });
+      break;
+    }
     case EQRCodeHandlerType.PRIME_TRANSFER:
       {
         const primeTransferData = result.data as IPrimeTransferValue;
@@ -346,13 +358,10 @@ export async function parseQRCodeWithDeps(
                       // target route in a single dispatch. This avoids
                       // the stale navigation reference after
                       // resetAboveMainRoute() (OK-51748).
-                      resetToRoute(ERootRoutes.Modal, {
-                        screen: EModalRoutes.OnboardingModal,
+                      resetToRoute(ERootRoutes.Onboarding, {
+                        screen: EOnboardingV2Routes.OnboardingV2,
                         params: {
-                          screen: EOnboardingPages.ConnectYourDevice,
-                          params: {
-                            channel: EConnectDeviceChannel.qr,
-                          },
+                          screen: EOnboardingPagesV2.ConnectQRCode,
                         },
                       });
                     }}

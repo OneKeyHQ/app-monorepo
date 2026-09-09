@@ -1,6 +1,9 @@
 import { BigNumber } from 'bignumber.js';
 
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  snapHlPriceToGrid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export interface IResolveTpSlTriggerPxInput {
   hasTpsl: boolean;
@@ -12,6 +15,20 @@ export interface IResolveTpSlTriggerPxInput {
   referencePrice: BigNumber;
   side: 'long' | 'short';
   leverage?: number;
+  szDecimals?: number;
+}
+
+// Percent-derived triggers must land on the nearest valid price, otherwise the
+// significant-figure truncation always shifts the trigger toward zero and the
+// realized ROE drifts off the requested percentage by up to one tick x leverage.
+function roundPercentDerivedTriggerPx(
+  price: BigNumber,
+  szDecimals?: number,
+): BigNumber {
+  if (szDecimals === undefined) {
+    return price;
+  }
+  return snapHlPriceToGrid(price, 'nearest', szDecimals) ?? price;
 }
 
 export interface IResolveTpSlTriggerPxResult {
@@ -30,6 +47,7 @@ export function resolveTpSlTriggerPx({
   referencePrice,
   side,
   leverage = 1,
+  szDecimals,
 }: IResolveTpSlTriggerPxInput): IResolveTpSlTriggerPxResult {
   const leverageBN = new BigNumber(leverage);
   if (!hasTpsl || !(tpValue || slValue)) {
@@ -55,7 +73,7 @@ export function resolveTpSlTriggerPx({
         side === 'long'
           ? entryPrice.plus(percentChange)
           : entryPrice.minus(percentChange);
-      calculatedTpTriggerPx = tpPrice;
+      calculatedTpTriggerPx = roundPercentDerivedTriggerPx(tpPrice, szDecimals);
     }
   }
 
@@ -73,16 +91,16 @@ export function resolveTpSlTriggerPx({
         side === 'long'
           ? entryPrice.minus(percentChange)
           : entryPrice.plus(percentChange);
-      calculatedSlTriggerPx = slPrice;
+      calculatedSlTriggerPx = roundPercentDerivedTriggerPx(slPrice, szDecimals);
     }
   }
 
   return {
     tpTriggerPx: calculatedTpTriggerPx
-      ? formatPriceToSignificantDigits(calculatedTpTriggerPx)
+      ? formatPriceToSignificantDigits(calculatedTpTriggerPx, szDecimals)
       : '',
     slTriggerPx: calculatedSlTriggerPx
-      ? formatPriceToSignificantDigits(calculatedSlTriggerPx)
+      ? formatPriceToSignificantDigits(calculatedSlTriggerPx, szDecimals)
       : '',
   };
 }

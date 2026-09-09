@@ -16,6 +16,10 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
 import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
+import {
+  BottomTabBarVisibilityContext,
+  getPageFooterBottomMetrics,
+} from './BottomTabBarVisibilityContext';
 import { PageContext } from './PageContext';
 
 import type { IPageLifeCycle } from './type';
@@ -127,6 +131,32 @@ export const useSafeAreaBottom = () => {
 // Returns undefined when outside a tab navigator.
 const useNativeTabBarHeight = () =>
   useContext(BottomTabBarHeightContext) ?? undefined;
+
+const usePageFooterBottomMetrics = () => {
+  const nativeTabBarHeight = useNativeTabBarHeight();
+  const tabBarVisible = useContext(BottomTabBarVisibilityContext);
+  const { bottom } = useSafeAreaInsets();
+  return getPageFooterBottomMetrics({
+    bottom,
+    isNative: platformEnv.isNative,
+    nativeTabBarHeight,
+    tabBarVisible,
+  });
+};
+
+/**
+ * Returns the native bottom inset owned by Page.Footer when a visible tab bar
+ * does not own it. Hidden and absent tab bars leave the inset to the footer;
+ * non-native layouts return 0.
+ */
+export const usePageFooterSafeAreaBottom = () => {
+  return usePageFooterBottomMetrics().footerSafeAreaBottom;
+};
+
+/** Returns the tab bar height only when Page.Footer is inside a tab scene. */
+export const usePageFooterTabBarHeight = () => {
+  return usePageFooterBottomMetrics().tabBarHeight;
+};
 
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();

@@ -4,12 +4,9 @@ import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
-  Button,
   DashText,
   Divider,
   type IDebugRenderTrackerProps,
-  Icon,
-  Illustration,
   Popover,
   SizableText,
   Toast,
@@ -39,18 +36,26 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  getValidPriceDecimals,
+  getValidSpotPriceDecimals,
+  isSpotInstrument,
+  isUsdcDenominatedFee,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   ITwapHistoryRecord,
+  ITwapHistoryStatusValue,
   ITwapSliceFill,
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
-import { PerpTestIDs } from '../../../testIDs';
-import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -60,6 +65,10 @@ import {
   getTwapHistoryEventTimeMs,
   normalizeEpochMs,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import {
   CommonTableListView,
@@ -96,20 +105,18 @@ const TWAP_ORDERS_SUB_TABS: Array<{
   { key: 'fills', labelId: ETranslations.perp_twap_fill_history__title },
 ];
 
-const TWAP_EMPTY_STATE_MAP: Record<
-  ITwapPanelTab,
-  { titleId: ETranslations; description?: string }
-> = {
-  active: {
-    titleId: ETranslations.perp_no_active_twap__title,
-  },
-  history: {
-    titleId: ETranslations.perp_no_twap_history__title,
-  },
-  fills: {
-    titleId: ETranslations.perp_no_twap_fill_history__title,
-  },
-};
+const TWAP_EMPTY_STATE_MAP: Record<ITwapPanelTab, { titleId: ETranslations }> =
+  {
+    active: {
+      titleId: ETranslations.perp_no_active_twap__title,
+    },
+    history: {
+      titleId: ETranslations.perp_no_twap_history__title,
+    },
+    fills: {
+      titleId: ETranslations.perp_no_twap_fill_history__title,
+    },
+  };
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
@@ -154,20 +161,38 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
   return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
+const TWAP_HISTORY_STATUS_TEXT_MAP: Record<
+  ITwapHistoryStatusValue,
+  ETranslations
+> = {
+  activated: ETranslations.perp_twap_status_activated__title,
+  error: ETranslations.perp_twap_status_error__title,
+  finished: ETranslations.perp_twap_status_finished__title,
+  terminated: ETranslations.perp_twap_status_terminated__title,
+  stopped: ETranslations.perp_twap_status_stopped__title,
+  waitingForTrigger: ETranslations.perp_twap_status_waiting_for_trigger__title,
+};
+
+function humanizeTwapHistoryStatus(status: string | undefined) {
+  // Also covers a status object that carries no `status` value at all, which
+  // the SDK type says cannot happen.
+  if (!status) {
+    return '--';
+  }
+  const words = status.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function getTwapHistoryStatusText(
-  status: ITwapHistoryRecord['status']['status'],
+  status: ITwapHistoryStatusValue,
   intl: IntlShape,
 ) {
-  const statusTextMap: Record<
-    ITwapHistoryRecord['status']['status'],
-    ETranslations
-  > = {
-    activated: ETranslations.perp_twap_status_activated__title,
-    error: ETranslations.perp_twap_status_error__title,
-    finished: ETranslations.perp_twap_status_finished__title,
-    terminated: ETranslations.perp_twap_status_terminated__title,
-  };
-  return intl.formatMessage({ id: statusTextMap[status] });
+  const translationId = TWAP_HISTORY_STATUS_TEXT_MAP[status];
+  // An unmapped status must degrade to raw text; `formatMessage` throws on an
+  // undefined id and takes the whole history tab down with it.
+  return translationId
+    ? intl.formatMessage({ id: translationId })
+    : humanizeTwapHistoryStatus(status);
 }
 
 function getTableRowBgColor({
@@ -223,7 +248,11 @@ function getTwapBaseInfo({
       ? executedNotional.dividedBy(executedSize)
       : undefined;
   const avgPriceValue = avgPrice?.isFinite()
-    ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
+    ? avgPrice.toFixed(
+        isSpotInstrument(state.coin)
+          ? getValidSpotPriceDecimals(avgPrice.toFixed(), 0)
+          : getValidPriceDecimals(avgPrice.toFixed()),
+      )
     : undefined;
   const assetSymbol = getOrderAssetDisplayName(
     state.coin,
@@ -314,120 +343,15 @@ function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
   return getFillDirectionDisplayInfo({ fill, intl });
 }
 
-function TwapEmptyState({
-  titleId,
-  description,
-}: {
-  titleId: ETranslations;
-  description?: string;
-}) {
+function TwapEmptyState({ titleId }: { titleId: ETranslations }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isMobile = !gtMd;
-  const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/15442238'));
-  }, []);
+  const title = intl.formatMessage({ id: titleId });
 
-  if (isMobile) {
-    return (
-      <YStack flex={1} alignItems="center" p="$6">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-            mt="$2"
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        <SizableText
-          testID={PerpTestIDs.TwapEmptyGuideButton}
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          textDecorationLine="underline"
-          mt="$2"
-          onPress={handleGuidePress}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </YStack>
-    );
-  }
-
-  const guideButton = (
-    <Button
-      testID={PerpTestIDs.TwapEmptyGuideButton}
-      width={180}
-      borderRadius="$full"
-      size="small"
-      h={28}
-      px="$3"
-      variant="secondary"
-      onPress={handleGuidePress}
-      childrenAsText={false}
-    >
-      <XStack gap="$1.5" alignItems="center">
-        <Icon name="BookOpenOutline" size="$4" />
-        <SizableText size="$bodySmMedium">
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </XStack>
-    </Button>
-  );
-
-  return (
-    <YStack
-      flex={1}
-      alignItems="center"
-      justifyContent="center"
-      minHeight={240}
-      px="$5"
-      py="$6"
-    >
-      <YStack
-        width="100%"
-        maxWidth={isMobile ? 320 : 420}
-        gap="$2"
-        alignItems="center"
-      >
-        <YStack
-          h={isMobile ? 72 : 88}
-          alignItems="center"
-          overflow="visible"
-          mb={isMobile ? -4 : -8}
-        >
-          <Illustration name="Orders" size={isMobile ? 100 : 124} />
-        </YStack>
-        <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
-          textAlign="center"
-          maxWidth={isMobile ? 280 : 360}
-        >
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size={isMobile ? '$bodyXs' : '$bodySm'}
-            color="$textSubdued"
-            textAlign="center"
-            maxWidth={isMobile ? 280 : 360}
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        {guideButton}
-      </YStack>
-    </YStack>
+  return gtMd ? (
+    <PerpDesktopEmptyState title={title} />
+  ) : (
+    <PerpMobileEmptyState contentOffsetY={-96} title={title} />
   );
 }
 
@@ -482,8 +406,8 @@ function TwapActiveRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
@@ -610,7 +534,11 @@ function TwapHistoryRow({
 }) {
   const intl = useIntl();
   const { state } = record;
-  const isActivated = record.status.status === 'activated';
+  const statusValue = record.status.status;
+  // A trigger TWAP waiting to fire has not executed anything yet, so it shares
+  // the in-flight presentation with `activated`.
+  const isActivated =
+    statusValue === 'activated' || statusValue === 'waitingForTrigger';
   const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
@@ -646,24 +574,21 @@ function TwapHistoryRow({
   const statusText = useMemo(() => {
     const statusDescription =
       record.status.status === 'error' ? record.status.description : undefined;
-    const translatedStatus = getTwapHistoryStatusText(
-      record.status.status,
-      intl,
-    );
+    const translatedStatus = getTwapHistoryStatusText(statusValue, intl);
     if (statusDescription) {
       return `${translatedStatus}: ${statusDescription}`;
     }
     return translatedStatus;
-  }, [intl, record.status]);
+  }, [intl, record.status, statusValue]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
   if (isMobile) {
     let statusColor = '$textSubdued';
-    if (record.status.status === 'error') {
+    if (statusValue === 'error') {
       statusColor = '$red11';
-    } else if (record.status.status === 'finished') {
+    } else if (statusValue === 'finished') {
       statusColor = '$green11';
     }
 
@@ -777,8 +702,8 @@ function TwapHistoryRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
@@ -872,7 +797,7 @@ function TwapHistoryRow({
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color={record.status.status === 'error' ? '$red11' : '$text'}
+            color={statusValue === 'error' ? '$red11' : '$text'}
           >
             {statusText}
           </SizableText>
@@ -926,13 +851,21 @@ function TwapFillRow({
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
-    const closePnlBN = new BigNumber(fill.closedPnl).minus(
-      new BigNumber(fill.fee),
-    );
+    // Only a USDC fee can be netted against the USDC closedPnl; a base-token
+    // fee (spot buys) would subtract token units from dollars.
+    const closePnlBN = isUsdcDenominatedFee(fill.feeToken)
+      ? new BigNumber(fill.closedPnl).minus(new BigNumber(fill.fee))
+      : new BigNumber(fill.closedPnl);
     const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
     const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
+    // Spot fills keep spot precision; the perp rule rounds sub-6-decimal
+    // prices (e.g. 0.0000006 → 0.000001).
     const priceFormatted = priceBN.isFinite()
-      ? priceBN.toFixed(getValidPriceDecimals(fill.px))
+      ? priceBN.toFixed(
+          isSpotInstrument(fill.coin)
+            ? getValidSpotPriceDecimals(fill.px, 0)
+            : getValidPriceDecimals(fill.px),
+        )
       : fill.px;
     return {
       priceFormatted,
@@ -941,7 +874,11 @@ function TwapFillRow({
         priceBN.multipliedBy(sizeBN).toFixed(),
         valueFormatter,
       ),
-      feeFormatted: numberFormat(fill.fee, valueFormatter),
+      feeFormatted: isUsdcDenominatedFee(fill.feeToken)
+        ? numberFormat(fill.fee, valueFormatter)
+        : `${numberFormat(fill.fee, balanceFormatter)} ${getSpotTokenDisplayName(
+            fill.feeToken,
+          )}`,
       closePnlFormatted: numberFormat(closePnlBN.abs().toFixed(), {
         formatter: 'value',
         formatterOptions: {
@@ -951,7 +888,7 @@ function TwapFillRow({
       closePnlColor,
       closePnlPlusOrMinus,
     };
-  }, [fill.closedPnl, fill.fee, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
   const feeTooltipContent = useMemo(() => {
     const feeRatePercentage =
       builderFeeRate !== undefined
@@ -1088,8 +1025,8 @@ function TwapFillRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
@@ -1203,6 +1140,7 @@ function PerpTwapList({
   enabledTabs,
 }: IPerpTwapListProps) {
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [
     { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
@@ -1583,7 +1521,7 @@ function PerpTwapList({
   const handleTerminate = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.state.coin,
@@ -1613,7 +1551,7 @@ function PerpTwapList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
   );
 
   const refreshTwapData = useCallback(async () => {
@@ -1740,13 +1678,8 @@ function PerpTwapList({
     sliceFills.length > TWAP_PAGE_SIZE ? onViewAllUrl : undefined;
 
   const listEmptyComponent = useMemo(
-    () => (
-      <TwapEmptyState
-        titleId={emptyState.titleId}
-        description={emptyState.description}
-      />
-    ),
-    [emptyState.description, emptyState.titleId],
+    () => <TwapEmptyState titleId={emptyState.titleId} />,
+    [emptyState.titleId],
   );
 
   return (
@@ -1757,6 +1690,7 @@ function PerpTwapList({
           activeTab={activeTab}
           onChange={setActiveTab}
           variant={isMobile ? 'pill' : 'underline'}
+          leftInset={isMobile ? '$5' : undefined}
         />
       ) : null}
       {activeTab === 'active' ? (
@@ -1795,7 +1729,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
-          onViewAll={historyViewAll}
+          onViewAll={isMobile ? undefined : historyViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
@@ -1819,7 +1753,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderFillRow}
-          onViewAll={fillsViewAll}
+          onViewAll={isMobile ? undefined : fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,

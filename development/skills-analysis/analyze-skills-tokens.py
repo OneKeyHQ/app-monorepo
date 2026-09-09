@@ -47,12 +47,12 @@ def analyze_skill(skill_dir: Path) -> Dict:
 
     # Get all reference files
     references = []
-    references_dir = skill_dir / "references" / "rules"
+    references_dir = skill_dir / "references"
     if references_dir.exists():
-        for ref_file in sorted(references_dir.glob("*.md")):
+        for ref_file in sorted(references_dir.rglob("*.md")):
             bytes_size, tokens = get_file_size_and_tokens(ref_file)
             references.append({
-                'name': ref_file.name,
+                'name': ref_file.relative_to(references_dir).as_posix(),
                 'bytes': bytes_size,
                 'tokens': tokens,
                 'kb': bytes_size / 1024
@@ -196,7 +196,7 @@ def main():
     print("• Keep related topics together if frequently used together")
     print("• Use --detailed flag for per-file breakdown")
     print("• Use --sort-by-size to see largest skills first")
-    print("\nFor splitting guidelines, see: .claude/skills/1k-new-skill/SKILL.md")
+    print("\nFor current splitting guidelines, invoke the installed $skill-creator skill.")
 
 if __name__ == '__main__':
     main()

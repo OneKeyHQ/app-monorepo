@@ -63,4 +63,44 @@ describe('resolveStockMarketStatusCase', () => {
       }),
     ).toBe(EStockMarketStatusCase.ClosedUnknownTimeWithPerps);
   });
+
+  it('case 5: per-stock halt wins over every closed/open combination (OK-58655)', () => {
+    expect(
+      resolveStockMarketStatusCase({
+        isOpen: false,
+        isPaused: true,
+        hasOpenTime: true,
+        hasPerps: true,
+      }),
+    ).toBe(EStockMarketStatusCase.Halted);
+    // A halt is about the stock, not the market schedule — it applies even
+    // while the market itself is open.
+    expect(
+      resolveStockMarketStatusCase({
+        isOpen: true,
+        isPaused: true,
+        hasOpenTime: false,
+        hasPerps: false,
+      }),
+    ).toBe(EStockMarketStatusCase.Halted);
+  });
+
+  it('only an explicit isPaused === true yields Halted', () => {
+    expect(
+      resolveStockMarketStatusCase({
+        isOpen: false,
+        isPaused: undefined,
+        hasOpenTime: true,
+        hasPerps: true,
+      }),
+    ).toBe(EStockMarketStatusCase.ClosedKnownTimeWithPerps);
+    expect(
+      resolveStockMarketStatusCase({
+        isOpen: false,
+        isPaused: false,
+        hasOpenTime: false,
+        hasPerps: false,
+      }),
+    ).toBe(EStockMarketStatusCase.ClosedUnknownTimeNoPerps);
+  });
 });

@@ -2,6 +2,7 @@ import {
   type ComponentProps,
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,12 +11,21 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  useInPageDialog,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EDeFiPositionAction,
   type IDeFiAsset,
@@ -24,7 +34,13 @@ import {
   type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
 } from '@onekeyhq/shared/types/defi';
+import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
+import {
+  type IProtocolLendingActionType,
+  showProtocolLendingActionDialog,
+} from './ProtocolLendingActionDialog';
+import { findSupportedBorrowMarket } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
   getActionLabel,
@@ -58,11 +74,17 @@ type IProtocolPositionActionButtonProps = {
   // Render the actions as full-width buttons stacked below the position
   // (unified/simple layout) instead of inline chips. Two actions split the row.
   block?: boolean;
+  // Sectioned (lending) block callers route Withdraw/Repay through the lending
+  // action dialog (asset dropdown + amount hero) instead of the generic action
+  // dialog. Only the mobile block caller sets this; desktop tables and
+  // non-sectioned positions keep the generic path.
+  preferLendingDialog?: boolean;
   // Floor width (px) for each inline action button so per-asset rows align
   // Withdraw/Repay/Claim into one column. A minimum, not a cap — a longer
   // localized label still grows rather than truncating.
   actionMinWidth?: number;
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
+  actionPresentation?: 'dialog' | 'modal-route';
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
@@ -73,6 +95,7 @@ type IBorrowManageParams = {
   marketAddress: string;
   reserveAddress: string;
   symbol: string;
+  debtAmount?: string;
   logoURI?: string;
   providerDisplayName?: string;
   providerLogoURI?: string;
@@ -152,16 +175,6 @@ function getActionPositionSources(
   return [position, ...sourcePositions, ...assets];
 }
 
-function hasDebt(position: IDeFiProtocol['positions'][number]) {
-  return (
-    position.debts.some((debt) => isPositiveAmount(debt.amount)) ||
-    (position.sourcePositions?.some((sourcePosition) =>
-      sourcePosition.debts.some((debt) => isPositiveAmount(debt.amount)),
-    ) ??
-      false)
-  );
-}
-
 function getPrimarySuppliedAsset(
   position: IDeFiProtocol['positions'][number],
 ): IDeFiAsset | undefined {
@@ -170,6 +183,17 @@ function getPrimarySuppliedAsset(
     position.sourcePositions
       ?.flatMap((sourcePosition) => sourcePosition.assets)
       .find((asset) => isPositiveAmount(asset.amount))
+  );
+}
+
+function getPrimaryDebtAsset(
+  position: IDeFiProtocol['positions'][number],
+): IDeFiAsset | undefined {
+  return (
+    position.debts.find((debt) => isPositiveAmount(debt.amount)) ??
+    position.sourcePositions
+      ?.flatMap((sourcePosition) => sourcePosition.debts)
+      .find((debt) => isPositiveAmount(debt.amount))
   );
 }
 
@@ -190,17 +214,29 @@ function getAaveBorrowManageParams({
   position,
   manageAsset,
   providerDisplayInfo,
+  actionType,
+  markets,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
   manageAsset?: IDeFiAsset;
   providerDisplayInfo?: IProtocolPositionProviderDisplayInfo;
+  actionType: 'withdraw' | 'repay';
+  markets: IBorrowMarketItem[] | undefined;
 }): IBorrowManageParams | undefined {
-  if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
+  if (
+    !isAaveProtocol(protocol.protocol) ||
+    !defiActionUtils.positionHasDebts(position)
+  ) {
     return undefined;
   }
 
-  const primaryAsset = getPrimarySuppliedAsset(position);
+  // Repay anchors on the primary debt (the loan being paid down); withdraw on
+  // the primary supplied collateral. A caller-scoped asset still wins below.
+  const primaryAsset =
+    actionType === 'repay'
+      ? (getPrimaryDebtAsset(position) ?? getPrimarySuppliedAsset(position))
+      : getPrimarySuppliedAsset(position);
   // The asset this button acts on: the caller-scoped asset for per-asset
   // Withdraw/Repay, otherwise the position's primary supplied asset.
   const targetAsset = manageAsset ?? primaryAsset;
@@ -223,31 +259,33 @@ function getAaveBorrowManageParams({
     'pool_address',
     'pool',
   ]);
-  // A scoped asset IS the reserve target, so its own address/symbol win. We
-  // still prefer an explicit reserve/underlying field off the asset's own
-  // record when present, falling back to its address — this guards against a
-  // provider that ever emits a wrapper (aToken/variableDebtToken) in `.address`
-  // instead of the underlying reserve.
+  // Prefer an explicit reserve/underlying field off the target asset's own
+  // record, falling back to its address — this guards against a provider that
+  // ever emits a wrapper (aToken/variableDebtToken) in `.address` instead of
+  // the underlying reserve.
+  const assetReserveKeys = [
+    'reserveAddress',
+    'reserve_address',
+    'reserve',
+    'underlyingAddress',
+    'underlying_address',
+  ];
+  // Anchor the reserve on the asset this action actually targets: the scoped
+  // manageAsset, else the primary asset — collateral for withdraw, the debt
+  // being repaid for repay. Trust that asset's own reserve field then its
+  // address before falling back to a broad group scan; otherwise a repay could
+  // latch onto a collateral/generic reserve that a supplied asset (scanned
+  // before debts) happens to carry, mismatching the debt symbol resolved below.
   const reserveAddress = manageAsset
-    ? (pickStringFromSources(
-        [manageAsset],
-        [
-          'reserveAddress',
-          'reserve_address',
-          'reserve',
-          'underlyingAddress',
-          'underlying_address',
-        ],
-      ) ?? manageAsset.address)
-    : (pickStringFromSources(sources, [
-        'reserveAddress',
-        'reserve_address',
-        'reserve',
-        'underlyingAddress',
-        'underlying_address',
+    ? (pickStringFromSources([manageAsset], assetReserveKeys) ??
+      manageAsset.address)
+    : (pickStringFromSources([primaryAsset], assetReserveKeys) ??
+      primaryAsset?.address ??
+      pickStringFromSources(sources, [
+        ...assetReserveKeys,
         'tokenAddress',
         'token_address',
-      ]) ?? primaryAsset?.address);
+      ]));
   const symbol = manageAsset
     ? manageAsset.symbol
     : (pickStringFromSources([primaryAsset], ['symbol']) ??
@@ -256,11 +294,33 @@ function getAaveBorrowManageParams({
     return undefined;
   }
 
+  // Environment gate: only route into the /earn/v1/borrow/* stack when the
+  // current environment's markets list actually supports this market.
+  // Fail-closed — no whitelist match (including markets still loading or the
+  // fetch having failed) keeps the generic DeFi action path.
+  if (
+    !findSupportedBorrowMarket({
+      markets,
+      provider,
+      networkId: protocol.networkId,
+      marketAddress,
+    })
+  ) {
+    return undefined;
+  }
+
   return {
     provider,
-    marketAddress,
-    reserveAddress,
+    marketAddress: earnUtils.normalizeBorrowAddress({
+      networkId: protocol.networkId,
+      address: marketAddress,
+    }),
+    reserveAddress: earnUtils.normalizeBorrowAddress({
+      networkId: protocol.networkId,
+      address: reserveAddress,
+    }),
     symbol,
+    debtAmount: actionType === 'repay' ? targetAsset?.amount : undefined,
     logoURI: targetAsset?.meta?.logoUrl,
     providerDisplayName:
       providerDisplayInfo?.providerDisplayName ||
@@ -468,12 +528,15 @@ const ProtocolPositionActionButton = memo(
     showResolvedActions = true,
     visualVariant = 'solid',
     block = false,
+    preferLendingDialog = false,
     actionMinWidth,
     containerProps,
+    actionPresentation = 'dialog',
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
     const navigation = useAppNavigation();
+    const inPageDialog = useInPageDialog();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -483,6 +546,9 @@ const ProtocolPositionActionButton = memo(
     const [submittingActionKey, setSubmittingActionKey] = useState<
       string | undefined
     >(undefined);
+    const cancelPendingLendingDialogOpenRef = useRef<(() => void) | undefined>(
+      undefined,
+    );
     const shouldResolveActionButtons = !!accountId;
     const actions = useMemo(
       () =>
@@ -496,24 +562,69 @@ const ProtocolPositionActionButton = memo(
       [position, protocol, shouldResolveActionButtons, supportedActions],
     );
     const hasAaveDebt = useMemo(
-      () => isAaveProtocol(protocol.protocol) && hasDebt(position),
+      () =>
+        isAaveProtocol(protocol.protocol) &&
+        defiActionUtils.positionHasDebts(position),
       [position, protocol.protocol],
     );
+    // Borrow-stack whitelist for the current environment. Only fetched for
+    // Aave debt positions (the sole borrow-dialog entry); the service call is
+    // promise-memoized so per-row instances share one request. initResult []
+    // + error-keeps-last-result = fail-closed while loading or on error.
+    const { result: borrowMarkets, isLoading: borrowMarketsLoading } =
+      usePromiseResult(
+        async () => {
+          if (!hasAaveDebt) {
+            return [];
+          }
+          try {
+            return await backgroundApiProxy.serviceStaking.getBorrowMarkets();
+          } catch {
+            return [] as IBorrowMarketItem[];
+          }
+        },
+        [hasAaveDebt],
+        // Repo precedent for typed empty initResult: ProtocolLendingActionDialog
+        // :692 (`assets: [] as IBorrowAsset[]`). Never let it infer never[].
+        { initResult: [] as IBorrowMarketItem[], watchLoading: true },
+      );
     // Removing an LP that holds rewards also claims them — drives the
     // "Remove" vs "Remove & Claim rewards" label.
     const hasRewards = useMemo(
       () => defiActionUtils.positionHasRewards(position),
       [position],
     );
-    const borrowManageParams = useMemo(
+    // Outstanding debt means withdrawing collateral raises liquidation risk;
+    // the dialog shows a warning banner when this is set.
+    const positionHasDebts = useMemo(
+      () => defiActionUtils.positionHasDebts(position),
+      [position],
+    );
+    // Withdraw and Repay resolve to different reserves (collateral vs debt), so
+    // each manage type gets its own params object.
+    const withdrawManageParams = useMemo(
       () =>
         getAaveBorrowManageParams({
           protocol,
           position,
           manageAsset,
           providerDisplayInfo,
+          actionType: 'withdraw',
+          markets: borrowMarkets,
         }),
-      [manageAsset, position, protocol, providerDisplayInfo],
+      [manageAsset, position, protocol, providerDisplayInfo, borrowMarkets],
+    );
+    const repayManageParams = useMemo(
+      () =>
+        getAaveBorrowManageParams({
+          protocol,
+          position,
+          manageAsset,
+          providerDisplayInfo,
+          actionType: 'repay',
+          markets: borrowMarkets,
+        }),
+      [manageAsset, position, protocol, providerDisplayInfo, borrowMarkets],
     );
     const fallbackBlockingActions = useMemo(
       () => (shouldResolveActionButtons ? actions : []),
@@ -546,24 +657,28 @@ const ProtocolPositionActionButton = memo(
         ),
       [fallbackBlockingActions, manageAsset, placement],
     );
-    // Aave positions with debt have a dedicated manage page
-    // (BorrowManagePosition) that surfaces health factor / liquidation risk, so
-    // Withdraw (collateral) and Repay route there instead of the generic action
-    // dialog. This inverts the usual precedence, where a resolved action would
-    // otherwise suppress the manage button. Falls back to the dialog when the
-    // borrow params can't be resolved, so no row loses its button.
-    const preferManageForAave = hasAaveDebt && Boolean(borrowManageParams);
+    // Aave positions with debt route Withdraw (collateral) and Repay through the
+    // lending action dialog (health factor / liquidation preview) instead of the
+    // generic action dialog. This inverts the usual precedence, where a resolved
+    // action would otherwise suppress the manage button. Falls back to the
+    // generic dialog per-side when that side's borrow params can't resolve, so
+    // no row loses its button.
+    const preferManageForAave =
+      hasAaveDebt &&
+      (Boolean(withdrawManageParams) || Boolean(repayManageParams));
     const manageActionTypes = getManageActionTypesForPlacement(
       placement,
     ).filter(
       (manageType) =>
-        preferManageForAave ||
-        !deFiManageActions.has(getManageActionTypeAction(manageType)),
+        Boolean(
+          manageType === EManagePositionType.Repay
+            ? repayManageParams
+            : withdrawManageParams,
+        ) &&
+        (preferManageForAave ||
+          !deFiManageActions.has(getManageActionTypeAction(manageType))),
     );
-    const shouldShowManage =
-      hasAaveDebt &&
-      manageActionTypes.length > 0 &&
-      Boolean(borrowManageParams);
+    const shouldShowManage = hasAaveDebt && manageActionTypes.length > 0;
     // A per-asset caller (manageAsset set) shows each row's own scoped action;
     // an unscoped caller keeps the position-level actions on the first row only.
     let renderedActions: IResolvedDeFiPositionAction[] = [];
@@ -573,14 +688,40 @@ const ProtocolPositionActionButton = memo(
       renderedActions = visibleActions;
     }
     // Aave Withdraw/Repay are owned by the manage button above, so drop the
-    // generic resolved actions to avoid rendering two buttons for one action.
+    // generic resolved action — but only for the side whose manage button will
+    // actually render. If that side's params didn't resolve, keep the resolved
+    // action so the row never loses a button.
     if (preferManageForAave) {
+      renderedActions = renderedActions.filter((action) => {
+        if (action.action === EDeFiPositionAction.Withdraw) {
+          return !withdrawManageParams;
+        }
+        if (action.action === EDeFiPositionAction.Repay) {
+          return !repayManageParams;
+        }
+        return true;
+      });
+    }
+    // While the borrow whitelist is still loading for an Aave debt position the
+    // manage params haven't resolved, so preferManageForAave is false and the
+    // generic Withdraw/Repay would (mis)route to the non-borrow dialog (no
+    // health factor / liquidation preview). Hold those two back until markets
+    // settle; the correct button (borrow or generic) then renders in place.
+    // Claim/Remove are unaffected.
+    if (hasAaveDebt && borrowMarketsLoading) {
       renderedActions = renderedActions.filter(
         (action) =>
           action.action !== EDeFiPositionAction.Withdraw &&
           action.action !== EDeFiPositionAction.Repay,
       );
     }
+    useEffect(
+      () => () => {
+        cancelPendingLendingDialogOpenRef.current?.();
+        cancelPendingLendingDialogOpenRef.current = undefined;
+      },
+      [],
+    );
     const handleActionPress = useCallback(
       async (action: IResolvedDeFiPositionAction) => {
         if (!accountId) {
@@ -615,6 +756,69 @@ const ProtocolPositionActionButton = memo(
           return;
         }
 
+        // Sectioned lending positions (Compound/Morpho/...) send Withdraw/Repay
+        // to the lending dialog's asset dropdown. A remapped LP withdraw carries
+        // buildAction and must keep the generic dialog, hence the guard.
+        if (
+          preferLendingDialog &&
+          (action.action === EDeFiPositionAction.Withdraw ||
+            action.action === EDeFiPositionAction.Repay) &&
+          !action.buildAction
+        ) {
+          if (actionPresentation === 'modal-route') {
+            navigation.pushModal(EModalRoutes.MainModal, {
+              screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+              params: {
+                mode: 'lending',
+                accountId,
+                networkId: protocol.networkId,
+                actionType:
+                  action.action === EDeFiPositionAction.Repay
+                    ? 'repay'
+                    : 'withdraw',
+                source: { type: 'defi', action },
+                hasDebts: positionHasDebts,
+                onSuccess,
+              },
+            });
+          } else {
+            cancelPendingLendingDialogOpenRef.current =
+              showProtocolLendingActionDialog({
+                accountId,
+                networkId: protocol.networkId,
+                actionType:
+                  action.action === EDeFiPositionAction.Repay
+                    ? 'repay'
+                    : 'withdraw',
+                source: { type: 'defi', action },
+                hasDebts: positionHasDebts,
+                intl,
+                onSuccess,
+                dialog: inPageDialog,
+              });
+          }
+          return;
+        }
+
+        if (actionPresentation === 'modal-route') {
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+            params: {
+              mode: 'position',
+              accountId,
+              networkId: protocol.networkId,
+              action,
+              // A remapped LP withdraw (buildAction set) does not claim on-chain,
+              // so it must never advertise "& Claim rewards".
+              hasRewards: hasRewards && !action.buildAction,
+              hasDebts: positionHasDebts,
+              rewardAssets: defiActionUtils.getPositionRewardAssets(position),
+              onSuccess,
+            },
+          });
+          return;
+        }
+
         showProtocolPositionActionDialog({
           accountId,
           networkId: protocol.networkId,
@@ -622,41 +826,93 @@ const ProtocolPositionActionButton = memo(
           // A remapped LP withdraw (buildAction set) does not claim on-chain,
           // so it must never advertise "& Claim rewards".
           hasRewards: hasRewards && !action.buildAction,
+          hasDebts: positionHasDebts,
+          rewardAssets: defiActionUtils.getPositionRewardAssets(position),
           onSuccess,
+          dialog: inPageDialog,
         });
       },
       [
         accountId,
+        actionPresentation,
         hasRewards,
+        inPageDialog,
+        intl,
+        navigation,
         onSuccess,
+        position,
+        positionHasDebts,
+        preferLendingDialog,
         protocol.networkId,
         submitProtocolPositionAction,
       ],
     );
     const handleManagePress = useCallback(
       (type: EManagePositionType) => {
-        if (!accountId || !borrowManageParams) return;
-        BorrowNavigation.pushToBorrowManagePosition(navigation, {
-          accountId,
+        if (!accountId) return;
+        const actionType: IProtocolLendingActionType =
+          type === EManagePositionType.Repay ? 'repay' : 'withdraw';
+        const params =
+          type === EManagePositionType.Repay
+            ? repayManageParams
+            : withdrawManageParams;
+        if (!params) return;
+        const source = {
+          type: 'borrow' as const,
+          provider: params.provider,
+          marketAddress: params.marketAddress,
+          reserveAddress: params.reserveAddress,
+          symbol: params.symbol,
+          debtAmount: params.debtAmount,
+          logoURI: params.logoURI,
+          providerDisplayName: params.providerDisplayName,
+          providerLogoURI: params.providerLogoURI,
           indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
-          networkId: protocol.networkId,
-          provider: borrowManageParams.provider,
-          marketAddress: borrowManageParams.marketAddress,
-          reserveAddress: borrowManageParams.reserveAddress,
-          symbol: borrowManageParams.symbol,
-          logoURI: borrowManageParams.logoURI,
-          providerDisplayName: borrowManageParams.providerDisplayName,
-          providerLogoURI: borrowManageParams.providerLogoURI,
-          type,
-        });
+          // A row-scoped button already names the asset (fixed); the
+          // position-level block button lets the dialog's dropdown choose it.
+          selectable: !manageAsset,
+        };
+        if (actionPresentation === 'modal-route') {
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalAssetDetailRoutes.DeFiProtocolAction,
+            params: {
+              mode: 'lending',
+              accountId,
+              networkId: protocol.networkId,
+              actionType,
+              source,
+              hasDebts: positionHasDebts,
+              onSuccess,
+            },
+          });
+        } else {
+          cancelPendingLendingDialogOpenRef.current =
+            showProtocolLendingActionDialog({
+              accountId,
+              networkId: protocol.networkId,
+              actionType,
+              source,
+              hasDebts: positionHasDebts,
+              intl,
+              onSuccess,
+              dialog: inPageDialog,
+            });
+        }
       },
       [
         accountId,
-        borrowManageParams,
+        actionPresentation,
         indexedAccountId,
+        inPageDialog,
+        intl,
+        manageAsset,
         navigation,
+        onSuccess,
+        positionHasDebts,
         protocol.indexedAccountId,
         protocol.networkId,
+        repayManageParams,
+        withdrawManageParams,
       ],
     );
 
@@ -696,6 +952,25 @@ const ProtocolPositionActionButton = memo(
         minWidth={isBlock ? undefined : 0}
         {...containerProps}
       >
+        {shouldShowManage
+          ? manageActionTypes.map((manageType) => (
+              <Button
+                key={manageType}
+                testID={`defi-position-action-manage-${manageType}`}
+                size={buttonSize}
+                {...actionButtonFrameProps}
+                {...fixedActionWidthProps}
+                disabled={Boolean(submittingActionKey)}
+                onPress={() => handleManagePress(manageType)}
+              >
+                {renderActionButtonLabel({
+                  isInfo,
+                  isBlock,
+                  label: getManageActionLabel({ type: manageType, intl }),
+                })}
+              </Button>
+            ))
+          : null}
         {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
           return (
@@ -721,25 +996,6 @@ const ProtocolPositionActionButton = memo(
             </Button>
           );
         })}
-        {shouldShowManage
-          ? manageActionTypes.map((manageType) => (
-              <Button
-                key={manageType}
-                testID={`defi-position-action-manage-${manageType}`}
-                size={buttonSize}
-                {...actionButtonFrameProps}
-                {...fixedActionWidthProps}
-                disabled={Boolean(submittingActionKey)}
-                onPress={() => handleManagePress(manageType)}
-              >
-                {renderActionButtonLabel({
-                  isInfo,
-                  isBlock,
-                  label: getManageActionLabel({ type: manageType, intl }),
-                })}
-              </Button>
-            ))
-          : null}
       </XStack>
     );
   },

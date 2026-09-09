@@ -34,6 +34,11 @@ export interface ICompactFiat {
   price: number;
   price24h?: number;
   currency?: string;
+  // Scaled-UI / rebase tokens (e.g. xStocks). See ITokenFiat.balanceMultiplier
+  // / tokenRebaseUtils — must survive the cold-start round trip so a restored
+  // snapshot does not paint an un-multiplied balance until the live fetch
+  // lands.
+  balanceMultiplier?: string;
 }
 
 /**
@@ -159,6 +164,9 @@ function toCompactFiat(fiat: ITokenFiat): ICompactFiat {
   }
   if (fiat.currency !== undefined) {
     compact.currency = fiat.currency;
+  }
+  if (fiat.balanceMultiplier !== undefined) {
+    compact.balanceMultiplier = fiat.balanceMultiplier;
   }
   return compact;
 }

@@ -16,6 +16,7 @@ import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiCloudKit from '../DesktopApiCloudKit';
 import type DesktopApiDev from '../DesktopApiDev';
+import type DesktopApiFirmwareArtifact from '../DesktopApiFirmwareArtifact';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
@@ -111,6 +112,14 @@ class DesktopApi implements IDesktopApi {
     return this.getOrCreateModule('dev', () =>
       this.createModule(
         require('../DesktopApiDev') as typeof import('../DesktopApiDev'),
+      ),
+    );
+  }
+
+  get firmwareArtifact(): DesktopApiFirmwareArtifact {
+    return this.getOrCreateModule('firmwareArtifact', () =>
+      this.createModule(
+        require('../DesktopApiFirmwareArtifact') as typeof import('../DesktopApiFirmwareArtifact'),
       ),
     );
   }

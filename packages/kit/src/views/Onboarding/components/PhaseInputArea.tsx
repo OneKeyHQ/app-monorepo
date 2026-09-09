@@ -48,10 +48,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
+import { parseSecretRecoveryPhraseToWords } from '@onekeyhq/shared/src/utils/phrase';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
-import { PHRASE_LENGTHS, useSuggestion } from './hooks';
+import {
+  PHRASE_LENGTHS,
+  getMnemonicPasteWordsFromChangeText,
+} from '../utils/mnemonicPasteUtils';
+
+import { useSuggestion } from './hooks';
 
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
@@ -202,7 +207,6 @@ function BasicPhaseInput(
     onChange,
     value,
     isShowError = false,
-    phraseLength,
     onInputChange,
     onInputFocus,
     onInputBlur,
@@ -218,12 +222,11 @@ function BasicPhaseInput(
   }: IPropsWithTestId<{
     value?: string;
     index: number;
-    phraseLength: number;
     isShowError: boolean;
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string, index: number) => boolean;
+    onPasteMnemonic: (words: string[], index: number) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -261,13 +264,13 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
-      const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
-      if (
-        trimmedValue &&
-        trimmedValue.split(' ').filter(Boolean).length === phraseLength
-      ) {
-        if (onPasteMnemonic(trimmedValue, 0)) {
+      // Native fallback for multi-word input from keyboard toolbars such as 1Password.
+      const phraseWords = getMnemonicPasteWordsFromChangeText({
+        value: v,
+        isNative: platformEnv.isNative,
+      });
+      if (phraseWords) {
+        if (onPasteMnemonic(phraseWords, 0)) {
           onInputChange('');
           onChange?.('');
           return;
@@ -278,7 +281,7 @@ function BasicPhaseInput(
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange, onPasteMnemonic, phraseLength],
+    [onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -312,7 +315,10 @@ function BasicPhaseInput(
       if (!platformEnv.isNative) {
         const item = event.nativeEvent?.items?.[0];
         if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
-          onPasteMnemonic(parseSecretRecoveryPhrase(item?.data || ''), index);
+          onPasteMnemonic(
+            parseSecretRecoveryPhraseToWords(item?.data || ''),
+            index,
+          );
         }
       }
     },
@@ -613,7 +619,6 @@ export function PhaseInputArea({
                     index={index}
                     isShowError={isShowErrors[index]}
                     onInputBlur={onInputBlur}
-                    phraseLength={phraseLengthNumber}
                     onInputChange={onInputChange}
                     onInputFocus={onInputFocus}
                     onPasteMnemonic={onPasteMnemonic}

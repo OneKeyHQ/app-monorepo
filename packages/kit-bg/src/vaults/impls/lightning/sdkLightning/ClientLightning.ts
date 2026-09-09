@@ -309,10 +309,12 @@ class ClientLightning {
   }
 
   async decodedInvoice(invoice: string) {
+    type IInvoiceDecodedApiResponse =
+      IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>;
     return this.request
-      .get<
-        IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>
-      >(`${this.prefix}/invoices/decode/${invoice}`)
+      .get<IInvoiceDecodedApiResponse>(
+        `${this.prefix}/invoices/decode/${invoice}`,
+      )
       .then((i) => i.data.data);
   }
 

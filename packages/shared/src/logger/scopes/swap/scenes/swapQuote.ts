@@ -1,4 +1,4 @@
-import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -37,7 +37,7 @@ export class SwapQuoteScene extends BaseScene {
     walletType: string;
     status: ESwapEventAPIStatus;
     message?: string;
-    quoteType: ESwapTabSwitchType;
+    quoteType: ESwapAnalyticsCategory;
     providerQuoteResult: ISwapQuoteProvideResult[];
     slippageSetting?: 'auto' | 'custom';
     sourceChain: string;

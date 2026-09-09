@@ -1,4 +1,7 @@
-import { isStockTokenDetailStateLanded } from './stockTokenDetailFreshness';
+import {
+  getStockTokenDetailDisplaySeed,
+  isStockTokenDetailStateLanded,
+} from './stockTokenDetailFreshness';
 
 import type { IStockTokenDetailFetchState } from './stockTokenDetailFreshness';
 
@@ -94,5 +97,44 @@ describe('isStockTokenDetailStateLanded', () => {
       }),
     ).toBe(false);
     expect(landed(undefined)).toBe(false);
+  });
+});
+
+describe('getStockTokenDetailDisplaySeed', () => {
+  it('uses stale matching detail for display without landing trade readiness', () => {
+    const state: IStockTokenDetailFetchState = {
+      scope: SCOPE,
+      token: stockToken,
+      perpsInfo: undefined,
+      fetchedAt: NOW - TTL - 1,
+    };
+
+    expect(getStockTokenDetailDisplaySeed({ state, scope: SCOPE })).toBe(
+      stockToken,
+    );
+    expect(landed(state)).toBe(false);
+  });
+
+  it('rejects display seeds from another scope or without Stock metadata', () => {
+    expect(
+      getStockTokenDetailDisplaySeed({
+        state: {
+          scope: 'evm--1:0xother:token',
+          token: stockToken,
+          perpsInfo: undefined,
+        },
+        scope: SCOPE,
+      }),
+    ).toBeUndefined();
+    expect(
+      getStockTokenDetailDisplaySeed({
+        state: {
+          scope: SCOPE,
+          token: {} as never,
+          perpsInfo: undefined,
+        },
+        scope: SCOPE,
+      }),
+    ).toBeUndefined();
   });
 });

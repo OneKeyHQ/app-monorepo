@@ -11,6 +11,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
@@ -22,6 +24,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
@@ -51,6 +54,10 @@ interface IPerpPositionsListProps {
   disableListScroll?: boolean;
 }
 
+type IPositionSymbolMetaMap = Awaited<
+  ReturnType<typeof backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap>
+>;
+
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
@@ -66,6 +73,11 @@ function PerpPositionsList({
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
+  const {
+    records: fundingHistory,
+    isError: isFundingHistoryError,
+    isLoading: isFundingHistoryLoading,
+  } = usePerpUserFundingHistory({ isActive: !isMobile });
   const [currentListPage, setCurrentListPage] = useState(1);
   const canMutateScopedPositions = isPerpsAccountAddressMatched({
     activeAccountAddress: currentUser?.accountAddress,
@@ -85,6 +97,30 @@ function PerpPositionsList({
     dataAccountAddress: positions.accountAddress,
   });
   const positionsLength = scopedActivePositions.length;
+  const positionCoinsKey = useMemo(
+    () =>
+      [...new Set(scopedActivePositions.map((item) => item.position.coin))]
+        .toSorted()
+        .join('\u0000'),
+    [scopedActivePositions],
+  );
+  const { result: positionSymbolMetaMap } =
+    usePromiseResult<IPositionSymbolMetaMap>(
+      async () => {
+        const coins = positionCoinsKey ? positionCoinsKey.split('\u0000') : [];
+        if (coins.length === 0) {
+          return {};
+        }
+        return backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+          coins,
+        });
+      },
+      [positionCoinsKey],
+      {
+        initResult: {},
+        undefinedResultIfError: true,
+      },
+    );
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -175,7 +211,7 @@ function PerpPositionsList({
           id: ETranslations.perp_position_tp_sl,
         }),
         minWidth: 140,
-        align: 'center',
+        align: 'left',
         flex: 1,
       },
       {
@@ -183,7 +219,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_close,
         }),
-        minWidth: 80,
+        minWidth: 160,
         align: 'right',
         flex: 1,
         fixed: positionsLength > 0,
@@ -210,12 +246,14 @@ function PerpPositionsList({
       return scopedActivePositions.map((activePosition, index) => ({
         index,
         activePosition,
+        assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }));
     }
     return scopedActivePositions
       .map((activePosition, originalIndex) => ({
         index: originalIndex,
         activePosition,
+        assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }))
       .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
@@ -223,6 +261,7 @@ function PerpPositionsList({
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,
+    positionSymbolMetaMap,
   ]);
 
   const handleTraceLayout = useCallback(
@@ -305,6 +344,9 @@ function PerpPositionsList({
       renderMode={renderMode}
       isHovered={isHovered}
       onHoverChange={onHoverChange}
+      fundingHistory={fundingHistory}
+      isFundingHistoryLoading={isFundingHistoryLoading}
+      isFundingHistoryError={isFundingHistoryError}
     />
   );
   const keyExtractor = useCallback((item: IPositionRowItem) => {
@@ -364,31 +406,38 @@ function PerpPositionsList({
   if (!isMobile && positionsReady && mockedPositions.length === 0) {
     return (
       <YStack flex={1} width="100%">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          nestedScrollEnabled
-          contentContainerStyle={{
-            minWidth: totalMinWidth,
-            flexGrow: 1,
-          }}
+        {/* Row wrapper keeps the ScrollView's flexGrow horizontal; in a column
+            parent it would split the pane height with the empty state. */}
+        <XStack
+          width="100%"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          bg="$bgApp"
         >
-          <XStack
-            flex={1}
-            py="$2"
-            pl="$5"
-            pr="$3"
-            display="flex"
-            minWidth={totalMinWidth}
-            width="100%"
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-            bg="$bgSubtle"
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            nestedScrollEnabled
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              minWidth: totalMinWidth,
+              flexGrow: 1,
+            }}
           >
-            {columnsConfig.map(renderDesktopHeaderCell)}
-          </XStack>
-        </ScrollView>
-        <YStack flex={1} width="100%">
+            <XStack
+              flex={1}
+              py="$2"
+              pl="$5"
+              pr="$3"
+              display="flex"
+              minWidth={totalMinWidth}
+              width="100%"
+            >
+              {columnsConfig.map(renderDesktopHeaderCell)}
+            </XStack>
+          </ScrollView>
+        </XStack>
+        <YStack flex={1} width="100%" minHeight={0}>
           <PerpPositionsEmptyState />
         </YStack>
       </YStack>

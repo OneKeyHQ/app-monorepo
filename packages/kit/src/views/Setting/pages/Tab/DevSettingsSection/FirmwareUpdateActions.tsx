@@ -3,10 +3,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import {
-  useFirmwareUpdateRetryAtom,
-  useFirmwareUpdatesDetectStatusPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useFirmwareUpdateRetryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -50,13 +47,16 @@ function ResetDetectTimeCheck() {
 }
 
 function BootloaderModeUpdateButton() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const connectId = activeAccount.device?.connectId;
   const [retryInfo] = useFirmwareUpdateRetryAtom();
   const actions = useFirmwareUpdateActions();
   return (
     <Button
       onPress={() => {
-        actions.showBootloaderMode({ connectId: undefined });
+        actions.showBootloaderMode({ connectId });
         console.log({
+          connectId,
           retryInfo,
         });
       }}
@@ -67,11 +67,10 @@ function BootloaderModeUpdateButton() {
 }
 
 function ClearUpdateInfoDetectCacheButton() {
-  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   return (
     <Button
       onPress={() => {
-        setDetectStatus(undefined);
+        void backgroundApiProxy.serviceFirmwareUpdate.clearFirmwareUpdateDetectStatusCache();
       }}
     >
       ClearUpdateInfoDetectCache

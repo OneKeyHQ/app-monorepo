@@ -180,10 +180,12 @@ export function makeTimeoutPromise<T, TParams = undefined>({
   asyncFunc,
   timeout, // ms
   timeoutRejectError,
+  onTimeout,
 }: {
   asyncFunc: (params: TParams) => Promise<T>;
   timeout: number;
   timeoutRejectError: OneKeyError | Error;
+  onTimeout?: (params: TParams) => void;
 }) {
   return (params: TParams) =>
     new Promise<T>((resolve, reject) => {
@@ -194,6 +196,7 @@ export function makeTimeoutPromise<T, TParams = undefined>({
         }
         isCompleted = true;
         clearTimeout(timer);
+        onTimeout?.(params);
         reject(timeoutRejectError);
         // console.log('makeTimeoutPromise timeout result >>>>> ', timeoutResult);
       }, timeout);

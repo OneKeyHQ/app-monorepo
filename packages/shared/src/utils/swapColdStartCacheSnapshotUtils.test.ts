@@ -16,16 +16,43 @@ function buildSnapshotKey(scope: string, key: string) {
 const swapScope = 'store:swap';
 const homeScope = 'store:accountSelector@home';
 const swapAccountSelectorScope = 'store:accountSelector@swap';
+const stockDisplaySeedSnapshotKey = buildSnapshotKey(
+  swapScope,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+);
+const balanceDisplayCacheSnapshotKey = buildSnapshotKey(
+  swapScope,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+);
+const validStockDisplaySeed = {
+  networkId: 'evm--56',
+  contractAddress: '0xaapl',
+  symbol: 'AAPL',
+  decimals: 18,
+  isStock: true,
+};
+const validBalanceDisplayCache = {
+  version: 1,
+  entries: [
+    {
+      accountAddress: '0xabc',
+      balance: '1.25',
+      networkId: 'evm--1',
+      updatedAt: 1,
+    },
+  ],
+};
 
 function buildActiveAccount({
   networkId = 'btc--0',
   indexedAccountId = 'indexed-account-1',
+  deriveType = 'default',
 } = {}) {
   return {
     ready: true,
     wallet: { id: 'wallet-1' },
     indexedAccount: { id: indexedAccountId },
-    deriveType: 'default',
+    deriveType,
     network: { id: networkId },
   };
 }
@@ -34,26 +61,33 @@ function buildSwapSnapshot({
   contextNetworkId = 'btc--0',
   activeNetworkId = 'btc--0',
   activeIndexedAccountId = 'indexed-account-1',
+  activeDeriveType = 'default',
   swapActiveNetworkId,
   swapActiveIndexedAccountId = activeIndexedAccountId,
+  swapActiveDeriveType = activeDeriveType,
   contextSwapType = ESwapTabSwitchType.BRIDGE,
   snapshotSwapType = ESwapTabSwitchType.BRIDGE,
   fromTokenNetworkId = 'btc--0',
   toTokenNetworkId = 'evm--1',
+  stockDisplaySeed = validStockDisplaySeed,
 }: {
   contextNetworkId?: string;
   activeNetworkId?: string;
   activeIndexedAccountId?: string;
+  activeDeriveType?: string;
   swapActiveNetworkId?: string;
   swapActiveIndexedAccountId?: string;
+  swapActiveDeriveType?: string;
   contextSwapType?: ESwapTabSwitchType;
   snapshotSwapType?: ESwapTabSwitchType;
   fromTokenNetworkId?: string;
   toTokenNetworkId?: string;
+  stockDisplaySeed?: unknown;
 } = {}) {
   const activeAccount = buildActiveAccount({
     networkId: activeNetworkId,
     indexedAccountId: activeIndexedAccountId,
+    deriveType: activeDeriveType,
   });
   const snapshot: Record<string, unknown> = {
     [buildSnapshotKey(
@@ -83,6 +117,8 @@ function buildSwapSnapshot({
       swapScope,
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     )]: { networkId: toTokenNetworkId, symbol: 'ETH' },
+    [stockDisplaySeedSnapshotKey]: stockDisplaySeed,
+    [balanceDisplayCacheSnapshotKey]: validBalanceDisplayCache,
   };
   if (swapActiveNetworkId) {
     snapshot[
@@ -94,6 +130,7 @@ function buildSwapSnapshot({
       0: buildActiveAccount({
         networkId: swapActiveNetworkId,
         indexedAccountId: swapActiveIndexedAccountId,
+        deriveType: swapActiveDeriveType,
       }),
     };
   }
@@ -184,7 +221,7 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     ).toBe(ESwapTabSwitchType.SWAP);
   });
 
-  it('keeps stock context and visible stock tab for same-network stock selected tokens', () => {
+  it('drops Stock execution state while retaining its display seed', () => {
     const snapshot = buildSwapSnapshot({
       contextNetworkId: 'evm--56',
       activeNetworkId: 'evm--56',
@@ -203,17 +240,26 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
         )
       ],
-    ).toBe(ESwapTabSwitchType.STOCK);
+    ).toBeUndefined();
     expect(
-      (
-        snapshot[
-          buildSnapshotKey(
-            swapScope,
-            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
-          )
-        ] as { swapType?: ESwapTabSwitchType }
-      ).swapType,
-    ).toBe(ESwapTabSwitchType.STOCK);
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toBeUndefined();
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
   });
 
   it('drops cached stock context when the visible cold-start tab is no longer stock', () => {
@@ -244,6 +290,12 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
+    expect(snapshot[balanceDisplayCacheSnapshotKey]).toEqual(
+      validBalanceDisplayCache,
+    );
   });
 
   it('keeps all-network cache when from token is on a concrete chain', () => {
@@ -433,6 +485,47 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeUndefined();
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
+  });
+
+  it('keeps a newly selected pair when a stale persisted tab is still stock', () => {
+    const snapshot = buildSwapSnapshot({
+      contextSwapType: ESwapTabSwitchType.BRIDGE,
+      snapshotSwapType: ESwapTabSwitchType.STOCK,
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+        )
+      ],
+    ).toBe(ESwapTabSwitchType.SWAP);
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'btc--0', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toEqual(
+      expect.objectContaining({
+        swapType: ESwapTabSwitchType.BRIDGE,
+      }),
+    );
   });
 
   it('extracts normalized selected tokens from a same-account all-network snapshot without context', () => {
@@ -529,8 +622,15 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     });
   });
 
-  it('drops swap type and token snapshot when home network changes', () => {
-    const snapshot = buildSwapSnapshot({ activeNetworkId: 'evm--1' });
+  it('keeps a same-account Solana pair when the Home network differs', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'sol--101',
+      activeNetworkId: 'evm--1',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'sol--101',
+      toTokenNetworkId: 'sol--101',
+    });
 
     normalizeSwapColdStartCacheSnapshot(snapshot);
 
@@ -541,7 +641,7 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
         )
       ],
-    ).toBeUndefined();
+    ).toBe(ESwapTabSwitchType.SWAP);
     expect(
       snapshot[
         buildSnapshotKey(
@@ -549,7 +649,7 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
         )
       ],
-    ).toBeUndefined();
+    ).toEqual({ networkId: 'sol--101', symbol: 'BTC' });
     expect(
       snapshot[
         buildSnapshotKey(
@@ -557,7 +657,111 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
         )
       ],
-    ).toBeUndefined();
+    ).toEqual(
+      expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'sol--101',
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toEqual(
+      validStockDisplaySeed,
+    );
+  });
+
+  it('keeps a same-account Tron pair when Home and Trade derive types differ', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'tron--0x2b6653dc',
+      activeNetworkId: 'btc--0',
+      activeDeriveType: 'BIP44',
+      swapActiveNetworkId: 'tron--0x2b6653dc',
+      swapActiveDeriveType: 'default',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'tron--0x2b6653dc',
+      toTokenNetworkId: 'tron--0x2b6653dc',
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'tron--0x2b6653dc', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'tron--0x2b6653dc', symbol: 'ETH' });
+  });
+
+  it('normalizes a persisted Limit channel to Swap while keeping its pair', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'evm--1',
+      activeNetworkId: 'evm--1',
+      contextSwapType: ESwapTabSwitchType.LIMIT,
+      snapshotSwapType: ESwapTabSwitchType.LIMIT,
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+        )
+      ],
+    ).toBe(ESwapTabSwitchType.SWAP);
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'evm--1', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toEqual(
+      expect.objectContaining({
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+  });
+
+  it.each([
+    ['non-stock', { ...validStockDisplaySeed, isStock: false }],
+    ['missing-address', { ...validStockDisplaySeed, contractAddress: '' }],
+    ['non-object', null],
+  ])('drops a malformed %s Stock display seed', (_label, stockDisplaySeed) => {
+    const snapshot = buildSwapSnapshot({ stockDisplaySeed });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(snapshot[stockDisplaySeedSnapshotKey]).toBeUndefined();
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'btc--0', symbol: 'BTC' });
   });
 
   it('drops swap type and token snapshot when home account changes', () => {

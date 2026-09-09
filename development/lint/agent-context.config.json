@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "skillsDirectory": ".skillshare/skills",
+  "projectInstructionFiles": ["CLAUDE.md", "AGENTS.md"],
+  "budgets": {
+    "maxDiscoverableSkills": 40,
+    "maxImplicitSkills": 22,
+    "maxTotalDescriptionCharacters": 7200,
+    "maxImplicitDescriptionCharacters": 3000,
+    "maxImplicitDescriptionCharactersPerSkill": 220,
+    "maxExplicitDescriptionCharactersPerSkill": 700,
+    "maxSkillBodyLines": 500,
+    "maxProjectInstructionBytes": 5000
+  }
+}

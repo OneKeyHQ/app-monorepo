@@ -51,8 +51,9 @@ const WithdrawOptions = () => {
         accountId,
         symbol,
         provider,
+        vault: protocolInfo?.vault,
       }),
-    [accountId, networkId, symbol, provider],
+    [accountId, networkId, symbol, provider, protocolInfo?.vault],
     { watchLoading: true },
   );
 

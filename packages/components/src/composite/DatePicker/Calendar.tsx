@@ -72,7 +72,7 @@ export const Calendar = memo(
     }
 
     const isDualPanelRange =
-      mode === 'range' && calendars.length > 1 && media.gtMd;
+      mode === 'range' && calendars.length === 2 && media.gtMd;
     const panelProps = { mode, onYearSelect, onMonthSelect, minDate, maxDate };
 
     if (isDualPanelRange) {

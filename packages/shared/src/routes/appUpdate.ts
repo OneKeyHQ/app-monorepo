@@ -3,6 +3,7 @@ export enum EAppUpdateRoutes {
   WhatsNew = 'WhatsNew',
   DownloadVerify = 'DownloadVerify',
   ManualInstall = 'ManualInstall',
+  FeaturedChangelogPreview = 'FeaturedChangelogPreview',
 }
 
 export type IAppUpdatePagesParamList = {
@@ -14,4 +15,7 @@ export type IAppUpdatePagesParamList = {
   [EAppUpdateRoutes.DownloadVerify]: undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;
   [EAppUpdateRoutes.ManualInstall]: undefined;
+  [EAppUpdateRoutes.FeaturedChangelogPreview]: {
+    version?: string;
+  };
 };

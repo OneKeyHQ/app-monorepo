@@ -1,6 +1,6 @@
 ---
 name: 1k-analytics
-description: Analytics event tracking for OneKey. Use when adding tracking events, logging to server, user behavior tracking, or business metrics. Covers the @LogToServer decorator pattern, logger scope/scene architecture, and common pitfalls. Triggers on "埋点", "统计", "打点", "数据追踪", "日志", "analytics", "tracking event", "Mixpanel", "LogToServer", "trackEvent", "defaultLogger".
+description: OneKey analytics and server event tracking with LogToServer, logger scopes/scenes, and business metrics. Use for 埋点, analytics, or tracking events.
 allowed-tools: Read, Grep, Glob
 ---
 

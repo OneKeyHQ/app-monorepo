@@ -1,0 +1,629 @@
+/* cspell:ignore Infini */
+import BigNumber from 'bignumber.js';
+
+import { getListedNetworkMap } from '../config/networkIds';
+import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '../consts/primeConsts';
+
+import { generateUUID } from './miscUtils';
+import { normalizeTokenContractAddress } from './tokenUtils';
+
+import type {
+  IPrimeInfiniPayment,
+  IPrimeInfiniPaymentAsset,
+  IPrimeInfiniPaymentCacheIdentity,
+  IPrimeInfiniPaymentCacheKey,
+  IPrimeInfiniPaymentTransferClaim,
+  IPrimeInfiniPendingPaymentSession,
+  IPrimeInfiniPurchaseStatusSnapshot,
+  IPrimeInfiniSubscriptionPlan,
+} from '../../types/prime/primeTypes';
+
+const FAILED_PAYMENT_STATUSES = new Set([
+  'cancelled',
+  'canceled',
+  'failed',
+  'failure',
+]);
+const EXPIRED_PAYMENT_STATUSES = new Set([
+  'expired',
+  'expire',
+  'timeout',
+  'timed_out',
+]);
+const SUCCESSFUL_PAYMENT_STATUSES = new Set([
+  'confirmed',
+  'completed',
+  'paid',
+  'success',
+  'succeeded',
+]);
+function normalizeIdentityValue(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function normalizePaymentStatus(value: string | undefined) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function getPositiveAmount(value: string | undefined) {
+  const amount = new BigNumber(value ?? '');
+  return amount.isFinite() && amount.gt(0) ? amount : undefined;
+}
+
+function getMaximumPaymentProgressAmount(
+  first: string | undefined,
+  second: string | undefined,
+) {
+  const firstAmount = getPositiveAmount(first);
+  const secondAmount = getPositiveAmount(second);
+  if (!firstAmount) {
+    return second;
+  }
+  if (!secondAmount) {
+    return first;
+  }
+  return firstAmount.gte(secondAmount) ? first : second;
+}
+
+function getCurrentPaymentConfirmingAmount({
+  previous,
+  latest,
+  amountConfirmed,
+}: {
+  previous: IPrimeInfiniPayment;
+  latest: IPrimeInfiniPayment;
+  amountConfirmed: string | undefined;
+}) {
+  if (latest.amountConfirming !== undefined) {
+    return latest.amountConfirming;
+  }
+  const previousConfirming = getPositiveAmount(previous.amountConfirming);
+  if (!previousConfirming) {
+    return latest.amountConfirming;
+  }
+  const previousConfirmed =
+    getPositiveAmount(previous.amountConfirmed) ?? new BigNumber(0);
+  const currentConfirmed =
+    getPositiveAmount(amountConfirmed) ?? new BigNumber(0);
+  const newlyConfirmed = currentConfirmed.minus(previousConfirmed);
+  if (!newlyConfirmed.gt(0)) {
+    return previous.amountConfirming;
+  }
+  const remainingConfirming = BigNumber.maximum(
+    previousConfirming.minus(newlyConfirmed),
+    0,
+  );
+  return remainingConfirming.toFixed();
+}
+
+function normalizeNetworkAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}) {
+  return (
+    normalizeTokenContractAddress({
+      networkId: networkId.trim(),
+      contractAddress: address.trim(),
+    }) ?? ''
+  );
+}
+
+export function normalizePrimeInfiniContractAddress({
+  networkId,
+  contractAddress,
+}: {
+  networkId: string;
+  contractAddress: string;
+}) {
+  return normalizeNetworkAddress({
+    networkId,
+    address: contractAddress,
+  });
+}
+
+export function isValidPrimeInfiniPaymentContract({
+  chain,
+  networkId,
+  token,
+  contractAddress,
+}: {
+  chain: string;
+  networkId: string;
+  token: string;
+  contractAddress: unknown;
+}): boolean {
+  if (typeof contractAddress !== 'string') {
+    return false;
+  }
+  if (contractAddress !== '') {
+    return Boolean(contractAddress.trim());
+  }
+  // An empty contract identifies the native asset, not a token with missing
+  // metadata.
+  const network = getListedNetworkMap()[networkId.trim()];
+  const normalizedChain = normalizeIdentityValue(chain);
+  return Boolean(
+    network &&
+    !network.isAllNetworks &&
+    !network.isAggregateNetwork &&
+    typeof network.symbol === 'string' &&
+    normalizeIdentityValue(token) === normalizeIdentityValue(network.symbol) &&
+    // Native symbols cannot identify a chain because several networks share
+    // symbols such as ETH. Match only the selected network's chain names.
+    [network.name, network.code, network.shortcode, network.shortname].some(
+      (networkChain) =>
+        typeof networkChain === 'string' &&
+        normalizedChain === normalizeIdentityValue(networkChain),
+    ),
+  );
+}
+
+export function isSamePrimeInfiniNetworkAddress({
+  networkId,
+  first,
+  second,
+}: {
+  networkId: string;
+  first: string;
+  second: string;
+}) {
+  return (
+    normalizeNetworkAddress({ networkId, address: first }) ===
+    normalizeNetworkAddress({ networkId, address: second })
+  );
+}
+
+export function getPrimeInfiniPaymentAssetKey(
+  asset: Omit<IPrimeInfiniPaymentAsset, 'key'>,
+) {
+  return [
+    normalizeIdentityValue(asset.chain),
+    normalizeIdentityValue(asset.token),
+    asset.networkId.trim(),
+    normalizePrimeInfiniContractAddress(asset),
+  ].join(':');
+}
+
+export function isSamePrimeInfiniPaymentAssetIdentity(
+  first: Pick<IPrimeInfiniPaymentAsset, 'networkId' | 'contractAddress'>,
+  second: Pick<IPrimeInfiniPaymentAsset, 'networkId' | 'contractAddress'>,
+) {
+  return (
+    first.networkId.trim() === second.networkId.trim() &&
+    normalizePrimeInfiniContractAddress(first) ===
+      normalizePrimeInfiniContractAddress(second)
+  );
+}
+
+export function buildPrimeInfiniPaymentCacheKey({
+  bindingId,
+  payment,
+  asset,
+  onekeyUserId,
+  plan,
+  payerAccountId,
+  payerAddress,
+}: {
+  bindingId: string;
+  payment: IPrimeInfiniPayment;
+  asset: IPrimeInfiniPaymentAsset;
+  onekeyUserId: string;
+  plan: IPrimeInfiniSubscriptionPlan;
+  payerAccountId: string;
+  payerAddress: string;
+}): IPrimeInfiniPaymentCacheKey {
+  return {
+    bindingId,
+    paymentId: payment.paymentId,
+    networkId: asset.networkId.trim(),
+    contractAddress: normalizePrimeInfiniContractAddress(asset),
+    onekeyUserId,
+    plan,
+    payerAccountId,
+    payerAddress: normalizeNetworkAddress({
+      networkId: asset.networkId,
+      address: payerAddress,
+    }),
+  };
+}
+
+export function isSamePrimeInfiniPaymentCacheKey(
+  first: IPrimeInfiniPaymentCacheKey,
+  second: IPrimeInfiniPaymentCacheKey,
+) {
+  return (
+    first.bindingId === second.bindingId &&
+    first.paymentId === second.paymentId &&
+    isSamePrimeInfiniPaymentAssetIdentity(first, second) &&
+    first.onekeyUserId === second.onekeyUserId &&
+    first.plan === second.plan &&
+    first.payerAccountId === second.payerAccountId &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: first.networkId,
+      first: first.payerAddress,
+      second: second.payerAddress,
+    })
+  );
+}
+
+export function isPrimeInfiniPaymentCacheIdentityForKey(
+  identity: IPrimeInfiniPaymentCacheIdentity,
+  cacheKey: IPrimeInfiniPaymentCacheKey,
+) {
+  return (
+    identity.paymentId === cacheKey.paymentId &&
+    isSamePrimeInfiniPaymentAssetIdentity(identity, cacheKey)
+  );
+}
+
+export function isPrimeInfiniPaymentCacheKeyForContext({
+  cacheKey,
+  payment,
+  asset,
+  onekeyUserId,
+  plan,
+  payerAccountId,
+  payerAddress,
+}: {
+  cacheKey: IPrimeInfiniPaymentCacheKey;
+  payment: IPrimeInfiniPayment;
+  asset: IPrimeInfiniPaymentAsset;
+  onekeyUserId: string;
+  plan: IPrimeInfiniSubscriptionPlan;
+  payerAccountId: string;
+  payerAddress: string;
+}) {
+  return isSamePrimeInfiniPaymentCacheKey(
+    cacheKey,
+    buildPrimeInfiniPaymentCacheKey({
+      bindingId: cacheKey.bindingId,
+      payment,
+      asset,
+      onekeyUserId,
+      plan,
+      payerAccountId,
+      payerAddress,
+    }),
+  );
+}
+
+export function createPrimeInfiniPaymentBindingId() {
+  return generateUUID();
+}
+
+export function isPrimeInfiniPaymentTransferClaimForSession({
+  session,
+  transferClaim,
+}: {
+  session: IPrimeInfiniPendingPaymentSession;
+  transferClaim: IPrimeInfiniPaymentTransferClaim;
+}) {
+  const transferAmount = new BigNumber(transferClaim.amount);
+  const invoiceAmount = new BigNumber(session.payment.amountDue);
+  return (
+    transferClaim.networkId.trim() === session.asset.networkId.trim() &&
+    transferClaim.accountId === session.payerAccountId &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: session.asset.networkId,
+      first: transferClaim.accountAddress,
+      second: session.payerAddress,
+    }) &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: session.asset.networkId,
+      first: transferClaim.fromAddress,
+      second: session.payerAddress,
+    }) &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: session.asset.networkId,
+      first: transferClaim.toAddress,
+      second: session.payment.address,
+    }) &&
+    isSamePrimeInfiniPaymentAssetIdentity(
+      {
+        networkId: transferClaim.networkId,
+        contractAddress: transferClaim.contractAddress,
+      },
+      session.asset,
+    ) &&
+    transferAmount.isFinite() &&
+    transferAmount.gt(0) &&
+    invoiceAmount.isFinite() &&
+    invoiceAmount.gt(0) &&
+    // NOTE: transferClaim.amount is the decoded transfer amount, which is
+    // display-basis (multiplied) for scaled-UI/rebase tokens. This exact
+    // comparison assumes non-rebase assets (stablecoin-style); it would need
+    // adjustment if Prime Infini ever accepted a rebase token.
+    transferAmount.eq(invoiceAmount)
+  );
+}
+
+export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
+  payment,
+  paymentCacheKey,
+  transferClaim,
+  now = Date.now(),
+}: {
+  payment: IPrimeInfiniPayment;
+  paymentCacheKey: IPrimeInfiniPaymentCacheKey;
+  transferClaim: IPrimeInfiniPaymentTransferClaim;
+  now?: number;
+}) {
+  const paymentAmount = new BigNumber(payment.amountDue);
+  const transferAmount = new BigNumber(transferClaim.amount);
+  return (
+    payment.paymentId === paymentCacheKey.paymentId &&
+    transferClaim.networkId === paymentCacheKey.networkId &&
+    transferClaim.accountId === paymentCacheKey.payerAccountId &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: paymentCacheKey.networkId,
+      first: transferClaim.accountAddress,
+      second: paymentCacheKey.payerAddress,
+    }) &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: paymentCacheKey.networkId,
+      first: transferClaim.fromAddress,
+      second: paymentCacheKey.payerAddress,
+    }) &&
+    isSamePrimeInfiniNetworkAddress({
+      networkId: paymentCacheKey.networkId,
+      first: transferClaim.toAddress,
+      second: payment.address,
+    }) &&
+    isSamePrimeInfiniPaymentAssetIdentity(
+      {
+        networkId: transferClaim.networkId,
+        contractAddress: transferClaim.contractAddress,
+      },
+      paymentCacheKey,
+    ) &&
+    paymentAmount.isFinite() &&
+    paymentAmount.gt(0) &&
+    transferAmount.isFinite() &&
+    // NOTE: transferClaim.amount is the decoded transfer amount, which is
+    // display-basis (multiplied) for scaled-UI/rebase tokens. This exact
+    // comparison assumes non-rebase assets (stablecoin-style); it would need
+    // adjustment if Prime Infini ever accepted a rebase token.
+    transferAmount.eq(paymentAmount) &&
+    !hasPrimeInfiniPaymentProgressSnapshot(payment) &&
+    !isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment) &&
+    !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(payment) &&
+    !isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(payment) &&
+    now + PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS < payment.expiresAt
+  );
+}
+
+export function isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
+  baseline,
+  purchaseStatusSnapshot,
+}: {
+  baseline: Pick<
+    IPrimeInfiniPendingPaymentSession['baseline'],
+    'wasPrimeActive' | 'primeExpiresAt' | 'infiniPeriodEnd'
+  >;
+  purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+}) {
+  const { primeSubscription, infiniSubscription } = purchaseStatusSnapshot;
+  if (!baseline.wasPrimeActive) {
+    return Boolean(primeSubscription?.isActive);
+  }
+  if (
+    baseline.primeExpiresAt !== undefined &&
+    primeSubscription?.isActive &&
+    primeSubscription.expiresAt > baseline.primeExpiresAt
+  ) {
+    return true;
+  }
+  return Boolean(
+    baseline.infiniPeriodEnd !== undefined &&
+    infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription.currentPeriodEnd > baseline.infiniPeriodEnd,
+  );
+}
+
+export function isPrimeInfiniPurchaseCompletedSnapshot({
+  baseline,
+  purchaseStatusSnapshot,
+}: {
+  baseline: Pick<
+    IPrimeInfiniPendingPaymentSession['baseline'],
+    | 'wasPrimeActive'
+    | 'primeExpiresAt'
+    | 'infiniPeriodEnd'
+    | 'infiniSubscriptionId'
+  >;
+  purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+}) {
+  const { primeSubscription, infiniSubscription } = purchaseStatusSnapshot;
+  // Initial-purchase sessions created before this baseline was persisted have
+  // no Infini period. Renewals still require their explicit previous period.
+  const baselineInfiniPeriodEnd =
+    baseline.infiniPeriodEnd ?? (baseline.wasPrimeActive ? undefined : 0);
+  const hasNewInfiniPeriod = Boolean(
+    baselineInfiniPeriodEnd !== undefined &&
+    infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription.currentPeriodEnd > baselineInfiniPeriodEnd,
+  );
+  if (baseline.wasPrimeActive) {
+    return hasNewInfiniPeriod;
+  }
+
+  const hasInfiniChannel = primeSubscription?.subscriptions?.some(
+    (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
+  );
+  const currentInfiniSubscriptionId =
+    infiniSubscription?.subscriptionId?.trim();
+  const hasStatusOnlyActiveInfiniSubscription = Boolean(
+    baseline.infiniSubscriptionId !== undefined &&
+    currentInfiniSubscriptionId &&
+    currentInfiniSubscriptionId !== baseline.infiniSubscriptionId &&
+    !infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription?.status?.toLowerCase() === 'active',
+  );
+  return Boolean(
+    primeSubscription?.isActive &&
+    (hasInfiniChannel ||
+      hasNewInfiniPeriod ||
+      hasStatusOnlyActiveInfiniSubscription),
+  );
+}
+
+export function isPrimeInfiniPaymentForAssetSnapshot({
+  payment,
+  asset,
+}: {
+  payment: IPrimeInfiniPayment;
+  asset: IPrimeInfiniPaymentAsset;
+}) {
+  const amount = new BigNumber(payment.amountDue);
+  return (
+    normalizeIdentityValue(payment.chain) ===
+      normalizeIdentityValue(asset.chain) &&
+    normalizeIdentityValue(payment.token) ===
+      normalizeIdentityValue(asset.token) &&
+    amount.isFinite() &&
+    amount.gt(0)
+  );
+}
+
+export function hasPrimeInfiniPaymentProgressSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return Boolean(
+    getPositiveAmount(payment.amountConfirmed) ||
+    getPositiveAmount(payment.amountConfirming),
+  );
+}
+
+export function isPrimeInfiniPaymentExplicitlyFailedSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return (
+    FAILED_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.status)) ||
+    FAILED_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.infiniStatus))
+  );
+}
+
+export function isPrimeInfiniPaymentExplicitlyExpiredSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return (
+    EXPIRED_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.status)) ||
+    EXPIRED_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.infiniStatus))
+  );
+}
+
+// An invoice the server has closed with nothing collected, so the local
+// session pinned to it can be released even after it claimed sendStarted.
+// A locally elapsed `expiresAt` deliberately does not qualify: a transaction
+// broadcast shortly before expiry can still land and be credited, and only the
+// server declaring the invoice dead proves that no money moved.
+export function isPrimeInfiniPaymentClosedUnpaidSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return (
+    !hasPrimeInfiniPaymentProgressSnapshot(payment) &&
+    !isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(payment) &&
+    !isPrimeInfiniPaymentFullyConfirmedSnapshot(payment) &&
+    (isPrimeInfiniPaymentExplicitlyExpiredSnapshot(payment) ||
+      isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment))
+  );
+}
+
+export function isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  return (
+    SUCCESSFUL_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.status)) ||
+    SUCCESSFUL_PAYMENT_STATUSES.has(
+      normalizePaymentStatus(payment.infiniStatus),
+    )
+  );
+}
+
+export function isPrimeInfiniPaymentFullyConfirmedSnapshot(
+  payment: IPrimeInfiniPayment,
+) {
+  const amountDue = new BigNumber(payment.amountDue);
+  const amountConfirmed = new BigNumber(payment.amountConfirmed ?? '');
+  return (
+    amountDue.isFinite() &&
+    amountDue.gt(0) &&
+    amountConfirmed.isFinite() &&
+    amountConfirmed.gte(amountDue)
+  );
+}
+
+export function mergePrimeInfiniPaymentProgressSnapshot({
+  previous,
+  latest,
+}: {
+  previous: IPrimeInfiniPayment;
+  latest: IPrimeInfiniPayment;
+}) {
+  if (previous.paymentId !== latest.paymentId) {
+    return latest;
+  }
+  const latestHasSuccessfulOutcome =
+    isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(latest) ||
+    isPrimeInfiniPaymentFullyConfirmedSnapshot(latest);
+  const preservePreviousTerminalStatus =
+    !latestHasSuccessfulOutcome &&
+    (isPrimeInfiniPaymentExplicitlyFailedSnapshot(previous) ||
+      isPrimeInfiniPaymentExplicitlyExpiredSnapshot(previous) ||
+      isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(previous) ||
+      isPrimeInfiniPaymentFullyConfirmedSnapshot(previous));
+  const amountConfirmed = getMaximumPaymentProgressAmount(
+    previous.amountConfirmed,
+    latest.amountConfirmed,
+  );
+  return {
+    ...latest,
+    status: preservePreviousTerminalStatus ? previous.status : latest.status,
+    infiniStatus: preservePreviousTerminalStatus
+      ? previous.infiniStatus
+      : latest.infiniStatus,
+    amountConfirmed,
+    amountConfirming: getCurrentPaymentConfirmingAmount({
+      previous,
+      latest,
+      amountConfirmed,
+    }),
+  };
+}
+
+export function isSamePrimeInfiniPaymentTransferSnapshot({
+  first,
+  second,
+  networkId,
+}: {
+  first: IPrimeInfiniPayment;
+  second: IPrimeInfiniPayment;
+  networkId: string;
+}) {
+  const firstAmount = new BigNumber(first.amountDue);
+  const secondAmount = new BigNumber(second.amountDue);
+  return (
+    first.paymentId === second.paymentId &&
+    normalizeNetworkAddress({
+      networkId,
+      address: first.address,
+    }) ===
+      normalizeNetworkAddress({
+        networkId,
+        address: second.address,
+      }) &&
+    normalizeIdentityValue(first.chain) ===
+      normalizeIdentityValue(second.chain) &&
+    normalizeIdentityValue(first.token) ===
+      normalizeIdentityValue(second.token) &&
+    firstAmount.isFinite() &&
+    firstAmount.gt(0) &&
+    secondAmount.isFinite() &&
+    secondAmount.gt(0) &&
+    firstAmount.eq(secondAmount) &&
+    first.expiresAt === second.expiresAt
+  );
+}

@@ -20,3 +20,9 @@ export function DialogForm({ formProps, children }: IDialogFormProps) {
 }
 
 export const DialogFormField = Form.Field;
+
+export function preloadDialogForm() {
+  const preload = (Form as typeof Form & { preload?: () => Promise<unknown> })
+    .preload;
+  return preload?.() ?? Promise.resolve();
+}

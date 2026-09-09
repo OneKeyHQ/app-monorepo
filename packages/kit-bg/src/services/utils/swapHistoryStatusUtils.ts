@@ -1,6 +1,7 @@
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchSwapTxHistoryStatusResponse,
+  ISwapOrderHash,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -19,17 +20,6 @@ const BALANCE_REFRESH_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
   ESwapCrossChainStatus.TO_SUCCESS,
   ESwapCrossChainStatus.REFUNDED,
 ]);
-
-const TERMINAL_SWAP_HISTORY_STATUSES = new Set<ESwapTxHistoryStatus>([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
-export function isSwapTxHistoryStatusTerminal(status?: ESwapTxHistoryStatus) {
-  return status ? TERMINAL_SWAP_HISTORY_STATUSES.has(status) : false;
-}
 
 function isHoudiniSwapProvider(provider?: string) {
   return provider === HOUDINI_SWAP_PROVIDER;
@@ -85,6 +75,59 @@ function shouldTrackPrivateSendStatusChange({
   );
 }
 
+function shouldTrackSwapOrderHashChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  const incoming = txStatusRes.swapOrderHash;
+  if (!incoming) {
+    return false;
+  }
+  return (
+    (Boolean(incoming.fromTxHash) &&
+      incoming.fromTxHash !== swapTxHistory.swapOrderHash?.fromTxHash) ||
+    (Boolean(incoming.bridgeHash) &&
+      incoming.bridgeHash !== swapTxHistory.swapOrderHash?.bridgeHash) ||
+    (Boolean(incoming.toTxHash) &&
+      incoming.toTxHash !== swapTxHistory.swapOrderHash?.toTxHash) ||
+    (Boolean(incoming.refundHash) &&
+      incoming.refundHash !== swapTxHistory.swapOrderHash?.refundHash)
+  );
+}
+
+function shouldTrackReceiverTransactionIdChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  return Boolean(
+    txStatusRes.crossChainReceiveTxHash &&
+    txStatusRes.crossChainReceiveTxHash !==
+      swapTxHistory.txInfo.receiverTransactionId,
+  );
+}
+
+export function mergeSwapOrderHash(
+  current?: ISwapOrderHash,
+  incoming?: ISwapOrderHash,
+): ISwapOrderHash | undefined {
+  if (!incoming) {
+    return current;
+  }
+  const merged: ISwapOrderHash = {
+    fromTxHash: incoming.fromTxHash || current?.fromTxHash,
+    bridgeHash: incoming.bridgeHash || current?.bridgeHash,
+    toTxHash: incoming.toTxHash || current?.toTxHash,
+    refundHash: incoming.refundHash || current?.refundHash,
+  };
+  return Object.values(merged).some(Boolean) ? merged : undefined;
+}
+
 export function shouldUpdateSwapHistoryAfterTxState({
   swapTxHistory,
   txStatusRes,
@@ -96,29 +139,48 @@ export function shouldUpdateSwapHistoryAfterTxState({
     txStatusRes.state !== swapTxHistory.status ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
     shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
-    shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes })
+    shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes }) ||
+    shouldTrackSwapOrderHashChange({ swapTxHistory, txStatusRes }) ||
+    shouldTrackReceiverTransactionIdChange({ swapTxHistory, txStatusRes })
+  );
+}
+
+export function shouldShowSwapHistoryStatusToast({
+  previousSwapTxHistory,
+  swapTxHistory,
+  shouldShowToast,
+}: {
+  previousSwapTxHistory: ISwapTxHistory;
+  swapTxHistory: ISwapTxHistory;
+  shouldShowToast: boolean;
+}) {
+  return (
+    shouldShowToast && previousSwapTxHistory.status !== swapTxHistory.status
   );
 }
 
 export function shouldEmitSwapHistoryBalanceUpdate({
   swapTxHistory,
+  previousSwapTxHistory,
   txStatusRes,
-  previousStateDetail,
 }: {
   swapTxHistory: ISwapTxHistory;
+  previousSwapTxHistory: ISwapTxHistory;
   txStatusRes: IFetchSwapTxHistoryStatusResponse;
-  previousStateDetail?: string;
 }) {
-  const finalStateWithoutCrossChainStatus =
-    !swapTxHistory.crossChainStatus &&
+  const reachedBalanceChangingTerminalState =
+    previousSwapTxHistory.status !== swapTxHistory.status &&
     (txStatusRes.state === ESwapTxHistoryStatus.SUCCESS ||
-      txStatusRes.state === ESwapTxHistoryStatus.PARTIALLY_FILLED);
+      txStatusRes.state === ESwapTxHistoryStatus.PARTIALLY_FILLED ||
+      txStatusRes.state === ESwapTxHistoryStatus.REFUNDED);
 
   const crossChainStatusShouldRefresh = swapTxHistory.crossChainStatus
-    ? BALANCE_REFRESH_CROSS_CHAIN_STATUSES.has(swapTxHistory.crossChainStatus)
+    ? previousSwapTxHistory.crossChainStatus !==
+        swapTxHistory.crossChainStatus &&
+      BALANCE_REFRESH_CROSS_CHAIN_STATUSES.has(swapTxHistory.crossChainStatus)
     : false;
 
-  if (crossChainStatusShouldRefresh || finalStateWithoutCrossChainStatus) {
+  if (crossChainStatusShouldRefresh || reachedBalanceChangingTerminalState) {
     return true;
   }
 
@@ -127,6 +189,7 @@ export function shouldEmitSwapHistoryBalanceUpdate({
   }
 
   const nextStateDetail = txStatusRes.stateDetail;
+  const previousStateDetail = previousSwapTxHistory.stateDetail;
   if (!nextStateDetail || previousStateDetail === nextStateDetail) {
     return false;
   }

@@ -19,7 +19,9 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -39,6 +41,7 @@ import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
@@ -47,6 +50,7 @@ import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceIpTable from '../services/ServiceIpTable';
 import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
@@ -88,6 +92,8 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceTravelMode from '../services/ServiceTravelMode';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -143,6 +149,10 @@ class BackgroundApiProxy
     return this.getProxyService<ServicePassword>('servicePassword');
   }
 
+  get serviceTravelMode(): ServiceTravelMode {
+    return this.getProxyService<ServiceTravelMode>('serviceTravelMode');
+  }
+
   get serviceWebviewPerp(): ServiceWebviewPerp {
     return this.getProxyService<ServiceWebviewPerp>('serviceWebviewPerp');
   }
@@ -183,8 +193,16 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceSend>('serviceSend');
   }
 
+  get serviceBatchTxSign(): ServiceBatchTxSign {
+    return this.getProxyService<ServiceBatchTxSign>('serviceBatchTxSign');
+  }
+
   get serviceSwap(): ServiceSwap {
     return this.getProxyService<ServiceSwap>('serviceSwap');
+  }
+
+  get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
+    return this.getProxyService<ServiceUnifoldDeposit>('serviceUnifoldDeposit');
   }
 
   get serviceToken(): ServiceToken {
@@ -273,6 +291,10 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceNotification>('serviceNotification');
   }
 
+  get serviceIdentityExit(): ServiceIdentityExit {
+    return this.getProxyService<ServiceIdentityExit>('serviceIdentityExit');
+  }
+
   get servicePrime(): ServicePrime {
     return this.getProxyService<ServicePrime>('servicePrime');
   }
@@ -283,6 +305,12 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
+    return this.getProxyService<ServiceHardwarePortfolioSync>(
+      'serviceHardwarePortfolioSync',
+    );
   }
 
   get serviceKeylessCloudSync(): ServiceKeylessCloudSync {
@@ -385,6 +413,10 @@ class BackgroundApiProxy
 
   get serviceContextMenu(): ServiceContextMenu {
     return this.getProxyService<ServiceContextMenu>('serviceContextMenu');
+  }
+
+  get serviceBulkSend(): ServiceBulkSend {
+    return this.getProxyService<ServiceBulkSend>('serviceBulkSend');
   }
 
   get serviceFiatCrypto(): ServiceFiatCrypto {

@@ -5,7 +5,7 @@ import { LOCALE_KEYS } from './localeLoaders';
 import type { ILocaleSymbol } from './type';
 
 const defaultLanguage: Record<string, string> = {
-  'zh-CN': '简体中文',
+  'zh-CN': '简体中文（新加坡）',
   'zh-HK': '繁體中文（香港）',
   'zh-TW': '繁體中文（臺灣）',
   'pt-BR': 'Português(Brasil)',

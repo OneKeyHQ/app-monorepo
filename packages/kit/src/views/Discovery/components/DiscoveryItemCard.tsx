@@ -105,6 +105,7 @@ export function DiscoveryItemCard({
           <Image
             width="100%"
             height="100%"
+            resizeWidth={56}
             source={{ uri: logo }}
             fallback={
               <Image.Fallback>

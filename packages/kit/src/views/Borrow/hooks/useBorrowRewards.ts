@@ -1,5 +1,16 @@
+import { useEffect, useMemo, useRef } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
+
+type IScopedBorrowRewardsResult = {
+  scopeKey: string;
+  data: IBorrowRewards | null;
+  state: 'resolved' | 'error';
+};
 
 export const useBorrowRewards = ({
   networkId,
@@ -14,35 +25,85 @@ export const useBorrowRewards = ({
   accountId?: string;
   enabled?: boolean;
 }) => {
+  const scopeKey = JSON.stringify([
+    networkId,
+    provider?.toLowerCase(),
+    marketAddress,
+    accountId,
+    enabled,
+  ]);
+  const requestParams = useMemo(
+    () =>
+      networkId && provider && marketAddress && accountId && enabled
+        ? { networkId, provider, marketAddress, accountId }
+        : null,
+    [accountId, enabled, marketAddress, networkId, provider],
+  );
+  const swrKey = requestParams
+    ? swrKeys.borrowRewards(requestParams)
+    : undefined;
+  const lastSuccessfulResultRef = useRef<{
+    scopeKey: string;
+    data: IBorrowRewards;
+  } | null>(null);
   const {
-    result: borrowRewards,
+    result: scopedResult,
     run,
     isLoading,
   } = usePromiseResult(
-    async () => {
-      if (!networkId || !provider || !marketAddress || !accountId || !enabled) {
-        return null;
+    async (): Promise<IScopedBorrowRewardsResult> => {
+      if (!requestParams) {
+        return { scopeKey, data: null, state: 'resolved' };
       }
-
-      return backgroundApiProxy.serviceStaking.getBorrowRewards({
-        networkId,
-        provider,
-        marketAddress,
-        accountId,
-      });
+      try {
+        return {
+          scopeKey,
+          data: await backgroundApiProxy.serviceStaking.getBorrowRewards(
+            requestParams,
+          ),
+          state: 'resolved',
+        };
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Borrow rewards request failed: ${String(error)}`,
+        );
+        return {
+          scopeKey,
+          data:
+            lastSuccessfulResultRef.current?.scopeKey === scopeKey
+              ? lastSuccessfulResultRef.current.data
+              : null,
+          state: 'error',
+        };
+      }
     },
-    [networkId, provider, marketAddress, accountId, enabled],
+    [requestParams, scopeKey],
     {
       initResult: null,
       watchLoading: true,
-      undefinedResultIfReRun: true,
       alwaysSetState: true,
+      swrKey,
+      swrShouldPersist: (result) =>
+        result?.state === 'resolved' && Boolean(result.data),
     },
   );
+  const hasSettledCurrentScope = scopedResult?.scopeKey === scopeKey;
+  const borrowRewards = hasSettledCurrentScope ? scopedResult.data : null;
+  const isError =
+    Boolean(requestParams) &&
+    hasSettledCurrentScope &&
+    (scopedResult?.state === 'error' || !borrowRewards);
+  useEffect(() => {
+    if (borrowRewards && scopedResult?.state === 'resolved') {
+      lastSuccessfulResultRef.current = { scopeKey, data: borrowRewards };
+    }
+  }, [borrowRewards, scopeKey, scopedResult?.state]);
 
   return {
     borrowRewards,
+    isInitialLoading: Boolean(requestParams) && !hasSettledCurrentScope,
     isLoading,
+    isError,
     refresh: run,
   };
 };

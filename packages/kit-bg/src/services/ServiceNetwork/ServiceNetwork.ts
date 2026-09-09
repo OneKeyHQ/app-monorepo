@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 import pLimit from 'p-limit';
@@ -24,7 +24,12 @@ import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
   NETWORK_SHOW_VALUE_THRESHOLD_USD,
 } from '@onekeyhq/shared/src/consts/networkConsts';
-import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_SOL,
+  IMPL_TRON,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,7 +50,9 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../../vaults/factory';
 import {
@@ -56,6 +63,7 @@ import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
 import type { IAccountSelectorPersistInfo } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IReceiveArrivalConfig } from '../../dbs/simple/entity/SimpleDbEntityReceiveArrivalConfig';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -1097,20 +1105,37 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getSupportExportAccountKeyNetworks({
     exportType,
+    walletId,
   }: {
     exportType: 'privateKey' | 'publicKey' | 'mnemonic';
+    walletId?: string;
   }): Promise<
     {
       network: IServerNetwork;
     }[]
   > {
+    let networksInfo: { network: IServerNetwork }[];
     if (exportType === 'privateKey') {
-      return this.getSupportExportPrivateKeyNetworks();
+      networksInfo = await this.getSupportExportPrivateKeyNetworks();
+    } else if (exportType === 'publicKey') {
+      networksInfo = await this.getSupportExportPublicKeyNetworks();
+    } else {
+      throw new OneKeyLocalError('Not implemented');
     }
-    if (exportType === 'publicKey') {
-      return this.getSupportExportPublicKeyNetworks();
+
+    if (!walletId) {
+      return networksInfo;
     }
-    throw new OneKeyLocalError('Not implemented');
+
+    const { networkIdsCompatible } =
+      await this.getNetworkIdsCompatibleWithWalletId({
+        walletId,
+        networkIds: networksInfo.map((item) => item.network.id),
+      });
+    const compatibleNetworkIds = new Set(networkIdsCompatible);
+    return networksInfo.filter((item) =>
+      compatibleNetworkIds.has(item.network.id),
+    );
   }
 
   @backgroundMethod()
@@ -1325,6 +1350,18 @@ class ServiceNetwork extends ServiceBase {
           });
 
         if (walletDevice) {
+          if (walletDevice.deviceType === EDeviceType.Pro2) {
+            const networksNotSupportedByPro2QrWallet = networkVaultSettings
+              .filter(
+                (o) =>
+                  o.network.impl === IMPL_SOL || o.network.impl === IMPL_TRON,
+              )
+              .map((o) => o.network.id);
+            networkIdsIncompatible = networkIdsIncompatible.concat(
+              networksNotSupportedByPro2QrWallet,
+            );
+          }
+
           // Filter by firmware type (Bitcoin Only, etc.)
           const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
             walletId,
@@ -1339,7 +1376,7 @@ class ServiceNetwork extends ServiceBase {
               networkIdsIncompatible.concat(nonBtcNetworks);
           }
         }
-        // Qr account only support btc/evm network
+        // Pro2 QR accounts only support BTC/EVM networks.
       }
     }
 
@@ -1801,6 +1838,71 @@ class ServiceNetwork extends ServiceBase {
       formattedAccountNetworkValues,
       accountDeFiOverview: localDeFiOverview,
     };
+  }
+
+  _fetchReceiveArrivalConfigPromise:
+    | Promise<IReceiveArrivalConfig | undefined>
+    | undefined;
+
+  // Receive-page ETA / protocol-standard label overrides (OK-59089).
+  // Must stay a standalone fetch: merging these fields into the network
+  // list payload would silently drop them (preset networks win the
+  // getNetworks merge). Failures fall back to bundled defaults silently —
+  // the receive flow must never block or surface an error because of this
+  // config (OK-57462 hard requirement).
+  @backgroundMethod()
+  async getReceiveArrivalConfig(): Promise<IReceiveArrivalConfig | undefined> {
+    try {
+      const rawData =
+        await this.backgroundApi.simpleDb.receiveArrivalConfig.getRawData();
+      const cached = rawData?.config;
+      const syncedAt = rawData?.syncedAt ?? 0;
+      const isFresh =
+        Date.now() - syncedAt < timerUtils.getTimeDurationMs({ hour: 1 });
+      if (cached && isFresh) {
+        return cached;
+      }
+      const refreshPromise = this._fetchAndCacheReceiveArrivalConfig();
+      if (cached) {
+        // Stale-while-revalidate: serve the stale copy immediately, let the
+        // refresh land silently for the next open.
+        return cached;
+      }
+      return await refreshPromise;
+    } catch {
+      return undefined;
+    }
+  }
+
+  _fetchAndCacheReceiveArrivalConfig(): Promise<
+    IReceiveArrivalConfig | undefined
+  > {
+    if (!this._fetchReceiveArrivalConfigPromise) {
+      this._fetchReceiveArrivalConfigPromise = (async () => {
+        try {
+          const client = await this.getClient(EServiceEndpointEnum.Wallet);
+          const resp = await client.get<{ data: IReceiveArrivalConfig }>(
+            '/wallet/v1/network/receive-arrival-config',
+          );
+          const config = resp.data.data;
+          // Per-entry validation happens in the resolve utils; only guard
+          // the top-level shape here.
+          if (!config || typeof config !== 'object') {
+            return undefined;
+          }
+          await this.backgroundApi.simpleDb.receiveArrivalConfig.setRawData({
+            config,
+            syncedAt: Date.now(),
+          });
+          return config;
+        } catch {
+          return undefined;
+        } finally {
+          this._fetchReceiveArrivalConfigPromise = undefined;
+        }
+      })();
+    }
+    return this._fetchReceiveArrivalConfigPromise;
   }
 
   getCoreApiByNetwork({

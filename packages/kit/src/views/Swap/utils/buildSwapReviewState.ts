@@ -224,6 +224,25 @@ export type IBuildSwapReviewStateInput = {
   texts: ISwapReviewStepTexts;
 };
 
+export function resolveSwapReviewTokenAmounts({
+  isSwapProMarket,
+  swapProInputAmount,
+  swapFromAmount,
+  swapToAmount,
+  quoteToAmount,
+}: {
+  isSwapProMarket: boolean;
+  swapProInputAmount?: string;
+  swapFromAmount?: string;
+  swapToAmount?: string;
+  quoteToAmount?: string;
+}) {
+  return {
+    fromTokenAmount: isSwapProMarket ? swapProInputAmount : swapFromAmount,
+    toTokenAmount: isSwapProMarket ? quoteToAmount : swapToAmount,
+  };
+}
+
 export function buildSwapReviewState({
   accountId,
   networkId,
@@ -260,12 +279,9 @@ export function buildSwapReviewState({
     accountId,
     needApprove,
   });
-  const needFetchGas =
-    needApprove &&
-    !(
-      batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
-      batchTransferType === ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
-    );
+  const isBatchApproveAndSwap =
+    batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
+  const needFetchGas = needApprove && !isBatchApproveAndSwap;
   const reviewRateDifference =
     rateDifference ??
     buildSwapRateDifference({
@@ -305,12 +321,7 @@ export function buildSwapReviewState({
     }
 
     steps = [...steps, createSignStep(texts)];
-  } else if (
-    (batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
-      batchTransferType ===
-        ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP) &&
-    quoteResult?.allowanceResult
-  ) {
+  } else if (isBatchApproveAndSwap && quoteResult?.allowanceResult) {
     steps = [
       createBatchApproveSwapStep({
         texts,

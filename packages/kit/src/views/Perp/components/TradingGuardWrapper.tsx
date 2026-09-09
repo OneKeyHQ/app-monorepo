@@ -48,7 +48,8 @@ function TradingGuardWrapperInternal({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingGuard');
 
   const shouldShowEnableTrading = useMemo(() => {
     if (bypassEnableTradingGuard) {

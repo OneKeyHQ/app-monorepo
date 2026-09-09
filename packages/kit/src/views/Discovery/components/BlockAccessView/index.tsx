@@ -61,7 +61,7 @@ function BlockAccessView({
         bg="$bgApp"
         justifyContent="center"
         alignItems="center"
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY}
       >
         <Empty

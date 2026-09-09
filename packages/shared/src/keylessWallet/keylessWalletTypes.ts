@@ -1,3 +1,4 @@
+import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { JWTPayload } from 'jose';
 
 export type IKeylessWalletShare = string; // base64 string
@@ -5,6 +6,81 @@ export type IKeylessWalletShare = string; // base64 string
 export type IKeylessWalletUserInfo = {
   onekeyIdEmail: string;
   onekeyIdUserId: string;
+};
+
+export enum EKeylessCreateWithOneKeyIdPrepareStatus {
+  LocalKeylessExists = 'local_keyless_exists',
+  LocalKeylessDataUnavailable = 'local_keyless_data_unavailable',
+  NeedOneKeyIdOAuthLogin = 'need_onekey_id_oauth_login',
+  NeedOneKeyIdOAuthReauth = 'need_onekey_id_oauth_reauth',
+  NeedOneKeyIdOAuthRefreshRecovery = 'need_onekey_id_oauth_refresh_recovery',
+  NeedLegacyOAuthBind = 'need_legacy_oauth_bind',
+  NeedLegacyOAuthReauth = 'need_legacy_oauth_reauth',
+  LegacyOAuthProviderMismatch = 'legacy_oauth_provider_mismatch',
+  ConfirmCurrentOneKeyId = 'confirm_current_onekey_id',
+  ContinueCreate = 'continue_create',
+  ContinueRestore = 'continue_restore',
+}
+
+export type IKeylessCreateWithOneKeyIdPrepareResult = {
+  status: EKeylessCreateWithOneKeyIdPrepareStatus;
+  token?: string;
+  displayEmail?: string;
+  boundProvider?: EOAuthSocialLoginProvider;
+  walletId?: string;
+  errorMessage?: string;
+};
+
+export enum EKeylessOAuthAccessTokenRefreshStatus {
+  Ready = 'ready',
+  NeedOAuthReauth = 'need_oauth_reauth',
+  NeedRetryOrOAuthReauth = 'need_retry_or_oauth_reauth',
+}
+
+export type IKeylessOAuthAccessTokenRefreshResult =
+  | {
+      status: EKeylessOAuthAccessTokenRefreshStatus.Ready;
+      accessToken: string;
+    }
+  | {
+      status:
+        | EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
+        | EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth;
+    };
+
+export enum ELocalKeylessWalletOAuthState {
+  Absent = 'absent',
+  Ready = 'ready',
+  DataUnavailable = 'data_unavailable',
+}
+
+export type ILocalKeylessWalletOAuthInspection =
+  | {
+      status: ELocalKeylessWalletOAuthState.Absent;
+    }
+  | {
+      status: ELocalKeylessWalletOAuthState.Ready;
+      walletId: string;
+      provider: EOAuthSocialLoginProvider;
+    }
+  | {
+      status: ELocalKeylessWalletOAuthState.DataUnavailable;
+      walletId: string;
+      errorMessage: string;
+    };
+
+export enum EOneKeyIdLoginWithLocalKeylessPrepareStatus {
+  NoLocalKeyless = 'no_local_keyless',
+  LocalKeylessDataUnavailable = 'local_keyless_data_unavailable',
+  ContinueWithKeyless = 'continue_with_keyless',
+  NeedOAuthLogin = 'need_oauth_login',
+}
+
+export type IOneKeyIdLoginWithLocalKeylessPrepareResult = {
+  status: EOneKeyIdLoginWithLocalKeylessPrepareStatus;
+  provider?: EOAuthSocialLoginProvider;
+  walletId?: string;
+  errorMessage?: string;
 };
 
 export type IKeylessBackendShare = {

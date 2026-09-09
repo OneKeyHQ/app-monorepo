@@ -1,91 +1,208 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo } from 'react';
+
+// cspell:ignore robinhood
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISpeedSwapConfig } from '@onekeyhq/shared/types/swap/types';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  mevSwapNetworks,
+  swapDefaultSetTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ISpeedSwapConfig,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IToken } from '../types';
 
-const defaultSpeedSwapConfig: ISpeedSwapConfig = {
-  provider: '',
-  speedConfig: {
-    spenderAddress: '',
-    slippage: 0.5,
-    defaultTokens: [],
-    defaultLimitTokens: [],
-    swapMevNetConfig: mevSwapNetworks,
-  },
-  supportSpeedSwap: undefined,
-  onlySupportCrossChain: false,
-  onlySupportSingleChain: false,
-  speedDefaultSelectToken: undefined,
+const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+function buildSwapPairFallbackConfig(networkId: string): ISpeedSwapConfig {
+  const defaultTokenSet = swapDefaultSetTokens[networkId];
+  const defaultTokens = [
+    defaultTokenSet?.fromToken,
+    defaultTokenSet?.toToken,
+  ].flatMap((token) =>
+    token
+      ? [
+          {
+            ...token,
+            speedSwapDefaultAmount: [],
+          },
+        ]
+      : [],
+  );
+  return {
+    provider: '',
+    speedConfig: {
+      spenderAddress: '',
+      slippage: 0.5,
+      defaultTokens,
+      defaultLimitTokens: [],
+      swapMevNetConfig: mevSwapNetworks,
+    },
+    supportSpeedSwap: false,
+    onlySupportCrossChain: false,
+    onlySupportSingleChain: false,
+    speedDefaultSelectToken:
+      defaultTokenSet?.toToken ?? defaultTokenSet?.fromToken,
+    unavailable: true,
+  };
+}
+
+function applySwapPairFallback({
+  config,
+  fallbackConfig,
+}: {
+  config: ISpeedSwapConfig;
+  fallbackConfig: ISpeedSwapConfig;
+}): ISpeedSwapConfig {
+  const shouldUseDefaultTokensFallback =
+    config.speedConfig.defaultTokens.length === 0;
+  const canonicalDefaultTokens = fallbackConfig.speedConfig.defaultTokens;
+  const canonicalRobinhoodEthToken = canonicalDefaultTokens.find(
+    (token) =>
+      token.networkId === ROBINHOOD_NETWORK_ID &&
+      token.isNative &&
+      token.symbol === 'ETH',
+  );
+  const applyRobinhoodEthLogoFallback = (
+    token?: ISwapTokenBase,
+  ): ISwapTokenBase | undefined => {
+    if (
+      !token ||
+      !canonicalRobinhoodEthToken?.logoURI ||
+      canonicalRobinhoodEthToken.logoURI === token.logoURI ||
+      !equalTokenNoCaseSensitive({
+        token1: canonicalRobinhoodEthToken,
+        token2: token,
+      })
+    ) {
+      return undefined;
+    }
+    return {
+      ...token,
+      logoURI: canonicalRobinhoodEthToken.logoURI,
+    };
+  };
+  const normalizedDefaultTokens = shouldUseDefaultTokensFallback
+    ? canonicalDefaultTokens
+    : config.speedConfig.defaultTokens.map(
+        (token) => applyRobinhoodEthLogoFallback(token) ?? token,
+      );
+  const normalizedSpeedDefaultSelectToken = shouldUseDefaultTokensFallback
+    ? fallbackConfig.speedDefaultSelectToken
+    : (applyRobinhoodEthLogoFallback(config.speedDefaultSelectToken) ??
+      config.speedDefaultSelectToken);
+  const hasNormalizedTokenLogo =
+    normalizedDefaultTokens.some(
+      (token, index) => token !== config.speedConfig.defaultTokens[index],
+    ) || normalizedSpeedDefaultSelectToken !== config.speedDefaultSelectToken;
+  if (
+    !shouldUseDefaultTokensFallback &&
+    config.supportSpeedSwap !== undefined &&
+    !hasNormalizedTokenLogo
+  ) {
+    return config;
+  }
+  return {
+    ...config,
+    speedConfig: {
+      ...config.speedConfig,
+      defaultTokens: normalizedDefaultTokens,
+    },
+    supportSpeedSwap:
+      config.supportSpeedSwap ?? fallbackConfig.supportSpeedSwap,
+    speedDefaultSelectToken: normalizedSpeedDefaultSelectToken,
+  };
+}
+
+type ISpeedSwapConfigState = {
+  config: ISpeedSwapConfig;
+  scope?: string;
+  fromCache?: boolean;
 };
 
 export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
 ) {
-  const requestIdRef = useRef(0);
-  const speedSwapConfigScope = `${enableNoNetworkCheck ? '1' : '0'}:${networkId}`;
-  const [speedSwapConfigLoading, setSpeedSwapConfigLoading] = useState(false);
-  const [speedSwapConfigState, setSpeedSwapConfigState] = useState<{
-    config: ISpeedSwapConfig;
-    scope?: string;
-  }>({
-    config: defaultSpeedSwapConfig,
-  });
+  const fallbackConfig = useMemo(
+    () => buildSwapPairFallbackConfig(networkId),
+    [networkId],
+  );
+  const speedSwapConfigScope = networkId;
+  const swrKey = speedSwapConfigScope
+    ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
+    : undefined;
+  const { result: speedSwapConfigState, isLoading: speedSwapConfigLoading } =
+    usePromiseResult<ISpeedSwapConfigState>(
+      async () => {
+        if (enableNoNetworkCheck && !networkId) {
+          return {
+            config: fallbackConfig,
+            scope: speedSwapConfigScope,
+          };
+        }
+        const config = await backgroundApiProxy.serviceSwap
+          .fetchSpeedSwapConfig({ networkId })
+          .catch(() => undefined);
+        if (config && !config.unavailable) {
+          return {
+            config: applySwapPairFallback({ config, fallbackConfig }),
+            scope: speedSwapConfigScope,
+          };
+        }
+        const cachedConfig = swrKey
+          ? swrCacheUtils.get<ISpeedSwapConfigState>(swrKey)
+          : undefined;
+        return {
+          config: applySwapPairFallback({
+            config:
+              cachedConfig?.scope === speedSwapConfigScope
+                ? cachedConfig.config
+                : (config ?? fallbackConfig),
+            fallbackConfig,
+          }),
+          scope: speedSwapConfigScope,
+          fromCache: true,
+        };
+      },
+      [
+        enableNoNetworkCheck,
+        fallbackConfig,
+        networkId,
+        speedSwapConfigScope,
+        swrKey,
+      ],
+      {
+        initResult: {
+          config: fallbackConfig,
+          scope: undefined,
+        },
+        watchLoading: true,
+        swrKey,
+        swrShouldPersist: (result) => !result.fromCache,
+      },
+    );
   const speedSwapConfigReady =
     speedSwapConfigState.scope === speedSwapConfigScope;
-  const speedSwapConfig = speedSwapConfigReady
+  const rawSpeedSwapConfig = speedSwapConfigReady
     ? speedSwapConfigState.config
-    : defaultSpeedSwapConfig;
-
-  useEffect(() => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    const updateIfCurrent = (callback: () => void) => {
-      if (requestIdRef.current === requestId) {
-        callback();
-      }
-    };
-
-    void (async () => {
-      if (enableNoNetworkCheck && !networkId) {
-        updateIfCurrent(() => {
-          setSpeedSwapConfigLoading(false);
-          setSpeedSwapConfigState({
-            config: defaultSpeedSwapConfig,
-            scope: speedSwapConfigScope,
-          });
-        });
-        return;
-      }
-      setSpeedSwapConfigLoading(true);
-      try {
-        const config =
-          await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
-            networkId,
-          });
-        updateIfCurrent(() => {
-          setSpeedSwapConfigState({
-            config,
-            scope: speedSwapConfigScope,
-          });
-        });
-      } catch {
-        updateIfCurrent(() => {
-          setSpeedSwapConfigState({
-            config: defaultSpeedSwapConfig,
-            scope: speedSwapConfigScope,
-          });
-        });
-      } finally {
-        updateIfCurrent(() => {
-          setSpeedSwapConfigLoading(false);
-        });
-      }
-    })();
-  }, [enableNoNetworkCheck, networkId, speedSwapConfigScope]);
+    : fallbackConfig;
+  const speedSwapConfig = useMemo(
+    () =>
+      applySwapPairFallback({
+        config: rawSpeedSwapConfig,
+        fallbackConfig,
+      }),
+    [fallbackConfig, rawSpeedSwapConfig],
+  );
 
   return {
     defaultTokens: speedSwapConfig?.speedConfig.defaultTokens as IToken[],
@@ -96,7 +213,6 @@ export function useSpeedSwapInit(
     speedConfig: speedSwapConfig?.speedConfig,
     supportSpeedSwap: speedSwapConfig?.supportSpeedSwap,
     onlySupportCrossChain: speedSwapConfig?.onlySupportCrossChain,
-    provider: speedSwapConfig?.provider,
     swapMevNetConfig: speedSwapConfig?.speedConfig.swapMevNetConfig,
     speedDefaultSelectToken: speedSwapConfig?.speedDefaultSelectToken,
   };

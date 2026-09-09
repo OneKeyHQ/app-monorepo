@@ -1,4 +1,3 @@
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -7,8 +6,8 @@ import {
   buildThirdPartyFeaturesInfoFromDevice,
   buildTrezorDesktopBleUsbConnectId,
   clearTrezorThpSettingsRaw,
-  getThirdPartyDeviceAvatarImage,
   getThirdPartyDeviceModelName,
+  resolveBleConnectIdForCreate,
 } from './LocalDbBase';
 
 describe('clearTrezorThpSettingsRaw', () => {
@@ -219,36 +218,6 @@ describe('getThirdPartyDeviceModelName', () => {
   });
 });
 
-describe('getThirdPartyDeviceAvatarImage', () => {
-  it.each([
-    'Safe 3',
-    'Safe 5',
-    'Safe 7',
-    'Trezor Safe 7',
-    'Model One',
-    'Model T',
-  ])(
-    'uses the Trezor vendorModelName avatar key when the %s asset is registered',
-    (modelName) => {
-      expect(
-        getThirdPartyDeviceAvatarImage({
-          profile: getVendorProfile(EHardwareVendor.trezor),
-          modelName,
-        }),
-      ).toBe(modelName);
-    },
-  );
-
-  it('falls back to the Trezor vendor avatar for unknown model assets', () => {
-    expect(
-      getThirdPartyDeviceAvatarImage({
-        profile: getVendorProfile(EHardwareVendor.trezor),
-        modelName: 'Unknown Model',
-      }),
-    ).toBe('trezor');
-  });
-});
-
 describe('buildTrezorDesktopBleUsbConnectId', () => {
   it('uses firmware device_id as usbConnectId only for Trezor Desktop BLE', () => {
     expect(
@@ -278,5 +247,35 @@ describe('buildTrezorDesktopBleUsbConnectId', () => {
         rawDeviceId: 'ONEKEY-DEVICE-ID',
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveBleConnectIdForCreate', () => {
+  it('uses the current scan connectId for the first desktop BLE wallet', () => {
+    expect(
+      resolveBleConnectIdForCreate({
+        connectId: 'BLE_PERIPHERAL_ID',
+        transportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    ).toBe('BLE_PERIPHERAL_ID');
+  });
+
+  it('prefers an existing explicit desktop BLE endpoint', () => {
+    expect(
+      resolveBleConnectIdForCreate({
+        connectId: 'DEVICE_CONNECT_ID',
+        explicitBleConnectId: 'BLE_PERIPHERAL_ID',
+        transportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    ).toBe('BLE_PERIPHERAL_ID');
+  });
+
+  it('uses the current scan connectId on native BLE', () => {
+    expect(
+      resolveBleConnectIdForCreate({
+        connectId: 'NATIVE_BLE_ID',
+        transportType: EHardwareTransportType.BLE,
+      }),
+    ).toBe('NATIVE_BLE_ID');
   });
 });

@@ -22,6 +22,7 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   email: undefined,
   displayEmail: undefined,
   onekeyUserId: undefined,
+  onekeyAccount: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
   nickname: undefined,

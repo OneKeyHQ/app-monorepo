@@ -27,6 +27,11 @@ interface ITokenDetailsDeFiBlockProps {
   tokenAddress: string;
   walletType?: string;
   tokenLogoURI?: string;
+  // Aggregate-token mode: member (networkId, address) pairs. When set, the
+  // symbol lookup walks the members and the protocol list is NOT filtered by
+  // network, so the banner shows the highest APY across all networks and taps
+  // into the cross-network protocol list.
+  aggregateTokens?: { networkId: string; address: string }[];
 }
 
 type ITokenDetailsDeFiBlockResult = {
@@ -63,6 +68,7 @@ export function TokenDetailsDeFiBlock({
   tokenAddress,
   walletType,
   tokenLogoURI,
+  aggregateTokens,
 }: ITokenDetailsDeFiBlockProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -70,7 +76,20 @@ export function TokenDetailsDeFiBlock({
   const requestIdRef = useRef(generateUUID());
   const isUnmountedRef = useRef(false);
 
-  const cacheKey = `${networkId}_${tokenAddress}`;
+  // Aggregate mode resolves against the member set, and different wallets can
+  // aggregate different member networks under the same mock networkId/$key —
+  // fingerprint the members so each set gets its own cache entry.
+  const memberFingerprint = aggregateTokens?.length
+    ? aggregateTokens
+        .map((member) => `${member.networkId}:${member.address}`)
+        .toSorted()
+        .join(',')
+    : '';
+  const cacheKey = `${networkId}_${tokenAddress}_${memberFingerprint}`;
+  // Aggregate mode shows protocols across all member networks (no filter).
+  const protocolFilterNetworkId = aggregateTokens?.length
+    ? undefined
+    : networkId;
   // `undefined` means cache miss; `null` means cached "no DeFi banner".
   // The cache wraps values in `{ result }` so we can distinguish the two cases.
   const cachedEntry = useMemo(() => earnResultCache.get(cacheKey), [cacheKey]);
@@ -83,11 +102,20 @@ export function TokenDetailsDeFiBlock({
         return cachedResult;
       }
 
-      const symbolInfo =
-        await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
-          networkId,
-          tokenAddress,
-        });
+      // Aggregate mode resolves the symbol across the member networks; single
+      // mode is just a one-element member list.
+      const lookupTargets = aggregateTokens?.length
+        ? aggregateTokens
+        : [{ networkId, address: tokenAddress }];
+      const symbolInfos = await Promise.all(
+        lookupTargets.map((target) =>
+          backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
+            networkId: target.networkId,
+            tokenAddress: target.address,
+          }),
+        ),
+      );
+      const symbolInfo = symbolInfos.find(Boolean) ?? null;
       if (isUnmountedRef.current) {
         return undefined;
       }
@@ -99,7 +127,7 @@ export function TokenDetailsDeFiBlock({
       try {
         protocolList = await backgroundApiProxy.serviceStaking.getProtocolList({
           symbol: symbolInfo.symbol,
-          filterNetworkId: networkId,
+          filterNetworkId: protocolFilterNetworkId,
           includeWithdrawOnly: true,
           requestId: requestIdRef.current,
         });
@@ -132,7 +160,15 @@ export function TokenDetailsDeFiBlock({
       earnResultCache.set(cacheKey, { result: data });
       return data;
     },
-    [networkId, tokenAddress, cacheKey, hasCachedResult, cachedResult],
+    [
+      networkId,
+      tokenAddress,
+      cacheKey,
+      hasCachedResult,
+      cachedResult,
+      aggregateTokens,
+      protocolFilterNetworkId,
+    ],
     {
       watchLoading: true,
       ...(hasCachedResult ? { initResult: cachedResult } : {}),
@@ -195,7 +231,10 @@ export function TokenDetailsDeFiBlock({
     if (protocolList.length === 1) {
       const protocol = protocolList[0];
       await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-        networkId,
+        // In aggregate mode `networkId` is the mock aggregate id; the
+        // protocol's own network is the routable one (they are equal in the
+        // single-network mode because the list is network-filtered there).
+        networkId: protocol.network?.networkId ?? networkId,
         symbol,
         provider: protocol.provider.name,
         vault: protocol.provider.vault,
@@ -203,7 +242,7 @@ export function TokenDetailsDeFiBlock({
     } else {
       EarnNavigation.pushToEarnProtocols(navigation, {
         symbol,
-        filterNetworkId: networkId,
+        filterNetworkId: protocolFilterNetworkId,
         logoURI: tokenLogoURI ? encodeURIComponent(tokenLogoURI) : undefined,
       });
     }
@@ -215,6 +254,7 @@ export function TokenDetailsDeFiBlock({
     isSoftwareWalletOnlyUser,
     navigation,
     tokenLogoURI,
+    protocolFilterNetworkId,
   ]);
 
   // Show skeleton only on first load (no cache). Cache also stores null for

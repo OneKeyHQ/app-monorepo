@@ -25,7 +25,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInscriptionProtectionStateAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -109,6 +112,7 @@ function SendReplaceTxContainer() {
   );
 
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const [feeInfo, setFeeInfo] = useState<IFeeInfoUnit | undefined>(undefined);
   const [isInit, setIsInit] = useState(false);
@@ -148,15 +152,13 @@ function SendReplaceTxContainer() {
           await backgroundApiProxy.serviceToken.getNativeTokenAddress({
             networkId,
           });
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountId,
@@ -166,7 +168,15 @@ function SendReplaceTxContainer() {
         });
         return r[0];
       },
-      [accountId, network, networkId, settings.inscriptionProtection],
+      // The policy state is an intentional invalidation signal; bg computes the final value.
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+      [
+        accountId,
+        network,
+        networkId,
+        inscriptionProtectionState.localEnabled,
+        inscriptionProtectionState.serverEnabled,
+      ],
       { watchLoading: true },
     );
 

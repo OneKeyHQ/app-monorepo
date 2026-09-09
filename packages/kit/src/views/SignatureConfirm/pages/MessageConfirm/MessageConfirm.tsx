@@ -19,12 +19,12 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { buildTransactionSecurityJsonRpc } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import {
   EParseTxComponentType,
   type IParseMessageResp,
@@ -32,18 +32,23 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import {
-  DAppRiskyAlert,
   DAppSiteMark,
+  shouldHideDAppSiteRiskStyle,
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import {
+  SecurityCheckCard,
+  buildSecurityCheckModel,
+} from '../../components/SecurityCheckCard';
 import { MessageConfirmActions } from '../../components/SignatureConfirmActions';
 import { MessageAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
-import { MessageConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
+import { MessageConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
+import { useTransactionSecurityCheck } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -62,6 +67,28 @@ export function useDappCloseHandler(
   };
 
   return handleOnClose;
+}
+
+function buildMessageParseFallback({
+  networkId,
+  accountAddress,
+}: {
+  networkId: string;
+  accountAddress?: string;
+}): ISignatureConfirmDisplay {
+  const components: ISignatureConfirmDisplay['components'] = [
+    convertNetworkToSignatureConfirmNetwork({ networkId }),
+  ];
+  if (accountAddress) {
+    components.push(
+      convertAddressToSignatureConfirmAddress({
+        address: accountAddress,
+        showAccountName: networkUtils.isLightningNetworkByNetworkId(networkId),
+      }),
+    );
+  }
+  components.push({ type: EParseTxComponentType.Divider });
+  return { title: '', components, alerts: [] };
 }
 
 function MessageConfirm() {
@@ -93,13 +120,7 @@ function MessageConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const {
-    showContinueOperate,
-    continueOperate,
-    setContinueOperate,
-    urlSecurityInfo,
-    isRiskSignMethod,
-  } = useRiskDetection({
+  const { urlSecurityInfo, isRiskSignMethod } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     unsignedMessage,
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
@@ -107,11 +128,19 @@ function MessageConfirm() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+      const accountAddress = await backgroundApiProxy.serviceAccount
+        .getAccountAddressForApi({
           networkId,
           accountId,
-        });
+        })
+        .catch(() => undefined);
+
+      if (!accountAddress) {
+        return {
+          p: buildMessageParseFallback({ networkId }),
+          isMessageParseFallback: true,
+        };
+      }
 
       const resp = await promiseAllSettledEnhanced(
         [
@@ -133,30 +162,16 @@ function MessageConfirm() {
 
       let p: ISignatureConfirmDisplay;
 
-      if (m && m.display) {
+      const isMessageParseFallback = !(m && m.display);
+
+      if (!isMessageParseFallback) {
         p = m.display;
       } else {
-        p = {
-          title: '',
-          components: [
-            convertNetworkToSignatureConfirmNetwork({
-              networkId,
-            }),
-            convertAddressToSignatureConfirmAddress({
-              address: accountAddress,
-              showAccountName:
-                networkUtils.isLightningNetworkByNetworkId(networkId),
-            }),
-            {
-              type: EParseTxComponentType.Divider,
-            },
-          ],
-          alerts: [],
-        };
+        p = buildMessageParseFallback({ networkId, accountAddress });
       }
 
       if (
-        p.components[p.components.length - 1].type !==
+        p.components[p.components.length - 1]?.type !==
         EParseTxComponentType.Divider
       ) {
         p.components.push({
@@ -167,6 +182,7 @@ function MessageConfirm() {
       return {
         p,
         isConfirmationRequired: m?.isConfirmationRequired,
+        isMessageParseFallback,
       };
     },
     [
@@ -178,26 +194,30 @@ function MessageConfirm() {
     ],
     {
       watchLoading: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
     },
   );
 
-  const { p: parsedMessage, isConfirmationRequired } = result ?? {};
+  const messageParseResult =
+    result ??
+    (isLoading === false
+      ? {
+          p: buildMessageParseFallback({ networkId }),
+          isMessageParseFallback: true,
+        }
+      : undefined);
+  const isMessageParserPending = isLoading === true || !messageParseResult;
+
+  const {
+    p: parsedMessage,
+    isConfirmationRequired,
+    isMessageParseFallback,
+  } = messageParseResult ?? {};
 
   const showMessageHeaderInfo = useMemo(
     () => !walletInternalSign,
     [walletInternalSign],
-  );
-
-  const showDAppRiskyAlert = useMemo(
-    () => sourceInfo?.origin && !walletInternalSign,
-    [sourceInfo?.origin, walletInternalSign],
-  );
-
-  const showMessageAlerts = useMemo(
-    () =>
-      !walletInternalSign &&
-      urlSecurityInfo?.level !== EHostSecurityLevel.Security,
-    [walletInternalSign, urlSecurityInfo?.level],
   );
 
   const showDAppSiteMark = useMemo(
@@ -205,8 +225,68 @@ function MessageConfirm() {
     [sourceInfo?.origin, walletInternalSign],
   );
 
+  const transactionSecurityJsonRpc = useMemo(
+    () =>
+      buildTransactionSecurityJsonRpc({
+        jsonRpcRequest: sourceInfo?.data,
+        unsignedMessage,
+      }),
+    [sourceInfo?.data, unsignedMessage],
+  );
+  const {
+    result: transactionSecurityInfo,
+    isPending: isTransactionSecurityPending,
+    isApplicable: isTransactionSecurityApplicable,
+    isPrimeUser,
+    requestKey: transactionSecurityRequestKey,
+    retry: retryTransactionSecurityCheck,
+  } = useTransactionSecurityCheck({
+    requestKey: String(sourceInfo?.id ?? ''),
+    origin: sourceInfo?.origin,
+    accountId,
+    networkId,
+    jsonRpc: transactionSecurityJsonRpc,
+  });
+
+  const securityCheckModel = useMemo(
+    () =>
+      buildSecurityCheckModel({
+        kind: 'message',
+        requestKey: transactionSecurityRequestKey,
+        origin: sourceInfo?.origin,
+        urlSecurityInfo,
+        messageDisplay: parsedMessage,
+        unsignedMessage,
+        isRiskSignMethod,
+        isConfirmationRequired,
+        isMessageParseFallback,
+        isParserPending: isMessageParserPending,
+        transactionSecurityInfo,
+        isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
+        isPrimeUser,
+        intl,
+      }),
+    [
+      intl,
+      isConfirmationRequired,
+      isMessageParseFallback,
+      isMessageParserPending,
+      isPrimeUser,
+      isTransactionSecurityApplicable,
+      isRiskSignMethod,
+      isTransactionSecurityPending,
+      parsedMessage,
+      sourceInfo?.origin,
+      transactionSecurityRequestKey,
+      transactionSecurityInfo,
+      unsignedMessage,
+      urlSecurityInfo,
+    ],
+  );
+
   const renderMessageConfirmContent = useCallback(() => {
-    if (isLoading) {
+    if (isMessageParserPending) {
       return <SignatureConfirmLoading />;
     }
 
@@ -218,34 +298,17 @@ function MessageConfirm() {
       <YStack gap="$5">
         {showMessageHeaderInfo ? (
           <>
-            {showDAppRiskyAlert ? (
-              <DAppRiskyAlert
-                origin={sourceInfo?.origin ?? ''}
-                urlSecurityInfo={urlSecurityInfo}
-                hideSecurityAlert
-                alertProps={{
-                  fullBleed: false,
-                  borderTopWidth: 1,
-                }}
-              />
-            ) : null}
-            {showMessageAlerts ? (
-              <MessageConfirmAlert
-                messageDisplay={parsedMessage}
-                unsignedMessage={unsignedMessage}
-                isRiskSignMethod={isRiskSignMethod}
-                showContinueOperateLocal={showContinueOperate}
-                urlSecurityInfo={urlSecurityInfo}
-                isConfirmationRequired={isConfirmationRequired}
-                walletInternalSign={walletInternalSign}
-              />
-            ) : null}
             {showDAppSiteMark ? (
               <DAppSiteMark
                 origin={sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
+                hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
               />
             ) : null}
+            <SecurityCheckCard
+              model={securityCheckModel}
+              onRetry={retryTransactionSecurityCheck}
+            />
           </>
         ) : null}
 
@@ -255,27 +318,28 @@ function MessageConfirm() {
           displayComponents={parsedMessage.components}
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
+        <MessageConfirmExtraInfo
+          accountId={accountId}
+          networkId={networkId}
+          unsignedMessage={unsignedMessage}
+        />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
       </YStack>
     );
   }, [
-    isLoading,
+    isMessageParserPending,
     parsedMessage,
     showMessageHeaderInfo,
-    showDAppRiskyAlert,
     sourceInfo?.origin,
     urlSecurityInfo,
-    showMessageAlerts,
     unsignedMessage,
-    isRiskSignMethod,
     showDAppSiteMark,
     accountId,
     networkId,
     swapInfo,
-    showContinueOperate,
-    isConfirmationRequired,
-    walletInternalSign,
+    securityCheckModel,
+    retryTransactionSecurityCheck,
   ]);
 
   const handleOnClose = useCallback(
@@ -339,12 +403,8 @@ function MessageConfirm() {
         accountId={accountId}
         networkId={networkId}
         unsignedMessage={unsignedMessage}
-        messageDisplay={parsedMessage}
-        showContinueOperate={showContinueOperate}
-        continueOperate={continueOperate}
-        setContinueOperate={setContinueOperate}
-        urlSecurityInfo={urlSecurityInfo}
-        isConfirmationRequired={isConfirmationRequired}
+        securityCheckConfirmation={securityCheckModel.confirmation}
+        securityCheckAcknowledgementKey={securityCheckModel.acknowledgementKey}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
         skipBackupCheck={skipBackupCheck}

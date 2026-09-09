@@ -53,6 +53,7 @@ export function LinuxUdevGuideDialogContainer() {
           },
           showCancelButton: true,
         });
+        openUrlExternal(helpUrl);
       },
       1000,
       {

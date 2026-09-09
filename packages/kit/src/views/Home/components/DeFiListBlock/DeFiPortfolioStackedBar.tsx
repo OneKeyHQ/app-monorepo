@@ -65,8 +65,6 @@ const STACKED_BAR_CHROME = {
   },
 } as const;
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 const SEGMENT_OPACITY = 0.86;
 
 function buildA11yLabel(
@@ -249,7 +247,6 @@ function DeFiPortfolioStackedBar({
                   color="$text"
                   selectable={false}
                   numberOfLines={1}
-                  fontVariant={TABULAR_NUMS}
                   flexShrink={0}
                 >
                   {seg.label}

@@ -3,9 +3,11 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapRequiredNativeBalanceAmount,
+  getSwapTokenBalanceContractAddress,
   validateSwapBtcOutputs,
 } from './swapBalanceUtils';
 
@@ -100,6 +102,39 @@ const aptosToken = {
   isNative: true,
 } as ISwapToken;
 
+describe('getSwapTokenBalanceContractAddress', () => {
+  beforeEach(() => {
+    mockGetNativeTokenAddress.mockReset();
+  });
+
+  it.each([usdcToken, { ...aptosToken, contractAddress: aptosNativeAddress }])(
+    'preserves an explicit $symbol address',
+    async (token) => {
+      await expect(getSwapTokenBalanceContractAddress(token)).resolves.toBe(
+        token.contractAddress,
+      );
+      expect(mockGetNativeTokenAddress).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['evm--1', 'sol--101'])(
+    'preserves the empty native address supported by %s',
+    async (networkId) => {
+      mockGetNativeTokenAddress.mockResolvedValue('');
+      await expect(
+        getSwapTokenBalanceContractAddress({ ...ethToken, networkId }),
+      ).resolves.toBe('');
+    },
+  );
+
+  it('falls back without failing the balance request when lookup is unavailable', async () => {
+    mockGetNativeTokenAddress.mockRejectedValue(new Error('unavailable'));
+    await expect(getSwapTokenBalanceContractAddress(aptosToken)).resolves.toBe(
+      '',
+    );
+  });
+});
+
 describe('checkSwapLatestBalanceSufficient', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
@@ -137,6 +172,23 @@ describe('checkSwapLatestBalanceSufficient', () => {
     ).resolves.toEqual({ isSufficient: true });
   });
 
+  it('still fetches balance when sponsored gas requires no self-paid amount', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '0.08' }]);
+
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        token: ethToken,
+        amount: '0',
+        accountId: 'account-id',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual({
+      isSufficient: true,
+      balance: '0.08',
+      tokenSymbol: 'ETH',
+    });
+  });
+
   it('uses canonical native token address when native token address is empty', async () => {
     mockGetNativeTokenAddress.mockResolvedValue(aptosNativeAddress);
     mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '6.6044' }]);
@@ -148,7 +200,11 @@ describe('checkSwapLatestBalanceSufficient', () => {
         accountId: 'account-id',
         accountAddress: '0xabc',
       }),
-    ).resolves.toEqual({ isSufficient: true });
+    ).resolves.toEqual({
+      isSufficient: true,
+      balance: '6.6044',
+      tokenSymbol: 'APT',
+    });
     expect(mockGetNativeTokenAddress).toHaveBeenCalledWith({
       networkId: 'aptos--1',
     });
@@ -159,6 +215,18 @@ describe('checkSwapLatestBalanceSufficient', () => {
       accountId: 'account-id',
       currency: 'usd',
     });
+  });
+});
+
+describe('buildNativeTokenFromGasInfo', () => {
+  it('builds the native token from gas info for a token swap', () => {
+    expect(
+      buildNativeTokenFromGasInfo({
+        gasInfo: evmGasInfo,
+        networkId: 'evm--1',
+        fromToken: usdcToken,
+      }),
+    ).toEqual(ethToken);
   });
 });
 
@@ -185,11 +253,24 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     });
   });
 
-  it('excludes sponsored (gasAccountEligible) gas from the requirement', () => {
+  it('excludes Gas Account sponsored gas from the requirement', () => {
     // Non-native swap fully sponsored by Gas Account: no native is needed.
     expect(
       getSwapRequiredNativeBalanceAmount({
-        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              gasAccountEligible: true,
+              payer: 'gasAccount',
+              gasAccountQuote: {
+                quoteId: 'quote-id',
+                maxFee: '1',
+                expiresAt: String(Date.now() + 60_000),
+              },
+            },
+          },
+        ],
         networkId: 'evm--1',
         fromToken: usdcToken,
         fromAmount: '12',
@@ -219,7 +300,20 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     // Gas is sponsored, but the native token being swapped is still required.
     expect(
       getSwapRequiredNativeBalanceAmount({
-        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              gasAccountEligible: true,
+              payer: 'gasAccount',
+              gasAccountQuote: {
+                quoteId: 'quote-id',
+                maxFee: '1',
+                expiresAt: String(Date.now() + 60_000),
+              },
+            },
+          },
+        ],
         networkId: 'evm--1',
         fromToken: ethToken,
         fromAmount: '0.1',

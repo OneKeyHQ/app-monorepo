@@ -52,7 +52,7 @@ function generateSemanticColorsWithDefaultCount<
   return generateSemanticColors(primitiveColorName, semanticKey, theme, 13);
 }
 
-/* 
+/*
   Light color theme
 */
 export const brand = generateSemanticColorsWithDefaultCount(
@@ -109,6 +109,12 @@ export const pink = generateSemanticColorsWithDefaultCount(
   'light',
 );
 
+export const red = generateSemanticColorsWithDefaultCount(
+  'redA',
+  'red',
+  'light',
+);
+
 export const orange = generateSemanticColorsWithDefaultCount(
   'orangeA',
   'orange',
@@ -142,6 +148,12 @@ export const cyan = generateSemanticColorsWithDefaultCount(
 export const amber = generateSemanticColorsWithDefaultCount(
   'amberA',
   'amber',
+  'light',
+);
+
+export const yellow = generateSemanticColorsWithDefaultCount(
+  'yellowA',
+  'yellow',
   'light',
 );
 
@@ -214,6 +226,12 @@ export const pinkDark = generateSemanticColorsWithDefaultCount(
   'dark',
 );
 
+export const redDark = generateSemanticColorsWithDefaultCount(
+  'redDarkA',
+  'red',
+  'dark',
+);
+
 export const orangeDark = generateSemanticColorsWithDefaultCount(
   'orangeDarkA',
   'orange',
@@ -247,6 +265,12 @@ export const cyanDark = generateSemanticColorsWithDefaultCount(
 export const amberDark = generateSemanticColorsWithDefaultCount(
   'amberDarkA',
   'amber',
+  'dark',
+);
+
+export const yellowDark = generateSemanticColorsWithDefaultCount(
+  'yellowDarkA',
+  'yellow',
   'dark',
 );
 

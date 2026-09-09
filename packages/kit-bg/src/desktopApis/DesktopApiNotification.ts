@@ -1,15 +1,15 @@
-import { Notification, app, ipcMain, systemPreferences } from 'electron';
+import { Notification, app, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
-import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type {
   INotificationPermissionDetail,
   INotificationSetBadgeParams,
   INotificationShowParams,
 } from '@onekeyhq/shared/types/notification';
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+
+import WindowsTaskbarBadge from './WindowsTaskbarBadge';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -298,6 +298,8 @@ class DesktopApiNotification {
 
   desktopApi: IDesktopApi;
 
+  private win32TaskBarBadge?: WindowsTaskbarBadge;
+
   private initWin32TaskBarBadge(APP_NAME: string) {
     if (process.platform === 'win32') {
       app.setAppUserModelId(APP_NAME);
@@ -305,24 +307,8 @@ class DesktopApiNotification {
         globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
 
       if (safelyMainWindow) {
-        // TODO not working on Windows 11 (UTM)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const badge = new TaskBarBadgeWindows(safelyMainWindow, {
-          fontColor: '#000000',
-          font: '62px Microsoft Yahei',
-          color: '#000000',
-          radius: 48,
-          updateBadgeEvent: ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-          badgeDescription: '',
-          invokeType: 'handle', // handle -> ipcRenderer.invoke,  send -> ipcRenderer.sendSync
-          max: 99,
-          fit: false,
-          useSystemAccentTheme: true,
-          additionalFunc: (count: number) => {
-            console.log(`Received ${count} new notifications!`);
-          },
-        });
-        console.log('TaskBarBadgeWindows init', badge);
+        this.win32TaskBarBadge = new WindowsTaskbarBadge(safelyMainWindow);
+        logger.info('Windows taskbar badge initialized');
       }
     }
   }
@@ -363,23 +349,13 @@ class DesktopApiNotification {
     if (isWin) {
       const win = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
       if (win) {
-        if (!isNil(count) && count > 0) {
-          // TaskBarBadgeWindows will handle badge count render
+        const badgeCount = !isNil(count) && count > 0 ? count : 0;
+        if (this.win32TaskBarBadge) {
+          await this.win32TaskBarBadge.update(badgeCount);
         } else {
           win.setOverlayIcon(null, '');
         }
       }
-
-      /* 
-      // If invokeType is set to "handle"
-      // Replace 8 with whatever number you want the badge to display
-      ipcRenderer.invoke('notificationCount', 8); 
-      */
-      // handle -> ipcRenderer.invoke
-      void ipcMain.emit(
-        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
-        params.count ?? 0,
-      );
     }
   }
 

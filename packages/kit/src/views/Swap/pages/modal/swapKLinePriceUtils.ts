@@ -1,14 +1,17 @@
+import type { ITradingViewNativePriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 export const SWAP_KLINE_CHART_PRICE_FRESHNESS_MS = 10_000;
 
-export type ISwapKLineChartRealtimePrice = {
+export type ISwapKLineChartPrice = {
+  source: ITradingViewNativePriceUpdateData['source'];
+  sourceKey: string;
   tokenKey: string;
   price: string;
-  updatedAt: number;
   receivedAt: number;
+  updatedAt: number;
 };
 
 export function getNormalizedSwapKLineValueText(
@@ -97,26 +100,39 @@ export function getSwapKLineDisplayPrice({
   tokenMarketDetailUpdatedAt,
   tokenUsdFallbackPrice,
   tokenUsdFallbackPriceUpdatedAt,
-  chartRealtimePrice,
+  chartPrice,
+  chartSourceKey,
+  chartTokenKey,
   now = Date.now(),
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   tokenMarketDetailUpdatedAt?: number;
   tokenUsdFallbackPrice?: string;
   tokenUsdFallbackPriceUpdatedAt?: number;
-  chartRealtimePrice?: ISwapKLineChartRealtimePrice;
+  chartPrice?: ISwapKLineChartPrice;
+  chartSourceKey: string;
+  chartTokenKey: string;
   now?: number;
 }) {
-  const chartPrice = getNormalizedSwapKLinePrice(chartRealtimePrice?.price);
-  const chartPriceReceivedAt = chartRealtimePrice?.receivedAt;
-  const hasFreshChartPrice =
-    chartPrice &&
+  const matchingChartPrice =
+    chartPrice?.tokenKey === chartTokenKey &&
+    chartPrice.sourceKey === chartSourceKey
+      ? chartPrice
+      : undefined;
+  const normalizedChartPrice = getNormalizedSwapKLinePrice(
+    matchingChartPrice?.price,
+  );
+  const chartPriceReceivedAt = matchingChartPrice?.receivedAt;
+  const hasFreshRealtimeChartPrice = Boolean(
+    normalizedChartPrice &&
+    matchingChartPrice?.source === 'realtime' &&
     typeof chartPriceReceivedAt === 'number' &&
     Number.isFinite(chartPriceReceivedAt) &&
-    now - chartPriceReceivedAt < SWAP_KLINE_CHART_PRICE_FRESHNESS_MS;
-
-  if (hasFreshChartPrice) {
-    return chartPrice;
+    chartPriceReceivedAt <= now &&
+    now - chartPriceReceivedAt < SWAP_KLINE_CHART_PRICE_FRESHNESS_MS,
+  );
+  if (hasFreshRealtimeChartPrice) {
+    return normalizedChartPrice;
   }
 
   const candidates = [
@@ -129,8 +145,8 @@ export function getSwapKLineDisplayPrice({
       updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
     },
     {
-      price: chartPrice,
-      updatedAt: chartRealtimePrice?.updatedAt ?? 0,
+      price: normalizedChartPrice,
+      updatedAt: matchingChartPrice?.updatedAt ?? 0,
     },
   ].filter((item): item is { price: string; updatedAt: number } =>
     Boolean(item.price),

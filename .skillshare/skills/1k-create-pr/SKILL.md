@@ -15,7 +15,7 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | 1 | Check status | `git status`, `git branch --show-current` |
 | 2 | Determine base branch | Auto-detect or ask user |
 | 3 | Create branch (if on x or release/*) | `git checkout -b <branch-name>` |
-| 4 | Lint fix | `yarn lint --fix` |
+| 4 | Agent check | `yarn agent:check --profile commit` |
 | 5 | Stage & commit | `git add .`, `git commit -m "type: description"` |
 | 6 | Push to remote | `git push -u origin <branch-name>` |
 | 7 | Extract context | Analyze conversation for intent, decisions, risks |
@@ -79,13 +79,15 @@ If on `x` or `release/*` directly (not a feature branch), auto-detection is ambi
 
 **If already on feature branch:** Skip branch creation, use auto-detected base
 
-### 4. Run Lint Fix
+### 4. Run Agent Check
 
 ```bash
-yarn lint --fix
+yarn agent:check --profile commit
 ```
 
-Fix any remaining lint errors before committing.
+Fix any reported lint or type errors before committing. Use lower-level
+lint/typecheck commands only when debugging the log path reported by
+`agent:check`.
 
 ### 5. Stage and Commit Changes
 
@@ -102,6 +104,12 @@ git commit -m "<type>: <description>"
 
 ```bash
 git push -u origin <branch-name>
+```
+
+After a PR exists, use the unified PR readiness check:
+
+```bash
+yarn agent:check --profile pr
 ```
 
 ### 7. Extract Context and Intent (CRITICAL)

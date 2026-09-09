@@ -1,0 +1,83 @@
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.d.ts b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.d.ts
+index d9e5232..c8950a9 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.d.ts
+@@ -50,6 +50,8 @@ export declare const ModifyRequest: v.ObjectSchema<{
+             /** Client Order ID. */
+             readonly c: v.OptionalSchema<v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.RegexAction<string, undefined>, v.TransformAction<string, `0x${string}`>]>, v.LengthAction<`0x${string}`, 34, undefined>]>, undefined>;
+         }, undefined>;
++        /** OneKey patch: accept Hyperliquid always_place for executable Chase amendments. */
++        readonly a: v.OptionalSchema<v.LiteralSchema<true, undefined>, undefined>;
+     }, undefined>;
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     readonly nonce: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>;
+@@ -117,6 +119,8 @@ declare const ModifyActionSchema: v.ObjectSchema<{
+         /** Client Order ID. */
+         readonly c: v.OptionalSchema<v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.RegexAction<string, undefined>, v.TransformAction<string, `0x${string}`>]>, v.LengthAction<`0x${string}`, 34, undefined>]>, undefined>;
+     }, undefined>;
++    /** OneKey patch: accept Hyperliquid always_place for executable Chase amendments. */
++    readonly a: v.OptionalSchema<v.LiteralSchema<true, undefined>, undefined>;
+ }, undefined>;
+ /** Action parameters for the {@linkcode modify} function. */
+ export type ModifyParameters = Omit<v.InferInput<typeof ModifyActionSchema>, "type">;
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.js b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.js
+index 818a383..484bcbf 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.js
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/modify.js
+@@ -58,6 +58,8 @@ export const ModifyRequest = /* @__PURE__ */ (() => {
+                 /** Client Order ID. */
+                 c: v.optional(Cloid),
+             }),
++            // OneKey patch: accept Hyperliquid always_place for executable Chase amendments.
++            a: v.optional(v.literal(true)),
+         }),
+         /** Nonce (timestamp in ms) used to prevent replay attacks. */
+         nonce: UnsignedInteger,
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.d.ts b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.d.ts
+index d9e5232..c8950a9 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.d.ts
++++ b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.d.ts
+@@ -50,6 +50,8 @@ export declare const ModifyRequest: v.ObjectSchema<{
+             /** Client Order ID. */
+             readonly c: v.OptionalSchema<v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.RegexAction<string, undefined>, v.TransformAction<string, `0x${string}`>]>, v.LengthAction<`0x${string}`, 34, undefined>]>, undefined>;
+         }, undefined>;
++        /** OneKey patch: accept Hyperliquid always_place for executable Chase amendments. */
++        readonly a: v.OptionalSchema<v.LiteralSchema<true, undefined>, undefined>;
+     }, undefined>;
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     readonly nonce: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>;
+@@ -117,6 +119,8 @@ declare const ModifyActionSchema: v.ObjectSchema<{
+         /** Client Order ID. */
+         readonly c: v.OptionalSchema<v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.RegexAction<string, undefined>, v.TransformAction<string, `0x${string}`>]>, v.LengthAction<`0x${string}`, 34, undefined>]>, undefined>;
+     }, undefined>;
++    /** OneKey patch: accept Hyperliquid always_place for executable Chase amendments. */
++    readonly a: v.OptionalSchema<v.LiteralSchema<true, undefined>, undefined>;
+ }, undefined>;
+ /** Action parameters for the {@linkcode modify} function. */
+ export type ModifyParameters = Omit<v.InferInput<typeof ModifyActionSchema>, "type">;
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.js b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.js
+index 563b853..9fc9e4a 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.js
++++ b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/modify.js
+@@ -95,6 +95,8 @@ exports.ModifyRequest = (() => {
+                 /** Client Order ID. */
+                 c: v.optional(_schemas_js_1.Cloid),
+             }),
++            // OneKey patch: accept Hyperliquid always_place for executable Chase amendments.
++            a: v.optional(v.literal(true)),
+         }),
+         /** Nonce (timestamp in ms) used to prevent replay attacks. */
+         nonce: _schemas_js_1.UnsignedInteger,
+diff --git a/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/modify.ts b/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/modify.ts
+index 1e8ba65..2be0aec 100644
+--- a/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/modify.ts
++++ b/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/modify.ts
+@@ -67,6 +67,8 @@ export const ModifyRequest = /* @__PURE__ */ (() => {
+         /** Client Order ID. */
+         c: v.optional(Cloid),
+       }),
++      // OneKey patch: accept Hyperliquid always_place for executable Chase amendments.
++      a: v.optional(v.literal(true)),
+     }),
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     nonce: UnsignedInteger,

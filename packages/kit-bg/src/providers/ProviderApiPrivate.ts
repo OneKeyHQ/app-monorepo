@@ -35,7 +35,10 @@ import {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
-import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import {
+  pendingSidePanelBgToUiMessage,
+  sidePanelState,
+} from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
@@ -788,25 +791,50 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('provider and nonce are required');
     }
     await this.wallet_keylessOpenSidePanel(request);
-    await timerUtils.wait(600);
 
-    if (sidePanelState.isOpen) {
-      appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
-        type: 'pushModal',
-        payload: {
-          modalParams: {
-            screen: EModalRoutes.OnboardingModal,
+    const loginModalMessage = {
+      type: 'pushModal',
+      payload: {
+        modalParams: {
+          screen: EModalRoutes.OnboardingModal,
+          params: {
+            screen: EOnboardingPagesV2.OneKeyIDLogin,
             params: {
-              screen: EOnboardingPagesV2.OneKeyIDLogin,
-              params: {
-                mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-                provider,
-              },
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+              provider,
             },
           },
         },
-      });
+      },
+    } as const;
+
+    const stashForNextConnect = () => {
+      // OK-58962: no port to emit into, so hand the push to the port-connect
+      // handler. It flushes before the page renders, which a fixed delay
+      // cannot guarantee — and a delay would also race the panel's own
+      // boot-time gates, letting the post-update changelog land on top of this
+      // login screen.
+      pendingSidePanelBgToUiMessage.value = loginModalMessage;
+      pendingSidePanelBgToUiMessage.stashedAt = Date.now();
+    };
+
+    // `isOpen` only means a port is connected right now. The call above always
+    // runs setOptions({ path }), which reloads an open panel, so the page may
+    // already be on its way out — never assume this one booted long ago.
+    if (sidePanelState.isOpen) {
+      await timerUtils.wait(600);
+      if (sidePanelState.isOpen) {
+        appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, loginModalMessage);
+      } else {
+        // Disconnected inside the wait (reload, or the user closed it). Fall
+        // back rather than dropping the push — otherwise the user clicks
+        // Keyless login and the panel just sits on the wallet home.
+        stashForNextConnect();
+      }
+      return this.getKeylessSessionState({ request, provider, nonce });
     }
+
+    stashForNextConnect();
 
     return this.getKeylessSessionState({
       request,

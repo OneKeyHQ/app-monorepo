@@ -5,6 +5,7 @@ export enum EAtomNames {
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
+  inscriptionProtectionControlPersistAtom = 'inscriptionProtectionControlPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
   currencyPersistAtom = 'currencyPersistAtom',
@@ -13,6 +14,7 @@ export enum EAtomNames {
   cloudBackupStatusAtom = 'cloudBackupStatusAtom',
   cloudBackupExitPreventAtom = 'cloudBackupExitPreventAtom',
   passwordAtom = 'passwordAtom',
+  hyperLiquidAgentPasswordStatusAtom = 'hyperLiquidAgentPasswordStatusAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   passwordPersistManualLockStateAtom = 'passwordPersistManualLockStateAtom',
@@ -21,6 +23,7 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
+  deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
@@ -68,6 +71,7 @@ export enum EAtomNames {
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  bulkExportHistorySupportedNetworksPersistAtom = 'bulkExportHistorySupportedNetworksPersistAtom',
   tokenSelectorFilterPersistAtom = 'tokenSelectorFilterPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
@@ -100,14 +104,19 @@ export enum EAtomNames {
   perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsUnifoldActiveRecipientAtom = 'perpsUnifoldActiveRecipientAtom',
+  perpsUnifoldDepositTrackingAtom = 'perpsUnifoldDepositTrackingAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsPendingInfoPanelTabAtom = 'perpsPendingInfoPanelTabAtom',
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
   perpsSpotDustingAtom = 'perpsSpotDustingAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
   tradingModeAtom = 'tradingModeAtom',
+  // borrow
+  borrowSelectedMarketAtom = 'borrowSelectedMarketAtom',
   // spot
   spotActiveAssetAtom = 'spotActiveAssetAtom',
   spotActiveAssetCtxAtom = 'spotActiveAssetCtxAtom',
@@ -129,15 +138,25 @@ export enum EAtomNames {
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
+  swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
+  swapTradingViewIndicatorSettingsPersistAtom = 'swapTradingViewIndicatorSettingsPersistAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
+  marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
+  marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
+  marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
   accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
+
+  // batch tx sign
+  batchTxSignAtom = 'batchTxSignAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
@@ -149,6 +168,23 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  // Nested force-target arrays must replace, not lodash-merge. merge({},
+  // {targets:['boot']}, {targets:[]}) keeps ['boot'], so the Pro2 switches
+  // cannot turn off (and look like they "don't toggle").
+  [EAtomNames.firmwareUpdateDevSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // This state is written as a complete snapshot so legacy chart namespace
+  // fields can be removed instead of being merged back on every write.
+  [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // These Perps states are written as complete snapshots. Lodash merge keeps
   // old array tails and ignores undefined, which can resurrect stale fields.
   [EAtomNames.perpsActiveAssetAtom]: {
@@ -158,6 +194,12 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.spotActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  // A bare string value, where lodash merge is not merely lossy but destructive:
+  // it spreads the string into a character-indexed object, so every later
+  // `=== 'spot'` comparison fails and the app behaves as if it were on perp.
+  [EAtomNames.tradingModeAtom]: {
     mergeInitialValue: false,
   },
   [EAtomNames.perpsCommonConfigPersistAtom]: {
@@ -173,6 +215,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsUnifoldDepositTrackingAtom]: {
     mergeInitialValue: false,
   },
 };

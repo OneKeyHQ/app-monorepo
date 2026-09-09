@@ -4,6 +4,11 @@ import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
 import { Button, Toast, useClipboard } from '@onekeyhq/components';
+import {
+  downloadBlobAsFile,
+  downloadImageFile,
+  shareImageOnDesktop,
+} from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
 import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
@@ -105,17 +110,7 @@ export function useShareActions(referralUrl?: string) {
           return { success: true };
         }
 
-        const blob = await fetch(base64Image).then((r) => r.blob());
-        const url = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = buildShareFileName();
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        URL.revokeObjectURL(url);
+        await downloadImageFile(base64Image, buildShareFileName());
 
         Toast.success({
           title: intl.formatMessage({
@@ -160,6 +155,8 @@ export function useShareActions(referralUrl?: string) {
         } finally {
           await RNFS.unlink(filepath).catch(() => {});
         }
+      } else if (platformEnv.isDesktop) {
+        await shareImageOnDesktop(base64Image, buildShareFileName());
       } else {
         const blob = await fetch(base64Image).then((r) => r.blob());
         const file = new File([blob], buildShareFileName(), {
@@ -172,15 +169,8 @@ export function useShareActions(referralUrl?: string) {
             title: 'Share',
           });
         } else {
-          // Fallback: download
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = buildShareFileName();
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          // Fallback: download (reuse the already-decoded blob)
+          downloadBlobAsFile(blob, buildShareFileName());
         }
       }
     } catch (error) {

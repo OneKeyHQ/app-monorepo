@@ -9,7 +9,10 @@ import type { IAddressValidation } from './address';
 import type { IDApp } from './discovery';
 import type { IMarketSearchV2Token, IMarketToken } from './market';
 import type { IAccountToken, ITokenFiat } from './token';
-import type { EModalSettingRoutes } from '../src/routes/setting';
+import type {
+  EModalSettingRoutes,
+  ESettingsTabNames,
+} from '../src/routes/setting';
 
 export enum EUniversalSearchType {
   Address = 'Address',
@@ -19,6 +22,19 @@ export enum EUniversalSearchType {
   Dapp = 'Dapp',
   Perp = 'Perp',
   Settings = 'Settings',
+}
+
+export enum EUniversalSearchSource {
+  Wallet = 'wallet',
+  Market = 'market',
+  Swap = 'swap',
+  Perps = 'perps',
+  Earn = 'earn',
+  Browser = 'browser',
+  DeviceManagement = 'deviceManagement',
+  ReferFriends = 'referFriends',
+  Developer = 'developer',
+  Unknown = 'unknown',
 }
 
 export enum ESearchStatus {
@@ -106,13 +122,17 @@ export type IUniversalSearchPerp = {
 export type IUniversalSearchSettings = {
   type: EUniversalSearchType.Settings;
   payload: {
+    /** Stable item identity for analytics and recent-search records. */
+    id?: string;
     title: string;
     icon: string;
-    sectionName?: string;
+    sectionName?: ESettingsTabNames;
     sectionTitle: string;
     sectionIcon: string;
     keywords?: string[];
     settingRoute?: EModalSettingRoutes;
+    /** Settings sidebar tab hosting this item on tab-navigator layouts. */
+    settingsTab?: ESettingsTabNames;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onPress?: (navigation?: any) => void;
   };

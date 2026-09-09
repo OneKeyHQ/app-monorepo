@@ -6,7 +6,11 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';
 
-import { installDesktopWatchdog } from './perf/installDesktopWatchdog';
+import {
+  flushDesktopWatchdogBreadcrumbs,
+  installDesktopWatchdog,
+} from './perf/installDesktopWatchdog';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { ErrorBoundarySimple } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
@@ -26,12 +30,63 @@ import {
 installDesktopWatchdog();
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
+const MAX_EARLY_SENTRY_ERRORS = 20;
 let hasScheduledSentryInit = false;
+const earlySentryErrors: unknown[] = [];
+
+function installEarlySentryErrorBuffer(): (() => void) | undefined {
+  if (typeof globalThis.window === 'undefined') return undefined;
+
+  const queueError = (error: unknown) => {
+    earlySentryErrors.push(error);
+    if (earlySentryErrors.length > MAX_EARLY_SENTRY_ERRORS) {
+      earlySentryErrors.shift();
+    }
+  };
+  const handleError = (event: ErrorEvent) => {
+    queueError(event.error || new Error(event.message));
+  };
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    queueError(event.reason || new Error('Unhandled promise rejection'));
+  };
+
+  globalThis.window.addEventListener('error', handleError);
+  globalThis.window.addEventListener(
+    'unhandledrejection',
+    handleUnhandledRejection,
+  );
+
+  return () => {
+    globalThis.window.removeEventListener('error', handleError);
+    globalThis.window.removeEventListener(
+      'unhandledrejection',
+      handleUnhandledRejection,
+    );
+  };
+}
+
+const removeEarlySentryErrorBuffer =
+  process.env.NODE_ENV === 'production'
+    ? installEarlySentryErrorBuffer()
+    : undefined;
 
 function loadSentry() {
-  void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
-    ({ initSentry }) => initSentry(),
-  );
+  void import('@onekeyhq/shared/src/modules3rdParty/sentry')
+    .then(({ addBreadcrumb, captureException, initSentry }) => {
+      initSentry();
+      removeEarlySentryErrorBuffer?.();
+      for (const error of earlySentryErrors.splice(0)) {
+        captureException(error);
+      }
+      flushDesktopWatchdogBreadcrumbs(addBreadcrumb);
+    })
+    .catch((error: unknown) => {
+      defaultLogger.app.error.log(
+        `Failed to initialize desktop renderer Sentry: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
 }
 
 function initSentryAfterStartup() {

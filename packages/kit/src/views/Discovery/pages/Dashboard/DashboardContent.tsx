@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import pRetry from 'p-retry';
 import { View } from 'react-native';
 
-import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  DelayedFreeze,
+  Page,
+  RefreshControl,
+  ScrollView,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -26,13 +32,16 @@ import { Welcome } from './Welcome';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 function DashboardContent({
+  isActive = true,
   onScroll,
   tabId,
 }: {
+  isActive?: boolean;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   tabId?: string;
 }) {
   const isFocused = useIsFocused();
+  const isContentActive = isFocused && isActive;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -125,7 +134,7 @@ function DashboardContent({
           banner={
             hasActiveBanners ? (
               <View
-                style={{ width: '100%' }}
+                style={{ width: '100%', alignItems: 'center' }}
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
                 onTouchEnd={(e) => e.stopPropagation()}
@@ -134,6 +143,7 @@ function DashboardContent({
                   key="Banner"
                   banners={homePageData?.banners || []}
                   isLoading={isInitialLoading}
+                  autoplayEnabled={isContentActive}
                 />
               </View>
             ) : null
@@ -172,6 +182,7 @@ function DashboardContent({
       showDiveInDescription,
       refresh,
       hasBookmarks,
+      isContentActive,
       tabId,
     ],
   );
@@ -181,13 +192,13 @@ function DashboardContent({
       <ScrollView
         testID={DiscoveryTestIDs.dashboardPage}
         height="100%"
-        onScroll={isFocused ? (onScroll as any) : undefined}
+        onScroll={isContentActive ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        {content}
+        <DelayedFreeze freeze={!isContentActive}>{content}</DelayedFreeze>
       </ScrollView>
     );
   }

@@ -14,6 +14,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 function FloatingIconModal() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -22,7 +24,7 @@ function FloatingIconModal() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.setting_floating_icon })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <YStack p="$5">
           <Image
             borderRadius="$3"

@@ -1,11 +1,17 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  getDeviceTimeZone,
+  getDeviceUtcOffsetMinutes,
+} from '@onekeyhq/shared/src/utils/timeZoneUtils';
 
 import type { IDeviceInfo, IGetDeviceInfo } from './type';
 
 const deviceInfo = {
   deviceId: generateUUID(),
+  deviceTimeZone: getDeviceTimeZone(),
+  deviceUtcOffsetMinutes: getDeviceUtcOffsetMinutes(),
   arch: globalThis.desktopApi?.arch || 'unknown',
   os: globalThis.desktopApi?.platform,
   osVersion: globalThis.desktopApi?.systemVersion,

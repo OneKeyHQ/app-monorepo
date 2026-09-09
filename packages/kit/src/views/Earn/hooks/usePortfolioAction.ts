@@ -134,6 +134,9 @@ export const usePortfolioAction = ({
           protocolInfo: {
             symbol,
             provider,
+            // IProtocolInfo.vault is a required string, so a provider with no
+            // vault (Stakefish) still travels as ''. ServiceStaking drops that
+            // empty string before it reaches the backend — see getClaimableList.
             vault: vault || '',
             networkId,
             stakeTag: stakeTag || '',

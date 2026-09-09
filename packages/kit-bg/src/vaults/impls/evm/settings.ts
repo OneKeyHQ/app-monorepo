@@ -2,7 +2,9 @@ import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   BaseUSDC,
+  BinanceSmartChainBTW,
   BinanceSmartChainLISTA,
+  BinanceSmartChainU,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
@@ -15,6 +17,7 @@ import {
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
@@ -156,6 +159,23 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Spark]: {
+        supportedSymbols: ['USDC', 'USDT'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
@@ -251,6 +271,21 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
+  [getNetworkIdsMap().katana]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['vbUSDC', 'MORPHO'],
+        configs: {
+          vbUSDC: {
+            enabled: true,
+            tokenAddress: KatanaVbUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
+    },
+  },
   [getNetworkIdsMap().sepolia]: {
     providers: {
       [EEarnProviderEnum.Lido]: {
@@ -283,6 +318,35 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+      [EEarnProviderEnum.Bitway]: {
+        supportedSymbols: ['USDT', 'U', 'BTW'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          U: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainU,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          BTW: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainBTW,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
       },
     },
   },

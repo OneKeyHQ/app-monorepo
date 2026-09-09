@@ -12,6 +12,11 @@ import type {
 
 const BATCH_SIZE = 50;
 
+// Tracks the linkedNetworkId each selector's DeFi sub-map was loaded under.
+// Module-level (not a ref) because the atom outlives the hook instance: a
+// selector reopened after a home network switch must still detect the change.
+const deFiMapLinkedNetworkIdByNum = new Map<number, string | undefined>();
+
 function isCancelled(currentLoadId: number, loadingIdRef: { current: number }) {
   return currentLoadId !== loadingIdRef.current;
 }
@@ -19,6 +24,7 @@ function isCancelled(currentLoadId: number, loadingIdRef: { current: number }) {
 export function useAccountSelectorValuesLoader({
   num,
   accountsForValuesQuery,
+  linkedNetworkId,
 }: {
   num: number;
   accountsForValuesQuery:
@@ -30,6 +36,7 @@ export function useAccountSelectorValuesLoader({
         xpub?: string;
       }[]
     | undefined;
+  linkedNetworkId?: string;
 }) {
   const loadingIdRef = useRef(0);
 
@@ -45,6 +52,7 @@ export function useAccountSelectorValuesLoader({
         const nextD = { ...prevD };
         delete nextD[num];
         await accountSelectorDeFiMapAtom.set(nextD);
+        deFiMapLinkedNetworkIdByNum.delete(num);
       })();
       return;
     }
@@ -82,7 +90,16 @@ export function useAccountSelectorValuesLoader({
       {
         const prev = await accountSelectorDeFiMapAtom.get();
         if (isCancelled(currentLoadId, loadingIdRef)) return;
-        const prevSub = prev[num] || {};
+        // perpsNetWorthUsd inside each DeFi item is gated per
+        // linkedNetworkId but carries no network scope, so entries loaded
+        // under another network must be dropped, not preserved — otherwise
+        // a network switch keeps showing the previous network's perps value
+        // until fresh data lands (overestimating on perps-unsupported
+        // networks).
+        const linkedNetworkChanged =
+          deFiMapLinkedNetworkIdByNum.has(num) &&
+          deFiMapLinkedNetworkIdByNum.get(num) !== linkedNetworkId;
+        const prevSub = linkedNetworkChanged ? {} : prev[num] || {};
         const prunedSub: Record<string, IAccountSelectorDeFiItem> = {};
         for (const id of Object.keys(prevSub)) {
           if (desiredIds.has(id)) prunedSub[id] = prevSub[id];
@@ -92,6 +109,7 @@ export function useAccountSelectorValuesLoader({
           [num]: prunedSub,
         };
         await accountSelectorDeFiMapAtom.set(next);
+        deFiMapLinkedNetworkIdByNum.set(num, linkedNetworkId);
       }
 
       for (
@@ -106,7 +124,7 @@ export function useAccountSelectorValuesLoader({
         try {
           const { accountsValue, accountsDeFiOverview } =
             await backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData(
-              { accounts: batch },
+              { accounts: batch, linkedNetworkId },
             );
 
           if (isCancelled(currentLoadId, loadingIdRef)) return;
@@ -157,5 +175,5 @@ export function useAccountSelectorValuesLoader({
       // Increment loadingId to cancel ongoing batches
       loadingIdRef.current += 1;
     };
-  }, [num, accountsForValuesQuery]);
+  }, [num, accountsForValuesQuery, linkedNetworkId]);
 }

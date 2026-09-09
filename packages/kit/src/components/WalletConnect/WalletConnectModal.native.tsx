@@ -1,4 +1,4 @@
-/* eslint-disable import-js/order */
+/* eslint-disable import-js/order, import/no-duplicates */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
 import {
@@ -12,6 +12,7 @@ import {
 import type { ErrorInfo, ReactNode } from 'react';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
+import { EventsController } from '@reown/appkit-core-react-native';
 import {
   AppKit as AppKitModalNative,
   createAppKit,
@@ -37,6 +38,8 @@ import {
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
@@ -78,8 +81,12 @@ const appKit = createAppKit({
   chains: [],
 });
 let pairingUri = '';
-let updateConnectModalUri: (uri: string) => void = (uri: string) => {
-  console.log('updateConnectModalUri-init-fn', uri);
+let pairingAttemptId: number | undefined;
+let updateConnectModalUri: (uri: string) => void = () => {
+  // No-op until the SDK registers its display_uri listener; the uri is
+  // replayed from the pairingUri cache at registration time. Never log the
+  // argument here: the wc: uri query carries the pairing symKey and would
+  // leak into device logs and console breadcrumbs.
 };
 let resolveConnect: (session: IWalletConnectSession) => void = () => {};
 let rejectConnect: (error: IOneKeyError) => void = () => {};
@@ -111,8 +118,12 @@ appKit.walletConnectProvider = {
   },
 };
 
-async function resetAppKit() {
+function clearPairingOwnership() {
   pairingUri = '';
+  pairingAttemptId = undefined;
+}
+
+async function resetAppKitState() {
   // await appKitModalCtrl.disconnect();
 
   // ClientCtrl.resetSession();
@@ -130,6 +141,11 @@ async function resetAppKit() {
   // @ts-ignore
   appKit.setClientId(null);
   appKit.setAddress(undefined);
+}
+
+async function resetAppKit() {
+  clearPairingOwnership();
+  await resetAppKitState();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -159,17 +175,29 @@ appKit.setWalletConnectProvider = async () => {
   void setMockedProviderConnectedV2();
 };
 
+// The module-level resolve/reject slots always belong to the pairing this
+// modal flow is currently driving. main and bg heaps are independent and the
+// relay only copies payloads, so a superseded attempt settling late must be
+// matched by attemptId or it would settle the newer attempt's connection.
+function isStaleAttemptEvent(attemptId: number | undefined) {
+  return Boolean(
+    attemptId && pairingAttemptId && attemptId !== pairingAttemptId,
+  );
+}
+
 appEventBus.on(
   EAppEventBusNames.WalletConnectConnectSuccess,
-  (payload: { session: IWalletConnectSession }) => {
-    const { session } = payload;
+  (payload: { session: IWalletConnectSession; attemptId?: number }) => {
+    const { session, attemptId } = payload;
+    if (isStaleAttemptEvent(attemptId)) return;
     resolveConnect(session);
   },
 );
 appEventBus.on(
   EAppEventBusNames.WalletConnectConnectError,
-  (payload: { error: IOneKeyError }) => {
-    const { error } = payload;
+  (payload: { error: IOneKeyError; attemptId?: number }) => {
+    const { error, attemptId } = payload;
+    if (isStaleAttemptEvent(attemptId)) return;
     rejectConnect(error);
   },
 );
@@ -326,6 +354,12 @@ const modal: IWalletConnectModalShared = {
     const closeNativeModalRef = useRef(closeNativeModal);
     closeNativeModalRef.current = closeNativeModal;
     const isMountedRef = useRef(true);
+    const openRequestIdRef = useRef(0);
+    const isClosingProgrammaticallyRef = useRef(false);
+    const isAwaitingMobileWalletApprovalRef = useRef(false);
+    const activePairingUriRef = useRef('');
+    const activeAttemptIdRef = useRef<number | undefined>(undefined);
+    const attributedRequestIdRef = useRef(0);
 
     useEffect(
       () => () => {
@@ -334,48 +368,127 @@ const modal: IWalletConnectModalShared = {
       [],
     );
 
+    useEffect(() => {
+      const unsubscribeWalletSelection = EventsController.subscribeEvent(
+        'SELECT_WALLET',
+        (event) => {
+          if (event.data.event === 'SELECT_WALLET') {
+            isAwaitingMobileWalletApprovalRef.current =
+              event.data.properties.platform === 'mobile';
+          }
+        },
+      );
+      const unsubscribeModalClose = EventsController.subscribeEvent(
+        'MODAL_CLOSE',
+        (event) => {
+          openRequestIdRef.current += 1;
+          const isConnected =
+            event.data.event === 'MODAL_CLOSE' &&
+            event.data.properties.connected;
+
+          // AppKit may close after launching a mobile wallet but before the
+          // WalletConnect session is approved; skip aborting so that pending
+          // pairing can still complete. It then terminates in bg via wallet
+          // approval/rejection or proposal expiry.
+          if (
+            !isClosingProgrammaticallyRef.current &&
+            !isConnected &&
+            !isAwaitingMobileWalletApprovalRef.current
+          ) {
+            // Use the uri captured at open time: the module-level pairingUri
+            // is cleared while a newer attempt resets AppKit, and an empty
+            // uri would wildcard-cancel that newer attempt in bg.
+            void backgroundApiProxy.serviceWalletConnect.abortConnectPairing({
+              uri: activePairingUriRef.current,
+            });
+          }
+        },
+      );
+
+      return () => {
+        unsubscribeWalletSelection();
+        unsubscribeModalClose();
+      };
+    }, []);
+
     console.log('isNativeModalOpen', isNativeModalOpen);
 
     const [shouldRenderNativeModal, setShouldRenderNativeModal] =
       useState(false);
 
-    const openModal = useCallback(async ({ uri }: { uri: string }) => {
-      await resetAppKit();
-      pairingUri = uri;
-      updateConnectModalUri(uri);
+    const openModal = useCallback(
+      async ({ uri, attemptId }: { uri: string; attemptId?: number }) => {
+        isAwaitingMobileWalletApprovalRef.current = false;
+        const requestId = openRequestIdRef.current + 1;
+        openRequestIdRef.current = requestId;
+        await resetAppKit();
+        if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+          return;
+        }
+        pairingUri = uri;
+        pairingAttemptId = attemptId;
+        updateConnectModalUri(uri);
 
-      // TODO use custom provider from bg make QRCode Modal not open automatically
-      // ClientCtrl.setProvider({} as any);
-      // // resetApp(); // onSessionDelete
-      // ClientCtrl.setInitialized(true);
+        // TODO use custom provider from bg make QRCode Modal not open automatically
+        // ClientCtrl.setProvider({} as any);
+        // // resetApp(); // onSessionDelete
+        // ClientCtrl.setInitialized(true);
 
-      if (!isMountedRef.current) return;
-      setShouldRenderNativeModal(true);
+        if (!isMountedRef.current) return;
+        setShouldRenderNativeModal(true);
 
-      // try {
-      //   await nativeProviderRef.current?.disconnect();
-      // } catch (error) {
-      //   console.error(error);
-      // }
+        // try {
+        //   await nativeProviderRef.current?.disconnect();
+        // } catch (error) {
+        //   console.error(error);
+        // }
 
-      await timerUtils.wait(600); // wait modal render done
+        await timerUtils.wait(600); // wait modal render done
 
-      if (!isMountedRef.current) return;
+        if (!isMountedRef.current || requestId !== openRequestIdRef.current) {
+          return;
+        }
 
-      console.log(
-        'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
-      );
-      await openNativeModalRef.current({
-        view: 'Connect',
-      }); // show modal
+        console.log(
+          'WalletConnectModalContainer openNativeModalRef: ------------------------ ',
+        );
+        await openNativeModalRef.current({
+          view: 'Connect',
+        }); // show modal
 
-      // await openNativeModal({
-      //   route: 'ConnectWallet',
-      // });
-    }, []);
+        if (isMountedRef.current && requestId !== openRequestIdRef.current) {
+          isClosingProgrammaticallyRef.current = true;
+          try {
+            await closeNativeModalRef.current();
+          } finally {
+            isClosingProgrammaticallyRef.current = false;
+          }
+          return;
+        }
+
+        // The modal now shows this pairing. Attribute user closes and
+        // modal-state transitions to it only from this point, so a stale
+        // close from the previous modal keeps blaming the previous attempt
+        // and cannot cancel or clear the one still opening.
+        activePairingUriRef.current = uri;
+        activeAttemptIdRef.current = attemptId;
+        attributedRequestIdRef.current = requestId;
+
+        // await openNativeModal({
+        //   route: 'ConnectWallet',
+        // });
+      },
+      [],
+    );
 
     const closeModal = useCallback(async () => {
-      await closeNativeModalRef.current();
+      openRequestIdRef.current += 1;
+      isClosingProgrammaticallyRef.current = true;
+      try {
+        await closeNativeModalRef.current();
+      } finally {
+        isClosingProgrammaticallyRef.current = false;
+      }
 
       // Wait for React Native Fabric to complete view cleanup
       // This prevents valtio destructuring errors during rapid modal state changes
@@ -386,13 +499,23 @@ const modal: IWalletConnectModalShared = {
       void (async () => {
         if (platformEnv.isNative) {
           if (!isNativeModalOpen) {
-            await resetAppKit();
+            await resetAppKitState();
+            // Only the request that opened the modal producing this close
+            // state may clear the pairing ownership. A newer openModal has
+            // already claimed (or is about to rewrite) the module slots, and
+            // wiping them here would let the superseded attempt's late
+            // success/error bypass the staleness check and settle the newer
+            // attempt's connection.
+            if (attributedRequestIdRef.current === openRequestIdRef.current) {
+              clearPairingOwnership();
+            }
             console.log('setShouldRenderNativeModal false');
             // setShouldRenderNativeModal(false);
           }
           if (!isMountedRef.current) return;
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
             open: isNativeModalOpen,
+            attemptId: activeAttemptIdRef.current,
           });
         }
       })();

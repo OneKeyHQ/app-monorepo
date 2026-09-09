@@ -22,7 +22,6 @@ import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDis
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalFiatCryptoRoutes,
@@ -451,12 +450,7 @@ function WalletActions({ ...rest }: IXStackProps) {
           </ReviewControl>
         );
       case 'swap':
-        return platformEnv.isExtensionUiPopup ||
-          platformEnv.isExtensionUiSidePanel ? (
-          <WalletActionPerp key="perp" customization={customization} />
-        ) : (
-          <WalletActionSwap key="swap" customization={customization} />
-        );
+        return <WalletActionSwap key="swap" customization={customization} />;
       case 'perp':
         return <WalletActionPerp key="perp" customization={customization} />;
       case 'staking':

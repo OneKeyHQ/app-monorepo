@@ -48,10 +48,15 @@ export function BalanceDisplay({
 
   const onSelect = useCallback(
     async (value: { account: any; deriveInfo: any; deriveType: any }) => {
-      setSelectedDeriveType(value.deriveType);
+      if (token?.networkId) {
+        setSelectedDeriveType({
+          networkId: token.networkId,
+          deriveType: value.deriveType,
+        });
+      }
       appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
     },
-    [setSelectedDeriveType],
+    [setSelectedDeriveType, token?.networkId],
   );
 
   const selectorTrigger = useMemo(

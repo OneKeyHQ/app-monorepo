@@ -2,10 +2,23 @@ export const MarketTestIDs = {
   // Main page
   marketPage: 'market-page',
   searchBar: 'market-search-bar',
+  marketTabs: 'market-tabs',
+  compactNetworkSelector: 'market-compact-network-selector',
+
+  // Banner
+  bannerItem: 'market-banner-item',
+  bannerItemSkeleton: 'market-banner-item-skeleton',
+  bannerList: 'market-banner-list',
 
   // Token list
   tokenListItem: (symbol: string) => `market-token-item-${symbol}`,
   tokenStarButton: (symbol: string) => `market-token-star-${symbol}`,
+  tokenRow: (symbol: string) => `market-token-row-${symbol}`,
+
+  // Stock list
+  stockList: 'market-stock-list',
+  stockRow: (stockId: string) => `market-stock-row-${stockId}`,
+  perpsList: 'market-perps-list',
 
   // Watchlist
   watchList: 'market-watch-list',
@@ -18,6 +31,7 @@ export const MarketTestIDs = {
   // Token detail
   detailPage: 'market-detail-page',
   detailChart: 'market-detail-chart',
+  detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
   detailSwapButton: 'market-detail-swap-button',
   detailAbout: 'market-detail-about',

@@ -2,12 +2,13 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Linking } from 'react-native';
 
 import {
   Anchor,
   Button,
   EVideoResizeMode,
+  type IVideoProgressData,
+  type IVideoSource,
   Image,
   LinearGradient,
   Page,
@@ -24,21 +25,21 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { OnProgressData, ReactVideoSource } from 'react-native-video';
 
 const LightPosterImage =
   require('./assets/mydevice_hero_poster_light.jpg') as ImageSourcePropType;
 const DarkPosterImage =
   require('./assets/mydevice_hero_poster_dark.jpg') as ImageSourcePropType;
 
-const LightVideoSource: ReactVideoSource = {
+const LightVideoSource: IVideoSource = {
   uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_light.mp4',
 };
-const DarkVideoSource: ReactVideoSource = {
+const DarkVideoSource: IVideoSource = {
   uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_dark.mp4',
 };
 
@@ -69,7 +70,7 @@ function VideoContainer() {
 
   const isVideoLoadedRef = useRef(isVideoLoaded);
   isVideoLoadedRef.current = isVideoLoaded;
-  const handleVideoLoad = useCallback((e: OnProgressData) => {
+  const handleVideoLoad = useCallback((e: IVideoProgressData) => {
     if (isVideoLoadedRef.current) {
       return;
     }
@@ -128,6 +129,7 @@ function VideoContainer() {
             width="100%"
             height="100%"
             resizeMode="cover"
+            resizeWidth={480}
             source={posterSource}
           />
         ) : null}
@@ -199,16 +201,8 @@ function ButtonContainer() {
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
 
-  const handleBuyButtonPress = useCallback(async () => {
-    const url = ONEKEY_BUY_HARDWARE_URL;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      alert(`Don't know how to open this URL: ${url}`);
-    }
+  const handleBuyButtonPress = useCallback(() => {
+    openUrlExternal(ONEKEY_BUY_HARDWARE_URL);
   }, []);
 
   const onAddDevice = useCallback(async () => {

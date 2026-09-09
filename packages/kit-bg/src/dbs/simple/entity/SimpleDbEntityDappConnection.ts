@@ -433,7 +433,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     });
   }
 
-  removeFromNetworkImplMap(
+  private removeFromNetworkImplMap(
     connectionItem: IConnectionItem,
     networkImpl: string,
     index: number,
@@ -447,7 +447,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     }
   }
 
-  removeFromAddressMap(
+  private removeFromAddressMap(
     connectionItem: IConnectionItem,
     address: string,
     index: number,
@@ -461,7 +461,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     }
   }
 
-  removeEntries({
+  private removeEntries({
     connectionData,
     providerType,
     origin,

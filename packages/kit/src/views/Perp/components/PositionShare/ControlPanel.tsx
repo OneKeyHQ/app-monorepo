@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { canShareImageToSystem } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IPnlDisplayMode, IShareConfig } from './types';
@@ -35,6 +36,9 @@ export function ControlPanel({
   isMobile,
 }: IControlPanelProps) {
   const intl = useIntl();
+  // besides mobile, desktop shows the share entry when a real system share
+  // surface exists (macOS ShareMenu); elsewhere it would duplicate "save"
+  const showShareEntry = isMobile || canShareImageToSystem();
 
   const handlePnlDisplayModeChange = useCallback(
     (mode: IPnlDisplayMode) => {
@@ -114,7 +118,7 @@ export function ControlPanel({
             })}
           </SizableText>
         </YStack>
-        {isMobile ? (
+        {showShareEntry ? (
           <YStack gap="$1" alignItems="center">
             <IconButton
               testID="perp-icon-btn"

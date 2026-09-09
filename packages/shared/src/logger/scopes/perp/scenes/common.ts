@@ -1,18 +1,40 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { EPerpPageEnterSource } from '../type';
+import type {
+  EPerpPageEnterSource,
+  IPerpAccountStatusParams,
+  IPerpTradeButtonClickParams,
+} from '../type';
 
 export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public pageView({ source }: { source: EPerpPageEnterSource }) {
-    return { source, pageName: 'Perp' };
+  public perpPageView({
+    source,
+    walletType,
+  }: {
+    source: EPerpPageEnterSource;
+    walletType: string;
+  }) {
+    return { source, walletType, pageName: 'Perp' };
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public placeOrder({
+  public perpTradeButtonClick(params: IPerpTradeButtonClickParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpAccountStatus(params: IPerpAccountStatusParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpWebviewPlaceOrder({
     userAddress,
     chainId,
     builderAddress,
@@ -21,6 +43,9 @@ export class CommonScene extends BaseScene {
     orders,
     nonce,
     errorMessage,
+    walletType,
+    status,
+    errorCode,
   }: {
     userAddress: string;
     chainId: string;
@@ -30,6 +55,9 @@ export class CommonScene extends BaseScene {
     orders: object[];
     nonce: number;
     errorMessage: string;
+    walletType: string;
+    status: 'success' | 'fail';
+    errorCode?: string;
   }) {
     void userAddress;
     const result = {
@@ -42,6 +70,9 @@ export class CommonScene extends BaseScene {
       orders,
       nonce,
       errorMessage,
+      walletType,
+      status,
+      errorCode,
     };
     return result;
   }

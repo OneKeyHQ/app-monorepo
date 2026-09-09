@@ -1,14 +1,21 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type {
+  IStackNavigationOptions,
+  IStackProps,
+} from '@onekeyhq/components';
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { DeviceAvatarWithColor } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { getTargetFirmwareTypeLabel } from '../utils';
+import {
+  getFirmwareUpdateDeviceTitle,
+  getTargetFirmwareTypeLabel,
+} from '../utils';
 
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
@@ -38,7 +45,7 @@ export function FirmwareUpdatePageHeaderTitle(props: {
       },
     );
   } else {
-    title = result.deviceName;
+    title = getFirmwareUpdateDeviceTitle(result);
   }
   return (
     <XStack ai="center" gap={6} flex={1} minWidth={0}>
@@ -57,24 +64,29 @@ export function FirmwareUpdatePageHeaderTitle(props: {
       >
         {title}
       </SizableText>
-      <SizableText
-        size="$bodyLg"
-        color="$textSubdued"
-        flexShrink={0}
-        numberOfLines={1}
-      >
-        {result.deviceBleName}
-      </SizableText>
+      {result.deviceBleName ? (
+        <SizableText
+          size="$bodyLg"
+          color="$textSubdued"
+          flexShrink={0}
+          numberOfLines={1}
+        >
+          {result.deviceBleName}
+        </SizableText>
+      ) : null}
     </XStack>
   );
 }
 
 export function FirmwareUpdatePageHeader({
   headerTitle,
+  headerRight,
 }: {
   headerTitle?: React.ReactNode;
+  headerRight?: IStackNavigationOptions['headerRight'];
 }) {
   const intl = useIntl();
+
   return (
     <Page.Header
       dismissOnOverlayPress={false}
@@ -86,6 +98,8 @@ export function FirmwareUpdatePageHeader({
             })
       }
       headerTitle={headerTitle ? () => headerTitle : undefined}
+      headerRight={headerRight}
+      headerRightNoGlass={Boolean(platformEnv.isNativeIOS && headerRight)}
     />
   );
 }
@@ -95,10 +109,12 @@ export const FirmwareUpdatePageFooter = Page.Footer;
 export function FirmwareUpdatePageLayout({
   children,
   headerTitle,
+  headerRight,
   containerStyle,
 }: {
   children: React.ReactNode;
   headerTitle?: React.ReactNode;
+  headerRight?: IStackNavigationOptions['headerRight'];
   containerStyle?: IStackProps;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -107,7 +123,10 @@ export function FirmwareUpdatePageLayout({
 
   return (
     <Stack>
-      <FirmwareUpdatePageHeader headerTitle={headerTitle} />
+      <FirmwareUpdatePageHeader
+        headerTitle={headerTitle}
+        headerRight={headerRight}
+      />
       <Page.Body>
         <Stack p="$5" {...containerStyle}>
           {children}

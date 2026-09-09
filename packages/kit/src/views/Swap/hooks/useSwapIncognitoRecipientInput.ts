@@ -13,9 +13,11 @@ import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jot
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 type IUseSwapIncognitoRecipientInputParams = {
   visible: boolean;
+  validationEnabled: boolean;
   clearRecipientAddressOnHide?: boolean;
   networkId?: string;
   accountId?: string;
@@ -25,10 +27,27 @@ type IUseSwapIncognitoRecipientInputParams = {
 };
 
 type IShouldBlockSwapActionForIncognitoRecipientInputParams = {
-  enabled: boolean;
   inputText: string;
+  isConnectWalletAction: boolean;
   loading: boolean;
   queryResult: Pick<IAddressQueryResult, 'validStatus'>;
+  validationEnabled: boolean;
+  visible: boolean;
+};
+
+type IShouldEnableSwapIncognitoRecipientValidationParams = {
+  hasFromToken: boolean;
+  hasToToken: boolean;
+  isAddressInfoReady: boolean;
+  networkId?: string;
+  providerSupportsRecipient: boolean;
+  visible: boolean;
+};
+
+type IShouldShowSwapIncognitoRecipientInputParams = {
+  incognitoMode: boolean;
+  providerSupportsRecipient: boolean;
+  swapType: ESwapTabSwitchType;
 };
 
 type IAddressValidationContext = {
@@ -53,24 +72,62 @@ function isSameAddressValidationContext(
 }
 
 export function shouldBlockSwapActionForIncognitoRecipientInput({
-  enabled,
   inputText,
+  isConnectWalletAction,
   loading,
   queryResult,
+  validationEnabled,
+  visible,
 }: IShouldBlockSwapActionForIncognitoRecipientInputParams) {
-  if (!enabled || !inputText.trim()) {
+  if (isConnectWalletAction) {
     return false;
   }
 
-  if (loading) {
+  if (!visible || !inputText.trim()) {
+    return false;
+  }
+
+  if (!validationEnabled || loading) {
     return true;
   }
 
   return queryResult.validStatus !== 'valid';
 }
 
+export function shouldEnableSwapIncognitoRecipientValidation({
+  hasFromToken,
+  hasToToken,
+  isAddressInfoReady,
+  networkId,
+  providerSupportsRecipient,
+  visible,
+}: IShouldEnableSwapIncognitoRecipientValidationParams) {
+  return Boolean(
+    visible &&
+    providerSupportsRecipient &&
+    hasFromToken &&
+    hasToToken &&
+    networkId &&
+    isAddressInfoReady,
+  );
+}
+
+export function shouldShowSwapIncognitoRecipientInput({
+  incognitoMode,
+  providerSupportsRecipient,
+  swapType,
+}: IShouldShowSwapIncognitoRecipientInputParams) {
+  return Boolean(
+    incognitoMode &&
+    providerSupportsRecipient &&
+    swapType !== ESwapTabSwitchType.LIMIT &&
+    swapType !== ESwapTabSwitchType.STOCK,
+  );
+}
+
 export function useSwapIncognitoRecipientInput({
   visible,
+  validationEnabled,
   clearRecipientAddressOnHide,
   networkId,
   accountId,
@@ -101,7 +158,14 @@ export function useSwapIncognitoRecipientInput({
     networkId,
   });
 
-  const enabled = visible && !!networkId;
+  const enabled = visible && validationEnabled && !!networkId;
+  const validatedInputRef = useRef<
+    | {
+        networkId: string;
+        queryText: string;
+      }
+    | undefined
+  >(undefined);
 
   validationContextRef.current = {
     accountId,
@@ -164,6 +228,7 @@ export function useSwapIncognitoRecipientInput({
           validationContextRef.current,
         )
       ) {
+        validatedInputRef.current = undefined;
         setLoading(false);
         setQueryResult({});
       }
@@ -198,11 +263,16 @@ export function useSwapIncognitoRecipientInput({
         const resolvedAddress = getAddressQueryResolvedAddress(result);
 
         if (resolvedAddress) {
+          validatedInputRef.current = {
+            networkId: requestContext.networkId,
+            queryText: requestContext.queryText,
+          };
           syncRecipientAddress(resolvedAddress);
+          return;
         }
-        return;
       }
 
+      validatedInputRef.current = undefined;
       syncRecipientAddress(undefined);
     } finally {
       if (
@@ -230,6 +300,7 @@ export function useSwapIncognitoRecipientInput({
       setQueryResult({});
 
       if (clearInput) {
+        validatedInputRef.current = undefined;
         textRef.current = '';
         setInputText('');
       }
@@ -242,7 +313,7 @@ export function useSwapIncognitoRecipientInput({
   );
 
   useEffect(() => {
-    if (!enabled) {
+    if (!visible) {
       validationScopeRef.current = {
         accountId,
         networkId,
@@ -254,25 +325,39 @@ export function useSwapIncognitoRecipientInput({
       return;
     }
 
+    if (!enabled) {
+      validationScopeRef.current = {
+        accountId,
+        networkId,
+      };
+      resetValidationState({
+        clearRecipientAddress: true,
+      });
+      return;
+    }
+
     const prevScope = validationScopeRef.current;
     const nextScope = {
       accountId,
       networkId,
     };
+    const validatedInput = validatedInputRef.current;
+    const isValidatedNetworkChanged =
+      validatedInput?.queryText === textRef.current.trim() &&
+      validatedInput.networkId !== nextScope.networkId;
 
     validationScopeRef.current = nextScope;
 
     if (
       prevScope.accountId === nextScope.accountId &&
-      prevScope.networkId === nextScope.networkId
+      prevScope.networkId === nextScope.networkId &&
+      !isValidatedNetworkChanged
     ) {
       return;
     }
 
-    const isNetworkChanged = prevScope.networkId !== nextScope.networkId;
-
     resetValidationState({
-      clearInput: isNetworkChanged,
+      clearInput: isValidatedNetworkChanged,
       clearRecipientAddress: true,
     });
   }, [
@@ -281,6 +366,7 @@ export function useSwapIncognitoRecipientInput({
     enabled,
     networkId,
     resetValidationState,
+    visible,
   ]);
 
   useEffect(() => {
@@ -303,6 +389,7 @@ export function useSwapIncognitoRecipientInput({
     }
 
     textRef.current = nextText;
+    validatedInputRef.current = undefined;
     setInputText(nextText);
     setQueryResult({});
   }, [address, enabled, swapToAnotherAccountSwitchOn]);
@@ -323,6 +410,10 @@ export function useSwapIncognitoRecipientInput({
       const trimmedNextText = nextText.trim();
 
       if (textRef.current === nextText) {
+        if (!enabled) {
+          return;
+        }
+
         const shouldKeepCurrentValidation =
           !trimmedNextText ||
           (queryResult.validStatus === 'valid' &&
@@ -342,6 +433,7 @@ export function useSwapIncognitoRecipientInput({
         return;
       }
 
+      validatedInputRef.current = undefined;
       textRef.current = nextText;
       setInputText(nextText);
       setQueryResult({});
@@ -349,6 +441,7 @@ export function useSwapIncognitoRecipientInput({
     },
     [
       address,
+      enabled,
       queryAddress,
       queryResult.validStatus,
       swapToAnotherAccountSwitchOn,

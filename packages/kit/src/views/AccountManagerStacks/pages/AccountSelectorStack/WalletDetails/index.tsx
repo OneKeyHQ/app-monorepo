@@ -311,6 +311,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   useAccountSelectorValuesLoader({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
+    linkedNetworkId,
   });
 
   const accountsCount = useMemo(

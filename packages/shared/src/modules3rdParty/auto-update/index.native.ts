@@ -10,17 +10,19 @@ import platformEnv from '../../platformEnv';
 import { appRestart } from '../appRestart';
 import { EAppRestartMode } from '../appRestart/types';
 
-import type {
-  IAppUpdate,
-  IBundleUpdate,
-  IClearPackage,
-  IDownloadASC,
-  IDownloadPackage,
-  IInstallPackage,
-  IManualInstallPackage,
-  IUseDownloadProgress,
-  IVerifyASC,
-  IVerifyPackage,
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  type IAppUpdate,
+  type IBundleUpdate,
+  type ICheckPackageAvailability,
+  type IClearPackage,
+  type IDownloadASC,
+  type IDownloadPackage,
+  type IInstallPackage,
+  type IManualInstallPackage,
+  type IUseDownloadProgress,
+  type IVerifyASC,
+  type IVerifyPackage,
 } from './type';
 
 // AppUpdate native module is excluded from google/huawei builds via
@@ -156,6 +158,13 @@ const verifyPackage: IVerifyPackage = async (params) => {
   });
 };
 
+// Android will provide a native APK availability check in a follow-up.
+// Until then, preserve the existing APK lifecycle and let installAPK remain
+// the authoritative native existence check.
+const checkPackageAvailability: ICheckPackageAvailability = async () => ({
+  status: EAppUpdatePackageAvailabilityStatus.notApplicable,
+});
+
 const installPackage: IInstallPackage = async ({
   latestVersion,
   downloadUrl,
@@ -163,11 +172,12 @@ const installPackage: IInstallPackage = async ({
   defaultLogger.update.app.log('install', latestVersion);
   const nativeLatestVersion = toNativeString(latestVersion).trim();
   if (!nativeLatestVersion) {
-    return;
+    return false;
   }
-  return getReactNativeAppUpdate().installAPK({
+  await getReactNativeAppUpdate().installAPK({
     downloadUrl: toNativeString(downloadUrl),
   });
+  return true;
 };
 
 const DOWNLOAD_EVENT_TYPE = {
@@ -241,6 +251,7 @@ export const AppUpdate: IAppUpdate = {
   verifyPackage,
   verifyASC,
   downloadASC,
+  checkPackageAvailability,
   installPackage,
   manualInstallPackage,
   clearPackage,

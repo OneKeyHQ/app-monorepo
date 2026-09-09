@@ -1,6 +1,6 @@
 ---
 name: 1k-browser-module
-description: OneKey Browser/Discovery module development guide. Use when changing 浏览器模块, Discovery browser, MultiTabBrowser, DApp browser, WebView tabs, bookmarks, history, browser search, URL risk detection, DApp connection, JSBridge, or in-app browser behavior.
+description: OneKey Browser/Discovery development for WebView tabs, bookmarks, history, search, URL risk checks, DApp connections, and JSBridge behavior.
 allowed-tools: Read, Grep, Glob
 ---
 

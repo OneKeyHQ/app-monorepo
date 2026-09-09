@@ -33,6 +33,10 @@ function initTokensTabLastStateListener() {
 
 initTokensTabLastStateListener();
 
+export function getTokensTabLastState() {
+  return tokensTabLastState;
+}
+
 export type IRunAfterTokensDoneOptions = {
   enabled?: boolean;
   onRun: (trigger: string) => void | Promise<void>;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
@@ -12,12 +13,26 @@ import {
   PERPS_HISTORY_FILLS_URL,
   PERPS_TWAP_HISTORY_URL,
 } from '@onekeyhq/shared/src/consts/perp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IFill, IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../utils/accountScopedData';
+
+type IUserFundingHistoryResult = {
+  accountAddress: string | undefined;
+  records: IUserFunding[];
+  isError?: boolean;
+};
 
 export function usePerpTradesHistory() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -106,11 +121,123 @@ export function usePerpTradesHistory() {
   };
 }
 
+export function usePerpUserFundingHistory({
+  isActive = true,
+}: {
+  isActive?: boolean;
+} = {}) {
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const accountAddress = currentAccount?.accountAddress ?? undefined;
+  const lastSuccessfulResultRef = useRef<IUserFundingHistoryResult | undefined>(
+    undefined,
+  );
+  const query = usePromiseResult<IUserFundingHistoryResult>(
+    async () => {
+      if (!accountAddress) {
+        return {
+          accountAddress: undefined,
+          records: [],
+        };
+      }
+
+      const normalizedRequestAddress = accountAddress.toLowerCase();
+      const previousResult = lastSuccessfulResultRef.current;
+      try {
+        const records =
+          await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
+            accountAddress,
+          });
+        return {
+          accountAddress: normalizedRequestAddress,
+          records,
+          isError: false,
+        };
+      } catch {
+        // Keep same-account history visible when a refresh fails.
+        if (previousResult?.accountAddress === normalizedRequestAddress) {
+          return previousResult;
+        }
+        return {
+          accountAddress: normalizedRequestAddress,
+          records: [],
+          isError: true,
+        };
+      }
+    },
+    [accountAddress],
+    {
+      watchLoading: true,
+      undefinedResultIfError: true,
+      revalidateOnFocus: true,
+      // Gate requests by the visible info-panel tab without making tab
+      // activity part of the query scope, so same-account results stay cached.
+      overrideIsFocused: (isFocused) => isFocused && isActive,
+    },
+  );
+  const normalizedAccountAddress = accountAddress?.toLowerCase();
+  const isCurrentAccountResult = isPerpsAccountAddressMatched({
+    activeAccountAddress: normalizedAccountAddress,
+    dataAccountAddress: query.result?.accountAddress,
+  });
+  useEffect(() => {
+    lastSuccessfulResultRef.current =
+      isCurrentAccountResult && query.result?.isError === false
+        ? query.result
+        : undefined;
+  }, [isCurrentAccountResult, normalizedAccountAddress, query.result]);
+  const { run: refreshFundingHistory } = query;
+  useEffect(() => {
+    if (!isActive || !isCurrentAccountResult || query.isLoading) return;
+
+    // History is fetched in full. Refresh long-lived views hourly, resetting
+    // the timer after focus/manual requests so refreshes do not accumulate.
+    const timer = setTimeout(
+      () => {
+        void refreshFundingHistory();
+      },
+      60 * 60 * 1000,
+    );
+    return () => clearTimeout(timer);
+  }, [
+    isActive,
+    isCurrentAccountResult,
+    query.isLoading,
+    query.result,
+    refreshFundingHistory,
+  ]);
+  const records = getPerpsAccountScopedListData({
+    activeAccountAddress: normalizedAccountAddress,
+    dataAccountAddress: query.result?.accountAddress,
+    data: query.result?.records ?? [],
+  });
+  const isError = Boolean(
+    isCurrentAccountResult && query.result?.isError === true,
+  );
+  const isLoading = Boolean(
+    accountAddress && !isError && !isCurrentAccountResult,
+  );
+
+  return {
+    accountAddress: normalizedAccountAddress,
+    records,
+    isError,
+    isLoading,
+    refresh: query.run,
+  };
+}
+
 function usePerpViewAllUrl(baseUrl: string) {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const onViewAllUrl = useCallback(() => {
     if (currentAccount?.accountAddress) {
-      openUrlInApp(`${baseUrl}${currentAccount.accountAddress}`);
+      const url = `${baseUrl}${currentAccount.accountAddress}`;
+      // Native: in-app browser; desktop/web keep the original WebView
+      // modal / new-tab behavior.
+      if (platformEnv.isNative) {
+        openUrlExternal(url);
+      } else {
+        openUrlInApp(url);
+      }
     }
   }, [baseUrl, currentAccount?.accountAddress]);
   return {

@@ -1,4 +1,7 @@
-import { parseSecretRecoveryPhrase } from './phrase';
+import {
+  parseSecretRecoveryPhrase,
+  parseSecretRecoveryPhraseToWords,
+} from './phrase';
 
 describe('parseSecretRecoveryPhrase', () => {
   it('should handle a regular Secret Recovery Phrase', () => {
@@ -61,5 +64,17 @@ describe('parseSecretRecoveryPhrase', () => {
     expect(parseSecretRecoveryPhrase(null as unknown as string)).toStrictEqual(
       '',
     );
+  });
+});
+
+describe('parseSecretRecoveryPhraseToWords', () => {
+  it('should return normalized words using the canonical phrase parser', () => {
+    expect(
+      parseSecretRecoveryPhraseToWords('  FOO,\tbar\r\n baz!  '),
+    ).toStrictEqual(['foo', 'bar', 'baz']);
+  });
+
+  it('should return an empty array when the phrase has no words', () => {
+    expect(parseSecretRecoveryPhraseToWords(' \t$\r\n ')).toStrictEqual([]);
   });
 });

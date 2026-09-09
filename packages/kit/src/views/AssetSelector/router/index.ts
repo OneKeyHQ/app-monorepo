@@ -1,3 +1,5 @@
+/* cspell:ignore Infini */
+
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
@@ -12,6 +14,11 @@ const DeriveTypesAddressSelector = LazyLoadPage(
 
 const AggregateTokenSelector = LazyLoadPage(
   () => import('../pages/AggregateTokenSelector'),
+);
+
+const PrimeInfiniPaymentAssetSelector = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Prime/pages/PrimeInfiniPaymentAssetSelector'),
 );
 
 export const AssetSelectorRouter: IModalFlowNavigatorConfig<
@@ -29,5 +36,9 @@ export const AssetSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EAssetSelectorRoutes.AggregateTokenSelector,
     component: AggregateTokenSelector,
+  },
+  {
+    name: EAssetSelectorRoutes.PrimeInfiniPaymentAssetSelector,
+    component: PrimeInfiniPaymentAssetSelector,
   },
 ];
