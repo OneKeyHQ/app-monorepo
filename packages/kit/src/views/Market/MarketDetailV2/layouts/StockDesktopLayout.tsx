@@ -71,6 +71,7 @@ import {
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
+import { getStockTokenVariantActionIdentity } from '../utils/stockTokenVariant';
 
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
@@ -99,16 +100,21 @@ function StockPageHeader({
   showFavoriteButton: boolean;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const { stockDetail, stockId, stockPreview } = useStockDetail();
+  const { selectedTokenVariant, stockDetail, stockId, stockPreview } =
+    useStockDetail();
   const stock = tokenDetail?.stock;
-  const tokenActionIdentity =
-    networkId && tokenDetail?.address && tokenDetail.symbol
+  const selectedTokenActionIdentity =
+    getStockTokenVariantActionIdentity(selectedTokenVariant);
+  const tokenDetailActionIdentity =
+    networkId && tokenDetail?.address
       ? {
           networkId,
           address: tokenDetail.address,
           symbol: tokenDetail.symbol,
         }
       : undefined;
+  const tokenActionIdentity =
+    selectedTokenActionIdentity ?? tokenDetailActionIdentity;
 
   return (
     <XStack
@@ -190,7 +196,7 @@ function StockPageHeader({
 
       {/* The stock route can share the listing before any token variant
           resolves, so the row also stands on a bare `stockId`. The favorite
-          button still needs a real chain/contract/symbol triple. */}
+          button still needs a real chain/contract identity. */}
       {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
           {showFavoriteButton && tokenActionIdentity ? (
