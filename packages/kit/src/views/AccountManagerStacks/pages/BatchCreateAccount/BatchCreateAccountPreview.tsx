@@ -257,7 +257,6 @@ function BatchCreateAccountPreviewPage({
   balanceMapRef.current = balanceMap;
 
   const runCancelAtFirst = useRef(false);
-  const isSubmittingRef = useRef(false);
 
   const {
     result: accounts = [],
@@ -884,122 +883,110 @@ function BatchCreateAccountPreviewPage({
             })(),
           }}
           onConfirm={async () => {
-            if (isSubmittingRef.current) {
+            if (!deriveType) {
               return;
             }
-            isSubmittingRef.current = true;
-            try {
-              if (!deriveType) {
-                return;
-              }
-              setPreviewError('');
+            setPreviewError('');
 
-              const accountsToRemove = Object.values(
-                deselectedExistingAccountsRef.current,
-              );
+            const accountsToRemove = Object.values(
+              deselectedExistingAccountsRef.current,
+            );
 
-              const hasNewAccounts =
-                isAdvancedMode ||
-                Object.values(normalSelectedIndexes).some(Boolean);
+            const hasNewAccounts =
+              isAdvancedMode ||
+              Object.values(normalSelectedIndexes).some(Boolean);
 
-              if (!hasNewAccounts && accountsToRemove.length === 0) {
-                return;
-              }
+            if (!hasNewAccounts && accountsToRemove.length === 0) {
+              return;
+            }
 
-              // Remove deselected existing accounts by their indexedAccount
-              if (accountsToRemove.length > 0) {
-                for (const account of accountsToRemove) {
-                  if (account.indexedAccountId) {
-                    const indexedAccount =
-                      await backgroundApiProxy.serviceAccount.getIndexedAccount(
-                        {
-                          id: account.indexedAccountId,
-                        },
-                      );
-                    await backgroundApiProxy.serviceAccount.removeAccount({
-                      indexedAccount,
+            // Remove deselected existing accounts by their indexedAccount
+            if (accountsToRemove.length > 0) {
+              for (const account of accountsToRemove) {
+                if (account.indexedAccountId) {
+                  const indexedAccount =
+                    await backgroundApiProxy.serviceAccount.getIndexedAccount({
+                      id: account.indexedAccountId,
                     });
-                  }
+                  await backgroundApiProxy.serviceAccount.removeAccount({
+                    indexedAccount,
+                  });
                 }
               }
+            }
 
-              // Create new accounts if any selected
-              if (hasNewAccounts) {
-                let advancedParams:
-                  | IBatchBuildAccountsAdvancedFlowParams
-                  | undefined;
-                let normalParams:
-                  | IBatchBuildAccountsNormalFlowParams
-                  | undefined;
-                if (isAdvancedMode) {
-                  advancedParams = {
-                    walletId,
-                    networkId,
-                    deriveType,
-                    fromIndex: beginIndex,
-                    toIndex: endIndex,
-                    excludedIndexes: {
-                      ...advanceExcludedIndexes,
-                      ...deselectedExistingIndexes,
-                    },
-                    saveToDb: true,
-                    hideCheckingDeviceLoading: true,
-                    showUIProgress: true,
-                  };
-                } else {
-                  normalParams = {
-                    walletId,
-                    networkId,
-                    deriveType,
-                    indexes: Object.entries(normalSelectedIndexes)
-                      .filter(([, v]) => v)
-                      .map(([k]) => parseInt(k, 10)),
-                    saveToDb: true,
-                    hideCheckingDeviceLoading: true,
-                    showUIProgress: true,
-                  };
-                }
-                if (!normalParams && !advancedParams) {
-                  throw new OneKeyLocalError(
-                    'startBatchCreateAccountsFlow params is undefined',
-                  );
-                }
-
-                showBatchCreateAccountProcessingDialog({
-                  navigation,
-                });
-                await timerUtils.wait(600);
-
-                try {
-                  const result =
-                    await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-                      isAdvancedMode
-                        ? {
-                            mode: 'advanced',
-                            saveToCache: true,
-                            params: checkIsDefined(advancedParams),
-                          }
-                        : {
-                            mode: 'normal',
-                            saveToCache: true,
-                            params: checkIsDefined(normalParams),
-                          },
-                    );
-
-                  if (result?.accountsForCreate) {
-                    setEditMode(false);
-                  }
-                } catch (error) {
-                  console.log(error);
-                  throw error;
-                }
+            // Create new accounts if any selected
+            if (hasNewAccounts) {
+              let advancedParams:
+                | IBatchBuildAccountsAdvancedFlowParams
+                | undefined;
+              let normalParams: IBatchBuildAccountsNormalFlowParams | undefined;
+              if (isAdvancedMode) {
+                advancedParams = {
+                  walletId,
+                  networkId,
+                  deriveType,
+                  fromIndex: beginIndex,
+                  toIndex: endIndex,
+                  excludedIndexes: {
+                    ...advanceExcludedIndexes,
+                    ...deselectedExistingIndexes,
+                  },
+                  saveToDb: true,
+                  hideCheckingDeviceLoading: true,
+                  showUIProgress: true,
+                };
               } else {
-                // Only removals, navigate back
-                setEditMode(false);
-                navigation.pop();
+                normalParams = {
+                  walletId,
+                  networkId,
+                  deriveType,
+                  indexes: Object.entries(normalSelectedIndexes)
+                    .filter(([, v]) => v)
+                    .map(([k]) => parseInt(k, 10)),
+                  saveToDb: true,
+                  hideCheckingDeviceLoading: true,
+                  showUIProgress: true,
+                };
               }
-            } finally {
-              isSubmittingRef.current = false;
+              if (!normalParams && !advancedParams) {
+                throw new OneKeyLocalError(
+                  'startBatchCreateAccountsFlow params is undefined',
+                );
+              }
+
+              showBatchCreateAccountProcessingDialog({
+                navigation,
+              });
+              await timerUtils.wait(600);
+
+              try {
+                const result =
+                  await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                    isAdvancedMode
+                      ? {
+                          mode: 'advanced',
+                          saveToCache: true,
+                          params: checkIsDefined(advancedParams),
+                        }
+                      : {
+                          mode: 'normal',
+                          saveToCache: true,
+                          params: checkIsDefined(normalParams),
+                        },
+                  );
+
+                if (result?.accountsForCreate) {
+                  setEditMode(false);
+                }
+              } catch (error) {
+                console.log(error);
+                throw error;
+              }
+            } else {
+              // Only removals, navigate back
+              setEditMode(false);
+              navigation.pop();
             }
           }}
         >
