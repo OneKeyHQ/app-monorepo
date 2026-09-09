@@ -190,32 +190,6 @@ export function useImportAddressForm({
     })();
   }, [validateFn]);
 
-  const isEnable = useMemo(() => {
-    const errorsCount = Object.keys(formErrors).reduce((count, name) => {
-      if (method === EImportMethod.PublicKey) {
-        return name !== 'addressValue' ? count + 1 : count;
-      }
-      if (method === EImportMethod.Address) {
-        return name !== 'publicKeyValue' ? count + 1 : count;
-      }
-      return count;
-    }, 0);
-    if (errorsCount > 0) {
-      return false;
-    }
-    if (method === EImportMethod.Address) {
-      return !addressValue.pending && !!addressValue.resolved && formIsValid;
-    }
-    return validateResult?.isValid ?? false;
-  }, [
-    method,
-    addressValue.pending,
-    addressValue.resolved,
-    validateResult,
-    formIsValid,
-    formErrors,
-  ]);
-
   const isKeyExportEnabled = useMemo(
     () =>
       Boolean(
@@ -229,6 +203,26 @@ export function useImportAddressForm({
     () => method === EImportMethod.PublicKey && isKeyExportEnabled,
     [method, isKeyExportEnabled],
   );
+
+  const isEnable = useMemo(() => {
+    const inactiveFieldName = isPublicKeyImport
+      ? 'addressValue'
+      : 'publicKeyValue';
+    if (Object.keys(formErrors).some((name) => name !== inactiveFieldName)) {
+      return false;
+    }
+    if (!isPublicKeyImport) {
+      return !addressValue.pending && !!addressValue.resolved && formIsValid;
+    }
+    return validateResult?.isValid ?? false;
+  }, [
+    isPublicKeyImport,
+    addressValue.pending,
+    addressValue.resolved,
+    validateResult,
+    formIsValid,
+    formErrors,
+  ]);
 
   onSubmitRef.current = useCallback(
     async (formContext: UseFormReturn<IFormValues>) => {

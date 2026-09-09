@@ -618,20 +618,21 @@ function WalletAccordionItemContainer({
     return result;
   }, [wallet.dbAccounts, wallet.dbIndexedAccounts]);
 
-  const enabledAccountsCount = useMemo(() => {
-    if (!isWalletEnabled) {
-      return 0;
-    }
-    return Object.values(
-      accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    ).filter((account) => account.enabled === true).length;
-    // return (
-    //   totalAccountsCount -
-    //   Object.values(
-    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    //   ).filter((account) => account.enabled === false).length
-    // );
-  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
+  const enabledAccountsCount = useMemo(
+    () =>
+      (wallet.dbAccounts ?? wallet.dbIndexedAccounts ?? []).reduce(
+        (count, account) =>
+          isAccountEnabledFn({
+            settings: accountNotificationSettings,
+            account,
+            wallet,
+          })
+            ? count + 1
+            : count,
+        0,
+      ),
+    [accountNotificationSettings, wallet],
+  );
 
   return (
     <WalletAccordionItemMemo
