@@ -2,9 +2,16 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import {
+  type IMarketAssetRouteIdentity,
+  resolveMarketAssetRouteIdentity,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 
-import { useAutoRefreshTokenDetail } from './useAutoRefreshTokenDetail';
+import {
+  useAutoRefreshTokenDetail,
+  useResolvedMarketAssetRouteIdentity,
+} from './useAutoRefreshTokenDetail';
 
 const mockFetchAssetTokenDetail = jest.fn();
 const mockFetchTokenDetail = jest.fn();
@@ -70,6 +77,24 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity',
+  () => ({
+    resolveMarketAssetRouteIdentity: jest.fn(),
+  }),
+);
+
+const mockResolveMarketAssetRouteIdentity =
+  resolveMarketAssetRouteIdentity as jest.MockedFunction<
+    typeof resolveMarketAssetRouteIdentity
+  >;
+type IResolveMarketAssetIdentity = (
+  value:
+    | IMarketAssetRouteIdentity
+    | PromiseLike<IMarketAssetRouteIdentity | undefined>
+    | undefined,
+) => void;
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketCurrentTokenLiveDataAtom: () => [
     undefined,
@@ -84,6 +109,7 @@ describe('useAutoRefreshTokenDetail', () => {
     promiseOptions = undefined;
     promiseResult = undefined;
     mockCurrencyId = 'usd';
+    mockResolveMarketAssetRouteIdentity.mockResolvedValue(undefined);
   });
 
   it('uses the asset detail owner for Top Coins routes', async () => {
@@ -195,13 +221,17 @@ describe('useAutoRefreshTokenDetail', () => {
       }),
     );
 
-    await expect(promiseFactory?.()).resolves.toEqual({
-      requestKey: 'asset:doge::doge--0:',
-      assetDetail,
+    await act(async () => {
+      await expect(promiseFactory?.()).resolves.toEqual({
+        requestKey: 'asset:doge::doge--0:',
+        assetDetail,
+      });
     });
-    await expect(promiseFactory?.()).resolves.toEqual({
-      requestKey: 'asset:doge::doge--0:',
-      assetDetail,
+    await act(async () => {
+      await expect(promiseFactory?.()).resolves.toEqual({
+        requestKey: 'asset:doge::doge--0:',
+        assetDetail,
+      });
     });
   });
 
@@ -241,17 +271,23 @@ describe('useAutoRefreshTokenDetail', () => {
     rerender({ assetId: 'btc', networkId: 'btc--0' });
     const fetchBtc = promiseFactory;
 
-    await expect(fetchBtc?.()).resolves.toEqual({
-      requestKey: 'asset:btc::btc--0:',
-      assetDetail: btcAssetDetail,
+    await act(async () => {
+      await expect(fetchBtc?.()).resolves.toEqual({
+        requestKey: 'asset:btc::btc--0:',
+        assetDetail: btcAssetDetail,
+      });
     });
 
     resolveDogeRequest?.(dogeAssetDetail);
-    await expect(pendingDogeResult).resolves.toBeUndefined();
+    await act(async () => {
+      await expect(pendingDogeResult).resolves.toBeUndefined();
+    });
 
-    await expect(fetchBtc?.()).resolves.toEqual({
-      requestKey: 'asset:btc::btc--0:',
-      assetDetail: btcAssetDetail,
+    await act(async () => {
+      await expect(fetchBtc?.()).resolves.toEqual({
+        requestKey: 'asset:btc::btc--0:',
+        assetDetail: btcAssetDetail,
+      });
     });
   });
 
@@ -296,8 +332,301 @@ describe('useAutoRefreshTokenDetail', () => {
     rerender({ skipMarketDataFetch: true });
     resolveRequest?.(assetDetail);
 
-    await expect(pendingResult).resolves.toBeUndefined();
+    await act(async () => {
+      await expect(pendingResult).resolves.toBeUndefined();
+    });
     expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('useResolvedMarketAssetRouteIdentity', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('resolves Asset identity after detail mounts', async () => {
+    let resolveIdentity: IResolveMarketAssetIdentity | undefined;
+    mockResolveMarketAssetRouteIdentity.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveIdentity = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() =>
+      useResolvedMarketAssetRouteIdentity({
+        enabled: true,
+        tokenAddress: '0xbtc',
+        networkId: 'evm--1',
+        symbol: 'BTC',
+        isNative: false,
+      }),
+    );
+
+    expect(result.current).toEqual({
+      identity: undefined,
+      isResolving: true,
+      shouldSkipMarketDataFetch: true,
+    });
+    expect(mockResolveMarketAssetRouteIdentity).toHaveBeenCalledWith({
+      tokenAddress: '0xbtc',
+      networkId: 'evm--1',
+      symbol: 'BTC',
+      isNative: false,
+    });
+
+    const identity = {
+      tokenAddress: '0xBtc',
+      networkId: 'evm--1',
+      isNative: false,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-evm--1-0xbtc',
+    };
+    await act(async () => {
+      resolveIdentity?.(identity);
+      await Promise.resolve();
+    });
+
+    expect(result.current).toEqual({
+      identity,
+      isResolving: false,
+      shouldSkipMarketDataFetch: false,
+    });
+  });
+
+  it('ignores an older lookup after the detail token changes', async () => {
+    const resolvers: IResolveMarketAssetIdentity[] = [];
+    mockResolveMarketAssetRouteIdentity.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ tokenAddress, symbol }) =>
+        useResolvedMarketAssetRouteIdentity({
+          enabled: true,
+          tokenAddress,
+          networkId: 'evm--1',
+          symbol,
+          isNative: false,
+        }),
+      {
+        initialProps: { tokenAddress: '0xfirst', symbol: 'FIRST' },
+      },
+    );
+
+    rerender({ tokenAddress: '0xsecond', symbol: 'SECOND' });
+    const secondIdentity = {
+      tokenAddress: '0xsecond',
+      networkId: 'evm--1',
+      isNative: false,
+      marketTokenId: 'second',
+      marketVariantId: 'second-variant',
+    };
+    await act(async () => {
+      resolvers[1]?.(secondIdentity);
+      await Promise.resolve();
+    });
+    expect(result.current).toEqual({
+      identity: secondIdentity,
+      isResolving: false,
+      shouldSkipMarketDataFetch: false,
+    });
+
+    await act(async () => {
+      resolvers[0]?.({
+        tokenAddress: '0xfirst',
+        networkId: 'evm--1',
+        isNative: false,
+        marketTokenId: 'first',
+        marketVariantId: 'first-variant',
+      });
+      await Promise.resolve();
+    });
+    expect(result.current).toEqual({
+      identity: secondIdentity,
+      isResolving: false,
+      shouldSkipMarketDataFetch: false,
+    });
+  });
+
+  it('ignores a lookup that finishes after the detail loses focus', async () => {
+    let resolveIdentity: IResolveMarketAssetIdentity | undefined;
+    mockResolveMarketAssetRouteIdentity.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveIdentity = resolve;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ active }) =>
+        useResolvedMarketAssetRouteIdentity({
+          enabled: true,
+          active,
+          tokenAddress: '0xbtc',
+          networkId: 'evm--1',
+          symbol: 'BTC',
+          isNative: false,
+        }),
+      { initialProps: { active: true } },
+    );
+
+    rerender({ active: false });
+    expect(result.current).toEqual({
+      identity: undefined,
+      isResolving: false,
+      shouldSkipMarketDataFetch: true,
+    });
+
+    await act(async () => {
+      resolveIdentity?.({
+        tokenAddress: '0xBtc',
+        networkId: 'evm--1',
+        isNative: false,
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+      });
+      await Promise.resolve();
+    });
+    expect(result.current).toEqual({
+      identity: undefined,
+      isResolving: false,
+      shouldSkipMarketDataFetch: true,
+    });
+  });
+
+  it('preserves a resolved native Asset identity across blur and refocus', async () => {
+    const identity = {
+      tokenAddress: '',
+      networkId: 'btc--0',
+      isNative: true,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-btc--0',
+    };
+    mockResolveMarketAssetRouteIdentity
+      .mockResolvedValueOnce(identity)
+      .mockResolvedValue(undefined);
+
+    const { result, rerender } = renderHook(
+      ({ active }) =>
+        useResolvedMarketAssetRouteIdentity({
+          enabled: true,
+          active,
+          tokenAddress: 'native',
+          networkId: 'btc--0',
+          symbol: 'BTC',
+          isNative: true,
+        }),
+      { initialProps: { active: true } },
+    );
+    await act(async () => {});
+    expect(result.current.identity).toEqual(identity);
+
+    rerender({ active: false });
+    expect(result.current.identity).toEqual(identity);
+    rerender({ active: true });
+    await act(async () => {});
+
+    expect(result.current).toEqual({
+      identity,
+      isResolving: false,
+      shouldSkipMarketDataFetch: false,
+    });
+    expect(mockResolveMarketAssetRouteIdentity).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries an unmatched Asset on refocus without a retry loop', async () => {
+    const identity = {
+      tokenAddress: '',
+      networkId: 'btc--0',
+      isNative: true,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-btc--0',
+    };
+    mockResolveMarketAssetRouteIdentity
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(identity);
+
+    const { result, rerender } = renderHook(
+      ({ active }) =>
+        useResolvedMarketAssetRouteIdentity({
+          enabled: true,
+          active,
+          tokenAddress: 'native',
+          networkId: 'btc--0',
+          symbol: 'BTC',
+          isNative: true,
+        }),
+      { initialProps: { active: true } },
+    );
+    await act(async () => {});
+    expect(result.current.identity).toBeUndefined();
+    expect(result.current.shouldSkipMarketDataFetch).toBe(false);
+    expect(mockResolveMarketAssetRouteIdentity).toHaveBeenCalledTimes(1);
+
+    rerender({ active: false });
+    rerender({ active: true });
+    await act(async () => {});
+
+    expect(result.current.identity).toEqual(identity);
+    expect(mockResolveMarketAssetRouteIdentity).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reuse a successful identity after the route network changes', async () => {
+    mockResolveMarketAssetRouteIdentity
+      .mockResolvedValueOnce({
+        tokenAddress: '',
+        networkId: 'btc--0',
+        isNative: true,
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-btc--0',
+      })
+      .mockResolvedValue(undefined);
+
+    const { result, rerender } = renderHook(
+      ({ networkId }) =>
+        useResolvedMarketAssetRouteIdentity({
+          enabled: true,
+          tokenAddress: 'native',
+          networkId,
+          symbol: 'BTC',
+          isNative: true,
+        }),
+      { initialProps: { networkId: 'btc--0' } },
+    );
+    await act(async () => {});
+    expect(result.current.identity?.marketTokenId).toBe('bitcoin');
+
+    rerender({ networkId: 'evm--1' });
+    expect(result.current.identity).toBeUndefined();
+    expect(result.current.shouldSkipMarketDataFetch).toBe(true);
+    await act(async () => {});
+
+    expect(result.current.identity).toBeUndefined();
+    expect(result.current.shouldSkipMarketDataFetch).toBe(false);
+    expect(mockResolveMarketAssetRouteIdentity).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not resolve identity when the route flag is disabled', () => {
+    const { result } = renderHook(() =>
+      useResolvedMarketAssetRouteIdentity({
+        enabled: false,
+        tokenAddress: '0xbtc',
+        networkId: 'evm--1',
+        symbol: 'BTC',
+        isNative: false,
+      }),
+    );
+
+    expect(result.current).toEqual({
+      identity: undefined,
+      isResolving: false,
+      shouldSkipMarketDataFetch: false,
+    });
+    expect(mockResolveMarketAssetRouteIdentity).not.toHaveBeenCalled();
   });
 });
 
