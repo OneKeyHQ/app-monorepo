@@ -65,3 +65,34 @@ describe('borrow claim tags', () => {
     });
   });
 });
+
+describe('borrow set-collateral tags', () => {
+  it('preserves the provider-level tag when no reserve scope is provided', () => {
+    expect(buildBorrowTag({ provider: 'Aave', action: 'setCollateral' })).toBe(
+      'borrow:aave:setCollateral',
+    );
+  });
+
+  it('round-trips a versioned reserve scope and normalizes EVM addresses', () => {
+    const tag = buildBorrowTag({
+      provider: 'Aave',
+      action: 'setCollateral',
+      setCollateralScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xAbCd',
+        reserveAddress: '0xDeF0',
+      },
+    });
+
+    expect(tag).toBe('borrow:aave:setCollateral:v1:evm--1:0xabcd:0xdef0');
+    expect(parseBorrowTag(tag)).toEqual({
+      provider: 'aave',
+      action: 'setCollateral',
+      setCollateralScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xabcd',
+        reserveAddress: '0xdef0',
+      },
+    });
+  });
+});
