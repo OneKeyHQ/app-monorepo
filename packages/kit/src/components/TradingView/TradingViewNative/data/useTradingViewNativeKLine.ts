@@ -27,7 +27,9 @@ import {
   getTradingViewNativeDebugErrorMessage,
 } from './tradingViewNativeDebugLogger';
 import {
+  DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL,
   TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+  TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS,
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT,
   getTradingViewNativeKLineInterval,
 } from './tradingViewNativeIntervals';
@@ -1630,6 +1632,10 @@ export function useTradingViewNativeKLine({
   storageNamespace?: ITradingViewNativeStorageNamespace;
 }) {
   const sourceKind = source.kind;
+  const supportedIntervals =
+    sourceKind === 'stock'
+      ? TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS
+      : TRADING_VIEW_NATIVE_KLINE_INTERVALS;
   const assetId = source.kind === 'asset' ? source.assetId : '';
   const stockId = source.kind === 'stock' ? source.stockId : '';
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
@@ -1891,10 +1897,13 @@ export function useTradingViewNativeKLine({
       interval: restoredActiveInterval,
       namespace: intervalStorageNamespace,
     }));
-  const activeInterval =
+  const selectedInterval =
     activeIntervalState.namespace === intervalStorageNamespace
       ? activeIntervalState.interval
       : restoredActiveInterval;
+  const activeInterval =
+    supportedIntervals.find((interval) => interval.value === selectedInterval)
+      ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
   const setActiveInterval = useCallback(
     (
       nextInterval:
@@ -2085,10 +2094,10 @@ export function useTradingViewNativeKLine({
     ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
   const intervalConfig = useMemo(
     () => ({
-      intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+      intervals: supportedIntervals,
       activeInterval,
     }),
-    [activeInterval],
+    [activeInterval, supportedIntervals],
   );
 
   useEffect(() => {
@@ -2119,7 +2128,9 @@ export function useTradingViewNativeKLine({
         skipNextHistoryRequest?: boolean;
       },
     ) => {
-      const nextInterval = getTradingViewNativeKLineInterval(interval);
+      const nextInterval = supportedIntervals.find(
+        (option) => option.value === interval,
+      );
       if (nextInterval) {
         viewportHistoryAbortControllerRef.current?.abort();
         viewportHistoryAbortControllerRef.current = null;
@@ -2137,7 +2148,12 @@ export function useTradingViewNativeKLine({
         });
       }
     },
-    [intervalStorageNamespace, seriesKey, setActiveInterval],
+    [
+      intervalStorageNamespace,
+      seriesKey,
+      setActiveInterval,
+      supportedIntervals,
+    ],
   );
 
   const handleRetry = useCallback(() => {
@@ -3419,6 +3435,7 @@ export function useTradingViewNativeKLine({
           const data = await fetchRequiredHistoryPage({
             historyProvider,
             request: {
+              ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
               interval,
               signal: abortController.signal,
               timeFrom,
@@ -4067,6 +4084,7 @@ export function useTradingViewNativeKLine({
         try {
           consumeHistoryRequestAttempt(requestAttemptBudget);
           const data = await historyProvider.fetchHistory({
+            ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
