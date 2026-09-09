@@ -20,7 +20,7 @@ describe('createTradingViewNativeAssetDataProvider', () => {
       interval: {
         hyperliquidValue: '1h',
         label: '1H',
-        marketWsValue: '1h',
+        marketWsValue: '1H',
         seconds: 60 * 60,
         value: '60',
       },

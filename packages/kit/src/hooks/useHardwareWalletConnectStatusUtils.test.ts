@@ -177,4 +177,38 @@ describe('hardware wallet connect status utils', () => {
       }),
     ).toBe(false);
   });
+
+  it('does not mark deprecated wallets connected through the shared device serial', () => {
+    const associatedDeviceInfo = {
+      deviceId: 'old-seed',
+      uuid: 'SERIAL',
+      connectId: 'BLE-ID',
+    };
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet: { deprecated: true, associatedDeviceInfo },
+        connectedDeviceKeys: new Set(['SERIAL', 'BLE-ID']),
+      }),
+    ).toBe(false);
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet: { deprecated: false, associatedDeviceInfo },
+        connectedDeviceKeys: new Set(['SERIAL']),
+      }),
+    ).toBe(true);
+  });
+
+  it('matches the current OneKey wallet by its BLE binding', () => {
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet: {
+          associatedDeviceInfo: {
+            connectId: 'USB-ID',
+            bleConnectId: 'BLE-ID',
+          },
+        },
+        connectedDeviceKeys: new Set(['BLE-ID']),
+      }),
+    ).toBe(true);
+  });
 });

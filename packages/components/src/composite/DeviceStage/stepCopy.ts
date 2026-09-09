@@ -6,6 +6,7 @@ import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
+  IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
 } from './type';
@@ -35,6 +36,32 @@ export function resolveErrorMessage(
     );
   }
   return message;
+}
+
+/** The notice capsule's word budget: about two lines of $headingMd
+ * inside the capsule's text width (188pt) — ~21 Latin or ~11 CJK glyphs
+ * a line, so CJK counts double. Reason-claimed titles are short by
+ * construction; this only ever weighs a failure's own raw words. */
+const ERROR_NOTICE_MAX_UNITS = 44;
+const WIDE_GLYPH = /[ᄀ-ᅟ⺀-꓏가-힯豈-﫿︰-﹏＀-｠￠-￦]/;
+
+/**
+ * Whether a failure's own words still read on the notice capsule. Past
+ * the budget the stage plays the error as the card instead (OK-62077):
+ * a raw SDK message five lines deep in a pill was unreadable.
+ */
+export function errorNoticeFits(words: string | undefined): boolean {
+  if (!words) {
+    return true;
+  }
+  let units = 0;
+  for (const glyph of words) {
+    units += WIDE_GLYPH.test(glyph) ? 2 : 1;
+    if (units > ERROR_NOTICE_MAX_UNITS) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // `off` has no words of its own: searching is part of connecting, so the
@@ -524,7 +551,10 @@ export function resolvePassphrasePanelText(
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. Only
  * capsule-pose steps reach here — including the actionless error, the
- * notice, which speaks its reason's title alone on either track. */
+ * notice, which speaks its reason's title alone on either track. A
+ * connecting wait that has stalled (`stalledOn`, the transport it rides)
+ * trades the device's name for the hint that matches the transport:
+ * wake the device and keep it near, or check the cable. */
 export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
@@ -532,6 +562,7 @@ export function resolveCapsuleText(
   vendor?: 'ledger' | 'trezor',
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
+  stalledOn?: IDeviceStageConnectionType,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
@@ -556,6 +587,17 @@ export function resolveCapsuleText(
             : STEP_TEXT[step].title,
       }),
       sub: '',
+    };
+  }
+  if (step === 'connecting' && stalledOn) {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+      sub: intl.formatMessage({
+        id:
+          stalledOn === 'bluetooth'
+            ? ETranslations.device_stage_connecting_stalled_bluetooth__desc
+            : ETranslations.device_stage_connecting_stalled_usb__desc,
+      }),
     };
   }
   return {

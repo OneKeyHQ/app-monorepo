@@ -4,8 +4,9 @@ import { isFunction, isNil, isString } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
-import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+import type { ITravelModeAwareAsyncStorage } from '@onekeyhq/shared/src/storage/appStorageTypes';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import {
@@ -23,7 +24,7 @@ type ISimpleDbEntitySavedData<T> = {
 
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
-  appStorage: AsyncStorageStatic =
+  appStorage: ITravelModeAwareAsyncStorage =
     storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
   mutex = new Semaphore(1);
@@ -94,6 +95,21 @@ abstract class SimpleDbEntityBase<T> {
 
   @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
+    const readAdmissionSnapshot = {
+      pendingWrites: this.pendingWrites,
+      writeSeq: this.writeSeq,
+    };
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.getRawDataInner(readAdmissionSnapshot),
+      onBlocked: () => null,
+    });
+  }
+
+  private async getRawDataInner(readAdmissionSnapshot?: {
+    pendingWrites: number;
+    writeSeq: number;
+  }): Promise<T | undefined | null> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
@@ -102,8 +118,9 @@ abstract class SimpleDbEntityBase<T> {
     }
     this.cachedRawDataPromise = (async () => {
       dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
-      const writeSeqBefore = this.writeSeq;
-      const pendingWritesBefore = this.pendingWrites;
+      const writeSeqBefore = readAdmissionSnapshot?.writeSeq ?? this.writeSeq;
+      const pendingWritesBefore =
+        readAdmissionSnapshot?.pendingWrites ?? this.pendingWrites;
       const readGenerationBefore = this.readGeneration;
       let savedDataStr: string | null = null;
       try {
@@ -190,49 +207,54 @@ abstract class SimpleDbEntityBase<T> {
       | T
       | ((rawData: T | null | undefined) => T)
       | ((rawData: T | null | undefined) => Promise<T>),
-  ) {
-    return this.mutex.runExclusive(async () => {
-      const updatedAt = Date.now();
-      let data: T | undefined;
+  ): Promise<T | undefined> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () =>
+        this.mutex.runExclusive(async () => {
+          const updatedAt = Date.now();
+          let data: T | undefined;
 
-      if (isFunction(dataOrBuilder)) {
-        const rawData = await this.getRawData();
-        data = await dataOrBuilder(rawData);
-      } else {
-        data = dataOrBuilder;
-      }
+          if (isFunction(dataOrBuilder)) {
+            const rawData = await this.getRawDataInner();
+            data = await dataOrBuilder(rawData);
+          } else {
+            data = dataOrBuilder;
+          }
 
-      if (this.enableCache) {
-        this.cachedRawData = data;
-      }
-      this.cachedRawDataPromise = null;
-      const savedData: ISimpleDbEntitySavedData<T> = {
-        data,
-        updatedAt,
-      };
+          if (this.enableCache) {
+            this.cachedRawData = data;
+          }
+          this.cachedRawDataPromise = null;
+          const savedData: ISimpleDbEntitySavedData<T> = {
+            data,
+            updatedAt,
+          };
 
-      dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
-      this.writeSeq += 1;
-      this.readGeneration += 1;
-      this.pendingWrites += 1;
-      try {
-        await this.appStorage.setItem(
-          this.entityKey,
-          appStorageUtils.canSaveAsObject() && !isString(savedData)
-            ? (savedData as any)
-            : JSON.stringify(savedData),
-        );
-      } finally {
-        this.pendingWrites -= 1;
-      }
+          dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
+          this.writeSeq += 1;
+          this.readGeneration += 1;
+          this.pendingWrites += 1;
+          try {
+            await this.appStorage.setItem(
+              this.entityKey,
+              appStorageUtils.canSaveAsObject() && !isString(savedData)
+                ? (savedData as any)
+                : JSON.stringify(savedData),
+            );
+          } finally {
+            this.pendingWrites -= 1;
+          }
 
-      this.updatedAt = updatedAt;
-      return data;
+          this.updatedAt = updatedAt;
+          return data;
+        }),
+      onBlocked: () => undefined,
     });
   }
 
   @backgroundMethod()
-  async clearRawData() {
+  async clearRawData(): Promise<void> {
     // Share the entity mutex with setRawData so a "Clear cache" can't interleave
     // with an in-flight setRawData. Without it, a setRawData builder that already
     // captured the old rawData would still setItem() AFTER this removeItem(),
@@ -242,11 +264,16 @@ abstract class SimpleDbEntityBase<T> {
     // clear either fully precedes a setRawData (its builder then reads empty) or
     // fully follows it (it removes what was just written). Safe from re-entrancy —
     // nothing inside calls setRawData/clearRawData.
-    return this.mutex.runExclusive(async () => {
-      if (this.enableCache) {
-        this.clearRawDataCache();
-      }
-      return this.appStorage.removeItem(this.entityKey);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () =>
+        this.mutex.runExclusive(async () => {
+          if (this.enableCache) {
+            this.clearRawDataCache();
+          }
+          return this.appStorage.removeItem(this.entityKey);
+        }),
+      onBlocked: () => undefined,
     });
   }
 }

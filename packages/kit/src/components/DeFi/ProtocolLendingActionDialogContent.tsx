@@ -76,6 +76,7 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingFallbackWarning,
 } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
@@ -288,14 +289,24 @@ function RemainingDebtChangeRow({
     <ProtocolPositionActionAnchor
       label={label}
       valueNode={
-        <XStack alignItems="center" gap="$2" flexShrink={0}>
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          gap="$2"
+          maxWidth="65%"
+          flexShrink={1}
+          minWidth={0}
+          flexWrap="wrap"
+        >
           <LendingAmountValue
             amount={currentDebt}
             symbol={symbol}
             color="$textSubdued"
           />
-          <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
-          <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
+            <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+            <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          </XStack>
         </XStack>
       }
     />
@@ -427,15 +438,14 @@ function LendingAssetSelectorRow({
   );
 }
 
-// Shared exit-side warning + inline error block. `hasDebts` withdraws surface the
-// liquidation note; a build/submit failure renders in the critical slot the same
-// way the generic portfolio dialog does.
+// Amount-specific server alerts take precedence over the generic liquidation
+// warning. Build/submit failures remain visible in their own critical slot.
 function LendingActionAlerts({
-  showLiquidationWarning,
+  showFallbackLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
 }: {
-  showLiquidationWarning: boolean;
+  showFallbackLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
 }) {
@@ -443,18 +453,10 @@ function LendingActionAlerts({
   const liquidationWarningText = intl.formatMessage({
     id: ETranslations.defi_liquidation_withdraw_desc,
   });
-  const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
-    if (!showLiquidationWarning) {
-      return true;
-    }
-    return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
-      (text) => text?.trim() === liquidationWarningText.trim(),
-    );
-  });
   const hasVisibleAlert =
-    showLiquidationWarning ||
+    showFallbackLiquidationWarning ||
     Boolean(errorMessage) ||
-    visibleCheckAmountAlerts.length > 0;
+    checkAmountAlerts.length > 0;
 
   if (!hasVisibleAlert) {
     return null;
@@ -462,7 +464,7 @@ function LendingActionAlerts({
 
   return (
     <YStack gap="$3">
-      {showLiquidationWarning ? (
+      {showFallbackLiquidationWarning ? (
         <Alert
           type="warning"
           icon="InfoCircleOutline"
@@ -479,7 +481,7 @@ function LendingActionAlerts({
           description={errorMessage}
         />
       ) : null}
-      {visibleCheckAmountAlerts.map((alert, index) => (
+      {checkAmountAlerts.map((alert, index) => (
         <Alert
           key={index}
           type="warning"
@@ -887,7 +889,7 @@ function ProtocolLendingActionDefiContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
+      showFallbackLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
     />
   ) : null;
@@ -1692,6 +1694,13 @@ function ProtocolLendingActionBorrowContent({
   }
   const isInitialLoading = !hasLoadedOnceRef.current;
   const checkAmountAlerts = actionResult.checkAmountAlerts ?? [];
+  const showFallbackLiquidationWarning =
+    shouldShowProtocolLendingFallbackWarning({
+      hasDebts,
+      isWithdraw,
+      checkAmountAlertCount: checkAmountAlerts.length,
+      riskOfLiquidationAlert: actionResult.riskOfLiquidationAlert,
+    });
   const inlineErrorMessage =
     assetsError ??
     submitError ??
@@ -1700,7 +1709,7 @@ function ProtocolLendingActionBorrowContent({
       : undefined);
   const showFeedbackRegion =
     !isInitialLoading &&
-    ((Boolean(hasDebts) && isWithdraw) ||
+    (showFallbackLiquidationWarning ||
       Boolean(inlineErrorMessage) ||
       checkAmountAlerts.length > 0);
   const bodyNode = (
@@ -1839,7 +1848,7 @@ function ProtocolLendingActionBorrowContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
+      showFallbackLiquidationWarning={showFallbackLiquidationWarning}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
     />

@@ -4,6 +4,7 @@ import {
   ensureMarketTopCoinsCategory,
   isMarketStockCategory,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -363,6 +364,19 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
   });
 });
 
+describe('Trending-style Spot Category Tests', () => {
+  test('uses the trending desktop layout for trending and Robinhood meme', () => {
+    expect(isTrendingStyleSpotCategory('trending')).toBe(true);
+    expect(isTrendingStyleSpotCategory('robinhood_meme')).toBe(true);
+  });
+
+  test('keeps other categories on the default desktop layout', () => {
+    expect(isTrendingStyleSpotCategory('x_mentioned')).toBe(false);
+    expect(isTrendingStyleSpotCategory('stocks')).toBe(false);
+    expect(isTrendingStyleSpotCategory(undefined)).toBe(false);
+  });
+});
+
 describe('Market Stock Category Detection Tests', () => {
   test('detects stock category from explicit metadata', () => {
     expect(
@@ -411,7 +425,9 @@ describe('Market Stock Category Detection Tests', () => {
 });
 
 describe('Top Coins Category Fallback Tests', () => {
-  test('inserts Top Coins before the first stock category', () => {
+  test('appends Top Coins after the spot categories', () => {
+    // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
+    // Perps is appended after every spot category.
     expect(
       ensureMarketTopCoinsCategory(
         [
@@ -422,8 +438,8 @@ describe('Top Coins Category Fallback Tests', () => {
       ),
     ).toEqual([
       { id: 'trending', name: 'Trending' },
-      { id: 'top_coins', name: 'Top Coins' },
       { id: 'stocks', name: 'Stocks' },
+      { id: 'top_coins', name: 'Top Coins' },
     ]);
   });
 

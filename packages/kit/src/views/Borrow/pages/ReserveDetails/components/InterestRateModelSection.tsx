@@ -15,7 +15,7 @@ interface IInterestRateModelSectionProps {
   utilizationRatio?: string;
 }
 
-export function InterestRateModelSection({
+function InterestRateModelSectionContent({
   networkId,
   provider,
   marketAddress,
@@ -36,8 +36,13 @@ export function InterestRateModelSection({
       return data;
     },
     [networkId, provider, marketAddress, reserveAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      revalidateOnFocus: true,
+    },
   );
+
+  const isInitialLoading = curveData === undefined && isLoading !== false;
 
   return (
     <DetailsSectionContainer
@@ -47,8 +52,20 @@ export function InterestRateModelSection({
         borrowCurve={curveData?.borrowCurve ?? []}
         supplyCurve={curveData?.supplyCurve ?? []}
         utilizationRatio={utilizationRatio}
-        isLoading={isLoading}
+        isLoading={isInitialLoading}
       />
     </DetailsSectionContainer>
+  );
+}
+
+export function InterestRateModelSection(
+  props: IInterestRateModelSectionProps,
+) {
+  const { networkId, provider, marketAddress, reserveAddress } = props;
+  return (
+    <InterestRateModelSectionContent
+      key={JSON.stringify([networkId, provider, marketAddress, reserveAddress])}
+      {...props}
+    />
   );
 }

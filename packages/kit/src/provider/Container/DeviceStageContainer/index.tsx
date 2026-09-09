@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
@@ -8,7 +8,13 @@ import type { IDeviceStageStep } from '@onekeyhq/components/src/composite/Device
 import type {
   IDeviceStageConnectionType,
   IDeviceStageVendor,
+  IDeviceStageWalletType,
 } from '@onekeyhq/components/src/composite/DeviceStage/type';
+import {
+  useDeviceStageEscapeOwner,
+  useDeviceStageExitPolicy,
+} from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
+import type { IDeviceStageWaitEnd } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,15 +31,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
-  attachDeviceStageEscapeOwner,
+  isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
-import type { IDeviceStageKeyEventTargetLike } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { IDeviceStageExitViaValue } from '@onekeyhq/shared/types/deviceStage';
 
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
@@ -45,26 +52,15 @@ import { DeviceStageQrScanner } from './DeviceStageQrScanner';
  * only `off` plays the exit — the burst scope in kit-bg guarantees `off`
  * never fires between consecutive requests of one burst.
  *
- * Close-grant policy (design hard rule #3): asks arm the close button after
- * 3s, waits after 10s, authenticity steps and error outcomes immediately;
- * once armed it stays armed for the rest of the burst. `onClose` presence
- * alone is the switch.
+ * Exit policy (design hard rule #3): the rule is resolveDeviceStageExitGrant
+ * in shared, its clocks run in useDeviceStageExitPolicy. `onClose`
+ * presence alone is the switch.
  *
  * Two tracks share the container: OneKey responses ride the hd-core
  * uiResponse channel; third-party (Trezor / Ledger) responses ride the
  * adapter channel, routed by the stage state's `vendor` +
  * `thirdPartyAction`.
  */
-
-const CLOSE_ARM_ASK_MS = 3000;
-const CLOSE_ARM_WAIT_MS = 10_000;
-const WAIT_STEPS = new Set<IDeviceStageStep>(['connecting', 'processing']);
-const AUTH_STEPS = new Set<IDeviceStageStep>([
-  'genuineCheck',
-  'authVerifying',
-  'authSuccess',
-  'authFailure',
-]);
 
 const KNOWN_DEVICE_TYPES = new Set<IHardwareDeviceType>([
   'unknown',
@@ -112,8 +108,6 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
-  const burstId = stage?.burstId ?? 0;
-  const isVendorTrack = Boolean(stage?.vendor);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -127,36 +121,24 @@ function DeviceStageContainerCmp() {
       ? 'bluetooth'
       : 'usb';
 
-  // Close grant: armed per burst, sticky until the burst leaves. The
-  // authenticity flow arms at once; so does the error outcome — its
-  // notice form leaves by itself THROUGH onClose after a readable hold,
-  // so the grant must already be there when the step lands. The teach
-  // card arms at once too: it plays BEFORE any device contact, so its
-  // close cancels nothing — it is the dialog dismiss it replaced.
-  const [armedBurstId, setArmedBurstId] = useState(0);
-  const closable = step !== 'off' && armedBurstId === burstId;
-  useEffect(() => {
-    if (step === 'off' || closable) {
-      return undefined;
-    }
-    if (
-      AUTH_STEPS.has(step) ||
-      step === 'error' ||
-      step === 'passphraseIntro' ||
-      // The OneKey Device-not-connected card is an outcome like `error`;
-      // the vendor variant is the adapter's live retry ask and keeps the
-      // ask timer.
-      (step === 'deviceNotFound' && !isVendorTrack)
-    ) {
-      setArmedBurstId(burstId);
-      return undefined;
-    }
-    const timer = setTimeout(
-      () => setArmedBurstId(burstId),
-      WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [step, burstId, closable, isVendorTrack]);
+  // The exit policy's clocks, and the wait report that rides out of them
+  // with the numbers the grant saw.
+  const handleWaitEnded = useCallback(
+    (ended: IDeviceStageWaitEnd) => {
+      defaultLogger.hardware.connection.deviceStageWaitEnded({
+        ...ended,
+        transport: connectionType,
+        vendor: stageRef.current?.vendor,
+      });
+    },
+    [connectionType],
+  );
+  const { closable, exitAllowed, stalled, clocksRef } =
+    useDeviceStageExitPolicy({
+      step,
+      activitySeq: stage?.activitySeq,
+      onWaitEnded: handleWaitEnded,
+    });
 
   /** Third-party answer path: build the adapter UI response from the
    * original action the stage state carries. Best-effort — the demo
@@ -191,69 +173,78 @@ function DeviceStageContainerCmp() {
     [serviceThirdPartyHardware],
   );
 
-  const handleClose = useCallback(() => {
-    Keyboard.dismiss();
-    const current = stageRef.current;
-    if (current?.vendor && current.step !== 'error') {
-      // Third-party cancel semantics: decline the open request when it
-      // takes a decline response, otherwise cancel the adapter call.
-      sendVendorUiResponse(false);
-    }
-    // On the error outcome the call is already over (the notice form's
-    // self-exit also lands here); on the teach card nothing has started
-    // yet; on the Device-not-connected card there is no device at all.
-    // None of them leaves anything on the device to cancel.
-    void serviceHardwareUI.deviceStageUserClose({
-      connectId: current?.connectId,
-      skipDeviceCancel:
-        Boolean(current?.vendor) ||
-        current?.step === 'error' ||
-        current?.step === 'passphraseIntro' ||
-        current?.step === 'deviceNotFound',
-    });
-  }, [sendVendorUiResponse, serviceHardwareUI]);
+  const handleExit = useCallback(
+    (via: IDeviceStageExitViaValue) => {
+      Keyboard.dismiss();
+      const current = stageRef.current;
+      const clocks = clocksRef.current;
+      const onWait = isDeviceStageMachineWaitStep(current?.step ?? 'off');
+      defaultLogger.hardware.connection.deviceStageClosed({
+        step: current?.step ?? 'off',
+        via,
+        transport: connectionType,
+        vendor: current?.vendor,
+        sinceAppearanceMs: Date.now() - clocks.appearedAt,
+        sinceWaitMs: onWait ? Date.now() - clocks.waitStartedAt : undefined,
+        stalled,
+        afterAnswer: onWait && clocks.afterAnswer,
+      });
+      if (current?.vendor && current.step !== 'error') {
+        // Third-party cancel semantics: decline the open request when it
+        // takes a decline response, otherwise cancel the adapter call.
+        sendVendorUiResponse(false);
+      }
+      // Whether a device call is left to cancel is decided behind the
+      // close, from the step it closes (shouldCancelDeviceOnStageClose).
+      void serviceHardwareUI.deviceStageUserClose({
+        connectId: current?.connectId,
+      });
+    },
+    [
+      clocksRef,
+      connectionType,
+      stalled,
+      sendVendorUiResponse,
+      serviceHardwareUI,
+    ],
+  );
+  const handleClose = useCallback(() => handleExit('close'), [handleExit]);
 
-  // Android back while the stage is up: the close button once the grant is
-  // armed, swallowed before that — never the screen underneath, which the
-  // stage's wall already hides. See resolveDeviceStageBackPress.
-  const handleBackPress = useCallback(() => {
-    const outcome = resolveDeviceStageBackPress({
-      stageIsOn: step !== 'off',
-      closable,
-    });
-    if (outcome === 'pass') {
-      return false;
-    }
-    if (outcome === 'close') {
-      handleClose();
-    }
-    return true;
-  }, [step, closable, handleClose]);
-  useBackHandler(handleBackPress, platformEnv.isNative && step !== 'off');
-  // Web / desktop: Escape, owned in the capture phase. The shared hook only
-  // calls back and never consumes the key, so the Dialog keydown handlers
-  // and the modal navigator's keyup handler underneath would still see the
-  // press and close what the stage covers. Attached once; the refs keep it
-  // reading the live step and the live decision.
-  const stageIsOnRef = useRef(step !== 'off');
-  stageIsOnRef.current = step !== 'off';
+  // Android back (and Escape) while the stage is up: the close once the
+  // exit is allowed, swallowed before that — never the screen underneath,
+  // which the stage's wall already hides. See resolveDeviceStageBackPress.
+  const handleBackPress = useCallback(
+    (via: IDeviceStageExitViaValue) => {
+      const outcome = resolveDeviceStageBackPress({
+        stageIsOn: step !== 'off',
+        exitAllowed,
+      });
+      if (outcome === 'pass') {
+        return false;
+      }
+      if (outcome === 'close') {
+        handleExit(via);
+      }
+      return true;
+    },
+    [step, exitAllowed, handleExit],
+  );
+  // One subscription for the stage's whole life; the ref hands the native
+  // BackHandler and the Escape owner the live decision.
   const handleBackPressRef = useRef(handleBackPress);
   handleBackPressRef.current = handleBackPress;
-  useEffect(() => {
-    if (
-      platformEnv.isNative ||
-      typeof globalThis.addEventListener !== 'function'
-    ) {
-      return undefined;
-    }
-    return attachDeviceStageEscapeOwner({
-      target: globalThis as unknown as IDeviceStageKeyEventTargetLike,
-      isStageOn: () => stageIsOnRef.current,
-      onEscape: () => {
-        handleBackPressRef.current();
-      },
-    });
+  const handleNativeBackPress = useCallback(
+    () => handleBackPressRef.current('back'),
+    [],
+  );
+  useBackHandler(handleNativeBackPress, platformEnv.isNative && step !== 'off');
+  const handleEscape = useCallback(() => {
+    handleBackPressRef.current('escape');
   }, []);
+  useDeviceStageEscapeOwner({
+    stageOn: step !== 'off',
+    onEscape: handleEscape,
+  });
 
   const handlePinSubmit = useCallback(
     (pin: string) => {
@@ -358,6 +349,19 @@ function DeviceStageContainerCmp() {
       );
     },
     [serviceHardwareUI, setSettings],
+  );
+
+  /** The wallet-creation fork's answer: the stage goes back to its wait,
+   * and the event hands the choice to the flow that put the card up (the
+   * onboarding creation awaiting it), the teach card's own shape. */
+  const handleSelectWalletType = useCallback(
+    (walletType: IDeviceStageWalletType) => {
+      void serviceHardwareUI.deviceStageSelectWalletType();
+      appEventBus.emit(EAppEventBusNames.DeviceStageWalletTypeSelected, {
+        walletType,
+      });
+    },
+    [serviceHardwareUI],
   );
 
   /** Attach PIN: the hidden wallet opens by its own device PIN instead of
@@ -497,6 +501,7 @@ function DeviceStageContainerCmp() {
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceName={stage?.deviceName}
       connectionType={connectionType}
+      waitStalled={stalled}
       vendor={toStageVendor(stage?.vendor)}
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}
@@ -557,6 +562,7 @@ function DeviceStageContainerCmp() {
           : undefined
       }
       onPassphraseSubmit={handlePassphraseSubmit}
+      onSelectWalletType={handleSelectWalletType}
       onPassphraseIntroContinue={handlePassphraseIntroContinue}
       passphraseIntroKeepShortcut={
         // The remembered wallet-list preference; the legacy dialog read
