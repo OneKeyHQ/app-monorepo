@@ -67,6 +67,7 @@ export default {
     'packages/kit/src/views/Onboardingv2/pages/ConfirmPinPage\\.test\\.tsx',
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useFetchWalletsWithBoundStatus\\.test\\.tsx',
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode\\.test\\.tsx',
+    'packages/kit/src/views/Setting/pages/Notifications/ManageAccountActivity\\.test\\.tsx',
     'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test\\.ts',
     'packages/kit/src/views/Swap/pages/components/SwapReviewDialog\\.test\\.tsx',
   ],

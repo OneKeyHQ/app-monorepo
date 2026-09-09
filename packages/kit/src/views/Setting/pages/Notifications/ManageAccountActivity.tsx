@@ -140,14 +140,39 @@ function AccountNotificationSettingsProvider({
       ) => IAccountActivityNotificationSettings | undefined,
     ) => {
       setSettings((v) => {
-        const s = buildSettings(v);
+        let currentSettings: IAccountActivityNotificationSettings | undefined;
+        if (v) {
+          currentSettings = {};
+          // A page opened before the removal sync can still hold deleted
+          // accounts. Prune before the updater calculates wallet quota.
+          for (const wallet of wallets.flatMap((item) => [
+            item,
+            ...(item.hiddenWallets ?? []),
+          ])) {
+            const savedWallet = v[wallet.id];
+            if (savedWallet) {
+              const accounts: IAccountActivityNotificationSettings[string]['accounts'] =
+                {};
+              for (const account of wallet.dbAccounts ??
+                wallet.dbIndexedAccounts ??
+                []) {
+                const savedAccount = savedWallet.accounts[account.id];
+                if (savedAccount) {
+                  accounts[account.id] = { ...savedAccount };
+                }
+              }
+              currentSettings[wallet.id] = { ...savedWallet, accounts };
+            }
+          }
+        }
+        const s = buildSettings(currentSettings);
         void backgroundApiProxy.serviceNotification.saveAccountActivityNotificationSettings(
           s,
         );
         return s;
       });
     },
-    [],
+    [wallets],
   );
 
   const commitSettings = useCallback(async () => {
