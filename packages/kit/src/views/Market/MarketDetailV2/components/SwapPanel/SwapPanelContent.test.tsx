@@ -340,7 +340,7 @@ describe('SwapPanelContent', () => {
     expect(screen.queryByTestId('market-token-selector')).toBeNull();
     expect(screen.queryByTestId('panel-top')).toBeNull();
     expect(screen.queryByTestId('rate-display')).toBeNull();
-    expect(screen.getByTestId('stock-trade-estimated-shares')).toBeTruthy();
+    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
     expect(screen.getByTestId('swap-quote-result')).toBeTruthy();
     expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
     expect(swapStockHeaderRightActionContainerMock).toHaveBeenCalledWith({
@@ -450,25 +450,46 @@ describe('SwapPanelContent', () => {
     expect(swapProviderInfoItemMock).not.toHaveBeenCalled();
   });
 
-  it('keeps the shares row visible without fabricating a value', () => {
-    const props = createProps();
-    props.stockDetailDesktopLayout = true;
-    props.quoteResult = {
-      info: {
-        provider: 'liquidMesh',
-        providerName: 'liquidMesh',
-      },
-      fromTokenInfo: props.swapPanel.paymentToken!,
-      toTokenInfo: props.currentMarketToken as never,
-      toAmount: '0.3219',
-    };
+  it.each([undefined, '', '  ', '0', '-1', 'NaN', 'Infinity', 'invalid'])(
+    'hides the shares row for unavailable conversion ratio %p',
+    (ratio) => {
+      const props = createProps();
+      props.stockDetailDesktopLayout = true;
+      props.stockTokenToAssetRatio = ratio;
+      props.quoteResult = {
+        info: {
+          provider: 'liquidMesh',
+          providerName: 'liquidMesh',
+        },
+        fromTokenInfo: props.swapPanel.paymentToken!,
+        toTokenInfo: props.currentMarketToken as never,
+        toAmount: '0.3219',
+      };
 
-    render(<SwapPanelContent {...props} />);
+      render(<SwapPanelContent {...props} />);
 
-    expect(
-      screen.getByTestId('stock-trade-estimated-shares').textContent,
-    ).toContain('--');
-  });
+      expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+    },
+  );
+
+  it.each([false, true])(
+    'keeps valid-ratio shares visible before a quote with loading %p',
+    (quoteLoading) => {
+      const props = createProps();
+      props.stockDetailDesktopLayout = true;
+      props.stockTokenToAssetRatio = ' 0.9985 ';
+      props.quoteLoading = quoteLoading;
+
+      render(<SwapPanelContent {...props} />);
+
+      const row = screen.getByTestId('stock-trade-estimated-shares');
+      if (quoteLoading) {
+        expect(row.querySelector('[data-testid="skeleton"]')).not.toBeNull();
+      } else {
+        expect(row.textContent).toContain('--');
+      }
+    },
+  );
 
   it('keeps the shared Connect wallet action enabled without an account', () => {
     const props = createProps();
