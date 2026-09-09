@@ -33,6 +33,11 @@ const BorrowEModeSwitch = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch'),
 );
 
+const BorrowEModeCategorySelectModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowEModeCategorySelectModal'),
+);
+
 const BorrowEModeNeedAction = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeNeedAction'),
 );
@@ -125,6 +130,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,
     component: BorrowEModeSwitch,
+  },
+  {
+    name: EModalStakingRoutes.BorrowEModeCategorySelect,
+    component: BorrowEModeCategorySelectModal,
   },
   {
     name: EModalStakingRoutes.BorrowEModeNeedAction,

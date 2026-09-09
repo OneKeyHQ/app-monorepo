@@ -353,6 +353,7 @@ function BorrowEModeSwitchView() {
             <YStack gap="$2">
               <EModeCategorySelect
                 rows={rows}
+                eModeStatus={eModeStatus}
                 currentEModeId={currentEModeId ?? 0}
                 value={effectiveSelection}
                 disabled={isSubmitting || pendingGuardActive}

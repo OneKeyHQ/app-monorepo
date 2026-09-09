@@ -137,6 +137,31 @@ export function buildEModeSelectDescription({
   return parts.join(' · ');
 }
 
+// The picker rows keep Max LTV as the subtitle rather than swapping it for
+// "Current" the way the collapsed trigger does: the whole screen exists to
+// compare that number across categories, and the Off row's ltv already carries
+// the market LTV before any e-mode boost, so it stays comparable there too.
+export function buildEModeRowSubtitle({
+  row,
+  offText,
+  formatMaxLtv,
+  needsActionText,
+}: {
+  row: IEModeRow;
+  offText: string;
+  formatMaxLtv: (ltv: string) => string;
+  needsActionText: string;
+}): string {
+  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
+  if (!parts.length && row.isOff) {
+    parts.push(offText);
+  }
+  if (row.canSwitch === false) {
+    parts.push(needsActionText);
+  }
+  return parts.join(' · ');
+}
+
 export interface IEModeSelectionResolution {
   effectiveSelection: number | null;
   userSelection: number | null;
