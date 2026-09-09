@@ -5,6 +5,7 @@ import type {
 import type {
   EManagePositionType,
   IBorrowAsset,
+  IBorrowEModeStatus,
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -22,6 +23,7 @@ export enum EModalStakingRoutes {
   BorrowTokenSelect = 'BorrowTokenSelect',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowEModeSwitch = 'BorrowEModeSwitch',
+  BorrowEModeCategorySelect = 'BorrowEModeCategorySelect',
   BorrowEModeNeedAction = 'BorrowEModeNeedAction',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
@@ -124,6 +126,14 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+  };
+  // Presentation only: the switch page owns the fetch, so handing the resolved
+  // status down keeps this screen from re-requesting and flashing a skeleton
+  // over data the caller already has.
+  [EModalStakingRoutes.BorrowEModeCategorySelect]: {
+    eModeStatus: IBorrowEModeStatus;
+    selectedEModeId: number | null;
+    onSelect: (eModeId: number) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;
