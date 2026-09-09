@@ -17,8 +17,10 @@ export type ITabMarketParamList = {
      * Network the caller already knows the token lives on. Lets the trade
      * actions resolve a networkId even when market data has not mapped
      * that platform; entries that only know the CoinGecko id omit it.
+     * Deliberately not named `networkId`: the MarketDetail dispatcher
+     * treats that key as "render V2", which needs `network`/`tokenAddress`.
      */
-    networkId?: string;
+    preferredNetworkId?: string;
   };
   [ETabMarketRoutes.MarketDetailV2]: {
     tokenAddress: string;

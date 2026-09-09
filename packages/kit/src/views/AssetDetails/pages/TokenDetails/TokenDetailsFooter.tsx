@@ -69,7 +69,7 @@ function TokenDetailsFooter(props: { networkId: string }) {
           if (tokenMetadata?.coingeckoId) {
             navigation.push(EModalAssetDetailRoutes.MarketDetail, {
               token: tokenMetadata.coingeckoId,
-              networkId,
+              preferredNetworkId: networkId,
             });
           }
         }}

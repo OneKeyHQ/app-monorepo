@@ -136,7 +136,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { token: coinGeckoId, networkId: preferredNetworkId } = route.params;
+  const { token: coinGeckoId, preferredNetworkId } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
   const isModalPage = useIsOverlayPage();
