@@ -703,6 +703,14 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       privateField: 'replacement',
     });
     await storage.removeManualLockControlState();
+    const settingsWriteSpy = jest.spyOn(mmkvInstance, 'set');
+    mockSyncNativeStorageMMKV.mockClear();
+    await storage.setSettingsControlState({
+      ...(await storage.getSettingsControlState(initialSettingsState)),
+      selectedBrowserTab: 'browser',
+    });
+    expect(settingsWriteSpy).not.toHaveBeenCalled();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
     await storage.setSettingsControlState({
       currencyInfo: { id: 'jpy', symbol: '¥' },
       hapticFeedbackEnabled: true,
@@ -711,6 +719,15 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       sensitiveEncodeKey: 'attacker-encode-key',
       theme: 'light',
     });
+    expect(settingsWriteSpy).toHaveBeenCalledTimes(1);
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+    await storage.setSettingsControlState({
+      ...(await storage.getSettingsControlState(initialSettingsState)),
+      selectedBrowserTab: 'explore',
+    });
+    expect(settingsWriteSpy).toHaveBeenCalledTimes(1);
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+    settingsWriteSpy.mockRestore();
     await storage.removeSettingsControlState();
 
     expect(JSON.parse(mmkvInstance.getString(passwordKey) ?? '')).toEqual({
