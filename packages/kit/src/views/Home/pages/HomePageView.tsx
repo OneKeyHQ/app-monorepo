@@ -86,6 +86,7 @@ import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
+import { isHomeTabActive, useHomeTabFreeze } from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -194,19 +195,27 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 // Freezing the inactive panes drops that work back to the focused tab
 // only, which is what visibly happens already and matches the
 // freeze-on-blur strategy used at the outer tab-navigator level.
+//
+// Timing matters on native: a frozen pane renders nothing, and the pager
+// flips `focusedTab` half-way through its slide. Freezing the outgoing pane
+// at that instant blanks it mid-animation, and a target pane that is still
+// frozen cannot take the tab view's scroll-offset sync (the header then
+// snaps to the wrong collapse state once it thaws). So the pressed target
+// thaws on the tab press itself, and blur only freezes after a delay.
 function FreezeInactiveHomeTab({
   tabName,
+  pressedTabName,
   children,
 }: {
   tabName: string;
+  pressedTabName: string;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
-  return (
-    <DelayedFreeze freeze={focusedTab ? focusedTab !== tabName : undefined}>
-      {children}
-    </DelayedFreeze>
+  const frozen = useHomeTabFreeze(
+    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
+  return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
 
 export function HomePageView({
@@ -919,7 +928,10 @@ export function HomePageView({
       >
         {pagerTabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
-            <FreezeInactiveHomeTab tabName={tab.name}>
+            <FreezeInactiveHomeTab
+              tabName={tab.name}
+              pressedTabName={activeTabName}
+            >
               {platformEnv.isNative ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
