@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Valor",
   "perp_portfolio_fees_paid": "Comisiones pagadas",
+  "perp_portfolio_funding_all__action": "Todo",
   "perp_portfolio_funding_by_market__title": "Financiamiento neto por mercado",
   "perp_portfolio_funding_empty__desc": "No hay pagos de financiamiento en este periodo.",
+  "perp_portfolio_funding_empty__title": "No hay pagos de funding",
   "perp_portfolio_funding_net_24h__label": "Neto 24 h",
   "perp_portfolio_funding_net_7d__label": "Neto 7 d",
   "perp_portfolio_funding_net__label": "Financiamiento neto",
   "perp_portfolio_funding_net_all_time__label": "Neto total",
+  "perp_portfolio_funding_no_history__title": "Aún no hay pagos de funding",
   "perp_portfolio_funding_total_paid__label": "Total pagado",
   "perp_portfolio_funding_total_received__label": "Total recibido",
+  "perp_portfolio_funding_view_all__desc": "Selecciona «{all}» para ver tu historial de pagos de funding.",
   "perp_portfolio_health_status_healthy": "Saludable",
   "perp_portfolio_health_status_high_risk": "Alto riesgo",
   "perp_portfolio_health_status_moderate": "Moderado",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "La transacción se revirtió on-chain",
   "word": "Palabra",
   "your_device_is_ready": "Tu dispositivo está listo",
-  "your_wallet_is_ready": "Tu monedero está listo",
-  "perp_twap_orders__title": "Orden TWAP"
+  "your_wallet_is_ready": "Tu monedero está listo"
 }

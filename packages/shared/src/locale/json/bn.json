@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "মূল্য",
   "perp_portfolio_fees_paid": "প্রদত্ত ফি",
+  "perp_portfolio_funding_all__action": "সব",
   "perp_portfolio_funding_by_market__title": "মার্কেটভিত্তিক নেট ফান্ডিং",
   "perp_portfolio_funding_empty__desc": "এই সময়ে কোনো ফান্ডিং পেমেন্ট নেই।",
+  "perp_portfolio_funding_empty__title": "কোনো ফান্ডিং পেমেন্ট নেই",
   "perp_portfolio_funding_net_24h__label": "নেট ২৪ ঘণ্টা",
   "perp_portfolio_funding_net_7d__label": "নেট ৭ দিন",
   "perp_portfolio_funding_net__label": "নেট ফান্ডিং",
   "perp_portfolio_funding_net_all_time__label": "সর্বকালীন নেট",
+  "perp_portfolio_funding_no_history__title": "এখনও কোনো ফান্ডিং পেমেন্ট নেই",
   "perp_portfolio_funding_total_paid__label": "মোট পরিশোধ",
   "perp_portfolio_funding_total_received__label": "মোট প্রাপ্ত",
+  "perp_portfolio_funding_view_all__desc": "আপনার ফান্ডিং পেমেন্টের ইতিহাস দেখতে {all} নির্বাচন করুন।",
   "perp_portfolio_health_status_healthy": "সুস্থ",
   "perp_portfolio_health_status_high_risk": "উচ্চ ঝুঁকি",
   "perp_portfolio_health_status_moderate": "মাঝারি",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "লেনদেন অন-চেইনে বাতিল হয়েছে",
   "word": "শব্দ",
   "your_device_is_ready": "আপনার ডিভাইস প্রস্তুত",
-  "your_wallet_is_ready": "আপনার ওয়ালেট প্রস্তুত",
-  "perp_twap_orders__title": "TWAP অর্ডার"
+  "your_wallet_is_ready": "আপনার ওয়ালেট প্রস্তুত"
 }

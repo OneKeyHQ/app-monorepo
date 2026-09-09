@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "मूल्य",
   "perp_portfolio_fees_paid": "भुगतान किए गए शुल्क",
+  "perp_portfolio_funding_all__action": "सभी",
   "perp_portfolio_funding_by_market__title": "बाज़ार के अनुसार नेट फंडिंग",
   "perp_portfolio_funding_empty__desc": "इस अवधि में कोई फंडिंग भुगतान नहीं है।",
+  "perp_portfolio_funding_empty__title": "कोई फ़ंडिंग भुगतान नहीं",
   "perp_portfolio_funding_net_24h__label": "नेट 24 घंटे",
   "perp_portfolio_funding_net_7d__label": "नेट 7 दिन",
   "perp_portfolio_funding_net__label": "नेट फंडिंग",
   "perp_portfolio_funding_net_all_time__label": "कुल नेट",
+  "perp_portfolio_funding_no_history__title": "अभी तक कोई फ़ंडिंग भुगतान नहीं",
   "perp_portfolio_funding_total_paid__label": "कुल भुगतान",
   "perp_portfolio_funding_total_received__label": "कुल प्राप्त",
+  "perp_portfolio_funding_view_all__desc": "अपने फ़ंडिंग भुगतान का इतिहास देखने के लिए {all} चुनें।",
   "perp_portfolio_health_status_healthy": "स्वस्थ",
   "perp_portfolio_health_status_high_risk": "उच्च जोखिम",
   "perp_portfolio_health_status_moderate": "मध्यम",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "लेनदेन ऑन-चेन पर वापस लौटा दिया गया",
   "word": "शब्द",
   "your_device_is_ready": "आपका डिवाइस तैयार है",
-  "your_wallet_is_ready": "आपका वॉलेट तैयार है",
-  "perp_twap_orders__title": "TWAP ऑर्डर"
+  "your_wallet_is_ready": "आपका वॉलेट तैयार है"
 }

@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "PnL",
   "perp_portfolio_chart_type_value": "Стоимость",
   "perp_portfolio_fees_paid": "Уплаченные комиссии",
+  "perp_portfolio_funding_all__action": "Все",
   "perp_portfolio_funding_by_market__title": "Чистый фандинг по рынкам",
   "perp_portfolio_funding_empty__desc": "За этот период платежей по фандингу нет.",
+  "perp_portfolio_funding_empty__title": "Нет платежей фандинга",
   "perp_portfolio_funding_net_24h__label": "Чистый за 24 ч",
   "perp_portfolio_funding_net_7d__label": "Чистый за 7 дн.",
   "perp_portfolio_funding_net__label": "Чистый фандинг",
   "perp_portfolio_funding_net_all_time__label": "Чистый за всё время",
+  "perp_portfolio_funding_no_history__title": "Платежей фандинга пока нет",
   "perp_portfolio_funding_total_paid__label": "Всего уплачено",
   "perp_portfolio_funding_total_received__label": "Всего получено",
+  "perp_portfolio_funding_view_all__desc": "Выберите «{all}», чтобы посмотреть историю платежей фандинга.",
   "perp_portfolio_health_status_healthy": "Хорошее",
   "perp_portfolio_health_status_high_risk": "Высокий риск",
   "perp_portfolio_health_status_moderate": "Умеренный",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "Транзакция отменена в сети",
   "word": "Слово",
   "your_device_is_ready": "Ваше устройство готово",
-  "your_wallet_is_ready": "Ваш кошелёк готов",
-  "perp_twap_orders__title": "TWAP-ордер"
+  "your_wallet_is_ready": "Ваш кошелёк готов"
 }

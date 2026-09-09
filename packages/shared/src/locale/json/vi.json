@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Giá trị",
   "perp_portfolio_fees_paid": "Phí đã thanh toán",
+  "perp_portfolio_funding_all__action": "Tất cả",
   "perp_portfolio_funding_by_market__title": "Phí tài trợ ròng theo thị trường",
   "perp_portfolio_funding_empty__desc": "Không có khoản phí tài trợ nào trong giai đoạn này.",
+  "perp_portfolio_funding_empty__title": "Không có khoản thanh toán funding",
   "perp_portfolio_funding_net_24h__label": "Ròng 24 giờ",
   "perp_portfolio_funding_net_7d__label": "Ròng 7 ngày",
   "perp_portfolio_funding_net__label": "Phí tài trợ ròng",
   "perp_portfolio_funding_net_all_time__label": "Ròng tích lũy",
+  "perp_portfolio_funding_no_history__title": "Chưa có khoản thanh toán funding nào",
   "perp_portfolio_funding_total_paid__label": "Tổng đã trả",
   "perp_portfolio_funding_total_received__label": "Tổng đã nhận",
+  "perp_portfolio_funding_view_all__desc": "Chọn {all} để xem lịch sử thanh toán funding của bạn.",
   "perp_portfolio_health_status_healthy": "Tốt",
   "perp_portfolio_health_status_high_risk": "Rủi ro cao",
   "perp_portfolio_health_status_moderate": "Trung bình",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "Giao dịch đã bị hoàn tác trên chuỗi",
   "word": "Từ",
   "your_device_is_ready": "Thiết bị của bạn đã sẵn sàng",
-  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng",
-  "perp_twap_orders__title": "Lệnh TWAP"
+  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng"
 }

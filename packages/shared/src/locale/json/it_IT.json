@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Valore",
   "perp_portfolio_fees_paid": "Commissioni pagate",
+  "perp_portfolio_funding_all__action": "Tutto",
   "perp_portfolio_funding_by_market__title": "Finanziamento netto per mercato",
   "perp_portfolio_funding_empty__desc": "Nessun pagamento di finanziamento in questo periodo.",
+  "perp_portfolio_funding_empty__title": "Nessun pagamento di funding",
   "perp_portfolio_funding_net_24h__label": "Netto 24 h",
   "perp_portfolio_funding_net_7d__label": "Netto 7 g",
   "perp_portfolio_funding_net__label": "Finanziamento netto",
   "perp_portfolio_funding_net_all_time__label": "Netto totale",
+  "perp_portfolio_funding_no_history__title": "Ancora nessun pagamento di funding",
   "perp_portfolio_funding_total_paid__label": "Totale pagato",
   "perp_portfolio_funding_total_received__label": "Totale ricevuto",
+  "perp_portfolio_funding_view_all__desc": "Seleziona «{all}» per visualizzare la cronologia dei tuoi pagamenti di funding.",
   "perp_portfolio_health_status_healthy": "Sano",
   "perp_portfolio_health_status_high_risk": "Alto rischio",
   "perp_portfolio_health_status_moderate": "Moderato",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "Transazione annullata on-chain",
   "word": "Parola",
   "your_device_is_ready": "Il tuo dispositivo è pronto",
-  "your_wallet_is_ready": "Il tuo portafoglio è pronto",
-  "perp_twap_orders__title": "Ordine TWAP"
+  "your_wallet_is_ready": "Il tuo portafoglio è pronto"
 }

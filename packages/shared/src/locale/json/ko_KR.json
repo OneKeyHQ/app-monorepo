@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "가치",
   "perp_portfolio_fees_paid": "지불한 수수료",
+  "perp_portfolio_funding_all__action": "모두",
   "perp_portfolio_funding_by_market__title": "마켓별 순 펀딩비",
   "perp_portfolio_funding_empty__desc": "이 기간에는 펀딩 지급 내역이 없습니다.",
+  "perp_portfolio_funding_empty__title": "펀딩 지급 내역이 없습니다",
   "perp_portfolio_funding_net_24h__label": "24시간 순액",
   "perp_portfolio_funding_net_7d__label": "7일 순액",
   "perp_portfolio_funding_net__label": "순 펀딩비",
   "perp_portfolio_funding_net_all_time__label": "누적 순액",
+  "perp_portfolio_funding_no_history__title": "아직 펀딩 지급 내역이 없습니다",
   "perp_portfolio_funding_total_paid__label": "총 지급액",
   "perp_portfolio_funding_total_received__label": "총 수령액",
+  "perp_portfolio_funding_view_all__desc": "펀딩 지급 내역을 보려면 {all}를 선택하세요.",
   "perp_portfolio_health_status_healthy": "양호",
   "perp_portfolio_health_status_high_risk": "높은 위험",
   "perp_portfolio_health_status_moderate": "보통",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "트랜잭션이 온체인에서 되돌려졌습니다",
   "word": "워드",
   "your_device_is_ready": "기기가 준비되었습니다",
-  "your_wallet_is_ready": "지갑이 준비되었습니다",
-  "perp_twap_orders__title": "TWAP 주문"
+  "your_wallet_is_ready": "지갑이 준비되었습니다"
 }
