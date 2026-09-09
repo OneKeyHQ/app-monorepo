@@ -286,9 +286,11 @@ function MarketDetailV2(
     [setSplitViewDetailFullscreen],
   );
   const handleChartSwitch = useCallback(() => {
-    handleChartFullscreenChange(false);
+    if (!isDesktopChartLayout) {
+      handleChartFullscreenChange(false);
+    }
     setIsTradingViewNative((currentValue) => !currentValue);
-  }, [handleChartFullscreenChange]);
+  }, [handleChartFullscreenChange, isDesktopChartLayout]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);
