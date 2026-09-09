@@ -48,11 +48,13 @@ const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
 >();
 const mockPurchaseByCrypto = jest.fn(async () => undefined);
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
+const mockPurchasePackageNative = jest.fn(async () => undefined);
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
   isNativeAndroid: false,
   isNativeAndroidGooglePlay: false,
   isNativeIOS: false,
+  isMas: false,
 };
 const mockListItem = jest.fn<
   null,
@@ -155,6 +157,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNativeIOS() {
       return mockPlatformEnv.isNativeIOS;
     },
+    get isMas() {
+      return mockPlatformEnv.isMas;
+    },
   },
 }));
 
@@ -171,6 +176,7 @@ jest.mock('../../hooks/usePrimeInfiniPurchase', () => ({
 jest.mock('../../hooks/usePrimePayment', () => ({
   usePrimePayment: () => ({
     purchasePackageWeb: mockPurchasePackageWeb,
+    purchasePackageNative: mockPurchasePackageNative,
   }),
 }));
 
@@ -221,6 +227,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockPlatformEnv.isNativeAndroid = false;
     mockPlatformEnv.isNativeAndroidGooglePlay = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
     mockPackagesResult = undefined;
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockDialogShow.mockReturnValue({
@@ -256,6 +263,26 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       featureName: undefined,
       createNewPayment: false,
     });
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('starts App Store purchase on MAS without offering credit card or crypto', async () => {
+    mockPlatformEnv.isMas = true;
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+    await act(async () => {
+      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+    });
+    expect(mockPurchasePackageNative).toHaveBeenCalledWith({
+      subscriptionPeriod: 'P1Y',
+      featureName: undefined,
+    });
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
 

@@ -4,9 +4,11 @@ const {
   baseFiles,
   macExcludePrebuilds,
 } = require('./electron-builder-files.config');
+const { verifyBuild } = require('./scripts/build-revenuecat-macos');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'beforePack': async () => verifyBuild(),
   'appId': 'so.onekey.wallet',
   'buildVersion': `${process.env.BUILD_NUMBER}0`,
   'dmg': {
@@ -24,6 +26,21 @@ module.exports = {
     'entitlements': 'entitlements.mac.plist',
     'x64ArchFiles': '*',
     'extraResources': [
+      {
+        'from': 'native-modules/revenuecat-macos/build/universal',
+        'to': 'revenuecat',
+        'filter': [
+          '*.node',
+          '*.dylib',
+          '*.js',
+          '*-LICENSE.txt',
+          'build-info.json',
+        ],
+      },
+      {
+        'from': 'native-modules/revenuecat-macos/build/universal/Resources',
+        'to': '.',
+      },
       {
         'from': 'resources/icons/Assets.car',
         'to': 'Assets.car',

@@ -323,7 +323,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apps/desktop
-          npx electron-builder build -m --config electron-builder-mas.config.js --publish never
+          yarn build:electron:mas --publish never
 
       - name: Clean up MAS keychain and provisioning profile
         if: ${{ always() }}
