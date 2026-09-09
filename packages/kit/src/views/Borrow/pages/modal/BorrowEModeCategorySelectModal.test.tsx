@@ -24,9 +24,6 @@ jest.mock('@onekeyhq/shared/src/routes', () => ({
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
 
-  const media = { gtMd: true };
-  (globalThis as Record<string, unknown>).__eModeSelectMedia = media;
-
   type IMockProps = Record<string, unknown> & { children?: React.ReactNode };
 
   const asDom = (tag: string) => {
@@ -76,16 +73,8 @@ jest.mock('@onekeyhq/components', () => {
     Stack: asDom('div'),
     XStack: asDom('div'),
     YStack: asDom('div'),
-    useMedia: () => media,
   };
 });
-
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  __esModule: true,
-  TokenGroup: ({ tokens }: { tokens: { tokenImageUri?: string }[] }) => (
-    <span data-tokens={tokens.map((t) => t.tokenImageUri).join(',')} />
-  ),
-}));
 
 const pop = jest.fn();
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -105,10 +94,6 @@ import { fireEvent, render } from '@testing-library/react';
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
 import BorrowEModeCategorySelectModal from './BorrowEModeCategorySelectModal';
-
-const media = (globalThis as Record<string, any>).__eModeSelectMedia as {
-  gtMd: boolean;
-};
 
 function token(symbol: string) {
   return {
@@ -137,25 +122,7 @@ const eModeStatus: IBorrowEModeStatus = {
           boostedLTV: true,
           borrowable: true,
         },
-        {
-          reserveAddress: '0xusdt',
-          token: token('USDT'),
-          boostedLTV: true,
-          borrowable: false,
-        },
       ],
-    },
-    {
-      eModeId: 3,
-      label: 'wide',
-      ltv: '91',
-      disabled: false,
-      assets: ['A', 'B', 'C', 'D', 'E', 'F'].map((symbol) => ({
-        reserveAddress: `0x${symbol}`,
-        token: token(symbol),
-        boostedLTV: true,
-        borrowable: true,
-      })),
     },
     {
       eModeId: 2,
@@ -196,7 +163,6 @@ const rowOf = (container: HTMLElement, eModeId: number) =>
 describe('BorrowEModeCategorySelectModal', () => {
   beforeEach(() => {
     pop.mockClear();
-    media.gtMd = true;
   });
 
   it('lists the synthetic Off row ahead of every backend category', () => {
@@ -211,40 +177,8 @@ describe('BorrowEModeCategorySelectModal', () => {
     ).toEqual([
       'borrow-e-mode-category-row-0',
       'borrow-e-mode-category-row-1',
-      'borrow-e-mode-category-row-3',
       'borrow-e-mode-category-row-2',
     ]);
-  });
-
-  it('splits the category assets by the capability each flag actually grants', () => {
-    const { container } = renderModal();
-    const groups = Array.from(
-      rowOf(container, 1).querySelectorAll('[data-tokens]'),
-    ).map((node) => node.getAttribute('data-tokens'));
-
-    // USDT is boosted collateral but not borrowable, so it must not appear in
-    // the borrowable group.
-    expect(groups).toEqual(['USDC.png,USDT.png', 'USDC.png']);
-  });
-
-  it('spells out an empty capability instead of leaving the slot blank', () => {
-    const { container } = renderModal();
-    const row = rowOf(container, 2);
-
-    expect(
-      Array.from(row.querySelectorAll('[data-tokens]')).map((node) =>
-        node.getAttribute('data-tokens'),
-      ),
-    ).toEqual(['WETH.png']);
-    expect(row.textContent).toContain('-');
-  });
-
-  it('shows no capability rows on the Off row, which covers no category', () => {
-    const { container } = renderModal();
-    const off = rowOf(container, 0);
-
-    expect(off.querySelectorAll('[data-tokens]')).toHaveLength(0);
-    expect(off.textContent).not.toContain('defi_collateral');
   });
 
   it('keeps Max LTV as the subtitle and moves the active marker to a badge', () => {
@@ -268,6 +202,16 @@ describe('BorrowEModeCategorySelectModal', () => {
     expect(rowOf(container, 2).textContent).toContain('defi_emode_need_action');
   });
 
+  // Which assets a category covers is shown by EModeAssetsTable once a category
+  // is picked, so the rows deliberately carry no asset list of their own.
+  it('leaves the asset coverage to the switch page', () => {
+    const { container } = renderModal();
+
+    expect(container.textContent).not.toContain('defi_collateral');
+    expect(container.textContent).not.toContain('defi_borrowable');
+    expect(container.querySelector('[data-tokens]')).toBeNull();
+  });
+
   it('reports the pick and closes itself', () => {
     const { container, onSelect } = renderModal();
 
@@ -284,47 +228,5 @@ describe('BorrowEModeCategorySelectModal', () => {
 
     expect(onSelect).not.toHaveBeenCalled();
     expect(pop).not.toHaveBeenCalled();
-  });
-
-  // TokenGroup's built-in badge is a rounded rect tucked under round avatars,
-  // so the remainder is sliced off here and spelled as text instead.
-  it('caps the avatars and spells the remainder as text', () => {
-    const { container, unmount } = renderModal();
-    const wide = rowOf(container, 3);
-
-    expect(
-      wide.querySelector('[data-tokens]')?.getAttribute('data-tokens'),
-    ).toBe('A.png,B.png,C.png,D.png');
-    expect(wide.textContent).toContain('+2');
-    unmount();
-
-    // 320px cannot fit the Russian label next to four avatars, so phones drop
-    // one and the remainder absorbs it.
-    media.gtMd = false;
-    const phone = renderModal();
-    const phoneWide = rowOf(phone.container, 3);
-
-    expect(
-      phoneWide.querySelector('[data-tokens]')?.getAttribute('data-tokens'),
-    ).toBe('A.png,B.png,C.png');
-    expect(phoneWide.textContent).toContain('+3');
-  });
-
-  it('leaves no remainder when the category fits', () => {
-    const { container } = renderModal();
-
-    expect(rowOf(container, 1).textContent).not.toMatch(/\+\d/);
-  });
-
-  // The capability labels are wide enough to push the category name off a phone
-  // row, so they move under the subtitle rather than being dropped.
-  it('keeps both capability rows on narrow screens', () => {
-    media.gtMd = false;
-    const { container } = renderModal();
-    const row = rowOf(container, 1);
-
-    expect(row.textContent).toContain('defi_collateral');
-    expect(row.textContent).toContain('defi_borrowable');
-    expect(row.querySelectorAll('[data-tokens]')).toHaveLength(2);
   });
 });
