@@ -55,6 +55,10 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/kit/src/components/MultipleClickStack', () => ({
+  MultipleClickStack: ({ children }: { children?: ReactNode }) => children,
+}));
+
 describe('KeylessWalletBackupInfo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
