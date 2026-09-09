@@ -145,6 +145,26 @@ describe('usePerpUserFundingHistory', () => {
     });
     expect(mockGetUserFundingHistory).toHaveBeenCalledWith({
       accountAddress: '0xAbC',
+      force: false,
+    });
+  });
+
+  it('bypasses cached results only for explicit refreshes', async () => {
+    mockGetUserFundingHistory.mockResolvedValue([fundingRecord]);
+    const { result } = renderHook(() => usePerpUserFundingHistory());
+    const queryFn = mockUsePromiseResult.mock.calls.at(
+      -1,
+    )?.[0] as () => Promise<IMockFundingHistoryResult>;
+    await result.current.refresh();
+    await queryFn();
+    expect(mockGetUserFundingHistory).toHaveBeenLastCalledWith({
+      accountAddress: '0xAbC',
+      force: true,
+    });
+    await queryFn();
+    expect(mockGetUserFundingHistory).toHaveBeenLastCalledWith({
+      accountAddress: '0xAbC',
+      force: false,
     });
   });
 

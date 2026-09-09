@@ -131,6 +131,7 @@ export function usePerpUserFundingHistory({
   const lastSuccessfulResultRef = useRef<IUserFundingHistoryResult | undefined>(
     undefined,
   );
+  const forceRefreshAddressRef = useRef<string | undefined>(undefined);
   const query = usePromiseResult<IUserFundingHistoryResult>(
     async () => {
       if (!accountAddress) {
@@ -142,10 +143,13 @@ export function usePerpUserFundingHistory({
 
       const normalizedRequestAddress = accountAddress.toLowerCase();
       const previousResult = lastSuccessfulResultRef.current;
+      const force = forceRefreshAddressRef.current === normalizedRequestAddress;
+      forceRefreshAddressRef.current = undefined;
       try {
         const records =
           await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
             accountAddress,
+            force,
           });
         return {
           accountAddress: normalizedRequestAddress,
@@ -186,6 +190,10 @@ export function usePerpUserFundingHistory({
         : undefined;
   }, [isCurrentAccountResult, normalizedAccountAddress, query.result]);
   const { run: refreshFundingHistory } = query;
+  const refresh = useCallback(() => {
+    forceRefreshAddressRef.current = normalizedAccountAddress;
+    return refreshFundingHistory();
+  }, [normalizedAccountAddress, refreshFundingHistory]);
   useEffect(() => {
     if (!isActive || !isCurrentAccountResult || query.isLoading) return;
 
@@ -224,7 +232,7 @@ export function usePerpUserFundingHistory({
     records,
     isError,
     isLoading,
-    refresh: query.run,
+    refresh,
   };
 }
 
