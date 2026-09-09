@@ -21,6 +21,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IInputProps, IStackProps } from '@onekeyhq/components';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -161,6 +162,26 @@ const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
   return `#${aa}${rrggbb}`;
 };
 
+const getStableLayoutWidth = (
+  event: LayoutChangeEvent,
+  layoutTarget: TamaguiElement | null,
+): number => {
+  const measuredWidth = event.nativeEvent.layout.width;
+  if (platformEnv.isNative) {
+    return measuredWidth;
+  }
+
+  // React Native Web measures onLayout with getBoundingClientRect(), so an
+  // ancestor's entry scale leaks into the reported width. offsetWidth keeps
+  // auto-sizing tied to the transform-independent layout box.
+  const offsetWidth = (
+    layoutTarget as unknown as { offsetWidth?: unknown } | null
+  )?.offsetWidth;
+  return typeof offsetWidth === 'number' && offsetWidth > 0
+    ? offsetWidth
+    : measuredWidth;
+};
+
 export type ISendAmountAutoSizeInputRef = {
   focus: () => void;
   blur: () => void;
@@ -222,6 +243,7 @@ function SendAutoSizeAmountInputComponent(
   const placeholderColor = normalizeAutoSizeNativeColor(theme.textDisabled.val);
 
   const [layoutWidth, setLayoutWidth] = useState(0);
+  const layoutTargetRef = useRef<TamaguiElement | null>(null);
   const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
   const forceWriteBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -312,7 +334,9 @@ function SendAutoSizeAmountInputComponent(
 
   const handleInputLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const nextWidth = Math.round(event.nativeEvent.layout.width);
+      const nextWidth = Math.round(
+        getStableLayoutWidth(event, layoutTargetRef.current),
+      );
       if (nextWidth > 0) {
         setLayoutWidth((prev) => (prev === nextWidth ? prev : nextWidth));
       }
@@ -434,6 +458,7 @@ function SendAutoSizeAmountInputComponent(
 
   return (
     <Stack
+      ref={layoutTargetRef}
       alignItems="center"
       width="100%"
       {...rest}
