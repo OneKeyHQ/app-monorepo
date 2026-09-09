@@ -1193,7 +1193,11 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            {platformEnv.isNative ? null : (
+            {/* Native keeps the alerts inside the collapsible header (see
+                renderHeader), but that header only mounts with the wallet
+                content. Without a usable wallet fall back to the outer slot
+                so the offline and notification-permission alerts still run. */}
+            {platformEnv.isNative && !hasNoUsableWallet ? null : (
               <Stack {...homePageContentMaxWidthSx}>
                 <HomeAlerts />
               </Stack>

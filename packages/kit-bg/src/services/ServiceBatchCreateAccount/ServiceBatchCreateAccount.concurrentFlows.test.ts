@@ -237,4 +237,78 @@ describe('ServiceBatchCreateAccount overlapping flows', () => {
     expect(progressInfoSeenByBuild[2]).not.toBe(progressInfoSeenByBuild[0]);
     expect(progressInfoSeenByBuild[3]).toBe(progressInfoSeenByBuild[2]);
   });
+
+  it('all-network 流程在等待租约期间被取消后，拿到租约也不能继续创建', async () => {
+    const { service, firstBuildStarted, firstBuildGate, batchBuildAccounts } =
+      buildService();
+    const params = {
+      walletId: HD_WALLET_ID,
+      fromIndex: 0,
+      toIndex: 0,
+      excludedIndexes: {},
+      saveToDb: true,
+      customNetworks: [],
+      autoHandleExitError: true,
+    };
+
+    const flowA = service.startBatchCreateAccountsFlowForAllNetwork(params);
+    await raceWithTimeout(firstBuildStarted.promise, 'first build');
+    const flowB = service.startBatchCreateAccountsFlowForAllNetwork(params);
+    // User taps Cancel in the ProcessingDialog while flow B is queued.
+    await service.cancelBatchCreateAccountsFlow();
+    firstBuildGate.resolve();
+
+    await expect(raceWithTimeout(flowA, 'flow A')).rejects.toThrow();
+    await expect(raceWithTimeout(flowB, 'flow B')).rejects.toThrow();
+    // Only flow A's gated first network ever reached account building.
+    expect(batchBuildAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it('普通流程在等待租约期间被取消后，拿到租约也不能继续创建', async () => {
+    const { service, firstBuildStarted, firstBuildGate, batchBuildAccounts } =
+      buildService();
+    const payload = {
+      mode: 'normal' as const,
+      params: {
+        walletId: HD_WALLET_ID,
+        networkId: 'evm--1',
+        deriveType: 'default' as const,
+        indexes: [0],
+        saveToDb: true,
+      },
+    };
+
+    const flowA = service.startBatchCreateAccountsFlow(payload);
+    await raceWithTimeout(firstBuildStarted.promise, 'first build');
+    const flowB = service.startBatchCreateAccountsFlow(payload);
+    await service.cancelBatchCreateAccountsFlow();
+    firstBuildGate.resolve();
+
+    await expect(raceWithTimeout(flowA, 'flow A')).rejects.toThrow();
+    await expect(raceWithTimeout(flowB, 'flow B')).rejects.toThrow();
+    expect(batchBuildAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it('流程进入之前残留的取消不能影响新流程', async () => {
+    const { service, firstBuildGate, batchBuildAccounts } = buildService();
+    const payload = {
+      mode: 'normal' as const,
+      params: {
+        walletId: HD_WALLET_ID,
+        networkId: 'evm--1',
+        deriveType: 'default' as const,
+        indexes: [0],
+        saveToDb: true,
+      },
+    };
+
+    // Cancel left over from an earlier flow, before this request enters.
+    await service.cancelBatchCreateAccountsFlow();
+    firstBuildGate.resolve();
+    const flow = service.startBatchCreateAccountsFlow(payload);
+
+    await raceWithTimeout(flow, 'flow');
+    expect(batchBuildAccounts).toHaveBeenCalledTimes(2);
+    expect(service.isCreateFlowCancelled).toBe(false);
+  });
 });

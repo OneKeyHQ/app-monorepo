@@ -327,6 +327,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   isCreateFlowCancelled = false;
 
+  // Monotonic id stamped at the synchronous entry of every batch-create flow
+  // request. cancelBatchCreateAccountsFlow() records the latest id, so a flow
+  // that was cancelled while queued behind the hardware operation lease can
+  // tell that cancel apart from stale flags left by an earlier flow.
+  latestFlowRequestId = 0;
+
+  cancelledFlowRequestId = 0;
+
   buildNetworkAccountCacheKey({
     walletId,
     networkId,
@@ -349,8 +357,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.networkAccountsCache = {};
   }
 
-  beforeStartFlow() {
-    this.isCreateFlowCancelled = false;
+  beforeStartFlow({ flowRequestId }: { flowRequestId: number }) {
+    // Runs once the flow owns the hardware lease. A cancel issued after this
+    // request entered (while it waited for the lease) must survive the reset;
+    // a cancel from before it entered belongs to an earlier flow and is
+    // dropped, matching the pre-lease reset semantics.
+    this.isCreateFlowCancelled = this.cancelledFlowRequestId >= flowRequestId;
     this.progressInfo = undefined;
   }
 
@@ -382,6 +394,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
           params: IBatchBuildAccountsNormalFlowParams;
         },
   ) {
+    // Assigned before any await so a cancel that lands while this request
+    // waits for the hardware lease is attributed to it.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
     let indexes: number[] = [];
     let excludedIndexes: {
       [index: number]: true;
@@ -427,7 +443,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
         // hardware operation lease. Resetting before acquiring it would wipe
         // the progressInfo of a flow that is still running (OK-62413).
         flowStarted = true;
-        this.beforeStartFlow();
+        this.beforeStartFlow({ flowRequestId });
+        // Fail fast before touching the device when the user cancelled the
+        // ProcessingDialog while this request was queued for the lease.
+        this.checkIfCancelled({
+          saveToDb,
+          showUIProgress: payload.params.showUIProgress,
+        });
 
         let customNetworks: IBatchCreateCustomNetworkParams[] = [
           {
@@ -1323,6 +1345,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
       error: IOneKeyError;
     }[];
   }> {
+    // See startBatchCreateAccountsFlow: stamp the request before any await.
+    this.latestFlowRequestId += 1;
+    const flowRequestId = this.latestFlowRequestId;
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
@@ -1338,8 +1363,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
-        // See startBatchCreateAccountsFlow: reset only while owning the lease.
-        this.beforeStartFlow();
+        // See startBatchCreateAccountsFlow: reset only while owning the lease
+        // and honour a cancel received while queued for it.
+        this.beforeStartFlow({ flowRequestId });
+        this.checkIfCancelled({
+          saveToDb: params.saveToDb,
+          showUIProgress: params.showUIProgress,
+        });
 
         const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
@@ -1626,6 +1656,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   async cancelBatchCreateAccountsFlow() {
     this.isCreateFlowCancelled = true;
+    // Also cancel every request that already entered but is still waiting
+    // for the hardware lease (see beforeStartFlow).
+    this.cancelledFlowRequestId = this.latestFlowRequestId;
     this.progressInfo = undefined;
   }
 
