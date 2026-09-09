@@ -382,8 +382,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
           params: IBatchBuildAccountsNormalFlowParams;
         },
   ) {
-    this.beforeStartFlow();
-
     let indexes: number[] = [];
     let excludedIndexes: {
       [index: number]: true;
@@ -422,8 +420,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
+    let flowStarted = false;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
+        // Reset the singleton flow state only once this flow owns the
+        // hardware operation lease. Resetting before acquiring it would wipe
+        // the progressInfo of a flow that is still running (OK-62413).
+        flowStarted = true;
+        this.beforeStartFlow();
+
         let customNetworks: IBatchCreateCustomNetworkParams[] = [
           {
             networkId: payload.params.networkId,
@@ -546,10 +551,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
     return flow.catch((error) => {
       // Emit only for a UI-progress flow's prepare-phase escape; background
       // (no-UI) flows must not broadcast to the shared progress event.
+      // A flow rejected before its callback ran never touched the singleton
+      // state, so stale flags from an earlier flow must not suppress it.
       if (
-        !this.isCreateFlowCancelled &&
-        !this.progressInfo &&
-        payload.params.showUIProgress
+        payload.params.showUIProgress &&
+        (!flowStarted || (!this.isCreateFlowCancelled && !this.progressInfo))
       ) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: 0,
@@ -1317,8 +1323,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
       error: IOneKeyError;
     }[];
   }> {
-    this.beforeStartFlow();
-
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
@@ -1334,6 +1338,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
+        // See startBatchCreateAccountsFlow: reset only while owning the lease.
+        this.beforeStartFlow();
+
         const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
