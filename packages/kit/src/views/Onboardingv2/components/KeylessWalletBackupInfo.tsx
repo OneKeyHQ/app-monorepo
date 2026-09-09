@@ -14,6 +14,7 @@ import {
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -95,6 +96,7 @@ export function KeylessWalletBackupInfo({
       await handleDownload();
       Toast.success({ title: 'Backup data downloaded' });
     } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
       Toast.error({
         title: error instanceof Error ? error.message : String(error),
       });
@@ -110,6 +112,16 @@ export function KeylessWalletBackupInfo({
   return (
     <MultipleClickStack
       devSettingsOnly
+      onSinglePress={handleShowDetails}
+      testID={OnboardingTestIDs.iCloudBackupKeylessWalletHint}
+      accessibilityRole="button"
+      bg="$bgSubdued"
+      borderRadius="$4"
+      px="$4"
+      py="$3"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
       debugComponent={
         platformEnv.isDev && backupRecordId ? (
           <Button
@@ -122,21 +134,7 @@ export function KeylessWalletBackupInfo({
         ) : null
       }
     >
-      <XStack
-        testID={OnboardingTestIDs.iCloudBackupKeylessWalletHint}
-        accessibilityRole="button"
-        cursor="pointer"
-        userSelect="none"
-        gap="$3"
-        alignItems="flex-start"
-        bg="$bgSubdued"
-        borderRadius="$4"
-        px="$4"
-        py="$3"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={handleShowDetails}
-      >
+      <XStack userSelect="none" gap="$3" alignItems="flex-start">
         <Icon name="LockOutline" size="$5" color="$iconSubdued" mt="$0.5" />
         <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
           {intl.formatMessage({

@@ -22,9 +22,19 @@ export async function downloadAsFile({
   const sharePath = platformEnv.isNativeAndroid
     ? `file://${filepath}`
     : filepath;
-  await RNShare.shareAsync(sharePath, {
-    dialogTitle: 'OneKey Cloud Backup',
-    mimeType: 'application/json',
-    UTI: 'public.json',
-  });
+  try {
+    await RNShare.shareAsync(sharePath, {
+      dialogTitle: 'OneKey Cloud Backup',
+      mimeType: 'application/json',
+      UTI: 'public.json',
+    });
+  } finally {
+    try {
+      if (await RNFS.exists(filepath)) {
+        await RNFS.unlink(filepath);
+      }
+    } catch {
+      // Sharing has already completed; cleanup is best effort.
+    }
+  }
 }
