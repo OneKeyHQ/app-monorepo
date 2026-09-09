@@ -42,15 +42,37 @@ export async function resolveMarketTopCoinNavigationTarget(
   if (!networkInfo || !hasTokenIdentity) {
     throw new OneKeyLocalError('Invalid market asset variant');
   }
-  const decimals = selectedVariant.isNative ? networkInfo.decimals : undefined;
-
+  let decimals: number | undefined;
+  if (selectedVariant.isNative) {
+    decimals = networkInfo.decimals;
+  } else {
+    try {
+      const tokenInfo =
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+          networkId: selectedVariant.networkId,
+          tokenAddress: selectedVariant.tokenAddress,
+        });
+      decimals = tokenInfo?.info?.decimals;
+    } catch {
+      decimals = undefined;
+    }
+  }
+  if (
+    typeof decimals !== 'number' ||
+    !Number.isFinite(decimals) ||
+    !Number.isInteger(decimals) ||
+    decimals < 0
+  ) {
+    decimals = undefined;
+  }
   return {
     address: selectedVariant.tokenAddress,
     change24h: toFiniteNumber(market.priceChange24hPercent),
-    ...(typeof decimals === 'number' ? { decimals } : undefined),
+    decimals,
     isNative: selectedVariant.isNative,
     marketCap: toFiniteNumber(market.marketCap),
     marketTokenId: asset.assetId,
+    marketVariantId: selectedVariant.variantId,
     name: asset.name,
     networkId: selectedVariant.networkId,
     price: toFiniteNumber(market.price),
@@ -63,14 +85,14 @@ export async function resolveMarketTopCoinNavigationTarget(
 
 export function useMarketTopCoinResolver() {
   const intl = useIntl();
-  const isResolvingRef = useRef(false);
+  const isNavigatingRef = useRef(false);
 
   return useCallback(
     async (item: IMarketAssetListItem) => {
-      if (isResolvingRef.current) {
+      if (isNavigatingRef.current) {
         return undefined;
       }
-      isResolvingRef.current = true;
+      isNavigatingRef.current = true;
       try {
         return await resolveMarketTopCoinNavigationTarget(item);
       } catch (_error) {
@@ -81,7 +103,7 @@ export function useMarketTopCoinResolver() {
         });
         return undefined;
       } finally {
-        isResolvingRef.current = false;
+        isNavigatingRef.current = false;
       }
     },
     [intl],

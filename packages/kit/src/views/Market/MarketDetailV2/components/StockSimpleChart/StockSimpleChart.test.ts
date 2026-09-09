@@ -11,6 +11,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceMarket: {
+      fetchMarketAssetKline: jest.fn(),
       fetchTokenChart: jest.fn(),
     },
     serviceMarketV2: {
@@ -27,6 +28,9 @@ describe('fetchStockSimpleChartPoints', () => {
   const serviceMarket = backgroundApiProxy.serviceMarket as jest.Mocked<
     typeof backgroundApiProxy.serviceMarket
   >;
+  const serviceMarketAsset = backgroundApiProxy.serviceMarket as unknown as {
+    fetchMarketAssetKline: jest.Mock;
+  };
   const serviceMarketV2 = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
     typeof backgroundApiProxy.serviceMarketV2
   >;
@@ -44,14 +48,15 @@ describe('fetchStockSimpleChartPoints', () => {
     jest.restoreAllMocks();
   });
 
-  it('loads and trims the one-month share chart from the stock API', async () => {
+  it('keeps the latest trading hour after the stock market closes', async () => {
+    const lastTradeSeconds = nowSeconds - 12 * 60 * 60;
     serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1y',
+      period: '1h',
       currency: 'USD',
       points: [
         {
-          t: nowSeconds - 31 * 24 * 60 * 60,
+          t: lastTradeSeconds - 30 * 60,
           o: 100,
           h: 101,
           l: 99,
@@ -59,12 +64,94 @@ describe('fetchStockSimpleChartPoints', () => {
           v: 1,
         },
         {
-          t: nowSeconds - 20 * 24 * 60 * 60,
+          t: lastTradeSeconds,
           o: 101,
           h: 102,
           l: 100,
           c: 101,
           v: 2,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: '',
+      priceMode: 'share',
+      range: '1H',
+      stockId: 'AAPL',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+      [{ stockId: 'AAPL', period: '1h', points: 100 }],
+    ]);
+    expect(result).toEqual([
+      [lastTradeSeconds - 30 * 60, 100],
+      [lastTradeSeconds, 101],
+    ]);
+  });
+
+  it('keeps the latest trading day over a weekend', async () => {
+    const lastTradeSeconds = nowSeconds - 2 * 24 * 60 * 60;
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'AAPL',
+      period: '1d',
+      currency: 'USD',
+      points: [
+        {
+          t: lastTradeSeconds,
+          o: 100,
+          h: 102,
+          l: 99,
+          c: 101,
+          v: 1,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: '',
+      priceMode: 'share',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '',
+    });
+
+    expect(result).toEqual([[lastTradeSeconds, 101]]);
+  });
+
+  it('trims the one-month share chart from the latest trading point', async () => {
+    const lastTradeSeconds = nowSeconds - 15 * 24 * 60 * 60;
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'AAPL',
+      period: '1y',
+      currency: 'USD',
+      points: [
+        {
+          t: lastTradeSeconds - 31 * 24 * 60 * 60,
+          o: 100,
+          h: 101,
+          l: 99,
+          c: 100,
+          v: 1,
+        },
+        {
+          t: lastTradeSeconds - 20 * 24 * 60 * 60,
+          o: 101,
+          h: 102,
+          l: 100,
+          c: 101,
+          v: 2,
+        },
+        {
+          t: lastTradeSeconds,
+          o: 102,
+          h: 103,
+          l: 101,
+          c: 102,
+          v: 3,
         },
       ],
     });
@@ -82,7 +169,10 @@ describe('fetchStockSimpleChartPoints', () => {
       [{ stockId: 'AAPL', period: '1y', points: 180 }],
     ]);
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
-    expect(result).toEqual([[nowSeconds - 20 * 24 * 60 * 60, 101]]);
+    expect(result).toEqual([
+      [lastTradeSeconds - 20 * 24 * 60 * 60, 101],
+      [lastTradeSeconds, 102],
+    ]);
   });
 
   it('keeps bounded token ranges on the token k-line API', async () => {
@@ -124,6 +214,72 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toHaveLength(0);
     expect(result).toEqual([[nowSeconds - 60, 100]]);
+  });
+
+  it('loads Top Coins from the self-maintained Asset K-line API', async () => {
+    serviceMarketAsset.fetchMarketAssetKline.mockResolvedValue({
+      pointType: 'single',
+      total: 1,
+      points: [
+        {
+          t: nowSeconds - 60,
+          o: 0.08,
+          h: 0.08,
+          l: 0.08,
+          c: 0.08,
+          v: 0,
+        },
+      ],
+    });
+
+    const result = await fetchStockSimpleChartPoints({
+      isNative: true,
+      marketAssetId: 'doge',
+      networkId: 'doge--0',
+      priceMode: 'token',
+      range: '1D',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
+      assetId: 'doge',
+      interval: '15m',
+      timeFrom: nowSeconds - 24 * 60 * 60,
+      timeTo: nowSeconds,
+      currency: 'usd',
+      autoHandleError: false,
+    });
+    expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
+    expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
+    expect(result).toEqual([[nowSeconds - 60, 0.08]]);
+  });
+
+  it('requests complete Top Coins history without a CoinGecko lookup', async () => {
+    serviceMarketAsset.fetchMarketAssetKline.mockResolvedValue({
+      pointType: 'single',
+      total: 0,
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: true,
+      marketAssetId: 'doge',
+      networkId: 'doge--0',
+      priceMode: 'token',
+      range: 'All',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
+      assetId: 'doge',
+      interval: '1W',
+      timeFrom: undefined,
+      timeTo: undefined,
+      currency: 'usd',
+      autoHandleError: false,
+    });
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+    expect(serviceMarket.fetchTokenChart.mock.calls).toHaveLength(0);
   });
 
   it('loads the complete native-token history by its CoinGecko ID', async () => {
@@ -239,6 +395,7 @@ describe('stock simple chart request identity', () => {
     const firstVariant = resolveStockSimpleChartRequestScope({
       coinGeckoId: 'first',
       isNative: false,
+      marketAssetId: 'aapl',
       networkId: 'evm--1',
       priceMode: 'share',
       range: '1D',
@@ -248,6 +405,7 @@ describe('stock simple chart request identity', () => {
     const secondVariant = resolveStockSimpleChartRequestScope({
       coinGeckoId: 'second',
       isNative: false,
+      marketAssetId: 'aapl',
       networkId: 'evm--8453',
       priceMode: 'share',
       range: '1D',

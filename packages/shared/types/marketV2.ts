@@ -34,6 +34,7 @@ export interface IMarketTokenDetail {
   name: string;
   symbol: string;
   decimals: number;
+  decimalsResolved?: boolean;
   marketCap?: string;
   fdv?: string;
   tvl?: string;
@@ -186,6 +187,7 @@ export interface IMarketStockTradingActivity {
 }
 
 export interface IMarketStockInfo {
+  stockId?: string;
   title?: string;
   subtitle: string;
   source?: string;
@@ -739,7 +741,11 @@ export interface IMarketBannerTokenListResponse {
 
 export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
 
-export interface IMarketStockTokenVariantSummary {
+/**
+ * The tokens issued against a stock, as the list endpoint returns them — a
+ * summary, unlike the detail endpoint's richer `IMarketStockTokenVariant`.
+ */
+export interface IMarketStockListVariant {
   tokenId: string;
   issuer: string;
   symbol?: string;
@@ -762,8 +768,13 @@ export interface IMarketStockPublicItem {
   quoteUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
-  variants?: IMarketStockTokenVariantSummary[];
+  variants?: IMarketStockListVariant[];
 }
+
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
 
 export type IMarketStockPublicListSortBy =
   | 'default'

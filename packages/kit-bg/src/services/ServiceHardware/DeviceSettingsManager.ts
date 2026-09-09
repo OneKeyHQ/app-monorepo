@@ -24,7 +24,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH,
+  isPrintableASCIIString,
+} from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -679,7 +682,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
+        debugMethodName: 'deviceSettings.getDeviceLabel',
       },
     );
   }
@@ -687,12 +690,19 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
+    const normalizedLabel = this._isProtocolV2Product(device)
+      ? label.trim()
+      : label;
     if (
       this._isProtocolV2Product(device) &&
-      !isAsciiAlphanumericWithSpaces(label)
+      (!isPrintableASCIIString(normalizedLabel) ||
+        Buffer.byteLength(normalizedLabel, 'utf8') >
+          PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH)
     ) {
       throw new OneKeyLocalError(
-        'OneKey Pro 2 device labels only support ASCII letters, numbers, and spaces',
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_hardware_label_input_error,
+        }),
       );
     }
     if (this._isTrezorDevice(device)) {
@@ -700,17 +710,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         walletId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setDeviceLabel.trezor',
-        settings: { label },
-        preciseUpdateFields: { label },
+        settings: { label: normalizedLabel },
+        preciseUpdateFields: { label: normalizedLabel },
       });
     }
     return this._withDeviceProcessing({
       walletId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setDeviceLabel',
-      preciseUpdateFields: { label },
+      preciseUpdateFields: { label: normalizedLabel },
       action: async (sdk, compatibleConnectId) =>
-        sdk.deviceSettings(compatibleConnectId, { label }),
+        sdk.deviceSettings(compatibleConnectId, { label: normalizedLabel }),
     });
   }
 
@@ -811,11 +821,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           }
           // Pro、Touch: built-in wallpaper
           // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          // An empty hex clears the home screen on classic/mini, which is how the built-in
-          // blank entry works — but a photo the user picked has to encode to something. A
-          // near-solid one comes back empty, and letting that through reset the device while
-          // the caller reported success.
-          if (!finallyScreenHex && (isUserUpload || !isMonochrome)) {
+          // An empty hex clears a monochrome home screen, including a user-confirmed solid image.
+          if (!finallyScreenHex && !isMonochrome) {
             throw new OneKeyLocalError('Invalid home screen hex');
           }
           const response = await this.applySettingsToDevice(device.connectId, {
@@ -1221,5 +1228,42 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       // error.payload?.code
       throw error;
     }
+  }
+
+  /** The stage's in-place PIN-entry switch (OK-61489) writes through
+   * here — the hardware UI event carries a connectId, not a walletId.
+   * No firmware support probe: a PIN request is in flight, so the device
+   * cannot take another call; the REQUEST_PIN gate re-checks support
+   * from features on the next request anyway. Turning app entry ON still
+   * stamps `inputPinOnSoftwareSupport`, the marker that distinguishes a
+   * person's choice from the creation-time default: the switch is only
+   * offered once the background has already established the device is a
+   * supported button model, and without the marker the startup migration
+   * (migrateClassicPinInputDefault) would flip this choice back to
+   * device entry if it ran after the switch. */
+  @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId({
+    connectId,
+    inputPinOnSoftware,
+  }: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    const device = await localDb.getDeviceByQuery({ connectId });
+    if (!device) {
+      throw new OneKeyLocalError(
+        'Device not found for the PIN input setting switch',
+      );
+    }
+    await localDb.updateDeviceDbSettings({
+      dbDeviceId: device.id,
+      settings: {
+        ...device.settings,
+        inputPinOnSoftware,
+        inputPinOnSoftwareSupport: inputPinOnSoftware
+          ? true
+          : device.settings?.inputPinOnSoftwareSupport,
+      },
+    });
   }
 }

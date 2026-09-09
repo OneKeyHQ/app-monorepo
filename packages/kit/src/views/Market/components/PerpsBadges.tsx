@@ -11,7 +11,11 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IColorTokens,
+  IKeyOfIcons,
+  ISizableTextProps,
+} from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
@@ -51,6 +55,8 @@ function getPerpDexDescriptionId(dexLabel?: string) {
       return ETranslations.perp_xyz_market__desc;
     case 'para':
       return ETranslations.perp_para_market__desc;
+    case 'io':
+      return ETranslations.perp_io_market__desc;
     default:
       return undefined;
   }
@@ -186,12 +192,22 @@ SubtitleBadge.displayName = 'SubtitleBadge';
 // Used in Market/Perps list rows: placed under the symbol on desktop and
 // before the volume on mobile.
 const SubtitleText = memo(
-  ({ subtitle, maxWidth }: { subtitle: string; maxWidth?: number }) => {
+  ({
+    subtitle,
+    maxWidth,
+    size: sizeOverride,
+  }: {
+    subtitle: string;
+    maxWidth?: number;
+    /** Opt out of the shared size where a surface has its own scale — the
+     *  Market list tables run their subtitle at the row's own secondary size. */
+    size?: ISizableTextProps['size'];
+  }) => {
     const { gtMd } = useMedia();
     // Unified subtitle size across every Market/Perps list and selector row:
     // 11px on desktop, 12px on mobile. Keep this the single source of truth so
     // the localized name never diverges between lists.
-    const size = gtMd ? '$bodyXs' : '$bodySm';
+    const size = sizeOverride ?? (gtMd ? '$bodyXs' : '$bodySm');
     const textRef = useRef<HTMLElement | null>(null);
     const tooltipRef = useRef<ITooltipRef>({
       closeTooltip: () => Promise.resolve(),

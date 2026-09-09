@@ -1,4 +1,4 @@
-import type { IMarketStockInfo } from './marketV2';
+import type { IMarketStockInfo, IMarketTokenKLineResponse } from './marketV2';
 
 export interface IMarketCategory {
   categoryId: string;
@@ -105,11 +105,16 @@ export interface IMarketAssetPerformance {
 }
 
 export interface IMarketAssetDetailData {
+  about: string;
   asset: IMarketAssetIdentity;
   variants: IMarketAssetVariant[];
   selectedVariant: IMarketAssetVariant;
   market: IMarketAssetMarket;
   performance: IMarketAssetPerformance;
+}
+
+export interface IMarketAssetKLineData extends IMarketTokenKLineResponse {
+  pointType: 'ohlc' | 'single';
 }
 
 export interface IMarketDetailAthOrAtl {

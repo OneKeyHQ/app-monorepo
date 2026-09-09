@@ -43,6 +43,20 @@ export interface ITradingViewNativeSubIndicatorLegendHitRegion {
   rect: ITradingViewNativeLegendRect;
 }
 
+function getTradingViewNativeSubIndicatorLegendTitle(
+  pane: ITradingViewNativeSubIndicatorRenderPane,
+) {
+  'worklet';
+
+  if (pane.indicator !== 'MACD') {
+    return pane.shortTitle;
+  }
+  const { fastPeriod, signalPeriod, slowPeriod } = pane.inputValues;
+  return `${pane.shortTitle}(${String(fastPeriod)}, ${String(
+    slowPeriod,
+  )}, ${String(signalPeriod)})`;
+}
+
 function getTradingViewNativeSubIndicatorLegendLayout({
   measureTextWidth,
   paneLayout,
@@ -71,7 +85,10 @@ function getTradingViewNativeSubIndicatorLegendLayout({
   });
   const rowLayout = getTradingViewNativeChartLegendRowLayout({
     items: [
-      { label: paneLayout.pane.shortTitle, value: '' },
+      {
+        label: getTradingViewNativeSubIndicatorLegendTitle(paneLayout.pane),
+        value: '',
+      },
       ...visibleSeriesEntries.map(({ series, value }) => ({
         label: series.title,
         value: formatTradingViewNativeSubIndicatorValue(

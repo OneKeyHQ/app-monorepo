@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type {
   IIconButtonProps,
+  IIconProps,
   IStackProps,
   IXStackProps,
 } from '@onekeyhq/components';
@@ -193,10 +194,12 @@ export const usePerpsStarV2Checked = ({ perpsCoin }: { perpsCoin: string }) => {
 function BasicMarketPerpsStarV2({
   perpsCoin,
   size,
+  customIconSize,
   ...props
 }: {
   perpsCoin: string;
   size?: IIconButtonProps['size'];
+  customIconSize?: IIconProps['size'];
 } & IStackProps) {
   const intl = useIntl();
   const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
@@ -215,6 +218,7 @@ function BasicMarketPerpsStarV2({
       iconSize={size ? undefined : '$5'}
       iconProps={{
         color: checked ? '$iconActive' : '$iconSubdued',
+        ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
       {...(props as IXStackProps)}

@@ -1,14 +1,36 @@
 /** @jest-environment jsdom */
 import { render } from '@testing-library/react';
 
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 
-import { DesktopLayout, getMarketSwapTargetKey } from './DesktopLayout';
+import { DesktopLayout } from './DesktopLayout';
 
 const mockStockDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
 );
+const mockTopCoinsDesktopLayout = jest.fn(
+  (_props: Record<string, unknown>) => null,
+);
+const mockNativeChartMount = jest.fn();
+const mockNativeChartUnmount = jest.fn();
+let mockMarketPriceSource: 'share' | 'token' = 'share';
+let mockStockDetailState = {
+  isStockRoute: true,
+  stockId: 'AAPL',
+  selectedTokenVariant: {
+    networkId: 'evm--1',
+    contractAddress: '0xaapl',
+    symbol: 'AAPL',
+    decimals: 18,
+  },
+};
+const fetchMarketAssetKLineDataMock = jest.mocked(fetchMarketAssetKLineData);
 const fetchMarketStockKLineDataMock = jest.mocked(fetchMarketStockKLineData);
+
+jest.mock('../hooks/useMarketNativeChartPriceUpdate', () => ({
+  useMarketNativeChartPriceUpdate: jest.fn(() => jest.fn()),
+}));
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -21,9 +43,23 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
-  TradingViewNative: () => null,
-}));
+jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    TradingViewNative: () => {
+      React.useEffect(() => {
+        mockNativeChartMount();
+        return mockNativeChartUnmount;
+      }, []);
+      return null;
+    },
+  };
+});
+
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData',
+  () => ({ fetchMarketAssetKLineData: jest.fn() }),
+);
 
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData',
@@ -31,7 +67,7 @@ jest.mock(
 );
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketPriceSourceAtom: jest.fn(() => [{ source: 'share' }]),
+  useMarketPriceSourceAtom: jest.fn(() => [{ source: mockMarketPriceSource }]),
 }));
 
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
@@ -90,16 +126,7 @@ jest.mock(
 );
 
 jest.mock('../hooks/StockDetailContext', () => ({
-  useStockDetail: jest.fn(() => ({
-    isStockRoute: true,
-    stockId: 'AAPL',
-    selectedTokenVariant: {
-      networkId: 'evm--1',
-      contractAddress: '0xaapl',
-      symbol: 'AAPL',
-      decimals: 18,
-    },
-  })),
+  useStockDetail: jest.fn(() => mockStockDetailState),
 }));
 
 jest.mock('../hooks/useMarketDetailDisplayData', () => ({
@@ -134,52 +161,70 @@ jest.mock('../hooks/useTokenDetail', () => ({
 }));
 
 jest.mock('../utils/getMarketDetailTradingViewNativeSource', () => ({
-  getMarketDetailTradingViewNativeSource: jest.fn(() => ({ kind: 'token' })),
+  getMarketDetailTradingViewNativeSource: jest.fn(
+    ({
+      networkId,
+      tokenAddress,
+    }: {
+      networkId: string;
+      tokenAddress: string;
+    }) => ({
+      kind: 'market',
+      networkId,
+      tokenAddress,
+      symbol: 'AAPL',
+      realtime: 'websocket',
+    }),
+  ),
 }));
 
-jest.mock('./StockDesktopLayout', () => ({
-  StockDesktopLayout: (props: Record<string, unknown>) =>
-    mockStockDesktopLayout(props),
-}));
+jest.mock('./StockDesktopLayout', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    StockDesktopLayout: (props: Record<string, unknown>) => {
+      mockStockDesktopLayout(props);
+      return React.isValidElement(props.marketTradingView)
+        ? props.marketTradingView
+        : null;
+    },
+  };
+});
 
 jest.mock('./TokenDesktopLayout', () => ({
   TokenDesktopLayout: () => null,
 }));
 
 jest.mock('./TopCoinsDesktopLayout', () => ({
-  TopCoinsDesktopLayout: () => null,
+  TopCoinsDesktopLayout: (props: Record<string, unknown>) =>
+    mockTopCoinsDesktopLayout(props),
 }));
 
 describe('DesktopLayout', () => {
   beforeEach(() => {
-    fetchMarketStockKLineDataMock.mockClear();
-    mockStockDesktopLayout.mockClear();
-  });
-
-  it('builds the swap target key from stable route identity', () => {
-    expect(
-      getMarketSwapTargetKey({
-        marketTokenId: 'bitcoin',
-        networkId: 'evm--1',
-        tokenAddress: '',
-        isNative: false,
-      }),
-    ).toBe('bitcoin');
-    expect(
-      getMarketSwapTargetKey({
-        networkId: 'evm--1',
-        tokenAddress: '0xbtc',
-        isNative: false,
-      }),
-    ).toBe('evm--1:0xbtc');
-  });
-
-  it('forwards disableTrade to the stock desktop layout', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: jest.fn(),
     });
+    mockMarketPriceSource = 'share';
+    mockStockDetailState = {
+      isStockRoute: true,
+      stockId: 'AAPL',
+      selectedTokenVariant: {
+        networkId: 'evm--1',
+        contractAddress: '0xaapl',
+        symbol: 'AAPL',
+        decimals: 18,
+      },
+    };
+    fetchMarketAssetKLineDataMock.mockClear();
+    fetchMarketStockKLineDataMock.mockClear();
+    mockStockDesktopLayout.mockClear();
+    mockTopCoinsDesktopLayout.mockClear();
+    mockNativeChartMount.mockClear();
+    mockNativeChartUnmount.mockClear();
+  });
 
+  it('forwards disableTrade to the stock desktop layout', () => {
     render(
       <DesktopLayout
         isChartFullscreen={false}
@@ -197,6 +242,44 @@ describe('DesktopLayout', () => {
       expect.objectContaining({ disableTrade: true }),
     );
   });
+
+  it.each([
+    { networkId: 'evm--1', contractAddress: '0xnext' },
+    { networkId: 'evm--8453', contractAddress: '0xaapl' },
+  ])(
+    'remounts the native chart for token changes but preserves fullscreen state: %j',
+    (nextToken) => {
+      mockMarketPriceSource = 'token';
+      const renderLayout = (isChartFullscreen: boolean) => (
+        <DesktopLayout
+          isChartFullscreen={isChartFullscreen}
+          isTradingViewNative
+          onChartSwitch={jest.fn()}
+          onChartFullscreenChange={jest.fn()}
+          isNative={false}
+          networkId="evm--1"
+          tokenAddress="0xaapl"
+        />
+      );
+      const { rerender } = render(renderLayout(false));
+      expect(mockNativeChartMount).toHaveBeenCalledTimes(1);
+
+      rerender(renderLayout(true));
+      expect(mockNativeChartMount).toHaveBeenCalledTimes(1);
+      expect(mockNativeChartUnmount).not.toHaveBeenCalled();
+
+      mockStockDetailState = {
+        ...mockStockDetailState,
+        selectedTokenVariant: {
+          ...mockStockDetailState.selectedTokenVariant,
+          ...nextToken,
+        },
+      };
+      rerender(renderLayout(true));
+      expect(mockNativeChartUnmount).toHaveBeenCalledTimes(1);
+      expect(mockNativeChartMount).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it('forwards the selected Pro interval to stock K-line requests', async () => {
     render(
@@ -275,4 +358,61 @@ describe('DesktopLayout', () => {
       }),
     );
   });
+
+  it.each([false, true])(
+    'uses token K-line data for Top Coins Pro (native: %s)',
+    (isTradingViewNative) => {
+      mockMarketPriceSource = 'token';
+      mockStockDetailState = {
+        ...mockStockDetailState,
+        isStockRoute: false,
+        stockId: '',
+      };
+
+      render(
+        <DesktopLayout
+          isChartFullscreen={false}
+          isTradingViewNative={isTradingViewNative}
+          onChartSwitch={jest.fn()}
+          onChartFullscreenChange={jest.fn()}
+          isNative={false}
+          networkId="evm--1"
+          tokenAddress="0xaapl"
+          marketTokenId="top-coin"
+          marketTokenCategory="top_coins"
+        />,
+      );
+
+      const marketTradingView = mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0]
+        ?.marketTradingView as {
+        props: {
+          source?: { kind: string; networkId: string; tokenAddress: string };
+          networkId?: string;
+          tokenAddress?: string;
+          kLineDataFallback?: unknown;
+          primaryKLineDataUnavailable?: boolean;
+        };
+      };
+      if (isTradingViewNative) {
+        expect(marketTradingView.props.source).toEqual(
+          expect.objectContaining({
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xaapl',
+          }),
+        );
+      } else {
+        expect(marketTradingView.props).toEqual(
+          expect.objectContaining({
+            networkId: 'evm--1',
+            tokenAddress: '0xaapl',
+            primaryKLineDataUnavailable: false,
+          }),
+        );
+        expect(marketTradingView.props.kLineDataFallback).toBeUndefined();
+      }
+      expect(fetchMarketAssetKLineDataMock).not.toHaveBeenCalled();
+      expect(fetchMarketStockKLineDataMock).not.toHaveBeenCalled();
+    },
+  );
 });

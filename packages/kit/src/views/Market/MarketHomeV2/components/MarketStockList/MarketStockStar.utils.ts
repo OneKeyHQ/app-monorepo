@@ -1,4 +1,4 @@
-import type { IMarketStockTokenVariantSummary } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketStockListVariant } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketWatchlistIdentity } from '../../../components/MarketAsyncStarV2';
 
@@ -18,7 +18,7 @@ export function parseMarketStockVariantTokenId(
 }
 
 export function getMarketStockVariantSummaryIdentities(
-  variants: IMarketStockTokenVariantSummary[] | undefined,
+  variants: IMarketStockListVariant[] | undefined,
 ) {
   return (variants ?? []).flatMap((variant) => {
     const identity = parseMarketStockVariantTokenId(variant.tokenId);

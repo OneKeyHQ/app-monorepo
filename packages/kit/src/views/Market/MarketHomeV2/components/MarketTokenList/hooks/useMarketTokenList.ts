@@ -36,6 +36,7 @@ interface IUseMarketTokenListParams {
   networkId: string;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   pageSize?: number;
   type?: string;
   category?: string;
@@ -100,6 +101,7 @@ const MARKET_TOKEN_PRIMITIVE_REUSE_FIELDS = [
   'decimals',
   'price',
   'change24h',
+  'priceChangeRaw',
   'marketCap',
   'liquidity',
   'transactions',
@@ -238,19 +240,30 @@ function refreshMarketTokenNetworkLogos({
 
 export function useMarketTokenList({
   networkId,
-  initialSortBy = 'v24hUSD',
-  initialSortType = 'desc',
+  initialSortBy: initialSortByProp,
+  initialSortType: initialSortTypeProp,
+  useApiDefaultSort = false,
   pageSize = 20,
   type,
   category,
   timeRange,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
+  const initialSortBy = useApiDefaultSort
+    ? undefined
+    : (initialSortByProp ?? 'v24hUSD');
+  const initialSortType = useApiDefaultSort
+    ? undefined
+    : (initialSortTypeProp ?? 'desc');
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
   const locale = useLocaleVariant();
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
-  const { minLiquidity, networkList } = useMarketBasicConfig();
+  const {
+    minLiquidity,
+    networkList,
+    isLoading: isBasicConfigLoading,
+  } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -555,7 +568,9 @@ export function useMarketTokenList({
           timeRange: timeRangeRef.current,
         });
 
-  const effectiveIsLoading = hasNetworkId ? isLoading : false;
+  const effectiveIsLoading = hasNetworkId
+    ? isLoading !== false
+    : isBasicConfigLoading !== false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
   const isAwaitingRemoteFirstPageResult =

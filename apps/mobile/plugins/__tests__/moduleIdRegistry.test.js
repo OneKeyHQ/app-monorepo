@@ -7,7 +7,9 @@ const {
   SCHEMA_VERSION,
   collectRegistryErrors,
   createFileToIdMap,
+  createModuleIdAllocator,
   getModuleIdDomain,
+  isModuleIdInDomain,
   isStrictRegistryMode,
   loadRegistry,
   toModuleKey,
@@ -55,16 +57,22 @@ describe('moduleIdRegistry', () => {
     expect(fileMap.entries()).toEqual(expect.anything());
     expect([...fileMap.entries()]).toEqual([]);
     expect(fileMap.get(path.join(repoRoot, 'packages/a.ts'))).toBe(1);
-    expect(fileMap.get(path.join(repoRoot, 'packages/new.ts'))).toBe(4);
+    const newModuleId = fileMap.get(path.join(repoRoot, 'packages/new.ts'));
+    expect(isModuleIdInDomain(newModuleId, 'workspace')).toBe(true);
+    expect([1, 3]).not.toContain(newModuleId);
     expect(fileMap.delete(path.join(repoRoot, 'packages/new.ts'))).toBe(true);
     expect(fileMap.has(path.join(repoRoot, 'packages/new.ts'))).toBe(false);
-    expect(fileMap.get(path.join(repoRoot, 'packages/new.ts'))).toBe(4);
+    expect(fileMap.get(path.join(repoRoot, 'packages/new.ts'))).toBe(
+      newModuleId,
+    );
     expect(fileMap.has(path.join(repoRoot, 'packages/new.ts'))).toBe(true);
-    expect(fileMap.get(path.join(repoRoot, 'packages/newer.ts'))).toBe(5);
+    const newerModuleId = fileMap.get(path.join(repoRoot, 'packages/newer.ts'));
+    expect(isModuleIdInDomain(newerModuleId, 'workspace')).toBe(true);
+    expect(newerModuleId).not.toBe(newModuleId);
     expect([...fileMap.entries()]).toEqual([
       [path.join(repoRoot, 'packages/a.ts'), 1],
-      [path.join(repoRoot, 'packages/new.ts'), 4],
-      [path.join(repoRoot, 'packages/newer.ts'), 5],
+      [path.join(repoRoot, 'packages/new.ts'), newModuleId],
+      [path.join(repoRoot, 'packages/newer.ts'), newerModuleId],
     ]);
   });
 
@@ -96,9 +104,12 @@ describe('moduleIdRegistry', () => {
     const unknownPath = path.join(repoRoot, 'packages/new.ts');
     const externalPath = path.resolve('/tmp/external/module.js');
 
-    expect(fileMap.get(unknownPath)).toBe(1);
-    expect(fileMap.get(unknownPath)).toBe(1);
-    expect(fileMap.get(externalPath)).toBe(2);
+    const unknownId = fileMap.get(unknownPath);
+    expect(fileMap.get(unknownPath)).toBe(unknownId);
+    const externalId = fileMap.get(externalPath);
+    expect(externalId).not.toBe(unknownId);
+    expect(isModuleIdInDomain(unknownId, 'workspace')).toBe(true);
+    expect(isModuleIdInDomain(externalId, 'workspace')).toBe(true);
   });
 
   it('allocates lenient IDs inside independent module domains', () => {
@@ -109,11 +120,43 @@ describe('moduleIdRegistry', () => {
       strict: false,
     });
 
-    expect(fileMap.get(path.join(repoRoot, 'packages/new.ts'))).toBe(1);
-    expect(fileMap.get(path.join(repoRoot, 'node_modules/a/index.js'))).toBe(
-      MODULE_ID_RANGES.nodeModules.start,
+    expect(
+      isModuleIdInDomain(
+        fileMap.get(path.join(repoRoot, 'packages/new.ts')),
+        'workspace',
+      ),
+    ).toBe(true);
+    expect(
+      isModuleIdInDomain(
+        fileMap.get(path.join(repoRoot, 'node_modules/a/index.js')),
+        'nodeModules',
+      ),
+    ).toBe(true);
+    expect(isModuleIdInDomain(fileMap.get('\0virtual:test'), 'virtual')).toBe(
+      true,
     );
-    expect(fileMap.get('\0virtual:test')).toBe(MODULE_ID_RANGES.virtual.start);
+  });
+
+  it('allocates deterministic path-based IDs across independent branches', () => {
+    const paths = [
+      'packages/kit/src/components/WebView/injectedNative.js.txt',
+      'packages/kit/src/views/BulkCopyAddresses/utils/bulkCopyAddressesViewState.ts',
+      'packages/kit-bg/src/dbs/simple/base/unreadableStorageValueError.ts',
+    ];
+    const allocateFirst = createModuleIdAllocator([]);
+    const allocateSecond = createModuleIdAllocator([]);
+    const firstIds = paths.map((moduleKey) =>
+      allocateFirst(getModuleIdDomain(moduleKey), moduleKey),
+    );
+    const secondIds = paths.map((moduleKey) =>
+      allocateSecond(getModuleIdDomain(moduleKey), moduleKey),
+    );
+
+    expect(secondIds).toEqual(firstIds);
+    expect(new Set(firstIds).size).toBe(paths.length);
+    expect(firstIds.every((id) => isModuleIdInDomain(id, 'workspace'))).toBe(
+      true,
+    );
   });
 
   it('rejects unknown and external paths in strict mode with an update hint', () => {

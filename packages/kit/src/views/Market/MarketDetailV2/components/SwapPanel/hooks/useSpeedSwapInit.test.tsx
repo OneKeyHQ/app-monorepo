@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore robinhood
 
 import { renderHook } from '@testing-library/react';
 
@@ -69,13 +70,46 @@ const disabledConfig: ISpeedSwapConfig = {
 
 const unavailableConfig: ISpeedSwapConfig = {
   ...disabledConfig,
+  speedDefaultSelectToken: cachedConfig.speedConfig.defaultTokens[0],
   unavailable: true,
+};
+
+const missingSupportConfig: ISpeedSwapConfig = {
+  ...disabledConfig,
+  supportSpeedSwap: undefined,
+};
+
+const robinhoodEthLogoURI =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address--1785395959075.png';
+const robinhoodWrongLogoURI =
+  'https://uni-test.onekey-asset.com/dashboard/logo/upload_1782996301845.0.5226359915426765.0.png';
+const robinhoodEthToken = {
+  networkId: 'evm--4663',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+  logoURI: robinhoodWrongLogoURI,
+};
+const robinhoodConfig: ISpeedSwapConfig = {
+  ...cachedConfig,
+  speedConfig: {
+    ...cachedConfig.speedConfig,
+    defaultTokens: [robinhoodEthToken],
+  },
+  speedDefaultSelectToken: robinhoodEthToken,
 };
 
 describe('useSpeedSwapInit cold display config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     swrCacheUtils.remove(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }));
+    swrCacheUtils.remove(
+      swrKeys.swapStockSpeedConfig({ networkId: 'evm--56' }),
+    );
+    swrCacheUtils.remove(
+      swrKeys.swapStockSpeedConfig({ networkId: 'evm--4663' }),
+    );
     mockUsePromiseResult.mockReturnValue({
       result: {
         config: cachedConfig,
@@ -96,6 +130,41 @@ describe('useSpeedSwapInit cold display config', () => {
       expect.objectContaining({
         swrKey: 'swapStockSpeedConfig:v1:evm--1',
       }),
+    );
+  });
+
+  it('normalizes cached Robinhood ETH metadata before the first render', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        config: robinhoodConfig,
+        scope: 'evm--4663',
+        fromCache: true,
+      },
+      isLoading: true,
+    });
+
+    const { result } = renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    expect(result.current.defaultTokens[0]?.logoURI).toBe(robinhoodEthLogoURI);
+    expect(result.current.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+  });
+
+  it('normalizes fresh Robinhood ETH metadata before persisting it', async () => {
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(robinhoodConfig);
+    renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+    }>;
+    const freshResult = await request();
+
+    expect(freshResult.config.speedConfig.defaultTokens[0]?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+    expect(freshResult.config.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
     );
   });
 
@@ -152,6 +221,56 @@ describe('useSpeedSwapInit cold display config', () => {
     expect(options.swrShouldPersist(failedResult)).toBe(false);
   });
 
+  it('falls back to the Swap default pair when no last-good config exists', async () => {
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(unavailableConfig);
+    renderHook(() => useSpeedSwapInit('evm--56'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+      fromCache?: boolean;
+      scope?: string;
+    }>;
+    const options = mockUsePromiseResult.mock.calls[0]?.[2] as {
+      swrShouldPersist: (value: { fromCache?: boolean }) => boolean;
+    };
+    const failedResult = await request();
+
+    expect(failedResult.config.supportSpeedSwap).toBe(false);
+    expect(
+      failedResult.config.speedConfig.defaultTokens.map((token) => ({
+        networkId: token.networkId,
+        symbol: token.symbol,
+      })),
+    ).toEqual([
+      { networkId: 'evm--56', symbol: 'BNB' },
+      { networkId: 'evm--56', symbol: 'USDC' },
+    ]);
+    expect(failedResult.config.speedDefaultSelectToken?.networkId).toBe(
+      'evm--56',
+    );
+    expect(failedResult.config.speedDefaultSelectToken?.symbol).toBe('USDC');
+    expect(options.swrShouldPersist(failedResult)).toBe(false);
+  });
+
+  it('normalizes a missing support decision to the Swap fallback', async () => {
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(missingSupportConfig);
+    renderHook(() => useSpeedSwapInit('evm--1'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+      fromCache?: boolean;
+      scope?: string;
+    }>;
+    const missingSupportResult = await request();
+
+    expect(missingSupportResult.config.supportSpeedSwap).toBe(false);
+    expect(
+      missingSupportResult.config.speedConfig.defaultTokens.map(
+        (token) => token.symbol,
+      ),
+    ).toEqual(['ETH', 'USDC']);
+  });
+
   it('replaces the cached config when the service explicitly disables swap', async () => {
     swrCacheUtils.set(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }), {
       config: cachedConfig,
@@ -170,10 +289,18 @@ describe('useSpeedSwapInit cold display config', () => {
     };
     const disabledResult = await request();
 
-    expect(disabledResult).toEqual({
-      config: disabledConfig,
-      scope: 'evm--1',
-    });
+    expect(disabledResult.config).toEqual(
+      expect.objectContaining({
+        supportSpeedSwap: false,
+        speedConfig: expect.objectContaining({
+          defaultTokens: expect.arrayContaining([
+            expect.objectContaining({ symbol: 'ETH' }),
+            expect.objectContaining({ symbol: 'USDC' }),
+          ]),
+        }),
+      }),
+    );
+    expect(disabledResult.scope).toBe('evm--1');
     expect(options.swrShouldPersist(disabledResult)).toBe(true);
   });
 });

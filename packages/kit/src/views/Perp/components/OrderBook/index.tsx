@@ -235,6 +235,8 @@ interface IOrderBookProps {
   sizeDecimals?: number;
   /** Callback when a price level is selected */
   onSelectLevel?: (payload: IOrderBookSelection) => void;
+  /** Callback when the mobile mid price is selected */
+  onSelectMidPrice?: (price: string) => void;
   /** The current order book display variant */
   variant: IOrderBookVariant;
 }
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 24,
     fontWeight: '600',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.8,
     width: '100%',
   },
@@ -290,6 +292,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
+  },
+  nativeMobileHorizontalTabularText: {
+    fontFamily: 'Roobert-Regular',
+    fontWeight: '400',
   },
   interactiveRow: {
     height: rowHeight,
@@ -1151,6 +1157,10 @@ export function OrderBook({
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
   const isInteractive = Boolean(onSelectLevel);
+  const mobileHorizontalTabularTextStyle =
+    platformEnv.isNative && variant === 'mobileHorizontal'
+      ? styles.nativeMobileHorizontalTabularText
+      : undefined;
 
   const hoverSummary = useMemo(() => {
     if (
@@ -1419,6 +1429,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.textSubdued },
                             ]}
                           >
@@ -1427,6 +1438,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.green },
                             ]}
                           >
@@ -1453,6 +1465,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.red },
                             ]}
                           >
@@ -1461,6 +1474,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.textSubdued },
                             ]}
                           >
@@ -1980,6 +1994,7 @@ function MobileSpreadInfoContent({
   bestBidPx,
   hasTradingMidPrice = false,
   isEmpty,
+  onSelectMidPrice,
   textColor,
   tradingMidPrice,
 }: {
@@ -1987,6 +2002,7 @@ function MobileSpreadInfoContent({
   bestBidPx?: string;
   hasTradingMidPrice?: boolean;
   isEmpty: boolean;
+  onSelectMidPrice?: (price: string) => void;
   textColor: ReturnType<typeof useTextColor>;
   tradingMidPrice?: string;
 }) {
@@ -2025,10 +2041,22 @@ function MobileSpreadInfoContent({
     bestAsk: bestAskPx,
   });
   const resolvedMidPriceBN = new BigNumber(resolvedMidPrice);
-  const midPrice =
+  const selectableMidPrice =
     resolvedMidPriceBN.isFinite() && resolvedMidPriceBN.gt(0)
-      ? formatLocalizedNumberString(resolvedMidPrice)
-      : '--';
+      ? resolvedMidPriceBN.toFixed()
+      : undefined;
+  const midPrice = selectableMidPrice
+    ? formatLocalizedNumberString(selectableMidPrice)
+    : '--';
+  const handleMidPricePress = useCallback(() => {
+    if (!selectableMidPrice || !onSelectMidPrice) {
+      return;
+    }
+    if (platformEnv.isNative) {
+      Haptics.selection();
+    }
+    onSelectMidPrice(selectableMidPrice);
+  }, [onSelectMidPrice, selectableMidPrice]);
 
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
@@ -2063,35 +2091,32 @@ function MobileSpreadInfoContent({
         paddingBottom: 6,
       }}
     >
-      <Popover
-        title={intl.formatMessage({
-          id: ETranslations.perp_order_mid_price_title,
-        })}
-        renderTrigger={
-          <PerpBookText
-            style={[
-              styles.tabularText,
-              {
-                color: textColor.text,
-                fontSize: 20,
-                fontWeight: '600',
-                lineHeight: 24,
-              },
-            ]}
-          >
-            {midPrice}
-          </PerpBookText>
+      <Pressable
+        accessibilityRole="button"
+        disabled={!selectableMidPrice || !onSelectMidPrice}
+        hitSlop={4}
+        onPress={handleMidPricePress}
+        testID="perp-orderbook-mid-price"
+        style={
+          selectableMidPrice && onSelectMidPrice && !platformEnv.isNative
+            ? styles.pointer
+            : undefined
         }
-        renderContent={
-          <YStack px="$5" pb="$4">
-            <SizableText>
-              {intl.formatMessage({
-                id: ETranslations.perp_order_mid_price_title_desc,
-              })}
-            </SizableText>
-          </YStack>
-        }
-      />
+      >
+        <PerpBookText
+          style={[
+            styles.tabularText,
+            {
+              color: textColor.text,
+              fontSize: 20,
+              fontWeight: platformEnv.isNative ? '500' : '600',
+              lineHeight: 24,
+            },
+          ]}
+        >
+          {midPrice}
+        </PerpBookText>
+      </Pressable>
       <Popover
         title={intl.formatMessage({
           id: isSpot
@@ -2152,11 +2177,13 @@ const MobileSpreadInfoRow = memo(
     bestAskPx,
     bestBidPx,
     isEmpty,
+    onSelectMidPrice,
     textColor,
   }: {
     bestAskPx?: string;
     bestBidPx?: string;
     isEmpty: boolean;
+    onSelectMidPrice?: (price: string) => void;
     textColor: ReturnType<typeof useTextColor>;
   }) => {
     const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
@@ -2168,6 +2195,7 @@ const MobileSpreadInfoRow = memo(
         bestBidPx={bestBidPx}
         hasTradingMidPrice={hasTradingMidPrice}
         isEmpty={isEmpty}
+        onSelectMidPrice={onSelectMidPrice}
         textColor={textColor}
         tradingMidPrice={tradingMidPrice}
       />
@@ -2256,6 +2284,7 @@ export function OrderBookMobile({
   sizeDecimals = 3,
   style,
   onSelectLevel,
+  onSelectMidPrice,
   showTickSelector = true,
   tickOptions = [],
   onTickOptionChange,
@@ -2516,6 +2545,7 @@ export function OrderBookMobile({
               bestAskPx={asks[0]?.px}
               bestBidPx={bids[0]?.px}
               isEmpty={isEmpty}
+              onSelectMidPrice={onSelectMidPrice}
               textColor={textColor}
             />
           </DebugRenderTracker>

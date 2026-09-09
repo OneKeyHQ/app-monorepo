@@ -23,6 +23,7 @@ import {
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -174,6 +175,7 @@ export function UniversalSearchV2MarketTokenItem({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
+    resolveMarketAsset: true,
   });
 
   const {
@@ -242,8 +244,11 @@ export function UniversalSearchV2MarketTokenItem({
         void toMarketDetailPage({
           tokenAddress: address,
           networkId: network,
+          name,
           symbol,
           isNative,
+          stock,
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
         });
 
         defaultLogger.market.token.searchToken({
@@ -269,10 +274,13 @@ export function UniversalSearchV2MarketTokenItem({
     isTrending,
     address,
     network,
+    name,
     symbol,
     isNative,
+    stock,
     universalSearchActions,
     item.type,
+    item.payload,
     toMarketDetailPage,
     appNavigation,
     source,

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
@@ -28,6 +35,7 @@ import {
   useRouteIsFocused,
 } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useRateDifferenceAtom,
   useSwapActions,
@@ -164,12 +172,15 @@ interface ISwapMainLoadProps {
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
+  initialInputAmountDraft?: ISwapInputAmountDraft;
+  onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 }
 
 const SwapMainLoad = ({
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
+  onInputDraftChange,
 }: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
   const reviewDialogTimerRef = useRef<
@@ -245,6 +256,21 @@ const SwapMainLoad = ({
   const [currentQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapSteps] = useSwapStepsAtom();
   const [swapToAmount] = useSwapToTokenAmountAtom();
+  // Snapshot committed inputs before another route can reseed the shared store.
+  useLayoutEffect(() => {
+    onInputDraftChange?.({
+      fromToken: fromSelectTokenAtom,
+      toToken: toSelectTokenAtom,
+      fromTokenAmount,
+      toTokenAmount: swapToAmount,
+    });
+  }, [
+    fromSelectTokenAtom,
+    fromTokenAmount,
+    onInputDraftChange,
+    swapToAmount,
+    toSelectTokenAtom,
+  ]);
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
@@ -1632,6 +1658,12 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
+          inputAmountDraft: shouldSeedMarketEmbeddedPair
+            ? (props.initialInputAmountDraft ?? {
+                fromTokenAmount: { value: '', isInput: false },
+                toTokenAmount: { value: '', isInput: false },
+              })
+            : undefined,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }

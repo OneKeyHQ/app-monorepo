@@ -116,6 +116,7 @@ import {
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
@@ -960,6 +961,11 @@ function MobileTokenSelectorModal({
   const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
     ? assetCtxsByDex
     : undefined;
+  const activeFavoritesTabUserSort = isPerpTokenSelectorFavoritesTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
 
   // Layer 2: filter — cheap O(n) filter; only dynamic user sort sorts the
   // filtered dynamic-token subset against live values.
@@ -991,7 +997,7 @@ function MobileTokenSelectorModal({
           tokenSearchAliases,
         }),
       });
-      if (sortField) {
+      if (activeFavoritesTabUserSort && sortField) {
         result = sortTokenSelectorFavoriteItems({
           items: result,
           sortField,
@@ -1077,6 +1083,7 @@ function MobileTokenSelectorModal({
     displayActiveTab,
     displayPrimaryTab,
     activeDynamicTabUserSort,
+    activeFavoritesTabUserSort,
     assetsByDex,
     categoryTabs,
     favoritesOrder.sequence,

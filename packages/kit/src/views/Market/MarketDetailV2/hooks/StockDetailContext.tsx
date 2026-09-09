@@ -13,23 +13,29 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketStockDetailPreview,
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { isStockTokenVariantTradable } from '../../utils/stockTokenVariant';
+import {
+  getDefaultStockTokenVariant,
+  isStockTokenVariantTradable,
+} from '../utils/stockTokenVariant';
 
-export { isStockTokenVariantTradable } from '../../utils/stockTokenVariant';
+export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
 
 type IStockDetailContextValue = {
   stockId?: string;
   isStockRoute: boolean;
+  stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
   isTokenVariantsLoading: boolean;
+  isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
   retryTokenVariants: () => Promise<void>;
   selectedTokenId?: string;
@@ -48,6 +54,7 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   retryStockDetail: async () => undefined,
   tokenVariants: [],
   isTokenVariantsLoading: false,
+  isTokenVariantPending: false,
   isTokenVariantsError: false,
   retryTokenVariants: async () => undefined,
   setSelectedTokenId: () => undefined,
@@ -77,15 +84,21 @@ const STOCK_TOKEN_VARIANTS_POLLING_INTERVAL = 6000;
 
 export function StockDetailProvider({
   stockId,
+  initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
   children,
 }: PropsWithChildren<{
   stockId?: string;
+  initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
+  const stockPreview =
+    initialStockPreview?.stockId.trim().toUpperCase() === normalizedStockId
+      ? initialStockPreview
+      : undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
@@ -229,17 +242,11 @@ export function StockDetailProvider({
           },
         }),
     );
-    const defaultToken = tokenVariants.find(
-      (item) =>
-        item.tokenId === tokenVariantResult?.defaultTokenId &&
-        isStockTokenVariantTradable(item),
+    const defaultToken = getDefaultStockTokenVariant(
+      tokenVariants,
+      tokenVariantResult?.defaultTokenId,
     );
-    const firstTradableToken = tokenVariants.find(isStockTokenVariantTradable);
-    setSelectedTokenId(
-      routeToken?.tokenId ??
-        defaultToken?.tokenId ??
-        firstTradableToken?.tokenId,
-    );
+    setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
   }, [
     initialNetworkId,
     initialTokenAddress,
@@ -268,6 +275,7 @@ export function StockDetailProvider({
     () => ({
       stockId: normalizedStockId,
       isStockRoute: Boolean(normalizedStockId),
+      stockPreview,
       stockDetail: currentStockDetail,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
       isStockDetailError: Boolean(
@@ -277,6 +285,13 @@ export function StockDetailProvider({
       ),
       retryStockDetail,
       tokenVariants,
+      isTokenVariantPending: Boolean(
+        normalizedStockId &&
+        (!hasCurrentTokenVariants ||
+          (!tokenVariantResult?.failed &&
+            tokenVariants.some(isStockTokenVariantTradable) &&
+            !selectedTokenVariant)),
+      ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
       ),
@@ -292,6 +307,7 @@ export function StockDetailProvider({
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
     }),
     [
+      hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,
@@ -301,6 +317,7 @@ export function StockDetailProvider({
       retryTokenVariants,
       selectedTokenId,
       selectedTokenVariant,
+      stockPreview,
       stockDetailResult?.failed,
       stockDetailResult?.stockId,
       tokenVariantResult?.failed,

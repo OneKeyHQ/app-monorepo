@@ -275,4 +275,47 @@ describe('marketV2 watchlist actions', () => {
       await add;
     });
   });
+  it('ignores a refresh started before a completed mutation even if its tail refresh fails', async () => {
+    const staleRefresh = deferred<{ data: IMarketWatchListItemV2[] }>();
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(useWatchListTestHook, { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.watchList.isMounted).toBe(true));
+    mockGetWatchList.mockImplementationOnce(() => staleRefresh.promise);
+    let refresh!: Promise<unknown>;
+    act(() => {
+      refresh = result.current.actions.refreshWatchListV2();
+    });
+    mockAddWatchList.mockResolvedValueOnce(undefined);
+    mockGetWatchList.mockRejectedValueOnce(new Error('refresh failed'));
+    await act(async () => {
+      await result.current.actions.addIntoWatchListV2(btc);
+    });
+    expect(result.current.watchList.data).toEqual([btc]);
+    await act(async () => {
+      staleRefresh.resolve({ data: [] });
+      await refresh;
+    });
+    expect(result.current.watchList.data).toEqual([btc]);
+  });
+
+  it('does not fetch an authoritative snapshot while a mutation is pending', async () => {
+    const request = deferred<void>();
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(useWatchListTestHook, { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.watchList.isMounted).toBe(true));
+    mockAddWatchList.mockImplementationOnce(() => request.promise);
+    let mutation!: Promise<void>;
+    act(() => {
+      mutation = result.current.actions.addIntoWatchListV2(btc);
+    });
+    await act(async () => {
+      await result.current.actions.refreshWatchListV2();
+    });
+    expect(mockGetWatchList).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      request.reject(new Error('write failed'));
+      await expect(mutation).rejects.toThrow('write failed');
+    });
+    expect(result.current.watchList.data).toEqual([]);
+  });
 });

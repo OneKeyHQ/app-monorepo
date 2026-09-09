@@ -13,7 +13,10 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
+} from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -27,6 +30,7 @@ import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
 } from '../utils';
 
@@ -38,7 +42,6 @@ import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
-const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
@@ -225,7 +228,9 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
-      const isTrendingCategory = currentSpotCategoryId === 'trending';
+      const usesTrendingStyle = isTrendingStyleSpotCategory(
+        currentSpotCategoryId,
+      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -241,7 +246,12 @@ export function DesktopLayout({
                 {...tabBarProps}
                 onTabPress={handleTabPress}
                 divider={false}
-                containerStyle={{ position: 'relative' as any }}
+                // The design marks the active tab by weight alone — no
+                // underline — so the label steps up to `$headingMd` while the
+                // inactive ones stay on the bar's `$bodyLgMedium`.
+                hideActiveIndicator
+                focusedTextSize="$headingMd"
+                containerStyle={MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE}
               />
             </XStack>
             {/* Keep controls mounted so network data remains ready across tabs. */}
@@ -251,7 +261,7 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              {isTrendingCategory ? null : (
+              {usesTrendingStyle ? null : (
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
                   onChange={currentFilterBarProps.onTimeRangeChange}
@@ -263,9 +273,11 @@ export function DesktopLayout({
               />
             </XStack>
           </XStack>
+          {/* No padding of its own: each list portals a toolbar band that
+              already carries the design's spacing above the header. */}
           <div
             ref={portalRefCallback}
-            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
+            data-testid="market-sticky-header-portal"
           />
         </YStack>
       );
@@ -355,7 +367,9 @@ export function DesktopLayout({
             />
           );
         } else {
-          const isTrendingCategory = item.categoryId === 'trending';
+          const usesTrendingStyle = isTrendingStyleSpotCategory(
+            item.categoryId,
+          );
           tabContent = (
             <MarketNormalTokenList
               networkId={selectedNetworkId}
@@ -370,9 +384,10 @@ export function DesktopLayout({
               onStockDataChange={handleStockDataChange}
               enableWebSocket={activeTabName === item.tabName}
               centerDesktopPortalContent
-              desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
+              desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
+              useApiDefaultSort={usesTrendingStyle}
               toolbar={
-                isTrendingCategory ? (
+                usesTrendingStyle ? (
                   <TrendingDesktopToolbar
                     timeRange={filterBarProps.timeRange}
                     onTimeRangeChange={filterBarProps.onTimeRangeChange}
