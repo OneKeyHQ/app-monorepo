@@ -25,6 +25,7 @@ import {
 import SwapActionsState from '@onekeyhq/kit/src/views/Swap/pages/components/SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer';
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
+import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -610,7 +611,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             {stockEstimatedReceiveContent}
           </XStack>
 
-          {stockTokenToAssetRatio?.trim() ? (
+          {getValidStockTokenToAssetRatio(stockTokenToAssetRatio) ? (
             <XStack
               testID="stock-trade-estimated-shares"
               px="$0.5"
