@@ -22,7 +22,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getDeviceManagementWallets } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
@@ -43,6 +42,9 @@ import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { selectFirmwareUpdateDetectStatus } from '../../../FirmwareUpdate/utils';
+import { DeviceFlickerAvatar } from '../../components/DeviceFlickerAvatar';
+import { useDeviceFlickerTrace } from '../../debugDeviceFlicker';
+import { useDeviceFlickerNavigation } from '../../hooks/useDeviceFlickerNavigation';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
@@ -75,6 +77,10 @@ function DeviceListItem({
   onPress: (item: IDeviceManagementListItem) => void;
   isConnected: boolean;
 }) {
+  const { instance, trace } = useDeviceFlickerTrace('list-row', {
+    isConnected,
+    isQrWallet: item.isQrWallet,
+  });
   const { gtMd } = useMedia();
   const vendorProfile = getVendorProfile(
     item.device?.vendor ?? EHardwareVendor.onekey,
@@ -241,7 +247,9 @@ function DeviceListItem({
               : DeviceManagementTestIDs.deviceStatusDisconnected
           }
         >
-          <WalletAvatar
+          <DeviceFlickerAvatar
+            traceName="list-avatar"
+            parentInstance={instance}
             {...walletAvatarProps}
             size={gtMd ? 44 : 36}
             status={isConnected ? 'connected' : 'default'}
@@ -270,7 +278,14 @@ function DeviceListItem({
           ) : null}
         </YStack>
       )}
-      onPress={canOpenDetails ? () => onPress(item) : undefined}
+      onPress={
+        canOpenDetails
+          ? () => {
+              trace('press');
+              onPress(item);
+            }
+          : undefined
+      }
       drillIn={canOpenDetails}
       testID={DeviceManagementTestIDs.deviceListItem}
     >
@@ -288,6 +303,7 @@ const ListEmptyComponent = () => (
 );
 
 function DeviceManagementV2ListWeb() {
+  useDeviceFlickerNavigation('list-navigation');
   const intl = useIntl();
   const navigation = useNavigation();
   const { gtMd } = useMedia();
@@ -400,6 +416,11 @@ function DeviceManagementV2ListWeb() {
       watchLoading: true,
     },
   );
+
+  useDeviceFlickerTrace('list', {
+    itemCount: hwQrWalletList.length,
+    isLoading,
+  });
 
   const walletConnectionMap = useMemo(() => {
     const map = new Map<string, boolean>();
