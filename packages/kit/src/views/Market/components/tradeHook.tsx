@@ -37,24 +37,24 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
 
-export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, platforms = {} } = token || {};
-  const network = useMemo(() => {
-    if (detailPlatforms) {
-      const values = Object.values(detailPlatforms);
-      const nativePlatform = values.find((i) => i.isNative);
-      if (nativePlatform) {
-        return nativePlatform;
-      }
+import { resolveMarketTradeNetwork } from './tradeHook.utils';
 
-      const tokenAddress = Object.values(platforms)[0];
-      const tokenAddressPlatform = values.find(
-        (i) => i.tokenAddress === tokenAddress,
-      );
-      return tokenAddressPlatform ?? values[0];
-    }
-  }, [detailPlatforms, platforms]);
-  return network;
+export const useMarketTradeNetwork = (
+  token: IMarketTokenDetail | null,
+  // Network the caller already knows the token lives on; see
+  // resolveMarketTradeNetwork for why it takes precedence over market data.
+  preferredNetworkId?: string,
+) => {
+  const { detailPlatforms, platforms } = token || {};
+  return useMemo(
+    () =>
+      resolveMarketTradeNetwork({
+        detailPlatforms,
+        platforms,
+        preferredNetworkId,
+      }),
+    [detailPlatforms, platforms, preferredNetworkId],
+  );
 };
 
 export const useMarketTradeNetworkId = (
@@ -66,10 +66,13 @@ export const useMarketTradeNetworkId = (
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
 
-export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+export const useMarketTradeActions = (
+  token: IMarketTokenDetail | null,
+  preferredNetworkId?: string,
+) => {
   const { symbol = '', name, image } = token || {};
   const intl = useIntl();
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredNetworkId);
   const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =

@@ -62,6 +62,12 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
+    /**
+     * Network the caller already knows the token lives on. Lets the trade
+     * actions resolve a networkId even when market data has not mapped
+     * that platform; entries that only know the CoinGecko id omit it.
+     */
+    networkId?: string;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

@@ -31,20 +31,22 @@ export function MarketTradeButton({
   coinGeckoId,
   token,
   accountId,
+  preferredNetworkId,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
   accountId: string;
+  preferredNetworkId?: string;
 }) {
   const intl = useIntl();
 
   const { onSwap, onStaking, onBuy, onSell, canStaking } =
-    useMarketTradeActions(token);
+    useMarketTradeActions(token, preferredNetworkId);
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredNetworkId);
   const networkId = useMarketTradeNetworkId(network, token.symbol);
 
   const { tokenAddress: realContractAddress = '' } = network || {};

@@ -49,9 +49,11 @@ import { MarketWatchListProviderMirror } from '../MarketWatchListProviderMirror'
 function TokenDetailHeader({
   coinGeckoId,
   token: responseToken,
+  preferredNetworkId,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
+  preferredNetworkId?: string;
 }) {
   const { gtMd: gtMdMedia } = useMedia();
 
@@ -98,6 +100,7 @@ function TokenDetailHeader({
         coinGeckoId={coinGeckoId}
         token={token}
         accountId={account?.id ?? ''}
+        preferredNetworkId={preferredNetworkId}
       />
       {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>
@@ -133,7 +136,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { token: coinGeckoId } = route.params;
+  const { token: coinGeckoId, networkId: preferredNetworkId } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
   const isModalPage = useIsOverlayPage();
@@ -200,7 +203,11 @@ function MarketDetail({
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
       return (
-        <TokenDetailHeader coinGeckoId={coinGeckoId} token={tokenDetail} />
+        <TokenDetailHeader
+          coinGeckoId={coinGeckoId}
+          token={tokenDetail}
+          preferredNetworkId={preferredNetworkId}
+        />
       );
     }
     return (
@@ -244,7 +251,7 @@ function MarketDetail({
         )}
       </YStack>
     );
-  }, [coinGeckoId, gtMd, tokenDetail]);
+  }, [coinGeckoId, gtMd, tokenDetail, preferredNetworkId]);
 
   const defer = useDeferredPromise();
 
