@@ -299,7 +299,8 @@ function MobileBrowser() {
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
-    isBrowserHeaderTabSelected && showDiscoveryPage;
+    showDiscoveryPage &&
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =

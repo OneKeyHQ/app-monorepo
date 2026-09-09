@@ -200,14 +200,14 @@ function MarketDetail({
   return (
     <BtcMetadataProvider>
       <Page>
-        {isChartFullscreen ? (
+        {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
         ) : (
           <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
         )}
 
         <Page.Body
-          pt={isChartFullscreen ? 0 : bodyPaddingTop}
+          pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
