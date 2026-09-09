@@ -12,6 +12,7 @@ import { MarketDetailEmbeddedSwap } from './MarketDetailEmbeddedSwap';
 
 const mockEmbeddedSwap = jest.fn((_props: Record<string, unknown>) => null);
 const mockEmbeddedSwapMounted = jest.fn();
+let mockConfigReady = true;
 const mockPaymentToken = {
   networkId: 'evm--1',
   contractAddress: '',
@@ -19,6 +20,8 @@ const mockPaymentToken = {
   decimals: 18,
   isNative: true,
 };
+
+let mockDefaultTokens = [mockPaymentToken];
 
 jest.mock('@onekeyhq/components', () => {
   return {
@@ -78,12 +81,13 @@ jest.mock('@onekeyhq/shared/types', () => ({
 
 jest.mock('@onekeyhq/shared/types/swap/types', () => ({
   ESwapSource: { MARKET: 'market' },
-  ESwapTabSwitchType: { SWAP: 'swap' },
+  ESwapTabSwitchType: { SWAP: 'swap', STOCK: 'stock' },
 }));
 
 jest.mock('./SwapPanel/hooks/useSpeedSwapInit', () => ({
   useSpeedSwapInit: jest.fn(() => ({
-    defaultTokens: [mockPaymentToken],
+    defaultTokens: mockDefaultTokens,
+    speedConfigReady: mockConfigReady,
   })),
 }));
 
@@ -96,8 +100,49 @@ const marketToken = {
 
 describe('MarketDetailEmbeddedSwap', () => {
   beforeEach(() => {
+    mockConfigReady = true;
+    mockDefaultTokens = [mockPaymentToken];
     mockEmbeddedSwap.mockClear();
     mockEmbeddedSwapMounted.mockClear();
+  });
+
+  it('initializes stock targets with the stock protocol', () => {
+    render(
+      <MarketDetailEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        testID="stock"
+      />,
+    );
+    expect(mockEmbeddedSwap).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        swapInitParams: expect.objectContaining({
+          swapTabSwitchType: ESwapTabSwitchType.STOCK,
+        }),
+      }),
+    );
+  });
+
+  it('waits for configuration and consumes the payment seed only once', () => {
+    mockConfigReady = false;
+    mockDefaultTokens = [];
+    const view = render(
+      <MarketDetailEmbeddedSwap swapToken={marketToken} testID="swap" />,
+    );
+    expect(mockEmbeddedSwap).not.toHaveBeenCalled();
+    mockConfigReady = true;
+    mockDefaultTokens = [mockPaymentToken];
+    view.rerender(
+      <MarketDetailEmbeddedSwap swapToken={marketToken} testID="swap" />,
+    );
+    const seed = mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams;
+    mockDefaultTokens = [
+      { ...mockPaymentToken, symbol: 'OTHER', contractAddress: '0xother' },
+    ];
+    view.rerender(
+      <MarketDetailEmbeddedSwap swapToken={marketToken} testID="swap" />,
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toBe(seed);
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
   });
 
   it('opens the current Market token in the shared Swap UI', () => {

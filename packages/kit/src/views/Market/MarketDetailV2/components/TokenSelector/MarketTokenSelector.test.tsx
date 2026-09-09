@@ -13,8 +13,9 @@ const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
-const mockUseToMarketStockDetailPage = jest.fn((_options?: unknown) =>
-  jest.fn(),
+const mockToStock = jest.fn();
+const mockUseToMarketStockDetailPage = jest.fn(
+  (_options?: unknown) => mockToStock,
 );
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockSearchTokenList: IMarketToken[] = [];
@@ -252,6 +253,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockTopCoinPress.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
     mockUseToMarketStockDetailPage.mockClear();
+    mockToStock.mockClear();
     mockSearchTokenList = [];
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
@@ -259,7 +261,7 @@ describe('MarketTokenSelector stock default category', () => {
     ];
   });
 
-  it('adds Top Coins before Stocks and renders its selector data', async () => {
+  it('adds Top Coins after Stocks and renders its selector data', async () => {
     renderOpenStockSelector();
 
     const topCoinsTab = screen.getByTestId(
@@ -267,7 +269,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
     const stocksTab = screen.getByTestId('market-token-selector-tab-stocks');
     expect(
-      topCoinsTab.compareDocumentPosition(stocksTab) &
+      stocksTab.compareDocumentPosition(topCoinsTab) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
@@ -293,7 +295,9 @@ describe('MarketTokenSelector stock default category', () => {
   it('preserves category label casing', () => {
     renderOpenStockSelector();
 
-    const topCoinsLabel = screen.getByText('Top Coins');
+    // The injected category name is bound to ETranslations.market_top_coins;
+    // the intl mock above renders the raw key id.
+    const topCoinsLabel = screen.getByText('market.top_coins');
     expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
     expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
   });
@@ -405,5 +409,38 @@ describe('MarketTokenSelector stock default category', () => {
       }),
       expect.objectContaining({ marketTokenCategory: undefined }),
     );
+  });
+  it('replaces the current detail for a stock in search results', () => {
+    mockSearchTokenList = [
+      {
+        id: 'dex-token',
+        stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
+        name: 'DEX Token',
+        symbol: 'DEX',
+        address: '0xdex',
+        decimals: 18,
+        price: 1,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        networkId: 'evm--1',
+      },
+    ];
+
+    render(<MarketTokenSelector defaultCategory="top_coins" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'DEX' },
+    });
+    fireEvent.click(screen.getByTestId('market-token-selector-search-result'));
+
+    expect(mockToStock).toHaveBeenCalledWith('AAPL');
+    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
   });
 });

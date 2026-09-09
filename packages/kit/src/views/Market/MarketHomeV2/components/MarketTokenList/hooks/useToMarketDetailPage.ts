@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 
@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
 
@@ -40,6 +41,7 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   skipMarketDataFetch?: boolean;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
+  tokenDetailPreview?: IMarketTokenDetailPreview;
 }
 
 interface IUseToDetailPageOptions {
@@ -67,6 +69,10 @@ interface IUseToDetailPageOptions {
    * A different detail route is replaced, while the same route is updated in place.
    */
   replaceCurrentDetail?: boolean;
+  /**
+   * Resolves a search/watchlist token to its canonical Asset route identity.
+   */
+  resolveMarketAsset?: boolean;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
@@ -74,6 +80,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
   const tokenDetailActions = useTokenDetailActions();
+  const navigationGenerationRef = useRef(0);
   const splitViewType = useSplitViewType();
   const media = useMedia();
   const preloadLayout =
@@ -85,6 +92,14 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const preparePreviewTokenDetail = useCallback(
     (item: IMarketToken) => {
+      if (item.tokenDetailPreview) {
+        prewarmMarketTokenImages(item.tokenDetailPreview);
+        tokenDetailActions.current.prepareTokenDetailPreview(
+          item.tokenDetailPreview,
+        );
+        return;
+      }
+
       const previewAddress = item.address ?? item.tokenAddress;
 
       if (
@@ -112,40 +127,52 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      const navigationGeneration = navigationGenerationRef.current + 1;
+      navigationGenerationRef.current = navigationGeneration;
+      const shouldResolveMarketAsset = Boolean(
+        options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
+      );
+      const resolvedItem = item;
+      const marketTokenCategory = options?.marketTokenCategory;
+      const stockId = resolveMarketStockId(resolvedItem);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        isStockRoute: Boolean(stockId),
         layout: preloadLayout,
       });
       const shortCode = networkUtils.getNetworkShortCode({
-        networkId: item.networkId,
+        networkId: resolvedItem.networkId,
       });
-      const stockId = resolveMarketStockId(item);
       const showFavoriteButton =
-        typeof item.showFavoriteButton === 'boolean'
-          ? item.showFavoriteButton
+        typeof resolvedItem.showFavoriteButton === 'boolean'
+          ? resolvedItem.showFavoriteButton
           : options?.showFavoriteButton;
 
       const tokenParams = {
-        tokenAddress: item.tokenAddress,
-        network: shortCode || item.networkId,
-        isNative: item.isNative,
+        tokenAddress: resolvedItem.tokenAddress,
+        network: shortCode || resolvedItem.networkId,
+        isNative: resolvedItem.isNative,
         from: options?.from,
-        ...(item.marketTokenId
-          ? { marketTokenId: item.marketTokenId }
+        ...(resolvedItem.marketTokenId
+          ? { marketTokenId: resolvedItem.marketTokenId }
           : undefined),
-        ...(item.marketVariantId
-          ? { marketVariantId: item.marketVariantId }
+        ...(resolvedItem.marketVariantId
+          ? { marketVariantId: resolvedItem.marketVariantId }
           : undefined),
-        ...(item.skipMarketDataFetch
+        ...(shouldResolveMarketAsset
+          ? {
+              resolveMarketAsset: true,
+              marketTokenSymbol: resolvedItem.symbol,
+            }
+          : undefined),
+        ...(resolvedItem.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
           : undefined),
-        ...(typeof item.disableTrade === 'boolean'
-          ? { disableTrade: item.disableTrade }
+        ...(typeof resolvedItem.disableTrade === 'boolean'
+          ? { disableTrade: resolvedItem.disableTrade }
           : undefined),
-        ...(options?.marketTokenCategory
-          ? { marketTokenCategory: options.marketTokenCategory }
-          : undefined),
+        ...(marketTokenCategory ? { marketTokenCategory } : undefined),
         ...(typeof showFavoriteButton === 'boolean'
           ? { showFavoriteButton }
           : undefined),
@@ -165,7 +192,14 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               : undefined),
           }
         : undefined;
-      const params = stockParams ?? tokenParams;
+      const params =
+        stockParams ??
+        (resolvedItem.tokenDetailPreview
+          ? {
+              ...tokenParams,
+              legacyTokenPreview: resolvedItem.tokenDetailPreview,
+            }
+          : tokenParams);
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;
@@ -185,6 +219,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         const { default: backgroundApiProxy } =
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        if (navigationGenerationRef.current !== navigationGeneration) {
+          return;
+        }
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,
@@ -199,14 +236,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
             ...tokenParams,
             from: tokenParams.from || enterSource,
+            tokenDetailPreview: resolvedItem.tokenDetailPreview,
           });
+        }
+        if (navigationGenerationRef.current !== navigationGeneration) {
+          return;
         }
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
         if (stockId) {
           tokenDetailActions.current.clearTokenDetail();
         } else {
-          preparePreviewTokenDetail(item);
+          preparePreviewTokenDetail(resolvedItem);
         }
 
         const targetTab = platformEnv.isNative
@@ -215,6 +256,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         if (platformEnv.isNative) {
           await marketDetailShellPreloadPromise;
+          if (navigationGenerationRef.current !== navigationGeneration) {
+            return;
+          }
           // Navigate directly to the nested detail route to avoid briefly
           // revealing the Discovery root page before entering Market detail.
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -231,6 +275,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           // Then navigate to detail page using rootNavigationRef
           // because the current navigation context is from modal, not from the target tab
           setTimeout(() => {
+            if (navigationGenerationRef.current !== navigationGeneration) {
+              return;
+            }
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
               screen: targetTab,
               params: {
@@ -244,7 +291,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (stockId) {
           tokenDetailActions.current.clearTokenDetail();
         } else {
-          preparePreviewTokenDetail(item);
+          preparePreviewTokenDetail(resolvedItem);
         }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
@@ -261,6 +308,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         if (platformEnv.isNative) {
           await marketDetailShellPreloadPromise;
+          if (navigationGenerationRef.current !== navigationGeneration) {
+            return;
+          }
         }
         if (stockId) {
           if (shouldReplaceCurrentDetail) {
@@ -283,6 +333,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,
+      options?.resolveMarketAsset,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,

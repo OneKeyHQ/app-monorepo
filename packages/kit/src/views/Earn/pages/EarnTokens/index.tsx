@@ -301,14 +301,6 @@ function EarnTokensContent() {
     [],
   );
 
-  const totalLiquidityLabel = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.dexmarket_details_liquidity_change_total,
-      }),
-    [intl],
-  );
-
   const handleAssetPress = useCallback(
     (asset: IEarnAvailableAsset) => {
       void navigateToAsset(asset);
@@ -324,12 +316,11 @@ function EarnTokensContent() {
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
-        totalLiquidityLabel={totalLiquidityLabel}
         testID={EarnTestIDs.tokensPageItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel],
+    [handleAssetPress],
   );
 
   const keyExtractor = useCallback(

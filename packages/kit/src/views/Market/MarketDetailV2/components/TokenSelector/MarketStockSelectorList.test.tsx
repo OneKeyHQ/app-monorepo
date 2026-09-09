@@ -123,7 +123,7 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
   });
 
-  it('uses the Market Stocks columns and selects stocks by stockId', () => {
+  it('uses the Market Stocks columns and preserves the selected stock preview', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
@@ -135,11 +135,16 @@ describe('MarketStockSelectorList', () => {
       columns: mockColumns,
       dataSource: [mockStock],
       estimatedItemSize: 56,
-      headerRowProps: { height: 40 },
-      rowProps: { width: '100%', height: 56, minHeight: 56 },
+      headerRowProps: { height: 40, minHeight: 40 },
+      rowProps: {
+        width: '100%',
+        height: 56,
+        minHeight: 56,
+        borderRadius: '$0',
+      },
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));
-    expect(mockOnItemPress).toHaveBeenCalledWith('AAPL');
+    expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 });

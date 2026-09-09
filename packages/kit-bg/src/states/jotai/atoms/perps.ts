@@ -20,7 +20,11 @@ import {
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IUnifoldDepositExecution,
@@ -1086,6 +1090,7 @@ export interface IPerpsCustomSettings {
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastUsdcWithdrawDestinationId: IUsdcWithdrawDestinationId;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -1101,6 +1106,7 @@ export const {
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastUsdcWithdrawDestinationId: DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   },
 });
 

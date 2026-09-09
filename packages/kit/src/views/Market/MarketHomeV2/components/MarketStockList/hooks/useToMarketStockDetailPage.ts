@@ -23,6 +23,7 @@ import {
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
@@ -40,10 +41,13 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stockId: string) => {
+    async (stock: string | IMarketStockDetailPreview) => {
+      const stockId = typeof stock === 'string' ? stock : stock.stockId;
+      const stockPreview = typeof stock === 'string' ? undefined : stock;
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        isStockRoute: true,
         layout: preloadLayout,
       });
       tokenDetailActions.current.clearTokenDetail();
@@ -70,6 +74,13 @@ export function useToMarketStockDetailPage(
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
           stockId,
+          ...(stockPreview
+            ? {
+                stockPreviewSymbol: stockPreview.symbol,
+                stockPreviewName: stockPreview.name,
+                stockPreviewLogoUrl: stockPreview.logoUrl,
+              }
+            : undefined),
           from: platformEnv.isExtensionUiPopup
             ? EEnterWay.ExtensionPopup
             : EEnterWay.ExtensionSidePanel,
@@ -79,7 +90,16 @@ export function useToMarketStockDetailPage(
       }
 
       if (options?.replaceCurrentDetail) {
-        navigation.replace(ETabMarketRoutes.MarketStockDetail, { stockId });
+        navigation.replace(ETabMarketRoutes.MarketStockDetail, {
+          stockId,
+          ...(stockPreview
+            ? {
+                stockPreviewSymbol: stockPreview.symbol,
+                stockPreviewName: stockPreview.name,
+                stockPreviewLogoUrl: stockPreview.logoUrl,
+              }
+            : undefined),
+        });
         return;
       }
 
@@ -87,7 +107,16 @@ export function useToMarketStockDetailPage(
         screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
-          params: { stockId },
+          params: {
+            stockId,
+            ...(stockPreview
+              ? {
+                  stockPreviewSymbol: stockPreview.symbol,
+                  stockPreviewName: stockPreview.name,
+                  stockPreviewLogoUrl: stockPreview.logoUrl,
+                }
+              : undefined),
+          },
         },
       });
     },

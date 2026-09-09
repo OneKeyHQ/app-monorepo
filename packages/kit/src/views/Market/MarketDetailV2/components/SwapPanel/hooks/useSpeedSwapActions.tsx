@@ -428,7 +428,8 @@ export function useSpeedSwapActions(props: {
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
-  onCloseDialog?: () => void;
+  executionReady?: boolean;
+  onCloseReviewDialog?: () => void | Promise<void>;
   /**
    * Live per-stock open state from the token detail. Flips refresh the current
    * provider quote so a stale server-reported closed error clears on reopen.
@@ -446,7 +447,8 @@ export function useSpeedSwapActions(props: {
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
-    // onCloseDialog,
+    executionReady = true,
+    onCloseReviewDialog,
     stockIsOpen,
   } = props;
   const { key: slippageMode, value: slippage } = slippageItem;
@@ -870,6 +872,7 @@ export function useSpeedSwapActions(props: {
   };
 
   const forceRefreshMarketQuote = useCallback(() => {
+    if (!executionReady) return;
     const userAddress = fromNetworkAccount?.addressDetail.address;
     const accountId = fromNetworkAccount?.id;
     const receivingAddress = receivingNetworkAccount?.addressDetail.address;
@@ -900,6 +903,7 @@ export function useSpeedSwapActions(props: {
       },
     );
   }, [
+    executionReady,
     fromToken,
     fromTokenAmountDebounced,
     fromNetworkAccount?.addressDetail.address,
@@ -1869,6 +1873,9 @@ export function useSpeedSwapActions(props: {
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee,
     } = {}) => {
+      if (!executionReady) {
+        throw new OneKeyLocalError('Market trade pair is not ready.');
+      }
       if (quoteResult && reviewExecutionSnapshotRef.current) {
         return buildMarketReviewStateFromSnapshot(
           reviewExecutionSnapshotRef.current,
@@ -1998,6 +2005,7 @@ export function useSpeedSwapActions(props: {
     },
     [
       antiMEV,
+      executionReady,
       buildMarketReviewStateFromSnapshot,
       buildSpeedSwapTxData,
       buildWrappedSwapData,
@@ -2349,6 +2357,7 @@ export function useSpeedSwapActions(props: {
 
       const lockFeeEditor = Boolean(feeInfo || feeInfos?.length);
 
+      await onCloseReviewDialog?.();
       await navigationToTxConfirm({
         wrappedInfo: txConfirmBuildUnsignedParams.wrappedInfo,
         transfersInfo: txConfirmBuildUnsignedParams.transfersInfo,
@@ -2365,7 +2374,11 @@ export function useSpeedSwapActions(props: {
         onCancel,
       });
     },
-    [buildMarketApproveUnsignedTxArr, navigationToTxConfirm],
+    [
+      buildMarketApproveUnsignedTxArr,
+      navigationToTxConfirm,
+      onCloseReviewDialog,
+    ],
   );
 
   const signMarketReviewQuoteResult = useCallback(
@@ -3658,6 +3671,7 @@ export function useSpeedSwapActions(props: {
     // for whether trading is available.
     void stockIsOpen;
     if (
+      executionReady &&
       !fromTokenAmountDebouncedBN.isNaN() &&
       fromTokenAmountDebouncedBN.gt(0) &&
       userAddress &&
@@ -3695,6 +3709,7 @@ export function useSpeedSwapActions(props: {
     }
   }, [
     closeQuoteEvent,
+    executionReady,
     fromToken.contractAddress,
     fromToken.networkId,
     fromTokenAmountDebounced,

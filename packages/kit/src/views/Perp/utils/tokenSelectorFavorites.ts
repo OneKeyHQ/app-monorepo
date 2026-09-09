@@ -5,6 +5,7 @@ import {
   dedupeTokenSelectorFavoritesOrder,
   getTokenSelectorFavoriteOrderKey,
   reconcileTokenSelectorFavoritesOrder,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
@@ -303,6 +304,7 @@ export {
   getTokenSelectorListItemKey,
   reconcileTokenSelectorFavoritesOrder,
   sortTokenSelectorFavoriteItems,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 };

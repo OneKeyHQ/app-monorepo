@@ -78,6 +78,7 @@ import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperli
 import {
   CACHE_TIME_QUANTIZE_MS,
   DEX_PREFIXES,
+  PERPS_ASSET_TYPE_VERSION,
   SPOT_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
@@ -102,12 +103,14 @@ import type {
   IPerpsUniverse,
   IRecentTrade,
   ISpotMetaAndAssetCtxsResponse,
+  ISpotToken,
   ISpotUniverse,
   ITwapHistoryParameters,
   ITwapHistoryRecord,
   ITwapSliceFill,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserFunding,
   IUserNonFundingLedgerUpdate,
   IUserTwapSliceFillsByTimeParameters,
   IUserTwapSliceFillsParameters,
@@ -168,6 +171,7 @@ import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMod
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
+import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
   mergePerpDexSlots,
   selectPerpMetasByDex,
@@ -224,6 +228,17 @@ type IChangeActiveAssetResult = {
   assetId: number | undefined;
   universe: IPerpsUniverse | undefined;
   margin: IMarginTable | undefined;
+};
+
+type ITradingUniverseSnapshot = {
+  universesByDex: IPerpsUniverse[][];
+  marginTablesMapByDex: Array<IMarginTableMap | undefined>;
+  updatedAt?: number;
+};
+
+type ISpotMetaSnapshot = {
+  tokens: ISpotToken[];
+  universes: ISpotUniverse[];
 };
 
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
@@ -315,6 +330,10 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
+  private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
+
+  private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
+
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
@@ -567,6 +586,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // on every modal push.
   private _initialSymbolSelectClaimed = false;
 
+  // A context-less caller picks the market before the Perp page mounts, so the
+  // switch event it emits has no listener yet and the cold-start restore would
+  // replay the previous session's instrument over the user's choice.
+  private _pendingInitialTradeInstrument:
+    | { coin: string; mode: ITradingMode }
+    | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -579,6 +605,62 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     this._initialSymbolSelectClaimed = true;
     return true;
+  }
+
+  // Ignored once the latch is taken: from then on the Perp page is live and
+  // switches through the event bus, so a value recorded here could only
+  // override a market the user picked afterwards. That makes "first mount
+  // only" a property of the store rather than a rule every caller upholds.
+  @backgroundMethod()
+  async setPendingInitialTradeInstrument(params: {
+    coin: string;
+    mode: ITradingMode;
+  }): Promise<void> {
+    if (!params.coin || this._initialSymbolSelectClaimed) {
+      return;
+    }
+    this._pendingInitialTradeInstrument = {
+      coin: params.coin,
+      mode: params.mode,
+    };
+  }
+
+  // Three sequential proxy hops used to sit between the first Perp frame and
+  // the symbol it should show. Each is cheap when the background is idle and
+  // ~220ms when it is not, which is exactly the cold start the user waits on.
+  // The universe read stays behind `claimed` so a non-claiming run does no more
+  // work than before.
+  @backgroundMethod()
+  async prepareInitialSymbolSelect(): Promise<{
+    claimed: boolean;
+    pendingInitialTradeInstrument:
+      | { coin: string; mode: ITradingMode }
+      | undefined;
+    instrumentTarget: Awaited<
+      ReturnType<ServiceHyperliquid['getActiveTradeInstrumentTarget']>
+    >;
+    tradingUniverse:
+      | Awaited<ReturnType<ServiceHyperliquid['getTradingUniverse']>>
+      | undefined;
+  }> {
+    const claimed = await this.tryClaimInitialSymbolSelect();
+    // Taking it here rather than in the setter keeps the two halves of "first
+    // mount only" next to each other; a call that lost the race is already
+    // a no-op by the line above.
+    const pendingInitialTradeInstrument = claimed
+      ? this._pendingInitialTradeInstrument
+      : undefined;
+    this._pendingInitialTradeInstrument = undefined;
+    const instrumentTarget = await this.getActiveTradeInstrumentTarget();
+    const tradingUniverse = claimed
+      ? await this.getTradingUniverse()
+      : undefined;
+    return {
+      claimed,
+      pendingInitialTradeInstrument,
+      instrumentTarget,
+      tradingUniverse,
+    };
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
@@ -864,7 +946,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
-    >('/utility/v1/perp-config');
+    >('/utility/v1/perp-config', {
+      params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
+    });
     const resData = resp.data;
 
     if (process.env.NODE_ENV !== 'production') {
@@ -1031,6 +1115,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     {
       max: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  // Per-dex REST snapshot that must not feed the shared cache: a main-dex-only
+  // result would wipe the sub-dex prices the WebSocket stream delivers.
+  _getMarketOrderAllMidsMemo = cacheUtils.memoizee(
+    async (dex: string) =>
+      dex
+        ? hyperLiquidApiClients.infoClient.allMids({ dex })
+        : hyperLiquidApiClients.infoClient.allMids(),
+    {
+      max: 8,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
       promise: true,
     },
   );
@@ -1492,6 +1590,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
         prevMarginTablesMapByDex,
       );
+      this.runtimeTradingUniverse = {
+        universesByDex: universes,
+        marginTablesMapByDex: marginTablesMapList,
+        updatedAt: Date.now(),
+      };
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,
         marginTablesMapList,
@@ -1505,15 +1608,18 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getTradingUniverse() {
-    return this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    const persisted =
+      await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    return persisted.universesByDex.length > 0
+      ? persisted
+      : (this.runtimeTradingUniverse ?? persisted);
   }
 
   @backgroundMethod()
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
-    const { universes: spotUniverses } =
-      await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes: spotUniverses } = await this.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
@@ -1667,6 +1773,33 @@ export default class ServiceHyperliquid extends ServiceBase {
           coin: apiCoin,
           ...page,
         }),
+    });
+  }
+
+  @backgroundMethod()
+  async getUserFundingHistory({
+    accountAddress,
+  }: {
+    accountAddress: IHex;
+  }): Promise<IUserFunding[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const user = accountAddress.toLowerCase() as IHex;
+    const endTime = Date.now();
+
+    return fetchPerpFundingHistoryPages({
+      startTime: 0,
+      endTime,
+      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
+      getRecordKey: (record) =>
+        [
+          record.time,
+          record.hash,
+          record.delta.coin,
+          record.delta.szi,
+          record.delta.usdc,
+          record.delta.fundingRate,
+          record.delta.nSamples ?? '',
+        ].join(':'),
     });
   }
 
@@ -2393,6 +2526,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   ) {
     const spotMeta = this._buildSpotMetaFromResponse(result);
     if (spotMeta) {
+      this.runtimeSpotMeta = spotMeta;
       await this.backgroundApi.simpleDb.perp.setSpotMeta(spotMeta);
       this._rebuildSpotMappings(spotMeta.universes);
     }
@@ -2448,7 +2582,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
   private async _ensureSpotMappings() {
     if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
-    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes } = await this.getSpotMeta();
     if (universes.length > 0) {
       this._rebuildSpotMappings(universes);
     }
@@ -2486,7 +2620,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getSpotMeta() {
-    return this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const persisted = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    return persisted.tokens.length > 0 || persisted.universes.length > 0
+      ? persisted
+      : (this.runtimeSpotMeta ?? persisted);
   }
 
   @backgroundMethod()
@@ -4149,6 +4286,26 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       })
       .catch(() => undefined);
+  }
+
+  @backgroundMethod()
+  async getMarketOrderReferencePrice(
+    coin: string,
+  ): Promise<string | undefined> {
+    try {
+      return await resolveMarketOrderReferencePrice({
+        coin,
+        cachedAllMids: hyperLiquidCache.allMids,
+        cachedAt: hyperLiquidCache.allMidsUpdatedAt,
+        loadAllMids: async (dex) => this._getMarketOrderAllMidsMemo(dex),
+      });
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquid] Failed to load market order reference price:',
+        error,
+      );
+      return undefined;
+    }
   }
 
   @backgroundMethod()

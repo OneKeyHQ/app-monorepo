@@ -9,10 +9,9 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
-def useDevVendor = System.getenv('ONEKEY_DEV_VENDOR') == 'true'
-def useDevBackgroundHmr = useDevVendor && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
-def devVendorAndroidOutputDir = file("${projectRoot}/out-dir-bundle/dev-vendor/android")
-def generatedDevVendorAssetsDir = file("${buildDir}/generated/assets/onekeyDevVendor/debug")
+def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
+def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
+def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
@@ -134,6 +133,17 @@ static def readRootEnvFile(fileName = ".env") {
     return props
 }
 
+def appEnvConfig = readRootEnvFile()
+// CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
+def expoEnvConfig = readRootEnvFile('.env.expo')
+expoEnvConfig.each { key, value ->
+    if (value && !value.toString().isEmpty()) {
+        appEnvConfig.setProperty(key.toString(), value.toString())
+    }
+}
+def enableNativeBackgroundThread =
+    defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -154,19 +164,7 @@ android {
         // buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
-        def appEnvConfig = readRootEnvFile()
-        // CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
-        def expoEnvConfig = readRootEnvFile('.env.expo')
-        expoEnvConfig.each { key, value ->
-            if (value && !value.toString().isEmpty()) {
-                appEnvConfig.setProperty(key.toString(), value.toString())
-            }
-        }
-        buildConfigField(
-            "boolean",
-            "ENABLE_NATIVE_BACKGROUND_THREAD",
-            defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
-        )
+        buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
         buildConfigField(
@@ -174,14 +172,12 @@ android {
             "ONEKEY_STARTUP_PROFILE",
             (System.getenv('ONEKEY_STARTUP_PROFILE')?.toLowerCase() in ['1', 'true', 'yes', 'on']).toString()
         )
-        buildConfigField("boolean", "ONEKEY_DEV_VENDOR", "false")
-        buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", "false")
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
-            BUILTIN_BUNDLE_VERSION: defEnvStr(appEnvConfig, 'BUNDLE_VERSION'),
+            BUILTIN_BUNDLE_VERSION: (useDevShell ? '0' : defEnvStr(appEnvConfig, 'BUNDLE_VERSION')),
         ]
     }
     signingConfigs {
@@ -194,8 +190,13 @@ android {
     }
     buildTypes {
         debug {
-            buildConfigField("boolean", "ONEKEY_DEV_VENDOR", useDevVendor.toString())
+            buildConfigField("boolean", "ONEKEY_DEV_SHELL", useDevShell.toString())
             buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", useDevBackgroundHmr.toString())
+            buildConfigField(
+                "boolean",
+                "ENABLE_NATIVE_BACKGROUND_THREAD",
+                (useDevShell ? 'true' : enableNativeBackgroundThread),
+            )
             resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
             ndk {
@@ -243,7 +244,7 @@ android {
     }
 
     sourceSets {
-        debug.assets.srcDir(generatedDevVendorAssetsDir)
+        debug.assets.srcDir(generatedDevShellAssetsDir)
     }
 
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
@@ -259,37 +260,28 @@ android {
     }
 }
 
-def prepareDevVendorDebugAssets = tasks.register("prepareDevVendorDebugAssets") {
-    inputs.property("onekeyDevVendorEnabled", useDevVendor)
-    if (useDevVendor) {
-        inputs.files(
-            file("${devVendorAndroidOutputDir}/common.hbc"),
-            file("${devVendorAndroidOutputDir}/manifest.json"),
-        )
-    }
-    outputs.dir(generatedDevVendorAssetsDir)
+def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
+    inputs.property("onekeyDevShellEnabled", useDevShell)
+    outputs.dir(generatedDevShellAssetsDir)
+    outputs.upToDateWhen { false }
 
     doLast {
-        delete(generatedDevVendorAssetsDir)
-        if (!useDevVendor) {
+        delete(generatedDevShellAssetsDir)
+        if (!useDevShell) {
             return
         }
-
+        mkdir(generatedDevShellAssetsDir)
         exec {
             workingDir projectRoot
             commandLine(
                 "node",
-                "scripts/build-dev-vendor.js",
-                "--check",
+                "scripts/native-dev-shell.js",
+                "contract",
                 "--platform",
                 "android",
+                "--output",
+                file("${generatedDevShellAssetsDir}/onekey-dev-shell-contract.json"),
             )
-        }
-        copy {
-            from(devVendorAndroidOutputDir) {
-                include("common.hbc", "manifest.json")
-            }
-            into(file("${generatedDevVendorAssetsDir}/onekey-dev-vendor"))
         }
     }
 }
@@ -298,7 +290,7 @@ android.applicationVariants.configureEach { variant ->
     if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
         def targetName = capitalizeVariantName(variant.name)
         tasks.named("merge${targetName}Assets").configure {
-            dependsOn(prepareDevVendorDebugAssets)
+            dependsOn(prepareDevShellDebugAssets)
         }
     }
 }

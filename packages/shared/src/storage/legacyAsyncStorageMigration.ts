@@ -12,10 +12,55 @@ export interface ILegacyAsyncStorageNativeModule extends TurboModule {
   multiSet(entries: Array<[string, string]>): Promise<void>;
   multiRemove(keys: string[]): Promise<void>;
   getAllKeys(): Promise<string[]>;
+  reloadManifest(): Promise<void>;
 }
 
 let legacyModule: ILegacyAsyncStorageNativeModule | undefined;
 let legacyMigrationAdapter: ILegacyAsyncStorageNativeModule | undefined;
+let legacyOperationChain: Promise<void> = Promise.resolve();
+
+function logManifestRefreshFailure(error: unknown) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../modules3rdParty/react-native-file-logger') as typeof import('../modules3rdParty/react-native-file-logger');
+    const errorType =
+      error instanceof Error && error.name ? error.name : 'UnknownError';
+    NativeLogger.write(
+      LogLevel.Info,
+      `[NativeStorageMigration] iOS manifest refresh result=failed errorType=${errorType}; using current manifest`,
+    );
+  } catch {
+    // Legacy access must not depend on diagnostics being available.
+  }
+}
+
+function enqueueLegacyOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const execution = legacyOperationChain.then(operation, operation);
+  legacyOperationChain = execution.then(
+    () => undefined,
+    () => undefined,
+  );
+  return execution;
+}
+
+function runWithFreshIOSManifest<T>(
+  module: ILegacyAsyncStorageNativeModule,
+  operation: () => Promise<T>,
+) {
+  return enqueueLegacyOperation(async () => {
+    if (platformEnv.isNativeIOS) {
+      try {
+        await module.reloadManifest();
+      } catch (error) {
+        // Match the public AsyncStorage wrapper: data protection can make a
+        // refresh temporarily unavailable while the current manifest is valid.
+        logManifestRefreshFailure(error);
+      }
+    }
+    return operation();
+  });
+}
 
 function isAndroidOversizedRowError(error: unknown) {
   if (!platformEnv.isNativeAndroid) {
@@ -64,10 +109,17 @@ export function getLegacyAsyncStorageForMigration() {
     );
   const module = legacyModule;
   legacyMigrationAdapter ??= {
-    getAllKeys: () => module.getAllKeys(),
-    multiGet: (keys) => multiGetWithOversizedRowFallback(module, keys),
-    multiRemove: (keys) => module.multiRemove(keys),
-    multiSet: (entries) => module.multiSet(entries),
+    getAllKeys: () =>
+      runWithFreshIOSManifest(module, () => module.getAllKeys()),
+    multiGet: (keys) =>
+      runWithFreshIOSManifest(module, () =>
+        multiGetWithOversizedRowFallback(module, keys),
+      ),
+    multiRemove: (keys) =>
+      runWithFreshIOSManifest(module, () => module.multiRemove(keys)),
+    multiSet: (entries) =>
+      runWithFreshIOSManifest(module, () => module.multiSet(entries)),
+    reloadManifest: () => enqueueLegacyOperation(() => module.reloadManifest()),
   } as ILegacyAsyncStorageNativeModule;
   return legacyMigrationAdapter;
 }

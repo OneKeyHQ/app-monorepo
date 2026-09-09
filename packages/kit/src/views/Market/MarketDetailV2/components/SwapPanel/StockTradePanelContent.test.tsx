@@ -20,6 +20,7 @@ const tokenInputSectionMock = jest.fn();
 const swapRateDifferenceTextMock = jest.fn();
 const swapActionsStateMock = jest.fn();
 const swapQuoteResultMock = jest.fn();
+const swapStockHeaderRightActionContainerMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   Icon: () => <span data-testid="icon" />,
@@ -91,6 +92,16 @@ jest.mock(
     default: (props: unknown) => {
       swapQuoteResultMock(props);
       return <div data-testid="swap-quote-result" />;
+    },
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer',
+  () => ({
+    SwapStockHeaderRightActionContainer: (props: unknown) => {
+      swapStockHeaderRightActionContainerMock(props);
+      return <div data-testid="stock-header-actions" />;
     },
   }),
 );
@@ -259,6 +270,7 @@ describe('StockTradePanelContent', () => {
     swapRateDifferenceTextMock.mockReset();
     swapActionsStateMock.mockReset();
     swapQuoteResultMock.mockReset();
+    swapStockHeaderRightActionContainerMock.mockReset();
   });
 
   it('uses the dedicated Figma trading ticket on stock desktop detail', () => {
@@ -269,8 +281,14 @@ describe('StockTradePanelContent', () => {
     expect(screen.getByTestId('stock-trade-target')).toBeTruthy();
     expect(screen.getByTestId('stock-trade-estimated-received')).toBeTruthy();
     expect(screen.queryByTestId('market-token-selector')).toBeNull();
-    expect(screen.getByTestId('stock-trade-estimated-shares')).toBeTruthy();
+    expect(screen.queryByTestId('panel-top')).toBeNull();
+    expect(screen.queryByTestId('rate-display')).toBeNull();
+    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
     expect(screen.getByTestId('swap-quote-result')).toBeTruthy();
+    expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
+    expect(swapStockHeaderRightActionContainerMock).toHaveBeenCalledWith({
+      storeName: 'marketSwap',
+    });
     expect(
       screen
         .getByTestId('stock-trade-estimated-received')
@@ -371,24 +389,46 @@ describe('StockTradePanelContent', () => {
     );
   });
 
-  it('keeps the shares row visible without fabricating a value', () => {
-    const props = createProps();
-    props.quoteResult = {
-      info: {
-        provider: 'liquidMesh',
-        providerName: 'liquidMesh',
-      },
-      fromTokenInfo: props.swapPanel.paymentToken!,
-      toTokenInfo: props.currentMarketToken as never,
-      toAmount: '0.3219',
-    };
+  it.each([undefined, '', '  ', '0', '-1', 'NaN', 'Infinity', 'invalid'])(
+    'hides the shares row for unavailable conversion ratio %p',
+    (ratio) => {
+      const props = createProps();
 
-    render(<StockTradePanelContent {...props} />);
+      props.stockTokenToAssetRatio = ratio;
+      props.quoteResult = {
+        info: {
+          provider: 'liquidMesh',
+          providerName: 'liquidMesh',
+        },
+        fromTokenInfo: props.swapPanel.paymentToken!,
+        toTokenInfo: props.currentMarketToken as never,
+        toAmount: '0.3219',
+      };
 
-    expect(
-      screen.getByTestId('stock-trade-estimated-shares').textContent,
-    ).toContain('--');
-  });
+      render(<StockTradePanelContent {...props} />);
+
+      expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+    },
+  );
+
+  it.each([false, true])(
+    'keeps valid-ratio shares visible before a quote with loading %p',
+    (quoteLoading) => {
+      const props = createProps();
+
+      props.stockTokenToAssetRatio = ' 0.9985 ';
+      props.quoteLoading = quoteLoading;
+
+      render(<StockTradePanelContent {...props} />);
+
+      const row = screen.getByTestId('stock-trade-estimated-shares');
+      if (quoteLoading) {
+        expect(row.querySelector('[data-testid="skeleton"]')).not.toBeNull();
+      } else {
+        expect(row.textContent).toContain('--');
+      }
+    },
+  );
 
   it('keeps the shared Connect wallet action enabled without an account', () => {
     const props = createProps();
@@ -473,7 +513,7 @@ describe('StockTradePanelContent', () => {
     expect(renderedInputs[1].setValue).toHaveBeenCalledWith('');
   });
 
-  it('uses Market preset settings instead of the standalone slippage setting', () => {
+  it('keeps stock settings when Market presets are enabled', () => {
     const props = createProps();
     props.marketPresetSettings = {
       config: undefined,
@@ -506,7 +546,37 @@ describe('StockTradePanelContent', () => {
 
     render(<StockTradePanelContent {...props} />);
 
-    expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
+    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
+    expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
+    expect(screen.queryByTestId('slippage')).toBeNull();
+  });
+
+  it('uses Trade-Stock settings and history instead of Market presets on stock desktop', () => {
+    const props = createProps();
+
+    props.marketPresetSettings = {
+      enabled: true,
+      isLoading: false,
+      presets: [],
+    } as never;
+
+    render(<StockTradePanelContent {...props} />);
+
+    expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
+    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
+    expect(screen.queryByTestId('slippage')).toBeNull();
+  });
+
+  it('suppresses the standalone slippage setting while Market preset config is loading', () => {
+    const props = createProps();
+    props.marketPresetSettings = {
+      enabled: false,
+      isLoading: true,
+    } as never;
+
+    render(<StockTradePanelContent {...props} />);
+
+    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
     expect(screen.queryByTestId('slippage')).toBeNull();
   });
 });

@@ -31,6 +31,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../dbs/local/localDb';
 import {
@@ -416,6 +417,9 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
       tokenAddress,
@@ -428,6 +432,9 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      marketTokenSymbol,
+      resolveMarketAsset,
+      tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
@@ -443,6 +450,12 @@ class ServiceApp extends ServiceBase {
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
     }
+    if (marketTokenSymbol) {
+      routeParams.marketTokenSymbol = marketTokenSymbol;
+    }
+    if (resolveMarketAsset) {
+      routeParams.resolveMarketAsset = true;
+    }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
     }
@@ -455,6 +468,9 @@ class ServiceApp extends ServiceBase {
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;
     }
+    if (tokenDetailPreview) {
+      routeParams.legacyTokenPreview = JSON.stringify(tokenDetailPreview);
+    }
 
     return extUtils.openExpandTab({
       path: `/market/token/${network}/${tokenAddress}`,
@@ -465,6 +481,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async openExtensionMarketStockDetail(params: {
     stockId: string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
     tokenAddress?: string;
     network?: string;
     isNative?: boolean;
@@ -474,6 +493,9 @@ class ServiceApp extends ServiceBase {
   }) {
     const {
       stockId,
+      stockPreviewLogoUrl,
+      stockPreviewName,
+      stockPreviewSymbol,
       tokenAddress,
       network,
       isNative,
@@ -483,6 +505,15 @@ class ServiceApp extends ServiceBase {
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
+    if (stockPreviewSymbol) {
+      routeParams.stockPreviewSymbol = stockPreviewSymbol;
+    }
+    if (stockPreviewName) {
+      routeParams.stockPreviewName = stockPreviewName;
+    }
+    if (stockPreviewLogoUrl) {
+      routeParams.stockPreviewLogoUrl = stockPreviewLogoUrl;
+    }
     if (tokenAddress) {
       routeParams.tokenAddress = tokenAddress;
     }

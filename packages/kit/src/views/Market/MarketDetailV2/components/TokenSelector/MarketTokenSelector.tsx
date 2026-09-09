@@ -23,7 +23,10 @@ import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerp
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
-import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import type {
+  IMarketCategoryItem,
+  IMarketTimeRangeValue,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
   isMarketStockCategory,
@@ -34,10 +37,14 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
+import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -174,7 +181,7 @@ function BaseMarketTokenSelectorContent({
           id: c.type,
           name: c.name,
         })),
-        'Top Coins',
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
       );
     }
     // Keep the complete selector available while the remote config loads.
@@ -191,7 +198,7 @@ function BaseMarketTokenSelectorContent({
           }),
         },
       ],
-      'Top Coins',
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
 
@@ -239,6 +246,11 @@ function BaseMarketTokenSelectorContent({
     [topCoins],
   );
 
+  // Trending reads the 1h metrics the v2 list can request server-side; top
+  // coins and favorites are 24h data sets fetched through their own paths.
+  const selectorTimeRange: IMarketTimeRangeValue =
+    startListSelect || isTopCoinsSelection ? '24h' : '1h';
+
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
@@ -281,6 +293,15 @@ function BaseMarketTokenSelectorContent({
         return;
       }
 
+      const stockId = resolveMarketStockId({
+        stock: token.tokenDetailPreview?.stock,
+      });
+      if (stockId) {
+        void closePopover?.();
+        void toMarketStockDetailPage(stockId);
+        return;
+      }
+
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
@@ -294,6 +315,7 @@ function BaseMarketTokenSelectorContent({
       tokenDetailActions,
       closePopover,
       navigateToPerps,
+      toMarketStockDetailPage,
       searchValueDebounce,
       selectedCategory,
       showFavoriteButton,
@@ -330,9 +352,9 @@ function BaseMarketTokenSelectorContent({
   );
 
   const handleSelectStock = useCallback(
-    (stockId: string) => {
+    (stock: IMarketStockPublicItem) => {
       void closePopover?.();
-      void toMarketStockDetailPage(stockId);
+      void toMarketStockDetailPage(stock);
     },
     [closePopover, toMarketStockDetailPage],
   );
@@ -397,7 +419,7 @@ function BaseMarketTokenSelectorContent({
           <MarketTokenSelectorList
             networkId={allNetworkId}
             selectedCategory={selectedCategory}
-            timeRange="1h"
+            timeRange={selectorTimeRange}
             onItemPress={handleSelectToken}
             pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
@@ -470,6 +492,14 @@ function BaseMarketTokenSelector({
   let triggerTokenSize: ITokenSize = 'md';
   let triggerTextSize: ComponentProps<typeof SizableText>['size'] =
     '$heading2xl';
+  // Figma 25705:19982 — the name-carrying trigger is the same pill the stock
+  // detail header uses: token, stacked ticker/name, then the chevron closing
+  // the pill. The hover background reaches 8px past the content horizontally
+  // and 4px vertically, and every negative margin is cancelled by a matching
+  // padding so the row itself never moves.
+  const isLargeWithName = isLarge && showName;
+  let triggerMarginHorizontal: ComponentProps<typeof XStack>['mx'];
+  let triggerMarginVertical: ComponentProps<typeof XStack>['my'];
   if (isLarge) {
     triggerPaddingLeft = '$0';
     triggerPaddingRight = '$0';
@@ -477,6 +507,13 @@ function BaseMarketTokenSelector({
     triggerGap = 14;
     triggerTokenSize = 'xl';
     triggerTextSize = '$headingXl';
+    if (isLargeWithName) {
+      triggerMarginHorizontal = -8;
+      triggerMarginVertical = -4;
+      triggerPaddingLeft = 8;
+      triggerPaddingRight = 8;
+      triggerPaddingVertical = 4;
+    }
   } else if (isCompact) {
     triggerPaddingLeft = '$1';
     triggerPaddingRight = '$0';
@@ -524,11 +561,14 @@ function BaseMarketTokenSelector({
               alignItems="center"
               cursor="pointer"
               bg="$bgApp"
+              mx={triggerMarginHorizontal}
+              my={triggerMarginVertical}
               pl={triggerPaddingLeft}
               pr={triggerPaddingRight}
               py={triggerPaddingVertical}
               gap={triggerGap}
               borderRadius="$full"
+              borderCurve="continuous"
               hoverStyle={{ bg: '$bgHover' }}
               pressStyle={{ bg: '$bgActive' }}
             >
@@ -539,7 +579,37 @@ function BaseMarketTokenSelector({
                 networkImageUri={effectiveNetworkLogoUri}
                 fallbackIcon="CryptoCoinOutline"
               />
-              {showAddress || showName ? (
+              {isLargeWithName ? (
+                <>
+                  <YStack minWidth={0} flexShrink={1} justifyContent="center">
+                    <SizableText
+                      size="$headingXl"
+                      color="$text"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      maxWidth="$48"
+                      flexShrink={1}
+                    >
+                      {symbol}
+                    </SizableText>
+                    {name ? (
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                      >
+                        {name}
+                      </SizableText>
+                    ) : null}
+                  </YStack>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$5"
+                    color="$iconSubdued"
+                  />
+                </>
+              ) : null}
+              {!isLargeWithName && (showAddress || showName) ? (
                 <YStack minWidth={0} flexShrink={1}>
                   <XStack alignItems="center" gap="$1">
                     <SizableText
@@ -583,7 +653,8 @@ function BaseMarketTokenSelector({
                     </SizableText>
                   ) : null}
                 </YStack>
-              ) : (
+              ) : null}
+              {isLargeWithName || showAddress || showName ? null : (
                 <>
                   <SizableText
                     size={triggerTextSize}
@@ -614,6 +685,7 @@ function BaseMarketTokenSelector({
       intl,
       isOpen,
       isCompact,
+      isLargeWithName,
       logoUrl,
       renderTrigger,
       renderSelectorContent,
@@ -623,6 +695,8 @@ function BaseMarketTokenSelector({
       symbol,
       name,
       triggerGap,
+      triggerMarginHorizontal,
+      triggerMarginVertical,
       triggerPaddingLeft,
       triggerPaddingRight,
       triggerPaddingVertical,
