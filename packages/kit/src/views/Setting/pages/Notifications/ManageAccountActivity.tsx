@@ -279,6 +279,7 @@ function AccountAccordionItem({
   return (
     <XStack
       key={account.id}
+      testID={`notifications-account-row-${account.id}`}
       gap="$3"
       alignItems="center"
       pl={56}
@@ -451,6 +452,7 @@ function WalletAccordionItem({
       // bg="$bgApp"
     >
       <Accordion.Trigger
+        testID={`notifications-wallet-row-${wallet.id}`}
         unstyled
         flexDirection="row"
         alignItems="center"
