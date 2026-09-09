@@ -230,15 +230,17 @@ export function PortfolioTab({
             })}
           </SizableText>
           {/* GridItem is already two-per-row on phone; the server sends exactly
-              the two cells the design shows, 24h earnings then APY. */}
+              the two cells the design shows, 24h earnings then APY. They are
+              the wide layout's cells reused as-is, so the tooltip and the popup
+              trigger they carry are deliberately not forwarded: the phone
+              design shows plain figures, and the APY breakdown already opens
+              from the headline above (OK-62393, OK-62391). */}
           <XStack flexWrap="wrap" m="$-3">
             {portfolio.summary.items.map((cell, index) => (
               <GridItem
                 key={cell.title?.text || `summary-${index}`}
                 title={cell.title}
                 description={cell.description}
-                actionIcon={cell.button}
-                tooltip={cell.tooltip}
                 type={cell.type}
               />
             ))}
