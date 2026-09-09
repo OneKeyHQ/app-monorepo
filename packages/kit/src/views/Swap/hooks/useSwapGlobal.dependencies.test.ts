@@ -14,4 +14,61 @@ describe('useSwapGlobal default token sync dependencies', () => {
     expect(effectSource).toContain('isNativeProTokenOwner');
     expect(effectSource).not.toMatch(/\n\s+swapTypeSwitch,\n/u);
   });
+
+  it('applies token side effects only after the account revision is accepted', () => {
+    const syncStart = source.indexOf(
+      'const syncSwapSelectedAccountFromHome = useCallback',
+    );
+    const syncEnd = source.indexOf(
+      'const syncSwapSelectedAccountFromLatestHome',
+      syncStart,
+    );
+    const syncSource = source.slice(syncStart, syncEnd);
+    const selectionCommit = syncSource.indexOf(
+      'const selectionResult = await updateSelectedAccount',
+    );
+    const outcomeGate = syncSource.indexOf(
+      'if (!isSwapAccountSelectionSyncAccepted(selectionResult.outcome))',
+    );
+    const tokenMutation = syncSource.indexOf(
+      "if (selectedTokensSyncAction.type === 'replace-with-defaults')",
+    );
+
+    expect(syncStart).toBeGreaterThan(0);
+    expect(syncEnd).toBeGreaterThan(syncStart);
+    expect(selectionCommit).toBeGreaterThan(0);
+    expect(outcomeGate).toBeGreaterThan(selectionCommit);
+    expect(tokenMutation).toBeGreaterThan(outcomeGate);
+  });
+
+  it('guards an unversioned Home snapshot with the captured Swap selection', () => {
+    const syncStart = source.indexOf(
+      'const syncSwapSelectedAccountFromHome = useCallback',
+    );
+    const syncEnd = source.indexOf(
+      'const syncSwapSelectedAccountFromLatestHome',
+      syncStart,
+    );
+    const syncSource = source.slice(syncStart, syncEnd);
+    const capture = syncSource.indexOf(
+      'const swapSelectedAccountAtRequest = swapSelectedAccountRef.current',
+    );
+    const prepare = syncSource.indexOf(
+      'await prepareSwapSelectedAccountSyncedFromHome',
+    );
+    const staleGuard = syncSource.indexOf('expectedPartialSelection:', prepare);
+
+    expect(capture).toBeGreaterThan(0);
+    expect(prepare).toBeGreaterThan(capture);
+    expect(staleGuard).toBeGreaterThan(prepare);
+    expect(syncSource.slice(staleGuard)).toContain(
+      'homeSelectedAccountUpdatedAt === undefined',
+    );
+    expect(syncSource.slice(staleGuard)).toContain(
+      'walletId: swapSelectedAccountAtRequest.walletId',
+    );
+    expect(syncSource.slice(staleGuard)).toContain(
+      'networkId: swapSelectedAccountAtRequest.networkId',
+    );
+  });
 });

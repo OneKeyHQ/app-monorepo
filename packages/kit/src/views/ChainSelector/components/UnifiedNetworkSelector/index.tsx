@@ -422,6 +422,7 @@ function UnifiedNetworkSelector() {
         await actions.current.updateSelectedAccountNetwork({
           num,
           networkId: item.id,
+          reason: 'userSelectNetwork',
         });
       } finally {
         // Surgically drop only the ChainSelectorModal route. popStack() triggers
@@ -554,6 +555,7 @@ function UnifiedNetworkSelector() {
         void actions.current.updateSelectedAccountNetwork({
           num,
           networkId: getNetworkIdsMap().onekeyall,
+          reason: 'unifiedNetworkEnableFlow',
         });
       }
 
@@ -861,6 +863,7 @@ export default function UnifiedNetworkSelectorPage() {
 
   return (
     <AccountSelectorProviderMirror
+      perfDebugName="unified-network-selector"
       config={{
         sceneName: sceneName ?? EAccountSelectorSceneName.home,
         sceneUrl: sceneUrl ?? '',

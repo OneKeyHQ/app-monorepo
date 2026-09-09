@@ -9,8 +9,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { EWalletDeprecatedStatusUpdateOutcome } from './outcomes';
 
 import type { IAccountSelectorActionsInstance } from './actions';
 
@@ -74,7 +77,19 @@ export async function updateHwWalletsDeprecatedStatus({
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
   } catch (error) {
-    console.error('updateHwWalletsDeprecatedStatus failed:', error);
+    defaultLogger.accountSelector.perf.trace(
+      'walletDeprecatedStatusUpdateResult',
+      {
+        outcome: EWalletDeprecatedStatusUpdateOutcome.Error,
+        walletType: 'onekey-hardware',
+      },
+    );
+    // The perf trace is dev/e2e-only; retain failures in production local logs.
+    defaultLogger.accountSelector.failure.hwWalletDeprecatedStatusUpdateFailed({
+      errorMessage: (error as Error | undefined)?.message,
+      errorName: (error as Error | undefined)?.name,
+      walletType: 'onekey-hardware',
+    });
   }
 }
 

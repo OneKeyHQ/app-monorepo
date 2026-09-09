@@ -8,10 +8,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { canAccessBulkSend } from '../../../BulkSend/access';
 import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
@@ -23,7 +25,11 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const { network, account, indexedAccount } = activeAccount;
 
   const { user, isPrimeActive } = useOneKeyAuth();
-  const isPrimeUser = isPrimeActive && user?.onekeyUserId;
+  const hasBulkSendAccess = canAccessBulkSend({
+    isE2E: platformEnv.isE2E === true,
+    isPrimeActive,
+    oneKeyUserId: user?.onekeyUserId,
+  });
   const { isPrimeAvailable } = usePrimeAvailable();
 
   const navigateToBulkSend = useNavigateToBulkSend();
@@ -33,7 +39,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     onClose();
     await timerUtils.wait(150);
 
-    if (!isPrimeUser) {
+    if (!hasBulkSendAccess) {
       defaultLogger.prime.subscription.primeEntryClick({
         featureName: EPrimeFeatures.BulkSend,
         entryPoint: 'moreActions',
@@ -61,7 +67,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   }, [
     onClose,
     isPrimeActive,
-    isPrimeUser,
+    hasBulkSendAccess,
     navigateToBulkSend,
     showBulkSendModeDialog,
     navigation,
@@ -70,7 +76,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
     indexedAccount?.id,
   ]);
 
-  if (!isPrimeAvailable) {
+  if (!platformEnv.isE2E && !isPrimeAvailable) {
     return null;
   }
 
@@ -84,7 +90,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
       onClose={() => {}}
       onPress={handleBulkSend}
       extra={
-        isPrimeUser ? null : (
+        hasBulkSendAccess ? null : (
           <Badge badgeSize="sm" badgeType="default">
             <Badge.Text size="$bodySmMedium">
               {intl.formatMessage({

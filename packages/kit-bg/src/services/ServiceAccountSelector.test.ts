@@ -396,6 +396,85 @@ describe('ServiceAccountSelector', () => {
       othersWalletAccountId: EVM_ACCOUNT_ID,
     });
   });
+
+  it('still resolves account and dbAccount when getIndexedAccount transiently fails', async () => {
+    const indexedAccountId = 'hd-1--0';
+    const hdDbAccountId = "hd-1--m/44'/60'/0'/0/0";
+    const hdDbAccount = {
+      id: hdDbAccountId,
+      name: 'Account #1',
+      impl: 'evm',
+    } as IDBAccount;
+    const hdNetworkAccount = {
+      id: hdDbAccountId,
+      name: 'Account #1',
+      impl: 'evm',
+      address: '0x9403a0ec47a062f82d2ac402394eecb61a030d57',
+    } as INetworkAccount;
+    const selectedAccount: IAccountSelectorSelectedAccount = {
+      walletId: 'hd-1',
+      focusedWallet: 'hd-1',
+      networkId: 'evm--1',
+      indexedAccountId,
+      deriveType: 'default',
+      othersWalletAccountId: undefined,
+    };
+    const getDbAccountIdFromIndexedAccountId = jest.fn(
+      async () => hdDbAccountId,
+    );
+    const getNetworkAccount = jest.fn(async () => hdNetworkAccount);
+    const service = new ServiceAccountSelector({
+      backgroundApi: {
+        serviceAccount: {
+          getWallet: jest.fn(
+            async ({ walletId }: { walletId: string }) =>
+              ({ id: walletId, name: 'Wallet 1' }) as IDBWallet,
+          ),
+          // Transient DB failure (bg service worker recycled, native DB
+          // busy): the raw indexedAccountId must keep the downstream
+          // dbAccount/network account lookups alive.
+          getIndexedAccount: jest.fn(async () => {
+            throw new OneKeyLocalError('transient db failure');
+          }),
+          getDbAccountIdFromIndexedAccountId,
+          getNetworkAccount,
+          getDBAccount: jest.fn(async ({ accountId }: { accountId: string }) =>
+            accountId === hdDbAccountId ? hdDbAccount : undefined,
+          ),
+          isTempWalletRemoved: jest.fn(async () => false),
+        },
+        serviceNetwork: {
+          getNetwork: jest.fn(async ({ networkId }: { networkId: string }) => ({
+            id: networkId,
+          })),
+          getDeriveInfoOfNetwork: jest.fn(async () => ({})),
+          getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+        },
+      },
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+      nonce: 1,
+    });
+
+    expect(getDbAccountIdFromIndexedAccountId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indexedAccountId,
+        networkId: 'evm--1',
+        deriveType: 'default',
+      }),
+    );
+    expect(getNetworkAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indexedAccountId,
+        networkId: 'evm--1',
+      }),
+    );
+    expect(result.activeAccount.account?.id).toBe(hdDbAccountId);
+    expect(result.activeAccount.dbAccount?.id).toBe(hdDbAccountId);
+    expect(result.perfTiming?.errorStages).toContain('indexedAccount');
+  });
 });
 
 describe('ServiceAccountSelector missing network repair (OK-62137)', () => {

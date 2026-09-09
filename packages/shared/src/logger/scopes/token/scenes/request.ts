@@ -5,6 +5,7 @@ import type {
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
+import { redactErrorMessageForLocalLog } from '../../../utils/redactErrorMessage';
 
 export class RequestScene extends BaseScene {
   @LogToLocal({ level: 'error' })
@@ -27,6 +28,32 @@ export class RequestScene extends BaseScene {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean };
   }) {
     return [params];
+  }
+
+  // A balance fetch that only decorates a UI surface must not reject into a
+  // fire-and-forget caller, but a failure still has to leave a trace: the
+  // surface just renders without fiat values, which looks identical to an
+  // account that holds nothing.
+  @LogToLocal({ level: 'error' })
+  public fetchAccountTokensFailed({
+    errorMessage,
+    errorName,
+    flag,
+    networkId,
+  }: {
+    errorMessage?: string;
+    errorName?: string;
+    flag: string;
+    networkId?: string;
+  }) {
+    return [
+      {
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
+        errorName,
+        flag,
+        networkId,
+      },
+    ];
   }
 
   @LogToLocal({ level: 'error' })

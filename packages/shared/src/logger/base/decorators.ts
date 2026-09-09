@@ -25,6 +25,16 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         !!currentContext &&
         currentContext.methodName === propertyKey &&
         currentContext.isCollectingDecorators;
+      const wrapsAnotherDecorator = !!originalMethod[LOGGER_DECORATOR_WRAPPER];
+
+      if (
+        decoratorArgs.devOnly &&
+        process.env.NODE_ENV === 'production' &&
+        !wrapsAnotherDecorator &&
+        !shouldReuseContext
+      ) {
+        return undefined;
+      }
       const callContext = shouldReuseContext
         ? currentContext
         : {
@@ -36,8 +46,6 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
       if (!shouldReuseContext) {
         metadataStack.push(callContext);
       }
-
-      const wrapsAnotherDecorator = !!originalMethod[LOGGER_DECORATOR_WRAPPER];
 
       if (!wrapsAnotherDecorator) {
         callContext.isCollectingDecorators = false;
@@ -81,14 +89,18 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
 
         if (!shouldReuseContext) {
           cleanupContext();
-          if (this._emitLog) {
+          const effectiveMetadataList =
+            process.env.NODE_ENV === 'production'
+              ? callContext.metadataList.filter((metadata) => !metadata.devOnly)
+              : callContext.metadataList;
+          if (this._emitLog && effectiveMetadataList.length > 0) {
             const emitResult = this._emitLog(
               propertyKey,
               result,
-              callContext.metadataList,
+              effectiveMetadataList,
             );
             if (
-              callContext.metadataList.some(
+              effectiveMetadataList.some(
                 (metadata) =>
                   metadata.type === 'server' && metadata.waitForServer,
               )
@@ -102,7 +114,9 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         return result;
       } catch (error) {
         cleanupContext();
-        console.error(error);
+        if (!(decoratorArgs.devOnly && process.env.NODE_ENV === 'production')) {
+          console.error(error);
+        }
         return undefined;
       }
     };
@@ -116,10 +130,28 @@ export function LogToLocal(decoratorArgs?: IMethodDecoratorMetadata) {
   return createDecorator({ level: 'info', type: 'local', ...decoratorArgs });
 }
 
+export function LogToLocalDevOnly(decoratorArgs?: IMethodDecoratorMetadata) {
+  return createDecorator({
+    level: 'info',
+    ...decoratorArgs,
+    devOnly: true,
+    type: 'local',
+  });
+}
+
 export function LogToServer(decoratorArgs?: IMethodDecoratorMetadata) {
   return createDecorator({ level: 'info', type: 'server', ...decoratorArgs });
 }
 
 export function LogToConsole(decoratorArgs?: IMethodDecoratorMetadata) {
   return createDecorator({ level: 'info', type: 'console', ...decoratorArgs });
+}
+
+export function LogToConsoleDevOnly(decoratorArgs?: IMethodDecoratorMetadata) {
+  return createDecorator({
+    level: 'info',
+    ...decoratorArgs,
+    devOnly: true,
+    type: 'console',
+  });
 }

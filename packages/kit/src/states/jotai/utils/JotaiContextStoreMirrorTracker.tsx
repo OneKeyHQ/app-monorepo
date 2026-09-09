@@ -1,21 +1,22 @@
-import { memo, useEffect, useMemo } from 'react';
-
-import { uniq } from 'lodash';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import type {
   IJotaiContextStoreData,
   IJotaiContextStoreMap,
   IJotaiContextStoreMapValue,
+  IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRuntimeRegistration,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EJotaiContextStoreNames,
+  JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS,
   getJotaiContextTrackerMap,
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { JotaiContextRootProviderRenderer } from './JotaiContextRootProviderRenderer';
@@ -40,6 +41,29 @@ type ISelectedAccountsSnapshot = Record<
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
+const accountSelectorEnabledNumCounts = new Map<string, Map<number, number>>();
+let nextMirrorRegistrationId = 0;
+const extensionRuntimeRegistrations = new Map<
+  string,
+  IJotaiContextStoreRuntimeRegistration
+>();
+let extensionRuntimeRegistrationRevision = 0;
+let extensionRuntimeRegistrationUpdateQueue = Promise.resolve();
+let extensionRuntimeRegistrationHeartbeat:
+  | ReturnType<typeof setInterval>
+  | undefined;
+
+export type IJotaiContextStoreMirrorRegistrationChange = {
+  action: 'add' | 'remove';
+  registrationCount: number;
+  storeId: string;
+};
+
+type IJotaiContextStoreMirrorTrackerProps = IJotaiContextStoreData & {
+  onRegistrationChange?: (
+    change: IJotaiContextStoreMirrorRegistrationChange,
+  ) => void;
+};
 
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
@@ -133,23 +157,127 @@ function hasSwapColdStartSnapshot() {
   );
 }
 
+function enqueueExtensionRuntimeRegistrationSnapshot({
+  changeAction,
+  onRegistrationChange,
+  storeId,
+}: {
+  changeAction?: 'add' | 'remove';
+  onRegistrationChange?: (
+    change: IJotaiContextStoreMirrorRegistrationChange,
+  ) => void;
+  storeId: string;
+}) {
+  extensionRuntimeRegistrationUpdateQueue =
+    extensionRuntimeRegistrationUpdateQueue
+      .catch(() => undefined)
+      .then(async () => {
+        extensionRuntimeRegistrationRevision += 1;
+        const update: IJotaiContextStoreRegistrationUpdate = {
+          action: 'reconcile-runtime',
+          registrations: [...extensionRuntimeRegistrations.values()],
+          revision: extensionRuntimeRegistrationRevision,
+          runtimeId: appEventBus.nodeId,
+          storeId,
+        };
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        const result =
+          await backgroundApiProxy.updateJotaiContextStoreRegistration(update);
+        if (changeAction === 'remove' && result.registrationCount <= 0) {
+          jotaiContextStore.completeStoreResetIfRequestedById(storeId);
+        }
+        if (changeAction) {
+          onRegistrationChange?.({
+            action: changeAction,
+            registrationCount: result.registrationCount,
+            storeId,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(
+          'Failed to reconcile the Jotai context store registrations',
+          error,
+        );
+      });
+}
+
+function updateExtensionRuntimeRegistrationHeartbeat() {
+  if (
+    extensionRuntimeRegistrations.size > 0 &&
+    !extensionRuntimeRegistrationHeartbeat
+  ) {
+    extensionRuntimeRegistrationHeartbeat = setInterval(() => {
+      const firstRegistration = extensionRuntimeRegistrations.values().next()
+        .value as IJotaiContextStoreRuntimeRegistration | undefined;
+      if (firstRegistration) {
+        enqueueExtensionRuntimeRegistrationSnapshot({
+          storeId: firstRegistration.storeId,
+        });
+      }
+    }, JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS);
+  } else if (
+    extensionRuntimeRegistrations.size === 0 &&
+    extensionRuntimeRegistrationHeartbeat
+  ) {
+    clearInterval(extensionRuntimeRegistrationHeartbeat);
+    extensionRuntimeRegistrationHeartbeat = undefined;
+  }
+}
+
 // AccountSelectorMapTracker
-export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
+export function JotaiContextStoreMirrorTracker({
+  onRegistrationChange,
+  ...data
+}: IJotaiContextStoreMirrorTrackerProps) {
   const { storeName, accountSelectorInfo } = data;
-  useDebugComponentRemountLog({
-    name: `JotaiContextStoreMirrorTracker`,
-    payload: data,
-  });
   const { setMap } = useJotaiContextTrackerMap();
   const storeId = buildJotaiContextStoreId(data);
+  const registrationIdRef = useRef<string | undefined>(undefined);
+  if (!registrationIdRef.current) {
+    nextMirrorRegistrationId += 1;
+    registrationIdRef.current = `${appEventBus.nodeId}:${nextMirrorRegistrationId}`;
+  }
   useEffect(() => {
+    if (platformEnv.isExtensionUi) {
+      const registrationId = registrationIdRef.current as string;
+      extensionRuntimeRegistrations.set(registrationId, {
+        data: { accountSelectorInfo, storeName },
+        registrationId,
+        storeId,
+      });
+      updateExtensionRuntimeRegistrationHeartbeat();
+      enqueueExtensionRuntimeRegistrationSnapshot({
+        changeAction: 'add',
+        onRegistrationChange,
+        storeId,
+      });
+      return () => {
+        extensionRuntimeRegistrations.delete(registrationId);
+        updateExtensionRuntimeRegistrationHeartbeat();
+        enqueueExtensionRuntimeRegistrationSnapshot({
+          changeAction: 'remove',
+          onRegistrationChange,
+          storeId,
+        });
+      };
+    }
+
     const processMapCount = (action: 'add' | 'remove') => {
       const toMergeMap: IJotaiContextStoreMap = {};
 
       const mapCache = getJotaiContextTrackerMap();
 
       const key = storeId;
-      let value: IJotaiContextStoreMapValue | undefined = mapCache[key];
+      let value: IJotaiContextStoreMapValue | undefined = mapCache[key]
+        ? {
+            ...mapCache[key],
+            accountSelectorInfo: mapCache[key].accountSelectorInfo
+              ? { ...mapCache[key].accountSelectorInfo }
+              : undefined,
+          }
+        : undefined;
       if (!value) {
         value = {
           storeName,
@@ -159,18 +287,33 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
       }
       if (action === 'add') {
         value.count += 1;
-        if (accountSelectorInfo && value.accountSelectorInfo) {
-          value.accountSelectorInfo.enabledNum = uniq([
-            ...value.accountSelectorInfo.enabledNum,
-            ...accountSelectorInfo.enabledNum,
-          ]).toSorted();
-        }
       }
       if (action === 'remove') {
         value.count -= 1;
       }
+      if (accountSelectorInfo && value.accountSelectorInfo) {
+        let enabledNumCounts = accountSelectorEnabledNumCounts.get(key);
+        if (!enabledNumCounts) {
+          enabledNumCounts = new Map<number, number>();
+          accountSelectorEnabledNumCounts.set(key, enabledNumCounts);
+        }
+        accountSelectorInfo.enabledNum.forEach((num) => {
+          const nextCount =
+            (enabledNumCounts?.get(num) || 0) + (action === 'add' ? 1 : -1);
+          if (nextCount <= 0) {
+            enabledNumCounts?.delete(num);
+          } else {
+            enabledNumCounts?.set(num, nextCount);
+          }
+        });
+        value.accountSelectorInfo = {
+          ...value.accountSelectorInfo,
+          enabledNum: [...enabledNumCounts.keys()].toSorted((a, b) => a - b),
+        };
+      }
       if (value.count <= 0) {
         delete mapCache[key];
+        accountSelectorEnabledNumCounts.delete(key);
       } else {
         toMergeMap[key] = value;
       }
@@ -183,6 +326,11 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
       if (action === 'remove' && value.count <= 0) {
         jotaiContextStore.completeStoreResetIfRequestedById(storeId);
       }
+      onRegistrationChange?.({
+        action,
+        registrationCount: Math.max(0, value.count),
+        storeId,
+      });
     };
 
     processMapCount('add');
@@ -190,7 +338,7 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
     return () => {
       processMapCount('remove');
     };
-  }, [accountSelectorInfo, setMap, storeId, storeName]);
+  }, [accountSelectorInfo, onRegistrationChange, setMap, storeId, storeName]);
 
   return null;
 }

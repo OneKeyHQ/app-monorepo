@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorMirrorInspectorTestIDs } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorMirrorInspectorTestIDs';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
@@ -1754,6 +1755,24 @@ const BaseDevSettingsSection = () => {
                           />
                         </ListItem>
                       </SearchFilterItem>
+
+                      {platformEnv.isWeb &&
+                      (platformEnv.isDev || platformEnv.isE2E) ? (
+                        <SectionFieldItem
+                          icon="CodeOutline"
+                          name="showAccountSelectorMirrorInspector"
+                          title="Account Selector Mirror Inspector"
+                          subtitle="右下角显示实际 React Context 与 canonical store 的只读核对结果"
+                          searchKeywords="Account Selector Mirror React Context inspector E2E 探针 浮层"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            testID={
+                              AccountSelectorMirrorInspectorTestIDs.settingsSwitch
+                            }
+                          />
+                        </SectionFieldItem>
+                      ) : null}
 
                       <SectionFieldItem
                         icon="CreditCardOutline"

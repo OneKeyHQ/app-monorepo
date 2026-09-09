@@ -117,6 +117,7 @@ function ConnectionListItem({
           sceneUrl: item.origin,
         }}
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
+        perfDebugName={`dapp-connection-list:${item.origin}`}
         availableNetworksMap={item.availableNetworksMap}
       >
         <YStack gap="$2">

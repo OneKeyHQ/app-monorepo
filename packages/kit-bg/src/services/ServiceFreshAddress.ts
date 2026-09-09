@@ -88,15 +88,17 @@ class ServiceFreshAddress extends ServiceBase {
         enableBTCFreshAddress: true, // always true, check in other method
       })
     ) {
-      const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
-        accountId,
-      });
-      const indexedAccount =
-        await this.backgroundApi.serviceAccount.getIndexedAccountByAccount({
-          account: dbAccount,
+      const dbAccount =
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId,
         });
+      const indexedAccount = dbAccount?.indexedAccountId
+        ? await this.backgroundApi.serviceAccount.getIndexedAccountSafe({
+            id: dbAccount.indexedAccountId,
+          })
+        : undefined;
       if (indexedAccount) {
-        void this.syncBTCFreshAddressByIndexedAccountId({
+        await this.syncBTCFreshAddressByIndexedAccountId({
           indexedAccountId: indexedAccount.id,
           networkId,
         });
@@ -124,6 +126,14 @@ class ServiceFreshAddress extends ServiceBase {
       return;
     }
 
+    const indexedAccount =
+      await this.backgroundApi.serviceAccount.getIndexedAccountSafe({
+        id: indexedAccountId,
+      });
+    if (!indexedAccount) {
+      return;
+    }
+
     const currentNetworkId =
       networkId === getNetworkIdsMap().onekeyall
         ? getNetworkIdsMap().btc
@@ -137,22 +147,25 @@ class ServiceFreshAddress extends ServiceBase {
           excludeEmptyAccount: true,
         },
       );
-    btcAccounts.networkAccounts?.forEach((account) => {
-      if (
-        account.account?.id &&
-        accountUtils.isEnabledBtcFreshAddress({
-          networkId: btcAccounts.network.id,
-          accountId: account.account?.id ?? '',
-          enableBTCFreshAddress,
-        })
-      ) {
-        void this.syncBTCFreshAddress({
-          networkId: btcAccounts.network.id,
-          accountId: account.account.id,
-          deriveType: account.deriveType,
-        });
-      }
-    });
+    const syncTasks =
+      btcAccounts.networkAccounts
+        ?.filter(
+          (account) =>
+            account.account?.id &&
+            accountUtils.isEnabledBtcFreshAddress({
+              networkId: btcAccounts.network.id,
+              accountId: account.account.id,
+              enableBTCFreshAddress,
+            }),
+        )
+        .map((account) =>
+          this.syncBTCFreshAddress({
+            networkId: btcAccounts.network.id,
+            accountId: account.account?.id ?? '',
+            deriveType: account.deriveType,
+          }),
+        ) ?? [];
+    await Promise.allSettled(syncTasks);
   }
 
   @backgroundMethod()
@@ -165,9 +178,12 @@ class ServiceFreshAddress extends ServiceBase {
     accountId: string;
     deriveType: IAccountDeriveTypes;
   }) {
-    const account = (await this.backgroundApi.serviceAccount.getDBAccount({
+    const account = (await this.backgroundApi.serviceAccount.getDBAccountSafe({
       accountId,
-    })) as IDBUtxoAccount;
+    })) as IDBUtxoAccount | undefined;
+    if (!account) {
+      return;
+    }
     if (!account?.xpub || !account?.xpubSegwit) {
       throw new OneKeyLocalError('Account xpub not found');
     }

@@ -135,17 +135,22 @@ function createSigner({
 
 describe('SignerSoftwareBase.getHdCredential happy path', () => {
   it('uses Layer 1 session memo on the second call without reading vault', async () => {
-    const { decryptCredential, fetchKey, signer, vaultClient } = createSigner();
+    const { cache, decryptCredential, fetchKey, signer, vaultClient } =
+      createSigner();
 
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
     vaultClient.calls = 0;
     fetchKey.mockClear();
     decryptCredential.mockClear();
+    cache.get.mockClear();
+    cache.set.mockClear();
 
-    const startedAt = performance.now();
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
 
-    expect(performance.now() - startedAt).toBeLessThan(10);
+    // Assert the fast path's work, not runner scheduling or coverage overhead.
+    expect(cache.get).toHaveBeenCalledTimes(1);
+    expect(cache.get).toHaveBeenCalledWith(CACHE_KEY);
+    expect(cache.set).not.toHaveBeenCalled();
     expect(vaultClient.calls).toBe(0);
     expect(fetchKey).not.toHaveBeenCalled();
     expect(decryptCredential).not.toHaveBeenCalled();
@@ -202,14 +207,15 @@ describe('SignerSoftwareBase.getHdCredential happy path', () => {
     const { cache, decryptCredential, fetchKey, signer, vaultClient } =
       createSigner();
 
-    const startedAt = performance.now();
     await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
 
-    expect(performance.now() - startedAt).toBeLessThan(50);
+    expect(vaultClient.calls).toBe(1);
+    expect(fetchKey).toHaveBeenCalledTimes(1);
     expect(fetchKey).toHaveBeenCalledWith({
       accessToken: 'token-1',
       keyId: 'key-1',
     });
+    expect(decryptCredential).toHaveBeenCalledTimes(1);
     expect(decryptCredential).toHaveBeenCalledWith(
       'ciphertext-1',
       'key-base64',

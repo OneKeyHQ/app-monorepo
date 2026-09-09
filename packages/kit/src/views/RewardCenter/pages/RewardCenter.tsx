@@ -1009,15 +1009,17 @@ function RewardCenterAccountSelectorSync({
           return;
         }
 
+        let confirmed = true;
         if (
           accountUtils.isOthersAccount({
             accountId,
           })
         ) {
-          await actions.current.confirmAccountSelect({
+          confirmed = await actions.current.confirmAccountSelect({
             num: 0,
             indexedAccount: undefined,
             othersWalletAccount: initAccount,
+            entry: 'rewardCenter:othersWallet',
             forceSelectToNetworkId: networkId,
           });
         } else if (initWallet) {
@@ -1028,7 +1030,7 @@ function RewardCenterAccountSelectorSync({
           if (cancelled) {
             return;
           }
-          await actions.current.confirmAccountSelect({
+          confirmed = await actions.current.confirmAccountSelect({
             num: 0,
             indexedAccount,
             othersWalletAccount: undefined,
@@ -1036,7 +1038,7 @@ function RewardCenterAccountSelectorSync({
           });
         }
 
-        if (cancelled) {
+        if (cancelled || !confirmed) {
           return;
         }
 

@@ -237,6 +237,47 @@ function useDappApproveAction({
     [getResolveData, id, isExtStandaloneWindow, closeWindowAfterResolved],
   );
 
+  const resolveByBackground = useCallback(
+    async ({
+      close,
+      resolveInBackground,
+    }: {
+      close?: () => void;
+      resolveInBackground: (id: number | string) => Promise<boolean>;
+    }) => {
+      if (
+        !id ||
+        isHandledRef.current ||
+        isResolvingRef.current ||
+        isForceRejectedRef.current
+      ) {
+        return false;
+      }
+      isResolvingRef.current = true;
+      try {
+        setRejectError(null);
+        const resolved = await resolveInBackground(id);
+        if (!resolved) {
+          return false;
+        }
+        if (isExtStandaloneWindow) {
+          coverExtStandaloneWindowUntilClose();
+          isHandledRef.current = true;
+          window.close();
+        } else {
+          close?.();
+        }
+        return true;
+      } catch (error) {
+        setRejectError(error as Error);
+        throw error;
+      } finally {
+        isResolvingRef.current = false;
+      }
+    },
+    [id, isExtStandaloneWindow],
+  );
+
   useEffect(() => {
     if (rejectError && closeOnError) {
       reject();
@@ -271,6 +312,7 @@ function useDappApproveAction({
   return {
     reject,
     resolve,
+    resolveByBackground,
   };
 }
 

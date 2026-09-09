@@ -219,7 +219,9 @@ describe('useEarnAccount cache identity', () => {
     );
 
     act(() => {
-      appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+        networkImpl: 'evm',
+      });
     });
 
     expect(promiseResultMock.deriveRun).toHaveBeenCalledWith({
