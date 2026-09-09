@@ -7,6 +7,7 @@ import { act, render } from '@testing-library/react';
 
 import { Dialog } from '@onekeyhq/components';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -20,6 +21,10 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { show: jest.fn() },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/globalErrorHandler', () => ({
+  globalErrorHandler: { addListener: jest.fn(), removeListener: jest.fn() },
 }));
 
 jest.mock('react-intl', () => ({
@@ -43,7 +48,8 @@ describe('passphrase-disabled recovery dialog', () => {
     jest.mocked(Dialog.show).mockReturnValue(instance);
   });
 
-  it('opens from a handled SDK error and enables the same device', async () => {
+  it('preserves the unhandled SDK error fallback and enables the same device', async () => {
+    const addListener = jest.spyOn(globalErrorHandler, 'addListener');
     const enable = jest.spyOn(
       backgroundApiProxy.serviceHardware,
       'setPassphraseEnabled',
@@ -51,11 +57,13 @@ describe('passphrase-disabled recovery dialog', () => {
     render(<GlobalErrorHandlerContainer />);
 
     act(() => {
-      convertDeviceError({
+      const error = convertDeviceError({
         code: HardwareErrorCode.DeviceNotOpenedPassphrase,
         connectId: 'disabled-device',
         deviceId: 'disabled-device-id',
       });
+      expect(Dialog.show).not.toHaveBeenCalled();
+      addListener.mock.calls[0][0](error);
     });
 
     expect(Dialog.show).toHaveBeenCalledTimes(1);
@@ -71,7 +79,7 @@ describe('passphrase-disabled recovery dialog', () => {
     });
   });
 
-  it('preserves the wallet target when creation returns an empty state', async () => {
+  it('preserves the wallet target from the creation recovery event', async () => {
     const enable = jest.spyOn(
       backgroundApiProxy.serviceHardware,
       'setPassphraseEnabled',
@@ -79,11 +87,10 @@ describe('passphrase-disabled recovery dialog', () => {
     render(<GlobalErrorHandlerContainer />);
 
     act(() => {
-      // This error can originate in the background without an SDK response.
-      const error = new DeviceNotOpenedPassphrase({
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
         payload: { params: { walletId: 'hw-wallet' } },
       });
-      expect(error.autoToast).toBe(false);
     });
 
     expect(Dialog.show).toHaveBeenCalledTimes(1);
@@ -99,6 +106,8 @@ describe('passphrase-disabled recovery dialog', () => {
   });
 
   it('deduplicates events before mounting and allows another dialog after dismissal', async () => {
+    const addListener = jest.spyOn(globalErrorHandler, 'addListener');
+    const removeListener = jest.spyOn(globalErrorHandler, 'removeListener');
     instance.isExist.mockReturnValue(false);
     const { unmount } = render(<GlobalErrorHandlerContainer />);
     const emitError = () =>
@@ -110,6 +119,7 @@ describe('passphrase-disabled recovery dialog', () => {
     act(() => {
       emitError();
       emitError();
+      addListener.mock.calls[0][0](new DeviceNotOpenedPassphrase());
     });
     expect(Dialog.show).toHaveBeenCalledTimes(1);
 
@@ -120,10 +130,30 @@ describe('passphrase-disabled recovery dialog', () => {
     expect(Dialog.show).toHaveBeenCalledTimes(2);
 
     unmount();
+    expect(removeListener).toHaveBeenCalledWith(addListener.mock.calls[0][0]);
     act(() => {
       emitError();
     });
     expect(Dialog.show).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves handled passphrase errors to the caller recovery dialog', async () => {
+    const enable = jest.spyOn(
+      backgroundApiProxy.serviceHardware,
+      'setPassphraseEnabled',
+    );
+    render(<GlobalErrorHandlerContainer />);
+
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+      connectId: 'disabled-device',
+      deviceId: 'disabled-device-id',
+    });
+    await expect(Promise.reject(error)).rejects.toBe(error);
+
+    expect(error.autoToast).toBe(false);
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(enable).not.toHaveBeenCalled();
   });
 
   it('does not open the dialog for silent calls or unrelated errors', () => {

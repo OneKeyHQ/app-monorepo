@@ -3,7 +3,13 @@ import { useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
-import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+  type IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   HARDWARE_ERROR_DIALOG_TYPES,
@@ -52,8 +58,23 @@ export function GlobalErrorHandlerContainer() {
         });
       }
     };
+    const handleUnhandledError = (error: IOneKeyError) => {
+      if (
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+        })
+      ) {
+        fn({
+          errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+          payload: error.payload,
+        });
+      }
+    };
+    globalErrorHandler.addListener(handleUnhandledError);
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, fn);
     return () => {
+      globalErrorHandler.removeListener(handleUnhandledError);
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, fn);
     };
   }, [intl]);

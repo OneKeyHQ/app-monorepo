@@ -95,18 +95,6 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
         defaultAutoToast: false,
       }),
     );
-
-    if (!props?.silentMode) {
-      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
-        errorCode: HardwareErrorCode.DeviceNotOpenedPassphrase,
-        payload: {
-          connectId: props?.payload?.connectId,
-          deviceId: props?.payload?.deviceId,
-          params: { walletId: props?.payload?.params?.walletId },
-        },
-      });
-    }
   }
 
   override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
