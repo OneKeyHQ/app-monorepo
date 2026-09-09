@@ -44,6 +44,30 @@ const REGULAR_FONT_STYLE = {
   width: FontWidth.Normal,
 } as const;
 
+export function getTradingViewNativeSkiaLegendText({
+  candleLabels,
+  chartComponents = [],
+}: Pick<
+  IBuildTradingViewNativeChartSceneOptions,
+  'candleLabels' | 'chartComponents'
+>): string {
+  const text = [
+    candleLabels.open,
+    candleLabels.high,
+    candleLabels.low,
+    candleLabels.close,
+    ...chartComponents.flatMap((component) =>
+      component.type === 'tradeMarks'
+        ? component.props.marks.map((mark) => `${mark.label}${mark.text}…`)
+        : [],
+    ),
+  ].join('');
+  // Keep font selection stable when trades reorder or repeat the same glyphs.
+  return Array.from(new Set(text.replaceAll(/\s/g, '')))
+    .toSorted()
+    .join('');
+}
+
 function doesTradingViewNativeSkiaFontSupportText(
   font: SkFont,
   text: string,

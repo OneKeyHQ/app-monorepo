@@ -1482,6 +1482,7 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let stageBurstOpened = false;
     let skipDeviceCancelAfterError = false;
     let stageBurstError: unknown;
 
@@ -1523,24 +1524,31 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         assertActive();
-        await this.deviceStageBurst.begin({
+      }
+
+      // Non-hardware callers share this wrapper; QR flows own their stage.
+      if (device) {
+        stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
-          deviceType: device?.deviceType,
+          deviceType: device.deviceType,
           deviceName: deviceUtils.buildDeviceStageName({
-            features: device?.featuresInfo,
-            fallbackName: device?.name,
+            features: device.featuresInfo,
+            fallbackName: device.name,
           }),
           vendor: isThirdPartyVendor
-            ? (device?.vendor ?? device?.settings?.vendor)
+            ? (device.vendor ?? device.settings?.vendor)
             : undefined,
           vendorModel: isThirdPartyVendor
-            ? device?.settings?.vendorModel
+            ? device.settings?.vendorModel
             : undefined,
           vendorModelName: isThirdPartyVendor
-            ? device?.settings?.vendorModelName
+            ? device.settings?.vendorModelName
             : undefined,
           confirmContent: params.stageConfirmContent,
         });
+      }
+
+      if (this.isOuterProcessing()) {
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
@@ -1757,7 +1765,7 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
-      if (isOuterCall) {
+      if (stageBurstOpened) {
         await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;

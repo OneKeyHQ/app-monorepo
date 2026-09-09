@@ -44,7 +44,6 @@ import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
-import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import {
@@ -52,7 +51,6 @@ import {
   useMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -272,6 +270,8 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  isInitialContentPending?: boolean;
+  disablePerpsBanner?: boolean;
   disableTrade?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
@@ -285,6 +285,8 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  isInitialContentPending,
+  disablePerpsBanner,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative,
@@ -294,7 +296,6 @@ export function MobileLayout({
   networkId: routeNetworkId = '',
   tokenAddress: routeTokenAddress = '',
   marketTokenId,
-  marketTokenCategory,
 }: IMobileLayoutProps) {
   const {
     tokenAddress: storeTokenAddress,
@@ -392,23 +393,17 @@ export function MobileLayout({
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
     isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
-  const marketAssetId =
-    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
-      ? marketTokenId?.trim()
-      : undefined;
   const tradingViewNativeSource = useMemo(
     () =>
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: nativeHyperliquidCoin,
         isNative,
-        marketAssetId,
         marketDataSource: marketTradingViewParams?.dataSource,
         networkId,
         symbol: tokenSymbol ?? '',
         tokenAddress,
       }),
     [
-      marketAssetId,
       marketTradingViewParams?.dataSource,
       nativeHyperliquidCoin,
       isNative,
@@ -417,20 +412,6 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
-  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
-    () =>
-      marketAssetId
-        ? ({ interval, timeFrom, timeTo }) =>
-            fetchMarketAssetKLineData({
-              assetId: marketAssetId,
-              interval,
-              timeFrom,
-              timeTo,
-            })
-        : undefined,
-    [marketAssetId],
-  );
-
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -736,7 +717,11 @@ export function MobileLayout({
         >
           <YStack>
             <DelayedFreeze freeze={isChartFullscreen}>
-              <PerpetualTradingBanner px="$5" />
+              <PerpetualTradingBanner
+                px="$5"
+                stableLayout={platformEnv.isNative}
+                disabled={disablePerpsBanner}
+              />
               <InformationPanel />
             </DelayedFreeze>
           </YStack>
@@ -814,8 +799,6 @@ export function MobileLayout({
                       onInteractionOverlayOpenChange={
                         handleInteractionOverlayOpenChange
                       }
-                      kLineDataFallback={assetKLineDataFallback}
-                      primaryKLineDataUnavailable={Boolean(marketAssetId)}
                     />
                   );
                 }
@@ -831,8 +814,6 @@ export function MobileLayout({
                     dataSource={marketTradingViewParams.dataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
-                    kLineDataFallback={assetKLineDataFallback}
-                    primaryKLineDataUnavailable={Boolean(marketAssetId)}
                   />
                 );
               })()}
@@ -856,6 +837,7 @@ export function MobileLayout({
       </YStack>
     );
   }, [
+    disablePerpsBanner,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
@@ -866,8 +848,6 @@ export function MobileLayout({
     isTradingViewScrollLocked,
     isTradingViewNative,
     layoutPageWidth,
-    assetKLineDataFallback,
-    marketAssetId,
     marketTradingViewKey,
     marketTradingViewParams,
     marketTradingViewStorageNamespace,
@@ -1001,6 +981,22 @@ export function MobileLayout({
       });
     }
   };
+
+  // Reveal quotes and the chart only after the first detail request has
+  // also determined whether the perps banner exists. Polling keeps them mounted.
+  if (platformEnv.isNative && isInitialContentPending) {
+    return (
+      <Stack
+        flex={1}
+        bg="$bgApp"
+        alignItems="center"
+        justifyContent="center"
+        testID="market-detail-initial-loading"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
 
   return (
     <YStack

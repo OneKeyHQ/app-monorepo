@@ -35,7 +35,10 @@ function getReferenceLine(
   components: readonly ITradingViewNativeChartLeafComponent[],
   id: string,
 ) {
-  return components.find((component) => component.id === id);
+  return components.find(
+    (component): component is ITradingViewNativeReferenceLineComponent =>
+      component.type === 'referenceLine' && component.id === id,
+  );
 }
 
 describe('useTradingViewNativeChartComponents', () => {
