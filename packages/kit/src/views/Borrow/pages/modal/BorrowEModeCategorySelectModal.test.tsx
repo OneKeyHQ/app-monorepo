@@ -82,17 +82,8 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   __esModule: true,
-  TokenGroup: ({
-    tokens,
-    maxVisible,
-  }: {
-    tokens: { tokenImageUri?: string }[];
-    maxVisible?: number;
-  }) => (
-    <span
-      data-tokens={tokens.map((t) => t.tokenImageUri).join(',')}
-      data-max-visible={maxVisible}
-    />
+  TokenGroup: ({ tokens }: { tokens: { tokenImageUri?: string }[] }) => (
+    <span data-tokens={tokens.map((t) => t.tokenImageUri).join(',')} />
   ),
 }));
 
@@ -155,6 +146,18 @@ const eModeStatus: IBorrowEModeStatus = {
       ],
     },
     {
+      eModeId: 3,
+      label: 'wide',
+      ltv: '91',
+      disabled: false,
+      assets: ['A', 'B', 'C', 'D', 'E', 'F'].map((symbol) => ({
+        reserveAddress: `0x${symbol}`,
+        token: token(symbol),
+        boostedLTV: true,
+        borrowable: true,
+      })),
+    },
+    {
       eModeId: 2,
       label: 'eth_correlated',
       ltv: '90',
@@ -208,6 +211,7 @@ describe('BorrowEModeCategorySelectModal', () => {
     ).toEqual([
       'borrow-e-mode-category-row-0',
       'borrow-e-mode-category-row-1',
+      'borrow-e-mode-category-row-3',
       'borrow-e-mode-category-row-2',
     ]);
   });
@@ -282,21 +286,34 @@ describe('BorrowEModeCategorySelectModal', () => {
     expect(pop).not.toHaveBeenCalled();
   });
 
-  // At 320px the Russian "borrowable" label plus a group that spills into a +N
-  // badge is 19px wider than the row, so phones show one logo fewer.
-  it('shows one logo fewer on phones than on wide windows', () => {
+  // TokenGroup's built-in badge is a rounded rect tucked under round avatars,
+  // so the remainder is sliced off here and spelled as text instead.
+  it('caps the avatars and spells the remainder as text', () => {
     const { container, unmount } = renderModal();
-    const maxOf = (root: HTMLElement) =>
-      Array.from(root.querySelectorAll('[data-max-visible]')).map((node) =>
-        node.getAttribute('data-max-visible'),
-      );
+    const wide = rowOf(container, 3);
 
-    expect(maxOf(rowOf(container, 1))).toEqual(['4', '4']);
+    expect(
+      wide.querySelector('[data-tokens]')?.getAttribute('data-tokens'),
+    ).toBe('A.png,B.png,C.png,D.png');
+    expect(wide.textContent).toContain('+2');
     unmount();
 
+    // 320px cannot fit the Russian label next to four avatars, so phones drop
+    // one and the remainder absorbs it.
     media.gtMd = false;
     const phone = renderModal();
-    expect(maxOf(rowOf(phone.container, 1))).toEqual(['3', '3']);
+    const phoneWide = rowOf(phone.container, 3);
+
+    expect(
+      phoneWide.querySelector('[data-tokens]')?.getAttribute('data-tokens'),
+    ).toBe('A.png,B.png,C.png');
+    expect(phoneWide.textContent).toContain('+3');
+  });
+
+  it('leaves no remainder when the category fits', () => {
+    const { container } = renderModal();
+
+    expect(rowOf(container, 1).textContent).not.toMatch(/\+\d/);
   });
 
   // The capability labels are wide enough to push the category name off a phone

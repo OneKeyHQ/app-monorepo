@@ -30,6 +30,10 @@ import {
 
 const EMPTY_CAPABILITY = '-';
 
+// TokenGroup's own `showRemainingBadge` renders a rounded-rect Badge tucked
+// under a round avatar, which is why no other call site in the kit uses it.
+// Slice here and spell the remainder as text, the way ProtocolPositionCell
+// already does for DeFi asset avatars.
 function CapabilityRow({
   label,
   assets,
@@ -39,12 +43,14 @@ function CapabilityRow({
   assets: IBorrowEModeAsset[];
   maxVisible: number;
 }) {
+  const visible = assets.slice(0, maxVisible);
+  const remaining = assets.length - visible.length;
+
   return (
-    <XStack ai="center" gap="$2" minWidth={0} maxWidth="100%">
-      {/* Only this label can give ground: at 320px the Russian "borrowable"
-          copy plus a group that spills into a +N badge is 19px wider than the
-          row, and shrinking it costs ~5px of one word instead of pushing the
-          badge outside the card. */}
+    <XStack ai="center" jc="space-between" gap="$3" minWidth={0}>
+      {/* Only the label can give ground: at 320px the Russian "borrowable"
+          copy plus a full group is wider than the row, and losing a few pixels
+          of one word beats pushing the avatars outside the card. */}
       <SizableText
         size="$bodySm"
         color="$textSubdued"
@@ -53,19 +59,27 @@ function CapabilityRow({
       >
         {label}
       </SizableText>
-      {assets.length ? (
-        <TokenGroup
-          size="xs"
-          flexShrink={0}
-          maxVisible={maxVisible}
-          tokens={assets.map((asset) => ({
-            tokenImageUri: asset.token.logoURI,
-          }))}
-        />
+      {visible.length ? (
+        <XStack ai="center" gap="$1" flexShrink={0}>
+          <TokenGroup
+            size="xs"
+            variant="overlapped"
+            wrapperStyle="border"
+            wrapperBorderColor="$bgApp"
+            tokens={visible.map((asset) => ({
+              tokenImageUri: asset.token.logoURI,
+            }))}
+          />
+          {remaining > 0 ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              +{remaining}
+            </SizableText>
+          ) : null}
+        </XStack>
       ) : (
         // An explicit "none" so a collateral-only category cannot be read as
-        // missing data.
-        <SizableText size="$bodySm" color="$textDisabled">
+        // missing data. It lands in the same column as the avatars above it.
+        <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
           {EMPTY_CAPABILITY}
         </SizableText>
       )}
@@ -109,12 +123,10 @@ function EModeCategoryRow({
   // label + token group pair cannot share a phone row with the category name.
   // Wide windows keep it on the right; phones drop it under the subtitle.
   const capabilities = row.isOff ? null : (
-    <YStack
-      gap="$1"
-      flexShrink={0}
-      ai={gtMd ? 'flex-end' : 'flex-start'}
-      {...(gtMd ? {} : { mt: '$2', w: '100%' })}
-    >
+    // No explicit alignment: the default stretch is what makes both rows as
+    // wide as the wider one, so the two avatar groups line up in a column
+    // instead of ending wherever their label happens to leave them.
+    <YStack gap="$1" flexShrink={0} {...(gtMd ? {} : { mt: '$2' })}>
       <CapabilityRow
         label={intl.formatMessage({ id: ETranslations.defi_collateral })}
         assets={collateral}
