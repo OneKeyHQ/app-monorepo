@@ -1,7 +1,9 @@
 import BigNumber from 'bignumber.js';
+import { isObject } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ESwapNetworkFeeLevel,
@@ -15,12 +17,44 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
+
+export function shouldFallbackSwapStep({
+  error,
+  stepType,
+  hasEnteredSignAndSend,
+}: {
+  error: unknown;
+  stepType: ESwapStepType;
+  hasEnteredSignAndSend: boolean;
+}) {
+  if (hasEnteredSignAndSend) {
+    return false;
+  }
+
+  const errorInfo = isObject(error) ? (error as Record<string, unknown>) : {};
+
+  return (
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyAppError &&
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.className !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.$isHardwareError !== true &&
+    errorInfo.key !== 'global.cancel' &&
+    errorInfo.code !== 803 &&
+    errorInfo.code !== -99_999 &&
+    !String(errorInfo.message ?? '')
+      .toLowerCase()
+      .includes('reject') &&
+    stepType !== ESwapStepType.SIGN_MESSAGE &&
+    errorInfo.name !== 'buildSwapApi'
+  );
+}
 
 type INativeBtcSwapTokenIdentity = Pick<ISwapToken, 'isNative' | 'networkId'>;
 

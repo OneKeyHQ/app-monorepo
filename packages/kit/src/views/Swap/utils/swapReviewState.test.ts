@@ -1,5 +1,6 @@
 import {
   ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -17,9 +18,69 @@ import {
   invalidateSwapReviewForSlippageChange,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
+  shouldFallbackSwapStep,
   shouldShowNativeBtcLowSlippageWarning,
   shouldShowSwapReviewToAmountSkeleton,
 } from './swapReviewState';
+
+describe('shouldFallbackSwapStep', () => {
+  it('keeps fallback available before signing starts', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('batch estimate failed'),
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        hasEnteredSignAndSend: false,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ESwapStepType.APPROVE_TX,
+    ESwapStepType.BATCH_APPROVE_SWAP,
+    ESwapStepType.SEND_TX,
+    ESwapStepType.WRAP_TX,
+  ])(
+    'does not replay %s after signing or broadcast may have started',
+    (stepType) => {
+      expect(
+        shouldFallbackSwapStep({
+          error: new Error('timeout of 10000ms exceeded'),
+          stepType,
+          hasEnteredSignAndSend: true,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    { name: 'OneKeyAppError' },
+    { className: 'OneKeyHardwareError' },
+    { $isHardwareError: true },
+    { key: 'global.cancel' },
+    { code: 803 },
+    { code: -99_999 },
+    { message: 'User rejected the request' },
+    { name: 'buildSwapApi' },
+  ])('preserves a non-fallback error before signing: %o', (error) => {
+    expect(
+      shouldFallbackSwapStep({
+        error,
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+        hasEnteredSignAndSend: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not fallback a signature-message step', () => {
+    expect(
+      shouldFallbackSwapStep({
+        error: new Error('unknown error'),
+        stepType: ESwapStepType.SIGN_MESSAGE,
+        hasEnteredSignAndSend: false,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('shouldShowNativeBtcLowSlippageWarning', () => {
   const nativeBtc = {

@@ -36,7 +36,6 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -153,6 +152,7 @@ import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
   resolveSwapReviewNeedFetchGasAfterRebuild,
+  shouldFallbackSwapStep,
 } from '../utils/swapReviewState';
 import {
   getStockTradeAnalyticsPayload,
@@ -934,12 +934,14 @@ export function useSwapBuildTx({
       accountId,
       unsignedTxItem,
       gasInfo,
+      onSignAndSendEntered,
     }: {
       stepIndex: number;
       networkId: string;
       accountId: string;
       unsignedTxItem: IUnsignedTxPro;
       gasInfo: ISwapGasInfo;
+      onSignAndSendEntered?: () => void;
     }) => {
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
@@ -1109,11 +1111,13 @@ export function useSwapBuildTx({
       const res = await sendDirectSwapWithGasAccountAnalytics({
         context: gasAccountAnalyticsContext,
         gasAccountUiState,
-        send: (uiState) =>
-          backgroundApiProxy.serviceSend.signAndSendTransaction({
+        send: (uiState) => {
+          onSignAndSendEntered?.();
+          return backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
             gasAccountUiState: uiState,
-          }),
+          });
+        },
         onGasAccountError: (error, entry) => {
           (error as IOneKeyError).autoToast = false;
           const message = intl.formatMessage({ id: entry.messageKey });
@@ -1559,6 +1563,7 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       quoteResult?: IFetchQuoteResult,
       needFetchGas?: boolean,
+      onSignAndSendEntered?: () => void,
     ) => {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
@@ -1628,6 +1633,7 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
+                  onSignAndSendEntered,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1708,6 +1714,7 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
+                  onSignAndSendEntered,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1785,6 +1792,7 @@ export function useSwapBuildTx({
               try {
                 updateStepTitle(stepIndex, i, approveUnsignedTxArr);
                 const res = await updateUnsignedTxAndSendTx({
+                  onSignAndSendEntered,
                   stepIndex,
                   networkId,
                   accountId,
@@ -1880,6 +1888,7 @@ export function useSwapBuildTx({
               };
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               lastTxRes = await updateUnsignedTxAndSendTx({
+                onSignAndSendEntered,
                 stepIndex,
                 networkId,
                 accountId,
@@ -1914,6 +1923,7 @@ export function useSwapBuildTx({
               }
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
               await updateUnsignedTxAndSendTx({
+                onSignAndSendEntered,
                 stepIndex,
                 networkId,
                 accountId,
@@ -1936,6 +1946,7 @@ export function useSwapBuildTx({
         if (gasInfoFinal) {
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
+              onSignAndSendEntered,
               stepIndex,
               networkId,
               accountId,
@@ -2000,6 +2011,7 @@ export function useSwapBuildTx({
           );
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
+              onSignAndSendEntered,
               stepIndex,
               networkId,
               accountId,
@@ -2110,6 +2122,7 @@ export function useSwapBuildTx({
       shouldFallback?: boolean,
       shouldWaitApprove?: boolean,
       needFetchGas?: boolean,
+      onSignAndSendEntered?: () => void,
     ) => {
       if (data?.allowanceResult?.allowanceTarget && fromUserAddress) {
         const approveInfo: IApproveInfo = {
@@ -2152,6 +2165,7 @@ export function useSwapBuildTx({
               undefined,
               data,
               needFetchGas,
+              onSignAndSendEntered,
             );
             if (res) {
               void onApproveTxSuccess();
@@ -2662,6 +2676,7 @@ export function useSwapBuildTx({
       fallbackApproveInfos?: IApproveInfo[],
       needFetchGas?: boolean,
       skipLoading?: boolean,
+      onSignAndSendEntered?: () => void,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -2757,6 +2772,7 @@ export function useSwapBuildTx({
               approveUnsignedTxArr,
               data,
               needFetchGas,
+              onSignAndSendEntered,
             );
             if (sendTxRes) {
               void onBuildTxSuccess(
@@ -3021,6 +3037,7 @@ export function useSwapBuildTx({
       fromTokenInfo?: ISwapToken,
       toTokenInfo?: ISwapToken,
       needFetchGas?: boolean,
+      onSignAndSendEntered?: () => void,
     ) => {
       if (
         fromTokenInfo &&
@@ -3083,6 +3100,7 @@ export function useSwapBuildTx({
           undefined,
           data,
           needFetchGas,
+          onSignAndSendEntered,
         );
 
         if (sendTxRes) {
@@ -3194,6 +3212,7 @@ export function useSwapBuildTx({
       data?: IFetchQuoteResult,
       shouldFallback?: boolean,
       needFetchGas?: boolean,
+      onSignAndSendEntered?: () => void,
     ) => {
       if (
         data?.fromTokenInfo &&
@@ -3217,6 +3236,8 @@ export function useSwapBuildTx({
           shouldFallback,
           fallbackApproveInfos,
           needFetchGas,
+          undefined,
+          onSignAndSendEntered,
         );
       }
     },
@@ -3871,6 +3892,10 @@ export function useSwapBuildTx({
             status === ESwapStepStatus.READY ||
             (canRetry && status === ESwapStepStatus.FAILED)
           ) {
+            let hasEnteredSignAndSend = false;
+            const onSignAndSendEntered = () => {
+              hasEnteredSignAndSend = true;
+            };
             try {
               setSwapSteps(
                 (prevSteps: {
@@ -3902,6 +3927,7 @@ export function useSwapBuildTx({
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
                     preSwapDataFinal?.needFetchGas,
+                    onSignAndSendEntered,
                   );
                 } else {
                   approveSendTx = await approveTxNew(
@@ -3912,6 +3938,7 @@ export function useSwapBuildTx({
                     preSwapDataFinal?.shouldFallback,
                     step.shouldWaitApproved,
                     preSwapDataFinal?.needFetchGas,
+                    onSignAndSendEntered,
                   );
                 }
                 if (
@@ -3991,6 +4018,7 @@ export function useSwapBuildTx({
                   preSwapDataFinal?.fromToken,
                   preSwapDataFinal?.toToken,
                   preSwapDataFinal?.needFetchGas,
+                  onSignAndSendEntered,
                 );
               } else if (type === ESwapStepType.SEND_TX) {
                 await buildTxNew(
@@ -4002,6 +4030,8 @@ export function useSwapBuildTx({
                   preSwapDataFinal?.shouldFallback,
                   undefined,
                   preSwapDataFinal?.needFetchGas,
+                  undefined,
+                  onSignAndSendEntered,
                 );
               } else if (type === ESwapStepType.SIGN_MESSAGE) {
                 await signMessage(
@@ -4019,6 +4049,7 @@ export function useSwapBuildTx({
                   quoteResultFinal,
                   preSwapDataFinal?.shouldFallback,
                   preSwapDataFinal?.needFetchGas,
+                  onSignAndSendEntered,
                 );
               }
 
@@ -4044,38 +4075,19 @@ export function useSwapBuildTx({
                   },
                 );
               }
-            } catch (error: any) {
-              const shouldFallback =
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.name !== EOneKeyErrorClassNames.OneKeyAppError &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.name !== EOneKeyErrorClassNames.OneKeyHardwareError &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.className !==
-                  EOneKeyErrorClassNames.OneKeyHardwareError &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                !error?.$isHardwareError &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.key !== 'global.cancel' &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.code !== 803 &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.code !== -99_999 &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                !String(error?.message ?? '')
-                  .toLowerCase()
-                  .includes('reject') &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                step.type !== ESwapStepType.SIGN_MESSAGE &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.name !== 'buildSwapApi';
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              let errorMessage = error?.message ?? 'Unknown error';
+            } catch (error) {
+              const shouldFallback = shouldFallbackSwapStep({
+                error,
+                stepType: step.type,
+                hasEnteredSignAndSend,
+              });
+              const oneKeyError = error as IOneKeyError;
+              let errorMessage: string | undefined =
+                oneKeyError?.message ?? 'Unknown error';
               if (shouldFallback) {
                 errorMessage = undefined;
               }
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              if (error?.key === 'global.cancel') {
+              if (oneKeyError?.key === 'global.cancel') {
                 errorMessage = intl.formatMessage({
                   id: ETranslations.limit_cancel_order_title,
                 });
@@ -4137,8 +4149,7 @@ export function useSwapBuildTx({
                 accountUtils.isQrAccount({
                   accountId: fromAccountId ?? '',
                 }) &&
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                error?.key !== 'global.cancel'
+                oneKeyError?.key !== 'global.cancel'
               ) {
                 void goBackQrCodeModal();
               }
