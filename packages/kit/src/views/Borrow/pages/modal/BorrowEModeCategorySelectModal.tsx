@@ -10,9 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
-import { TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,72 +18,12 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IBorrowEModeAsset } from '@onekeyhq/shared/types/staking';
 
 import {
   type IEModeRow,
   buildEModeRowSubtitle,
   buildEModeRows,
 } from '../BorrowEModeSwitch/emodeUtils';
-
-const EMPTY_CAPABILITY = '-';
-
-// TokenGroup's own `showRemainingBadge` renders a rounded-rect Badge tucked
-// under a round avatar, which is why no other call site in the kit uses it.
-// Slice here and spell the remainder as text, the way ProtocolPositionCell
-// already does for DeFi asset avatars.
-function CapabilityRow({
-  label,
-  assets,
-  maxVisible,
-}: {
-  label: string;
-  assets: IBorrowEModeAsset[];
-  maxVisible: number;
-}) {
-  const visible = assets.slice(0, maxVisible);
-  const remaining = assets.length - visible.length;
-
-  return (
-    <XStack ai="center" jc="space-between" gap="$3" minWidth={0}>
-      {/* Only the label can give ground: at 320px the Russian "borrowable"
-          copy plus a full group is wider than the row, and losing a few pixels
-          of one word beats pushing the avatars outside the card. */}
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        numberOfLines={1}
-        flexShrink={1}
-      >
-        {label}
-      </SizableText>
-      {visible.length ? (
-        <XStack ai="center" gap="$1" flexShrink={0}>
-          <TokenGroup
-            size="xs"
-            variant="overlapped"
-            wrapperStyle="border"
-            wrapperBorderColor="$bgApp"
-            tokens={visible.map((asset) => ({
-              tokenImageUri: asset.token.logoURI,
-            }))}
-          />
-          {remaining > 0 ? (
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              +{remaining}
-            </SizableText>
-          ) : null}
-        </XStack>
-      ) : (
-        // An explicit "none" so a collateral-only category cannot be read as
-        // missing data. It lands in the same column as the avatars above it.
-        <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
-          {EMPTY_CAPABILITY}
-        </SizableText>
-      )}
-    </XStack>
-  );
-}
 
 function EModeCategoryRow({
   row,
@@ -99,7 +37,6 @@ function EModeCategoryRow({
   onPress: (eModeId: number) => void;
 }) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
 
   const subtitle = buildEModeRowSubtitle({
     row,
@@ -111,39 +48,10 @@ function EModeCategoryRow({
     }),
   });
 
-  const { collateral, borrowable } = useMemo(() => {
-    const assets = row.assets ?? [];
-    return {
-      collateral: assets.filter((asset) => asset.boostedLTV),
-      borrowable: assets.filter((asset) => asset.borrowable),
-    };
-  }, [row.assets]);
-
-  // The Russian "borrowable" label alone measures ~150px at $bodySm, so the
-  // label + token group pair cannot share a phone row with the category name.
-  // Wide windows keep it on the right; phones drop it under the subtitle.
-  const capabilities = row.isOff ? null : (
-    // No explicit alignment: the default stretch is what makes both rows as
-    // wide as the wider one, so the two avatar groups line up in a column
-    // instead of ending wherever their label happens to leave them.
-    <YStack gap="$1" flexShrink={0} {...(gtMd ? {} : { mt: '$2' })}>
-      <CapabilityRow
-        label={intl.formatMessage({ id: ETranslations.defi_collateral })}
-        assets={collateral}
-        maxVisible={gtMd ? 4 : 3}
-      />
-      <CapabilityRow
-        label={intl.formatMessage({ id: ETranslations.defi_borrowable })}
-        assets={borrowable}
-        maxVisible={gtMd ? 4 : 3}
-      />
-    </YStack>
-  );
-
   return (
     <XStack
       testID={`borrow-e-mode-category-row-${row.eModeId}`}
-      ai={gtMd ? 'center' : 'flex-start'}
+      ai="center"
       gap="$3"
       px="$5"
       py="$3"
@@ -171,9 +79,7 @@ function EModeCategoryRow({
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {subtitle}
         </SizableText>
-        {gtMd ? null : capabilities}
       </YStack>
-      {gtMd ? capabilities : null}
       {isSelected ? (
         <Icon
           flexShrink={0}
