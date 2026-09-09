@@ -16,6 +16,15 @@ final class AppClipAttributionModule: NSObject {
     resolve(AppClipAttributionStore.load()?.bridgeDictionary)
   }
 
+  @objc(savePending:resolver:rejecter:)
+  func savePending(
+    _ record: NSDictionary,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    resolve(AppClipAttributionStore.saveReportingSnapshot(record))
+  }
+
   @objc(clearPending:rejecter:)
   func clearPending(
     _ resolve: RCTPromiseResolveBlock,

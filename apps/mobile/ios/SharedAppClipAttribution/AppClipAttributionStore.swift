@@ -12,12 +12,15 @@ struct AppClipAttributionRecord: Codable {
   var utmSource: String?
   var utmTerm: String?
   var campaignId: String?
+  var firstOpenedAt: String?
   var experience: String
   var route: String
   var selectedAddress: String?
   var selectedIsNative: Bool?
   var selectedNetwork: String?
   var selectedSymbol: String?
+  var shortLinkPath: String?
+  var shortLinkVersion: Int?
   var lastAction: String
   var openedAt: Date
   var updatedAt: Date
@@ -40,9 +43,11 @@ struct AppClipAttributionRecord: Codable {
       "utmSource": utmSource,
       "utmTerm": utmTerm,
       "campaignId": campaignId,
+      "firstOpenedAt": firstOpenedAt,
       "selectedAddress": selectedAddress,
       "selectedNetwork": selectedNetwork,
       "selectedSymbol": selectedSymbol,
+      "shortLinkPath": shortLinkPath,
     ]
     for (key, value) in optionalValues {
       if let value {
@@ -52,17 +57,21 @@ struct AppClipAttributionRecord: Codable {
     if let selectedIsNative {
       result["selectedIsNative"] = selectedIsNative
     }
+    if let shortLinkVersion {
+      result["shortLinkVersion"] = shortLinkVersion
+    }
     return result
   }
 }
 
 enum AppClipAttributionStore {
   static let appGroupIdentifier = "group.so.onekey.wallet"
-  static let pendingRecordKey = "app_clip_attribution_pending_v1"
+  static let pendingRecordFilename = "app_clip_attribution_pending_v1.json"
 
   static func load() -> AppClipAttributionRecord? {
     guard
-      let data = defaults?.data(forKey: pendingRecordKey),
+      let pendingRecordURL,
+      let data = try? Data(contentsOf: pendingRecordURL),
       let record = try? decoder.decode(AppClipAttributionRecord.self, from: data),
       record.schemaVersion == AppClipAttributionRecord.currentSchemaVersion
     else {
@@ -71,18 +80,64 @@ enum AppClipAttributionStore {
     return record
   }
 
-  static func save(_ record: AppClipAttributionRecord) {
-    guard let data = try? encoder.encode(record) else {
-      return
+  @discardableResult
+  static func save(_ record: AppClipAttributionRecord) -> Bool {
+    guard
+      let pendingRecordURL,
+      let data = try? encoder.encode(record)
+    else {
+      return false
     }
-    defaults?.set(data, forKey: pendingRecordKey)
+    do {
+      try data.write(to: pendingRecordURL, options: .atomic)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  static func saveReportingSnapshot(_ snapshot: NSDictionary) -> Bool {
+    guard
+      var record = load(),
+      let clickId = snapshot["clickId"] as? String,
+      clickId == record.clickId
+    else {
+      return false
+    }
+    record.utmCampaign = snapshot["utmCampaign"] as? String
+    record.utmContent = snapshot["utmContent"] as? String
+    record.utmId = snapshot["utmId"] as? String
+    record.utmMedium = snapshot["utmMedium"] as? String
+    record.utmSource = snapshot["utmSource"] as? String
+    record.utmTerm = snapshot["utmTerm"] as? String
+    record.campaignId = snapshot["campaignId"] as? String
+    record.firstOpenedAt = snapshot["firstOpenedAt"] as? String
+    record.experience = (snapshot["experience"] as? String) ?? record.experience
+    record.route = (snapshot["route"] as? String) ?? record.route
+    record.selectedAddress = snapshot["selectedAddress"] as? String
+    record.selectedIsNative = snapshot["selectedIsNative"] as? Bool
+    record.selectedNetwork = snapshot["selectedNetwork"] as? String
+    record.selectedSymbol = snapshot["selectedSymbol"] as? String
+    record.shortLinkPath = snapshot["shortLinkPath"] as? String
+    record.shortLinkVersion = (snapshot["shortLinkVersion"] as? NSNumber)?.intValue
+    record.lastAction = (snapshot["lastAction"] as? String) ?? record.lastAction
+    record.updatedAt = Date()
+    return save(record)
   }
 
   static func clear() {
-    defaults?.removeObject(forKey: pendingRecordKey)
+    guard let pendingRecordURL else {
+      return
+    }
+    try? FileManager.default.removeItem(at: pendingRecordURL)
   }
 
-  private static let defaults = UserDefaults(suiteName: appGroupIdentifier)
+  private static var pendingRecordURL: URL? {
+    FileManager.default
+      .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+      .appendingPathComponent(pendingRecordFilename, isDirectory: false)
+  }
+
   private static let encoder = JSONEncoder()
   private static let decoder = JSONDecoder()
 }

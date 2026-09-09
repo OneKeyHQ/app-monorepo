@@ -177,13 +177,14 @@ final class AppClipModel: ObservableObject {
       return
     }
     start()
-    guard
-      !isRefreshing,
-      lastUpdated.map({ Date().timeIntervalSince($0) >= 15 }) ?? true
-    else {
+    guard !isRefreshing else {
       return
     }
-    Task { await refreshMarkets() }
+    if lastUpdated.map({ Date().timeIntervalSince($0) >= 15 }) ?? true {
+      Task { await refreshMarkets() }
+    } else {
+      refreshVisibleDetail()
+    }
   }
 
   func handleInvocation(_ url: URL) {
@@ -240,6 +241,14 @@ final class AppClipModel: ObservableObject {
         throw URLError(.zeroByteResource)
       }
       assets = result
+      refreshVisibleDetail(
+        with: result.first(where: { asset in
+          guard case .detail(let currentAsset) = screen else {
+            return false
+          }
+          return asset.id == currentAsset.id
+        })
+      )
       lastUpdated = Date()
       marketRefreshFailed = false
     } catch {
@@ -247,6 +256,7 @@ final class AppClipModel: ObservableObject {
         return
       }
       marketRefreshFailed = true
+      refreshVisibleDetail()
     }
   }
 
@@ -377,12 +387,36 @@ final class AppClipModel: ObservableObject {
     return components.url
   }
 
-  private func prepareCandleRequest() -> (id: UUID, baseURL: URL) {
+  private func refreshVisibleDetail(with refreshedAsset: AppClipMarketAsset? = nil) {
+    guard case .detail(let currentAsset) = screen else {
+      return
+    }
+    let asset = refreshedAsset ?? currentAsset
+    if asset != currentAsset {
+      screen = .detail(asset)
+    }
+    let interval = selectedInterval
+    let candleRequest = prepareCandleRequest(clearsExistingCandles: false)
+    Task {
+      await loadCandles(
+        asset: asset,
+        interval: interval,
+        requestID: candleRequest.id,
+        baseURL: candleRequest.baseURL
+      )
+    }
+  }
+
+  private func prepareCandleRequest(
+    clearsExistingCandles: Bool = true
+  ) -> (id: UUID, baseURL: URL) {
     let requestID = UUID()
     candleRequestID = requestID
     isLoadingCandles = true
     candleLoadFailed = false
-    candles = []
+    if clearsExistingCandles {
+      candles = []
+    }
     return (requestID, apiBaseURL)
   }
 

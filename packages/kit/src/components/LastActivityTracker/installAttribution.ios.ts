@@ -18,6 +18,7 @@ type IAppClipAttributionRecord = IAppClipInstallAttributionParams & {
 type IAppClipAttributionNativeModule = {
   clearPending: () => Promise<void>;
   readPending: () => Promise<unknown>;
+  savePending: (record: IAppClipAttributionRecord) => Promise<boolean>;
 };
 
 type IAppClipClaimResponse = {
@@ -91,7 +92,48 @@ function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (typeof record.selectedIsNative === 'boolean') {
     result.selectedIsNative = record.selectedIsNative;
   }
+  const shortLinkPath = record.shortLinkPath;
+  if (typeof shortLinkPath === 'string' && shortLinkPath.length <= 256) {
+    result.shortLinkPath = shortLinkPath;
+  }
+  const shortLinkVersion = record.shortLinkVersion;
+  if (
+    typeof shortLinkVersion === 'number' &&
+    Number.isSafeInteger(shortLinkVersion) &&
+    shortLinkVersion >= 0
+  ) {
+    result.shortLinkVersion = shortLinkVersion;
+  }
   return result;
+}
+
+function mergeClaimWithPending(
+  claim: IAppClipClaimResponse,
+  pending: IAppClipAttributionRecord,
+): IAppClipAttributionRecord {
+  const serverSnapshot = getPendingRecord({
+    ...claim.attribution,
+    ...claim.appClip,
+    clickId: pending.clickId,
+    schemaVersion: 1,
+    shortLinkPath: claim.shortLink?.path,
+    shortLinkVersion: claim.shortLink?.version,
+  });
+  return (
+    getPendingRecord({
+      ...pending,
+      ...serverSnapshot,
+      clickId: pending.clickId,
+      experience: pending.experience ?? serverSnapshot?.experience,
+      lastAction: pending.lastAction ?? serverSnapshot?.lastAction,
+      route: pending.route ?? serverSnapshot?.route,
+      schemaVersion: 1,
+      selectedAddress: pending.selectedAddress,
+      selectedIsNative: pending.selectedIsNative,
+      selectedNetwork: pending.selectedNetwork,
+      selectedSymbol: pending.selectedSymbol,
+    }) ?? pending
+  );
 }
 
 async function reportPendingInstallAttribution(): Promise<void> {
@@ -118,29 +160,9 @@ async function reportPendingInstallAttribution(): Promise<void> {
     await nativeModule.clearPending();
     return;
   }
-  const attribution =
-    getPendingRecord({
-      ...claim.attribution,
-      ...claim.appClip,
-      ...pending,
-      clickId: pending.clickId,
-      schemaVersion: 1,
-    }) ?? pending;
-  const shortLinkPath = claim.shortLink?.path;
-  const shortLinkVersion = claim.shortLink?.version;
-  await defaultLogger.app.install.reportAppClipInstallAttribution({
-    ...attribution,
-    shortLinkPath:
-      typeof shortLinkPath === 'string' && shortLinkPath.length <= 256
-        ? shortLinkPath
-        : undefined,
-    shortLinkVersion:
-      typeof shortLinkVersion === 'number' &&
-      Number.isSafeInteger(shortLinkVersion) &&
-      shortLinkVersion >= 0
-        ? shortLinkVersion
-        : undefined,
-  });
+  const attribution = mergeClaimWithPending(claim, pending);
+  await nativeModule.savePending(attribution);
+  await defaultLogger.app.install.reportAppClipInstallAttribution(attribution);
   await nativeModule.clearPending();
 }
 
