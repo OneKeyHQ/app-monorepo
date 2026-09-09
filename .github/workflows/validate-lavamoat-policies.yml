@@ -54,6 +54,17 @@ jobs:
       - name: Install Chromium for protected runtime validation
         run: yarn exec playwright-core install --with-deps chromium
 
+      - name: Allow the installed browsers to create their namespace sandboxes
+        run: |
+          node --test development/lavamoat/prepare-linux-browser-sandbox.test.cjs
+          node development/lavamoat/prepare-linux-browser-sandbox.cjs "$RUNNER_TEMP/lavamoat-browser-apparmor"
+          for profile in onekey-lavamoat-ci-chromium onekey-lavamoat-ci-electron; do
+            test ! -e "/etc/apparmor.d/$profile"
+            test ! -L "/etc/apparmor.d/$profile"
+            sudo install -o root -g root -m 0644 -- "$RUNNER_TEMP/lavamoat-browser-apparmor/$profile" "/etc/apparmor.d/$profile"
+            sudo apparmor_parser -r "/etc/apparmor.d/$profile"
+          done
+
       - name: Validate LavaMoat tooling
         env:
           DEBUG: pw:browser
