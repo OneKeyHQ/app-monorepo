@@ -10,7 +10,7 @@ index a4796fa..070622a 100644
    implementation project(":onekeyfe_react-native-image")
  }
 diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
-index e19bff6..8439bf3 100644
+index e19bff6..10fd799 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
 +++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
 @@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
@@ -96,7 +96,7 @@ index e19bff6..8439bf3 100644
            recyclerView.invalidate()
            (viewHolder as? NativeListViewHolder)?.rowView?.setReorderActive(true)
            if (compactWalletGroupDrag && viewHolder != null) {
-@@ -1263,18 +1318,37 @@ class NativeListView(
+@@ -1263,22 +1318,43 @@ class NativeListView(
          val from = source.bindingAdapterPosition
          val to = target.bindingAdapterPosition
          val base = pendingReorder ?: adapter.currentList
@@ -138,7 +138,14 @@ index e19bff6..8439bf3 100644
          pendingReorder = reordered
          reorderPlaceholderDecoration.position = to
          recyclerView.invalidate()
-@@ -1294,11 +1368,40 @@ class NativeListView(
+-        recyclerView.postOnAnimation(::relayoutRecyclerViewImmediately)
++        // OneKey patch: retry deferred layouts so ItemTouchHelper can keep finding swap targets.
++        // recyclerView.postOnAnimation(::relayoutRecyclerViewImmediately)
++        scheduleReorderRelayout()
+         return true
+       }
+ 
+@@ -1294,11 +1370,40 @@ class NativeListView(
          isCurrentlyActive: Boolean,
        ) {
          if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
@@ -179,7 +186,7 @@ index e19bff6..8439bf3 100644
        }
  
        override fun interpolateOutOfBoundsScroll(
-@@ -1308,32 +1411,50 @@ class NativeListView(
+@@ -1308,32 +1413,56 @@ class NativeListView(
          totalSize: Int,
          msSinceStartScroll: Long,
        ): Int {
@@ -219,6 +226,9 @@ index e19bff6..8439bf3 100644
          }
 -        if (compactOutOfBounds == 0) return 0
 -        return super.interpolateOutOfBoundsScroll(
++        // OneKey patch: warm-start AndroidX's two-second quintic edge-scroll ramp.
++        val acceleratedElapsedOutMs =
++          msSinceStartScroll + REORDER_AUTOSCROLL_ACCELERATION_OFFSET_MS
 +        val result = super.interpolateOutOfBoundsScroll(
            recyclerView,
 -          compactHeight,
@@ -226,7 +236,9 @@ index e19bff6..8439bf3 100644
 +          effectiveViewSize,
 +          effectiveOutOfBounds,
            totalSize,
-           msSinceStartScroll,
+-          msSinceStartScroll,
++          // msSinceStartScroll,
++          acceleratedElapsedOutMs,
          )
 +        val now = SystemClock.uptimeMillis()
 +        if (
@@ -240,7 +252,9 @@ index e19bff6..8439bf3 100644
 +              "compact=$compactWalletGroupDrag rawViewSize=$viewSize " +
 +              "effectiveViewSize=$effectiveViewSize rawOut=$viewSizeOutOfBounds " +
 +              "effectiveOut=$effectiveOutOfBounds totalSize=$totalSize " +
-+              "elapsedOutMs=$msSinceStartScroll elapsedDragMs=${now - dragStartedAtMs} " +
++              "elapsedOutMs=$msSinceStartScroll " +
++              "acceleratedElapsedOutMs=$acceleratedElapsedOutMs " +
++              "elapsedDragMs=${now - dragStartedAtMs} " +
 +              "resultPx=$result scrollOffset=${recyclerView.computeVerticalScrollOffset()} " +
 +              "canScrollUp=${recyclerView.canScrollVertically(-1)} " +
 +              "canScrollDown=${recyclerView.canScrollVertically(1)} " +
@@ -251,7 +265,7 @@ index e19bff6..8439bf3 100644
        }
  
        override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
-@@ -1349,6 +1470,18 @@ class NativeListView(
+@@ -1349,6 +1478,18 @@ class NativeListView(
          val from = dragFrom
          val to = dragTo
          val reordered = pendingReorder
@@ -270,7 +284,7 @@ index e19bff6..8439bf3 100644
          var reorderPayload: JSONObject? = null
          val destinationPosition = if (to != RecyclerView.NO_POSITION) {
            to
-@@ -1404,6 +1537,7 @@ class NativeListView(
+@@ -1404,6 +1545,7 @@ class NativeListView(
          dragFrom = RecyclerView.NO_POSITION
          dragTo = RecyclerView.NO_POSITION
          pendingReorder = null
@@ -278,13 +292,42 @@ index e19bff6..8439bf3 100644
          // The gesture is committed now; a later snapshot may supersede its async diff.
          reorderPayload?.let { emit(REORDER, it) }
        }
-@@ -1632,6 +1766,10 @@ class NativeListView(
+@@ -1600,6 +1742,26 @@ class NativeListView(
+     }
+   }
+ 
++  private fun scheduleReorderRelayout(
++    retriesRemaining: Int = REORDER_RELAYOUT_MAX_RETRIES,
++  ) {
++    recyclerView.postOnAnimation {
++      if (disposed || recyclerView.width <= 0 || recyclerView.height <= 0) {
++        return@postOnAnimation
++      }
++      val wasComputingLayout = recyclerView.isComputingLayout
++      if (!wasComputingLayout) {
++        relayoutRecyclerViewImmediately()
++      }
++      if (
++        retriesRemaining > 0 &&
++        (wasComputingLayout || recyclerView.isLayoutRequested)
++      ) {
++        scheduleReorderRelayout(retriesRemaining - 1)
++      }
++    }
++  }
++
+   private fun relayoutRecyclerViewImmediately() {
+     if (disposed || recyclerView.isComputingLayout || recyclerView.width <= 0 || recyclerView.height <= 0) {
+       return
+@@ -1632,6 +1794,12 @@ class NativeListView(
      private const val REORDER_SPRING_STIFFNESS = 400.0
      private const val REORDER_SPRING_MASS = 0.4
      private const val REORDER_SPRING_DURATION_MS = 300L
++    private const val REORDER_AUTOSCROLL_ACCELERATION_OFFSET_MS = 1_500L
 +    private const val REORDER_AUTOSCROLL_LOG_INTERVAL_MS = 100L
 +    private const val REORDER_DRAG_FRAME_LOG_INTERVAL_MS = 100L
 +    private const val REORDER_MOVE_ATTEMPT_LOG_INTERVAL_MS = 250L
++    private const val REORDER_RELAYOUT_MAX_RETRIES = 3
 +    private const val REORDER_LOG_TAG = "NativeListReorder"
      private const val ROW_ACTION = "rowAction"
      private const val ACTION_ANCHOR_INVALIDATED = "actionAnchorInvalidated"
