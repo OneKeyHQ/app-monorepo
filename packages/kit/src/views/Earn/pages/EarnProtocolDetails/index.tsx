@@ -388,7 +388,8 @@ function ChartSection({
   );
 
   // Fetch chart data to get high/low values
-  const { result: chartData } = usePromiseResult(async () => {
+  const { result: chartData, isLoading: isChartLoading } = usePromiseResult(
+    async () => {
     if (isPendleProvider) {
       // underlying-history returns both impliedApy and underlyingApy, single request suffices
       const underlyingApyHistoryData =
@@ -524,6 +525,14 @@ function ChartSection({
     underlyingApyHistory &&
     underlyingApyHistory.length > 0,
   );
+
+  // A provider with no APY history (BTC, for one) has nothing to draw; an
+  // empty chart with an axis and a range selector is worse than no chart, so
+  // the block hides once the request has settled empty (OK-62411). While it is
+  // still loading ApyChart shows its own skeleton, so loading is not hidden.
+  if (!isChartLoading && chartData && !impliedApyHistory?.length) {
+    return null;
+  }
 
   return (
     <YStack gap="$3">
