@@ -411,8 +411,8 @@
       "reviewMode": "effective-policy",
       "totalResources": 3220,
       "generatedResources": 3218,
-      "highRiskResources": 216,
-      "highRiskEntries": 551,
+      "highRiskResources": 217,
+      "highRiskEntries": 552,
       "deniedOverrides": 2,
       "categoryCounts": {
         "network": {
@@ -440,15 +440,15 @@
           "entries": 23
         },
         "dom-injection-navigation": {
-          "resources": 68,
-          "entries": 118
+          "resources": 69,
+          "entries": 119
         },
         "node-system": {
           "resources": 0,
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 559
+      "packageEdgesToRiskyResources": 562
     },
     {
       "sourcePolicy": "lavamoat/webpack/ext/mv3/content-script/policy.json",

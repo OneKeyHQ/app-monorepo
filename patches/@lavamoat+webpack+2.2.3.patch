@@ -1,3 +1,55 @@
+diff --git a/node_modules/@lavamoat/webpack/src/buildtime/aa.js b/node_modules/@lavamoat/webpack/src/buildtime/aa.js
+index 4276dad..dbe82cf 100644
+--- a/node_modules/@lavamoat/webpack/src/buildtime/aa.js
++++ b/node_modules/@lavamoat/webpack/src/buildtime/aa.js
+@@ -117,8 +117,21 @@ exports.generateIdentifierLookup = ({
+     return mapping
+   }
+ 
+-  const usedIdentifiers = Object.keys(policy.resources || {})
+-  usedIdentifiers.unshift(ROOT_IDENTIFIER)
++  // OneKey patch: omitted zero-permission resources still need unique owners.
++  // Include edge-only targets so translating policy never collapses identities.
++  const pathLookup = pathsToIdentifiers()
++  // const usedIdentifiers = Object.keys(policy.resources || {})
++  // usedIdentifiers.unshift(ROOT_IDENTIFIER)
++  const usedIdentifiers = [
++    ROOT_IDENTIFIER,
++    ...Array.from(new Set([
++      ...Object.keys(policy.resources || {}),
++      ...Object.values(pathLookup).map(({ aa }) => aa),
++      ...Object.values(policy.resources || {}).flatMap((resource) =>
++        Object.keys(resource.packages || {})
++      ),
++    ])).filter((id) => id !== ROOT_IDENTIFIER).sort(),
++  ]
+   const usedIdentifiersIndex = Object.fromEntries(
+     usedIdentifiers.map((id, index) => [id, index])
+   )
+@@ -130,13 +143,21 @@ exports.generateIdentifierLookup = ({
+     translate = (i) => i
+   } else {
+     // Why is this a string? There was way too much confusion involved when it was not. If the 2 extra characters are ever worth the hassle, feel free to change it back to numbers.
+-    translate = (i) => `${usedIdentifiersIndex[i]}`
++    // OneKey patch: an unknown owner must never become the shared "undefined" ID.
++    // translate = (i) => `${usedIdentifiersIndex[i]}`
++    translate = (i) => {
++      if (!Object.hasOwn(usedIdentifiersIndex, i)) {
++        throw new Error(`LavaMoatPlugin: Unknown resource identifier: ${i}`)
++      }
++      return `${usedIdentifiersIndex[i]}`
++    }
+   }
+ 
+   // TODO: consider taking the list of paths used by webpack and running the entire AA algorithm only on that instead of relying on AA running through everything first.
+   // It might give us identifiers that are more stable and would surely be much faster.
+ 
+-  const pathLookup = pathsToIdentifiers()
++  // OneKey patch: resolve paths before allocating the complete identifier table.
++  // const pathLookup = pathsToIdentifiers()
+   const identifiersWithKnownPaths = new Set(
+     Object.values(pathLookup).map((pl) => pl.aa)
+   )
 diff --git a/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js b/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js
 index d6a5247..1531385 100644
 --- a/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js

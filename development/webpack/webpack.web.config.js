@@ -23,6 +23,7 @@ const {
 const {
   createKaspaCompatibilityRule,
 } = require('./lavamoat-kaspa-compatibility.cjs');
+const { createProtectedWebSesRule } = require('./lavamoat-web-ses-loader.cjs');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
@@ -37,13 +38,24 @@ module.exports = ({
   platform = babelTools.developmentConsts.platforms.web,
 }) => {
   const isPolicyGeneration = isLavaMoatPolicyGeneration();
+  const isProtectedWeb =
+    platform === babelTools.developmentConsts.platforms.web &&
+    isLavaMoatEnabled();
   const configs = ENABLE_ANALYZER
     ? [webConfig, analyzerConfig({ configName: platform })]
     : [webConfig];
   switch (NODE_ENV) {
     case 'production':
       return merge(
-        baseConfig({ platform, basePath }),
+        baseConfig({
+          platform,
+          basePath,
+          // Preserve the shipping Web translation optimization before wrapping
+          // modules. Other platforms and ordinary Webpack builds are unchanged.
+          firstPartyBabelPlugins: isLavaMoatEnabled()
+            ? [require.resolve('../babel-plugins/inline-translations')]
+            : [],
+        }),
         productionConfig({ platform, basePath }),
         ...configs,
         {
@@ -54,9 +66,23 @@ module.exports = ({
             rules: [
               ...createLavaMoatWebpackRules(),
               ...(isLavaMoatEnabled() ? [createKaspaCompatibilityRule()] : []),
+              ...(isLavaMoatEnabled() ? [createProtectedWebSesRule()] : []),
             ],
           },
-          optimization: createLavaMoatWebpackOptimization(),
+          optimization: {
+            ...createLavaMoatWebpackOptimization(),
+            ...(isProtectedWeb
+              ? {
+                  splitChunks: {
+                    cacheGroups: {
+                      // Keep lazy-only SDK modules out of named initial chunks.
+                      cryptoVendor: { chunks: 'initial' },
+                      networkVendor: { chunks: 'initial' },
+                    },
+                  },
+                }
+              : {}),
+          },
           plugins: [
             new SubresourceIntegrityPlugin(),
             createLavaMoatWebpackValidationPlugin(),
@@ -86,6 +112,7 @@ module.exports = ({
             createLavaMoatWebpackPlugin({
               basePath,
               target: 'web',
+              readableResourceIds: !isProtectedWeb,
             }),
           ].filter(Boolean),
         },

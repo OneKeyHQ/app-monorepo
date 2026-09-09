@@ -114,6 +114,11 @@
         "document.head": true
       }
     },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
       "globals": {
         "location.origin": true

@@ -44,7 +44,7 @@
 | `webpack/desktop-services/checkBiometricAuthChanged` | Electron service checkBiometricAuthChanged | [policy](../webpack/desktop-services/checkBiometricAuthChanged/policy.json) | 1 | 0 | 0 | 0 |
 | `node/build-tools` | CLI esbuild source runtime | [policy](../node/build-tools/policy.json) | 15 | 2 | 20 | 1 |
 | `webpack/ext/mv3/pages` | MV3 extension pages | [policy](../webpack/ext/mv3/pages/policy.json) | 4012 | 289 | 788 | 1048 |
-| `webpack/ext/mv3/background` | MV3 extension background | [policy](../webpack/ext/mv3/background/policy.json) | 3220 | 216 | 551 | 559 |
+| `webpack/ext/mv3/background` | MV3 extension background | [policy](../webpack/ext/mv3/background/policy.json) | 3220 | 217 | 552 | 562 |
 | `webpack/ext/mv3/content-script` | MV3 extension content-script | [policy](../webpack/ext/mv3/content-script/policy.json) | 46 | 13 | 36 | 22 |
 | `webpack/web-embed` | Embedded WebView production webpack bundle | [policy](../webpack/web-embed/policy.json) | 442 | 55 | 128 | 107 |
 | `webpack/web` | Web production webpack bundle，apps/web 生产构建 | [policy](../webpack/web/policy.json) | 4330 | 311 | 790 | 1103 |
@@ -63,7 +63,7 @@
 | `webpack/desktop-services/checkBiometricAuthChanged` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 |
 | `node/build-tools` | 1/1 | 1/3 | 0/0 | 1/1 | 0/0 | 1/1 | 1/1 | 1/13 |
 | `webpack/ext/mv3/pages` | 104/126 | 110/159 | 13/100 | 51/52 | 69/74 | 22/36 | 143/241 | 0/0 |
-| `webpack/ext/mv3/background` | 90/107 | 74/119 | 8/65 | 41/42 | 73/77 | 16/23 | 68/118 | 0/0 |
+| `webpack/ext/mv3/background` | 90/107 | 74/119 | 8/65 | 41/42 | 73/77 | 16/23 | 69/119 | 0/0 |
 | `webpack/ext/mv3/content-script` | 2/2 | 6/10 | 4/10 | 2/2 | 1/1 | 1/1 | 6/10 | 0/0 |
 | `webpack/web-embed` | 12/19 | 23/38 | 2/6 | 5/5 | 17/17 | 4/6 | 27/37 | 0/0 |
 | `webpack/web` | 119/149 | 122/191 | 10/20 | 58/59 | 79/84 | 21/33 | 148/254 | 0/0 |

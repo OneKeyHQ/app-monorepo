@@ -3718,7 +3718,6 @@
         "__ONEKEY_MAIN_ENTRY_START__": true,
         "__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__": true,
         "__onekeyBalanceDisplayed": "write",
-        "__webpack_public_path__": true,
         "_frameTimestamp": "write",
         "$$handleDeepLinkUrl": "write",
         "$$hardwareErrorDialogInstanceRef": "write",

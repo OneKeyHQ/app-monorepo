@@ -711,15 +711,48 @@ index 974337f..8c11152 100644
          // Do not register default touch emitter and let WebView implementation handle touches
 diff --git a/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h
 new file mode 100644
-index 0000000..825f38c
+index 0000000..71f0956
 --- /dev/null
 +++ b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,57 @@
 +// OneKey patch: serve only the bundled WebEmbed through a public, isolated scheme.
 +#import <Foundation/Foundation.h>
 +#import <WebKit/WebKit.h>
 +
 +NS_ASSUME_NONNULL_BEGIN
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++typedef NS_ENUM(NSUInteger, RNCOneKeyTraceStage) {
++  RNCOneKeyTraceInitStarted,
++  RNCOneKeyTraceRequestStart,
++  RNCOneKeyTraceReadBegin,
++  RNCOneKeyTraceReadComplete,
++  RNCOneKeyTraceDeliveryEnter,
++  RNCOneKeyTraceDeliveryDiscarded,
++  RNCOneKeyTraceResponseEnter,
++  RNCOneKeyTraceResponseReturn,
++  RNCOneKeyTraceDataEnter,
++  RNCOneKeyTraceDataReturn,
++  RNCOneKeyTraceFinishEnter,
++  RNCOneKeyTraceFinishReturn,
++  RNCOneKeyTraceStop,
++  RNCOneKeyTraceInvalidate,
++  RNCOneKeyTraceRequestInvalidated,
++  RNCOneKeyTraceDealloc,
++  RNCOneKeyTraceSourceChanged,
++  RNCOneKeyTraceLoadRequest,
++  RNCOneKeyTraceNavigationStart,
++  RNCOneKeyTraceNavigationCommit,
++  RNCOneKeyTraceNavigationFinish,
++  RNCOneKeyTraceNavigationFailure,
++  RNCOneKeyTraceProcessTerminated,
++  RNCOneKeyTraceDestroy,
++  RNCOneKeyTraceFailClosed,
++  RNCOneKeyTraceRequestBudget,
++  RNCOneKeyTraceEventBudget,
++  RNCOneKeyTraceWindowEnded,
++};
++#endif
++
 +
 +@interface RNCOneKeyWebEmbedAssets : NSObject <WKURLSchemeHandler>
 ++ (NSURL *)documentURL;
@@ -732,20 +765,215 @@ index 0000000..825f38c
 +     navigationCommitted:(BOOL)navigationCommitted;
 +- (instancetype)initWithBundle:(NSBundle *)bundle;
 +- (void)invalidate;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++- (void)traceLifecycle:(RNCOneKeyTraceStage)stage generation:(NSUInteger)generation committed:(BOOL)committed;
++#endif
++
 +@end
 +
 +NS_ASSUME_NONNULL_END
 diff --git a/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m
 new file mode 100644
-index 0000000..0ee67d1
+index 0000000..afd96aa
 --- /dev/null
 +++ b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m
-@@ -0,0 +1,181 @@
+@@ -0,0 +1,511 @@
 +// OneKey patch: no network proxy, CORS relaxation, private WebKit API, or mutable root.
 +#import "RNCOneKeyWebEmbedAssets.h"
 +#import <fcntl.h>
 +#import <sys/stat.h>
 +#import <unistd.h>
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++#import <os/log.h>
++#import <stdatomic.h>
++#import <time.h>
++
++#if !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_VERSION) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUILD) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUNDLE)
++#error "Native trace requires every exact public E2E identity constant"
++#endif
++
++static atomic_uint OKTraceEventCount;
++static atomic_uint OKTraceHandlerCount;
++static atomic_bool OKTraceWindowReported;
++static NSTimeInterval OKTraceStarted;
++static dispatch_once_t OKTraceStartOnce;
++static const NSUInteger OKTraceMaxRequests = 16;
++
++static BOOL OKTraceHex(NSString *value, NSUInteger length) {
++  if (![value isKindOfClass:NSString.class] || value.length != length) return NO;
++  NSCharacterSet *hex = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"];
++  return [value rangeOfCharacterFromSet:hex.invertedSet].location == NSNotFound;
++}
++
++static BOOL OKTraceIdentityMatches(NSBundle *bundle) {
++  NSDictionary *identity = [bundle objectForInfoDictionaryKey:@"OneKeyMobileLockdownNativeTrace"];
++  NSDictionary *expected = @{@"runId": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID,
++    @"manifestDigest": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++    @"version": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_VERSION,
++    @"buildNumber": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUILD,
++    @"bundleVersion": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUNDLE};
++  if (![bundle.bundleIdentifier isEqual:@"so.onekey.wallet"] ||
++      ![identity isKindOfClass:NSDictionary.class] || ![identity isEqualToDictionary:expected] ||
++      !OKTraceHex(identity[@"runId"], 32) || !OKTraceHex(identity[@"manifestDigest"], 64)) return NO;
++  return [[bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:expected[@"version"]] &&
++    [[bundle objectForInfoDictionaryKey:@"CFBundleVersion"] isEqual:expected[@"buildNumber"]] &&
++    [[bundle objectForInfoDictionaryKey:@"BUNDLE_VERSION"] isEqual:expected[@"bundleVersion"]];
++}
++
++static const char *OKTraceStageName(RNCOneKeyTraceStage stage) {
++  switch (stage) {
++    case RNCOneKeyTraceInitStarted: return "handler-init-start";
++    case RNCOneKeyTraceRequestStart: return "request-start";
++    case RNCOneKeyTraceReadBegin: return "read-begin";
++    case RNCOneKeyTraceReadComplete: return "read-complete";
++    case RNCOneKeyTraceDeliveryEnter: return "delivery-enter";
++    case RNCOneKeyTraceDeliveryDiscarded: return "delivery-discarded";
++    case RNCOneKeyTraceResponseEnter: return "response-enter";
++    case RNCOneKeyTraceResponseReturn: return "response-return";
++    case RNCOneKeyTraceDataEnter: return "data-enter";
++    case RNCOneKeyTraceDataReturn: return "data-return";
++    case RNCOneKeyTraceFinishEnter: return "finish-enter";
++    case RNCOneKeyTraceFinishReturn: return "finish-return";
++    case RNCOneKeyTraceStop: return "request-stop";
++    case RNCOneKeyTraceInvalidate: return "handler-invalidate";
++    case RNCOneKeyTraceRequestInvalidated: return "request-invalidated";
++    case RNCOneKeyTraceDealloc: return "handler-dealloc";
++    case RNCOneKeyTraceSourceChanged: return "source-changed";
++    case RNCOneKeyTraceLoadRequest: return "load-request";
++    case RNCOneKeyTraceNavigationStart: return "navigation-start";
++    case RNCOneKeyTraceNavigationCommit: return "navigation-commit";
++    case RNCOneKeyTraceNavigationFinish: return "navigation-finish";
++    case RNCOneKeyTraceNavigationFailure: return "navigation-failure";
++    case RNCOneKeyTraceProcessTerminated: return "process-terminated";
++    case RNCOneKeyTraceDestroy: return "view-destroy";
++    case RNCOneKeyTraceFailClosed: return "view-fail-closed";
++    case RNCOneKeyTraceRequestBudget: return "request-budget-exhausted";
++    case RNCOneKeyTraceEventBudget: return "event-budget-exhausted";
++    case RNCOneKeyTraceWindowEnded: return "observation-window-ended";
++  }
++  return NULL;
++}
++
++// Fixed startup history, never a wrapping buffer: the first 256 reservations win.
++// Each slot is written once and published with release/acquire synchronization.
++typedef struct {
++  uint64_t timestampNs;
++  uint64_t elapsedNs;
++  NSUInteger handler;
++  NSUInteger request;
++  NSUInteger bytes;
++  NSInteger status;
++  NSUInteger generation;
++  unsigned flags;
++  RNCOneKeyTraceStage stage;
++  NSUInteger asset;
++} OKTraceRecord;
++static OKTraceRecord OKTraceRecords[256];
++static atomic_bool OKTracePublished[256];
++static atomic_uint OKTraceDropped;
++static atomic_uint OKTraceRequestDropped;
++_Static_assert(ATOMIC_INT_LOCK_FREE == 2 && ATOMIC_BOOL_LOCK_FREE == 2, "Native trace atomics must be lock-free");
++static atomic_bool OKTraceFlushed;
++static uint64_t OKTraceStartedNs;
++
++static void OKTraceIncrementBounded(atomic_uint *counter) {
++  unsigned count = atomic_load_explicit(counter, memory_order_relaxed);
++  while (count < 65535 && !atomic_compare_exchange_weak_explicit(
++    counter, &count, count + 1, memory_order_relaxed, memory_order_relaxed)) {}
++}
++
++static void OKTraceFlush(void) {
++  if (atomic_exchange_explicit(&OKTraceFlushed, true, memory_order_acq_rel)) return;
++  // The snapshot does not close the original 90-second capture window. Later
++  // slots are not included in this one dump and cannot be confused with it.
++  uint64_t snapshotStartNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  unsigned reserved = MIN(atomic_load_explicit(&OKTraceEventCount, memory_order_acquire), 256);
++  unsigned dropped = atomic_load_explicit(&OKTraceDropped, memory_order_relaxed);
++  unsigned requestDropped = atomic_load_explicit(&OKTraceRequestDropped, memory_order_relaxed);
++  unsigned published = 0;
++  OKTraceRecord snapshot[256];
++  bool ready[256] = {false};
++  // This is an interval-sampled reservation prefix, not an atomic snapshot.
++  // Copy ready slots before any formatting or log submission. A writer still
++  // owning an unpublished slot is skipped without waiting or reading its data.
++  for (unsigned index = 0; index < reserved; index++) {
++    if (!atomic_load_explicit(&OKTracePublished[index], memory_order_acquire)) continue;
++    snapshot[index] = OKTraceRecords[index];
++    ready[index] = true;
++    published++;
++  }
++  uint64_t snapshotEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  os_log_t log = os_log_create("so.onekey.lavamoat.e2e", "native-web-embed");
++  for (unsigned index = 0; index < reserved; index++) {
++    if (!ready[index]) continue;
++    const OKTraceRecord *record = &snapshot[index];
++    const char *stageName = OKTraceStageName(record->stage);
++    os_log_with_type(log, OS_LOG_TYPE_DEFAULT,
++      "OneKeyNativeWebEmbedDeferredV1 run=%{public}s manifest=%{public}s sequence=%u timestampNs=%llu handler=%llu request=%llu stage=%{public}s asset=%{public}s elapsed=%llu bytes=%llu status=%lld generation=%llu flags=%u",
++      ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID, ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++      index, (unsigned long long)record->timestampNs,
++      (unsigned long long)record->handler, (unsigned long long)record->request, stageName,
++      record->asset == 1 ? "kaspa-loader" : record->asset == 2 ? "kaspa-sdk" : "none",
++      (unsigned long long)MIN(record->elapsedNs / NSEC_PER_MSEC, 90000),
++      (unsigned long long)MIN(record->bytes, 64 * 1024 * 1024),
++      (long long)MAX(MIN(record->status, 999), -999),
++      (unsigned long long)MIN(record->generation, 65535), record->flags & 31);
++  }
++  os_log_with_type(log, OS_LOG_TYPE_DEFAULT,
++    "OneKeyNativeWebEmbedDeferredSummaryV1 run=%{public}s manifest=%{public}s snapshotStartElapsed=%llu snapshotEndElapsed=%llu flushElapsed=%llu flushTimestampNs=%llu reserved=%u published=%u unpublished=%u dropped=%u requestDropped=%u windowMs=90000 capacity=256 requestLimit=16",
++    ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID, ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++    (unsigned long long)((snapshotStartNs - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)((snapshotEndNs - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)((clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)clock_gettime_nsec_np(CLOCK_REALTIME),
++    reserved, published, reserved - published,
++    dropped, requestDropped);
++}
++
++static void OKTraceEmit(NSUInteger handler, NSUInteger request, RNCOneKeyTraceStage stage,
++                        NSUInteger asset, NSTimeInterval started, NSUInteger bytes,
++                        NSInteger status, NSUInteger generation, unsigned flags) {
++  (void)started;
++  // No Objective-C messaging, allocation, stage formatting, logging, locks or
++  // queue submission in this recorder. Original call sites and callbacks remain.
++  if (stage > RNCOneKeyTraceWindowEnded || asset > 2) return;
++  uint64_t now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  uint64_t elapsed = now >= OKTraceStartedNs ? now - OKTraceStartedNs : UINT64_MAX;
++  if (elapsed > 90ULL * NSEC_PER_SEC) {
++    if (atomic_exchange_explicit(&OKTraceWindowReported, true, memory_order_relaxed)) {
++      OKTraceIncrementBounded(&OKTraceDropped);
++      return;
++    }
++    stage = RNCOneKeyTraceWindowEnded;
++  }
++  unsigned sequence = atomic_load_explicit(&OKTraceEventCount, memory_order_relaxed);
++  do {
++    if (sequence >= 256) { OKTraceIncrementBounded(&OKTraceDropped); return; }
++  } while (!atomic_compare_exchange_weak_explicit(&OKTraceEventCount, &sequence, sequence + 1,
++    memory_order_relaxed, memory_order_relaxed));
++  OKTraceRecords[sequence] = (OKTraceRecord){
++    .timestampNs = clock_gettime_nsec_np(CLOCK_REALTIME), .elapsedNs = elapsed,
++    .handler = handler, .request = request, .bytes = bytes, .status = status,
++    .generation = generation, .flags = flags,
++    .stage = sequence == 255 ? RNCOneKeyTraceEventBudget : stage, .asset = asset};
++  atomic_store_explicit(&OKTracePublished[sequence], true, memory_order_release);
++}
++
++static NSUInteger OKTraceAsset(NSArray<NSString *> *components) {
++  if (components.count != 3 || ![components[0] isEqual:@"static"] || ![components[1] isEqual:@"js"]) return 0;
++  NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^(871|693)\\.[a-f0-9]+\\.chunk\\.js$" options:0 error:nil];
++  NSString *name = components[2];
++  NSTextCheckingResult *match = [pattern firstMatchInString:name options:0 range:NSMakeRange(0, name.length)];
++  if (!match || match.range.location != 0 || match.range.length != name.length) return 0;
++  return [[name substringWithRange:[match rangeAtIndex:1]] isEqual:@"871"] ? 1 : 2;
++}
++
++#endif
++
 +
 +static NSString *const OKWebEmbedScheme = @"onekey-web-embed";
 +static NSString *const OKWebEmbedHost = @"bundle";
@@ -755,6 +983,16 @@ index 0000000..0ee67d1
 +  BOOL _invalidated;
 +  NSMapTable<id<WKURLSchemeTask>, NSObject *> *_tasks;
 +  dispatch_queue_t _readQueue;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  BOOL _traceEnabled;
++  NSUInteger _traceHandler;
++  NSUInteger _traceNextRequest;
++  BOOL _traceRequestBudgetReported;
++  NSUInteger _traceGeneration;
++  NSTimeInterval _traceStarted;
++  NSMapTable<id<WKURLSchemeTask>, NSDictionary *> *_traceTasks;
++#endif
++
 +}
 +
 ++ (NSURL *)documentURL {
@@ -815,6 +1053,23 @@ index 0000000..0ee67d1
 +    _rootFD = -1;
 +    _tasks = [NSMapTable strongToStrongObjectsMapTable];
 +    _readQueue = dispatch_queue_create("so.onekey.webembed.assets", DISPATCH_QUEUE_SERIAL);
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    _traceEnabled = OKTraceIdentityMatches(NSBundle.mainBundle);
++    if (_traceEnabled) {
++      _traceHandler = atomic_fetch_add(&OKTraceHandlerCount, 1) + 1;
++      dispatch_once(&OKTraceStartOnce, ^{
++        OKTraceStarted = NSProcessInfo.processInfo.systemUptime;
++        OKTraceStartedNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++        // This static block retains no handler, view, request or message object.
++        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 65LL * NSEC_PER_SEC),
++          dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ OKTraceFlush(); });
++      });
++      _traceStarted = OKTraceStarted;
++      _traceTasks = [NSMapTable strongToStrongObjectsMapTable];
++      [self traceLifecycle:RNCOneKeyTraceInitStarted generation:0 committed:NO];
++    }
++#endif
++
 +    // The signed app bundle is the only root. Never accept a JS-supplied directory.
 +    NSURL *resources = bundle.resourceURL.URLByResolvingSymlinksInPath;
 +    NSURL *root = [resources URLByAppendingPathComponent:@"web-embed" isDirectory:YES];
@@ -827,12 +1082,60 @@ index 0000000..0ee67d1
 +  return self;
 +}
 +
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++- (void)traceLifecycle:(RNCOneKeyTraceStage)stage generation:(NSUInteger)generation committed:(BOOL)committed {
++  if (!_traceEnabled) return;
++  _traceGeneration = generation;
++  OKTraceEmit(_traceHandler, 0, stage, 0, _traceStarted, 0, 0, generation,
++    ([NSThread isMainThread] ? 1 : 0) | (committed ? 8 : 0));
++}
++
++- (NSDictionary *)traceBeginTask:(id<WKURLSchemeTask>)task components:(NSArray *)components {
++  if (!_traceEnabled) return nil;
++  NSUInteger asset = OKTraceAsset(components);
++  if (!asset) return nil;
++  if (_traceNextRequest >= OKTraceMaxRequests) {
++    OKTraceIncrementBounded(&OKTraceRequestDropped);
++    if (!_traceRequestBudgetReported) {
++      _traceRequestBudgetReported = YES;
++      [self traceLifecycle:RNCOneKeyTraceRequestBudget generation:_traceGeneration committed:NO];
++    }
++    return nil;
++  }
++  NSUInteger request = ++_traceNextRequest;
++  NSDictionary *context = @{@"request": @(request), @"asset": @(asset), @"generation": @(_traceGeneration)};
++  [_traceTasks setObject:context forKey:task];
++  [self traceRequest:RNCOneKeyTraceRequestStart context:context bytes:0 status:0 flags:0];
++  return context;
++}
++
++- (void)traceRequest:(RNCOneKeyTraceStage)stage context:(NSDictionary *)context bytes:(NSUInteger)bytes status:(NSInteger)status flags:(unsigned)flags {
++  if (!_traceEnabled || !context) return;
++  OKTraceEmit(_traceHandler, [context[@"request"] unsignedIntegerValue], stage,
++    [context[@"asset"] unsignedIntegerValue], _traceStarted, bytes, status,
++    [context[@"generation"] unsignedIntegerValue], flags | ([NSThread isMainThread] ? 1 : 0));
++}
++
++- (void)traceForgetTask:(id<WKURLSchemeTask>)task context:(NSDictionary *)context {
++  if (context && [_traceTasks objectForKey:task] == context) [_traceTasks removeObjectForKey:task];
++}
++
++#endif
 +- (void)dealloc {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  if (_traceEnabled) OKTraceEmit(_traceHandler, 0, RNCOneKeyTraceDealloc, 0, _traceStarted, 0, 0, 0, [NSThread isMainThread] ? 1 : 0);
++#endif
++
 +  if (_rootFD >= 0) close(_rootFD);
 +}
 +
 +- (void)invalidate {
 +  NSAssert([NSThread isMainThread], @"WebEmbed task state is main-thread only");
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [self traceLifecycle:RNCOneKeyTraceInvalidate generation:_traceGeneration committed:NO];
++  for (NSDictionary *context in _traceTasks.objectEnumerator) [self traceRequest:RNCOneKeyTraceRequestInvalidated context:context bytes:0 status:0 flags:2];
++  [_traceTasks removeAllObjects];
++#endif
 +  _invalidated = YES;
 +  [_tasks removeAllObjects];
 +}
@@ -898,27 +1201,91 @@ index 0000000..0ee67d1
 +  [_tasks setObject:token forKey:task];
 +  NSURLRequest *request = task.request;
 +  NSArray<NSString *> *components = [RNCOneKeyWebEmbedAssets pathComponentsForRequest:request];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  NSDictionary *traceContext = [self traceBeginTask:task components:components];
++#endif
++
 +  dispatch_async(_readQueue, ^{
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [self traceRequest:RNCOneKeyTraceReadBegin context:traceContext bytes:0 status:0 flags:0];
++#endif
++
 +    NSData *data = components ? [self readComponents:components] : nil;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [self traceRequest:RNCOneKeyTraceReadComplete context:traceContext bytes:data.length status:0 flags:data ? 16 : 0];
++#endif
++
 +    dispatch_async(dispatch_get_main_queue(), ^{
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDeliveryEnter context:traceContext bytes:data.length status:0 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:1 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
 +      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
 +      NSInteger status = !components ? 403 : data ? 200 : 404;
 +      NSData *body = data ?: [NSData data];
 +      NSString *mime = data ? [RNCOneKeyWebEmbedAssets mimeTypeForPath:components.lastObject] : @"application/octet-stream";
 +      NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:request.URL statusCode:status HTTPVersion:@"HTTP/1.1"
 +        headerFields:@{@"Content-Type": mime, @"Content-Length": [NSString stringWithFormat:@"%lu", (unsigned long)body.length], @"Cache-Control": @"no-store", @"X-Content-Type-Options": @"nosniff"}];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceResponseEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
 +      [task didReceiveResponse:response];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceResponseReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:2 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
 +      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDataEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
 +      [task didReceiveData:body];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDataReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:3 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
 +      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
 +      [self->_tasks removeObjectForKey:task];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceForgetTask:task context:traceContext];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceFinishEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
 +      [task didFinish];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceFinishReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
 +    });
 +  });
 +}
 +
 +- (void)webView:(WKWebView *)webView stopURLSchemeTask:(id<WKURLSchemeTask>)task {
 +  NSAssert([NSThread isMainThread], @"WebEmbed task state is main-thread only");
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  NSDictionary *traceContext = [_traceTasks objectForKey:task];
++  [self traceRequest:RNCOneKeyTraceStop context:traceContext bytes:0 status:0 flags:0];
++  [self traceForgetTask:task context:traceContext];
++#endif
 +  [_tasks removeObjectForKey:task];
 +}
 +@end
@@ -997,7 +1364,7 @@ index 1f6bbfd..bbcf4c3 100644
  #if !TARGET_OS_OSX
  @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..efd5096 100644
+index 7f5c24d..0b96d29 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -6,6 +6,7 @@
@@ -1210,12 +1577,16 @@ index 7f5c24d..efd5096 100644
    if ([message.name isEqualToString:HistoryShimName]) {
      if (_onLoadingFinish) {
        NSMutableDictionary<NSString *, id> *event = [self baseEvent];
-@@ -791,10 +924,63 @@ - (void)userContentController:(WKUserContentController *)userContentController
+@@ -791,10 +924,75 @@ - (void)userContentController:(WKUserContentController *)userContentController
    }
  }
 
 +// OneKey patch: share the teardown transition with native lifecycle regression tests.
 +- (void)resetOneKeyWebEmbedAfterDestroy {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceDestroy generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +  // OneKey patch: invalidate the old instance before Fabric can recycle it.
 +  _oneKeyWebEmbedGeneration++;
 +  _oneKeyWebEmbedCommitted = NO;
@@ -1228,6 +1599,10 @@ index 7f5c24d..efd5096 100644
 +
 +// OneKey patch: configuration changes cannot convert a live WebView into a trusted one.
 +- (void)oneKeyWebEmbedFailClosed {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceFailClosed generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +  _oneKeyWebEmbedBlocked = YES;
 +  _oneKeyWebEmbedCommitted = NO;
 +  _oneKeyWebEmbedGeneration++;
@@ -1265,6 +1640,10 @@ index 7f5c24d..efd5096 100644
      _source = [source copy];
 +    if (_oneKeyWebEmbedAssets) {
 +      _oneKeyWebEmbedGeneration++;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceSourceChanged generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +      _oneKeyWebEmbedCommitted = NO;
 +      if (![RNCOneKeyWebEmbedAssets isAllowedSource:source]) {
 +        [self oneKeyWebEmbedFailClosed];
@@ -1274,7 +1653,7 @@ index 7f5c24d..efd5096 100644
 
      if (_webView != nil) {
        [self visitSource];
-@@ -804,6 +990,7 @@ - (void)setSource:(NSDictionary *)source
+@@ -804,6 +1002,7 @@ - (void)setSource:(NSDictionary *)source
 
  - (void)setAllowingReadAccessToURL:(NSString *)allowingReadAccessToURL
  {
@@ -1282,7 +1661,7 @@ index 7f5c24d..efd5096 100644
    if (![_allowingReadAccessToURL isEqualToString:allowingReadAccessToURL]) {
      _allowingReadAccessToURL = [allowingReadAccessToURL copy];
 
-@@ -835,6 +1022,16 @@ - (void)refreshContentInset
+@@ -835,6 +1034,19 @@ - (void)refreshContentInset
 
  - (void)visitSource
  {
@@ -1293,13 +1672,16 @@ index 7f5c24d..efd5096 100644
 +    if (_oneKeyWebEmbedCommitted && [RNCOneKeyWebEmbedAssets isDocumentURL:_webView.URL allowFragment:YES]) return;
 +    _oneKeyWebEmbedGeneration++;
 +    _oneKeyWebEmbedCommitted = NO;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceLoadRequest generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
 +    _oneKeyWebEmbedNavigation = [_webView loadRequest:[NSURLRequest requestWithURL:RNCOneKeyWebEmbedAssets.documentURL]];
 +    return;
 +  }
    // Check for a static html source first
    NSString *html = [RCTConvert NSString:_source[@"html"]];
    if (html) {
-@@ -874,7 +1071,7 @@ - (void)visitSource
+@@ -874,7 +1086,7 @@ - (void)visitSource
        [webView loadHTMLString:@"" baseURL:nil];
        return;
      }
@@ -1308,7 +1690,7 @@ index 7f5c24d..efd5096 100644
        [webView loadRequest:request];
      }
      else {
-@@ -1149,6 +1346,12 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+@@ -1149,6 +1361,12 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
    customCertificatesForHost = certificates;
  }
 
@@ -1321,7 +1703,7 @@ index 7f5c24d..efd5096 100644
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1245,44 +1448,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
+@@ -1245,44 +1463,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
   * prompt
   */
  - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler{
@@ -1367,7 +1749,7 @@ index 7f5c24d..efd5096 100644
  }
 
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
-@@ -1294,6 +1461,26 @@ - (void)                         webView:(WKWebView *)webView
+@@ -1294,6 +1476,26 @@ - (void)                         webView:(WKWebView *)webView
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
@@ -1394,7 +1776,7 @@ index 7f5c24d..efd5096 100644
    if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
      if ([origin.host isEqualToString:webView.URL.host]) {
        decisionHandler(WKPermissionDecisionGrant);
-@@ -1329,6 +1516,18 @@ - (void)                  webView:(WKWebView *)webView
+@@ -1329,6 +1531,18 @@ - (void)                  webView:(WKWebView *)webView
    decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
                    decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
  {
@@ -1413,7 +1795,7 @@ index 7f5c24d..efd5096 100644
      static NSDictionary<NSNumber *, NSString *> *navigationTypes;
      static dispatch_once_t onceToken;
 
-@@ -1365,6 +1564,15 @@ - (void)                  webView:(WKWebView *)webView
+@@ -1365,6 +1579,15 @@ - (void)                  webView:(WKWebView *)webView
      if (_onShouldStartLoadWithRequest) {
          int lockIdentifier = [[RNCWebViewDecisionManager getInstance] setDecisionHandler: ^(BOOL shouldStart){
              dispatch_async(dispatch_get_main_queue(), ^{
@@ -1429,15 +1811,18 @@ index 7f5c24d..efd5096 100644
                  if (!shouldStart) {
                      decisionHandler(WKNavigationActionPolicyCancel);
                      return;
-@@ -1426,6 +1634,7 @@ - (void)                  webView:(WKWebView *)webView
+@@ -1426,6 +1649,10 @@ - (void)                  webView:(WKWebView *)webView
   */
  - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
  {
 +  if (_oneKeyWebEmbedAssets) { _oneKeyWebEmbedCommitted = NO; _oneKeyWebEmbedGeneration++; }
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceProcessTerminated generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
    RCTLogWarn(@"Webview Process Terminated");
    if (_onContentProcessDidTerminate) {
      NSMutableDictionary<NSString *, id> *event = [self baseEvent];
-@@ -1441,6 +1650,12 @@ - (void)                    webView:(WKWebView *)webView
+@@ -1441,6 +1668,12 @@ - (void)                    webView:(WKWebView *)webView
    decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse
                      decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler
  {
@@ -1450,15 +1835,19 @@ index 7f5c24d..efd5096 100644
    WKNavigationResponsePolicy policy = WKNavigationResponsePolicyAllow;
    if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
      NSHTTPURLResponse *response = (NSHTTPURLResponse *)navigationResponse.response;
-@@ -1485,6 +1700,7 @@ - (void)               webView:(WKWebView *)webView
+@@ -1485,6 +1718,11 @@ - (void)               webView:(WKWebView *)webView
    didFailProvisionalNavigation:(WKNavigation *)navigation
                       withError:(NSError *)error
  {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationFailure generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +  if (_oneKeyWebEmbedAssets) { _oneKeyWebEmbedCommitted = NO; _oneKeyWebEmbedGeneration++; }
    if (_onLoadingError) {
      if ([error.domain isEqualToString:NSURLErrorDomain] && error.code == NSURLErrorCancelled) {
        // NSURLErrorCancelled is reported when a page has a redirect OR if you load
-@@ -1565,6 +1781,23 @@ -(void)appWillResignActive
+@@ -1565,9 +1803,38 @@ -(void)appWillResignActive
   * Called when the navigation is complete.
   * @see https://fburl.com/rtys6jlb
   */
@@ -1468,6 +1857,10 @@ index 7f5c24d..efd5096 100644
 +    _oneKeyWebEmbedNavigation = navigation;
 +    _oneKeyWebEmbedCommitted = NO;
 +    _oneKeyWebEmbedGeneration++;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationStart generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +  }
 +}
 +
@@ -1476,13 +1869,24 @@ index 7f5c24d..efd5096 100644
 +    _oneKeyWebEmbedCommitted = !_oneKeyWebEmbedBlocked && webView == _webView && navigation == _oneKeyWebEmbedNavigation &&
 +      [RNCOneKeyWebEmbedAssets isAllowedSource:_source] &&
 +      [RNCOneKeyWebEmbedAssets isDocumentURL:webView.URL allowFragment:YES];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationCommit generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
 +  }
 +}
 +
  - (void)webView:(WKWebView *)webView
  didFinishNavigation:(WKNavigation *)navigation
  {
-@@ -1656,6 +1889,7 @@ - (void)setPullToRefreshEnabled:(BOOL)pullToRefreshEnabled
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationFinish generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
+   if (_ignoreSilentHardwareSwitch) {
+     [self forceIgnoreSilentHardwareSwitch:true];
+   }
+@@ -1656,6 +1923,7 @@ - (void)setPullToRefreshEnabled:(BOOL)pullToRefreshEnabled
 
  - (void)stopLoading
  {
