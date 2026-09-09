@@ -259,6 +259,13 @@ function createCompiler({
       // MV3 loads packaged workers under the existing self-only script CSP.
       // Do not introduce blob URLs or relax worker/script source directives.
       rule.use.options = { filename: `${name}.[contenthash:10].worker.js` };
+      rule.use = [
+        {
+          loader: require.resolve('./lavamoat-ext-worker-loader.cjs'),
+          options: { name },
+        },
+        rule.use,
+      ];
     }
   }
   config.module.rules.push(...createLavaMoatWebpackRules());

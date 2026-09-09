@@ -88,6 +88,7 @@ const requiredToolFiles = [
   'development/lavamoat/webpack-host-globals.test.cjs',
   'development/webpack/lavamoat.js',
   'development/webpack/lavamoat-ext-locales-loader.cjs',
+  'development/webpack/lavamoat-ext-worker-loader.cjs',
   'development/webpack/lavamoat-ext-kaspa-loader.cjs',
   'development/webpack/lavamoat-kaspa-compatibility.cjs',
   'development/webpack/lavamoat-wasm-loader.cjs',

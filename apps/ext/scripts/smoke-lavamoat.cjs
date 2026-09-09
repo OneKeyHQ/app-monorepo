@@ -401,10 +401,19 @@ async function startBrowser(profile, executablePath) {
       `--user-data-dir=${profile}`,
       'about:blank',
     ],
-    { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] },
+    { stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'] },
   );
   const exited = Promise.withResolvers();
-  exited.promise.catch(() => {});
+  const stderrLimit = 16 * 1024;
+  let stderr = Buffer.alloc(0);
+  let stderrTruncated = false;
+  /** @type {Error | undefined} */
+  let transportError;
+  child.stderr.on('data', (data) => {
+    const combined = Buffer.concat([stderr, data]);
+    stderrTruncated ||= combined.length > stderrLimit;
+    stderr = Buffer.from(combined.subarray(-stderrLimit));
+  });
   const pending = new Map();
   const sessions = new Map();
   let sequence = 0;
@@ -412,6 +421,13 @@ async function startBrowser(profile, executablePath) {
     if (!sessions.has(sessionId)) {
       const events = new EventEmitter();
       events.send = async (method, params = {}) => {
+        if (transportError) {
+          const failure = new LavaMoatError(transportError.message);
+          failure.cause = transportError;
+          throw failure;
+        }
+        if (child.stdio[3].destroyed || !child.stdio[3].writable)
+          throw new LavaMoatError('Chromium CDP input pipe is closed');
         sequence += 1;
         const id = sequence;
         const response = Promise.withResolvers();
@@ -434,19 +450,27 @@ async function startBrowser(profile, executablePath) {
     return sessions.get(sessionId);
   };
   const rejectPending = (error) => {
-    for (const request of pending.values()) request.reject(error);
+    transportError ||= error;
+    for (const request of pending.values()) request.reject(transportError);
     pending.clear();
   };
-  child.once('exit', (code) => {
-    exited.resolve(code);
-    rejectPending(new LavaMoatError(`Chromium exited (${code})`));
+  // Wait for stdio to close as well, so a fatal launch message is not lost
+  // when the process exit event arrives before its final stderr bytes.
+  child.once('close', () => exited.resolve());
+  child.once('exit', (code, signal) => {
+    rejectPending(
+      new LavaMoatError(`Chromium exited (code=${code}, signal=${signal})`),
+    );
   });
   child.once('error', (error) => {
-    exited.reject(error);
     rejectPending(error);
   });
+  child.stderr.on('error', rejectPending);
   child.stdio[3].on('error', rejectPending);
   child.stdio[4].on('error', rejectPending);
+  child.stdio[4].once('end', () =>
+    rejectPending(new LavaMoatError('Chromium CDP output pipe closed')),
+  );
   let buffer = '';
   child.stdio[4].setEncoding('utf8');
   child.stdio[4].on('data', (data) => {
@@ -465,9 +489,17 @@ async function startBrowser(profile, executablePath) {
     }
   });
   const close = async () => {
+    /** @type {Error | undefined} */
     let closeError;
     try {
-      if (child.exitCode === null && child.signalCode === null)
+      if (
+        child.pid &&
+        child.exitCode === null &&
+        child.signalCode === null &&
+        !transportError &&
+        !child.stdio[3].destroyed &&
+        child.stdio[3].writable
+      )
         await deadline(
           session().send('Browser.close'),
           'Browser shutdown',
@@ -482,8 +514,13 @@ async function startBrowser(profile, executablePath) {
     } catch (error) {
       child.kill('SIGKILL');
       closeError ||= error;
+      await deadline(exited.promise, 'Forced browser exit', 5000);
     }
-    if (closeError) throw new LavaMoatError(String(closeError));
+    if (closeError) {
+      const failure = new LavaMoatError(closeError.message);
+      failure.cause = closeError;
+      throw failure;
+    }
   };
   try {
     const version = await deadline(
@@ -493,8 +530,18 @@ async function startBrowser(profile, executablePath) {
     );
     return { cdp: session(), session, close, version };
   } catch (error) {
-    await close();
-    throw error;
+    let cleanupError;
+    try {
+      await close();
+    } catch (failure) {
+      cleanupError = failure;
+    }
+    const failure = new LavaMoatError(
+      `Chromium initialization failed: ${String(error)}\nProcess: code=${child.exitCode}, signal=${child.signalCode}\nStderr${stderrTruncated ? ' (last 16384 bytes)' : ''}:\n${stderr.toString('utf8')}${cleanupError ? `\nCleanup: ${String(cleanupError)}` : ''}`,
+    );
+    failure.cause = error;
+    if (cleanupError) failure.cleanupError = cleanupError;
+    throw failure;
   }
 }
 

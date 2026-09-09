@@ -189,6 +189,178 @@ test('readiness rejects empty, loading and error UI; passkey requires its commit
   }
 });
 
+function launchFixture(directory, source) {
+  const executable = path.join(directory, 'browser');
+  fs.writeFileSync(
+    executable,
+    `#!/usr/bin/env node
+const fs = require('node:fs');
+fs.writeFileSync(${JSON.stringify(path.join(directory, 'pid'))}, String(process.pid));
+fs.writeFileSync(${JSON.stringify(path.join(directory, 'args.json'))}, JSON.stringify(process.argv.slice(2)));
+${source}
+`,
+    { mode: 0o700 },
+  );
+  return executable;
+}
+
+function assertLaunchFixtureStopped(directory) {
+  const pid = Number(fs.readFileSync(path.join(directory, 'pid'), 'utf8'));
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  const args = JSON.parse(
+    fs.readFileSync(path.join(directory, 'args.json'), 'utf8'),
+  );
+  assert.ok(args.includes('--remote-debugging-pipe'));
+  assert.ok(!args.includes('--no-sandbox'));
+  assert.ok(!args.includes('--disable-web-security'));
+}
+
+test('launch diagnostics retain bounded stderr and the exit status of a failed executable', async () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-ext-launch-'),
+  );
+  let browser;
+  try {
+    const executable = launchFixture(
+      directory,
+      `fs.writeSync(2, 'DISCARDED_PREFIX' + 'x'.repeat(32768) + '\\nFIXED_LAUNCH_FAILURE\\n');
+process.exit(78);`,
+    );
+    await assert.rejects(
+      async () => {
+        browser = await startBrowser(
+          path.join(directory, 'profile'),
+          executable,
+        );
+      },
+      (error) => {
+        assert.match(error.message, /Process: code=78, signal=null/);
+        assert.match(error.message, /Stderr \(last 16384 bytes\):/);
+        const stderr = error.message.split('bytes):\n')[1];
+        assert.equal(Buffer.byteLength(stderr), 16 * 1024);
+        assert.ok(stderr.endsWith('FIXED_LAUNCH_FAILURE\n'));
+        assert.ok(!stderr.includes('DISCARDED_PREFIX'));
+        assert.ok(error.cause instanceof Error);
+        assert.ok(error.message.includes(String(error.cause)));
+        return true;
+      },
+    );
+    assertLaunchFixtureStopped(directory);
+  } finally {
+    await browser?.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('launch diagnostics preserve ENOENT without a destroyed-pipe cleanup error', async () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-ext-launch-'),
+  );
+  let browser;
+  try {
+    await assert.rejects(
+      async () => {
+        browser = await startBrowser(
+          path.join(directory, 'profile'),
+          path.join(directory, 'missing-browser'),
+        );
+      },
+      (error) => {
+        assert.equal(error.cause.code, 'ENOENT');
+        assert.match(error.message, /ENOENT/);
+        assert.doesNotMatch(error.message, /ERR_STREAM_DESTROYED/);
+        assert.equal(error.cleanupError, undefined);
+        return true;
+      },
+    );
+  } finally {
+    await browser?.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test(
+  'launch diagnostics reject an early closed CDP pipe and reap the still-running child',
+  { timeout: 10_000 },
+  async () => {
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-ext-launch-'),
+    );
+    let browser;
+    try {
+      const executable = launchFixture(
+        directory,
+        `fs.writeSync(2, 'FIXED_EARLY_PIPE_CLOSE\\n');
+fs.closeSync(3); fs.closeSync(4);
+setInterval(() => {}, 1000);`,
+      );
+      await assert.rejects(
+        async () => {
+          browser = await startBrowser(
+            path.join(directory, 'profile'),
+            executable,
+          );
+        },
+        (error) => {
+          assert.match(error.message, /FIXED_EARLY_PIPE_CLOSE/);
+          assert.doesNotMatch(error.message, /Timed out/);
+          assert.equal(error.cleanupError, undefined);
+          return true;
+        },
+      );
+      assertLaunchFixtureStopped(directory);
+    } finally {
+      await browser?.close();
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+test('launch diagnostics preserve the primary CDP error when shutdown also fails', async () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-ext-launch-'),
+  );
+  let browser;
+  try {
+    const executable = launchFixture(
+      directory,
+      `let buffer = '';
+fs.createReadStream(null, { fd: 3 }).on('data', chunk => {
+  buffer += chunk.toString();
+  let end = buffer.indexOf('\\0');
+  while (end !== -1) {
+    const request = JSON.parse(buffer.slice(0, end));
+    buffer = buffer.slice(end + 1);
+    const message = request.method === 'Browser.getVersion' ? 'PRIMARY_LAUNCH_FAILURE' : 'SECONDARY_CLOSE_FAILURE';
+    fs.writeSync(4, JSON.stringify({ id: request.id, error: { message } }) + '\\0');
+    end = buffer.indexOf('\\0');
+  }
+});`,
+    );
+    await assert.rejects(
+      async () => {
+        browser = await startBrowser(
+          path.join(directory, 'profile'),
+          executable,
+        );
+      },
+      (error) => {
+        assert.equal(error.cause.message, 'PRIMARY_LAUNCH_FAILURE');
+        assert.equal(error.cleanupError.message, 'SECONDARY_CLOSE_FAILURE');
+        assert.match(
+          error.message,
+          /^Chromium initialization failed: LavaMoatError: PRIMARY_LAUNCH_FAILURE/,
+        );
+        return true;
+      },
+    );
+    assertLaunchFixtureStopped(directory);
+  } finally {
+    await browser?.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test(
   'own CDP pipe intercepts real MV3 worker, offscreen and page rejections before SES can defer reporting',
   { timeout: 30_000 },
