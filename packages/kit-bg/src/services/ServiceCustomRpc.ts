@@ -524,8 +524,44 @@ class ServiceCustomRpc extends ServiceBase {
     });
   }
 
+  // Resolves once the server-network cache has been filled at least once.
+  // Callers that gate on server-delivered networks (e.g. wallet-config
+  // aggregate members) use this instead of getServerNetworks, which returns
+  // the possibly empty cache and only refreshes it in the background.
+  // Fetch failures are swallowed: the caller proceeds with the cache it has
+  // and the hourly refresh in getServerNetworks retries later.
+  @backgroundMethod()
+  public async ensureServerNetworksFetched(): Promise<void> {
+    try {
+      const { lastFetchTime } =
+        await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+      if (lastFetchTime) {
+        return;
+      }
+      await this.fetchNetworkFromServer();
+    } catch (error) {
+      defaultLogger.account.wallet.getServerNetworksError(error);
+    }
+  }
+
+  private _fetchNetworkFromServerPromise: Promise<IServerNetwork[]> | undefined;
+
+  // Single-flight: getServerNetworks fires a background refresh from every
+  // stale read, so concurrent callers share one in-flight request instead of
+  // each issuing their own.
   @backgroundMethod()
   public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
+    if (this._fetchNetworkFromServerPromise) {
+      return this._fetchNetworkFromServerPromise;
+    }
+    this._fetchNetworkFromServerPromise =
+      this._fetchNetworkFromServer().finally(() => {
+        this._fetchNetworkFromServerPromise = undefined;
+      });
+    return this._fetchNetworkFromServerPromise;
+  }
+
+  private async _fetchNetworkFromServer(): Promise<IServerNetwork[]> {
     // await timerUtils.wait(3000 * 10);
     defaultLogger.account.wallet.fetchNetworkFromServer();
     // Request /wallet/v1/network/list to get all evm networks
@@ -592,6 +628,10 @@ class ServiceCustomRpc extends ServiceBase {
     // signal every network selector already listens to.
     if (serverNetworkListChanged) {
       appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+      // The cached aggregate-token maps were gated on the previous
+      // server-network set, so let the next syncWalletConfigIfNeeded rebuild
+      // them instead of waiting for the config TTL.
+      await this.backgroundApi.simpleDb.aggregateToken.clearConfigSyncMeta();
     }
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
