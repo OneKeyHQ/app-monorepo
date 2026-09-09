@@ -925,6 +925,15 @@ handleWebEmbedBridgeResponse = (
   value: string | number | boolean,
 ) => {
   const callId = key.slice(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX.length);
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+    const { traceMobileLockdownWebEmbedBridge } =
+      require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+    traceMobileLockdownWebEmbedBridge({
+      runtime: 'background',
+      callId,
+      stage: 'received',
+    });
+  }
   const pending = pendingWebEmbedBridgeCalls.get(callId);
   if (!pending) {
     return;
@@ -934,14 +943,51 @@ handleWebEmbedBridgeResponse = (
 
   try {
     const response = typeof value === 'string' ? JSON.parse(value) : undefined;
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'background',
+        callId,
+        stage: 'response-received',
+        result: response?.result,
+      });
+    }
     if (response?.ok) {
+      if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+        const { traceMobileLockdownWebEmbedBridge } =
+          require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+        traceMobileLockdownWebEmbedBridge({
+          runtime: 'background',
+          callId,
+          stage: 'resolving',
+        });
+      }
       pending.resolve(response.result);
     } else {
+      if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+        const { traceMobileLockdownWebEmbedBridge } =
+          require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+        traceMobileLockdownWebEmbedBridge({
+          runtime: 'background',
+          callId,
+          stage: 'rejecting',
+        });
+      }
       pending.reject(
         rehydrateWebEmbedBridgeError(response?.error, pending.module),
       );
     }
   } catch (error) {
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'background',
+        callId,
+        stage: 'caught-error',
+      });
+    }
     pending.reject(error);
   }
 };
@@ -962,6 +1008,15 @@ export function callWebEmbedBridgeViaMainThread(
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
+      if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+        const { traceMobileLockdownWebEmbedBridge } =
+          require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+        traceMobileLockdownWebEmbedBridge({
+          runtime: 'background',
+          callId,
+          stage: 'rpc-timeout',
+        });
+      }
       pendingWebEmbedBridgeCalls.delete(callId);
       reject(
         new OneKeyLocalError(
@@ -978,10 +1033,29 @@ export function callWebEmbedBridgeViaMainThread(
       module: typeof module === 'string' ? module : undefined,
     });
 
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'background',
+        callId,
+        stage: 'sending',
+        data,
+      });
+    }
     sharedRPC.write(
       buildWebEmbedBridgeRequestKey(callId),
       JSON.stringify(data),
     );
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'background',
+        callId,
+        stage: 'sent',
+      });
+    }
   });
 }
 

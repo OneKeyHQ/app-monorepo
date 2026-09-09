@@ -407,3 +407,544 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
     !passed,
   );
 }
+
+// These diagnostics are imported only inside the explicit Release E2E guards.
+// Each Hermes heap owns its own session; no trace state crosses SharedRPC.
+type ITraceOperation =
+  | 'bridge'
+  | 'intrinsics'
+  | 'commit'
+  | 'reveal'
+  | 'deserialize';
+type ITraceStage =
+  | 'sending'
+  | 'sent'
+  | 'received'
+  | 'request-sending'
+  | 'request-returned'
+  | 'response-writing'
+  | 'response-written'
+  | 'response-received'
+  | 'resolving'
+  | 'rejecting'
+  | 'rpc-timeout'
+  | 'caught-error'
+  | 'bridge-change';
+type ITraceSnapshot = {
+  bridge:
+    | import('@onekeyfe/cross-inpage-provider-core').JsBridgeBase
+    | null
+    | undefined;
+  generation: number;
+  ready: boolean;
+  platform: 'ios' | 'android';
+};
+type ITraceView = { injectJavaScript: (script: string) => void };
+function isTraceView(value: unknown): value is ITraceView {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'injectJavaScript' in value &&
+    typeof value.injectJavaScript === 'function'
+  );
+}
+function getTraceView(bridge: ITraceSnapshot['bridge']) {
+  if (!bridge || !('webviewRef' in bridge)) return undefined;
+  const ref = bridge.webviewRef;
+  if (!ref || typeof ref !== 'object' || !('current' in ref)) return undefined;
+  return isTraceView(ref.current) ? ref.current : undefined;
+}
+type ITraceCall = {
+  operation: ITraceOperation;
+  round: number;
+  startedAt: number;
+};
+type ITraceSession = {
+  runId: string;
+  runtime: 'main' | 'background';
+  startedAt: number;
+  index: number;
+  count: number;
+  active: boolean;
+  calls: Map<string, ITraceCall>;
+  commit?: ReturnType<typeof readPublicKaspaCommit>;
+  reveal?: string;
+  snapshot?: () => ITraceSnapshot;
+  bridge?: ITraceSnapshot['bridge'];
+  view?: ITraceView;
+  disposeObserver?: () => void;
+};
+const traceSessions = new Map<'main' | 'background', ITraceSession>();
+const traceOperations: ITraceOperation[] = [
+  'bridge',
+  'intrinsics',
+  'commit',
+  'reveal',
+  'deserialize',
+  'commit',
+  'reveal',
+  'deserialize',
+];
+const tracePageStages = new Set([
+  'observer-installed',
+  'observer-unavailable',
+  'expected',
+  'request-received',
+  'reply-sending',
+  'reply-sent',
+  'reply-throw',
+  'script-discovered',
+  'script-loaded',
+  'script-error',
+  'page-error',
+  'page-rejection',
+  'observer-cleanup',
+]);
+const traceType = 'ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE';
+const publicKaspaAddress =
+  'kaspa:qz6ey0j433zey0txecm7e4as4q44jnafqxtclxj5xfl3559lft0p78rdmumy9';
+
+function equalPublicFixture(value: unknown, expected: unknown): boolean {
+  if (value === expected) return true;
+  if (
+    !value ||
+    !expected ||
+    typeof value !== 'object' ||
+    typeof expected !== 'object'
+  )
+    return false;
+  if (Array.isArray(value) !== Array.isArray(expected)) return false;
+  if (Object.getPrototypeOf(value) !== Object.getPrototypeOf(expected))
+    return false;
+  const keys = Reflect.ownKeys(expected);
+  if (Reflect.ownKeys(value).length !== keys.length) return false;
+  return keys.every((key) => {
+    const actual = Object.getOwnPropertyDescriptor(value, key);
+    const wanted = Object.getOwnPropertyDescriptor(expected, key);
+    return (
+      !!actual &&
+      !!wanted &&
+      Object.hasOwn(actual, 'value') &&
+      Object.hasOwn(wanted, 'value') &&
+      equalPublicFixture(actual.value, wanted.value)
+    );
+  });
+}
+
+function expectedTraceRequest(
+  session: ITraceSession,
+  operation: ITraceOperation,
+) {
+  if (operation === 'bridge')
+    return { module: 'test', method: 'test1', params: [session.runId] };
+  if (operation === 'intrinsics')
+    return { module: 'test', method: 'getRuntimeSecurityState', params: [] };
+  if (operation === 'commit')
+    return {
+      module: 'chainKaspa',
+      method: 'buildCommitTxInfo',
+      params: [
+        {
+          accountAddress: publicKaspaAddress,
+          transferDataString:
+            '{"p":"krc-20","op":"transfer","tick":"FIXTURE","amt":"1","to":"public-fixture"}',
+          isTestnet: false,
+        },
+      ],
+    };
+  if (operation === 'reveal' && session.commit)
+    return {
+      module: 'chainKaspa',
+      method: 'createKRC20RevealTxJSON',
+      params: [
+        {
+          accountAddress: publicKaspaAddress,
+          isTestnet: false,
+          encodedTx: {
+            utxoIds: [],
+            inputs: [
+              {
+                address: session.commit.commitAddress,
+                txid: 'ab'.repeat(32),
+                scriptPubKey: session.commit.commitScriptPubKey,
+                blockDaaScore: 123_456,
+                vout: 0,
+                satoshis: '130000000',
+                scriptPublicKeyVersion: 0,
+              },
+            ],
+            outputs: [],
+            mass: 0,
+            hasMaxSend: false,
+            changeAddress: publicKaspaAddress,
+            feeInfo: { price: '1', limit: '0' },
+          },
+        },
+      ],
+    };
+  if (operation === 'deserialize' && session.reveal)
+    return {
+      module: 'chainKaspa',
+      method: 'deserializeFromSafeJSON',
+      params: [session.reveal],
+    };
+  return undefined;
+}
+
+function emitBridgeTrace(
+  session: ITraceSession,
+  call: ITraceCall | undefined,
+  stage: string,
+  page?: {
+    operation: string;
+    round: number;
+    elapsedMs: number;
+    asset?: string;
+  },
+) {
+  if (!session.active || session.count >= 200) return;
+  session.count += 1;
+  const snapshot = session.snapshot?.();
+  writeMobileLockdownE2EReport(
+    `[MobileLockdownBridgeTraceE2E] ${JSON.stringify({
+      runId: session.runId,
+      runtime: page ? 'webview' : session.runtime,
+      operation: page?.operation ?? call?.operation ?? 'observer',
+      round: page?.round ?? call?.round ?? 0,
+      stage,
+      elapsedMs: page?.elapsedMs ?? boundedElapsedMs(session.startedAt),
+      ...(call && !page
+        ? { rpcElapsedMs: boundedElapsedMs(call.startedAt) }
+        : {}),
+      ...(snapshot
+        ? {
+            bridgePresent: !!snapshot.bridge,
+            bridgeSame: snapshot.bridge === session.bridge,
+            webViewPresent: !!getTraceView(snapshot.bridge),
+            webViewSame: getTraceView(snapshot.bridge) === session.view,
+            bridgeReady: snapshot.ready === true,
+            generation:
+              Number.isSafeInteger(snapshot.generation) &&
+              snapshot.generation >= 0 &&
+              snapshot.generation <= 1_000_000
+                ? snapshot.generation
+                : -1,
+          }
+        : {}),
+      ...(page?.asset ? { asset: page.asset } : {}),
+    })}`,
+    false,
+  );
+}
+
+function createPageTraceScript(runId: string) {
+  // Static observer code; only the validated public run ID is interpolated.
+  // No eval/Function, SDK initialization, network request or timer override.
+  return `;(function(){
+    'use strict';
+    const runId=${JSON.stringify(runId)};
+    const type='ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE';
+    const key='__ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE__';
+    const started=Date.now();
+    let active=true, count=0, latest={operation:'observer',round:0};
+    const expected=[]; const calls=new Map(); const cleanup=[];
+    const post=window.ReactNativeWebView && window.ReactNativeWebView.postMessage;
+    function emit(stage,call,asset){try{
+      if(!active || count>=100 || typeof post!=='function')return;
+      count+=1; const elapsed=Date.now()-started;
+      Reflect.apply(post,window.ReactNativeWebView,[JSON.stringify({type,runId,stage,
+        operation:(call||latest).operation,round:(call||latest).round,
+        elapsedMs:Number.isFinite(elapsed)?Math.min(60000,Math.max(0,Math.floor(elapsed))):0,
+        ...(asset?{asset}: {})})]);
+    }catch(_) {}}
+    function stop(){if(!active)return;active=false;
+      for(const dispose of cleanup){try{dispose();}catch(_) {}}
+      calls.clear();expected.length=0;
+      if(window[key]===controller)delete window[key];
+    }
+    const controller={runId,expect(data,operation,round){
+      if(!active || expected.length>=8)return;
+      expected.push({data,operation,round});latest={operation,round};emit('expected',latest);
+    },stop};
+    function equal(a,b){if(a===b)return true;
+      if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
+      const keys=Reflect.ownKeys(b);if(Reflect.ownKeys(a).length!==keys.length)return false;
+      return keys.every(k=>{const x=Object.getOwnPropertyDescriptor(a,k),y=Object.getOwnPropertyDescriptor(b,k);
+        return x&&y&&Object.hasOwn(x,'value')&&Object.hasOwn(y,'value')&&equal(x.value,y.value);});
+    }
+    function parse(value){if(typeof value==='string'){try{return JSON.parse(value);}catch(_){return;}}return value;}
+    function received(payload){try{
+      if(!active || !payload || payload.type!=='REQUEST' || payload.scope!=='$private')return;
+      const index=expected.findIndex(item=>equal(payload.data,item.data));
+      if(index<0 || (typeof payload.id!=='number' && typeof payload.id!=='string'))return;
+      const call=expected.splice(index,1)[0];calls.set(payload.id,call);latest=call;emit('request-received',call);
+    }catch(_) {}}
+    function assetOf(target){if(!target || target.tagName!=='SCRIPT')return;
+      const prefix=window.location.href.split('#')[0].replace(/index\\.html$/,'');
+      const src=String(target.src||'');if(!src.startsWith(prefix))return;
+      const match=src.slice(prefix.length).match(/^static\\/js\\/(871|693)\\.[a-f0-9]+\\.chunk\\.js$/);
+      return match?(match[1]==='871'?'kaspa-loader':'kaspa-sdk'):undefined;
+    }
+    function loaded(event){const asset=assetOf(event.target);if(asset)emit('script-loaded',undefined,asset);}
+    function failed(event){const asset=assetOf(event.target);emit(asset?'script-error':'page-error',asset?undefined:{operation:'observer',round:0},asset);}
+    function rejected(){emit('page-rejection',{operation:'observer',round:0});}
+    try{
+      const bridge=window.$onekey && window.$onekey.jsBridge;
+      if(window[key] || !bridge || Object.isFrozen(bridge) || !Object.isExtensible(bridge) ||
+         typeof bridge.on!=='function' || typeof bridge.removeListener!=='function' || typeof bridge.sendPayload!=='function'){
+        emit('observer-unavailable');return;
+      }
+      const descriptor=Object.getOwnPropertyDescriptor(bridge,'sendPayload');
+      if(descriptor && (!Object.hasOwn(descriptor,'value') || !descriptor.writable)){emit('observer-unavailable');return;}
+      const original=bridge.sendPayload;
+      const wrapper=function(){
+        let call,replyId;try{const payload=parse(arguments[0]);if(payload&&payload.type==='RESPONSE'){replyId=payload.id;call=calls.get(replyId);}}catch(_){}
+        if(call)emit('reply-sending',call);
+        let result;try{result=Reflect.apply(original,this,arguments);}catch(error){if(call)emit('reply-throw',call);throw error;}
+        if(call){emit('reply-sent',call);calls.delete(replyId);}return result;
+      };
+      Object.defineProperty(bridge,'sendPayload',descriptor?{...descriptor,value:wrapper}:{value:wrapper,writable:true,configurable:true});
+      cleanup.push(()=>{if(Object.getOwnPropertyDescriptor(bridge,'sendPayload')?.value===wrapper){
+        if(descriptor)Object.defineProperty(bridge,'sendPayload',descriptor);else delete bridge.sendPayload;}});
+      bridge.on('message',received);cleanup.push(()=>bridge.removeListener('message',received));
+      document.addEventListener('load',loaded,true);cleanup.push(()=>document.removeEventListener('load',loaded,true));
+      window.addEventListener('error',failed,true);cleanup.push(()=>window.removeEventListener('error',failed,true));
+      window.addEventListener('unhandledrejection',rejected);cleanup.push(()=>window.removeEventListener('unhandledrejection',rejected));
+      const observer=new MutationObserver(records=>{try{for(const record of records)for(const node of record.addedNodes){
+        const asset=assetOf(node);if(asset)emit('script-discovered',undefined,asset);
+      }}catch(_) {}});
+      observer.observe(document.documentElement,{childList:true,subtree:true});cleanup.push(()=>observer.disconnect());
+      Object.defineProperty(window,key,{value:controller,writable:false,configurable:true});
+      emit('observer-installed');const timer=setTimeout(stop,60000);cleanup.push(()=>clearTimeout(timer));
+    }catch(_){emit('observer-unavailable');stop();}
+  })();true;`;
+}
+
+function installPageTrace(session: ITraceSession) {
+  const snapshot = session.snapshot?.();
+  const bridge = snapshot?.bridge;
+  const view = getTraceView(bridge);
+  const origin =
+    snapshot?.platform === 'ios'
+      ? 'onekey-web-embed://bundle'
+      : 'https://appassets.androidplatform.net';
+  if (
+    !bridge ||
+    bridge.remoteInfo?.origin !== origin ||
+    !bridge.globalOnMessageEnabled ||
+    Object.isFrozen(bridge) ||
+    !Object.isExtensible(bridge) ||
+    !view
+  ) {
+    emitBridgeTrace(session, undefined, 'observer-unavailable');
+    return;
+  }
+  const own = Object.getOwnPropertyDescriptor(bridge, 'receive');
+  if (own && (!Object.hasOwn(own, 'value') || !own.writable)) {
+    emitBridgeTrace(session, undefined, 'observer-unavailable');
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- preserve the original method and apply the caller's receiver
+  const original = bridge.receive;
+  const wrapper: typeof original = function (this: typeof bridge, ...args) {
+    try {
+      const [payload, sender] = args;
+      if (
+        this === bridge &&
+        session.active &&
+        session.snapshot?.().bridge === bridge &&
+        getTraceView(bridge) === view &&
+        sender?.origin === origin &&
+        typeof payload === 'string' &&
+        payload.length < 1024 &&
+        payload.includes(traceType)
+      ) {
+        const message = JSON.parse(payload) as Record<string, unknown>;
+        const required = [
+          'type',
+          'runId',
+          'stage',
+          'operation',
+          'round',
+          'elapsedMs',
+        ];
+        if (
+          required.every((key) => Object.hasOwn(message, key)) &&
+          Object.keys(message).every(
+            (key) => required.includes(key) || key === 'asset',
+          ) &&
+          message.type === traceType &&
+          message.runId === session.runId &&
+          typeof message.stage === 'string' &&
+          tracePageStages.has(message.stage) &&
+          (message.operation === 'observer' ||
+            traceOperations.includes(message.operation as ITraceOperation)) &&
+          ((message.operation === 'observer' && message.round === 0) ||
+            Array.from(session.calls.values()).some(
+              (call) =>
+                call.operation === message.operation &&
+                call.round === message.round,
+            )) &&
+          Number.isInteger(message.round) &&
+          Number(message.round) >= 0 &&
+          Number(message.round) <= 2 &&
+          Number.isInteger(message.elapsedMs) &&
+          Number(message.elapsedMs) >= 0 &&
+          Number(message.elapsedMs) <= 60_000 &&
+          (message.asset === undefined ||
+            message.asset === 'kaspa-loader' ||
+            message.asset === 'kaspa-sdk')
+        ) {
+          emitBridgeTrace(session, undefined, message.stage, {
+            operation: message.operation as string,
+            round: message.round as number,
+            elapsedMs: message.elapsedMs as number,
+            asset: message.asset as string | undefined,
+          });
+          return;
+        }
+      }
+    } catch {
+      // Unsupported diagnostic envelopes continue through the original bridge.
+    }
+    return Reflect.apply(original, this, args);
+  };
+  Object.defineProperty(
+    bridge,
+    'receive',
+    own
+      ? { ...own, value: wrapper }
+      : { value: wrapper, configurable: true, writable: true },
+  );
+  session.bridge = bridge;
+  session.view = view;
+  session.disposeObserver = () => {
+    if (Object.getOwnPropertyDescriptor(bridge, 'receive')?.value === wrapper) {
+      if (own) Object.defineProperty(bridge, 'receive', own);
+      else Reflect.deleteProperty(bridge, 'receive');
+    }
+    // Page cleanup also has its own bounded timer; never inject into a replaced view.
+    if (
+      session.snapshot?.().bridge === bridge &&
+      getTraceView(bridge) === view
+    ) {
+      view.injectJavaScript(
+        `;if(window.__ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE__?.runId===${JSON.stringify(session.runId)})window.__ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE__.stop();true;`,
+      );
+    }
+  };
+  view.injectJavaScript(createPageTraceScript(session.runId));
+}
+
+export function traceMobileLockdownWebEmbedBridge(options: {
+  runtime: 'main' | 'background';
+  callId: string;
+  stage: ITraceStage;
+  data?: unknown;
+  result?: unknown;
+  snapshot?: () => ITraceSnapshot;
+}) {
+  // Diagnostics must never change business return values, exceptions or timing
+  // contracts. All failure paths here are observational and carry fixed text.
+  try {
+    const runId = process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+    if (
+      __DEV__ ||
+      !runId ||
+      !/^[a-f0-9]{32}$/.test(runId) ||
+      !process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER
+    )
+      return;
+    const { runtime, callId, stage, data, result, snapshot } = options;
+    let session = traceSessions.get(runtime);
+    if (!session) {
+      if (
+        !equalPublicFixture(data, {
+          module: 'test',
+          method: 'test1',
+          params: [runId],
+        })
+      )
+        return;
+      session = {
+        runId,
+        runtime,
+        startedAt: Date.now(),
+        index: 0,
+        count: 0,
+        active: true,
+        calls: new Map(),
+        snapshot,
+      };
+      traceSessions.set(runtime, session);
+      const current = session;
+      setTimeout(() => {
+        try {
+          current.disposeObserver?.();
+        } catch {
+          // A disposed native view cannot change application error handling.
+        } finally {
+          current.active = false;
+          current.calls.clear();
+          current.commit = undefined;
+          current.reveal = undefined;
+          current.bridge = undefined;
+          current.view = undefined;
+          current.snapshot = undefined;
+          current.disposeObserver = undefined;
+        }
+      }, 60_000);
+    }
+    if (!session.active || session.runId !== runId) return;
+    if (stage === 'bridge-change') {
+      emitBridgeTrace(session, undefined, stage);
+      return;
+    }
+    if (!/^[1-9]\d{0,8}$/.test(callId)) return;
+    let call = session.calls.get(callId);
+    if ((stage === 'sending' || stage === 'received') && !call) {
+      const operation = traceOperations[session.index];
+      if (
+        !operation ||
+        !equalPublicFixture(data, expectedTraceRequest(session, operation))
+      )
+        return;
+      call = {
+        operation,
+        round: Math.max(0, Math.floor((session.index - 2) / 3) + 1),
+        startedAt: Date.now(),
+      };
+      session.index += 1;
+      session.calls.set(callId, call);
+      if (runtime === 'main') {
+        if (session.index === 1) installPageTrace(session);
+        if (
+          session.bridge &&
+          session.snapshot?.().bridge === session.bridge &&
+          getTraceView(session.bridge) === session.view
+        ) {
+          // Only the fully matched public request reaches the passive observer.
+          session.view?.injectJavaScript(
+            `;if(window.__ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE__?.runId===${JSON.stringify(runId)})window.__ONEKEY_MOBILE_LOCKDOWN_BRIDGE_TRACE__.expect(${JSON.stringify(data)},${JSON.stringify(operation)},${call.round});true;`,
+          );
+        }
+      }
+    }
+    if (!call) return;
+    emitBridgeTrace(session, call, stage);
+    if (stage === 'request-returned' || stage === 'response-received') {
+      if (call.operation === 'commit')
+        session.commit = readPublicKaspaCommit(result);
+      if (
+        call.operation === 'reveal' &&
+        typeof result === 'string' &&
+        session.commit
+      ) {
+        readPublicKaspaReveal(result, session.commit.commitScriptPubKey);
+        session.reveal = result;
+      }
+    }
+  } catch {
+    // The underlying SharedRPC/JsBridge operation continues unchanged.
+  }
+}

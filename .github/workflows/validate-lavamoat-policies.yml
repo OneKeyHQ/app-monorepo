@@ -30,7 +30,7 @@ jobs:
   validate:
     name: validate-lavamoat-policies
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,40 @@ jobs:
         run: yarn exec playwright-core install --with-deps chromium
 
       - name: Validate LavaMoat tooling
-        run: yarn lavamoat:test-tooling
+        env:
+          DEBUG: pw:browser
+        run: xvfb-run -a yarn lavamoat:test-tooling
+
+      - name: Set up Java for native WebEmbed policy tests
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Validate Mobile lockdown integration
+        run: >-
+          yarn jest --runInBand --coverage=false --runTestsByPath
+          apps/mobile/plugins/__tests__/mobileLockdown.test.js
+          apps/mobile/plugins/__tests__/devVendor.test.js
+          apps/mobile/scripts/__tests__/check-mobile-lockdown-runtime.test.js
+          apps/mobile/scripts/__tests__/native-dev-shell.test.js
+          apps/mobile/scripts/__tests__/mobile-lockdown-release.test.js
+          apps/mobile/scripts/__tests__/prepare-lockdown-web-embed.test.js
+          packages/shared/src/polyfills/polyfillBootstrapContract.test.ts
+          packages/shared/src/errors/nativePromiseRejectionTracker.test.js
+          packages/shared/src/modules3rdParty/sentry/index.native.test.ts
+          apps/mobile/scripts/__tests__/mobile-lockdown-web-embed-readiness.test.js
+          apps/mobile/scripts/__tests__/mobile-lockdown-web-embed-trace.test.js
+          apps/mobile/scripts/__tests__/web-embed-asset-loader.test.js
+
+      - name: Compile Mobile lockdown fixtures with Hermes
+        env:
+          NODE_ENV: production
+          TAMAGUI_TARGET: native
+        run: |
+          env -u ONEKEY_MOBILE_LOCKDOWN node apps/mobile/scripts/check-mobile-lockdown.js
+          ONEKEY_MOBILE_LOCKDOWN=true node apps/mobile/scripts/check-mobile-lockdown.js
+          ONEKEY_MOBILE_LOCKDOWN=false node apps/mobile/scripts/check-mobile-lockdown.js
 
       - name: Generate all LavaMoat policies
         env:
@@ -100,6 +133,170 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn lavamoat:build:desktop-renderer
+
+      - name: Build LavaMoat protected Web Embed target
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          WEB_EMBED_SKIP_POSTBUILD: 'true'
+        run: yarn lavamoat:build:web-embed
+
+      - name: Build LavaMoat protected cli
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:cli
+
+      - name: Build LavaMoat protected desktop-main
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-main
+
+      - name: Build LavaMoat protected desktop-preload
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-preload
+
+      - name: Build LavaMoat protected desktop-services-index
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-index
+
+      - name: Build LavaMoat protected desktop-services-enum
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-enum
+
+      - name: Build LavaMoat protected desktop-services-windowsHello
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-windowsHello
+
+      - name: Build LavaMoat protected desktop-services-checkBiometricAuthChanged
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-checkBiometricAuthChanged
+
+      - name: Build LavaMoat protected node-build
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:node-build
+
+      - name: Build LavaMoat protected ext-pages
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-pages
+
+      - name: Build LavaMoat protected ext-background
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-background
+
+      - name: Build LavaMoat protected ext-content-script
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-content-script
+
+      - name: Finalize protected extension artifacts
+        run: yarn workspace @onekeyhq/ext lavamoat:finalize
+
+      - name: Verify protected extension startup and DApp bridge
+        id: extension-smoke
+        timeout-minutes: 5
+        run: xvfb-run -a yarn workspace @onekeyhq/ext test:lavamoat --output "${{ runner.temp }}/lavamoat-extension-smoke"
+
+      - name: Upload protected extension evidence
+        if: ${{ always() && steps.extension-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-extension-smoke
+          path: ${{ runner.temp }}/lavamoat-extension-smoke
+          if-no-files-found: ignore
+
+      - name: Build protected Desktop production entrypoints
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn workspace @onekeyhq/desktop build:main
+
+      - name: Verify protected preload isolation and IPC
+        id: preload-smoke
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop test:preload:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-preload-smoke"
+
+      - name: Upload protected preload evidence
+        if: ${{ always() && steps.preload-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-preload-smoke
+          path: ${{ runner.temp }}/lavamoat-preload-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Desktop startup and Preferences
+        id: desktop-smoke
+        timeout-minutes: 5
+        run: |
+          xvfb-run -a yarn workspace @onekeyhq/desktop test:lavamoat --production-output --mock-health --output "${{ runner.temp }}/lavamoat-desktop-smoke/diagnostic"
+          xvfb-run -a yarn workspace @onekeyhq/desktop test:lavamoat --production-output --mock-health --no-navigation-gate --output "${{ runner.temp }}/lavamoat-desktop-smoke/normal"
+
+      - name: Upload protected Desktop startup evidence
+        if: ${{ always() && steps.desktop-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-desktop-smoke
+          path: ${{ runner.temp }}/lavamoat-desktop-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected CLI schema and offline commands
+        id: cli-smoke
+        timeout-minutes: 5
+        run: |
+          yarn workspace @onekeyfe/cli build
+          yarn workspace @onekeyfe/cli test:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-cli-smoke"
+
+      - name: Upload protected CLI evidence
+        if: ${{ always() && steps.cli-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-cli-smoke
+          path: ${{ runner.temp }}/lavamoat-cli-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Desktop utility processes
+        id: services-smoke
+        timeout-minutes: 5
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop test:services:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-services-smoke"
+
+      - name: Upload protected Desktop utility evidence
+        if: ${{ always() && steps.services-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-services-smoke
+          path: ${{ runner.temp }}/lavamoat-services-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Web Embed navigation and lazy API dispatch
+        id: web-embed-smoke
+        timeout-minutes: 10
+        run: |
+          yarn lavamoat:smoke:web-embed --output "${{ runner.temp }}/lavamoat-web-embed-smoke/http"
+          yarn lavamoat:smoke:web-embed --file-ota --output "${{ runner.temp }}/lavamoat-web-embed-smoke/file-ota"
+
+      - name: Upload protected Web Embed evidence
+        if: ${{ always() && steps.web-embed-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-web-embed-smoke
+          path: ${{ runner.temp }}/lavamoat-web-embed-smoke
+          if-no-files-found: ignore
 
       - name: Verify protected Web startup and deep links
         id: web-smoke

@@ -1421,8 +1421,35 @@ async function handleWebEmbedBridgeRequest(
     const data = typeof value === 'string' ? JSON.parse(value) : undefined;
     await ensureMainThreadWebEmbedReady();
     const bridge = mainThreadBridgeMap.webEmbed;
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'received',
+        data,
+        snapshot: () => ({
+          bridge: mainThreadBridgeMap.webEmbed,
+          // eslint-disable-next-line no-use-before-define -- callbacks run after module initialization
+          generation: webEmbedMountGeneration,
+          // eslint-disable-next-line no-use-before-define -- callbacks run after module initialization
+          ready: webEmbedReady,
+          platform: platformEnv.isNativeIOS ? 'ios' : 'android',
+        }),
+      });
+    }
 
     if (!bridge || !isMainThreadWebEmbedReady()) {
+      if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+        const { traceMobileLockdownWebEmbedBridge } =
+          require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+        traceMobileLockdownWebEmbedBridge({
+          runtime: 'main',
+          callId,
+          stage: 'response-writing',
+        });
+      }
       sharedRPC.write(
         responseKey,
         JSON.stringify({
@@ -1430,13 +1457,86 @@ async function handleWebEmbedBridgeRequest(
           error: { message: 'webEmbed bridge not available in main thread' },
         }),
       );
+      if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+        const { traceMobileLockdownWebEmbedBridge } =
+          require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+        traceMobileLockdownWebEmbedBridge({
+          runtime: 'main',
+          callId,
+          stage: 'response-written',
+        });
+      }
       return;
     }
 
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'request-sending',
+      });
+    }
     const result = await bridge.request({ scope: '$private', data });
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'request-returned',
+        result,
+      });
+    }
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'response-writing',
+      });
+    }
     sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'response-written',
+      });
+    }
   } catch (error) {
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'caught-error',
+      });
+    }
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'response-writing',
+      });
+    }
     sharedRPC.write(responseKey, serializeWebEmbedBridgeError(error));
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId,
+        stage: 'response-written',
+      });
+    }
   }
 }
 
@@ -1794,6 +1894,17 @@ function syncBridgeConnection(
       webEmbedReady = false;
       webEmbedMountGeneration += 1;
       webEmbedBgFallbackEnabled = false;
+    }
+  }
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+    if (params.channel === 'webEmbed') {
+      const { traceMobileLockdownWebEmbedBridge } =
+        require('../security/mobileLockdownWebEmbedReleaseCheck') as typeof import('../security/mobileLockdownWebEmbedReleaseCheck');
+      traceMobileLockdownWebEmbedBridge({
+        runtime: 'main',
+        callId: '0',
+        stage: 'bridge-change',
+      });
     }
   }
   return callRemoteRequest(

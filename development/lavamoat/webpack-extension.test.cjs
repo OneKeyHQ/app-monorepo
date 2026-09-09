@@ -16,8 +16,10 @@ const { chromium } = require('playwright-core');
 const webpack = require('webpack');
 
 const localeLoader = require('../webpack/lavamoat-ext-locales-loader.cjs');
+const workerLoader = require('../webpack/lavamoat-ext-worker-loader.cjs');
 
 const { LavaMoatError } = require('./error.cjs');
+const { javascriptLiteral } = require('./javascript-literal.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
 const acorn = createRequire(require.resolve('webpack'))('acorn');
@@ -56,11 +58,11 @@ function platformEnvFixtureSource(buildFlags) {
     ${code}
     return module.exports.default;
   })(request => {
-    if (request === 'react-native') return {Platform:{OS:${JSON.stringify(buildFlags.nativeOS || 'web')},Version:26}};
+    if (request === 'react-native') return {Platform:{OS:${javascriptLiteral(buildFlags.nativeOS || 'web')},Version:26}};
     if (request === './androidNativeEnv') return {ANDROID_CHANNEL:'google'};
     if (request === './appGlobals') return {};
     if (request === './utils/devModeUtils') return {isWebInDappMode:()=>false};
-    if (request === './buildTimeEnv.js') return ${JSON.stringify(fixtureFlags)};
+    if (request === './buildTimeEnv.js') return ${javascriptLiteral(fixtureFlags)};
     throw Error('Unexpected platform fixture dependency: '+request);
   });
   module.exports = { environment, windowType: typeof window, documentType: typeof document };
@@ -349,6 +351,58 @@ async function compile(config) {
   }
 }
 
+test('packaged worker URLs use the extension root and reject unreviewed factories', () => {
+  const { workerGenerator } = require('worker-loader/dist/utils');
+  for (const name of ['pages', 'background', 'content-script']) {
+    const filename = `${name}.0123456789.worker.js`;
+    const source = workerGenerator({}, filename, '', {});
+    const context = { getOptions: () => ({ name }) };
+    const transformed = workerLoader.call(context, source);
+    const urls = [];
+    vm.runInNewContext(
+      `${transformed.replace('export default ', '')}new Worker_fn();`,
+      {
+        Worker: class {
+          constructor(url) {
+            urls.push(url);
+          }
+        },
+      },
+    );
+    assert.deepEqual(urls, [`/${filename}`]);
+    for (const invalid of [
+      source.replace(filename, `../${filename}`),
+      source.replace(filename, `https://example.invalid/${filename}`),
+      source.replace(filename, `blob:${filename}`),
+      source.replace(filename, 'unknown.0123456789.worker.js'),
+      `${source}void 0;`,
+      workerGenerator({}, filename, '', { worker: 'SharedWorker' }),
+      workerGenerator({}, filename, '', { esModule: false }),
+      workerGenerator({}, filename, '', {
+        worker: { type: 'Worker', options: { type: 'module' } },
+      }),
+    ])
+      assert.throws(() => workerLoader.call(context, invalid), LavaMoatError);
+    assert.throws(
+      () =>
+        workerLoader.call({ getOptions: () => ({ name: 'unknown' }) }, source),
+      LavaMoatError,
+    );
+    assert.throws(
+      () =>
+        workerLoader.call(
+          {
+            getOptions: () => ({
+              name: name === 'pages' ? 'background' : 'pages',
+            }),
+          },
+          source,
+        ),
+      LavaMoatError,
+    );
+  }
+});
+
 test('extension configurations preserve MV3 CSP, isolate entries, and protect releases with an explicit Rspack rollback', () => {
   execFileSync(
     process.execPath,
@@ -366,6 +420,7 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
       assert.equal(plugin.options.readableResourceIds, false);
       assert.ok(plugin.options.policyLocation.endsWith('ext/mv3/'+config.name));
       assert.equal(config.devtool, false);
+      assert.equal(config.output.publicPath, '/');
       assert.equal(config.optimization.minimizer[0].options.parallel, 1);
       assert.equal(config.module.rules.filter(rule => rule.use?.some?.(use => use.loader?.endsWith('lavamoat-ext-locales-loader.cjs'))).length, config.name === 'content-script' ? 0 : 1);
       assert.equal(config.module.rules.filter(rule => rule.use?.some?.(use => use.loader?.endsWith('lavamoat-ext-kaspa-loader.cjs'))).length, config.name === 'pages' ? 2 : 0);
@@ -458,7 +513,7 @@ async function verifyProtectedExtension(contentScript) {
     write(
       directory,
       'src/manifest/index.js',
-      `module.exports = ${JSON.stringify(manifest)};`,
+      `module.exports = ${javascriptLiteral(manifest)};`,
     );
     for (const file of [
       'ui-popup-boot.html',
@@ -501,6 +556,7 @@ async function verifyProtectedExtension(contentScript) {
           'browser-detector': '1.0.0',
           'locale-fixture': '1.0.0',
           'runtime-detector': '1.0.0',
+          'worker-owner': '1.0.0',
         },
       }),
     );
@@ -512,6 +568,7 @@ async function verifyProtectedExtension(contentScript) {
       'sdk-detector',
       'browser-detector',
       'runtime-detector',
+      'worker-owner',
     ]) {
       write(
         directory,
@@ -619,15 +676,26 @@ async function verifyProtectedExtension(contentScript) {
     write(
       directory,
       'locale-transpile-loader.cjs',
-      `module.exports = function(source) { return require(${JSON.stringify(require.resolve('esbuild', { paths: [path.join(repoRoot, 'apps/cli')] }))}).transformSync(source, {loader:'ts',target:'es2022'}).code; };`,
+      `module.exports = function(source) { return require(${javascriptLiteral(require.resolve('esbuild', { paths: [path.join(repoRoot, 'apps/cli')] }))}).transformSync(source, {loader:'ts',target:'es2022'}).code; };`,
     );
     const bridgeModule = path.join(
       repoRoot,
       'node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js',
     );
     const collect = `(require('chrome-writer')(), {runtime:require('runtime-detector'),allowed:require('declared-reader')(),denied:require('denied-reader')(),sdkEnvironment:require('sdk-detector')(),browserEnvironment:require('browser-detector').result(),frozen:Object.isFrozen(Object.prototype)})`;
-    const pageLocales = `const locale=require('locale-fixture');if(require(${JSON.stringify(forgedLocaleRequest)}).default!=='physical-resource-not-shim')throw Error('Forged resource selected packaged locale loader');document.addEventListener('fixture-page-locale',()=>{Promise.resolve().then(async()=>{const request=JSON.parse(document.documentElement.getAttribute('data-fixture-locale-request'));if(request.identity){const [english,alias]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);locale.__clearLocaleMessagesCacheForTests();const [again,aliasAgain]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);return {ok:true,same:english===alias&&english===again&&english===aliasAgain};}const messages=await locale.loadLocaleMessages(request.locale);return {ok:true,value:messages['global.confirm']};}).catch(error=>({ok:false,error:error.message})).then(result=>{document.documentElement.setAttribute('data-fixture-locale-result',JSON.stringify(result));document.dispatchEvent(new Event('fixture-page-locale-ready'));});});`;
-    const pageEntry = ` ${rootSecret}${pageLocales}const result=${collect};import(/* webpackChunkName: "fixture-deep-lazy" */ './fixture-lazy.js').then(module=>{result.lazy=module.default();return chrome.runtime.sendMessage({fixture:'background'});}).then(background=>{const output=document.createElement('pre');output.id='fixture-result';output.textContent=JSON.stringify({result,background});document.body.appendChild(output);});`;
+    const pageLocales = `const locale=require('locale-fixture');if(require(${javascriptLiteral(forgedLocaleRequest)}).default!=='physical-resource-not-shim')throw Error('Forged resource selected packaged locale loader');document.addEventListener('fixture-page-locale',()=>{Promise.resolve().then(async()=>{const request=JSON.parse(document.documentElement.getAttribute('data-fixture-locale-request'));if(request.identity){const [english,alias]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);locale.__clearLocaleMessagesCacheForTests();const [again,aliasAgain]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);return {ok:true,same:english===alias&&english===again&&english===aliasAgain};}const messages=await locale.loadLocaleMessages(request.locale);return {ok:true,value:messages['global.confirm']};}).catch(error=>({ok:false,error:error.message})).then(result=>{document.documentElement.setAttribute('data-fixture-locale-result',JSON.stringify(result));document.dispatchEvent(new Event('fixture-page-locale-ready'));});});`;
+    write(
+      directory,
+      'node_modules/worker-owner/echo.worker.js',
+      `onmessage=({data})=>postMessage({echo:data,url:location.href,harden:typeof harden,objectFrozen:Object.isFrozen(Object.prototype)});`,
+    );
+    write(
+      directory,
+      'node_modules/worker-owner/index.js',
+      `import EchoWorker from './echo.worker.js';export const start=()=>new EchoWorker();`,
+    );
+    const pageWorker = `const packagedWorker=require('worker-owner').start();try{result.worker=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Packaged worker did not reply')),5000);packagedWorker.onmessage=({data})=>{clearTimeout(timer);resolve(data);};packagedWorker.onerror=()=>{clearTimeout(timer);reject(Error('Packaged worker failed'));};packagedWorker.postMessage('fixture-worker-message');});}finally{packagedWorker.terminate();}`;
+    const pageEntry = ` ${rootSecret}${pageLocales}const result=${collect};import(/* webpackChunkName: "fixture-deep-lazy" */ './fixture-lazy.js').then(async module=>{result.lazy=module.default();${pageWorker}return chrome.runtime.sendMessage({fixture:'background'});}).then(background=>{const output=document.createElement('pre');output.id='fixture-result';output.textContent=JSON.stringify({result,background});document.body.appendChild(output);});`;
     write(
       directory,
       'src/entry/fixture-lazy.js',
@@ -638,12 +706,12 @@ async function verifyProtectedExtension(contentScript) {
     write(
       directory,
       'src/entry/background.ts',
-      ` ${rootSecret}const locale = require('locale-fixture');if(require(${JSON.stringify(forgedLocaleRequest)}).default!=='physical-resource-not-shim')throw Error('Forged resource selected packaged locale loader');chrome.runtime.onConnect.addListener(port=>port.onMessage.addListener(message=>{if(message.fixtureBridgePing)port.postMessage({fixtureBridgePong:message.fixtureBridgePing});}));const result=${collect};chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{if(message.fixture==='background')sendResponse(result);if(message.fixture==='locale-identity'){Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]).then(async ([english,alias])=>{locale.__clearLocaleMessagesCacheForTests();const [englishAgain,aliasAgain]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);sendResponse({same:english===alias&&english===englishAgain&&english===aliasAgain});},error=>sendResponse({error:error.message}));return true;}if(message.fixture==='locale'){Promise.resolve().then(()=>locale.loadLocaleMessages(message.locale)).then(messages=>sendResponse({ok:true,value:messages['global.confirm']}),error=>sendResponse({ok:false,error:error.message}));return true;}});`,
+      ` ${rootSecret}const locale = require('locale-fixture');if(require(${javascriptLiteral(forgedLocaleRequest)}).default!=='physical-resource-not-shim')throw Error('Forged resource selected packaged locale loader');chrome.runtime.onConnect.addListener(port=>port.onMessage.addListener(message=>{if(message.fixtureBridgePing)port.postMessage({fixtureBridgePong:message.fixtureBridgePing});}));const result=${collect};chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{if(message.fixture==='background')sendResponse(result);if(message.fixture==='locale-identity'){Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]).then(async ([english,alias])=>{locale.__clearLocaleMessagesCacheForTests();const [englishAgain,aliasAgain]=await Promise.all([locale.loadLocaleMessages('en-US'),locale.loadLocaleMessages('en')]);sendResponse({same:english===alias&&english===englishAgain&&english===aliasAgain});},error=>sendResponse({error:error.message}));return true;}if(message.fixture==='locale'){Promise.resolve().then(()=>locale.loadLocaleMessages(message.locale)).then(messages=>sendResponse({ok:true,value:messages['global.confirm']}),error=>sendResponse({ok:false,error:error.message}));return true;}});`,
     );
     write(
       directory,
       'src/entry/content-script.ts',
-      ` ${rootSecret}require(${JSON.stringify(bridgeModule)}).default.setupMessagePort();const result=${collect};function report(){document.documentElement.setAttribute('data-fixture-content',JSON.stringify(result));fetch(chrome.runtime.getURL(${JSON.stringify(englishAsset)})).then(()=>document.documentElement.setAttribute('data-fixture-private-locale','accessible'),()=>document.documentElement.setAttribute('data-fixture-private-locale','denied'));}if(document.documentElement)report();else document.addEventListener('DOMContentLoaded',report,{once:true});`,
+      ` ${rootSecret}require(${javascriptLiteral(bridgeModule)}).default.setupMessagePort();const result=${collect};function report(){document.documentElement.setAttribute('data-fixture-content',JSON.stringify(result));fetch(chrome.runtime.getURL(${javascriptLiteral(englishAsset)})).then(()=>document.documentElement.setAttribute('data-fixture-private-locale','accessible'),()=>document.documentElement.setAttribute('data-fixture-private-locale','denied'));}if(document.documentElement)report();else document.addEventListener('DOMContentLoaded',report,{once:true});`,
     );
 
     process.env.ONEKEY_LAVAMOAT_GENERATE_POLICY = '1';
@@ -654,7 +722,9 @@ async function verifyProtectedExtension(contentScript) {
       config.optimization.minimize = false;
       // Fixture sources are plain JavaScript; retain actual entry/runtime,
       // HTML/copy and LavaMoat plugins without compiling the application graph.
-      config.module.rules = [];
+      config.module.rules = config.module.rules.filter((rule) =>
+        rule.use?.some?.((use) => use.loader === 'worker-loader'),
+      );
       if (config.name === 'background' || config.name === 'pages') {
         config.module.rules.push(
           {
@@ -685,6 +755,11 @@ async function verifyProtectedExtension(contentScript) {
           'utf8',
         ),
       );
+      if (config.name === 'pages') {
+        assert.deepEqual(policy.resources['worker-owner'].globals, {
+          Worker: true,
+        });
+      }
       if (config.name === 'background' || config.name === 'pages') {
         assert.equal(policy.resources['locale-fixture'].globals.fetch, true);
         assert.equal(
@@ -882,6 +957,10 @@ async function verifyProtectedExtension(contentScript) {
       fs.existsSync(path.join(outputRoot, 'ui-popup.html')),
       'The packaged popup must exist',
     );
+    const packagedWorkers = fs
+      .readdirSync(outputRoot)
+      .filter((file) => /^pages\.[a-f0-9]{10}\.worker\.js$/.test(file));
+    assert.equal(packagedWorkers.length, 1);
     const publicKeyHash = createHash('sha256')
       .update(Buffer.from(manifest.key, 'base64'))
       .digest('hex')
@@ -1022,6 +1101,16 @@ async function verifyProtectedExtension(contentScript) {
         denied: parsed.result.denied,
         remoteCode: '',
       });
+      assert.deepEqual(
+        parsed.result.worker,
+        {
+          echo: 'fixture-worker-message',
+          url: `chrome-extension://${extensionId}/${packagedWorkers[0]}`,
+          harden: 'undefined',
+          objectFrozen: false,
+        },
+        'A packaged Worker exchanges a real message in its separate, unprotected heap',
+      );
       assert.equal(parsed.result.runtime.environment.isRuntimeBrowser, true);
       assert.equal(parsed.result.runtime.environment.runtimeRole, 'main');
       assert.equal(parsed.background.runtime.windowType, 'object');
@@ -1047,7 +1136,7 @@ async function verifyProtectedExtension(contentScript) {
     });
     const pageLocale = (request) =>
       read(
-        `new Promise(resolve=>{document.addEventListener('fixture-page-locale-ready',()=>resolve(JSON.parse(document.documentElement.getAttribute('data-fixture-locale-result'))),{once:true});document.documentElement.setAttribute('data-fixture-locale-request',${JSON.stringify(JSON.stringify(request))});document.dispatchEvent(new Event('fixture-page-locale'));})`,
+        `new Promise(resolve=>{document.addEventListener('fixture-page-locale-ready',()=>resolve(JSON.parse(document.documentElement.getAttribute('data-fixture-locale-result'))),{once:true});document.documentElement.setAttribute('data-fixture-locale-request',${javascriptLiteral(JSON.stringify(request))});document.dispatchEvent(new Event('fixture-page-locale'));})`,
       );
     const loadEnglish =
       'chrome.runtime.sendMessage({fixture:"locale",locale:"en-US"})';
@@ -1095,7 +1184,7 @@ async function verifyProtectedExtension(contentScript) {
       );
       assert.deepEqual(
         await read(
-          `chrome.runtime.sendMessage(${JSON.stringify({ fixture: 'locale', locale })})`,
+          `chrome.runtime.sendMessage(${javascriptLiteral({ fixture: 'locale', locale })})`,
         ),
         { ok: true, value: expected['global.confirm'] },
       );
@@ -1869,10 +1958,10 @@ test('platform detection distinguishes DOM documents, worker aliases, Node and b
       globalThis.window = globalThis;
       globalThis.document = ${scenario.document};
       globalThis.navigator = {userAgent:'Fixture',vendor:'',platform:'',maxTouchPoints:0};
-      globalThis.location = {pathname:${JSON.stringify(scenario.pathname || '/dapp')}};
+      globalThis.location = {pathname:${javascriptLiteral(scenario.pathname || '/dapp')}};
       globalThis.chrome = {runtime:{getManifest:()=>({manifest_version:3,name:'Fixture'})}};
       globalThis.process = {env:{}};
-      globalThis.__ONEKEY_RUNTIME_KIND__ = ${JSON.stringify(scenario.runtimeKind)};
+      globalThis.__ONEKEY_RUNTIME_KIND__ = ${javascriptLiteral(scenario.runtimeKind)};
       ${scenario.worker ? 'globalThis.ServiceWorker=class ServiceWorker{};globalThis.serviceWorker=new ServiceWorker();' : ''}
       const module = {exports:{}};
       ${platformEnvFixtureSource(scenario.flags)}
