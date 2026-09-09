@@ -257,7 +257,7 @@ describe('MarketDesktopChartContainer', () => {
     expect(handle.getAttribute('aria-valuenow')).toBe('600');
   });
 
-  it('releases the local override when a bridge response never arrives', async () => {
+  it('releases the queue and saves later input when a bridge response never arrives', async () => {
     jest.useFakeTimers();
     try {
       mockDelayWrites = true;
@@ -270,15 +270,96 @@ describe('MarketDesktopChartContainer', () => {
       const handle = screen.getByTestId('market-chart-resize-handle');
       fireEvent.keyDown(handle, { key: 'ArrowDown' });
       await act(async () => {});
-      act(() => {
+      await act(async () => {
         jest.advanceTimersByTime(5000);
       });
       mockSavedLayout = { chartHeight: 600 };
       rerender(chart());
       expect(handle.getAttribute('aria-valuenow')).toBe('600');
+      fireEvent.keyDown(handle, { key: 'ArrowDown' });
+      await act(async () => {});
+      expect(mockPendingWrites.map((value) => value.chartHeight)).toEqual([
+        480, 624,
+      ]);
+      await act(async () => {
+        mockWriteResults[0].reject();
+      });
+      expect(handle.getAttribute('aria-valuenow')).toBe('624');
+      await act(async () => {
+        mockSavedLayout = mockPendingWrites[1];
+        mockWriteResults[1].resolve();
+        rerender(chart());
+      });
+      expect(mockSavedLayout.chartHeight).toBe(624);
+      act(() => {
+        jest.runAllTicks();
+      });
+      expect(jest.getTimerCount()).toBe(0);
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('coalesces a keyboard burst and keeps the latest input through a stalled write', async () => {
+    jest.useFakeTimers();
+    try {
+      mockDelayWrites = true;
+      const chart = () => (
+        <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+          <div>chart</div>
+        </MarketDesktopChartContainer>
+      );
+      const { rerender } = render(chart());
+      const handle = screen.getByTestId('market-chart-resize-handle');
+      fireEvent.keyDown(handle, { key: 'ArrowDown' });
+      await act(async () => {});
+      for (let index = 0; index < 5; index += 1) {
+        fireEvent.keyDown(handle, { key: 'ArrowDown' });
+      }
+      expect(handle.getAttribute('aria-valuenow')).toBe('600');
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(handle.getAttribute('aria-valuenow')).toBe('600');
+      expect(mockPendingWrites.map((value) => value.chartHeight)).toEqual([
+        480, 600,
+      ]);
+      await act(async () => {
+        mockSavedLayout = mockPendingWrites[1];
+        mockWriteResults[1].resolve();
+        rerender(chart());
+      });
+      expect(mockSavedLayout.chartHeight).toBe(600);
+      act(() => {
+        jest.runAllTicks();
+      });
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still dispatches the latest queued preference after unmount', async () => {
+    mockDelayWrites = true;
+    const { unmount } = render(
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>,
+    );
+    const handle = screen.getByTestId('market-chart-resize-handle');
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    await act(async () => {});
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    unmount();
+    await act(async () => {
+      mockWriteResults[0].resolve();
+    });
+    expect(mockPendingWrites.map((value) => value.chartHeight)).toEqual([
+      480, 504,
+    ]);
+    await act(async () => {
+      mockWriteResults[1].resolve();
+    });
   });
 
   it('restores persisted height on remount and clamps only the display on resize', async () => {

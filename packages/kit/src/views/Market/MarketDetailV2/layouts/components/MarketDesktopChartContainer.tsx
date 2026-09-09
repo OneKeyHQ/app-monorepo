@@ -10,6 +10,8 @@ import { useWindowDimensions } from 'react-native';
 
 import { Stack, useTheme } from '@onekeyhq/components';
 import { useMarketDesktopLayoutAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
 
@@ -48,6 +50,7 @@ export function MarketDesktopChartContainer({
   const [pendingHeight, setPendingHeight] = useState<number>();
   const saveQueueRef = useRef(Promise.resolve());
   const saveRequestRef = useRef(0);
+  const isMountedRef = useRef(true);
   const savedHeight = layoutState.chartHeight;
   const chartHeight = clampChartHeight(
     dragHeight ??
@@ -68,23 +71,12 @@ export function MarketDesktopChartContainer({
     | undefined
   >(undefined);
 
-  // A missing bridge response must not pin the local override forever.
   useEffect(() => {
-    if (pendingHeight === undefined) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setPendingHeight(undefined);
-    }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
-    return () => clearTimeout(timer);
-  }, [pendingHeight]);
-
-  useEffect(
-    () => () => {
-      saveRequestRef.current += 1;
-    },
-    [],
-  );
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const saveHeight = useCallback(
     (height: number) => {
@@ -92,18 +84,30 @@ export function MarketDesktopChartContainer({
       const request = saveRequestRef.current;
       setPendingHeight(height);
       const finish = () => {
-        if (saveRequestRef.current === request) {
+        if (isMountedRef.current && saveRequestRef.current === request) {
           setPendingHeight(undefined);
         }
       };
-      // Serialize bridge writes so an older save cannot overwrite the last
-      // input. Always send a new object, even if the UI mirror still matches.
+      // Keep only the latest queued preference. Bound each bridge round trip
+      // so a missing response releases both the queue and the local override.
       saveQueueRef.current = saveQueueRef.current
-        .then(() =>
-          Promise.resolve(
-            setLayoutState((prev) => ({ ...prev, chartHeight: height })),
-          ),
-        )
+        .then(() => {
+          if (saveRequestRef.current !== request) {
+            return undefined;
+          }
+          return makeTimeoutPromise({
+            asyncFunc: async () => {
+              // Always send a new object, even if the UI mirror still matches.
+              await Promise.resolve(
+                setLayoutState((prev) => ({ ...prev, chartHeight: height })),
+              );
+            },
+            timeout: MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
+            timeoutRejectError: new OneKeyLocalError(
+              'Chart height save timed out',
+            ),
+          })(undefined);
+        })
         .then(finish, finish);
     },
     [setLayoutState],
