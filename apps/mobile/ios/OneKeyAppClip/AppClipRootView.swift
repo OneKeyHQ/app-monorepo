@@ -189,7 +189,7 @@ struct AppClipRootView: View {
 
   @ViewBuilder
   private func chartState(asset: AppClipMarketAsset) -> some View {
-    if model.isLoadingCandles {
+    if model.isLoadingCandles && model.candles.isEmpty {
       ProgressView()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     } else if model.candleLoadFailed || model.candles.isEmpty {
