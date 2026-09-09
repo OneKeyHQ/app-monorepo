@@ -23995,6 +23995,7 @@
     "packages/shared/src/utils/feeUtils.ts": 22288,
     "packages/shared/src/utils/hardwareDeviceTypes.ts": 1515,
     "packages/shared/src/utils/hexUtils.ts": 23739,
+    "packages/shared/src/utils/historyFeeUtils.ts": 17085,
     "packages/shared/src/utils/historyUtils.ts": 22054,
     "packages/shared/src/utils/homeWalletTabSupportUtils.ts": 6985,
     "packages/shared/src/utils/hyperLiquidErrorResolver.ts": 5382,
