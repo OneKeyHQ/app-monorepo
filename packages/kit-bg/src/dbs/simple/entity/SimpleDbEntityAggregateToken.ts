@@ -35,6 +35,15 @@ export interface ISimpleDBAggregateToken {
     }
   >;
   allAggregateTokens?: IAccountToken[];
+  // Tracks the last successful wallet-config sync so stale caches written by
+  // older builds (with a different preset network list) get refreshed. Hot
+  // updates keep appVersion but change bundleVersion, so both are tracked.
+  configSyncMeta?: {
+    appVersion: string;
+    // Absent on caches written before bundle tracking was added.
+    bundleVersion?: string;
+    syncedAt: number;
+  };
   tokenDetails?: Record<
     string, // all networks accountId
     Record<
@@ -186,6 +195,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     homeDefaultTokenMap,
     allAggregateTokenMap,
     allAggregateTokens,
+    configSyncMeta,
     merge = false,
   }: {
     allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
@@ -193,10 +203,16 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     aggregateTokenConfigMap: Record<string, IAggregateToken>;
     aggregateTokenSymbolMap: Record<string, boolean>;
     homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
+    configSyncMeta?: {
+      appVersion: string;
+      bundleVersion?: string;
+      syncedAt: number;
+    };
     merge?: boolean;
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
+      configSyncMeta: configSyncMeta ?? rawData?.configSyncMeta,
       aggregateTokenSymbolMap: merge
         ? { ...rawData?.aggregateTokenSymbolMap, ...aggregateTokenSymbolMap }
         : aggregateTokenSymbolMap,
@@ -217,6 +233,17 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       homeDefaultTokenMap: merge
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
+    }));
+  }
+
+  // Drops the sync marker so the next syncWalletConfigIfNeeded re-fetches the
+  // wallet config. Used when the server-network set changes, because the
+  // cached aggregate-token maps were gated on the previous set.
+  @backgroundMethod()
+  async clearConfigSyncMeta() {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      configSyncMeta: undefined,
     }));
   }
 

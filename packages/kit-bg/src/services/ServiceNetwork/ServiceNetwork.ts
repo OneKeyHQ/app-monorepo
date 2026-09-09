@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  ROBINHOOD_NETWORK_ID,
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
   presetNetworksMap,
@@ -69,6 +70,8 @@ import type {
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
+  // Robinhood sits above Bitcoin in the single-network selector (OK-62300).
+  ROBINHOOD_NETWORK_ID,
   getNetworkIdsMap().btc,
   getNetworkIdsMap().lightning,
   getNetworkIdsMap().eth,

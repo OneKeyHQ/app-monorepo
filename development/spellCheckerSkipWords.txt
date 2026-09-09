@@ -1568,3 +1568,7 @@ tnum
 # Circle Cross-Chain Transfer Protocol, and Hyperliquid's L1
 cctp
 hypercore
+robinhood
+usdg
+USDG
+cyeth
