@@ -1,5 +1,6 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import { buildTradingViewNativeChartScene } from './chartScene';
 import {
   appendTradingViewNativeTradeMarkCommands,
   getTradingViewNativeTradeMarkPointIndex,
@@ -26,6 +27,7 @@ function renderMarks(
     x: 0,
     y: 0,
   },
+  points: readonly IMarketTokenKLineDataPoint[] = POINTS,
 ) {
   const commands: ITradingViewNativeChartSceneCommand[] = [];
   const customPaintStyles: Record<
@@ -42,10 +44,11 @@ function renderMarks(
     maxPrice: 120,
     measureTextWidth: (text) => text.length * 6,
     minPrice: 90,
-    points: POINTS,
+    points,
     priceAxisX: 300,
     priceChartHeight: 500,
     priceScaleMode: 'linear',
+    priceSource: 'ohlc',
   });
   return { commands, customPaintStyles, layouts };
 }
@@ -107,6 +110,99 @@ describe('TradingViewNative trade marks', () => {
       layouts: [],
     });
   });
+
+  it('keeps the full fixed 30-day CoinGecko bucket across month boundaries', () => {
+    const interval = 30 * 24 * 60 * 60;
+    const first = { ...POINTS[0], t: 658 * interval };
+    for (const points of [
+      [first],
+      [first, { ...POINTS[1], t: first.t + interval }],
+    ]) {
+      expect(
+        getTradingViewNativeTradeMarkPointIndex({
+          candleIntervalSeconds: interval,
+          points,
+          timestamp: Date.UTC(2024, 1, 10) / 1000,
+        }),
+      ).toBe(0);
+    }
+    expect(
+      getTradingViewNativeTradeMarkPointIndex({
+        candleIntervalSeconds: interval,
+        points: [first],
+        timestamp: first.t + interval,
+      }),
+    ).toBeNull();
+  });
+
+  it('includes the last day of a 31-day calendar candle without filling a missing month', () => {
+    const points = [
+      { ...POINTS[0], t: Date.UTC(2024, 2, 1) / 1000 },
+      { ...POINTS[1], t: Date.UTC(2024, 4, 1) / 1000 },
+    ];
+    expect(
+      getTradingViewNativeTradeMarkPointIndex({
+        candleIntervalSeconds: 30 * 24 * 60 * 60,
+        points,
+        timestamp: Date.UTC(2024, 2, 31, 23, 59, 59) / 1000,
+      }),
+    ).toBe(0);
+    expect(
+      getTradingViewNativeTradeMarkPointIndex({
+        candleIntervalSeconds: 30 * 24 * 60 * 60,
+        points,
+        timestamp: Date.UTC(2024, 3, 1) / 1000,
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps bottom-edge marks and their tooltip inside the padded plot', () => {
+    const points = [{ ...POINTS[0], c: 90, h: 90.01, l: 90, o: 90 }];
+    const marks: ITradingViewNativeTradeMark[] = [
+      { id: 'bottom', label: 'B', text: 'Buy 100 TOKEN', time: START },
+    ];
+    const initial = renderMarks(marks, undefined, points);
+    expect(initial.layouts).toHaveLength(1);
+    const { x, y } = initial.layouts[0];
+    const hovered = renderMarks(marks, { visible: true, x, y }, points);
+    expect(hovered.commands).toContainEqual(
+      expect.objectContaining({ kind: 'text', text: 'Buy 100 TOKEN' }),
+    );
+    expect(y).toBeGreaterThan(500);
+    expect(y + 7).toBeLessThan(524);
+  });
+
+  it.each(['line', 'area'] as const)(
+    'anchors marks to the visible close in a %s chart with a large wick',
+    (chartType) => {
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        candleLabels: { open: 'O', high: 'H', low: 'L', close: 'C' },
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [{ id: 'buy', label: 'B', text: 'Buy', time: START }],
+            },
+          },
+        ],
+        chartType,
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 300,
+        measureTextWidth: (text) => text.length * 6,
+        points: POINTS.map((point) => ({ ...point, h: 1000 })),
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 400,
+      });
+      expect(scene.commands).toContainEqual(
+        expect.objectContaining({ kind: 'text', text: 'B' }),
+      );
+      expect(scene.autoPriceRange?.maxPrice).toBeLessThan(1000);
+    },
+  );
 
   it('deduplicates and stacks at most ten marks per candle', () => {
     const marks: ITradingViewNativeTradeMark[] = Array.from(

@@ -1474,6 +1474,7 @@ export function buildTradingViewNativeChartScene({
     priceAxisX,
     priceChartHeight,
     priceScaleMode: resolvedPriceScaleMode,
+    priceSource: primarySeries.priceSource,
   });
 
   return {

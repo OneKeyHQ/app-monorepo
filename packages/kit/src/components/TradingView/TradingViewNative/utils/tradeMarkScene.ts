@@ -14,6 +14,7 @@ import type {
   ITradingViewNativeChartSceneFont,
   ITradingViewNativeChartScenePaintStyle,
 } from './chartScene';
+import type { ITradingViewNativePrimarySeriesPriceSource } from './chartType';
 import type {
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
@@ -59,7 +60,12 @@ export function getTradingViewNativeTradeMarkPointIndex({
   let end = point.t + candleIntervalSeconds;
   if (candleIntervalSeconds === 30 * 24 * 60 * 60) {
     const date = new Date(point.t * 1000);
-    end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) / 1000;
+    const monthStart =
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000;
+    // CoinGecko uses fixed 30-day Unix buckets instead of calendar months.
+    if (point.t === monthStart) {
+      end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) / 1000;
+    }
   }
   // Do not attach trades in a missing candle to the preceding candle.
   return time < Math.min(end, points[index + 1]?.t ?? end) ? index : null;
@@ -92,11 +98,12 @@ function appendTradeMarkTooltip({
   'worklet';
 
   const padding = 8;
+  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
   const lineHeight = TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE + 5;
   const maxWidth = Math.min(300, priceAxisX - padding * 2);
   const maxLines = Math.min(
     6,
-    Math.floor((priceChartHeight - padding * 2) / lineHeight),
+    Math.floor((chartBottom - padding * 2) / lineHeight),
   );
   if (maxWidth <= padding * 2 || maxLines < 1) {
     return;
@@ -134,7 +141,7 @@ function appendTradeMarkTooltip({
   );
   const y = Math.max(
     0,
-    Math.min(mark.y + MARK_RADIUS + padding, priceChartHeight - height),
+    Math.min(mark.y + MARK_RADIUS + padding, chartBottom - height),
   );
   commands.push({
     kind: 'rect',
@@ -170,6 +177,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceAxisX,
   priceChartHeight,
   priceScaleMode,
+  priceSource,
 }: {
   candleIntervalSeconds: number;
   commands: ITradingViewNativeChartSceneCommand[];
@@ -187,10 +195,12 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceAxisX: number;
   priceChartHeight: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
+  priceSource: ITradingViewNativePrimarySeriesPriceSource;
 }): ITradingViewNativeTradeMarkLayout[] {
   'worklet';
 
   const layouts: ITradingViewNativeTradeMarkLayout[] = [];
+  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
   const barCounts: Record<number, number> = {};
   const ids = new Set<string>();
   let hoveredMark: ITradingViewNativeTradeMarkLayout | undefined;
@@ -221,17 +231,21 @@ export function appendTradingViewNativeTradeMarkCommands({
       ) {
         return;
       }
-      const candleY = getTradingViewNativePriceY(points[index].h, {
-        maxPrice,
-        minPrice,
-        priceChartHeight,
-        priceScaleMode,
-      });
+      const point = points[index];
+      const candleY = getTradingViewNativePriceY(
+        priceSource === 'close' ? point.c : point.h,
+        {
+          maxPrice,
+          minPrice,
+          priceChartHeight,
+          priceScaleMode,
+        },
+      );
       const y = candleY - MARK_SIZE * 1.4 * (order + 0.85);
       if (
         !Number.isFinite(y) ||
         y + MARK_RADIUS < 0 ||
-        y - MARK_RADIUS > priceChartHeight
+        y - MARK_RADIUS > chartBottom
       ) {
         return;
       }
@@ -250,7 +264,7 @@ export function appendTradingViewNativeTradeMarkCommands({
             x: TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
             y: 0,
             width: priceAxisX - TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-            height: priceChartHeight + TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+            height: chartBottom,
           },
         },
         {
