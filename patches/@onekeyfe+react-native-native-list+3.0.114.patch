@@ -1,0 +1,186 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/build.gradle b/node_modules/@onekeyfe/react-native-native-list/android/build.gradle
+index a4796fa..070622a 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/build.gradle
++++ b/node_modules/@onekeyfe/react-native-native-list/android/build.gradle
+@@ -101,5 +101,6 @@ dependencies {
+   implementation "androidx.recyclerview:recyclerview:1.4.0"
+   implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
+   implementation project(":react-native-nitro-modules")
++  implementation project(":onekeyfe_react-native-native-logger")
+   implementation project(":onekeyfe_react-native-image")
+ }
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+index e19bff6..9ff0709 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
+ import android.os.Bundle
+ import android.os.Handler
+ import android.os.Looper
++import android.os.SystemClock
+ import android.view.HapticFeedbackConstants
+ import android.view.Choreographer
+ import android.view.Gravity
+@@ -30,6 +31,7 @@ import androidx.recyclerview.widget.LinearSmoothScroller
+ import androidx.recyclerview.widget.RecyclerView
+ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+ import com.facebook.react.uimanager.ThemedReactContext
++import com.margelo.nitro.nativelogger.OneKeyLog
+ import org.json.JSONArray
+ import org.json.JSONObject
+ import java.lang.ref.WeakReference
+@@ -1225,6 +1227,11 @@ class NativeListView(
+     ) {
+       private var compactWalletGroupDrag = false
+       private var compactWalletGroupTop = Float.NaN
++      private var dragType: String? = null
++      private var dragStartedAtMs = 0L
++      private var lastAutoScrollLogAtMs = 0L
++      private var latestDragDx = 0f
++      private var latestDragDy = 0f
+ 
+       override fun isLongPressDragEnabled(): Boolean = false
+ 
+@@ -1236,6 +1243,19 @@ class NativeListView(
+           reorderPlaceholderDecoration.position = position
+           reorderPlaceholderDecoration.color = reorderActiveBackground(next.theme)
+           compactWalletGroupDrag = item?.type == "walletGroup" && viewHolder != null
++          dragType = item?.type
++          dragStartedAtMs = SystemClock.uptimeMillis()
++          lastAutoScrollLogAtMs = 0L
++          latestDragDx = 0f
++          latestDragDy = 0f
++          OneKeyLog.info(
++            REORDER_LOG_TAG,
++            "start type=${dragType.orEmpty()} position=$position " +
++              "compact=$compactWalletGroupDrag itemHeight=${viewHolder?.itemView?.height ?: -1} " +
++              "viewport=${recyclerView.width}x${recyclerView.height} " +
++              "padding=${recyclerView.paddingLeft},${recyclerView.paddingTop}," +
++              "${recyclerView.paddingRight},${recyclerView.paddingBottom} density=$density",
++          )
+           recyclerView.invalidate()
+           (viewHolder as? NativeListViewHolder)?.rowView?.setReorderActive(true)
+           if (compactWalletGroupDrag && viewHolder != null) {
+@@ -1271,6 +1291,12 @@ class NativeListView(
+         dragTo = to
+         if (crossedPosition) {
+           recyclerView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
++          OneKeyLog.info(
++            REORDER_LOG_TAG,
++            "move type=${dragType.orEmpty()} from=$from to=$to " +
++              "scrollOffset=${recyclerView.computeVerticalScrollOffset()} " +
++              "dragDx=$latestDragDx dragDy=$latestDragDy",
++          )
+         }
+         val displacedView = target.itemView
+         prepareDisplacedReorderAnimation(displacedView)
+@@ -1294,6 +1320,8 @@ class NativeListView(
+         isCurrentlyActive: Boolean,
+       ) {
+         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
++          latestDragDx = dX
++          latestDragDy = dY
+           if (compactWalletGroupDrag) {
+             compactWalletGroupTop = viewHolder.itemView.top + dY
+           }
+@@ -1308,32 +1336,48 @@ class NativeListView(
+         totalSize: Int,
+         msSinceStartScroll: Long,
+       ): Int {
+-        if (!compactWalletGroupDrag) {
+-          return super.interpolateOutOfBoundsScroll(
+-            recyclerView,
+-            viewSize,
+-            viewSizeOutOfBounds,
+-            totalSize,
+-            msSinceStartScroll,
+-          )
+-        }
+-        if (compactWalletGroupTop.isNaN()) return 0
+-        val compactHeight = dp(68)
+-        val compactTop = compactWalletGroupTop.roundToInt()
+-        val compactOutOfBounds = when {
+-          compactTop < recyclerView.paddingTop -> compactTop - recyclerView.paddingTop
+-          compactTop + compactHeight > recyclerView.height - recyclerView.paddingBottom ->
+-            compactTop + compactHeight - (recyclerView.height - recyclerView.paddingBottom)
+-          else -> 0
++        val effectiveViewSize: Int
++        val effectiveOutOfBounds: Int
++        if (compactWalletGroupDrag) {
++          if (compactWalletGroupTop.isNaN()) return 0
++          effectiveViewSize = dp(68)
++          val compactTop = compactWalletGroupTop.roundToInt()
++          effectiveOutOfBounds = when {
++            compactTop < recyclerView.paddingTop -> compactTop - recyclerView.paddingTop
++            compactTop + effectiveViewSize > recyclerView.height - recyclerView.paddingBottom ->
++              compactTop + effectiveViewSize - (recyclerView.height - recyclerView.paddingBottom)
++            else -> 0
++          }
++          if (effectiveOutOfBounds == 0) return 0
++        } else {
++          effectiveViewSize = viewSize
++          effectiveOutOfBounds = viewSizeOutOfBounds
+         }
+-        if (compactOutOfBounds == 0) return 0
+-        return super.interpolateOutOfBoundsScroll(
++        val result = super.interpolateOutOfBoundsScroll(
+           recyclerView,
+-          compactHeight,
+-          compactOutOfBounds,
++          effectiveViewSize,
++          effectiveOutOfBounds,
+           totalSize,
+           msSinceStartScroll,
+         )
++        val now = SystemClock.uptimeMillis()
++        if (
++          lastAutoScrollLogAtMs == 0L ||
++          now - lastAutoScrollLogAtMs >= REORDER_AUTOSCROLL_LOG_INTERVAL_MS
++        ) {
++          lastAutoScrollLogAtMs = now
++          OneKeyLog.info(
++            REORDER_LOG_TAG,
++            "autoScroll type=${dragType.orEmpty()} " +
++              "compact=$compactWalletGroupDrag rawViewSize=$viewSize " +
++              "effectiveViewSize=$effectiveViewSize rawOut=$viewSizeOutOfBounds " +
++              "effectiveOut=$effectiveOutOfBounds totalSize=$totalSize " +
++              "elapsedOutMs=$msSinceStartScroll elapsedDragMs=${now - dragStartedAtMs} " +
++              "resultPx=$result scrollOffset=${recyclerView.computeVerticalScrollOffset()} " +
++              "dragDx=$latestDragDx dragDy=$latestDragDy compactTop=$compactWalletGroupTop",
++          )
++        }
++        return result
+       }
+ 
+       override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+@@ -1349,6 +1393,13 @@ class NativeListView(
+         val from = dragFrom
+         val to = dragTo
+         val reordered = pendingReorder
++        OneKeyLog.info(
++          REORDER_LOG_TAG,
++          "end type=${dragType.orEmpty()} from=$from to=$to " +
++            "compact=$wasCompactWalletGroupDrag elapsedDragMs=" +
++            "${SystemClock.uptimeMillis() - dragStartedAtMs} " +
++            "scrollOffset=${recyclerView.computeVerticalScrollOffset()}",
++        )
+         var reorderPayload: JSONObject? = null
+         val destinationPosition = if (to != RecyclerView.NO_POSITION) {
+           to
+@@ -1404,6 +1455,7 @@ class NativeListView(
+         dragFrom = RecyclerView.NO_POSITION
+         dragTo = RecyclerView.NO_POSITION
+         pendingReorder = null
++        dragType = null
+         // The gesture is committed now; a later snapshot may supersede its async diff.
+         reorderPayload?.let { emit(REORDER, it) }
+       }
+@@ -1632,6 +1684,8 @@ class NativeListView(
+     private const val REORDER_SPRING_STIFFNESS = 400.0
+     private const val REORDER_SPRING_MASS = 0.4
+     private const val REORDER_SPRING_DURATION_MS = 300L
++    private const val REORDER_AUTOSCROLL_LOG_INTERVAL_MS = 100L
++    private const val REORDER_LOG_TAG = "NativeListReorder"
+     private const val ROW_ACTION = "rowAction"
+     private const val ACTION_ANCHOR_INVALIDATED = "actionAnchorInvalidated"
+     private const val SELECTION_DELTA = "selectionDelta"
