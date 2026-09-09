@@ -3,7 +3,10 @@
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceFiatCrypto: { getTokensListWithNetworks: jest.fn() },
+    serviceFiatCrypto: {
+      getTokensListWithNetworks: jest.fn(),
+      isNetworkSupported: jest.fn(),
+    },
   },
 }));
 
@@ -17,7 +20,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const state: { options?: { swrKey?: string } } = {};
+  const state: { options?: { swrKey?: string; initResult?: unknown } } = {};
   (
     globalThis as unknown as {
       __fiatCryptoPromiseResultMock: typeof state;
@@ -36,13 +39,15 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   };
 });
 
-import { useGetTokensListWithNetworks } from '.';
+import { useGetTokensListWithNetworks, useSupportNetworkId } from '.';
 
 import { renderHook } from '@testing-library/react-native';
 
 const promiseResultMock = (
   globalThis as unknown as {
-    __fiatCryptoPromiseResultMock: { options?: { swrKey?: string } };
+    __fiatCryptoPromiseResultMock: {
+      options?: { swrKey?: string; initResult?: unknown };
+    };
   }
 ).__fiatCryptoPromiseResultMock;
 
@@ -104,6 +109,29 @@ describe('useGetTokensListWithNetworks cache identity', () => {
         accountId: ACCOUNT_ID,
       }),
     );
+
+    expect(promiseResultMock.options?.swrKey).toBeUndefined();
+  });
+});
+
+describe('useSupportNetworkId cache identity (OK-61505)', () => {
+  beforeEach(() => {
+    promiseResultMock.options = undefined;
+  });
+
+  it('snapshots the buy/sell support flag per network and type', () => {
+    // The home Buy/Sell entry is fail-closed on this flag; without a
+    // snapshot every cold start paints it greyed until fiat-pay/list lands.
+    renderHook(() => useSupportNetworkId('sell', 'evm--1'));
+
+    expect(promiseResultMock.options?.swrKey).toBe(
+      'fiatCryptoNetSupport:v1:evm--1:sell',
+    );
+    expect(promiseResultMock.options?.initResult).toBe(false);
+  });
+
+  it('does not snapshot before the active network is known', () => {
+    renderHook(() => useSupportNetworkId('buy', undefined));
 
     expect(promiseResultMock.options?.swrKey).toBeUndefined();
   });
