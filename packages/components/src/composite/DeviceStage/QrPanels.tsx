@@ -35,6 +35,11 @@ import {
 /** Code size inside its white quiet-zone card. */
 const QR_SIZE = 216;
 const QR_QUIET_ZONE = 12;
+/** QRCode's own canvas padding, and the canvas it draws (symbol plus
+ * padding — see getQRCodeLayoutMetrics). The seat reserves this box so
+ * the plate keeps its footprint before the code is drawn. */
+const QR_PADDING = 10;
+const QR_CANVAS_SIZE = QR_SIZE + QR_PADDING;
 
 /** The camera window's square, matched to the code card's footprint. */
 const FRAME_SIZE = QR_SIZE + 2 * QR_QUIET_ZONE;
@@ -85,7 +90,17 @@ export function QrPresent({
           borderRadius="$4"
           borderCurve="continuous"
         >
-          <QRCode value={value} valueUr={valueUr} size={QR_SIZE} />
+          {/* The box holds the code's footprint while the encoder chunk
+              loads and before the first UR frame lands — an empty seat
+              collapsed the plate into a white dot (OK-62158). */}
+          <Stack width={QR_CANVAS_SIZE} height={QR_CANVAS_SIZE}>
+            <QRCode
+              value={value}
+              valueUr={valueUr}
+              size={QR_SIZE}
+              padding={QR_PADDING}
+            />
+          </Stack>
         </YStack>
       </YStack>
       {onNext ? (

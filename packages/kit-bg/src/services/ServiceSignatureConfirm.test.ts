@@ -49,6 +49,7 @@ import {
   EParseTxComponentType,
   EParseTxType,
   type IDisplayComponent,
+  type IDisplayComponentApprove,
   type IDisplayComponentSimulation,
   type IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
@@ -71,6 +72,11 @@ const networkId = 'evm--56';
 const accountId = 'account-id';
 const accountAddress = '0xaccount';
 const contractAddress = '0xcontract';
+// EIP-55 reference vectors.
+const evmLowerAddress = '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed';
+const evmChecksumAddress = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+const evmLowerSpender = '0xfb6916095ca1df60bb79ce92ce3ea74c37c5d359';
+const evmChecksumSpender = '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359';
 
 function buildParsedTx({
   components,
@@ -260,6 +266,133 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
 
     expect(decodedTx.isLocalParsed).toBeUndefined();
     expect(decodedTx.txDisplay).toBe(parsedTx.display);
+  });
+
+  it('checksums EVM addresses on the server display', async () => {
+    const parsedTx = buildParsedTx({
+      components: [
+        {
+          type: EParseTxComponentType.Address,
+          label: 'To',
+          address: evmLowerAddress,
+          tags: [],
+        },
+        {
+          type: EParseTxComponentType.Approve,
+          label: 'Approve',
+          spender: evmLowerSpender,
+        } as IDisplayComponentApprove,
+      ],
+    });
+
+    const decodedTx = await buildService(parsedTx).buildDecodedTx({
+      networkId,
+      accountId,
+      accountAddress,
+      unsignedTx: { encodedTx: {} },
+    });
+
+    expect(decodedTx.isLocalParsed).toBeUndefined();
+    expect(decodedTx.txDisplay?.components).toEqual([
+      expect.objectContaining({
+        type: EParseTxComponentType.Address,
+        address: evmChecksumAddress,
+      }),
+      expect.objectContaining({
+        type: EParseTxComponentType.Approve,
+        spender: evmChecksumSpender,
+      }),
+    ]);
+  });
+
+  it('checksums EVM addresses on the local fallback display', async () => {
+    const parsedTx = buildParsedTx({ components: [] });
+    const service = buildService(parsedTx);
+    const localDecodedTx = buildLocalDecodedTx();
+    localDecodedTx.actions[0].unknownAction = {
+      from: accountAddress,
+      to: evmLowerAddress,
+    };
+    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+      buildDecodedTx: jest.fn().mockResolvedValue(localDecodedTx),
+    });
+
+    const decodedTx = await service.buildDecodedTx({
+      networkId,
+      accountId,
+      accountAddress,
+      unsignedTx: buildUnsignedTx(),
+    });
+
+    expect(decodedTx.isLocalParsed).toBe(true);
+    expect(decodedTx.txDisplay?.components).toContainEqual(
+      expect.objectContaining({
+        type: EParseTxComponentType.Address,
+        address: evmChecksumAddress,
+      }),
+    );
+    expect(decodedTx.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ address: evmLowerAddress }),
+    );
+  });
+});
+
+describe('ServiceSignatureConfirm.parseMessage', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('checksums EVM addresses on the parsed message display', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          accountAddress,
+          display: {
+            title: 'Permit',
+            components: [
+              {
+                type: EParseTxComponentType.Address,
+                label: 'Spender',
+                address: evmLowerAddress,
+                tags: [],
+              },
+            ],
+            alerts: [],
+          },
+          type: EParseTxType.Unknown,
+        },
+      },
+    });
+    const backgroundApi = {
+      serviceNetwork: {
+        isCustomNetwork: jest.fn().mockResolvedValue(false),
+      },
+      serviceAccount: {
+        getAccountAddressForApi: jest.fn().mockResolvedValue(accountAddress),
+      },
+      serviceGas: {
+        getClient: jest.fn().mockResolvedValue({ post }),
+      },
+      serviceAccountProfile: {
+        _getWalletTypeHeader: jest
+          .fn()
+          .mockResolvedValue({ 'X-Wallet-Type': 'hd' }),
+      },
+    };
+    const service = new ServiceSignatureConfirm({ backgroundApi });
+
+    const parsedMessage = await service.parseMessage({
+      networkId,
+      accountId,
+      message: '{"primaryType":"Permit"}',
+    });
+
+    expect(parsedMessage?.display.components).toEqual([
+      expect.objectContaining({
+        type: EParseTxComponentType.Address,
+        address: evmChecksumAddress,
+      }),
+    ]);
   });
 });
 

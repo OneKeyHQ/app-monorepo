@@ -2216,6 +2216,9 @@ function PerpTradingForm({
                     id: ETranslations.Perps_BBO_button_desc,
                   })}
                   placement="top-end"
+                  // Tamagui 2 stops click propagation on the tooltip trigger, so
+                  // clicks on the label never reach the Badge onPress.
+                  onPress={isSubmitting ? undefined : handleBBOToggle}
                 />
               )}
             </Badge>
@@ -2539,7 +2542,7 @@ function PerpTradingForm({
         {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
-        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        size={isMobile ? '$bodySm' : '$bodyMd'}
         color="$text"
         dashColor="$textDisabled"
         dashThickness={0.5}
@@ -2586,7 +2589,7 @@ function PerpTradingForm({
                 {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
               <DashText
-                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                size={isMobile ? '$bodySm' : '$bodyMd'}
                 color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}

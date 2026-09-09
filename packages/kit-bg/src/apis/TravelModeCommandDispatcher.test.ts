@@ -3,7 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 const mockRunCommand = jest.fn(async () => {
   throw new OneKeyLocalError('Unknown error');
 });
-const mockGetRuntimeState = jest.fn(async () => 'active');
+const mockGetRuntimeStateSync = jest.fn(() => 'active');
 const mockGetRuntimeEnvironment = jest.fn(async () => ({
   commands: {
     run: mockRunCommand,
@@ -13,7 +13,8 @@ const mockGetRuntimeEnvironment = jest.fn(async () => ({
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironment: mockGetRuntimeEnvironment,
-    getRuntimeState: mockGetRuntimeState,
+    getRuntimeStateSync: mockGetRuntimeStateSync,
+    ready: Promise.resolve(),
   },
 }));
 
@@ -24,6 +25,7 @@ const { TravelModeCommandDispatcher } =
 describe('TravelModeCommandDispatcher', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetRuntimeStateSync.mockReturnValue('active');
   });
 
   it('rejects protected service commands from the authoritative dispatcher', async () => {
@@ -71,7 +73,7 @@ describe('TravelModeCommandDispatcher', () => {
     ).resolves.toBe('root-state');
 
     expect(operation).toHaveBeenCalledTimes(1);
-    expect(mockGetRuntimeState).toHaveBeenCalledTimes(1);
+    expect(mockGetRuntimeStateSync).toHaveBeenCalledTimes(1);
     expect(mockGetRuntimeEnvironment).not.toHaveBeenCalled();
     expect(mockRunCommand).not.toHaveBeenCalled();
   });
@@ -106,13 +108,13 @@ describe('TravelModeCommandDispatcher', () => {
     ).resolves.toBe('enabled');
 
     expect(operation).toHaveBeenCalledTimes(1);
-    expect(mockGetRuntimeState).toHaveBeenCalledTimes(1);
+    expect(mockGetRuntimeStateSync).toHaveBeenCalledTimes(1);
     expect(mockGetRuntimeEnvironment).not.toHaveBeenCalled();
     expect(mockRunCommand).not.toHaveBeenCalled();
   });
 
   it('exposes only restart retry while transition recovery is active', async () => {
-    mockGetRuntimeState.mockResolvedValue('transition-recovery');
+    mockGetRuntimeStateSync.mockReturnValue('transition-recovery');
     const dispatcher = new TravelModeCommandDispatcher();
     const operation = jest.fn(async () => 'control-result');
 
@@ -134,4 +136,32 @@ describe('TravelModeCommandDispatcher', () => {
     ).resolves.toBe('control-result');
     expect(operation).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['initializing', 'activating', 'deactivating'])(
+    'keeps allowlisted business reads fail-closed while %s',
+    async (runtimeState) => {
+      mockGetRuntimeStateSync.mockReturnValue(runtimeState);
+      const dispatcher = new TravelModeCommandDispatcher();
+      const operation = jest.fn(async () => [{ id: 'wallet-1' }]);
+
+      await expect(
+        dispatcher.runServiceCall({
+          methodName: 'getWallets',
+          operation,
+          serviceName: 'serviceAccount',
+        }),
+      ).rejects.toThrow('Unknown error');
+
+      expect(operation).not.toHaveBeenCalled();
+
+      await expect(
+        dispatcher.runServiceCall({
+          methodName: 'retryRestart',
+          operation,
+          serviceName: 'serviceTravelMode',
+        }),
+      ).rejects.toThrow('Unknown error');
+      expect(operation).not.toHaveBeenCalled();
+    },
+  );
 });

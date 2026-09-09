@@ -273,6 +273,7 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
     'apps/mobile/package.json',

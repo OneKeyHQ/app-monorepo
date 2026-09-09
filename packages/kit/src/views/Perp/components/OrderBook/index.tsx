@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 24,
     fontWeight: '600',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.8,
     width: '100%',
   },

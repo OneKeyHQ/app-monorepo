@@ -1647,6 +1647,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const shouldSeedMarketEmbeddedPair = Boolean(
     singleSwapBridgeHeader &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
+    swapInitParams.importFromToken &&
     swapInitParams.importToToken,
   );
   const initialSelectedTokensOnInit =

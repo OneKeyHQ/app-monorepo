@@ -1120,7 +1120,17 @@ function computeShellCompatibilityKey({ nativeContractKey, platform }) {
   );
 }
 
-function computeShellInputKey({ nativeContractKey, platform }) {
+function computeShellInputKey({
+  nativeContractKey,
+  nativeBuildDigest,
+  platform,
+}) {
+  if (
+    nativeBuildDigest !== undefined &&
+    !/^[0-9a-f]{64}$/u.test(nativeBuildDigest)
+  ) {
+    throw new Error('[devVendor] Invalid native build digest.');
+  }
   const shellCompatibilityKey = computeShellCompatibilityKey({
     nativeContractKey,
     platform,
@@ -1129,6 +1139,9 @@ function computeShellInputKey({ nativeContractKey, platform }) {
     [
       'onekey-mobile-dev-shell-input-v3',
       `compatibility=${shellCompatibilityKey}`,
+      // Rebuild the exact iOS artifact when packaging requirements change without an ABI change.
+      ...(platform === 'ios' ? ['simulator-signing=1'] : []),
+      ...(nativeBuildDigest ? [`native-build=${nativeBuildDigest}`] : []),
       '',
     ].join('\0'),
   );
