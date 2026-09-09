@@ -1,5 +1,7 @@
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketBasicConfigNetwork,
@@ -30,6 +32,7 @@ const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
  * Provides default network, recommended tokens, and other market settings
  */
 export function useMarketBasicConfig() {
+  const locale = useLocaleVariant();
   const { result, isLoading } = usePromiseResult(
     async () => {
       const response = await fetchMarketBasicConfigForPlatform();
@@ -67,9 +70,15 @@ export function useMarketBasicConfig() {
         stockCategories,
       };
     },
-    [],
+    // Locale changes invalidate both the cached display data and the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locale],
     {
       checkIsFocused: !platformEnv.isWeb,
+      swrKey: platformEnv.isNative
+        ? swrKeys.marketHomeConfig(locale)
+        : undefined,
+      swrShouldPersist: (data) => Boolean(data),
       watchLoading: true,
       revalidateOnReconnect: true,
     },

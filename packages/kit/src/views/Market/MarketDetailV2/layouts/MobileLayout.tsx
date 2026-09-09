@@ -272,6 +272,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  isInitialContentPending?: boolean;
   disableTrade?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
@@ -285,6 +286,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  isInitialContentPending,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative,
@@ -787,7 +789,10 @@ export function MobileLayout({
           horizontalSwipeThreshold={36}
         >
           <YStack display={isChartFullscreen ? 'none' : undefined}>
-            <PerpetualTradingBanner px="$5" />
+            <PerpetualTradingBanner
+              px="$5"
+              stableLayout={platformEnv.isNative}
+            />
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
@@ -1050,6 +1055,22 @@ export function MobileLayout({
       });
     }
   };
+
+  // Reveal quotes and the chart only after the first detail request has
+  // also determined whether the perps banner exists. Polling keeps them mounted.
+  if (platformEnv.isNative && isInitialContentPending) {
+    return (
+      <Stack
+        flex={1}
+        bg="$bgApp"
+        alignItems="center"
+        justifyContent="center"
+        testID="market-detail-initial-loading"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
 
   return (
     <YStack

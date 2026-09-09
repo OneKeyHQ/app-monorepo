@@ -4,6 +4,7 @@ import { MobileLayout } from './MobileLayout';
 import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 
 export function MarketDetailResponsiveLayout({
+  isInitialContentPending,
   isDesktopLayout,
   isChartFullscreen,
   isTradingViewNative,
@@ -41,6 +42,7 @@ export function MarketDetailResponsiveLayout({
 
   return (
     <MobileLayout
+      isInitialContentPending={isInitialContentPending}
       disableTrade={disableTrade}
       isChartFullscreen={isChartFullscreen}
       isTradingViewNative={isTradingViewNative}

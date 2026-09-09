@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,11 +27,13 @@ export function PerpetualTradingBanner({
   pr,
   px,
   py = '$3',
+  stableLayout = false,
 }: {
   pl?: string;
   pr?: string;
   px?: string;
   py?: string;
+  stableLayout?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -39,6 +41,9 @@ export function PerpetualTradingBanner({
   const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
 
   const hlTicker = perpsInfo?.hlTicker;
+  // Native detail mounts this only after the first request has settled.
+  // A later retry must not insert a banner above an already visible chart.
+  const [initiallyVisible] = useState(Boolean(hlTicker));
 
   const dismissed = useMemo(
     () => bannerClose.ids.includes(PERPS_BANNER_ID),
@@ -88,9 +93,8 @@ export function PerpetualTradingBanner({
     }, 80);
   }, [hlTicker, navigation, tokenDetail?.symbol]);
 
-  if (dismissed || !hlTicker) {
-    return null;
-  }
+  if (dismissed || (stableLayout && !initiallyVisible)) return null;
+  if (!hlTicker && !stableLayout) return null;
 
   const title = intl.formatMessage(
     { id: ETranslations.dexmarket_perpetual_trading_title },
@@ -99,6 +103,10 @@ export function PerpetualTradingBanner({
 
   return (
     <XStack
+      opacity={hlTicker ? 1 : 0}
+      pointerEvents={hlTicker ? 'auto' : 'none'}
+      accessibilityElementsHidden={!hlTicker}
+      importantForAccessibility={hlTicker ? 'auto' : 'no-hide-descendants'}
       py={py}
       pl={pl ?? px}
       pr={pr ?? px}
