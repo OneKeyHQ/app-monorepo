@@ -440,6 +440,9 @@ export class DeviceStageBurstScope {
    * write it back: its ask belongs to a call the person already left. */
   private dismissSeq = 0;
 
+  // Unlike silence, userClose discards every outstanding burst claim.
+  private burstResetSeq = 0;
+
   /** The stage yielded to a dialog (see silence) while a burst still
    * holds it. Until that burst ends, the person closes, or the device
    * asks again, stragglers from the call the dialog interrupted — its
@@ -551,75 +554,91 @@ export class DeviceStageBurstScope {
       return false;
     }
     const dismissal = this.dismissSeq;
+    const burstReset = this.burstResetSeq;
     this.clearOffTimer();
     this.depth += 1;
     setDeviceStageBurstActive(true);
-    if (params.confirmContent) {
-      this.confirmContent = params.confirmContent;
-    }
-    if (this.depth === 1) {
-      this.activeVendor = params.vendor;
-      this.authoredAuthStep = undefined;
-      this.yieldedToDialog = false;
-      // A fresh initiation makes its own presence finding — a device the
-      // PREVIOUS burst heard from proves nothing about this one.
-      this.sawDeviceEventThisBurst = false;
-      // A new burst owns the stage; a nested wrapper joining mid-dwell
-      // (depth >= 2) is not a new narrative and must not disarm it.
-      this.clearAuthHold();
-      const prev = await deviceStageAtom.get();
-      const stillEnabled = await this.isEnabled();
-      // Re-checked after the awaits: the firmware workflow can take the
-      // stage meanwhile (or the person can close it) — its silence found no
-      // pendingOpen to clear yet, so the opening timer below would have
-      // painted connecting over the update page, and the caller would have
-      // been told a burst it does not have is open. Roll this claim back.
-      if (dismissal !== this.dismissSeq || !stillEnabled) {
-        this.depth = Math.max(this.depth - 1, 0);
-        if (this.depth === 0) {
-          setDeviceStageBurstActive(false);
-        }
-        return false;
+    const rollback = () => {
+      // A dismissed call cannot release a claim from the next burst.
+      if (burstReset !== this.burstResetSeq) return;
+      this.depth = Math.max(this.depth - 1, 0);
+      if (this.depth === 0) {
+        setDeviceStageBurstActive(false);
+        this.clearPendingOpen();
+        this.confirmContent = undefined;
+        this.activeVendor = undefined;
+        this.scheduleOff(END_GRACE_MS);
       }
-      const stageStillOn = prev && prev.step !== 'off';
-      // A follow-up wrapper inside the grace window rejoins the visible
-      // stage: keep the burstId so the container's close grant stays armed.
-      this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
-      // The opening `connecting` beat is deferred a beat: a flow whose
-      // first real step follows immediately (the genuine check) opens
-      // straight into it, instead of flashing the connecting scene first.
-      this.clearPendingOpen();
-      this.pendingOpen = params;
-      this.openingTimer = setTimeout(() => {
-        const opening = this.pendingOpen;
-        this.pendingOpen = undefined;
-        this.openingTimer = undefined;
-        if (!opening) {
-          return;
+    };
+    try {
+      if (this.depth === 1) {
+        this.confirmContent = params.confirmContent;
+        this.activeVendor = params.vendor;
+        this.authoredAuthStep = undefined;
+        this.yieldedToDialog = false;
+        // A fresh initiation makes its own presence finding — a device the
+        // PREVIOUS burst heard from proves nothing about this one.
+        this.sawDeviceEventThisBurst = false;
+        // A new burst owns the stage; a nested wrapper joining mid-dwell
+        // (depth >= 2) is not a new narrative and must not disarm it.
+        this.clearAuthHold();
+        const prev = await deviceStageAtom.get();
+        const stillEnabled = await this.isEnabled();
+        // Re-checked after the awaits: the firmware workflow can take the
+        // stage meanwhile (or the person can close it) — its silence found no
+        // pendingOpen to clear yet, so the opening timer below would have
+        // painted connecting over the update page, and the caller would have
+        // been told a burst it does not have is open. Roll this claim back.
+        if (dismissal !== this.dismissSeq || !stillEnabled) {
+          rollback();
+          return false;
         }
-        void this.setStep('connecting', {
-          connectId: opening.connectId,
-          deviceType: opening.deviceType,
-          deviceName: opening.deviceName,
-          vendor: opening.vendor,
-          vendorModel: opening.vendorModel,
-          vendorModelName: opening.vendorModelName,
-          resetOutcome: true,
-        });
-      }, OPENING_BEAT_DEFER_MS);
+        const stageStillOn = prev && prev.step !== 'off';
+        // A follow-up wrapper inside the grace window rejoins the visible
+        // stage: keep the burstId so the container's close grant stays armed.
+        this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
+        // The opening `connecting` beat is deferred a beat: a flow whose
+        // first real step follows immediately (the genuine check) opens
+        // straight into it, instead of flashing the connecting scene first.
+        this.clearPendingOpen();
+        this.pendingOpen = params;
+        this.openingTimer = setTimeout(() => {
+          const opening = this.pendingOpen;
+          this.pendingOpen = undefined;
+          this.openingTimer = undefined;
+          if (!opening) {
+            return;
+          }
+          void this.setStep('connecting', {
+            connectId: opening.connectId,
+            deviceType: opening.deviceType,
+            deviceName: opening.deviceName,
+            vendor: opening.vendor,
+            vendorModel: opening.vendorModel,
+            vendorModelName: opening.vendorModelName,
+            resetOutcome: true,
+          });
+        }, OPENING_BEAT_DEFER_MS);
+        return true;
+      }
+      // Joined a burst already on stage (typically a UI-held one): the flow
+      // is mid-step, so only the device identity refreshes — the caller
+      // often knows the device the holder could not name yet.
+      // A call beginning inside the hold is the device at work: news for
+      // the container's idle clock, folded into the identity write so a
+      // split-runtime target pays one bridge hop, not two.
+      await this.mergeDeviceIdentity(params, { activity: true });
+      if (params.vendor && !this.activeVendor) {
+        this.activeVendor = params.vendor;
+      }
+      if (params.confirmContent) {
+        this.confirmContent = params.confirmContent;
+      }
       return true;
+    } catch (error) {
+      rollback();
+      throw error;
     }
-    // Joined a burst already on stage (typically a UI-held one): the flow
-    // is mid-step, so only the device identity refreshes — the caller
-    // often knows the device the holder could not name yet.
-    if (params.vendor && !this.activeVendor) {
-      this.activeVendor = params.vendor;
-    }
-    // A call beginning inside the hold is the device at work: news for
-    // the container's idle clock, folded into the identity write so a
-    // split-runtime target pays one bridge hop, not two.
-    await this.mergeDeviceIdentity(params, { activity: true });
-    return true;
   }
 
   /**
@@ -1534,6 +1553,7 @@ export class DeviceStageBurstScope {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
+    this.burstResetSeq += 1;
     this.depth = 0;
     this.yieldedToDialog = false;
     setDeviceStageBurstActive(false);
