@@ -432,35 +432,56 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
   });
 
   it.each([
-    EHardwareVendor.onekey,
-    EHardwareVendor.ledger,
-    EHardwareVendor.trezor,
-  ])('still opens and closes the stage for %s hardware', async (vendor) => {
-    const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
-      dbDevice: {
-        id: 'test-device',
-        name: 'Test device',
-        features: '',
-        connectId: '',
-        uuid: 'test-device',
-        deviceId: 'test-device',
-        deviceType: EDeviceType.Pro,
-        settingsRaw: '',
-        createdAt: 0,
-        updatedAt: 0,
-        vendor,
-      },
-    };
-    await service.withHardwareProcessing(
-      async () => {
-        await jest.advanceTimersByTimeAsync(500);
-        expect(stage?.step).toBe('connecting');
-      },
-      { deviceParams, skipCloseHardwareUiStateDialog: true },
-    );
-    await jest.advanceTimersByTimeAsync(3000);
-    expect(stage?.step).toBe('off');
-  });
+    { vendor: EHardwareVendor.onekey, externalPending: false },
+    { vendor: EHardwareVendor.ledger, externalPending: false },
+    { vendor: EHardwareVendor.trezor, externalPending: false },
+    { vendor: EHardwareVendor.ledger, externalPending: true },
+    { vendor: EHardwareVendor.trezor, externalPending: true },
+  ])(
+    'opens and closes $vendor hardware with externalPending=$externalPending',
+    async ({ vendor, externalPending }) => {
+      const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
+        dbDevice: {
+          id: 'test-device',
+          name: 'Test device',
+          features: '',
+          connectId: '',
+          uuid: 'test-device',
+          deviceId: 'test-device',
+          deviceType: EDeviceType.Pro,
+          settingsRaw: '',
+          createdAt: 0,
+          updatedAt: 0,
+          vendor,
+        },
+      };
+      let releaseExternal: (() => void) | undefined;
+      const externalOperation = externalPending
+        ? service.withHardwareProcessing(
+            () =>
+              new Promise<void>((resolve) => {
+                releaseExternal = resolve;
+              }),
+            { deviceParams: undefined },
+          )
+        : undefined;
+      await jest.advanceTimersByTimeAsync(0);
+      try {
+        await service.withHardwareProcessing(
+          async () => {
+            await jest.advanceTimersByTimeAsync(500);
+            expect(stage?.step).toBe('connecting');
+          },
+          { deviceParams, skipCloseHardwareUiStateDialog: true },
+        );
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(stage?.step).toBe('off');
+      } finally {
+        releaseExternal?.();
+        await externalOperation;
+      }
+    },
+  );
 });
 
 describe('ServiceHardwareUI bootloader recovery handoff', () => {

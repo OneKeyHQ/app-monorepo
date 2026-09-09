@@ -1524,27 +1524,31 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         assertActive();
-        // Non-hardware callers share this wrapper; QR flows own their stage.
-        if (device) {
-          stageBurstOpened = await this.deviceStageBurst.begin({
-            connectId,
-            deviceType: device.deviceType,
-            deviceName: deviceUtils.buildDeviceStageName({
-              features: device.featuresInfo,
-              fallbackName: device.name,
-            }),
-            vendor: isThirdPartyVendor
-              ? (device.vendor ?? device.settings?.vendor)
-              : undefined,
-            vendorModel: isThirdPartyVendor
-              ? device.settings?.vendorModel
-              : undefined,
-            vendorModelName: isThirdPartyVendor
-              ? device.settings?.vendorModelName
-              : undefined,
-            confirmContent: params.stageConfirmContent,
-          });
-        }
+      }
+
+      // Non-hardware callers share this wrapper; QR flows own their stage.
+      if (device) {
+        stageBurstOpened = await this.deviceStageBurst.begin({
+          connectId,
+          deviceType: device.deviceType,
+          deviceName: deviceUtils.buildDeviceStageName({
+            features: device.featuresInfo,
+            fallbackName: device.name,
+          }),
+          vendor: isThirdPartyVendor
+            ? (device.vendor ?? device.settings?.vendor)
+            : undefined,
+          vendorModel: isThirdPartyVendor
+            ? device.settings?.vendorModel
+            : undefined,
+          vendorModelName: isThirdPartyVendor
+            ? device.settings?.vendorModelName
+            : undefined,
+          confirmContent: params.stageConfirmContent,
+        });
+      }
+
+      if (this.isOuterProcessing()) {
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
