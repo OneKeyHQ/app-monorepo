@@ -1366,9 +1366,9 @@ class ServiceAccountProfile extends ServiceBase {
       if (account.accountId) {
         if (accountUtils.isOthersAccount({ accountId: account.accountId })) {
           const dbAccount = dbAccountById.get(account.accountId);
-          const accountAddress = account.accountAddress ?? dbAccount?.address;
+          const accountAddress = account.accountAddress || dbAccount?.address;
           const xpub =
-            account.xpub ?? accountUtils.pickXpubFromDBAccount(dbAccount);
+            account.xpub || accountUtils.pickXpubFromDBAccount(dbAccount);
           if (accountAddress || xpub) {
             resolved.push({
               ownerAccountId: account.accountId,

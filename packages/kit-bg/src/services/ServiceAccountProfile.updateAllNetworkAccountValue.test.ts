@@ -269,6 +269,53 @@ describe('ServiceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch', () 
       },
     ]);
   });
+
+  it('falls back to the account snapshot when Others query fields are empty', async () => {
+    const addressAccountId = 'imported--evm--1--0xAddress';
+    const xpubAccountId = 'watching--btc--0--xpubAccount';
+    mockGetAllNetworkAccountsValue.mockResolvedValue([
+      { value: { [EVM_ID]: '8' }, currency: 'usd' },
+      { value: { 'btc--0': '13' }, currency: 'usd' },
+    ]);
+    const service = makeService({
+      allAccounts: [
+        {
+          id: addressAccountId,
+          address: '0xAddress',
+        },
+        {
+          id: xpubAccountId,
+          xpub: 'xpubFromSnapshot',
+        },
+      ],
+    });
+
+    const result = await service.getAllNetworkAccountsValueByAccountIdBatch({
+      accounts: [
+        { accountId: addressAccountId, accountAddress: '', xpub: '' },
+        { accountId: xpubAccountId, accountAddress: '', xpub: '' },
+      ],
+    });
+
+    expect(mockGetAllNetworkAccountsValue).toHaveBeenCalledWith({
+      items: [
+        { accountAddress: '0xAddress', xpub: undefined },
+        { accountAddress: undefined, xpub: 'xpubFromSnapshot' },
+      ],
+    });
+    expect(result).toEqual([
+      {
+        accountId: addressAccountId,
+        value: { [`${addressAccountId}_${EVM_ID}`]: '8' },
+        currency: 'usd',
+      },
+      {
+        accountId: xpubAccountId,
+        value: { [`${xpubAccountId}_btc--0`]: '13' },
+        currency: 'usd',
+      },
+    ]);
+  });
 });
 
 describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
