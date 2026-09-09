@@ -168,6 +168,7 @@ import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 import {
   completeBroadcastedSwapSuccess,
   completeSignedNoSendSwapSuccess,
+  persistBroadcastedSendHistory,
 } from './swapBroadcastSuccess';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -1148,29 +1149,33 @@ export function useSwapBuildTx({
         },
       });
       onSignAndSendProgress?.({ stage: 'succeeded', isApprove });
-      const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
-        networkId,
-        accountId,
-        unsignedTx: updatedUnsignedTxItem,
-        feeInfo: {
-          feeInfo: gasInfo as IFeeInfoUnit,
-          total,
-          totalNative,
-          totalFiat,
-          totalNativeForDisplay,
-          totalFiatForDisplay,
-        },
-        saveToLocalHistory: true,
-      });
-      await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
-        networkId,
-        accountId,
-        data: {
-          signedTx: res,
-          decodedTx,
-          approveInfo: updatedUnsignedTxItem.approveInfo,
-          feeInfo: gasInfo as IFeeInfoUnit,
-        },
+      await persistBroadcastedSendHistory({
+        buildDecodedTx: () =>
+          backgroundApiProxy.serviceSend.buildDecodedTx({
+            networkId,
+            accountId,
+            unsignedTx: updatedUnsignedTxItem,
+            feeInfo: {
+              feeInfo: gasInfo as IFeeInfoUnit,
+              total,
+              totalNative,
+              totalFiat,
+              totalNativeForDisplay,
+              totalFiatForDisplay,
+            },
+            saveToLocalHistory: true,
+          }),
+        saveHistory: (decodedTx) =>
+          backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx: res,
+              decodedTx,
+              approveInfo: updatedUnsignedTxItem.approveInfo,
+              feeInfo: gasInfo as IFeeInfoUnit,
+            },
+          }),
       });
       return {
         ...res,

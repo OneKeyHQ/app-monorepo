@@ -24,7 +24,7 @@ import {
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
-import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
+import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
   EJotaiContextStoreNames,
   useSettingsAtom,
@@ -284,9 +284,12 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
-  const stockTokenToAssetRatio =
-    getValidStockTokenToAssetRatio(selectedTokenVariant?.tokenToAssetRatio) ??
-    getValidStockTokenToAssetRatio(tokenDetail?.stock?.tokenToAssetRatio);
+  const stockTokenToAssetRatio = resolveStockTokenToAssetRatio({
+    selectedVariantRatio: selectedTokenVariant?.tokenToAssetRatio,
+    tokenDetailRatio: tokenDetail?.stock?.tokenToAssetRatio,
+    hasSelectedVariant: Boolean(selectedTokenVariant),
+    selectedVariantMatchesTokenDetail,
+  });
   const currentStockInfo =
     isStockRoute && tokenDetail?.stock
       ? {
