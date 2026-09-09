@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { Text as OneKeyText } from '@onekeyfe/react-native-text';
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -107,6 +108,22 @@ export interface ICustomElementProps {
   analyticsSource?: ISettingsEntrySurface;
 }
 
+function SettingsValueText({ children, ...textProps }: ISizableTextProps) {
+  if (!platformEnv.isNativeAndroid) {
+    return (
+      <SizableText textAlign="right" size="$bodyLgMedium" {...textProps}>
+        {children}
+      </SizableText>
+    );
+  }
+
+  return (
+    <SizableText textAlign="right" size="$bodyLgMedium" {...textProps} asChild>
+      <OneKeyText>{children}</OneKeyText>
+    </SizableText>
+  );
+}
+
 function useLogSearchResultOnSelectOpen({
   analyticsSource,
   logItemClick,
@@ -145,8 +162,11 @@ export function CurrencyListItem({
       testID={SettingTestIDs.currencyItem}
     >
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text.toUpperCase()}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text.toUpperCase()}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
@@ -194,8 +214,13 @@ export function LanguageListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -274,8 +299,13 @@ export function ThemeListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -559,8 +589,11 @@ export function AutoLockListItem({
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
