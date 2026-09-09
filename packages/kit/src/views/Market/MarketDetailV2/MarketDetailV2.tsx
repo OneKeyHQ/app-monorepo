@@ -101,7 +101,8 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const { isStockRoute, selectedTokenVariant } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, isTokenVariantPending } =
+    useStockDetail();
   const network =
     selectedTokenVariant?.networkId ??
     ('network' in params ? params.network : '') ??
@@ -139,16 +140,19 @@ function MarketDetail({
 
   // Start auto-refresh for token details every 5 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
-  const { marketAssetDetail, isMarketAssetDetailLoading } =
-    useAutoRefreshTokenDetail({
-      tokenAddress,
-      networkId,
-      isNative: isNativeBoolean,
-      skipMarketDataFetch,
-      marketTokenId,
-      marketVariantId,
-      marketTokenCategory,
-    });
+  const {
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    isInitialTokenDetailPending,
+  } = useAutoRefreshTokenDetail({
+    tokenAddress,
+    networkId,
+    isNative: isNativeBoolean,
+    skipMarketDataFetch,
+    marketTokenId,
+    marketVariantId,
+    marketTokenCategory,
+  });
 
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
@@ -196,17 +200,21 @@ function MarketDetail({
   return (
     <BtcMetadataProvider>
       <Page>
-        {isChartFullscreen ? (
+        {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
         ) : (
           <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
         )}
 
         <Page.Body
-          pt={isChartFullscreen ? 0 : bodyPaddingTop}
+          pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
+            disablePerpsBanner={skipMarketDataFetch}
+            isInitialContentPending={
+              isTokenVariantPending || isInitialTokenDetailPending
+            }
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
             isTradingViewNative={isTradingViewNative}

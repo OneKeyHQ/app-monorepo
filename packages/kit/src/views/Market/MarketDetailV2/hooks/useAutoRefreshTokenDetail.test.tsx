@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 
@@ -100,7 +100,9 @@ describe('useAutoRefreshTokenDetail', () => {
       }),
     );
 
-    await promiseFactory?.();
+    await act(async () => {
+      await promiseFactory?.();
+    });
 
     expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith({
       assetId: 'doge',
@@ -124,7 +126,9 @@ describe('useAutoRefreshTokenDetail', () => {
       }),
     );
 
-    await promiseFactory?.();
+    await act(async () => {
+      await promiseFactory?.();
+    });
 
     expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1');
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
@@ -144,7 +148,9 @@ describe('useAutoRefreshTokenDetail', () => {
       }),
     );
 
-    await promiseFactory?.();
+    await act(async () => {
+      await promiseFactory?.();
+    });
 
     expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith({
       assetId: 'doge',
@@ -292,5 +298,97 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await expect(pendingResult).resolves.toBeUndefined();
     expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('initial detail layout readiness', () => {
+  const input = { networkId: 'evm--1', tokenAddress: '0xabc', isNative: false };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFetchTokenDetail.mockReset();
+    promiseResult = undefined;
+    mockCurrencyId = 'usd';
+  });
+
+  it('waits before the first request and stays ready during polling', async () => {
+    const { result } = renderHook(() => useAutoRefreshTokenDetail(input));
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    let finish: () => void = () => undefined;
+    mockFetchTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const refresh = promiseFactory?.();
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    await act(async () => {
+      finish();
+      await refresh;
+    });
+  });
+
+  it('ignores completion from a previous token', async () => {
+    let finish: () => void = () => undefined;
+    mockFetchTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      (props) => useAutoRefreshTokenDetail(props),
+      { initialProps: input },
+    );
+    const oldRequest = promiseFactory?.();
+    rerender({ ...input, tokenAddress: '0xdef' });
+    await act(async () => {
+      finish();
+      await oldRequest;
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('waits again when returning to a previously settled token', async () => {
+    const { result, rerender } = renderHook(
+      (props) => useAutoRefreshTokenDetail(props),
+      { initialProps: input },
+    );
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    rerender({ ...input, tokenAddress: '0xdef' });
+    rerender(input);
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('releases the initial loading boundary after failure', async () => {
+    mockFetchTokenDetail.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useAutoRefreshTokenDetail(input));
+    await act(async () => {
+      await promiseFactory?.().catch(() => undefined);
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('does not wait on a route that deliberately skips market requests', () => {
+    const { result } = renderHook(() =>
+      useAutoRefreshTokenDetail({ ...input, skipMarketDataFetch: true }),
+    );
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
   });
 });

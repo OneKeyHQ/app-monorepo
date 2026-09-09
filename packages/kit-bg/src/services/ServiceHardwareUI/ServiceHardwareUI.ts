@@ -144,6 +144,11 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleUnsupported,
 ];
 
+/** How long after the stage's off write its exit is still on screen —
+ * the bridge hop, the React commit and the shell's sink, read generously.
+ * deviceStageWaitForOff reports an off younger than this as a wait. */
+const DEVICE_STAGE_RECENT_OFF_MS = 1000;
+
 /** Stands in for the confirm payload in logs: its rows carry signature
  * plaintext (personal-sign text, typed-data JSON, transfer amounts), which
  * must never reach a log line — only whether a payload was registered. */
@@ -591,15 +596,16 @@ class ServiceHardwareUI extends ServiceBase {
 
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
 
-  /** The firmware workflow is taking the screen: the stage leaves (see
-   * DeviceStageBurst.silenceForFirmwareWorkflow) and so does any air-gap
+  /** The firmware workflow is starting: whatever the previous flow left
+   * on stage leaves (see DeviceStageBurst.silence) and so does any air-gap
    * scan it was hosting — the stage was that scan's only surface, and a
    * pending scan left behind would wait invisibly for its 30-minute expiry
    * while the update page ran. Rejected the way a user close rejects it;
-   * a no-op without a session. */
+   * a no-op without a session. The device's own asks during the update
+   * then play on the stage again (OK-62087). */
   async silenceDeviceStageForFirmwareWorkflow() {
     const stepAtSilence = (await deviceStageAtom.get())?.step;
-    await this.deviceStageBurst.silenceForFirmwareWorkflow();
+    await this.deviceStageBurst.silence();
     await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
       scanning: stepAtSilence === 'scanQr',
     });
@@ -610,6 +616,65 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStageDismissUnowned() {
     await this.deviceStageBurst.dismissUnowned();
+  }
+
+  /** A dialog is about to take the screen over a live stage (the
+   * bootloader hand-off during onboarding, OK-62105): the stage leaves
+   * first, whether or not a flow holds a burst — a stage standing behind
+   * its own touch wall would otherwise cover the dialog until that hold
+   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence). */
+  @backgroundMethod()
+  async deviceStageYieldToDialog() {
+    await this.deviceStageBurst.silence();
+  }
+
+  /**
+   * Resolves once the stage is off — at once when it already is, otherwise
+   * on its next exit, or after `timeoutMs`. Returns whether it had to wait.
+   * The surface that raised the stage (a rename dialog, the setup page's
+   * ready state) sequences its own change after the stage's exit, so the
+   * exit reads first (OK-62228, OK-62172, OK-62092).
+   */
+  @backgroundMethod()
+  async deviceStageWaitForOff({
+    timeoutMs,
+  }: {
+    timeoutMs: number;
+  }): Promise<boolean> {
+    // Listen first, read second: an exit landing between the two is a
+    // one-shot event, and a listener installed after it would wait the
+    // whole timeout for an exit that already happened.
+    let settleExit = () => {};
+    const exited = new Promise<void>((resolve) => {
+      settleExit = resolve;
+    });
+    const onOff = () => settleExit();
+    appEventBus.on(EAppEventBusNames.DeviceStageOff, onOff);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const current = await deviceStageAtom.get();
+      if (!current || current.step === 'off') {
+        // Already off — but an exit that landed a moment ago is still
+        // playing out on the UI (the atom crosses a bridge on
+        // split-runtime targets, then React commits, then the shell
+        // sinks), so that one still counts as a wait for the caller's
+        // beat; an old off, or a stage never raised, does not.
+        return (
+          Date.now() - this.deviceStageBurst.getLastOffAt() <
+          DEVICE_STAGE_RECENT_OFF_MS
+        );
+      }
+      await Promise.race([
+        exited,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+        }),
+      ]);
+      return true;
+    } finally {
+      clearTimeout(timer);
+      appEventBus.off(EAppEventBusNames.DeviceStageOff, onOff);
+    }
   }
 
   @backgroundMethod()
@@ -798,6 +863,12 @@ class ServiceHardwareUI extends ServiceBase {
     const stateAtClose = await deviceStageAtom.get();
     const stepAtClose = stateAtClose?.step;
     const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
+    // The lease is the whole operation's — during the firmware update
+    // that is the workflow itself, which owns its own recovery (a failed
+    // task lands Retry on the page). Closing an ask there cancels the
+    // device call only, as the legacy dialog's close did; aborting the
+    // lease would fail the workflow outright (OK-62087).
+    const firmwareWorkflow = await firmwareUpdateWorkflowRunningAtom.get();
     const cancelsDevice =
       skipDeviceCancel === undefined
         ? shouldCancelDeviceOnStageClose({
@@ -810,7 +881,7 @@ class ServiceHardwareUI extends ServiceBase {
       lease !== this.hardwareProcessingManager.getActiveOneKeyOperationLease()
     )
       return;
-    if (lease && cancelsDevice)
+    if (lease && cancelsDevice && !firmwareWorkflow)
       this.hardwareProcessingManager.cancelOneKeyOperation(lease);
     if (lease && connectId && !qrStepAtClose && cancelsDevice) {
       this.hardwareProcessingManager.cancelOperation(connectId);
@@ -1411,6 +1482,7 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let stageBurstOpened = false;
     let skipDeviceCancelAfterError = false;
     let stageBurstError: unknown;
 
@@ -1452,24 +1524,31 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         assertActive();
-        await this.deviceStageBurst.begin({
+      }
+
+      // Non-hardware callers share this wrapper; QR flows own their stage.
+      if (device) {
+        stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
-          deviceType: device?.deviceType,
+          deviceType: device.deviceType,
           deviceName: deviceUtils.buildDeviceStageName({
-            features: device?.featuresInfo,
-            fallbackName: device?.name,
+            features: device.featuresInfo,
+            fallbackName: device.name,
           }),
           vendor: isThirdPartyVendor
-            ? (device?.vendor ?? device?.settings?.vendor)
+            ? (device.vendor ?? device.settings?.vendor)
             : undefined,
           vendorModel: isThirdPartyVendor
-            ? device?.settings?.vendorModel
+            ? device.settings?.vendorModel
             : undefined,
           vendorModelName: isThirdPartyVendor
-            ? device?.settings?.vendorModelName
+            ? device.settings?.vendorModelName
             : undefined,
           confirmContent: params.stageConfirmContent,
         });
+      }
+
+      if (this.isOuterProcessing()) {
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
@@ -1686,7 +1765,7 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
-      if (isOuterCall) {
+      if (stageBurstOpened) {
         await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;

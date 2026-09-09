@@ -14,6 +14,7 @@ import { useFormWatch } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
+import { waitForDeviceStageExit } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -236,6 +237,9 @@ function DeviceLabelDialogContent(props: {
                 trimOuterWhitespace,
               ),
             );
+            // The device's confirm played on the stage over this dialog:
+            // the stage leaves first, then the dialog (OK-62228, OK-62172).
+            await waitForDeviceStageExit();
             // fix toast dropped frames
             await close();
             Toast.success({

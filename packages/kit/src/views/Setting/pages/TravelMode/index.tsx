@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   type RouteProp,
@@ -32,10 +32,11 @@ import type {
 import { SettingTestIDs } from '../../testIDs';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
-import { TRAVEL_MODE_COPY } from './copy';
+import { getTravelModeCopy } from './copy';
 
 export default function TravelMode() {
   const intl = useIntl();
+  const copy = useMemo(() => getTravelModeCopy(intl), [intl]);
   const navigation =
     useNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const route =
@@ -91,8 +92,8 @@ export default function TravelMode() {
       setIsSwitching(true);
       setRestartFailed(false);
       const restartLoadingDialog = Dialog.loading({
-        title: TRAVEL_MODE_COPY.restartingTitle,
-        description: TRAVEL_MODE_COPY.restartingDescription,
+        title: copy.restartingTitle,
+        description: copy.restartingDescription,
       });
       try {
         await backgroundApiProxy.serviceTravelMode.setEnabled({
@@ -127,7 +128,7 @@ export default function TravelMode() {
         setIsSwitching(false);
       }
     },
-    [admissionId, enabled, intl, isSwitching],
+    [admissionId, copy, enabled, intl, isSwitching],
   );
 
   const onChange = useCallback(
@@ -141,15 +142,15 @@ export default function TravelMode() {
       }
       Dialog.show({
         icon: 'LuggagePackageOutline',
-        title: TRAVEL_MODE_COPY.enableConfirmationTitle,
-        description: TRAVEL_MODE_COPY.enableConfirmationDescription,
+        title: copy.enableConfirmationTitle,
+        description: copy.enableConfirmationDescription,
         renderContent: (
           <SizableText size="$bodyMd" color="$textSubdued">
-            {TRAVEL_MODE_COPY.enableConfirmationDetails}
+            {copy.enableConfirmationDetails}
           </SizableText>
         ),
-        onCancelText: TRAVEL_MODE_COPY.enableConfirmationCancel,
-        onConfirmText: TRAVEL_MODE_COPY.enableConfirmationConfirm,
+        onCancelText: copy.enableConfirmationCancel,
+        onConfirmText: copy.enableConfirmationConfirm,
         onCancel: (close) => {
           void close();
         },
@@ -159,7 +160,7 @@ export default function TravelMode() {
         },
       });
     },
-    [admissionId, applyTravelModeChange, enabled, isSwitching],
+    [admissionId, applyTravelModeChange, copy, enabled, isSwitching],
   );
 
   const retryRestart = useCallback(async () => {
@@ -168,8 +169,8 @@ export default function TravelMode() {
     }
     setIsSwitching(true);
     const restartLoadingDialog = Dialog.loading({
-      title: TRAVEL_MODE_COPY.restartingTitle,
-      description: TRAVEL_MODE_COPY.restartingDescription,
+      title: copy.restartingTitle,
+      description: copy.restartingDescription,
     });
     try {
       await backgroundApiProxy.serviceTravelMode.retryRestart({ admissionId });
@@ -179,11 +180,11 @@ export default function TravelMode() {
       await restartLoadingDialog.close();
       setIsSwitching(false);
     }
-  }, [admissionId]);
+  }, [admissionId, copy]);
 
   return (
     <Page>
-      <Page.Header title={TRAVEL_MODE_COPY.title} />
+      <Page.Header title={copy.title} />
       <Page.Body px={SETTINGS_PAGE_BODY_INSET_X} gap="$5">
         {enabled === undefined ? (
           <Spinner size="large" />
@@ -192,11 +193,11 @@ export default function TravelMode() {
             <YStack borderRadius="$3" bg="$bgSubdued">
               <ListItem
                 icon="LuggagePackageOutline"
-                title={TRAVEL_MODE_COPY.title}
+                title={copy.title}
                 subtitle={
                   enabled
-                    ? TRAVEL_MODE_COPY.enabledSwitchDescription
-                    : TRAVEL_MODE_COPY.disabledSwitchDescription
+                    ? copy.enabledSwitchDescription
+                    : copy.disabledSwitchDescription
                 }
               >
                 <Switch
@@ -213,14 +214,14 @@ export default function TravelMode() {
               <XStack gap="$2" alignItems="center">
                 <Icon name="InfoCircleOutline" size="$5" color="$iconInfo" />
                 <SizableText size="$headingSm">
-                  {TRAVEL_MODE_COPY.explanationTitle}
+                  {copy.explanationTitle}
                 </SizableText>
               </XStack>
               <SizableText size="$bodyMd" color="$textSubdued">
-                {TRAVEL_MODE_COPY.description}
+                {copy.description}
               </SizableText>
               <YStack gap="$2">
-                {TRAVEL_MODE_COPY.details.map((detail) => (
+                {copy.details.map((detail) => (
                   <XStack key={detail} gap="$2" alignItems="flex-start">
                     <SizableText size="$bodyMd" color="$textSubdued">
                       •
@@ -238,11 +239,11 @@ export default function TravelMode() {
                 <XStack gap="$2" alignItems="center">
                   <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
                   <SizableText size="$headingSm">
-                    {TRAVEL_MODE_COPY.enabledMessage}
+                    {copy.enabledMessage}
                   </SizableText>
                 </XStack>
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {TRAVEL_MODE_COPY.enabledDescription}
+                  {copy.enabledDescription}
                 </SizableText>
               </YStack>
             ) : null}

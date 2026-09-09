@@ -8,6 +8,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { getMobileShellCacheRoot } = require('./dev-cache-paths');
+const {
+  cacheLocalShellBuild,
+  getBuildDigest,
+  getIosSigningCacheOptions,
+  readLocalShellCache,
+} = require('./local-dev-shell-cache');
 const { withCacheLock } = require('./metro-dev-prebundle');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -54,8 +61,7 @@ function getSidecarFile(artifactFile) {
 }
 
 function getCacheRoot(env = process.env) {
-  const baseDirectory = env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
-  return path.join(baseDirectory, 'onekey/mobile-dev-shell/v3');
+  return path.join(getMobileShellCacheRoot(env), 'v3');
 }
 
 function assertCompatibility(compatibility) {
@@ -988,7 +994,11 @@ async function restoreMobileDevShell({
       userNotice: null,
     };
   } catch (error) {
-    if (error?.code !== 'SHELL_LOCATOR_NOT_FOUND') throw error;
+    if (
+      error?.code !== 'SHELL_LOCATOR_NOT_FOUND' ||
+      compatibility.requireExactInput
+    )
+      throw error;
     const restored = await restoreLocator({
       attestationVerifier,
       cacheRoot,
@@ -1056,11 +1066,84 @@ function assertDeviceId(deviceId) {
   return deviceId;
 }
 
+class IosSimulatorEntitlementsError extends Error {
+  constructor() {
+    super(
+      '[mobileDevShellResource] iOS Simulator shell is missing embedded entitlements; rebuild it with Xcode simulator signing enabled.',
+    );
+    this.name = 'IosSimulatorEntitlementsError';
+  }
+}
+
+function assertIosSimulatorEntitlements(
+  appDirectory,
+  spawnCommand = spawnSync,
+) {
+  const args = ['otool', '-l', path.join(appDirectory, 'OneKeyWallet')];
+  const result = spawnCommand('xcrun', args, { encoding: 'utf8' });
+  assertCommandSucceeded('xcrun', args, result);
+  // Simulator permissions live in Mach-O sections, not the ad-hoc signature.
+  if (
+    !/sectname __entitlements\s+segname __TEXT\b/u.test(result.stdout || '')
+  ) {
+    throw new IosSimulatorEntitlementsError();
+  }
+}
+
+function signAndVerifyIosSimulatorApp(appDirectory, spawnCommand = spawnSync) {
+  assertIosSimulatorEntitlements(appDirectory, spawnCommand);
+  const hasValidSignature = (target) => {
+    const args = ['--verify', '--deep', '--strict', target];
+    const result = spawnCommand('codesign', args, { encoding: 'utf8' });
+    if (result.error || result.signal)
+      assertCommandSucceeded('codesign', args, result);
+    return result.status === 0;
+  };
+  const signAndVerify = (target) => {
+    runChecked(
+      'codesign',
+      ['--force', '--deep', '--sign', '-', target],
+      {},
+      spawnCommand,
+    );
+    runChecked(
+      'codesign',
+      ['--verify', '--deep', '--strict', target],
+      {},
+      spawnCommand,
+    );
+  };
+  let resigned = false;
+  // Repair vendor frameworks explicitly: deep signing can skip unsigned embedded code.
+  const frameworksDirectory = path.join(appDirectory, 'Frameworks');
+  if (fs.existsSync(frameworksDirectory)) {
+    const frameworks = fs
+      .readdirSync(frameworksDirectory)
+      .filter(
+        (framework) =>
+          framework.endsWith('.framework') || framework.endsWith('.dylib'),
+      );
+    for (const framework of frameworks) {
+      const frameworkPath = path.join(frameworksDirectory, framework);
+      if (!hasValidSignature(frameworkPath)) {
+        signAndVerify(frameworkPath);
+        resigned = true;
+      }
+    }
+  }
+  if (resigned || !hasValidSignature(appDirectory)) {
+    signAndVerify(appDirectory);
+    resigned = true;
+  }
+  return { resigned };
+}
+
 async function installMobileDevShell({
   artifactPath,
   deviceId,
   platform,
   spawnCommand = spawnSync,
+  signingCacheRoot,
 }) {
   const targetDeviceId = assertDeviceId(deviceId);
   if (platform === 'android') {
@@ -1117,7 +1200,18 @@ async function installMobileDevShell({
     path.join(os.tmpdir(), 'onekey-ios-dev-shell-'),
   );
   try {
-    runChecked('ditto', ['-x', '-k', artifactPath, temporaryDirectory]);
+    const buildDigest = getBuildDigest('ios');
+    const signingCacheOptions = await getIosSigningCacheOptions({
+      artifactPath,
+      cacheRoot: signingCacheRoot,
+    });
+    const cached = await readLocalShellCache(signingCacheOptions);
+    runChecked(
+      'ditto',
+      ['-x', '-k', cached?.artifactPath || artifactPath, temporaryDirectory],
+      {},
+      spawnCommand,
+    );
     const appDirectories = (
       await fs.promises.readdir(temporaryDirectory, {
         withFileTypes: true,
@@ -1130,12 +1224,45 @@ async function installMobileDevShell({
         '[mobileDevShellResource] iOS Simulator archive must contain one app.',
       );
     }
-    runChecked('xcrun', [
-      'simctl',
-      'install',
-      targetDeviceId,
+    // Keep the trusted original unchanged; cache a verified derivative only when repaired.
+    const { resigned } = signAndVerifyIosSimulatorApp(
       appDirectories[0],
-    ]);
+      spawnCommand,
+    );
+    if (resigned) {
+      const signedArtifactPath = path.join(
+        temporaryDirectory,
+        'signed-shell.zip',
+      );
+      runChecked(
+        'ditto',
+        [
+          '-c',
+          '-k',
+          '--sequesterRsrc',
+          '--keepParent',
+          appDirectories[0],
+          signedArtifactPath,
+        ],
+        {},
+        spawnCommand,
+      );
+      await cacheLocalShellBuild({
+        ...signingCacheOptions,
+        artifactPath: signedArtifactPath,
+        buildDigest,
+      });
+    }
+    runChecked(
+      'xcrun',
+      ['simctl', 'install', targetDeviceId, appDirectories[0]],
+      {},
+      spawnCommand,
+    );
+    let signing = 'verified-archive';
+    if (cached) signing = 'signed-cache';
+    if (resigned) signing = 'local-sign';
+    return { signing };
   } finally {
     await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
   }
@@ -1181,7 +1308,9 @@ async function main() {
 module.exports = {
   ATTESTATION_FILE,
   MAX_CACHED_SHELLS,
+  IosSimulatorEntitlementsError,
   assertDeviceId,
+  assertIosSimulatorEntitlements,
   createMobileShellCacheLease,
   downloadLayerToFile,
   getCacheRoot,
@@ -1191,6 +1320,7 @@ module.exports = {
   resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
+  signAndVerifyIosSimulatorApp,
   touchAndPruneMobileShellCache,
   verifyArtifactManifest,
   verifyOciManifest,

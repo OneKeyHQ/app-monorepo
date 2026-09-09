@@ -1,6 +1,7 @@
 /* cspell:words autolinking codegen */
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,6 +42,7 @@ const {
   computeModulesDigest,
   computeNativeContractKey,
   computeShellInputKey,
+  computeShellCompatibilityKey,
   computeRegistryInputsDigest,
   computeReleaseCompatibilityKey,
   composeDevVendorBundle,
@@ -651,6 +653,26 @@ describe('devVendor', () => {
       ).toBe(crlfKey);
     } finally {
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('refreshes the exact simulator artifact for embedded signing without invalidating Android shells', () => {
+    for (const platform of ['ios', 'android']) {
+      const inputs = { platform, nativeContractKey: 'a'.repeat(64) };
+      const compatibility = computeShellCompatibilityKey(inputs);
+      const previousInputKey = crypto
+        .createHash('sha256')
+        .update(
+          [
+            'onekey-mobile-dev-shell-input-v3',
+            `compatibility=${compatibility}`,
+            '',
+          ].join('\0'),
+        )
+        .digest('hex');
+      if (platform === 'ios')
+        expect(computeShellInputKey(inputs)).not.toBe(previousInputKey);
+      else expect(computeShellInputKey(inputs)).toBe(previousInputKey);
     }
   });
 

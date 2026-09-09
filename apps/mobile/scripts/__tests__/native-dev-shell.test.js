@@ -30,6 +30,7 @@ const {
   parseMetroBaseUrl,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
+  prepareWebEmbedForDevSession,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,
@@ -204,7 +205,7 @@ describe('native-dev-shell', () => {
     ).toEqual(candidates[1]);
   });
 
-  it('parses only usable Android and booted iOS devices', () => {
+  it('parses usable Android devices and available iOS simulators', () => {
     expect(
       parseAndroidDevices(
         'List of devices attached\nemulator-5554 device product:sdk\nemulator-5556 offline\n',
@@ -214,7 +215,7 @@ describe('native-dev-shell', () => {
       parseIosSimulators(
         JSON.stringify({
           devices: {
-            runtime: [
+            'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
               {
                 isAvailable: true,
                 name: 'iPhone A',
@@ -227,11 +228,28 @@ describe('native-dev-shell', () => {
                 state: 'Shutdown',
                 udid: 'B',
               },
+              {
+                isAvailable: false,
+                name: 'Unavailable iPhone',
+                state: 'Shutdown',
+                udid: 'C',
+              },
+            ],
+            'com.apple.CoreSimulator.SimRuntime.watchOS-26-5': [
+              {
+                isAvailable: true,
+                name: 'Apple Watch',
+                state: 'Booted',
+                udid: 'D',
+              },
             ],
           },
         }),
       ),
-    ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+    ).toEqual([
+      { id: 'A', name: 'iPhone A', runtime: 'iOS 26.5', state: 'Booted' },
+      { id: 'B', name: 'iPhone B', runtime: 'iOS 26.5', state: 'Shutdown' },
+    ]);
   });
 
   it('accepts only targets that can run the published shell architecture', () => {
@@ -262,8 +280,9 @@ describe('native-dev-shell', () => {
     expect(iosOutput).toHaveBeenCalledWith('xcrun', [
       'simctl',
       'spawn',
+      '--arch=arm64',
       'SIMULATOR-A',
-      'uname',
+      '/usr/bin/uname',
       '-m',
     ]);
   });
@@ -564,8 +583,87 @@ describe('native-dev-shell', () => {
       '-0',
       '4321',
     ]);
-    expect(wait).toHaveBeenCalledTimes(1);
-    expect(wait).toHaveBeenCalledWith(1500);
+    expect(wait).toHaveBeenCalledTimes(15);
+    expect(wait).toHaveBeenCalledWith(1000);
+  });
+
+  it('detects an iOS app crash after the first process check', async () => {
+    const iosOutput = jest
+      .fn()
+      .mockReturnValueOnce('')
+      .mockImplementationOnce(() => {
+        throw new TypeError('process exited');
+      });
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'SIMULATOR-A',
+        launch: { processId: 4321 },
+        platform: 'ios',
+        runForOutputCommand: iosOutput,
+        wait: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow('ios app exited during startup');
+  });
+
+  it('automatically builds WebEmbed after a remote 404 and records the reason', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const reason =
+      '[webEmbedPrebundle] OCI manifest download failed: HTTP 404.';
+    const restore = jest.fn().mockRejectedValue(new Error(reason));
+    const build = jest.fn(async () => {
+      expect(report.webEmbed).toMatchObject({
+        source: 'local-build',
+        status: 'building',
+      });
+    });
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await prepareWebEmbedForDevSession(report, {
+        restore,
+        build,
+        getCache: jest.fn(),
+      });
+      expect(build).toHaveBeenCalledTimes(1);
+      expect(report.webEmbed).toEqual({
+        fallbackReason: reason,
+        source: 'local-build',
+        status: 'ready',
+      });
+      expect(report.userNoticeRequired).toBe(true);
+      expect(report.userNotices).toEqual([
+        expect.objectContaining({ reason, resource: 'web-embed' }),
+      ]);
+      expect(
+        JSON.parse(fs.readFileSync(report.runReportPath, 'utf8')).webEmbed
+          .status,
+      ).toBe('ready');
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
+  it('keeps WebEmbed build failures visible instead of reporting readiness', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const buildError = new Error('local build failed');
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(
+        prepareWebEmbedForDevSession(report, {
+          getCache: jest.fn(),
+          restore: jest.fn().mockRejectedValue(new Error('HTTP 404')),
+          build: jest.fn().mockRejectedValue(buildError),
+        }),
+      ).rejects.toBe(buildError);
+      expect(report.webEmbed.status).toBe('building');
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   it('fails when Android startup exhausts its process wait budget', async () => {
@@ -1729,8 +1827,11 @@ describe('native-dev-shell', () => {
     const cleanupSource = installSource.slice(
       installSource.indexOf('await runWithCacheLeaseCleanup({'),
     );
-    expect(cleanupSource).toContain('operation: async () => {');
-    expect(cleanupSource.indexOf('await installMobileDevShell({')).toBeLessThan(
+    expect(installSource).toContain(
+      'await install({ artifactPath, deviceId, platform })',
+    );
+    expect(cleanupSource).toContain('operation: installArtifact,');
+    expect(cleanupSource.indexOf('operation: installArtifact,')).toBeLessThan(
       cleanupSource.indexOf('releaseCacheLease,'),
     );
   });
