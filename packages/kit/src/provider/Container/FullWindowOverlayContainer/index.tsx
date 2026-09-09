@@ -9,6 +9,7 @@ import { HARDWARE_STAGE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
+import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
@@ -16,6 +17,7 @@ import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPa
 export function FullWindowOverlayContainer() {
   return (
     <OverlayContainer>
+      <TradingViewNativeFullscreenHost />
       <Portal.Container name={Portal.Constant.SPOTLIGHT_OVERLAY_PORTAL} />
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
       {/* The hardware stage's window (see MorphOverlay): inside the
