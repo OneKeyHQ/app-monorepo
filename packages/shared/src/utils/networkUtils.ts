@@ -6,7 +6,7 @@ import {
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
-  getDefaultEnabledNetworksInAllNetworks,
+  getDefaultEnabledNetworkIdsInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
@@ -26,9 +26,8 @@ import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
 
-const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
 const defaultEnabledNetworkIds = new Set(
-  defaultEnabledNetworks.map((n) => n.id),
+  getDefaultEnabledNetworkIdsInAllNetworks(),
 );
 
 function parseNetworkId({ networkId }: { networkId: string }) {
