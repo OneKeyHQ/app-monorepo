@@ -25,6 +25,7 @@ const mockUsePromiseResult = jest.fn<IMockPromiseResultReturn, unknown[]>();
 let mockCurrentAccount: { accountAddress?: string } = {
   accountAddress: '0xAbC',
 };
+let mockQueryLoading = false;
 let mockQueryResult: IMockFundingHistoryResult = {
   accountAddress: '0xabc',
   records: [],
@@ -79,6 +80,7 @@ const fundingRecord: IUserFunding = {
 describe('usePerpUserFundingHistory', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQueryLoading = false;
     mockCurrentAccount = { accountAddress: '0xAbC' };
     mockQueryResult = {
       accountAddress: '0xabc',
@@ -86,7 +88,7 @@ describe('usePerpUserFundingHistory', () => {
     };
     mockUsePromiseResult.mockImplementation(() => ({
       result: mockQueryResult,
-      isLoading: false,
+      isLoading: mockQueryLoading,
       run: mockRun,
       setResult: jest.fn(),
       setStopPolling: jest.fn(),
@@ -172,6 +174,38 @@ describe('usePerpUserFundingHistory', () => {
 
     expect(result.current.isError).toBe(true);
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('shows loading during retry and restores the error if retry fails', () => {
+    mockQueryResult = { accountAddress: '0xabc', records: [], isError: true };
+    const { result, rerender } = renderHook(() => usePerpUserFundingHistory());
+    void result.current.refresh();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    mockQueryLoading = true;
+    rerender({});
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.isError).toBe(false);
+    mockQueryLoading = false;
+    rerender({});
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isError).toBe(true);
+    mockQueryResult = {
+      accountAddress: '0xabc',
+      records: [fundingRecord],
+      isError: false,
+    };
+    rerender({});
+    expect(result.current.isError).toBe(false);
+    expect(result.current.records).toEqual([fundingRecord]);
+  });
+
+  it('keeps successful history visible during refresh', () => {
+    mockQueryResult.isError = false;
+    mockQueryLoading = true;
+    const { result } = renderHook(() => usePerpUserFundingHistory());
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isError).toBe(false);
+    expect(result.current.records).toEqual([fundingRecord]);
   });
 
   it('hides the previous account result when the account changes while inactive', () => {

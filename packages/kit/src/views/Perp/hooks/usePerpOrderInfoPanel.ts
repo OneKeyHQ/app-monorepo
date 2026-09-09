@@ -210,12 +210,14 @@ export function usePerpUserFundingHistory({
     dataAccountAddress: query.result?.accountAddress,
     data: query.result?.records ?? [],
   });
-  const isError = Boolean(
+  const hasRequestError = Boolean(
     isCurrentAccountResult && query.result?.isError === true,
   );
   const isLoading = Boolean(
-    accountAddress && !isError && !isCurrentAccountResult,
+    accountAddress &&
+    (!isCurrentAccountResult || (hasRequestError && query.isLoading)),
   );
+  const isError = hasRequestError && !isLoading;
 
   return {
     accountAddress: normalizedAccountAddress,

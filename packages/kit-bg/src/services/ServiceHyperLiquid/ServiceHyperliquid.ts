@@ -169,7 +169,10 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
-import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
+import {
+  fetchFundingPageWithRetry,
+  fetchPerpFundingHistoryPages,
+} from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
@@ -1782,26 +1785,40 @@ export default class ServiceHyperliquid extends ServiceBase {
   }: {
     accountAddress: IHex;
   }): Promise<IUserFunding[]> {
-    const { infoClient } = hyperLiquidApiClients;
-    const user = accountAddress.toLowerCase() as IHex;
-    const endTime = Date.now();
-
-    return fetchPerpFundingHistoryPages({
-      startTime: 0,
-      endTime,
-      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
-      getRecordKey: (record) =>
-        [
-          record.time,
-          record.hash,
-          record.delta.coin,
-          record.delta.szi,
-          record.delta.usdc,
-          record.delta.fundingRate,
-          record.delta.nSamples ?? '',
-        ].join(':'),
-    });
+    return this._getUserFundingHistoryMemo(
+      accountAddress.toLowerCase() as IHex,
+    );
   }
+
+  private _getUserFundingHistoryMemo = cacheUtils.memoizee(
+    async (user: IHex): Promise<IUserFunding[]> => {
+      const { infoClient } = hyperLiquidApiClients;
+      return fetchPerpFundingHistoryPages({
+        startTime: 0,
+        endTime: Date.now(),
+        fetchPage: (page) =>
+          fetchFundingPageWithRetry(() =>
+            infoClient.userFunding({ user, ...page }),
+          ),
+        getRecordKey: (record) =>
+          [
+            record.time,
+            record.hash,
+            record.delta.coin,
+            record.delta.szi,
+            record.delta.usdc,
+            record.delta.fundingRate,
+            record.delta.nSamples ?? '',
+          ].join(':'),
+      });
+    },
+    {
+      // Share in-flight requests and completed history across UI consumers.
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 3,
+    },
+  );
 
   @backgroundMethod()
   async getPerpRecentTrades({
