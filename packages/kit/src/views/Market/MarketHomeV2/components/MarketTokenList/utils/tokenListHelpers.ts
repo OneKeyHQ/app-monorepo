@@ -1,3 +1,4 @@
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type {
   IMarketBasicConfigNetwork,
@@ -374,6 +375,7 @@ export function transformApiItemToToken(
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
     stock: item.stock,
+    stockId: resolveMarketStockId(item),
     walletInfo: {
       buy: buyCount,
       sell: sellCount,

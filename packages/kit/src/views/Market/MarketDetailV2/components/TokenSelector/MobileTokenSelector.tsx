@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -103,6 +103,7 @@ function MobileTokenSelectorContent() {
     setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
   }, [setSelectorConfig]);
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToTokenDetail = useCallback(
     (token: {
       address: string;
@@ -113,6 +114,8 @@ function MobileTokenSelectorContent() {
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
       if (token.perpsCoin) {
         navigation.popStack();
         navigateToPerps(token.perpsCoin);
@@ -120,6 +123,7 @@ function MobileTokenSelectorContent() {
       }
 
       void navigateToMarketTokenDetail(token, {
+        isCurrentRequest: () => requestId === navigationRequestIdRef.current,
         onError: () =>
           Toast.error({
             title: intl.formatMessage({

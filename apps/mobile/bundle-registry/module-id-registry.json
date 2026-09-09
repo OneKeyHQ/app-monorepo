@@ -24053,6 +24053,7 @@
     "packages/shared/src/utils/sensitiveTextUtils.ts": 6007,
     "packages/shared/src/utils/sidePanelUtils.ts": 12452,
     "packages/shared/src/utils/sortUtils.ts": 16907,
+    "packages/shared/src/utils/stockTokenVariant.ts": 15134,
     "packages/shared/src/utils/stringUtils.ts": 8200,
     "packages/shared/src/utils/supabaseAuthErrorUtils.ts": 5985,
     "packages/shared/src/utils/supabaseClientUtils.ts": 523,

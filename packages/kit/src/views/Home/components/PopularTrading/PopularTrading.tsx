@@ -867,8 +867,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToMarketTokenDetail = useCallback(
-    (record: IFavoriteTokenDisplay) => {
+    (record: IFavoriteTokenDisplay, requestId: number) => {
+      if (requestId !== navigationRequestIdRef.current) return;
       const shortCode = record.chainId
         ? networkUtils.getNetworkShortCode({ networkId: record.chainId })
         : '';
@@ -901,6 +903,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       }
 
       const navigateToTokenDetail = () => {
+        if (requestId !== navigationRequestIdRef.current) return;
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
@@ -949,6 +952,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Navigate to Market Detail page or Perps trading page
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
       if (record.assetId) {
         void backgroundApiProxy.serviceMarket
           .fetchMarketAssetDetail({
@@ -957,16 +962,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             autoHandleError: false,
           })
           .then(({ selectedVariant }) => {
-            navigateToMarketTokenDetail({
-              ...record,
-              chainId: selectedVariant.networkId,
-              contractAddress: selectedVariant.tokenAddress,
-              isNative: selectedVariant.isNative,
-              marketTokenId: record.assetId,
-              marketVariantId: selectedVariant.variantId,
-            });
+            navigateToMarketTokenDetail(
+              {
+                ...record,
+                chainId: selectedVariant.networkId,
+                contractAddress: selectedVariant.tokenAddress,
+                isNative: selectedVariant.isNative,
+                marketTokenId: record.assetId,
+                marketVariantId: selectedVariant.variantId,
+              },
+              requestId,
+            );
           })
           .catch(() => {
+            if (requestId !== navigationRequestIdRef.current) return;
             Toast.error({
               title: intl.formatMessage({
                 id: ETranslations.global_an_error_occurred,
@@ -980,20 +989,23 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           if (!token) {
             return;
           }
-          navigateToMarketTokenDetail({
-            chainId: token.networkId,
-            contractAddress: token.tokenAddress,
-            isNative: Boolean(token.isNative),
-            symbol: token.symbol,
-            name: token.name ?? token.symbol,
-            logoUrl: token.tokenImageUri ?? '',
-            price: token.price ?? 0,
-            priceChange24h: token.change24h ?? 0,
-            marketCap: token.marketCap ?? 0,
-            volume24h: token.turnover ?? 0,
-            marketTokenId: token.marketTokenId,
-            marketVariantId: token.marketVariantId,
-          });
+          navigateToMarketTokenDetail(
+            {
+              chainId: token.networkId,
+              contractAddress: token.tokenAddress,
+              isNative: Boolean(token.isNative),
+              symbol: token.symbol,
+              name: token.name ?? token.symbol,
+              logoUrl: token.tokenImageUri ?? '',
+              price: token.price ?? 0,
+              priceChange24h: token.change24h ?? 0,
+              marketCap: token.marketCap ?? 0,
+              volume24h: token.turnover ?? 0,
+              marketTokenId: token.marketTokenId,
+              marketVariantId: token.marketVariantId,
+            },
+            requestId,
+          );
         });
         return;
       }
@@ -1005,7 +1017,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return;
       }
 
-      navigateToMarketTokenDetail(record);
+      navigateToMarketTokenDetail(record, requestId);
     },
     [intl, navigateToMarketTokenDetail, navigateToPerps, resolveMarketTopCoin],
   );

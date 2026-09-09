@@ -340,7 +340,8 @@ export function useMarketWatchlistTokenList({
             tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
           );
         });
-        return found;
+        // Keep legacy chain favorites removable under their stored identity.
+        return found ? { ...found, stockId: watchlistItem.stockId } : undefined;
       })
       .filter(Boolean);
 

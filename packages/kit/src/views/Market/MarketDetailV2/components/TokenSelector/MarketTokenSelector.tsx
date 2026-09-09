@@ -278,6 +278,7 @@ function BaseMarketTokenSelectorContent({
     [setSelectorConfig],
   );
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToTokenDetail = useCallback(
     (token: {
       address: string;
@@ -288,6 +289,8 @@ function BaseMarketTokenSelectorContent({
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
       if (token.perpsCoin) {
         void closePopover?.();
         navigateToPerps(token.perpsCoin);
@@ -295,6 +298,7 @@ function BaseMarketTokenSelectorContent({
       }
 
       void navigateToMarketTokenDetail(token, {
+        isCurrentRequest: () => requestId === navigationRequestIdRef.current,
         onError: () =>
           Toast.error({
             title: intl.formatMessage({
@@ -328,6 +332,7 @@ function BaseMarketTokenSelectorContent({
           ? topCoinsById.get(item.marketAssetId)
           : undefined;
         if (topCoin) {
+          navigationRequestIdRef.current += 1;
           void closePopover?.();
           void handleTopCoinPress(topCoin);
           return;
@@ -351,6 +356,7 @@ function BaseMarketTokenSelectorContent({
 
   const handleSelectStock = useCallback(
     (stock: IMarketStockPublicItem) => {
+      navigationRequestIdRef.current += 1;
       void closePopover?.();
       void toMarketStockDetailPage(stock);
     },

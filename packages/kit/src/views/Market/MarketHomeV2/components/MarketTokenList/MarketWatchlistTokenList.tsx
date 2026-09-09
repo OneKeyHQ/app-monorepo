@@ -49,6 +49,7 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hideListings?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   enableWebSocket?: boolean;
@@ -66,6 +67,7 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hideListings,
   hiddenDesktopColumns,
   liveTokenOverride,
   enableWebSocket,
@@ -130,6 +132,7 @@ function MarketWatchlistTokenList({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
     hideNativeToken,
     hidePerps,
+    hideListings,
   });
 
   const filteredResult = useMemo(() => {

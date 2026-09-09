@@ -204,4 +204,89 @@ describe('navigateToMarketTokenDetail', () => {
       },
     });
   });
+  it.each(['resolve', 'reject'])(
+    'ignores a superseded asset lookup that later %ss',
+    async (outcome) => {
+      let resolveLookup: (value: unknown) => void = () => {};
+      let rejectLookup: (reason: Error) => void = () => {};
+      mockFetchAssetDetail.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveLookup = resolve;
+            rejectLookup = reject;
+          }),
+      );
+      let requestId = 1;
+      const beforeNavigate = jest.fn();
+      const onError = jest.fn();
+      const tokenDetailActions = {
+        current: {
+          clearTokenDetail: clearTokenDetailMock,
+          changeActiveToken: changeActiveTokenMock,
+        },
+      } as Parameters<
+        typeof navigateToMarketTokenDetail
+      >[1]['tokenDetailActions'];
+      const first = navigateToMarketTokenDetail(
+        { assetId: 'bitcoin', networkId: '', address: '' },
+        {
+          tokenDetailActions,
+          beforeNavigate,
+          onError,
+          isCurrentRequest: () => requestId === 1,
+        },
+      );
+      requestId = 2;
+      await navigateToMarketTokenDetail(
+        { stockId: 'AAPL', networkId: '', address: '' },
+        { tokenDetailActions, isCurrentRequest: () => requestId === 2 },
+      );
+      if (outcome === 'resolve') {
+        resolveLookup({
+          selectedVariant: {
+            networkId: 'btc--0',
+            tokenAddress: '',
+            isNative: true,
+          },
+        });
+      } else {
+        rejectLookup(new Error('offline'));
+      }
+      await first;
+      jest.runAllTimers();
+      expect(beforeNavigate).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledTimes(1);
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ stockId: 'AAPL' }),
+          }),
+        }),
+      );
+    },
+  );
+
+  it('cancels delayed navigation when another selection supersedes it', async () => {
+    let current = true;
+    await navigateToMarketTokenDetail(
+      { stockId: 'AAPL', address: '', networkId: '' },
+      {
+        tokenDetailActions: {
+          current: {
+            clearTokenDetail: clearTokenDetailMock,
+            changeActiveToken: changeActiveTokenMock,
+          },
+        } as Parameters<
+          typeof navigateToMarketTokenDetail
+        >[1]['tokenDetailActions'],
+        isCurrentRequest: () => current,
+      },
+    );
+    current = false;
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
 });

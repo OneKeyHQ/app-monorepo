@@ -30,12 +30,14 @@ export async function navigateToMarketTokenDetail(
       >;
     };
     beforeNavigate?: () => void;
+    isCurrentRequest?: () => boolean;
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
+  const isCurrentRequest = opts.isCurrentRequest ?? (() => true);
   let token = selectedToken;
   let marketVariantId: string | undefined;
   if (token.assetId) {
@@ -44,7 +46,9 @@ export async function navigateToMarketTokenDetail(
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
           assetId: token.assetId,
           currency: 'usd',
+          autoHandleError: false,
         });
+      if (!isCurrentRequest()) return;
       token = {
         ...token,
         address: selectedVariant.tokenAddress,
@@ -53,7 +57,7 @@ export async function navigateToMarketTokenDetail(
       };
       marketVariantId = selectedVariant.variantId;
     } catch {
-      opts.onError?.();
+      if (isCurrentRequest()) opts.onError?.();
       return;
     }
   }
@@ -112,6 +116,7 @@ export async function navigateToMarketTokenDetail(
     ? ETabMarketRoutes.MarketStockDetail
     : ETabMarketRoutes.MarketDetailV2;
   setTimeout(() => {
+    if (!isCurrentRequest()) return;
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {

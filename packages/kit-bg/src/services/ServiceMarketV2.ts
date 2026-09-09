@@ -18,6 +18,7 @@ import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/mark
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import { getDefaultStockTokenVariant } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -884,9 +885,7 @@ class ServiceMarketV2 extends ServiceBase {
               await this.fetchMarketStockTokenVariants({
                 stockId: item.stockId ?? '',
               });
-            const variant =
-              items.find((entry) => entry.tokenId === defaultTokenId) ??
-              items[0];
+            const variant = getDefaultStockTokenVariant(items, defaultTokenId);
             if (variant) {
               return {
                 chainId: variant.networkId,

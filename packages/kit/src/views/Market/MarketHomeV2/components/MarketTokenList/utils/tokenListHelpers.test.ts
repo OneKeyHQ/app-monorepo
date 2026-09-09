@@ -525,3 +525,22 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
     ).toBe(false);
   });
 });
+
+test.each([
+  { stockId: ' aapl ', underlyingAssetTicker: 'OTHER' },
+  { underlyingAssetTicker: 'aapl' },
+])('preserves one stock identity across chain variants: %j', (stock) => {
+  const tokens = ['evm--1', 'evm--42161'].map((chainId) =>
+    transformApiItemToToken(
+      {
+        address: `0x${chainId}`,
+        name: 'Apple',
+        symbol: 'AAPLon',
+        decimals: 18,
+        stock: { subtitle: 'Apple', sourceLogoUri: '', ...stock },
+      },
+      { chainId, networkLogoUri: '' },
+    ),
+  );
+  expect(tokens.map((token) => token.stockId)).toEqual(['AAPL', 'AAPL']);
+});
