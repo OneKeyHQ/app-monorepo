@@ -42,7 +42,7 @@
     "app:build-bundle:ios": "yarn workspace @onekeyhq/mobile build-bundle:ios",
     "app:build-bundle:android": "yarn workspace @onekeyhq/mobile build-bundle:android",
     "app:ios": "yarn workspace @onekeyhq/mobile dev-shell --platform ios",
-    "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
+    "app:ios:device": "yarn copy:inject && yarn workspace @onekeyhq/mobile dev-vendor:prepare:ios && cross-env ONEKEY_DEV_VENDOR=true ONEKEY_DEV_BG_HMR=true yarn workspace @onekeyhq/mobile ios:device",
     "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",
     "app:android": "yarn workspace @onekeyhq/mobile dev-shell --platform android",
     "app:android:device": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile android:device",
