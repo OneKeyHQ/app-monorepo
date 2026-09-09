@@ -360,13 +360,17 @@ function StockPriceHeader({
 
   return (
     <XStack
-      height={68}
-      alignItems="flex-start"
+      testID="stock-price-header"
+      minHeight={68}
+      flexWrap="wrap-reverse"
+      alignItems="flex-end"
       justifyContent="space-between"
       gap="$2"
     >
-      <YStack flex={1} gap="$2">
-        <XStack alignItems="baseline" gap="$3.5">
+      {/* Keep the intrinsic price width when deciding whether the controls fit.
+          Reverse wrapping places the controls above the quote on narrow charts. */}
+      <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
+        <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
           {hoverPoint ? (
             <NumberSizeableText
               testID="stock-price-hover-value"
@@ -394,7 +398,7 @@ function StockPriceHeader({
               />
             </MarketTooltipLabel>
           )}
-          <XStack alignItems="baseline" gap="$1.5">
+          <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
               <NumberSizeableText
                 testID="stock-price-change-value"
@@ -426,10 +430,13 @@ function StockPriceHeader({
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      {/* Both options hug their label, per Figma: the widths this used to
-          carry were read off the English boxes, which left the shorter CJK
-          labels sitting in half-empty pills. flexShrink keeps a longer
-          translation from being squeezed by the price beside it instead. */}
+      {/* Both options hug their label, per Figma 25476:89067: the widths this
+          used to carry were read off the English boxes, which left the shorter
+          CJK labels sitting in half-empty pills. #13271 restored them as
+          minimums to stop long Spanish/Italian labels truncating; hugging
+          answers that case too, since a button with no minimum and no shrink
+          simply grows to its text, and the header above wraps the pair onto
+          their own line when the row runs out of space. */}
       <XStack height={38} py="$1" gap="$0.5" alignItems="center" flexShrink={0}>
         <Tooltip
           placement="top"
