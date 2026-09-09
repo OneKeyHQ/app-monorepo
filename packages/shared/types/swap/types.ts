@@ -387,6 +387,7 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  swapSource?: ESwapSource;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
   unSupportReceiveAddressDifferent?: boolean;

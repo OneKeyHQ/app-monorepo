@@ -84,6 +84,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
+  ESwapSource,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -215,6 +216,7 @@ type IEstimateNetworkFeeOptions = {
 
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: () => void | Promise<void>;
+  swapSource?: ESwapSource;
 };
 
 type ISwapSignAndSendProgressEvent = {
@@ -265,6 +267,7 @@ function getSwapCreateFrom({
  */
 export function useSwapBuildTx({
   onSwapBroadcast,
+  swapSource,
 }: IUseSwapBuildTxOptions = {}) {
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
@@ -4061,6 +4064,7 @@ export function useSwapBuildTx({
                           ...pre,
                           swapApprovingTransaction: {
                             txId: approveSendTx?.txid,
+                            swapSource,
                             swapType:
                               getSwapExecutionTypeFromQuoteResult(
                                 quoteResultFinal,
@@ -4268,6 +4272,7 @@ export function useSwapBuildTx({
       swapActionState.approveUnLimit,
       intl,
       setInAppNotificationAtom,
+      swapSource,
       fromUserAddress,
       fromAccountId,
       wrappedTx,

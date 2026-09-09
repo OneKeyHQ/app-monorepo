@@ -220,7 +220,10 @@ const SwapMainLoad = ({
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
     markCurrentGasAccountReviewSubmitted,
-  } = useSwapBuildTx({ onSwapBroadcast });
+  } = useSwapBuildTx({
+    onSwapBroadcast,
+    swapSource: swapInitParams?.swapSource,
+  });
   const rebuildReviewWithSlippage = useCallback(
     (slippagePercentage: number) =>
       rebuildSwapWithSlippage({ slippagePercentage }),
