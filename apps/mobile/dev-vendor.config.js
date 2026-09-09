@@ -87,6 +87,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-image',
     '@onekeyfe/react-native-keychain-module',
     '@onekeyfe/react-native-lite-card',
+    '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
@@ -268,6 +269,7 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
     'apps/mobile/package.json',

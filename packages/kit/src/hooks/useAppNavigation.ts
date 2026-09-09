@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 
 import {
   Page,
+  closeAllTooltips,
   popToMainRoute,
   popToTabRootScreen,
   resetAboveMainRoute,
@@ -262,6 +263,9 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
+      // The pointer does not move when a modal appears, so a hover tooltip
+      // would otherwise stay open above it until the next mouse move.
+      closeAllTooltips();
       const navigationInstance = navigationRef.current;
       const target: IPendingModalTarget = {
         modalType,

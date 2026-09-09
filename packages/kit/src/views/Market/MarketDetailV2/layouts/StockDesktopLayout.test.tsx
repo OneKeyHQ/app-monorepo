@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore Financials
 
 import type { ReactNode } from 'react';
 
@@ -103,6 +104,9 @@ jest.mock('../../components/PerpsBadges', () => ({
 }));
 jest.mock('../components/InformationTabs/components/Portfolio', () => ({
   Portfolio: () => null,
+}));
+jest.mock('../components/StockFinancials/StockFinancials', () => ({
+  StockFinancials: () => null,
 }));
 jest.mock('../components/StockAnalystGauge', () => ({
   StockAnalystGauge: () => null,
