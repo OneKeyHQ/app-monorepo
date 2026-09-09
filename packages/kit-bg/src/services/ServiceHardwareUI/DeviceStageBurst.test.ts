@@ -276,6 +276,66 @@ describe('DeviceStageBurstScope', () => {
   /** Lets the scheduled exit run out. */
   const letTheExitRun = () => jest.advanceTimersByTimeAsync(OFF_GRACE_MS);
 
+  it('rolls back a failed join so the explicit holder can close its stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = new OneKeyLocalError('Stage broadcast failed');
+    stageAtom.set.mockRejectedValueOnce(error);
+
+    await expect(scope.begin({ connectId: CONNECT_ID })).rejects.toBe(error);
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.endExplicit({ token });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
+  it('releases a failed initial open and allows the next operation to close', async () => {
+    const scope = new DeviceStageBurstScope();
+    const error = new OneKeyLocalError('Stage read failed');
+    stageAtom.get.mockRejectedValueOnce(error);
+
+    await expect(scope.begin({ connectId: CONNECT_ID })).rejects.toBe(error);
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('does not release a new burst when a dismissed join later fails', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    stageAtom.set.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    const error = new OneKeyLocalError('Late stage broadcast failed');
+    const joining = scope
+      .begin({ connectId: CONNECT_ID })
+      .catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(rejectWrite).toBeDefined();
+    await scope.userClose();
+    await scope.begin({ connectId: 'NEW_DEVICE' });
+    await paintOpeningBeat();
+    rejectWrite?.(error);
+    await expect(joining).resolves.toBe(error);
+
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
   it.each([false, true])(
     'closes skipped verification immediately without ending an outer flow (%s)',
     async (hasOuterFlow) => {

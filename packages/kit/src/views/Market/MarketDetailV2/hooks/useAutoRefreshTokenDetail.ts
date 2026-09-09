@@ -125,6 +125,19 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]
     .map(encodeURIComponent)
     .join(':');
+  const [settledRequestGeneration, setSettledRequestGeneration] =
+    useState<number>();
+  const requestScopeRef = useRef({ key: '', generation: 0 });
+  const activeRequestKey = data.skipMarketDataFetch
+    ? ''
+    : tokenDetailRequestKey;
+  if (requestScopeRef.current.key !== activeRequestKey) {
+    requestScopeRef.current = {
+      key: activeRequestKey,
+      generation: requestScopeRef.current.generation + 1,
+    };
+  }
+  const requestGeneration = requestScopeRef.current.generation;
   const currentTokenDetailRequestKeyRef = useRef<string | undefined>(undefined);
   currentTokenDetailRequestKeyRef.current = data.skipMarketDataFetch
     ? undefined
@@ -263,42 +276,51 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       ) {
         return;
       }
-      if (isMarketAssetRequest && data.marketTokenId) {
-        try {
-          const assetDetail = await fetchMarketAssetTokenDetail({
-            assetId: data.marketTokenId,
-            variantId: data.marketVariantId,
-            tokenAddress: data.tokenAddress,
-            networkId: data.networkId,
-          });
-          if (
-            currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
-          ) {
-            return;
+      try {
+        if (isMarketAssetRequest && data.marketTokenId) {
+          try {
+            const assetDetail = await fetchMarketAssetTokenDetail({
+              assetId: data.marketTokenId,
+              variantId: data.marketVariantId,
+              tokenAddress: data.tokenAddress,
+              networkId: data.networkId,
+            });
+            if (
+              currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
+            ) {
+              return;
+            }
+            const requestResult = {
+              requestKey: tokenDetailRequestKey,
+              assetDetail,
+            };
+            successfulMarketAssetDetailRef.current = requestResult;
+            return requestResult;
+          } catch (_error) {
+            if (
+              currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
+            ) {
+              return;
+            }
+            return successfulMarketAssetDetailRef.current?.requestKey ===
+              tokenDetailRequestKey
+              ? successfulMarketAssetDetailRef.current
+              : undefined;
           }
-          const requestResult = {
-            requestKey: tokenDetailRequestKey,
-            assetDetail,
-          };
-          successfulMarketAssetDetailRef.current = requestResult;
-          return requestResult;
-        } catch (_error) {
-          if (
-            currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
-          ) {
-            return;
-          }
-          return successfulMarketAssetDetailRef.current?.requestKey ===
-            tokenDetailRequestKey
-            ? successfulMarketAssetDetailRef.current
-            : undefined;
+        }
+        // Only fetch token detail data; atom identity is set synchronously above
+        await tokenDetailActions.fetchTokenDetail(
+          data.tokenAddress,
+          data.networkId,
+        );
+      } finally {
+        if (
+          requestScopeRef.current.generation === requestGeneration &&
+          currentTokenDetailRequestKeyRef.current === tokenDetailRequestKey
+        ) {
+          setSettledRequestGeneration(requestGeneration);
         }
       }
-      // Only fetch token detail data; atom identity is set synchronously above
-      await tokenDetailActions.fetchTokenDetail(
-        data.tokenAddress,
-        data.networkId,
-      );
     },
     [
       currencyInfo.id,
@@ -312,6 +334,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       isMarketAssetRequest,
       tokenDetailActions,
       tokenDetailRequestKey,
+      requestGeneration,
     ],
     {
       undefinedResultIfError: true,
@@ -332,6 +355,12 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   return {
     marketAssetDetail,
+    isInitialTokenDetailPending: Boolean(
+      !data.skipMarketDataFetch &&
+      data.networkId &&
+      (data.tokenAddress || data.isNative) &&
+      settledRequestGeneration !== requestGeneration,
+    ),
     isMarketAssetDetailLoading:
       data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
       isTokenDetailLoading,
