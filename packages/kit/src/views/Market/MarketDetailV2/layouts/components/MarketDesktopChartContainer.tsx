@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type {
   CSSProperties,
   KeyboardEvent,
@@ -9,6 +9,7 @@ import type {
 import { useWindowDimensions } from 'react-native';
 
 import { Stack, useTheme } from '@onekeyhq/components';
+import { useMarketDesktopLayoutAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
 
@@ -41,22 +42,35 @@ export function MarketDesktopChartContainer({
     MARKET_DESKTOP_CHART_MIN_HEIGHT,
     Math.floor(viewportHeight - MARKET_DESKTOP_CHART_VIEWPORT_GUTTER),
   );
-  const [chartHeight, setChartHeight] = useState(
-    MARKET_DESKTOP_CHART_MIN_HEIGHT,
+  const [layoutState, setLayoutState] = useMarketDesktopLayoutAtom();
+  const [dragHeight, setDragHeight] = useState<number>();
+  const savedHeight = layoutState.chartHeight;
+  const chartHeight = clampChartHeight(
+    dragHeight ??
+      (typeof savedHeight === 'number' && Number.isFinite(savedHeight)
+        ? savedHeight
+        : MARKET_DESKTOP_CHART_MIN_HEIGHT),
+    maxHeight,
   );
   const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef<
     | {
         pointerId: number;
         startHeight: number;
+        currentHeight: number;
         startY: number;
       }
     | undefined
   >(undefined);
 
-  useEffect(() => {
-    setChartHeight((height) => clampChartHeight(height, maxHeight));
-  }, [maxHeight]);
+  const saveHeight = useCallback(
+    (height: number) => {
+      setLayoutState((prev) =>
+        prev.chartHeight === height ? prev : { ...prev, chartHeight: height },
+      );
+    },
+    [setLayoutState],
+  );
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -68,6 +82,7 @@ export function MarketDesktopChartContainer({
       dragStateRef.current = {
         pointerId: event.pointerId,
         startHeight: chartHeight,
+        currentHeight: chartHeight,
         startY: event.clientY,
       };
       try {
@@ -87,12 +102,11 @@ export function MarketDesktopChartContainer({
       if (!dragState || dragState.pointerId !== event.pointerId) {
         return;
       }
-      setChartHeight(
-        clampChartHeight(
-          dragState.startHeight + event.clientY - dragState.startY,
-          maxHeight,
-        ),
+      dragState.currentHeight = clampChartHeight(
+        dragState.startHeight + event.clientY - dragState.startY,
+        maxHeight,
       );
+      setDragHeight(dragState.currentHeight);
     },
     [maxHeight],
   );
@@ -103,7 +117,11 @@ export function MarketDesktopChartContainer({
       if (!dragState || dragState.pointerId !== event.pointerId) {
         return;
       }
+      if (dragState.currentHeight !== dragState.startHeight) {
+        saveHeight(clampChartHeight(dragState.currentHeight, maxHeight));
+      }
       dragStateRef.current = undefined;
+      setDragHeight(undefined);
       setIsDragging(false);
       try {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -113,7 +131,7 @@ export function MarketDesktopChartContainer({
         // Pointer capture may already have been released by the browser.
       }
     },
-    [],
+    [maxHeight, saveHeight],
   );
 
   const handleKeyDown = useCallback(
@@ -130,9 +148,9 @@ export function MarketDesktopChartContainer({
         return;
       }
       event.preventDefault();
-      setChartHeight(clampChartHeight(nextHeight, maxHeight));
+      saveHeight(clampChartHeight(nextHeight, maxHeight));
     },
-    [chartHeight, maxHeight],
+    [chartHeight, maxHeight, saveHeight],
   );
 
   const resizeHandleStyle = useMemo<CSSProperties>(
