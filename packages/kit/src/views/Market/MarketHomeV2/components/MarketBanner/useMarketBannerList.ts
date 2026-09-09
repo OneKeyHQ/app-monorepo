@@ -44,6 +44,7 @@ export function useMarketBannerList(): {
         ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
         : undefined,
       watchLoading: true,
+      undefinedResultIfError: true,
       revalidateOnReconnect: true,
     },
   );
