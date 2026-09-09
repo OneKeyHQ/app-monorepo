@@ -1,3 +1,5 @@
+import { useMemo, useRef, useState } from 'react';
+
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,46 +35,55 @@ const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
  */
 export function useMarketBasicConfig() {
   const locale = useLocaleVariant();
+  const requestScope = useMemo(() => ({ locale }), [locale]);
+  const currentScopeRef = useRef(requestScope);
+  currentScopeRef.current = requestScope;
+  const [settledScope, setSettledScope] = useState<typeof requestScope>();
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const response = await fetchMarketBasicConfigForPlatform();
-      const configData = response?.data;
+      try {
+        const response = await fetchMarketBasicConfigForPlatform();
+        const configData = response?.data;
 
-      if (!configData) {
-        return null;
+        if (!configData) {
+          return null;
+        }
+
+        // Process all data in one place
+        const defaultNetworkId = getDefaultNetworkId(configData);
+        const recommendedTokens = configData.recommendTokens;
+        const minLiquidity = getMinLiquidity(configData);
+        const refreshInterval = getRefreshInterval(configData);
+        const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
+        const networkList = getNetworkList(configData);
+
+        const homeTab = configData.homeTab ?? [];
+        const perpsCategories = configData.perpsCategories ?? [];
+        const spotCategories = configData.spotCategories ?? [];
+        const stockCategories = configData.stockCategories ?? [];
+        return {
+          // Raw config data
+          basicConfig: configData,
+          // Processed data
+          defaultNetworkId,
+          recommendedTokens,
+          minLiquidity,
+          refreshInterval,
+          formattedMinLiquidity,
+          networkList,
+          homeTab,
+          perpsCategories,
+          spotCategories,
+          stockCategories,
+        };
+      } finally {
+        if (currentScopeRef.current === requestScope)
+          setSettledScope(requestScope);
       }
-
-      // Process all data in one place
-      const defaultNetworkId = getDefaultNetworkId(configData);
-      const recommendedTokens = configData.recommendTokens;
-      const minLiquidity = getMinLiquidity(configData);
-      const refreshInterval = getRefreshInterval(configData);
-      const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
-      const networkList = getNetworkList(configData);
-
-      const homeTab = configData.homeTab ?? [];
-      const perpsCategories = configData.perpsCategories ?? [];
-      const spotCategories = configData.spotCategories ?? [];
-      const stockCategories = configData.stockCategories ?? [];
-      return {
-        // Raw config data
-        basicConfig: configData,
-        // Processed data
-        defaultNetworkId,
-        recommendedTokens,
-        minLiquidity,
-        refreshInterval,
-        formattedMinLiquidity,
-        networkList,
-        homeTab,
-        perpsCategories,
-        spotCategories,
-        stockCategories,
-      };
     },
     // Locale changes invalidate both the cached display data and the request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale],
+    [locale, requestScope],
     {
       checkIsFocused: !platformEnv.isWeb,
       swrKey: platformEnv.isNative
@@ -86,7 +97,12 @@ export function useMarketBasicConfig() {
 
   return {
     // Loading states
-    isLoading,
+    isLoading:
+      platformEnv.isNative &&
+      result === undefined &&
+      settledScope !== requestScope
+        ? true
+        : isLoading,
 
     // Provide default values when data is not loaded yet
     basicConfig: result?.basicConfig,

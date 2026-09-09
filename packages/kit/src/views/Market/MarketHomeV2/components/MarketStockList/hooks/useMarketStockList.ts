@@ -151,6 +151,7 @@ export function useMarketStockList({ category }: { category?: string }) {
           return current;
         }
         return {
+          ...current,
           queryKey: requestQueryKey,
           items: appendUniqueMarketStocks(current.items, response.items),
           nextCursor: response.nextCursor,

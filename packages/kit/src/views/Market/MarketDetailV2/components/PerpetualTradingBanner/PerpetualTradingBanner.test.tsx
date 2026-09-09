@@ -85,3 +85,14 @@ it('preserves the existing dynamic behavior outside stable native layout', () =>
   rerender(<PerpetualTradingBanner />);
   expect(screen.getByText(/Trade perpetuals/)).toBeTruthy();
 });
+
+it('does not reserve a stale perpetual slot in a request-skipping detail', () => {
+  mockTicker = 'xyz:AAPL';
+  const { container, rerender } = render(
+    <PerpetualTradingBanner stableLayout disabled />,
+  );
+  expect(container.childElementCount).toBe(0);
+  mockTicker = undefined;
+  rerender(<PerpetualTradingBanner stableLayout disabled />);
+  expect(container.childElementCount).toBe(0);
+});

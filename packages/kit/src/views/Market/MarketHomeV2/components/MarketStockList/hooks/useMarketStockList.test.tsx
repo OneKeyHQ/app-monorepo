@@ -157,3 +157,21 @@ it('keeps cached rows when remote revalidation fails', async () => {
   expect(result.current.isLoading).toBe(false);
   expect(result.current.canLoadMore).toBe(false);
 });
+
+it('keeps pagination enabled after appending the second page', async () => {
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor === 'next') return { ...response, nextCursor: 'third' };
+    if (params?.cursor === 'third')
+      return { ...response, nextCursor: undefined };
+    return response;
+  });
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  expect(result.current.canLoadMore).toBe(true);
+  await act(async () => result.current.loadMore());
+  expect(
+    fetchList.mock.calls.some(([params]) => params?.cursor === 'third'),
+  ).toBe(true);
+  expect(result.current.canLoadMore).toBe(false);
+});

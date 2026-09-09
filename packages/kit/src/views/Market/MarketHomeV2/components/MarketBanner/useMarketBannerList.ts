@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,6 +13,7 @@ export function useMarketBannerList(): {
   bannerList: IMarketBannerItem[];
   isLoading: boolean;
   isFetched: boolean;
+  scope: string;
 } {
   const locale = useLocaleVariant();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -20,15 +21,23 @@ export function useMarketBannerList(): {
     devSettings.enabled && devSettings.settings?.enableMockMarketBanner;
 
   const scope = `${locale}:${Boolean(enableMockMarketBanner)}`;
-  const [settledScope, setSettledScope] = useState<string>();
-  const { result: bannerList, isLoading } = usePromiseResult<
-    IMarketBannerItem[]
-  >(
+  const requestScope = useMemo(() => ({ scope }), [scope]);
+  const currentScopeRef = useRef(requestScope);
+  currentScopeRef.current = requestScope;
+  const [settledScope, setSettledScope] = useState<typeof requestScope>();
+  const { result: bannerList } = usePromiseResult<IMarketBannerItem[]>(
     async () => {
-      return fetchMarketBannerListForPlatform({ enableMockMarketBanner });
+      try {
+        return await fetchMarketBannerListForPlatform({
+          enableMockMarketBanner,
+        });
+      } finally {
+        if (currentScopeRef.current === requestScope)
+          setSettledScope(requestScope);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enableMockMarketBanner, locale], // Used to trigger refetch when dev setting changes
+    [enableMockMarketBanner, locale, requestScope], // Used to trigger refetch when dev setting changes
     {
       checkIsFocused: !platformEnv.isWeb,
       swrKey: platformEnv.isNative
@@ -39,12 +48,10 @@ export function useMarketBannerList(): {
     },
   );
 
-  if (isLoading === false && settledScope !== scope) setSettledScope(scope);
-
   return {
+    scope,
     bannerList: bannerList || [],
-    isLoading:
-      bannerList === undefined && settledScope !== scope && isLoading !== false,
+    isLoading: bannerList === undefined && settledScope !== requestScope,
     isFetched: bannerList !== undefined,
   };
 }

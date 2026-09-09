@@ -28,12 +28,14 @@ export function PerpetualTradingBanner({
   px,
   py = '$3',
   stableLayout = false,
+  disabled = false,
 }: {
   pl?: string;
   pr?: string;
   px?: string;
   py?: string;
   stableLayout?: boolean;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -93,7 +95,7 @@ export function PerpetualTradingBanner({
     }, 80);
   }, [hlTicker, navigation, tokenDetail?.symbol]);
 
-  if (dismissed || (stableLayout && !initiallyVisible)) return null;
+  if (disabled || dismissed || (stableLayout && !initiallyVisible)) return null;
   if (!hlTicker && !stableLayout) return null;
 
   const title = intl.formatMessage(

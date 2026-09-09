@@ -273,6 +273,7 @@ function MobileMarketTradingView({
 
 export interface IMobileLayoutProps {
   isInitialContentPending?: boolean;
+  disablePerpsBanner?: boolean;
   disableTrade?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
@@ -287,6 +288,7 @@ export interface IMobileLayoutProps {
 
 export function MobileLayout({
   isInitialContentPending,
+  disablePerpsBanner,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative,
@@ -741,6 +743,7 @@ export function MobileLayout({
               <PerpetualTradingBanner
                 px="$5"
                 stableLayout={platformEnv.isNative}
+                disabled={disablePerpsBanner}
               />
               <InformationPanel />
             </DelayedFreeze>
@@ -861,6 +864,7 @@ export function MobileLayout({
       </YStack>
     );
   }, [
+    disablePerpsBanner,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,

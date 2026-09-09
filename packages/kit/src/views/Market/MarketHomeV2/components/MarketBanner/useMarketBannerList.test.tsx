@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -8,8 +8,12 @@ import { useMarketBannerList } from './useMarketBannerList';
 let mockResult: IMarketBannerItem[] | undefined;
 let mockLoading: boolean | undefined;
 let mockLocale = 'en-US';
+let mockRequest: () => Promise<unknown>;
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: mockResult, isLoading: mockLoading }),
+  usePromiseResult: (request: () => Promise<unknown>) => {
+    mockRequest = request;
+    return { result: mockResult, isLoading: mockLoading };
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => mockLocale,
@@ -37,12 +41,40 @@ it('accepts an empty cached result without showing a skeleton', () => {
   expect(result.current.isLoading).toBe(false);
   expect(result.current.isFetched).toBe(true);
 });
-it('does not blank the page again when retrying a failed initial request', () => {
+it('does not blank the page again when retrying a settled initial request', async () => {
   const { result, rerender } = renderHook(() => useMarketBannerList());
+  await act(async () => {
+    await mockRequest();
+  });
   mockLoading = false;
   rerender();
   expect(result.current.isLoading).toBe(false);
   mockLoading = true;
   rerender();
   expect(result.current.isLoading).toBe(false);
+});
+
+it('does not inherit the previous locale completion before the new request starts', async () => {
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  await act(async () => {
+    await mockRequest();
+  });
+  mockLoading = false;
+  mockLocale = 'zh-CN';
+  rerender();
+  expect(result.current.isLoading).toBe(true);
+  await act(async () => {
+    await mockRequest();
+  });
+  expect(result.current.isLoading).toBe(false);
+});
+it('ignores a request callback from the previous locale', async () => {
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  const oldRequest = mockRequest;
+  mockLocale = 'zh-CN';
+  rerender();
+  await act(async () => {
+    await oldRequest();
+  });
+  expect(result.current.isLoading).toBe(true);
 });

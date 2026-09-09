@@ -51,10 +51,16 @@ const populated = () => ({
   >['bannerList'],
   isLoading: false,
   isFetched: true,
+  scope: 'en-US:false',
 });
 
 it('does not insert a banner after the native page has started without one', () => {
-  mockState = { bannerList: [], isLoading: false, isFetched: true };
+  mockState = {
+    bannerList: [],
+    isLoading: false,
+    isFetched: true,
+    scope: 'en-US:false',
+  };
   const { rerender } = render(<Page />);
   mockState = populated();
   rerender(<Page />);
@@ -65,9 +71,22 @@ it('keeps the occupied header height when a refresh removes all banners', () => 
   mockState = populated();
   const { rerender } = render(<Page />);
   expect(screen.getByTestId('banner')).toBeTruthy();
-  mockState = { bannerList: [], isLoading: false, isFetched: true };
+  mockState = {
+    bannerList: [],
+    isLoading: false,
+    isFetched: true,
+    scope: 'en-US:false',
+  };
   rerender(<Page />);
   expect(
     screen.getByTestId('banner').closest('[aria-hidden=true]'),
   ).toBeTruthy();
+});
+
+it('reevaluates banner visibility when the locale has cached banners', () => {
+  mockState = { ...populated(), bannerList: [] };
+  const { rerender } = render(<Page />);
+  mockState = { ...populated(), scope: 'zh-CN:false' };
+  rerender(<Page />);
+  expect(screen.getByTestId('banner')).toBeTruthy();
 });

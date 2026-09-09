@@ -158,4 +158,7 @@ function MarketBannerListComponent() {
   );
 }
 
-export const MarketBannerList = memo(MarketBannerListComponent);
+export const MarketBannerList = memo(function MarketBannerList() {
+  const { scope } = useMarketBannerState();
+  return <MarketBannerListComponent key={scope} />;
+});
