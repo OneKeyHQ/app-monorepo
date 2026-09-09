@@ -104,6 +104,9 @@ function SwapPanelWrapContent({
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
+  const closeReviewDialog = useCallback(async () => {
+    await reviewDialogRef.current?.close();
+  }, []);
 
   const {
     setPaymentToken,
@@ -497,7 +500,7 @@ function SwapPanelWrapContent({
       : false,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
-    onCloseDialog,
+    onCloseReviewDialog: closeReviewDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
