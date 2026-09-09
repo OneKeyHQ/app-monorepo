@@ -48,6 +48,7 @@ const mockPresentation = {
 };
 let mockMissingNetworks = [{ networkId: 'a' }];
 let mockSearch = '';
+let mockIsNative = false;
 let mockState = {
   enabledNetworks: { a: true } as Record<string, boolean>,
   disabledNetworks: {} as Record<string, boolean>,
@@ -66,7 +67,11 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: false },
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   isEnabledNetworksInAllNetworks: ({
@@ -192,6 +197,7 @@ describe('portfolio NativeList selection adapter V2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSearch = '';
+    mockIsNative = false;
     mockMissingNetworks = [{ networkId: 'a' }];
     mockState = { enabledNetworks: { a: true }, disabledNetworks: {} };
   });
@@ -219,6 +225,14 @@ describe('portfolio NativeList selection adapter V2', () => {
     });
     expect(mockState.enabledNetworks).toEqual({ a: true, b: false });
     expect(mockState.disabledNetworks).toEqual({ b: true });
+  });
+
+  it('centers the section index in the window on native platforms', () => {
+    mockIsNative = true;
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
   });
 
   it('deselects a partial selection before selecting all compatible networks', () => {
