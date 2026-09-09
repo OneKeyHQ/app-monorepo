@@ -260,34 +260,39 @@ const ProtocolHeader = ({
             title={yieldSheetData.title?.text ?? ''}
             renderTrigger={
               // The whole figure is the trigger, marked by a dotted rule rather
-              // than an icon — the affordance the design uses.
-              <XStack
-                ai="baseline"
-                alignSelf="flex-start"
-                cursor="pointer"
-                // borderStyle applies to all four edges, and an edge with no
-                // explicit width falls back to the CSS initial `medium` — which
-                // drew a dotted box instead of a rule. The other three widths
-                // have to be zeroed, same as DeFiPositionHealthFactorRow.
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$borderSubdued"
-                borderStyle="dotted"
-                pb="$1"
-              >
+              // than an icon — the affordance the design uses. The rule is a
+              // text decoration, not a border: a dotted border on one edge only
+              // renders on web, while iOS draws dashed/dotted borders through
+              // CAShapeLayer and needs all four widths equal, so on device it
+              // disappeared. Same approach as SwapRateDifferenceText, and
+              // $borderStrong instead of $borderSubdued so the dots read on a
+              // high-DPI screen (OK-62392).
+              <XStack ai="baseline" alignSelf="flex-start" cursor="pointer">
                 {headlineApyParts ? (
                   <>
-                    <SizableText size="$heading2xl" color="$textSuccess">
+                    <SizableText
+                      size="$heading2xl"
+                      color="$textSuccess"
+                      textDecorationLine="underline"
+                      textDecorationStyle="dotted"
+                      textDecorationColor="$borderStrong"
+                    >
                       {headlineApyParts.base}
                     </SizableText>
                     {headlineApyParts.bonus ? (
                       <SizableText
                         size="$heading2xl"
                         color={headlineApyParts.bonusColor}
+                        textDecorationLine="underline"
+                        textDecorationStyle="dotted"
+                        textDecorationColor="$borderStrong"
                       >
                         {headlineApyParts.bonus}
+                      </SizableText>
+                    ) : null}
+                    {headlineApyParts.unit ? (
+                      <SizableText size="$heading2xl" color="$textSuccess">
+                        {` ${headlineApyParts.unit}`}
                       </SizableText>
                     ) : null}
                   </>
