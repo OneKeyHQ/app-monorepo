@@ -850,6 +850,8 @@ export function MorphOverlay<T>({
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
+  const dragEnabled = dismissible && pose === 'card';
+  const dragAllowed = useSharedValue(dragEnabled);
   const blocking = modal || scrim;
   // The capsule's close button rides outside the measured row, so the
   // box simply widens by the button when the grant arrives — no
@@ -870,6 +872,10 @@ export function MorphOverlay<T>({
   // re-render instead of one frame behind it — and the mount lands its
   // pose targets before the estimates ever paint.
   useLayoutEffect(() => {
+    // Disabling an active recognizer can deliver its final callbacks after
+    // the exit starts. Share the live grant with those old worklets before
+    // aiming presence, so they cannot pull a hidden shell back on screen.
+    dragAllowed.value = dragEnabled;
     // First, before anything can reveal: the seat flip rides the same
     // turn as every aim below, and as the reveal the hook issues after.
     litKey.value = activeSeatKey;
@@ -979,6 +985,8 @@ export function MorphOverlay<T>({
     cardHeight,
     cardRadius,
     cardWidth,
+    dragAllowed,
+    dragEnabled,
     height,
     heightArrangeToken,
     lift,
@@ -1005,13 +1013,13 @@ export function MorphOverlay<T>({
   // The drag rides presence — see DRAG_*. Armed only for a dismissible
   // card: the capsule has no drag (its close button is its one exit),
   // and an unarmed stage cannot be pulled at all.
-  const dragEnabled = dismissible && pose === 'card';
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .enabled(dragEnabled)
         .activeOffsetY([-DRAG_ACTIVATION_PT, DRAG_ACTIVATION_PT])
         .onUpdate((event) => {
+          if (!dragAllowed.value) return;
           // The dismissing direction is the anchored edge's own: down on
           // the bottom, up off the top. Normalized here, the rest of the
           // math never knows which way the shell hangs.
@@ -1023,6 +1031,7 @@ export function MorphOverlay<T>({
           presence.value = 1 - pull / travel;
         })
         .onEnd((event) => {
+          if (!dragAllowed.value) return;
           const drag = phonePosture ? event.translationY : -event.translationY;
           const dragVelocity = phonePosture
             ? event.velocityY
@@ -1041,13 +1050,14 @@ export function MorphOverlay<T>({
         })
         .onFinalize((_event, success) => {
           // A drag taken over by another recognizer ends nowhere: rest.
-          if (!success) {
+          if (!success && dragAllowed.value) {
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
     [
       bottomClearance,
       dismiss,
+      dragAllowed,
       dragEnabled,
       height,
       lift,
