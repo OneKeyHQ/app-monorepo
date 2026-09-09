@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -14,6 +15,13 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -915,18 +923,73 @@ describe('useAccountSelectorActions', () => {
       });
     });
 
-    it('preserves the global passphrase guide for an explicitly selected hidden wallet', async () => {
-      const passphraseError = new DeviceNotOpenedPassphrase();
-      mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
-      const hiddenParams = {
-        ...createParams,
-        deviceState: {
-          status: {
-            passphraseProtection: false,
+    it.each(['SDK error', 'empty state'])(
+      'preserves one recovery event for a hidden wallet with a serialized %s',
+      async (source) => {
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        const passphraseError = toPlainErrorObject(
+          source === 'SDK error'
+            ? convertDeviceError({
+                code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+                connectId: currentDevice.connectId,
+                deviceId: currentDevice.deviceId,
+              })
+            : new DeviceNotOpenedPassphrase({
+                payload: { params: { walletId: standardWallet.id } },
+              }),
+        );
+        mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
+        const hiddenParams = {
+          ...createParams,
+          deviceState: {
+            status: {
+              passphraseProtection: false,
+            },
           },
-        },
-      } as unknown as IDBCreateHwWalletParamsBase;
+        } as unknown as IDBCreateHwWalletParamsBase;
 
+        const { Wrapper } = createWrapper();
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          {
+            wrapper: Wrapper,
+          },
+        );
+
+        await act(async () => {
+          await expect(
+            result.current.createHWWalletWithHidden(hiddenParams),
+          ).rejects.toBe(passphraseError);
+        });
+
+        expect(mockCreateHWWalletService).toHaveBeenCalledWith(
+          expect.objectContaining({ isMockedStandardHwWallet: true }),
+        );
+        expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
+        expect(
+          mockShowQrHiddenCreateGuideDialogIfErrorMatched,
+        ).toHaveBeenCalledWith(passphraseError);
+        expect(
+          emitSpy.mock.calls.filter(
+            ([name]) => name === EAppEventBusNames.ShowHardwareErrorDialog,
+          ),
+        ).toEqual([
+          [
+            EAppEventBusNames.ShowHardwareErrorDialog,
+            {
+              errorType:
+                HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+              payload: { params: { walletId: standardWallet.id } },
+            },
+          ],
+        ]);
+      },
+    );
+
+    it('does not request passphrase recovery for unrelated creation errors', async () => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      const error = new Error('device disconnected');
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(error);
       const { Wrapper } = createWrapper();
       const { result } = renderHook(() => useAccountSelectorActions().current, {
         wrapper: Wrapper,
@@ -934,17 +997,14 @@ describe('useAccountSelectorActions', () => {
 
       await act(async () => {
         await expect(
-          result.current.createHWWalletWithHidden(hiddenParams),
-        ).rejects.toBe(passphraseError);
+          result.current.createHWHiddenWallet({ walletId: standardWallet.id }),
+        ).rejects.toBe(error);
       });
 
-      expect(mockCreateHWWalletService).toHaveBeenCalledWith(
-        expect.objectContaining({ isMockedStandardHwWallet: true }),
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
       );
-      expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
-      expect(
-        mockShowQrHiddenCreateGuideDialogIfErrorMatched,
-      ).toHaveBeenCalledWith(passphraseError);
     });
 
     it('creates the hidden wallet for Attach PIN mode without a passphrase flag', async () => {
