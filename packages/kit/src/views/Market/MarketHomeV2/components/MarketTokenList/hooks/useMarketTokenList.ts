@@ -259,7 +259,11 @@ export function useMarketTokenList({
   const locale = useLocaleVariant();
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
-  const { minLiquidity, networkList } = useMarketBasicConfig();
+  const {
+    minLiquidity,
+    networkList,
+    isLoading: isBasicConfigLoading,
+  } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -564,7 +568,9 @@ export function useMarketTokenList({
           timeRange: timeRangeRef.current,
         });
 
-  const effectiveIsLoading = hasNetworkId ? isLoading : false;
+  const effectiveIsLoading = hasNetworkId
+    ? isLoading !== false
+    : isBasicConfigLoading !== false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
   const isAwaitingRemoteFirstPageResult =
