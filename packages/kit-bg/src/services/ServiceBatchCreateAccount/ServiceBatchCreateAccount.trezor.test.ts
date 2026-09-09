@@ -42,6 +42,15 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    intl: {
+      formatMessage: ({ id }: { id: string }) => id,
+    },
+    onLocaleChange: jest.fn(() => () => undefined),
+  },
+}));
+
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {},
@@ -129,6 +138,57 @@ describe('ServiceBatchCreateAccount Trezor all-network', () => {
       'normal:end',
       'all-network:start',
     ]);
+  });
+
+  it('cancels queued flows without blocking requests started after cancellation', async () => {
+    const service = new ServiceBatchCreateAccount({ backgroundApi: {} });
+    let finishFirstFlow: (() => void) | undefined;
+    const firstFlow = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishFirstFlow = resolve;
+        }),
+    );
+    const queuedFlow = jest.fn(async () => undefined);
+    Object.assign(service, {
+      startBatchCreateAccountsFlowInternal: firstFlow,
+      startBatchCreateAccountsFlowForAllNetworkInternal: queuedFlow,
+    });
+    const publicService = service as unknown as {
+      startBatchCreateAccountsFlow: (payload: unknown) => Promise<void>;
+      startBatchCreateAccountsFlowForAllNetwork: (
+        payload: unknown,
+      ) => Promise<void>;
+      cancelBatchCreateAccountsFlow: () => Promise<void>;
+    };
+
+    const first = publicService.startBatchCreateAccountsFlow({});
+    await Promise.resolve();
+    const queued = publicService.startBatchCreateAccountsFlowForAllNetwork({});
+    const queuedResult = queued.then(
+      () => ({ status: 'fulfilled' as const, error: undefined }),
+      (error: unknown) => ({ status: 'rejected' as const, error }),
+    );
+    await Promise.resolve();
+
+    await publicService.cancelBatchCreateAccountsFlow();
+    finishFirstFlow?.();
+    await first;
+
+    await expect(queuedResult).resolves.toMatchObject({
+      status: 'rejected',
+      error: expect.any(Error),
+    });
+    expect(queuedFlow).not.toHaveBeenCalled();
+
+    const nextFlow = jest.fn(async () => undefined);
+    Object.assign(service, {
+      startBatchCreateAccountsFlowForAllNetworkInternal: nextFlow,
+    });
+    await expect(
+      publicService.startBatchCreateAccountsFlowForAllNetwork({}),
+    ).resolves.toBeUndefined();
+    expect(nextFlow).toHaveBeenCalledTimes(1);
   });
 
   it('binds third-party all-network get-address to preserve SDK adapter this context', async () => {
