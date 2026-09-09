@@ -759,6 +759,9 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  marketHomeBanners: 'marketHomeBanners',
+  marketHomeConfig: 'marketHomeConfig',
+  marketHomeStocks: 'marketHomeStocks',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
@@ -1108,6 +1111,12 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeBanners: (locale: string, mock: boolean) =>
+    [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
+  marketHomeConfig: (locale: string) =>
+    [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeStocks: (queryKey: string) =>
+    [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,
