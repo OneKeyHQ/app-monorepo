@@ -12,9 +12,13 @@ import {
   PointerType,
   State,
 } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
 import type { Gesture } from 'react-native-gesture-handler';
+
+// This UI suite needs RN Web, not the CLI's repository-wide manual mock.
+jest.unmock('react-native');
 
 jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual<typeof import('react-native-gesture-handler')>(
@@ -69,7 +73,8 @@ jest.mock('react-native-reanimated', () => {
     Easing: { bezierFn: () => identity },
     Extrapolation: { CLAMP: 'clamp' },
     cancelAnimation: jest.fn(),
-    runOnJS: identity,
+    makeMutable: <T,>(value: T) => ({ value }),
+    runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
     useAnimatedStyle: () => ({}),
     useReducedMotion: () => false,
@@ -176,6 +181,53 @@ describe('MorphOverlay dismiss gesture', () => {
     });
     expect(state.result.current.presence.value).toBe(0);
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['update', 'end', 'cancel', 'dismiss'] as const)(
+    'ignores an old drag %s after the stage is shown again',
+    (event) => {
+      const { state, gesture, latestGesture, setPose, onDismiss } = setup();
+      act(() => gesture.handlers.onUpdate?.(dragEvent));
+      setPose('hidden');
+      setPose('card');
+      act(() => {
+        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+      });
+      const reopenedPresence = state.result.current.presence.value;
+      expect(reopenedPresence).toBeLessThan(1);
+
+      act(() => {
+        if (event === 'update') gesture.handlers.onUpdate?.(dragEvent);
+        if (event === 'end') gesture.handlers.onEnd?.(dragEvent, true);
+        if (event === 'cancel') {
+          gesture.handlers.onFinalize?.(dragEvent, false);
+        }
+        if (event === 'dismiss') {
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+        }
+      });
+      expect(state.result.current.presence.value).toBe(reopenedPresence);
+      expect(onDismiss).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores a queued drag dismissal after the stage is shown again', () => {
+    const { state, gesture, setPose, onDismiss } = setup();
+    jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
+    act(() => {
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+    });
+    const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
+    expect(queuedDismiss).toBeInstanceOf(Function);
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    setPose('hidden');
+    setPose('card');
+    act(() => {
+      if (typeof queuedDismiss === 'function') queuedDismiss();
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it('keeps the close button wired to dismissal', () => {
