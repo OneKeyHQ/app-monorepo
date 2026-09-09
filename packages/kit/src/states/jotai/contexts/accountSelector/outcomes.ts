@@ -140,6 +140,7 @@ export enum EStorageSaveOutcome {
   SkipIncompatible = 'skip-incompatible',
   SkipInitPending = 'skip-init-pending',
   SkipNoIdentity = 'skip-no-identity',
+  SkipNoNetwork = 'skip-no-network',
   SkipNotReady = 'skip-not-ready',
   StaleAfterFix = 'stale-after-fix',
   StaleAfterGlobalDerive = 'stale-after-global-derive',
