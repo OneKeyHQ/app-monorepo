@@ -215,6 +215,35 @@ describe('ServiceNotification account activity after account removal', () => {
     ).toEqual({ wallet: buildSettings(['first'], ['second']) });
   });
 
+  it('rebuilds live accounts when stored wallet settings omit accounts', async () => {
+    // Older wallet toggles can persist this shape despite the required type.
+    const settings = {
+      accountActivity: { wallet: { enabled: true } },
+    } as unknown as ISimpleDbNotificationSettings;
+    const snapshot = cloneDeep(settings);
+    const legacyService = new ServiceNotification({
+      backgroundApi: {
+        simpleDb: {
+          notificationSettings: {
+            getRawData: jest.fn(async () => settings),
+          },
+        },
+      },
+    });
+    const save = jest
+      .spyOn(legacyService, 'saveAccountActivityNotificationSettings')
+      .mockResolvedValue(undefined);
+
+    await legacyService.fixAccountActivityNotificationSettings({
+      notificationWallets: [buildWallet('wallet', ['live-account'])],
+    });
+
+    expect(save).toHaveBeenCalledWith({
+      wallet: buildSettings(['live-account']),
+    });
+    expect(settings).toEqual(snapshot);
+  });
+
   it('filters deleted Prime backup accounts after restoring live preferences', async () => {
     const settings: ISimpleDbNotificationSettings = {
       accountActivity: { wallet: buildSettings([], ['kept', 'disabled']) },

@@ -1196,7 +1196,8 @@ export default class ServiceNotification extends ServiceBase {
         return (
           count +
           (wallet.dbAccounts || wallet.dbIndexedAccounts || []).filter(
-            (account) => walletSettings.accounts[account.id]?.enabled === true,
+            (account) =>
+              walletSettings.accounts?.[account.id]?.enabled === true,
           ).length
         );
       },
@@ -1235,7 +1236,7 @@ export default class ServiceNotification extends ServiceBase {
           };
           totalEnabledCount += 1;
           if (
-            oldAccountActivity[wallet.id]?.accounts[account.id]?.enabled ===
+            oldAccountActivity[wallet.id]?.accounts?.[account.id]?.enabled ===
             undefined
           ) {
             newlyEnabledAccountCount += 1;
