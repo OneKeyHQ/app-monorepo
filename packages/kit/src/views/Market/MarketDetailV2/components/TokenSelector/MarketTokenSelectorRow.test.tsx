@@ -71,27 +71,6 @@ jest.mock('../../../components/CommunityRecognizedBadge', () => ({
   CommunityRecognizedBadge: () => null,
 }));
 
-jest.mock('../../../components/MarketListingStar', () => ({
-  MarketListingStar: ({
-    kind,
-    listingId,
-    from,
-  }: {
-    kind: string;
-    listingId: string;
-    from: string;
-  }) => (
-    <button
-      type="button"
-      aria-label="asset favorite"
-      data-testid="listing-star"
-      data-kind={kind}
-      data-listing-id={listingId}
-      data-from={from}
-    />
-  ),
-}));
-
 jest.mock('../../../components/MarketStarV2', () => ({
   usePerpsStarV2Checked: () => ({ checked: false, onPress: jest.fn() }),
   useStarV2Checked: () => ({ checked: false, onPress: jest.fn() }),
@@ -132,25 +111,6 @@ const columns = {
 };
 
 describe('MarketTokenSelectorRow', () => {
-  it('uses the asset identity instead of an empty token address for Top Coins', () => {
-    render(
-      <MarketTokenSelectorRow
-        item={{
-          ...baseItem,
-          marketAssetId: 'bitcoin',
-          chainId: '',
-          networkId: '',
-        }}
-        columns={{ ...columns, metrics: [...columns.metrics] }}
-        onPress={jest.fn()}
-      />,
-    );
-    const star = screen.getByTestId('listing-star');
-    expect(star.getAttribute('data-kind')).toBe('asset');
-    expect(star.getAttribute('data-listing-id')).toBe('bitcoin');
-    expect(star.getAttribute('data-from')).toBe('Search');
-    expect(screen.queryByRole('button', { name: 'favorite' })).toBeNull();
-  });
   it('renders missing change data as unavailable', () => {
     render(
       <MarketTokenSelectorRow

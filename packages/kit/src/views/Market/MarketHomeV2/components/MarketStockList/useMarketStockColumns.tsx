@@ -99,14 +99,12 @@ export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
   showWatchlist = false,
-  watchlistFrom = EWatchlistFrom.Homepage,
 }: {
   /** Use the selector layout with a wider company column and denser rows. */
   compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
   showWatchlist?: boolean;
-  watchlistFrom?: EWatchlistFrom;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
@@ -151,7 +149,7 @@ export function useMarketStockColumns({
                 <MarketListingStar
                   kind="stock"
                   listingId={record.stockId}
-                  from={watchlistFrom}
+                  from={EWatchlistFrom.Homepage}
                 />
               ) : (
                 <Icon name="StarOutline" size="$4" color="$iconSubdued" />
@@ -379,5 +377,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [compact, intl, showSparkline, showWatchlist, watchlistFrom]);
+  }, [compact, intl, showSparkline, showWatchlist]);
 }
