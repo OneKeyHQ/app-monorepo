@@ -63,15 +63,17 @@ function validateProtectedArtifact() {
       node.tagName === 'script' &&
       node.namespaceURI === 'http://www.w3.org/1999/xhtml'
     ) {
-      const src = node.attrs.find((attribute) => attribute.name === 'src');
-      if (src) sources.push(src.value);
+      const attributes = Object.fromEntries(
+        node.attrs.map(({ name, value }) => [name, value]),
+      );
+      if (attributes.src) sources.push(attributes);
     }
     // Template contents live in a separate fragment and remain inert.
     node.childNodes?.forEach(visit);
   };
   visit(parse(html, { scriptingEnabled: true }));
-  const scripts = sources.map((source) => {
-    const url = new URL(source, 'http://localhost/');
+  const scripts = sources.map(({ src }) => {
+    const url = new URL(src, 'http://localhost/');
     assert.equal(url.origin, 'http://localhost', 'Scripts must be local');
     const file = decodeURIComponent(url.pathname).slice(1);
     const resolved = fs.realpathSync(path.join(root, file));
@@ -85,6 +87,21 @@ function validateProtectedArtifact() {
     'HTML must load the protected runtime first',
   );
   assert.equal(scripts.filter((file) => file === runtime).length, 1);
+  for (const [index, file] of scripts.entries()) {
+    assert.equal(
+      sources[index].integrity,
+      `sha384-${crypto
+        .createHash('sha384')
+        .update(fs.readFileSync(path.join(root, file)))
+        .digest('base64')}`,
+      `HTML integrity must match the final bytes of ${file}`,
+    );
+    assert.equal(
+      sources[index].crossorigin,
+      'anonymous',
+      `HTML must retain anonymous cross-origin loading for ${file}`,
+    );
+  }
   return {
     indexSha256: crypto.createHash('sha256').update(html).digest('hex'),
     runtime,

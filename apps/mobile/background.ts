@@ -187,6 +187,23 @@ async function initializeBackgroundRuntime() {
   }
   await getBackgroundApiProxy();
 
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { runMobileLockdownReleaseCheck } =
+        require('./src/security/mobileLockdownReleaseCheck') as typeof import('./src/security/mobileLockdownReleaseCheck');
+      const { getBackgroundNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
+      void runMobileLockdownReleaseCheck(
+        'background',
+        getBackgroundNativeSplitBundleLoader(),
+      );
+    }
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+    if (!__DEV__) {
+      const { runMobileLockdownWebEmbedReleaseCheck } =
+        require('./src/security/mobileLockdownWebEmbedReleaseCheck') as typeof import('./src/security/mobileLockdownWebEmbedReleaseCheck');
+      void runMobileLockdownWebEmbedReleaseCheck();
+    }
+  }
   const bgEntryEnd = Date.now();
   const entryElapsed = bgEntryEnd - bgEntryStart;
   bgEntryLog(

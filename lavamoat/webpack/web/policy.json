@@ -4690,6 +4690,7 @@
         "navigator": true,
         "performance": true,
         "postMessage": true,
+        "process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER": true,
         "queueMicrotask": true,
         "require": true,
         "sessionStorage.clear": true,

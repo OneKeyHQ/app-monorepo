@@ -1,0 +1,90 @@
+{
+  "description": "加密、随机数、密钥相关 API",
+  "resources": {
+    "@onekeyhq/core": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@noble/secp256k1": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "@onekeyhq/core>bip39>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>ecpair>randombytes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>elliptic>brorand": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>tonweb-mnemonic": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>xrpl>bignumber.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "crypto.randomUUID": true
+      }
+    },
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/randomfill/browser.js": {
+      "globals": {
+        "crypto": true
+      }
+    }
+  }
+}

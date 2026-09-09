@@ -1,0 +1,366 @@
+[
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "@onekeyfe/hd-core>axios",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "@onekeyfe/hd-core>axios",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "@onekeyfe/hd-core>axios>follow-redirects",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "@onekeyfe/hd-core>axios>follow-redirects",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.stat",
+    "resource": "@onekeyfe/hd-core>axios>form-data",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.request",
+    "resource": "@onekeyfe/hd-core>axios>form-data",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https.request",
+    "resource": "@onekeyfe/hd-core>axios>form-data",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "@onekeyhq/core>@onekeyfe/coinselect>blake-hash>node-gyp-build",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "@onekeyhq/core>@onekeyfe/coinselect>blake-hash>node-gyp-build",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "@onekeyhq/core>@solana/web3.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "@onekeyhq/core>@solana/web3.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "@onekeyhq/core>cip-23>keccak>node-gyp-build",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "@onekeyhq/core>cip-23>keccak>node-gyp-build",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.accessSync",
+    "resource": "@onekeyhq/core>js-conflux-sdk>keccak>bindings",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "@onekeyhq/core>js-conflux-sdk>keccak>bindings",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "@onekeyhq/core>near-api-js>node-fetch",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "@onekeyhq/core>near-api-js>node-fetch",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.createServer",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.request",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.STATUS_CODES",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https.request",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net.connect",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net.isIP",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "tls.connect",
+    "resource": "@onekeyhq/core>xrpl>ws",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "commander",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "commander",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.realpathSync",
+    "resource": "commander",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "tls",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.createServer",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.STATUS_CODES",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "tls",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.request",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https.request",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net.connect",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net.isIP",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "tls.connect",
+    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "external:../../node_modules/micro-ftch/index.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "external:../../node_modules/micro-ftch/index.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlinkSync",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFileSync",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.request",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https.request",
+    "resource": "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs",
+    "resource": "proper-lockfile>graceful-fs",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.createWriteStream",
+    "resource": "qrcode",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFile",
+    "resource": "qrcode",
+    "type": "builtin",
+    "value": true
+  }
+]

@@ -1,0 +1,102 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "chrome.action.setBadgeBackgroundColor": true,
+        "chrome.action.setBadgeText": true,
+        "chrome.action.setBadgeTextColor": true,
+        "chrome.contextMenus.create": true,
+        "chrome.contextMenus.onClicked.addListener": true,
+        "chrome.contextMenus.removeAll": true,
+        "chrome.contextMenus.update": true,
+        "chrome.notifications.clear": true,
+        "chrome.notifications.create": true,
+        "chrome.notifications.getPermissionLevel": true,
+        "chrome.notifications.onClicked.addListener": true,
+        "chrome.notifications.onClosed.addListener": true,
+        "chrome.notifications.onShowSettings.addListener": true,
+        "chrome.permissions.contains": true,
+        "chrome.permissions.request": true,
+        "chrome.runtime.getURL": true,
+        "chrome.runtime.lastError": true,
+        "chrome.scripting.executeScript": true,
+        "chrome.sidePanel.open": true,
+        "chrome.sidePanel.setOptions": true,
+        "chrome.storage.local.clear": true,
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.set": true,
+        "chrome.storage.session": true,
+        "chrome.tabs.get": true,
+        "chrome.tabs.onActivated.addListener": true,
+        "chrome.tabs.query": true,
+        "desktopApi.channel": true,
+        "desktopApi.nobleBle": true,
+        "desktopApi.platform": true,
+        "desktopApiProxy.dev.setNetworkThrottle": true,
+        "desktopApiProxy.security": true,
+        "desktopApiProxy.storage.storeClear": true,
+        "desktopApiProxy.storage.storeGetItemAsync": true,
+        "desktopApiProxy.storage.storeSetItemAsync": true,
+        "desktopApiProxy.system.installOneKeyUdevRules": true,
+        "desktopApiProxy.webview.clearWebViewCache": true,
+        "desktopApiProxy.webview.setFiatPaySiteWhitelist": true,
+        "window.desktopApi.thirdPartyBle": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "browser": "write",
+        "chrome": "write",
+        "desktopApi.arch": true,
+        "desktopApi.channel": true,
+        "desktopApi.deskChannel": true,
+        "desktopApi.isFocused": true,
+        "desktopApi.isMas": true,
+        "desktopApi.markBootSuccess": true,
+        "desktopApi.onAppState": true,
+        "desktopApi.platform": true,
+        "desktopApi.setConsecutiveBootFailCount": true,
+        "desktopApiProxy.dev.getNetworkThrottle": true,
+        "desktopApiProxy.system.getSystemInfo": true,
+        "desktopApiProxy.system.openPreferences": true,
+        "desktopApiProxy.system.reload": true,
+        "desktopApiProxy.system.reloadBridgeProcess": true
+      }
+    },
+    "@onekeyhq/shared>webextension-polyfill": {
+      "globals": {
+        "browser": true,
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js": {
+      "globals": {
+        "chrome.runtime.getURL": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": {
+      "globals": {
+        "chrome.runtime.connect": true,
+        "chrome.runtime.lastError": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js": {
+      "globals": {
+        "chrome.runtime.onConnect.addListener": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    }
+  }
+}

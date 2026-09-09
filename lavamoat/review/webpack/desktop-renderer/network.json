@@ -1,6 +1,11 @@
 {
   "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
   "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
+      "globals": {
+        "fetch": true
+      }
+    },
     "@onekeyhq/components>@react-navigation/native>@react-navigation/core": {
       "globals": {
         "navigator": true
@@ -297,11 +302,6 @@
         "importScripts": true,
         "navigator": true,
         "XMLHttpRequest": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
-      "globals": {
-        "fetch": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {

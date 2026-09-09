@@ -1,0 +1,11 @@
+{
+  "resources": {
+    "electron-check-biometric-auth-changed": {
+      "globals": {
+        "process": false,
+        "process.arch": true,
+        "process.platform": true
+      }
+    }
+  }
+}

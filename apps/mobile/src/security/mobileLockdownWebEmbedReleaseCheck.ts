@@ -1,0 +1,409 @@
+/* eslint-disable onekey/no-raw-error */
+import type { IKaspaSdkApi } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types/sdk';
+import { isIOSWebEmbedDocumentUrl } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+
+import { writeMobileLockdownE2EReport } from './mobileLockdownReleaseCheck';
+
+function requirePublicKaspaResult(condition: unknown): asserts condition {
+  if (!condition) throw new Error('Unexpected unsigned Kaspa E2E result.');
+}
+
+function publicKaspaRecord(
+  value: unknown,
+  keys: string[],
+  optionalKeys: string[] = [],
+) {
+  requirePublicKaspaResult(
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+  );
+  const record = value as Record<string, unknown>;
+  requirePublicKaspaResult(
+    keys.every((key) => Object.hasOwn(record, key)) &&
+      Object.keys(record).every(
+        (key) => keys.includes(key) || optionalKeys.includes(key),
+      ),
+  );
+  return record;
+}
+
+function readPublicKaspaCommit(value: unknown) {
+  const commit = publicKaspaRecord(value, [
+    'commitAddress',
+    'commitScriptHex',
+    'commitScriptPubKey',
+  ]);
+  const { commitAddress, commitScriptHex, commitScriptPubKey } = commit;
+  requirePublicKaspaResult(
+    typeof commitAddress === 'string' &&
+      /^kaspa:[a-z0-9]+$/.test(commitAddress),
+  );
+  requirePublicKaspaResult(
+    typeof commitScriptHex === 'string' &&
+      /^(?:[a-f0-9]{2})+$/.test(commitScriptHex),
+  );
+  requirePublicKaspaResult(
+    typeof commitScriptPubKey === 'string' &&
+      /^(?:[a-f0-9]{2})+$/.test(commitScriptPubKey),
+  );
+  return { commitAddress, commitScriptHex, commitScriptPubKey };
+}
+
+function readPublicKaspaReveal(value: string, commitScriptPubKey: string) {
+  const raw = publicKaspaRecord(JSON.parse(value), [
+    'id',
+    'version',
+    'inputs',
+    'outputs',
+    'mass',
+    'lockTime',
+    'subnetworkId',
+    'gas',
+    'payload',
+  ]);
+  requirePublicKaspaResult(
+    raw.version === 0 &&
+      raw.lockTime === '0' &&
+      raw.gas === '0' &&
+      raw.payload === '' &&
+      raw.subnetworkId === '0000000000000000000000000000000000000000',
+  );
+  requirePublicKaspaResult(
+    Array.isArray(raw.inputs) && raw.inputs.length === 1,
+  );
+  requirePublicKaspaResult(
+    Array.isArray(raw.outputs) && raw.outputs.length === 1,
+  );
+  const input = publicKaspaRecord(raw.inputs[0], [
+    'transactionId',
+    'index',
+    'sequence',
+    'sigOpCount',
+    'signatureScript',
+    'utxo',
+  ]);
+  // The pinned WASM getter returns undefined for an empty signature, and the
+  // JSON bridge may omit that normalized key. Require the explicit empty raw
+  // SafeJSON field before permitting either normalized empty representation.
+  requirePublicKaspaResult(
+    input.transactionId === 'ab'.repeat(32) &&
+      input.index === 0 &&
+      input.signatureScript === '',
+  );
+  const utxo = publicKaspaRecord(input.utxo, [
+    'address',
+    'amount',
+    'scriptPublicKey',
+    'blockDaaScore',
+    'isCoinbase',
+  ]);
+  requirePublicKaspaResult(
+    utxo.address === null &&
+      utxo.amount === '130000000' &&
+      utxo.scriptPublicKey === `0000${commitScriptPubKey}` &&
+      utxo.blockDaaScore === '123456' &&
+      utxo.isCoinbase === false,
+  );
+  const output = publicKaspaRecord(raw.outputs[0], [
+    'value',
+    'scriptPublicKey',
+  ]);
+  const { id, mass } = raw;
+  const { sequence, sigOpCount } = input;
+  const { value: amount, scriptPublicKey } = output;
+  requirePublicKaspaResult(typeof id === 'string' && /^[a-f0-9]{64}$/.test(id));
+  requirePublicKaspaResult(typeof mass === 'string' && /^\d+$/.test(mass));
+  requirePublicKaspaResult(
+    typeof sequence === 'string' && /^\d+$/.test(sequence),
+  );
+  requirePublicKaspaResult(
+    typeof sigOpCount === 'number' && Number.isInteger(sigOpCount),
+  );
+  requirePublicKaspaResult(typeof amount === 'string' && /^\d+$/.test(amount));
+  requirePublicKaspaResult(
+    typeof scriptPublicKey === 'string' &&
+      /^(?:[a-f0-9]{2})+$/.test(scriptPublicKey),
+  );
+  return { id, mass, sequence, sigOpCount, amount, scriptPublicKey };
+}
+
+function readPublicKaspaTransaction(
+  value: unknown,
+  raw: ReturnType<typeof readPublicKaspaReveal>,
+) {
+  // The API's historical declaration uses numeric lockTime/gas, while its
+  // actual JSON bridge returns strings. Validate the wire result directly.
+  const tx = publicKaspaRecord(value, [
+    'version',
+    'inputs',
+    'outputs',
+    'mass',
+    'lockTime',
+    'subnetworkId',
+    'gas',
+    'payload',
+  ]);
+  requirePublicKaspaResult(
+    tx.version === 0 &&
+      tx.lockTime === '0' &&
+      tx.gas === '0' &&
+      tx.payload === '' &&
+      tx.subnetworkId === '0000000000000000000000000000000000000000',
+  );
+  requirePublicKaspaResult(Array.isArray(tx.inputs) && tx.inputs.length === 1);
+  requirePublicKaspaResult(
+    Array.isArray(tx.outputs) && tx.outputs.length === 1,
+  );
+  const input = publicKaspaRecord(
+    tx.inputs[0],
+    ['previousOutpoint', 'sequence', 'sigOpCount'],
+    ['signatureScript'],
+  );
+  const outpoint = publicKaspaRecord(input.previousOutpoint, [
+    'transactionId',
+    'index',
+  ]);
+  requirePublicKaspaResult(
+    outpoint.transactionId === 'ab'.repeat(32) &&
+      outpoint.index === 0 &&
+      (input.signatureScript === '' || input.signatureScript === undefined),
+  );
+  const { sequence, sigOpCount } = input;
+  requirePublicKaspaResult(
+    typeof sequence === 'string' && /^\d+$/.test(sequence),
+  );
+  requirePublicKaspaResult(
+    typeof sigOpCount === 'number' &&
+      Number.isInteger(sigOpCount) &&
+      sigOpCount >= 0 &&
+      sigOpCount <= 255,
+  );
+  const output = publicKaspaRecord(tx.outputs[0], [
+    'amount',
+    'scriptPublicKey',
+  ]);
+  const { amount } = output;
+  requirePublicKaspaResult(typeof amount === 'string' && /^\d+$/.test(amount));
+  const change = BigInt(amount);
+  requirePublicKaspaResult(change >= 20_000_000n && change < 130_000_000n);
+  let scriptVersion: string | number = 'serialized';
+  let script: unknown = output.scriptPublicKey;
+  if (typeof script !== 'string') {
+    const scriptPublicKey = publicKaspaRecord(script, [
+      'version',
+      'scriptPublicKey',
+    ]);
+    requirePublicKaspaResult(
+      typeof scriptPublicKey.version === 'number' &&
+        Number.isInteger(scriptPublicKey.version) &&
+        scriptPublicKey.version >= 0 &&
+        scriptPublicKey.version <= 65_535,
+    );
+    scriptVersion = scriptPublicKey.version;
+    script = scriptPublicKey.scriptPublicKey;
+  }
+  requirePublicKaspaResult(
+    typeof script === 'string' && /^(?:[a-f0-9]{2})+$/.test(script),
+  );
+  const { mass } = tx;
+  requirePublicKaspaResult(typeof mass === 'string' && /^\d+$/.test(mass));
+  requirePublicKaspaResult(
+    sequence === raw.sequence &&
+      sigOpCount === raw.sigOpCount &&
+      amount === raw.amount &&
+      mass === raw.mass &&
+      raw.scriptPublicKey ===
+        (typeof scriptVersion === 'number'
+          ? `${scriptVersion.toString(16).padStart(4, '0')}${script}`
+          : script),
+  );
+  // Compare the validated wire fields directly; never serialize transactions
+  // for hashing, signing, diagnostics, or comparison.
+  return [raw.id, sequence, sigOpCount, amount, scriptVersion, script, mass];
+}
+
+export async function requestMobileLockdownWebEmbedMount() {
+  const runId = process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+  if (!runId || !/^[a-f0-9]{32}$/.test(runId) || __DEV__) {
+    throw new Error('WebEmbed E2E requires an explicit Release test build.');
+  }
+  let providerReady = false;
+  try {
+    const { appEventBus, EAppEventBusNames } =
+      await import('@onekeyhq/shared/src/eventBus/appEventBus');
+    const deadline = Date.now() + 15_000;
+    // The test starts during native bootstrap, before the lazily mounted UI
+    // provider subscribes. Wait for its actual listener before issuing a mount
+    // request; the background probe still requires the real page's RPC reply.
+    while (
+      appEventBus.listenerCount(EAppEventBusNames.LoadWebEmbedWebView) === 0
+    ) {
+      if (Date.now() >= deadline) {
+        throw new Error('WebEmbed E2E UI provider did not become ready.');
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
+    providerReady = true;
+    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    writeMobileLockdownE2EReport(
+      `[MobileLockdownWebEmbedMountE2E] ${JSON.stringify({ runId, runtime: 'main', status: 'requested', providerReady })}`,
+      false,
+    );
+  } catch {
+    writeMobileLockdownE2EReport(
+      `[MobileLockdownWebEmbedMountE2E] ${JSON.stringify({ runId, runtime: 'main', status: 'failed', providerReady })}`,
+      true,
+    );
+  }
+}
+
+// Called only from background, after the native profile launch acknowledgement.
+export async function runMobileLockdownWebEmbedReleaseCheck() {
+  const runId = process.env.ONEKEY_MOBILE_LOCKDOWN_E2E;
+  if (!runId || !/^[a-f0-9]{32}$/.test(runId) || __DEV__) {
+    throw new Error('WebEmbed E2E requires an explicit Release test build.');
+  }
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let expired = false;
+  let passed = false;
+  let intrinsics = false;
+  let kaspaUnsigned = false;
+  let kaspaRuns = 0;
+  let fileBridge = false;
+  let bridgeSource: 'file' | 'bundled-https' | 'bundled-scheme' | undefined;
+  let stage = 'bridge';
+  try {
+    const call = async () => {
+      const { default: webembedApiProxy } =
+        await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy');
+      if (expired) return false;
+      const result = await webembedApiProxy.test.test1(runId);
+      if (expired) return false;
+      const prefix = `${runId}: `;
+      stage = 'origin';
+      if (!result.startsWith(prefix)) return false;
+      const url = new URL(result.slice(prefix.length));
+      fileBridge =
+        !process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER &&
+        url.protocol === 'file:';
+      if (fileBridge) bridgeSource = 'file';
+      if (
+        process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER &&
+        url.origin === 'https://appassets.androidplatform.net' &&
+        url.pathname === '/web-embed/index.html' &&
+        !url.search &&
+        !url.username &&
+        !url.password
+      ) {
+        bridgeSource = 'bundled-https';
+      }
+      if (
+        process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER &&
+        isIOSWebEmbedDocumentUrl(result.slice(prefix.length))
+      ) {
+        bridgeSource = 'bundled-scheme';
+      }
+      if (!bridgeSource) return false;
+      stage = 'intrinsics';
+      const state = await webembedApiProxy.test.getRuntimeSecurityState();
+      if (expired) return false;
+      intrinsics =
+        state.hardenType === 'function' &&
+        state.objectFrozen &&
+        state.arrayFrozen &&
+        state.functionFrozen &&
+        state.promiseFrozen;
+      if (!intrinsics) return false;
+      const api: Pick<
+        IKaspaSdkApi,
+        | 'buildCommitTxInfo'
+        | 'createKRC20RevealTxJSON'
+        | 'deserializeFromSafeJSON'
+      > = webembedApiProxy.chainKaspa;
+      // Reuse the public, unfunded smoke-web-embed fixture through the existing
+      // background-to-WebEmbed API. No account lookup, signing or network call.
+      const accountAddress =
+        'kaspa:qz6ey0j433zey0txecm7e4as4q44jnafqxtclxj5xfl3559lft0p78rdmumy9';
+      let previous: (string | number)[] | undefined;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        stage = 'kaspa-commit';
+        const commitResult = await api.buildCommitTxInfo({
+          accountAddress,
+          transferDataString:
+            '{"p":"krc-20","op":"transfer","tick":"FIXTURE","amt":"1","to":"public-fixture"}',
+          isTestnet: false,
+        });
+        if (expired) return false;
+        const commit = readPublicKaspaCommit(commitResult);
+        stage = 'kaspa-reveal';
+        const reveal = await api.createKRC20RevealTxJSON({
+          accountAddress,
+          isTestnet: false,
+          encodedTx: {
+            utxoIds: [],
+            inputs: [
+              {
+                address: commit.commitAddress,
+                txid: 'ab'.repeat(32),
+                scriptPubKey: commit.commitScriptPubKey,
+                blockDaaScore: 123_456,
+                vout: 0,
+                satoshis: '130000000',
+                scriptPublicKeyVersion: 0,
+              },
+            ],
+            outputs: [],
+            mass: 0,
+            hasMaxSend: false,
+            changeAddress: accountAddress,
+            feeInfo: { price: '1', limit: '0' },
+          },
+        });
+        if (expired) return false;
+        requirePublicKaspaResult(
+          typeof reveal === 'string' && reveal.length > 0,
+        );
+        stage = 'kaspa-raw-unsigned';
+        const raw = readPublicKaspaReveal(reveal, commit.commitScriptPubKey);
+        stage = 'kaspa-deserialize';
+        const transaction: unknown = await api.deserializeFromSafeJSON(reveal);
+        if (expired) return false;
+        stage = 'kaspa-unsigned';
+        const comparable = [
+          commit.commitAddress,
+          commit.commitScriptHex,
+          commit.commitScriptPubKey,
+          ...readPublicKaspaTransaction(transaction, raw),
+        ];
+        if (previous) {
+          stage = 'kaspa-repeat';
+          requirePublicKaspaResult(
+            previous.length === comparable.length &&
+              previous.every((value, index) => value === comparable[index]),
+          );
+        }
+        previous = comparable;
+        kaspaRuns += 1;
+      }
+      kaspaUnsigned = true;
+      return true;
+    };
+    passed = await Promise.race([
+      call(),
+      new Promise<false>((resolve) => {
+        timeout = setTimeout(() => {
+          expired = true;
+          resolve(false);
+        }, 60_000);
+      }),
+    ]);
+  } catch {
+    // Never include bridge error payloads or the native file path in diagnostics.
+  } finally {
+    expired = true;
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+  writeMobileLockdownE2EReport(
+    `[MobileLockdownWebEmbedE2E] ${JSON.stringify({ runId, runtime: 'background', status: passed ? 'passed' : 'failed', fileBridge, bridgeSource, intrinsics, kaspaUnsigned, kaspaRuns, ...(!passed ? { stage } : {}) })}`,
+    !passed,
+  );
+}

@@ -1,0 +1,58 @@
+{
+  "description": "加密、随机数、密钥相关 API",
+  "resources": {
+    "@onekeyfe/hd-core>bignumber.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core": {
+      "globals": {
+        "crypto.subtle": true
+      }
+    },
+    "@onekeyhq/core>@noble/secp256k1": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "@onekeyhq/core>algosdk>tweetnacl": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>elliptic>brorand": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "crypto.getRandomValues": true,
+        "crypto.pbkdf2": true,
+        "crypto.pbkdf2Sync": true,
+        "crypto.subtle": true
+      }
+    },
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": {
+      "globals": {
+        "crypto": true
+      }
+    }
+  }
+}

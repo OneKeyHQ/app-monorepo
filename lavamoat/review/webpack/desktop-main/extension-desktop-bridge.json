@@ -1,0 +1,100 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "builtins": {
+        "electron.ipcMain": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "builtins": {
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.inAppPurchase": true,
+        "electron.ipcMain": true,
+        "electron.Menu": true,
+        "electron.nativeImage": true,
+        "electron.Notification": true,
+        "electron.session": true,
+        "electron.ShareMenu": true,
+        "electron.shell": true,
+        "electron.systemPreferences": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "chrome": true,
+        "desktopApi": true
+      }
+    },
+    "@sentry/electron": {
+      "builtins": {
+        "electron": true
+      },
+      "globals": {
+        "__SENTRY_IPC__": "write"
+      }
+    },
+    "electron-context-menu": {
+      "builtins": {
+        "electron.app.on": true,
+        "electron.app.removeListener": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.clipboard.readText": true,
+        "electron.clipboard.write": true,
+        "electron.clipboard.writeText": true,
+        "electron.Menu.buildFromTemplate": true,
+        "electron.shell.openExternal": true
+      }
+    },
+    "electron-context-menu>electron-dl": {
+      "builtins": {
+        "electron.app.badgeCount": true,
+        "electron.app.dock.downloadFinished": true,
+        "electron.app.getPath": true,
+        "electron.app.on": true,
+        "electron.BrowserWindow.fromWebContents": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.dialog.showErrorBox": true,
+        "electron.shell.showItemInFolder": true
+      }
+    },
+    "electron-is-dev": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-log": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-store": {
+      "builtins": {
+        "electron.app": true,
+        "electron.ipcMain": true,
+        "electron.ipcRenderer": true,
+        "electron.shell.openPath": true
+      }
+    },
+    "electron-updater": {
+      "builtins": {
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.net.request": true,
+        "electron.Notification": true,
+        "electron.session.fromPartition": true,
+        "electron.shell.openPath": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+      "builtins": {
+        "electron.ipcMain.handle": true,
+        "electron.ipcMain.removeHandler": true,
+        "electron.webContents.getAllWebContents": true
+      }
+    }
+  }
+}

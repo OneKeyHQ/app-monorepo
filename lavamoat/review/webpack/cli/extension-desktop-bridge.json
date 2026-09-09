@@ -1,0 +1,16 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "chrome": true,
+        "desktopApi.arch": true,
+        "desktopApi.channel": true,
+        "desktopApi.deskChannel": true,
+        "desktopApi.isMas": true,
+        "desktopApi.platform": true,
+        "desktopApiProxy.system.getSystemInfo": true
+      }
+    }
+  }
+}

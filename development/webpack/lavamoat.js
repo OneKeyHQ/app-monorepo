@@ -45,11 +45,25 @@ function createPolicyLocation(parts) {
   return path.join(repoRoot, 'lavamoat', 'webpack', ...parts.filter(Boolean));
 }
 
+function runtimeFilePattern(inlineRuntime) {
+  if (inlineRuntime === undefined) {
+    return /^lavamoat-runtime\.[a-f0-9]+\.bundle\.js$/;
+  }
+  if (!['background', 'content-script'].includes(inlineRuntime)) {
+    throw new LavaMoatError(
+      `Unsupported inline LavaMoat runtime: ${inlineRuntime}`,
+    );
+  }
+  return new RegExp(`^${inlineRuntime}\\.bundle\\.js$`);
+}
+
 function createLavaMoatWebpackPlugin({
   basePath,
   configName,
   target,
   runtimeConfigurationPerChunk,
+  inlineRuntime,
+  readableResourceIds = true,
 }) {
   if (!isLavaMoatEnabled()) {
     return undefined;
@@ -67,7 +81,7 @@ function createLavaMoatWebpackPlugin({
       ? diagnosticsVerbosity
       : 0,
     generatePolicyOnly: isLavaMoatPolicyGeneration(),
-    readableResourceIds: true,
+    readableResourceIds,
     runChecks: envFlag('ONEKEY_LAVAMOAT_RUN_CHECKS'),
     // Inline the untouched SES source after minification, before the dedicated
     // runtime executes. Keeping runtime out of main prevents maxSize splitting
@@ -76,9 +90,12 @@ function createLavaMoatWebpackPlugin({
     // breaks deep links and can be rejected by strict MIME checks; the upstream
     // runtime skips wrapped modules when SES is missing. Inlining also covers
     // SES with the entry's content hash and SRI.
-    inlineLockdown: /^lavamoat-runtime\.[a-f0-9]+\.bundle\.js$/,
+    inlineLockdown: runtimeFilePattern(inlineRuntime),
     staticShims_experimental: [getLavaMoatStaticShimPath()],
-    lockdown: LOCKDOWN_OPTIONS,
+    lockdown:
+      target === 'ext'
+        ? { ...LOCKDOWN_OPTIONS, evalTaming: 'no-eval' }
+        : LOCKDOWN_OPTIONS,
   };
 
   if (runtimeConfigurationPerChunk) {
@@ -89,13 +106,14 @@ function createLavaMoatWebpackPlugin({
   return new LavaMoatPlugin(pluginOptions);
 }
 
-function createLavaMoatWebpackValidationPlugin() {
+function createLavaMoatWebpackValidationPlugin({ inlineRuntime } = {}) {
   if (!isLavaMoatEnabled() || isLavaMoatPolicyGeneration()) {
     return undefined;
   }
 
   const sesRequire = createRequire(require.resolve('@lavamoat/webpack'));
   const sesSource = fs.readFileSync(sesRequire.resolve('ses'), 'utf8');
+  const expectedRuntimeFile = runtimeFilePattern(inlineRuntime);
   return {
     apply(compiler) {
       // Inspect final filenames and source after minification, SRI and hashing.
@@ -121,16 +139,14 @@ function createLavaMoatWebpackValidationPlugin() {
           if (
             runtimes.length !== 1 ||
             runtimeFiles.length !== 1 ||
-            !/^lavamoat-runtime\.[a-f0-9]+\.bundle\.js$/.test(
-              runtimeFiles[0],
-            ) ||
+            !expectedRuntimeFile.test(runtimeFiles[0]) ||
             sesFiles.length !== 1 ||
             sesFiles[0].name !== runtimeFiles[0] ||
             sesFiles[0].source.source().toString().split(sesSource).length !== 2
           ) {
             compilation.errors.push(
               new LavaMoatError(
-                'Protected builds require exactly one dedicated runtime containing one untouched SES prelude; check runtimeChunk, output.filename and inlineLockdown.',
+                'Protected builds require exactly one expected runtime containing one untouched SES prelude; check runtimeChunk, output.filename and inlineLockdown.',
               ),
             );
           }

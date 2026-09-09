@@ -1,5 +1,26 @@
 [
   {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "desktopApi.addIpcEventListener",
     "resource": "@onekeyhq/components",
@@ -646,6 +667,13 @@
   {
     "category": "code-execution",
     "name": "Worker",
+    "resource": "@onekeyhq/core>@onekeyfe/kaspa-wasm",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto.getRandomValues",
     "resource": "@onekeyhq/core>@onekeyfe/kaspa-wasm",
     "type": "global",
     "value": true
@@ -3347,20 +3375,6 @@
   },
   {
     "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
     "name": "navigator",
     "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
     "type": "global",
@@ -3377,13 +3391,6 @@
     "category": "hardware-device",
     "name": "navigator",
     "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs",
     "type": "global",
     "value": true
   },

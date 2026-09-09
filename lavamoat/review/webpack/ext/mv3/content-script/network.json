@@ -1,0 +1,15 @@
+{
+  "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

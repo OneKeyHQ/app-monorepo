@@ -166,6 +166,7 @@ assertLavaMoatExcludeRules(configs.desktop, 'desktop config');
 assert(configs.web.optimization.minimize && configs.desktop.optimization.minimize, 'protected production builds must remain minified');
 for (const config of [configs.web, configs.desktop]) {
   assert(config.optimization.runtimeChunk.name === 'lavamoat-runtime', 'protected builds need one dedicated runtime immune to maxSize splitting');
+  assert(config.optimization.minimizer[0].options.parallel === 1, 'protected builds must bound minification to one worker');
 }
 for (const plugin of [webPlugin, desktopPlugin]) {
   assert(plugin.options.inlineLockdown.test('lavamoat-runtime.012345abcd.bundle.js'), 'SES must be inlined in the runtime entry');

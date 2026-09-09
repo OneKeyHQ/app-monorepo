@@ -52,6 +52,7 @@ const riskRules = [
   {
     category: 'extension-desktop-bridge',
     description: '浏览器插件、Electron、Desktop bridge 等跨权限边界 API',
+    builtins: [/^electron(?:\.|$)/],
     globals: [
       /^chrome(?:\.|$)/,
       /^browser(?:\.|$)/,
@@ -97,6 +98,7 @@ const riskRules = [
   {
     category: 'code-execution',
     description: '动态代码执行、worker、WebAssembly 等执行能力',
+    builtins: [/^(?:node:)?module(?:\.|$)/],
     globals: [
       /^eval$/,
       /^Function$/,
@@ -131,6 +133,8 @@ const riskRules = [
     description: 'Node.js 系统 builtin 和 native module 能力',
     globals: [],
     builtins: [
+      /^electron(?:\.|$)/,
+      /^(?:node:)?module(?:\.|$)/,
       /^child_process(?:\.|$)/,
       /^node:child_process(?:\.|$)/,
       /^fs(?:\.|$)/,
@@ -329,7 +333,8 @@ function analyzePolicy(policyFile) {
         for (const rule of riskRules) {
           if (matches(globalName, rule.globals)) {
             const category = categorized[rule.category];
-            category.resources[resourceName] ||= { globals: {} };
+            category.resources[resourceName] ||= {};
+            category.resources[resourceName].globals ||= {};
             category.resources[resourceName].globals[globalName] = value;
             highRiskResourceNames.add(resourceName);
             allHighRiskEntries.push({
@@ -349,7 +354,8 @@ function analyzePolicy(policyFile) {
         for (const rule of riskRules) {
           if (matches(builtinName, rule.builtins)) {
             const category = categorized[rule.category];
-            category.resources[resourceName] ||= { builtins: {} };
+            category.resources[resourceName] ||= {};
+            category.resources[resourceName].builtins ||= {};
             category.resources[resourceName].builtins[builtinName] = value;
             highRiskResourceNames.add(resourceName);
             const entry = {

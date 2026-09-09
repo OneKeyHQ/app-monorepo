@@ -1,4 +1,5 @@
 /* eslint-disable onekey/no-raw-error */
+// cspell:ignore lavamoat
 const fs = require('fs');
 const path = require('path');
 
@@ -239,30 +240,34 @@ function extractHtmlScripts(html) {
   return scripts;
 }
 
-function inspectHtmlScripts(failures) {
+function inspectHtmlScripts(failures, { lavamoat = false } = {}) {
   const html = fs.readFileSync(indexHtmlPath, 'utf8');
   const scripts = extractHtmlScripts(html);
   const entryScripts = scripts.filter((script) =>
     getScriptAttribute(script.attributes, 'src'),
   );
-  if (entryScripts.length !== 5) {
+  const expectedSources = lavamoat
+    ? ['lavamoat-runtime', 'web-embed-sentry', 'main'].map(
+        (name) => new RegExp(`^\\./${name}\\.[a-f0-9]{10}\\.bundle\\.js$`),
+      )
+    : [
+        /^\.\/release-meta\.js$/,
+        /^\.\/web-embed\.runtime\./,
+        /^\.\/web-embed\.vendor\./,
+        /^\.\/web-embed\.sentry\./,
+        /^\.\/web-embed\.main\./,
+      ];
+  if (entryScripts.length !== expectedSources.length) {
     throw new Error(
-      `Expected release metadata, runtime, vendor and two web-embed entry scripts, found ${entryScripts.length}`,
+      `Expected ${expectedSources.length} web-embed entry scripts, found ${entryScripts.length}`,
     );
   }
-  const expectedSources = [
-    './release-meta.js',
-    './web-embed.runtime.',
-    './web-embed.vendor.',
-    './web-embed.sentry.',
-    './web-embed.main.',
-  ];
   entryScripts.forEach((script, index) => {
     const source = getScriptAttribute(script.attributes, 'src');
     const type = getScriptAttribute(script.attributes, 'type');
-    if (!source?.startsWith(expectedSources[index])) {
+    if (!source || !expectedSources[index].test(source)) {
       throw new Error(
-        `Web-embed scripts must load in release metadata, runtime, vendor, Sentry and main order: ${source}`,
+        `Web-embed entry script ${index} has an invalid relative URL or order: ${source}`,
       );
     }
     if (type?.toLowerCase() === 'module') {
@@ -300,11 +305,17 @@ function inspectHtmlScripts(failures) {
 }
 
 function main() {
+  const args = process.argv.slice(2);
+  if (args.some((arg) => arg !== '--lavamoat')) {
+    throw new Error(`Unknown arguments: ${args.join(', ')}`);
+  }
   if (!fs.existsSync(indexHtmlPath)) {
     throw new Error(`Web-embed build output is missing: ${indexHtmlPath}`);
   }
   const failures = [];
-  const inlineScriptCount = inspectHtmlScripts(failures);
+  const inlineScriptCount = inspectHtmlScripts(failures, {
+    lavamoat: args.includes('--lavamoat'),
+  });
   const javaScriptFiles = collectJavaScriptFiles(buildDir);
   javaScriptFiles.forEach((filePath) => {
     const source = fs.readFileSync(filePath, 'utf8');

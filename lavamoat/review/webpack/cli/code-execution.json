@@ -1,0 +1,15 @@
+{
+  "description": "动态代码执行、worker、WebAssembly 等执行能力",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "ServiceWorker": true
+      }
+    },
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
+      "globals": {
+        "WebAssembly": true
+      }
+    }
+  }
+}

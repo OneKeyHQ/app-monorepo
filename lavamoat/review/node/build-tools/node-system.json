@@ -1,0 +1,22 @@
+{
+  "description": "Node.js 系统 builtin 和 native module 能力",
+  "resources": {
+    "esbuild": {
+      "builtins": {
+        "child_process.execFileSync": true,
+        "child_process.spawn": true,
+        "fs.chmodSync": true,
+        "fs.copyFileSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.unlink": true,
+        "fs.unlinkSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "worker_threads": true
+      }
+    }
+  }
+}

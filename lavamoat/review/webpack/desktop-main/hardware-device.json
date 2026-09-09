@@ -1,0 +1,35 @@
+{
+  "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
+  "resources": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

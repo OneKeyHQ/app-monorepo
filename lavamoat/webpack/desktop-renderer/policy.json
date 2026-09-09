@@ -1,5 +1,103 @@
 {
   "resources": {
+    "@onekeyfe/hd-shared": {
+      "globals": {
+        "setTimeout": true,
+        "SuppressedError": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "globals": {
+        "require": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector' reexports from '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": {
+      "globals": {
+        "AbortController": true,
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core>@noble/hashes": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core>@noble/hashes": {
+      "globals": {
+        "TextDecoder": true,
+        "TextEncoder": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.from": true,
+        "clearTimeout": true,
+        "fetch": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": {
+      "globals": {
+        "crypto": true,
+        "TextEncoder": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": {
+      "globals": {
+        "AbortController": true,
+        "clearTimeout": true,
+        "console": true,
+        "crypto": true,
+        "Deno": true,
+        "process": true,
+        "setTimeout": true,
+        "TextDecoder": true,
+        "TextEncoder": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector": {
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.from": true,
+        "Buffer.isBuffer": true,
+        "Deno": true,
+        "process": true,
+        "TextDecoder": true,
+        "TextEncoder": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>base64-js": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>ieee754": true
+      }
+    },
     "@onekeyhq/components": {
       "globals": {
         "__ONEKEY_MAIN_ENTRY_START__": true,
@@ -720,6 +818,7 @@
         ]
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/siwa": true,
@@ -749,7 +848,6 @@
         "@onekeyhq/core>@ton/core": true,
         "@onekeyhq/core>@zondax/izari-filecoin": true,
         "@onekeyhq/core>algosdk": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>algosdk>js-sha3": true,
         "@onekeyhq/core>algosdk>tweetnacl": true,
@@ -885,6 +983,7 @@
         "TextEncoder": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/aptos-client": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": true,
@@ -894,7 +993,6 @@
         "@onekeyhq/core>@aptos-labs/ts-sdk>js-base64": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>jwt-decode": true,
         "@onekeyhq/core>@aptos-labs/ts-sdk>poseidon-lite": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>tronweb>eventemitter3": true
       }
     },
@@ -989,7 +1087,7 @@
         "TextEncoder": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@aptos-labs/ts-sdk>jwt-decode": {
@@ -1024,12 +1122,12 @@
         "console.warn": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>js-xxhash": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/bi": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/codec": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/toolkit": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "electron-updater>lodash.isequal": true
       }
     },
@@ -1110,6 +1208,7 @@
         "unisat": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/bi": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/codec": true,
@@ -1118,7 +1217,6 @@
         "@onekeyhq/core>@ckb-lumos/common-scripts>@ckb-lumos/helpers": true,
         "@onekeyhq/core>@ckb-lumos/common-scripts>bs58": true,
         "@onekeyhq/core>@ckb-lumos/common-scripts>immutable": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true
       }
     },
@@ -1157,8 +1255,8 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>@conflux-dev/conflux-address-js>jsbi": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "@onekeyhq/core>@conflux-dev/conflux-address-js>jsbi": true
       }
     },
     "@onekeyhq/core>@conflux-dev/conflux-address-js>jsbi": {
@@ -1188,7 +1286,7 @@
         "console.log": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@glif/filecoin-address>ethers": {
@@ -1483,9 +1581,9 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet>ansicolors": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
       }
@@ -1495,11 +1593,11 @@
         "Buffer.alloc": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet-solana>bs58": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
       }
     },
@@ -1549,17 +1647,17 @@
         "XMLHttpRequest": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>base64-js": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>@project-serum/borsh": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>camelcase": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>eventemitter3": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>pako": true,
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
-        "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
+        "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
       }
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor>@project-serum/borsh": {
@@ -1567,9 +1665,9 @@
         "Buffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/serum>buffer-layout": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -1584,7 +1682,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@solana/spl-token": {
@@ -1593,11 +1691,11 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": true,
         "@onekeyhq/core>@solana/spl-token>@solana/spl-token-metadata": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true
       }
     },
     "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata": {
@@ -1614,11 +1712,11 @@
         "Buffer.alloc": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/beet": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>@metaplex-foundation/beet-solana>bs58": true,
         "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
       }
     },
@@ -1633,11 +1731,11 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": true,
         "@onekeyhq/core>@solana/spl-token>@solana/spl-token-metadata": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true
       }
     },
     "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
@@ -1669,12 +1767,12 @@
         "console.warn": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>@noble/hashes": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>big-integer": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bip174": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bs58check": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>valibot": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true,
         "@onekeyhq/core>bitcoinjs-lib>uint8array-tools": true,
         "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin": true
@@ -1722,9 +1820,9 @@
         "console.warn": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs>@emurgo/cardano-message-signing-asmjs": true,
         "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs>@emurgo/cardano-serialization-lib-asmjs": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>bignumber.js": true
       }
     },
@@ -1768,6 +1866,7 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bip66": true,
         "@onekeyhq/core>@onekeyfe/coinselect>bitcoin-ops": true,
@@ -1780,7 +1879,6 @@
         "@onekeyhq/core>@onekeyfe/coinselect>pushdata-bitcoin": true,
         "@onekeyhq/core>@onekeyfe/coinselect>tiny-secp256k1": true,
         "@onekeyhq/core>@onekeyfe/coinselect>wif": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bchaddrjs": true,
         "@onekeyhq/core>bip32>typeforce": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true,
@@ -1798,7 +1896,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream": true
       }
     },
@@ -1840,7 +1938,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>pushdata-bitcoin": {
@@ -1853,8 +1951,8 @@
         "Buffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -1877,6 +1975,7 @@
         "SEQUENCE_LOCKTIME_DISABLE_FLAG": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@noble/secp256k1": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": true,
@@ -1884,7 +1983,6 @@
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>inherits": true,
         "@onekeyhq/core>@onekeyfe/kaspa-core-lib>url": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
@@ -1965,7 +2063,7 @@
         "Worker": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@solana/spl-token": {
@@ -1974,10 +2072,10 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": true,
         "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true
       }
     },
     "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": {
@@ -1985,10 +2083,10 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils>bigint-buffer": true,
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>bignumber.js": true
       }
     },
@@ -1998,7 +2096,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@solana/spl-token>@solana/spl-token-group>@solana/spl-type-length-value": {
@@ -2011,10 +2109,10 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/spl-token-group>@solana/spl-type-length-value": true,
         "@onekeyhq/core>@solana/spl-token>@solana/spl-token-metadata>@solana/codecs": true,
-        "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@solana/web3.js": true
       }
     },
     "@onekeyhq/core>@solana/spl-token>@solana/spl-token-metadata>@solana/codecs": {
@@ -2080,6 +2178,7 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@alephium/web3>@noble/curves": true,
         "@onekeyhq/core>@noble/hashes": true,
         "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
@@ -2088,14 +2187,13 @@
         "@onekeyhq/core>@solana/web3.js>jayson": true,
         "@onekeyhq/core>@solana/web3.js>rpc-websockets": true,
         "@onekeyhq/core>@solana/web3.js>superstruct": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true
       }
     },
     "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@solana/web3.js>@solana/codecs-numbers": {
@@ -2138,7 +2236,7 @@
         "WebSocket": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>tronweb>eventemitter3": true
       }
     },
@@ -2273,9 +2371,9 @@
         "Buffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ton/crypto": true,
-        "@onekeyhq/core>@ton/ton>symbol.inspect": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@ton/ton>symbol.inspect": true
       }
     },
     "@onekeyhq/core>@ton/crypto": {
@@ -2285,9 +2383,9 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives": true,
         "@onekeyhq/core>@ton/crypto>jssha": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>tweetnacl": true
       }
     },
@@ -2301,7 +2399,7 @@
         "crypto.subtle.sign": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>@ton/crypto>jssha": {
@@ -2316,10 +2414,10 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ton/core": true,
         "@onekeyhq/core>@ton/crypto": true,
         "@onekeyhq/core>@ton/ton>dataloader": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/shared>axios": true,
         "@onekeyhq/shared>zod": true
       }
@@ -2337,13 +2435,13 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@glif/filecoin-address>leb128": true,
         "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
         "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1": true,
         "@onekeyhq/core>@zondax/izari-filecoin>@ipld/dag-cbor": true,
         "@onekeyhq/core>@zondax/izari-filecoin>multiformats": true,
         "@onekeyhq/core>@zondax/izari-filecoin>secp256k1": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>base32-decode": true,
         "@onekeyhq/core>bip32": true,
         "@onekeyhq/core>bip39": true,
@@ -2356,9 +2454,9 @@
         "Buffer.alloc": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@noble/secp256k1": true,
-        "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": true
       }
     },
     "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": {
@@ -2409,8 +2507,8 @@
         "URL": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>algosdk>algo-msgpack-with-bigint": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>hi-base32": true,
         "@onekeyhq/core>algosdk>js-sha512": true,
         "@onekeyhq/core>algosdk>json-bigint": true,
@@ -2425,15 +2523,6 @@
         "process": true,
         "TextDecoder": true,
         "TextEncoder": true
-      }
-    },
-    "@onekeyhq/core>algosdk>buffer": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "@onekeyhq/core>algosdk>hi-base32": {
@@ -2474,7 +2563,7 @@
     },
     "@onekeyhq/core>bchaddrjs": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bchaddrjs>bs58check": true,
         "@onekeyhq/core>bchaddrjs>cashaddrjs": true
       }
@@ -2511,7 +2600,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip32>@noble/hashes": true,
         "@onekeyhq/core>bip32>@scure/base": true,
         "@onekeyhq/core>bip32>typeforce": true,
@@ -2535,7 +2624,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>bip32>wif": {
@@ -2543,7 +2632,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip32>wif>bs58check": true
       }
     },
@@ -2563,7 +2652,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip322-js>@bitcoinerlab/secp256k1": true,
         "@onekeyhq/core>bip322-js>bitcoinjs-lib": true,
         "@onekeyhq/core>bip322-js>fast-sha256": true,
@@ -2584,7 +2673,7 @@
         "console.warn": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip32>typeforce": true,
         "@onekeyhq/core>bip322-js>bitcoinjs-lib>@noble/hashes": true,
         "@onekeyhq/core>bip322-js>bitcoinjs-lib>bip174": true,
@@ -2608,7 +2697,7 @@
         "Buffer.of": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>bip322-js>bitcoinjs-lib>varuint-bitcoin": {
@@ -2632,7 +2721,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip39>@noble/hashes": true
       }
     },
@@ -2716,7 +2805,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bitcoinjs-message>bech32": true,
         "@onekeyhq/core>bitcoinjs-message>bs58check": true,
         "@onekeyhq/core>bitcoinjs-message>buffer-equals": true,
@@ -2737,7 +2826,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>bitcoinjs-message>secp256k1": {
@@ -2745,7 +2834,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bitcoinjs-message>secp256k1>bip66": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic": true,
@@ -2816,7 +2905,7 @@
         "console": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>ieee754": true,
         "@onekeyhq/core>cardano-crypto.js>borc>buffer": true,
         "@onekeyhq/core>cardano-crypto.js>borc>iso-url": true,
         "@onekeyhq/core>xrpl>bignumber.js": true
@@ -2827,8 +2916,8 @@
         "console": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>base64-js": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>ieee754": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>borc>iso-url": {
@@ -2859,7 +2948,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160": {
@@ -2867,7 +2956,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cardano-crypto.js>pbkdf2>ripemd160>hash-base": true,
         "@onekeyhq/core>elliptic>inherits": true
       }
@@ -2877,7 +2966,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bchaddrjs>stream-browserify": true,
         "@onekeyhq/core>elliptic>inherits": true
       }
@@ -2967,8 +3056,8 @@
         "Buffer.isBuffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@conflux-dev/conflux-address-js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cip-23>@findeth/abi": true,
         "@onekeyhq/core>cip-23>keccak": true,
         "@onekeyhq/core>cip-23>superstruct": true
@@ -2984,7 +3073,7 @@
         "TextDecoder": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>web3-utils>web3-validator>util": true
       }
     },
@@ -2995,7 +3084,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream": true
       }
     },
@@ -3006,8 +3095,8 @@
         "process.stdout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>string_decoder": true,
         "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true,
         "@onekeyhq/core>elliptic>inherits": true
@@ -3030,7 +3119,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cosmjs-types>long": true,
         "@onekeyhq/core>cosmjs-types>protobufjs": true
       }
@@ -3080,7 +3169,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bip32>typeforce": true,
         "@onekeyhq/core>bip32>wif": true,
         "@onekeyhq/core>ecpair>randombytes": true
@@ -3098,7 +3187,7 @@
     },
     "@onekeyhq/core>ecpair>randombytes>safe-buffer": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>elliptic": {
@@ -3138,7 +3227,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>algosdk>tweetnacl": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util": true,
@@ -3150,7 +3239,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -3160,7 +3249,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>ethereum-cryptography": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-abi>ethereumjs-util>rlp": true,
@@ -3175,7 +3264,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cip-23>keccak": true,
         "@onekeyhq/core>ecpair>randombytes": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>secp256k1": true
@@ -3188,7 +3277,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -3197,7 +3286,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethereum-cryptography": true,
@@ -3213,7 +3302,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cip-23>keccak": true,
         "@onekeyhq/core>ecpair>randombytes": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>secp256k1": true
@@ -3224,7 +3313,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util>is-hex-prefixed": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util>strip-hex-prefix": true
       }
@@ -3241,7 +3330,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -3257,7 +3346,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography": true,
         "@onekeyhq/core>ethereumjs-util>rlp": true,
@@ -3298,7 +3387,7 @@
     },
     "@onekeyhq/core>ethereumjs-util>create-hash>ripemd160": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>md5.js>hash-base": true
       }
@@ -3308,7 +3397,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cip-23>keccak": true,
         "@onekeyhq/core>ecpair>randombytes": true,
         "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>secp256k1": true
@@ -3319,7 +3408,7 @@
         "Buffer.concat": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic>inherits": true,
         "@onekeyhq/core>ethereumjs-util>create-hash>cipher-base": true,
@@ -3332,7 +3421,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>ethereumjs-util>ethereum-cryptography>browserify-aes>evp_bytestokey": {
@@ -3360,7 +3449,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -3387,10 +3476,10 @@
         "XMLHttpRequest": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@conflux-dev/conflux-address-js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>js-conflux-sdk>abi-util-lite": true,
         "@onekeyhq/core>js-conflux-sdk>big.js": true,
         "@onekeyhq/core>js-conflux-sdk>keccak": true,
@@ -3429,7 +3518,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -3445,7 +3534,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ecpair>randombytes>safe-buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
@@ -3564,7 +3653,7 @@
         "process.env": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true,
         "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
@@ -3625,7 +3714,7 @@
         "URL": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>@near-js/providers>http-errors": true,
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
@@ -3655,7 +3744,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
@@ -3670,7 +3759,7 @@
         "process.env": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
         "@onekeyhq/core>near-api-js>@near-js/utils>mustache": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
@@ -3696,7 +3785,7 @@
         "URL": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>near-api-js>@near-js/accounts": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
@@ -3722,8 +3811,8 @@
         "TextDecoder": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/web3.js>bs58": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh>text-encoding-utf-8": true
       }
@@ -3745,7 +3834,7 @@
         "process.binding": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/core>ripple-keypairs": {
@@ -3753,7 +3842,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>elliptic>brorand": true,
         "@onekeyhq/core>elliptic>hash.js": true,
@@ -3788,8 +3877,8 @@
         ]
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@alephium/web3>@noble/curves": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>tronweb>ethereum-cryptography": true,
         "@onekeyhq/core>tronweb>ethers": true,
         "@onekeyhq/core>tronweb>eventemitter3": true,
@@ -3920,9 +4009,9 @@
         "WebSocket": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
         "@onekeyhq/core>ripple-keypairs": true,
         "@onekeyhq/core>web3-utils>web3-validator>util": true,
@@ -3948,8 +4037,8 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip32>typeforce": true,
         "@onekeyhq/core>bip32>wif": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
@@ -3969,8 +4058,8 @@
         "Buffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@onekeyfe/coinselect>create-hmac": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -3981,7 +4070,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>xrpl>ripple-address-codec>base-x": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
@@ -3994,7 +4083,7 @@
     },
     "@onekeyhq/core>xrpl>ripple-binary-codec": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ethereumjs-util>create-hash": true,
         "@onekeyhq/core>xrpl>ripple-address-codec": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
@@ -4105,7 +4194,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic>brorand": true,
         "@onekeyhq/core>ripple-keypairs": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true
@@ -4278,6 +4367,10 @@
       },
       "packages": {
         "@electron/rebuild>node-gyp>make-fetch-happen>cacache>glob>jackspeak>@isaacs/cliui>string-width>emoji-regex": true,
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components": true,
         "@onekeyhq/components>@react-navigation/bottom-tabs": true,
         "@onekeyhq/components>@react-navigation/elements": true,
@@ -4298,7 +4391,6 @@
         "@onekeyhq/core>@glif/filecoin-address>ethers": true,
         "@onekeyhq/core>@noble/hashes": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
         "@onekeyhq/core>bitcoinjs-lib": true,
         "@onekeyhq/core>ethereumjs-util": true,
@@ -4335,12 +4427,7 @@
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-types/dist/index.js": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/onekey-cross-webview/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts": true,
@@ -4438,6 +4525,7 @@
         "Notification": true,
         "performance": true,
         "postMessage": true,
+        "process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER": true,
         "queueMicrotask": true,
         "require": true,
         "sessionStorage.clear": true,
@@ -4479,6 +4567,10 @@
         ]
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core": true,
         "@onekeyhq/core>@alephium/web3": true,
@@ -4515,7 +4607,6 @@
         "@onekeyhq/core>@ton/ton": true,
         "@onekeyhq/core>@zondax/izari-filecoin": true,
         "@onekeyhq/core>algosdk": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>base32-decode": true,
         "@onekeyhq/core>bip39": true,
@@ -4579,13 +4670,8 @@
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-types/dist/index.js": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@polkadot/api/index.js": true,
         "external:../../node_modules/@polkadot/api/promise/Api.js": true,
@@ -5150,8 +5236,8 @@
         "Buffer.from": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true,
@@ -5166,7 +5252,7 @@
         "Buffer.isBuffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>bs58check": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@bufbuild/protobuf": true,
@@ -5202,7 +5288,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5214,7 +5300,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true
       }
@@ -5232,7 +5318,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true
       }
@@ -5249,7 +5335,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>uuid": true
       }
@@ -5260,7 +5346,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5285,7 +5371,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid": true
       }
@@ -5296,7 +5382,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5321,7 +5407,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true
       }
@@ -5338,7 +5424,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": true,
@@ -5356,8 +5442,8 @@
         "console.warn": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>web3-utils>ethereum-cryptography": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>@ethereumjs/rlp": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": true
@@ -5379,7 +5465,7 @@
         "URL": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>web3-utils>web3-validator>util": true,
         "external:../../node_modules/url/url.js": true
       }
@@ -5390,7 +5476,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5432,7 +5518,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid": true
       }
@@ -5443,7 +5529,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5475,7 +5561,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid": true
       }
@@ -5492,7 +5578,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid": true
       }
@@ -5509,7 +5595,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid": true
       }
@@ -5520,7 +5606,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5544,7 +5630,7 @@
         "process.env.NODE_ENV": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>@keystonehq/bc-ur-registry": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid": true
       }
@@ -5555,7 +5641,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/kit>react-intl>tslib": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>@keystonehq/bc-ur-registry>bs58check": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true
@@ -5589,9 +5675,9 @@
         "Buffer.isBuffer": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@conflux-dev/conflux-address-js>jsbi": true,
         "@onekeyhq/core>@stellar/stellar-base>sha.js": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>@keystonehq/alias-sampling": true,
@@ -5605,7 +5691,7 @@
         "define": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": {
@@ -5618,8 +5704,8 @@
         "console": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>base64-js": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>ieee754": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>pako": {
@@ -5775,6 +5861,10 @@
         ]
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>@react-navigation/native": true,
         "@onekeyhq/components>iso-639-1": true,
         "@onekeyhq/components>lodash": true,
@@ -5784,7 +5874,6 @@
         "@onekeyhq/core>@noble/secp256k1": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/bytes": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web>@ethersproject/strings": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true,
         "@onekeyhq/core>eth-sig-util": true,
@@ -5828,11 +5917,8 @@
         "external:../../node_modules/@onekeyfe/hd-common-connect-sdk/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-core/package.json": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-ledger-connector-webhid/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": true,
         "external:../../node_modules/@sentry/react/build/esm/index.js": true,
@@ -5896,7 +5982,7 @@
         "XMLHttpRequest": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/shared>js-base64": {
@@ -5908,7 +5994,7 @@
         "TextEncoder": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "@onekeyhq/shared>jsonschema": {
@@ -6160,8 +6246,8 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>web3-utils>web3-validator>util": true,
         "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb>node-gyp-build": true
       }
@@ -6912,7 +6998,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/CallFlags.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/u/index.js": true
       }
@@ -6922,7 +7008,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/MethodToken.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/u/index.js": true
       }
@@ -6959,7 +7045,7 @@
     },
     "external:../../node_modules/@cityofzion/neon-core/lib/sc/util.js": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/ContractParam.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/InteropServiceCode.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/OpCode.js": true,
@@ -6974,7 +7060,7 @@
     },
     "external:../../node_modules/@cityofzion/neon-core/lib/u/basic/curve.js": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -7061,7 +7147,7 @@
     },
     "external:../../node_modules/@cityofzion/neon-core/lib/wallet/core.js": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/consts.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/index.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/u/index.js": true,
@@ -7088,7 +7174,7 @@
     },
     "external:../../node_modules/@cityofzion/neon-core/lib/wallet/nep2.js": {
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/consts.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/logging.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/u/index.js": true,
@@ -9100,7 +9186,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/di.js": {
@@ -10128,7 +10214,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/index.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-bitcoin/lib/esm/internal/psbt/model/Psbt.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-bitcoin/lib/esm/internal/utils/Varint.js": true
@@ -11528,8 +11614,8 @@
     },
     "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/internal/app-binder/services/utils/TransactionParser.js": {
       "packages": {
-        "@onekeyhq/core>@solana/web3.js": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "@onekeyhq/core>@solana/web3.js": true
       }
     },
     "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/internal/app-binder/SolanaAppBinder.js": {
@@ -11652,10 +11738,10 @@
         "Buffer.alloc": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@solana/spl-token>@solana/buffer-layout-utils": true,
         "@onekeyhq/core>@solana/web3.js": true,
         "@onekeyhq/core>@solana/web3.js>@solana/buffer-layout": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-solana/node_modules/@solana/spl-token/lib/esm/constants.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-solana/node_modules/@solana/spl-token/lib/esm/errors.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-solana/node_modules/@solana/spl-token/lib/esm/extensions/accountType.js": true,
@@ -11750,7 +11836,7 @@
         "Buffer.concat": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/@ledgerhq/errors/lib/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/@ledgerhq/logs/lib/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/rxjs/dist/cjs/index.js": true
@@ -11762,7 +11848,7 @@
         "Buffer.concat": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/@ledgerhq/logs/lib/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/rxjs/dist/cjs/index.js": true
       }
@@ -11773,7 +11859,7 @@
         "Buffer.concat": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/node_modules/@ledgerhq/errors/lib/index.js": true
       }
     },
@@ -13639,7 +13725,7 @@
         "Buffer.alloc": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/hw-app-trx/lib-es/utils.js": true
       }
     },
@@ -13650,7 +13736,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/hw-app-trx/lib-es/TIP712/index.js": true,
         "external:../../node_modules/@ledgerhq/hw-app-trx/lib-es/utils.js": true
       }
@@ -13660,7 +13746,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/monitorCharacteristic.js": {
@@ -13673,7 +13759,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/hw-transport-web-ble/node_modules/rxjs/_esm5/index.js": true,
         "external:../../node_modules/@ledgerhq/hw-transport-web-ble/node_modules/rxjs/_esm5/internal/Observable.js": true,
         "external:../../node_modules/@ledgerhq/logs/lib-es/index.js": true
@@ -13700,7 +13786,7 @@
         ]
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/lib-es/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/lib/ble/receiveAPDU.js": true,
         "external:../../node_modules/@ledgerhq/devices/lib/ble/sendAPDU.js": true,
@@ -14026,7 +14112,7 @@
         "navigator": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/lib-es/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/lib/hid-framing.js": true,
         "external:../../node_modules/@ledgerhq/errors/dist/index.js": true,
@@ -14043,7 +14129,7 @@
         "navigator.usb.removeEventListener": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@ledgerhq/devices/lib-es/index.js": true,
         "external:../../node_modules/@ledgerhq/devices/lib/hid-framing.js": true,
         "external:../../node_modules/@ledgerhq/errors/dist/index.js": true,
@@ -14070,8 +14156,8 @@
         "setTimeout": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/errors/lib-es/index.js": true,
         "external:../../node_modules/@ledgerhq/hw-transport/node_modules/@ledgerhq/logs/lib-es/index.js": true
       }
@@ -14146,7 +14232,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>algosdk>tweetnacl": true,
         "@onekeyhq/core>eth-sig-util>tweetnacl-util": true,
         "external:../../node_modules/@metamask/eth-sig-util/dist/utils.js": true
@@ -14157,7 +14243,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
@@ -14184,7 +14270,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/core>web3-utils>ethereum-cryptography": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true,
@@ -14197,7 +14283,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>eth-sig-util>ethereumjs-util>ethjs-util": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": true
       }
@@ -16638,8 +16724,8 @@
         "SuppressedError": true
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
         "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport-emulator/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport-http/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport-lowlevel/dist/index.js": true,
@@ -16667,13 +16753,13 @@
         "URL": true
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/components>lodash": true,
         "@onekeyhq/core>@noble/hashes": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/shared>axios": true,
         "external:../../node_modules/@onekeyfe/hd-core/package.json": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/bytebuffer/dist/bytebuffer.js": true,
         "external:../../node_modules/jpeg-js/index.js": true,
@@ -16681,19 +16767,13 @@
         "semver": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": {
-      "globals": {
-        "setTimeout": true,
-        "SuppressedError": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/hd-transport-emulator/dist/index.js": {
       "globals": {
         "SuppressedError": true
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
         "@onekeyhq/shared>axios": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/secure-json-parse/index.js": true
       }
@@ -16703,8 +16783,8 @@
         "SuppressedError": true
       },
       "packages": {
+        "@onekeyfe/hd-shared": true,
         "@onekeyhq/shared>axios": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/secure-json-parse/index.js": true
       }
@@ -16714,7 +16794,7 @@
         "SuppressedError": true
       },
       "packages": {
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
+        "@onekeyfe/hd-shared": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true
       }
     },
@@ -16728,9 +16808,9 @@
         "SuppressedError": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/bytebuffer/dist/bytebuffer.js": true
       }
@@ -16745,8 +16825,8 @@
         "SuppressedError": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
-        "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
+        "@onekeyfe/hd-shared": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/bytebuffer/dist/bytebuffer.js": true
       }
@@ -16760,7 +16840,7 @@
         "SuppressedError": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>cosmjs-types>protobufjs": true,
         "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true,
         "external:../../node_modules/bytebuffer/dist/bytebuffer.js": true
@@ -16826,62 +16906,7 @@
         "XMLHttpRequest": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-U63HTLGJ.mjs": {
-      "globals": {
-        "clearTimeout": true,
-        "setTimeout": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-YA4BWFTZ.mjs": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": {
-      "globals": {
-        "AbortController": true,
-        "clearTimeout": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-U63HTLGJ.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-YA4BWFTZ.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/sha256.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-U63HTLGJ.mjs": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/_md.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/sha2.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/_md.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/_u64.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/sha256.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/sha2.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": {
-      "globals": {
-        "TextDecoder": true,
-        "TextEncoder": true
-      },
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/crypto.js": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs": {
@@ -16895,8 +16920,9 @@
         "URL": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>inquirer>rxjs": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bitcoinjs-lib": true,
         "external:../../node_modules/@ledgerhq/context-module/lib/esm/index.js": true,
         "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/index.js": true,
@@ -16904,8 +16930,7 @@
         "external:../../node_modules/@ledgerhq/device-signer-kit-ethereum/lib/esm/index.js": true,
         "external:../../node_modules/@ledgerhq/device-signer-kit-solana/lib/esm/index.js": true,
         "external:../../node_modules/@ledgerhq/hw-app-trx/lib-es/Trx.js": true,
-        "external:../../node_modules/@ledgerhq/hw-transport/lib-es/Transport.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true
+        "external:../../node_modules/@ledgerhq/hw-transport/lib-es/Transport.js": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-ledger-connector-webhid/dist/index.mjs": {
@@ -16914,119 +16939,21 @@
         "external:../../node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
-      "globals": {
-        "Buffer.alloc": true,
-        "Buffer.from": true,
-        "clearTimeout": true,
-        "fetch": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "@onekeyhq/core>@alephium/web3>@noble/curves": true,
-        "@onekeyhq/core>algosdk>buffer": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/sha256.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/sha3.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/_sha2.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/sha256.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/_sha2.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/sha3.js": {
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/_u64.js": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": {
-      "globals": {
-        "TextEncoder": true
-      },
-      "packages": {
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-CFZTAWFZ.mjs": {
-      "globals": {
-        "require": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/index.mjs": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs' reexports from 'external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/chunk-CFZTAWFZ.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
       "globals": {
         "navigator": true
       },
       "meta": {
         "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs' reexports from 'external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs' and webpack collapsed that to a direct import."
+          "Dependency '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector' reexports from '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core' and webpack collapsed that to a direct import."
         ]
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/chunk-LG4BKSHP.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": {
-      "globals": {
-        "Buffer.alloc": true,
-        "Buffer.from": true,
-        "Buffer.isBuffer": true,
-        "Deno": true,
-        "process": true,
-        "TextDecoder": true,
-        "TextEncoder": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
-        "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": {
-      "globals": {
-        "AbortController": true,
-        "clearTimeout": true,
-        "console": true,
-        "crypto": true,
-        "Deno": true,
-        "process": true,
-        "setTimeout": true,
-        "TextDecoder": true,
-        "TextEncoder": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/chunk-LG4BKSHP.mjs": true
       }
     },
     "external:../../node_modules/@onekeyfe/onekey-cross-webview/dist/index.js": {
@@ -31755,7 +31682,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/Host.js": true,
         "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkMatrix.js": true,
         "external:../../node_modules/@shopify/react-native-skia/lib/module/skia/web/JsiSkShader.js": true
@@ -33595,7 +33522,7 @@
         "URL": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/@supabase/storage-js/dist/module/lib/errors.js": true,
         "external:../../node_modules/@supabase/storage-js/dist/module/lib/fetch.js": true,
         "external:../../node_modules/@supabase/storage-js/dist/module/lib/helpers.js": true,
@@ -35546,9 +35473,9 @@
         "TextEncoder": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
         "@onekeyhq/core>@glif/filecoin-message>uint8arrays": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@walletconnect/heartbeat/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-provider/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
@@ -35784,8 +35711,8 @@
         "URL": true
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@ckb-lumos/ckb-indexer>events": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@walletconnect/jsonrpc-http-connection/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-provider/dist/index.es.js": true,
         "external:../../node_modules/@walletconnect/jsonrpc-utils/dist/esm/index.js": true,
@@ -35830,9 +35757,9 @@
         ]
       },
       "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>@glif/filecoin-message>uint8arrays": true,
         "@onekeyhq/core>@onekeyfe/coinselect>blakejs": true,
-        "@onekeyhq/core>algosdk>buffer": true,
         "external:../../node_modules/@msgpack/msgpack/dist.esm/decode.mjs": true,
         "external:../../node_modules/@msgpack/msgpack/dist.esm/encode.mjs": true,
         "external:../../node_modules/@msgpack/msgpack/dist.esm/index.mjs": true,
@@ -36202,7 +36129,7 @@
         "require": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/shared": true
       }
     },
@@ -36227,7 +36154,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ecpair>randombytes": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -36316,8 +36243,8 @@
         "XMLHttpRequest": true
       },
       "packages": {
-        "@onekeyhq/core>@starcoin/starcoin>fs": true,
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
+        "@onekeyhq/core>@starcoin/starcoin>fs": true
       }
     },
     "external:../../node_modules/classnames/index.js": {
@@ -36331,7 +36258,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>elliptic": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
@@ -36802,7 +36729,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/diffie-hellman/lib/dh.js": true,
         "external:../../node_modules/diffie-hellman/lib/generatePrime.js": true,
         "external:../../node_modules/diffie-hellman/lib/primes.json": true
@@ -36813,7 +36740,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>ecpair>randombytes": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "external:../../node_modules/diffie-hellman/lib/generatePrime.js": true,
@@ -36916,7 +36843,7 @@
         "navigator": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/engine.io-client/build/esm/contrib/yeast.js": true,
         "external:../../node_modules/engine.io-client/build/esm/transport.js": true,
         "external:../../node_modules/engine.io-client/build/esm/transports/websocket-constructor.browser.js": true,
@@ -38289,7 +38216,7 @@
         "XMLHttpRequest": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/jpeg-js/lib/encoder.js": {
@@ -38299,7 +38226,7 @@
         "document.getElementById": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/js-md5/src/md5.js": {
@@ -38324,7 +38251,7 @@
         "WebKitBlobBuilder": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/juicebox-sdk/juicebox-sdk_bg.js": {
@@ -40302,7 +40229,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/shamir-secret-sharing/esm/csprng.js": {
@@ -40912,7 +40839,7 @@
         "Buffer.from": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "external:../../node_modules/tonweb/src/boc/index.js": true,
         "external:../../node_modules/tonweb/src/contract/index.js": true,
         "external:../../node_modules/tonweb/src/utils/index.js": true
@@ -40979,7 +40906,7 @@
         "crypto": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true,
         "@onekeyhq/core>algosdk>js-sha256": true,
         "@onekeyhq/core>algosdk>tweetnacl": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
@@ -41006,7 +40933,7 @@
         "Buffer": true
       },
       "packages": {
-        "@onekeyhq/core>algosdk>buffer": true
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer": true
       }
     },
     "external:../../node_modules/url/node_modules/punycode/punycode.js": {

@@ -1,0 +1,294 @@
+{
+  "@onekeyfe/hwk-trezor-connector-electron-ble": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true
+  },
+  "@onekeyhq/kit-bg": {
+    "@onekeyhq/kit-bg>yauzl": true,
+    "@onekeyhq/shared": true,
+    "@sentry/electron": true,
+    "adm-zip": true,
+    "electron-is-dev": true,
+    "electron-log": true,
+    "electron-updater": true,
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": true
+  },
+  "@onekeyhq/kit-bg>yauzl": {
+    "@onekeyhq/kit-bg>yauzl>fd-slicer": true
+  },
+  "@sentry/electron": {
+    "@sentry/electron>@sentry/browser": true,
+    "@sentry/electron>@sentry/core": true,
+    "@sentry/electron>@sentry/node": true,
+    "@sentry/electron>@sentry/node>@sentry/node-core": true
+  },
+  "@sentry/electron>@sentry/browser": {
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
+    "@sentry/electron>@sentry/browser>@sentry-internal/feedback": true,
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay": true,
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": true,
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/feedback": {
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+    "@sentry/electron>@sentry/core": true
+  },
+  "@sentry/electron>@sentry/node": {
+    "@sentry/electron>@sentry/core": true,
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+    "@sentry/electron>@sentry/node>@opentelemetry/resources": true,
+    "@sentry/electron>@sentry/node>@sentry/node-core": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": true,
+    "@sentry/electron>@sentry/node>import-in-the-middle": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-amqplib": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-connect": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-dataloader": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-express": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-fs": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-generic-pool": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-graphql": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-hapi": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-ioredis": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-kafkajs": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-knex": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-koa": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-lru-memoizer": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongodb": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongoose": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql2": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-tedious": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-undici": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": true
+  },
+  "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base>@opentelemetry/sdk-trace": {
+    "@sentry/electron>@sentry/node>@opentelemetry/resources": true
+  },
+  "@sentry/electron>@sentry/node>@prisma/instrumentation": {
+    "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation": true
+  },
+  "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation": {
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": true,
+    "@sentry/electron>@sentry/node>import-in-the-middle": true
+  },
+  "@sentry/electron>@sentry/node>@sentry/node-core": {
+    "@sentry/electron>@sentry/core": true,
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks": true,
+    "@sentry/electron>@sentry/node>import-in-the-middle": true
+  },
+  "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks": {
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>@apm-js-collab/code-transformer": true,
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": true
+  },
+  "@sentry/electron>@sentry/node>@sentry/opentelemetry": {
+    "@sentry/electron>@sentry/core": true
+  },
+  "electron-context-menu": {
+    "electron-context-menu>electron-dl": true,
+    "electron-is-dev": true
+  },
+  "electron-context-menu>electron-dl>unused-filename": {
+    "electron-context-menu>electron-dl>unused-filename>path-exists": true
+  },
+  "electron-store": {
+    "electron-store>conf": true
+  },
+  "electron-store>conf": {
+    "electron-store>conf>atomically": true
+  },
+  "electron-store>conf>pkg-up>find-up>locate-path": {
+    "electron-store>conf>pkg-up>find-up>locate-path>path-exists": true
+  },
+  "electron-updater": {
+    "electron-updater>builder-util-runtime": true
+  },
+  "electron-updater>builder-util-runtime": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true
+  },
+  "electron-updater>fs-extra": {
+    "electron-updater>fs-extra>graceful-fs": true,
+    "electron-updater>fs-extra>jsonfile": true
+  },
+  "electron-updater>fs-extra>jsonfile": {
+    "electron-updater>fs-extra>graceful-fs": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-985e2bf3.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+    "electron-log": true
+  },
+  "external:../../node_modules/memoizee/ext/async.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/max-age.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/promise.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/systeminformation/lib/audio.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/battery.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/bluetooth.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/cpu.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/docker.js": {
+    "external:../../node_modules/systeminformation/lib/dockerSocket.js": true,
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/filesystem.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/graphics.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/index.js": {
+    "external:../../node_modules/systeminformation/lib/audio.js": true,
+    "external:../../node_modules/systeminformation/lib/battery.js": true,
+    "external:../../node_modules/systeminformation/lib/bluetooth.js": true,
+    "external:../../node_modules/systeminformation/lib/cpu.js": true,
+    "external:../../node_modules/systeminformation/lib/filesystem.js": true,
+    "external:../../node_modules/systeminformation/lib/graphics.js": true,
+    "external:../../node_modules/systeminformation/lib/memory.js": true,
+    "external:../../node_modules/systeminformation/lib/network.js": true,
+    "external:../../node_modules/systeminformation/lib/osinfo.js": true,
+    "external:../../node_modules/systeminformation/lib/printer.js": true,
+    "external:../../node_modules/systeminformation/lib/processes.js": true,
+    "external:../../node_modules/systeminformation/lib/system.js": true,
+    "external:../../node_modules/systeminformation/lib/usb.js": true,
+    "external:../../node_modules/systeminformation/lib/users.js": true,
+    "external:../../node_modules/systeminformation/lib/util.js": true,
+    "external:../../node_modules/systeminformation/lib/virtualbox.js": true,
+    "external:../../node_modules/systeminformation/lib/wifi.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/internet.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/memory.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/network.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/osinfo.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/printer.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/processes.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/system.js": {
+    "external:../../node_modules/systeminformation/lib/osinfo.js": true,
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/usb.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/users.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/virtualbox.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  },
+  "external:../../node_modules/systeminformation/lib/wifi.js": {
+    "external:../../node_modules/systeminformation/lib/util.js": true
+  }
+}

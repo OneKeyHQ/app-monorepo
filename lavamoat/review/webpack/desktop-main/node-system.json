@@ -1,0 +1,408 @@
+{
+  "description": "Node.js 系统 builtin 和 native module 能力",
+  "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "builtins": {
+        "electron.ipcMain": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execFile": true,
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.inAppPurchase": true,
+        "electron.ipcMain": true,
+        "electron.Menu": true,
+        "electron.nativeImage": true,
+        "electron.Notification": true,
+        "electron.session": true,
+        "electron.ShareMenu": true,
+        "electron.shell": true,
+        "electron.systemPreferences": true,
+        "fs": true,
+        "http": true,
+        "https": true,
+        "node:fs.accessSync": true,
+        "node:fs.constants": true,
+        "node:fs.createReadStream": true,
+        "node:fs.createWriteStream": true,
+        "node:fs.mkdirSync": true
+      }
+    },
+    "@onekeyhq/kit-bg>yauzl": {
+      "builtins": {
+        "fs.close": true,
+        "fs.fstat": true,
+        "fs.open": true
+      }
+    },
+    "@onekeyhq/kit-bg>yauzl>fd-slicer": {
+      "builtins": {
+        "fs.close": true,
+        "fs.read": true,
+        "fs.write": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "builtins": {
+        "fs.readFileSync": true
+      }
+    },
+    "@sentry/electron": {
+      "builtins": {
+        "electron": true,
+        "fs.existsSync": true,
+        "fs.promises": true,
+        "node:child_process.exec": true
+      }
+    },
+    "@sentry/electron>@sentry/node": {
+      "builtins": {
+        "node:net.isIPv6": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": {
+      "builtins": {
+        "fs.readFileSync": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": {
+      "builtins": {
+        "module._resolveFilename": true,
+        "module.builtinModules": true,
+        "module.isBuiltin": true,
+        "module.prototype.require": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/resources": {
+      "builtins": {
+        "child_process.exec": true,
+        "fs.promises.readFile": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation": {
+      "builtins": {
+        "fs.readFileSync": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core": {
+      "builtins": {
+        "module.register": true,
+        "node:child_process.execFile": true,
+        "node:fs.createReadStream": true,
+        "node:fs.existsSync": true,
+        "node:fs.readdir": true,
+        "node:fs.readFile": true,
+        "node:fs.readFileSync": true,
+        "node:http": true,
+        "node:https": true,
+        "node:net.connect": true,
+        "node:net.isIP": true,
+        "node:net.isIPv6": true,
+        "node:net.Socket": true,
+        "node:tls.connect": true,
+        "node:worker_threads.Worker": true,
+        "worker_threads.isMainThread": true,
+        "worker_threads.threadId": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks": {
+      "builtins": {
+        "node:fs.mkdirSync": true,
+        "node:fs.readFileSync": true,
+        "node:fs.writeFileSync": true,
+        "node:module.prototype._compile": true
+      }
+    },
+    "@sentry/electron>@sentry/node>import-in-the-middle": {
+      "builtins": {
+        "module.isBuiltin": true,
+        "worker_threads.MessageChannel": true
+      }
+    },
+    "adm-zip": {
+      "builtins": {
+        "fs": true
+      }
+    },
+    "electron-context-menu": {
+      "builtins": {
+        "electron.app.on": true,
+        "electron.app.removeListener": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.clipboard.readText": true,
+        "electron.clipboard.write": true,
+        "electron.clipboard.writeText": true,
+        "electron.Menu.buildFromTemplate": true,
+        "electron.shell.openExternal": true
+      }
+    },
+    "electron-context-menu>electron-dl": {
+      "builtins": {
+        "electron.app.badgeCount": true,
+        "electron.app.dock.downloadFinished": true,
+        "electron.app.getPath": true,
+        "electron.app.on": true,
+        "electron.BrowserWindow.fromWebContents": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.dialog.showErrorBox": true,
+        "electron.shell.showItemInFolder": true
+      }
+    },
+    "electron-context-menu>electron-dl>unused-filename>path-exists": {
+      "builtins": {
+        "fs.access": true,
+        "fs.accessSync": true
+      }
+    },
+    "electron-is-dev": {
+      "builtins": {
+        "electron": true
+      }
+    },
+    "electron-log": {
+      "builtins": {
+        "child_process.exec": true,
+        "electron": true,
+        "fs.closeSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.openSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "fs.readSync": true,
+        "fs.renameSync": true,
+        "fs.statSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "http": true,
+        "https": true
+      }
+    },
+    "electron-store": {
+      "builtins": {
+        "electron.app": true,
+        "electron.ipcMain": true,
+        "electron.ipcRenderer": true,
+        "electron.shell.openPath": true
+      }
+    },
+    "electron-store>conf": {
+      "builtins": {
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.readFileSync": true,
+        "fs.watch": true,
+        "fs.watchFile": true,
+        "fs.writeFileSync": true
+      }
+    },
+    "electron-store>conf>atomically": {
+      "builtins": {
+        "fs.chmod": true,
+        "fs.chmodSync": true,
+        "fs.chown": true,
+        "fs.chownSync": true,
+        "fs.close": true,
+        "fs.closeSync": true,
+        "fs.fsync": true,
+        "fs.fsyncSync": true,
+        "fs.mkdir": true,
+        "fs.mkdirSync": true,
+        "fs.open": true,
+        "fs.openSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.realpath": true,
+        "fs.realpathSync": true,
+        "fs.rename": true,
+        "fs.renameSync": true,
+        "fs.stat": true,
+        "fs.statSync": true,
+        "fs.unlink": true,
+        "fs.unlinkSync": true,
+        "fs.write": true,
+        "fs.writeSync": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up>locate-path>path-exists": {
+      "builtins": {
+        "fs.access": true,
+        "fs.accessSync": true
+      }
+    },
+    "electron-updater": {
+      "builtins": {
+        "child_process.execFile": true,
+        "child_process.execFileSync": true,
+        "child_process.spawn": true,
+        "child_process.spawnSync": true,
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.net.request": true,
+        "electron.Notification": true,
+        "electron.session.fromPartition": true,
+        "electron.shell.openPath": true,
+        "fs.createReadStream": true,
+        "fs.createWriteStream": true,
+        "fs.unlinkSync": true,
+        "http.createServer": true
+      }
+    },
+    "electron-updater>builder-util-runtime": {
+      "builtins": {
+        "fs.createWriteStream": true
+      }
+    },
+    "electron-updater>fs-extra>graceful-fs": {
+      "builtins": {
+        "fs": true
+      }
+    },
+    "electron-updater>fs-extra>jsonfile": {
+      "builtins": {
+        "fs": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+      "builtins": {
+        "electron.ipcMain.handle": true,
+        "electron.ipcMain.removeHandler": true,
+        "electron.webContents.getAllWebContents": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/audio.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/battery.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "fs.existsSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/bluetooth.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFileSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/cpu.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.stat": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/dockerSocket.js": {
+      "builtins": {
+        "net.createConnection": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/filesystem.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/graphics.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readdirSync": true,
+        "fs.statSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/memory.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/network.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execFileSync": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/osinfo.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execFile": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "fs.readFileSync": true,
+        "fs.stat": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/printer.js": {
+      "builtins": {
+        "child_process.exec": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/processes.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/system.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "fs.readFile": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/usb.js": {
+      "builtins": {
+        "child_process.exec": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/users.js": {
+      "builtins": {
+        "child_process.exec": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/util.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "child_process.spawn": true,
+        "fs.existsSync": true,
+        "fs.lstatSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "http": true,
+        "https": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/virtualbox.js": {
+      "builtins": {
+        "child_process.exec": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/wifi.js": {
+      "builtins": {
+        "child_process.exec": true,
+        "child_process.execSync": true
+      }
+    }
+  }
+}

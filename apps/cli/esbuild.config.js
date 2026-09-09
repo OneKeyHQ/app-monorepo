@@ -411,6 +411,8 @@ const deprecatedBufferPatchFilter = new RegExp(
     ['tweetnacl-util', 'nacl-util'].join(pathSeparatorPattern),
     ['wif', 'index'].join(pathSeparatorPattern),
     ['whatwg-url', 'lib', 'url-state-machine'].join(pathSeparatorPattern),
+    ['safe-buffer', 'index'].join(pathSeparatorPattern),
+    ['safer-buffer', 'safer'].join(pathSeparatorPattern),
   ].join('|')})\\.js$`,
 );
 
@@ -420,6 +422,55 @@ const patchDeprecatedBufferConstructorPlugin = {
     build.onLoad({ filter: deprecatedBufferPatchFilter }, async (args) => {
       let contents = await readFileText(args.path, 'utf8');
       let patched = false;
+
+      // The repository requires Node >=22.12. Keep these older compatibility bodies
+      // free of deprecated constructors even when the normal native branch is
+      // selected; per-module bundles retain code that esbuild can rename away.
+      if (
+        isNodeModuleFile(args.path, ['node_modules', 'safe-buffer', 'index.js'])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search:
+              'function SafeBuffer (arg, encodingOrOffset, length) {\n  return Buffer(arg, encodingOrOffset, length)\n}',
+            replace:
+              'function SafeBuffer (arg, encodingOrOffset, length) {\n  if (typeof arg === "number") {\n    if (typeof encodingOrOffset === "string") throw new TypeError("Numeric Buffer size does not accept an encoding")\n    return Buffer.alloc(arg)\n  }\n  return Buffer.from(arg, encodingOrOffset, length)\n}',
+          },
+          {
+            search: 'return Buffer(arg, encodingOrOffset, length)',
+            replace: 'return Buffer.from(arg, encodingOrOffset, length)',
+          },
+          {
+            search: 'var buf = Buffer(size)',
+            replace: 'var buf = Buffer.alloc(size)',
+          },
+          {
+            search: 'return Buffer(size)',
+            replace: 'return Buffer.allocUnsafe(size)',
+          },
+        ]);
+        patched = true;
+      }
+
+      if (
+        isNodeModuleFile(args.path, [
+          'node_modules',
+          'safer-buffer',
+          'safer.js',
+        ])
+      ) {
+        contents = replaceExact(contents, args.path, [
+          {
+            search: 'return Buffer(value, encodingOrOffset, length)',
+            replace: 'return Buffer.from(value, encodingOrOffset, length)',
+          },
+          {
+            search: 'var buf = Buffer(size)',
+            replace: 'var buf = Buffer.alloc(size)',
+          },
+        ]);
+        patched = true;
+      }
 
       if (
         isNodeModuleFile(args.path, [

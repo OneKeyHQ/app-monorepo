@@ -1,0 +1,57 @@
+{
+  "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
+  "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@sentry/electron>@sentry/browser": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

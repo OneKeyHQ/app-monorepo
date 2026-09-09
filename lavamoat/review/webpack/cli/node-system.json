@@ -1,0 +1,125 @@
+{
+  "description": "Node.js 系统 builtin 和 native module 能力",
+  "resources": {
+    "@onekeyfe/hd-core>axios": {
+      "builtins": {
+        "http": true,
+        "https": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>follow-redirects": {
+      "builtins": {
+        "http": true,
+        "https": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>form-data": {
+      "builtins": {
+        "fs.stat": true,
+        "http.request": true,
+        "https.request": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect>blake-hash>node-gyp-build": {
+      "builtins": {
+        "fs.existsSync": true,
+        "fs.readdirSync": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js": {
+      "builtins": {
+        "http": true,
+        "https": true
+      }
+    },
+    "@onekeyhq/core>cip-23>keccak>node-gyp-build": {
+      "builtins": {
+        "fs.existsSync": true,
+        "fs.readdirSync": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>keccak>bindings": {
+      "builtins": {
+        "fs.accessSync": true,
+        "fs.existsSync": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>node-fetch": {
+      "builtins": {
+        "http": true,
+        "https": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ws": {
+      "builtins": {
+        "http.createServer": true,
+        "http.request": true,
+        "http.STATUS_CODES": true,
+        "https.request": true,
+        "net.connect": true,
+        "net.isIP": true,
+        "tls.connect": true
+      }
+    },
+    "commander": {
+      "builtins": {
+        "child_process.spawn": true,
+        "fs.existsSync": true,
+        "fs.realpathSync": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": {
+      "builtins": {
+        "net": true,
+        "tls": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": {
+      "builtins": {
+        "http.createServer": true,
+        "http.STATUS_CODES": true,
+        "https": true,
+        "net": true,
+        "tls": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": {
+      "builtins": {
+        "http.request": true,
+        "https.request": true,
+        "net.connect": true,
+        "net.isIP": true,
+        "tls.connect": true
+      }
+    },
+    "external:../../node_modules/micro-ftch/index.js": {
+      "builtins": {
+        "http": true,
+        "https": true
+      }
+    },
+    "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js": {
+      "builtins": {
+        "child_process.spawn": true,
+        "fs.existsSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.unlinkSync": true,
+        "fs.writeFileSync": true,
+        "http.request": true,
+        "https.request": true
+      }
+    },
+    "proper-lockfile>graceful-fs": {
+      "builtins": {
+        "fs": true
+      }
+    },
+    "qrcode": {
+      "builtins": {
+        "fs.createWriteStream": true,
+        "fs.writeFile": true
+      }
+    }
+  }
+}

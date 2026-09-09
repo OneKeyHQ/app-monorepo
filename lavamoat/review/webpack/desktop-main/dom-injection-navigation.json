@@ -1,0 +1,93 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "document": true,
+        "location.pathname.startsWith": true
+      }
+    },
+    "@sentry/electron": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/feedback": {
+      "globals": {
+        "document.createElement": true,
+        "document.createElementNS": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
+      "globals": {
+        "document": true,
+        "location.href": true,
+        "location.origin": true,
+        "parent": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/core": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true,
+        "document.documentElement": true,
+        "document.head": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "location.origin": true
+      }
+    }
+  }
+}

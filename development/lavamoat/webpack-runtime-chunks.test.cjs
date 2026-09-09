@@ -298,7 +298,7 @@ test('maxSize splitting preserves one untouched SES runtime before initial and l
       );
       assert.match(
         result.toString({ all: false, errors: true }),
-        /exactly one dedicated runtime containing one untouched SES prelude/,
+        /exactly one expected runtime containing one untouched SES prelude/,
       );
     }
   } finally {

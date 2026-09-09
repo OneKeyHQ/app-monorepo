@@ -1,4 +1,14 @@
 {
+  "@onekeyfe/hwk-trezor-connector-electron-ble": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true
+  },
+  "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": true
+  },
+  "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true
+  },
   "@onekeyhq/components": {
     "@onekeyhq/components>@react-navigation/native": true,
     "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
@@ -323,6 +333,7 @@
     "@onekeyhq/core>elliptic>brorand": true
   },
   "@onekeyhq/kit": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
     "@onekeyhq/components": true,
     "@onekeyhq/components>@react-navigation/native": true,
     "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
@@ -347,7 +358,6 @@
     "@onekeyhq/kit>zbar.wasm": true,
     "@onekeyhq/shared": true,
     "@onekeyhq/shared>axios": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true,
@@ -357,6 +367,7 @@
     "external:../../node_modules/worker-loader/dist/runtime/inline.js": true
   },
   "@onekeyhq/kit-bg": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
     "@onekeyhq/core": true,
     "@onekeyhq/core>@alephium/web3": true,
     "@onekeyhq/core>@aptos-labs/siwa": true,
@@ -377,7 +388,6 @@
     "@onekeyhq/shared": true,
     "@onekeyhq/shared>axios": true,
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@walletconnect/core/dist/index.es.js": true,
     "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": true,
@@ -754,18 +764,8 @@
   "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": {
     "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true
   },
-  "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": {
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": true
-  },
-  "external:../../node_modules/@onekeyfe/hwk-trezor-connector-electron-ble/dist/index.mjs": {
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
-  },
   "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
-    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
-  },
-  "external:../../node_modules/@onekeyfe/hwk-trezor-connector/dist/index.mjs": {
-    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true
   },
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs": {
     "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/@lit_reactive-element@2.0.4/node_modules/@lit/reactive-element/css-tag.mjs": true,

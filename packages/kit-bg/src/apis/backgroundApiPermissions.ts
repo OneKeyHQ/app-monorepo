@@ -3,6 +3,7 @@ import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appCo
 import {
   EWebEmbedPrivateRequestMethod,
   WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+  IOS_WEB_EMBED_ORIGIN,
 } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,6 +37,10 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
 
   // Android loads the same local page over a virtual https origin instead.
   ...(platformEnv.isNativeAndroid ? [WEB_EMBED_ANDROID_LOCAL_ORIGIN] : []),
+  ...(platformEnv.isNativeIOS &&
+  process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER
+    ? [IOS_WEB_EMBED_ORIGIN]
+    : []),
 
   ...(platformEnv.isDev
     ? [

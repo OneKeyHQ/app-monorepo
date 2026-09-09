@@ -234,7 +234,16 @@ function readBudget(name, fallback) {
 
 function main() {
   const isFirefox = getBrowser() === 'firefox';
-  const outputRoot = path.join(buildRoot, `${getBrowser()}_v3`);
+  const isLavaMoat = process.argv.includes('--lavamoat');
+  const productionOutput = process.argv.includes('--production-output');
+  if (productionOutput && !isLavaMoat) {
+    throw new Error('--production-output requires --lavamoat.');
+  }
+  const outputRoot = path.join(
+    buildRoot,
+    ...(isLavaMoat && !productionOutput ? ['lavamoat'] : []),
+    `${getBrowser()}_v3`,
+  );
   const manifestPath = path.join(outputRoot, 'manifest.json');
   if (!fs.existsSync(manifestPath)) {
     throw new Error(`Missing extension manifest: ${manifestPath}`);

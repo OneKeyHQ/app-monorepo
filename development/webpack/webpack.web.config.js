@@ -17,8 +17,12 @@ const {
   createLavaMoatWebpackPlugin,
   createLavaMoatWebpackRules,
   createLavaMoatWebpackValidationPlugin,
+  isLavaMoatEnabled,
   isLavaMoatPolicyGeneration,
 } = require('./lavamoat');
+const {
+  createKaspaCompatibilityRule,
+} = require('./lavamoat-kaspa-compatibility.cjs');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
@@ -47,7 +51,10 @@ module.exports = ({
             crossOriginLoading: 'anonymous',
           },
           module: {
-            rules: createLavaMoatWebpackRules(),
+            rules: [
+              ...createLavaMoatWebpackRules(),
+              ...(isLavaMoatEnabled() ? [createKaspaCompatibilityRule()] : []),
+            ],
           },
           optimization: createLavaMoatWebpackOptimization(),
           plugins: [
