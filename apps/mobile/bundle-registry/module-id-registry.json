@@ -20040,6 +20040,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/scene.ts": 17256,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/settings.ts": 18470,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/timeAxisScale.ts": 5665,
+    "packages/kit/src/components/TradingView/TradingViewNative/utils/tradeMarkScene.ts": 14268,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2.tsx": 1309,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes.ts": 22703,
     "packages/kit/src/components/TradingView/TradingViewPerpsV2/hooks/index.ts": 5493,
