@@ -1,9 +1,8 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IImageProps } from '@onekeyhq/components';
 import {
   Button,
   HeaderButtonGroup,
@@ -25,6 +24,8 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
 const DEFAULT_IMAGE_HEIGHT = 40;
+// Layout hint for the CDN resize (~3:1 logos at DEFAULT_IMAGE_HEIGHT).
+const PROVIDER_LOGO_RESIZE_WIDTH = DEFAULT_IMAGE_HEIGHT * 4;
 
 function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
   const buildResult = swapInfo?.swapBuildResData?.result;
@@ -142,34 +143,6 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
       : mevProtectionProvider?.logoURI;
   }, [mevProtectionProvider, theme]);
 
-  const [providerImageInfo, setProviderImageInfo] = useState<
-    | {
-        uri: string;
-        width: number;
-        height: number;
-      }
-    | undefined
-  >(undefined);
-
-  const handleProviderImageLoad = useCallback(
-    ({ source }: Parameters<NonNullable<IImageProps['onLoad']>>[0]) => {
-      setProviderImageInfo({
-        uri: imageUri,
-        width: source.width,
-        height: source.height,
-      });
-    },
-    [imageUri],
-  );
-
-  const providerImageSize =
-    providerImageInfo?.uri === imageUri ? providerImageInfo : undefined;
-
-  const providerImageWidth = providerImageSize
-    ? (DEFAULT_IMAGE_HEIGHT / providerImageSize.height) *
-      providerImageSize.width
-    : DEFAULT_IMAGE_HEIGHT;
-
   if (!mevProtectionProvider) {
     return null;
   }
@@ -204,15 +177,19 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
                   {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
+                {/* The logo box is fixed, so the first open never shows the
+                    logo squeezed into a square while its intrinsic size is
+                    still unknown; `contain` centers it in the box on every
+                    platform (OK-62097). */}
                 <Image
-                  width={providerImageWidth}
+                  width="100%"
                   height={DEFAULT_IMAGE_HEIGHT}
                   resizeMode="contain"
+                  resizeWidth={PROVIDER_LOGO_RESIZE_WIDTH}
                   recyclingKey={imageUri}
                   source={{
                     uri: imageUri,
                   }}
-                  onLoad={handleProviderImageLoad}
                 />
               </YStack>
               <SizableText

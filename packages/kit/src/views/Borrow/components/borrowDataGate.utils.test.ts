@@ -1,8 +1,53 @@
+import { EBorrowDataStatus } from '../borrowDataStatus';
+
 import {
   getOwnedBorrowReservesResult,
   isCurrentBorrowReservesRequest,
+  shouldPublishBorrowMarketChange,
   shouldRefreshBorrowDataOnActivation,
 } from './borrowDataGate.utils';
+
+describe('shouldPublishBorrowMarketChange', () => {
+  it.each([
+    EBorrowDataStatus.Initializing,
+    EBorrowDataStatus.Idle,
+    EBorrowDataStatus.LoadingMarkets,
+    EBorrowDataStatus.WaitingForAccount,
+    EBorrowDataStatus.LoadingReserves,
+    EBorrowDataStatus.Refreshing,
+  ])(
+    'keeps the visible market stable while target data is %s',
+    (dataStatus) => {
+      expect(
+        shouldPublishBorrowMarketChange({
+          isMarketChangePending: true,
+          dataStatus,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each([EBorrowDataStatus.Ready, EBorrowDataStatus.Error])(
+    'publishes the target market at terminal status %s',
+    (dataStatus) => {
+      expect(
+        shouldPublishBorrowMarketChange({
+          isMarketChangePending: true,
+          dataStatus,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it('keeps same-market refreshes publishable', () => {
+    expect(
+      shouldPublishBorrowMarketChange({
+        isMarketChangePending: false,
+        dataStatus: EBorrowDataStatus.Refreshing,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('isCurrentBorrowReservesRequest', () => {
   it('accepts only the latest request for the active market owner', () => {

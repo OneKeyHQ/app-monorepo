@@ -4,18 +4,15 @@ import { EPageType, Spinner, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
 
 import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
+
+import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
   pageType?: EPageType.modal;
@@ -35,6 +32,14 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
     <Spinner size="large" />
   </Stack>,
 );
+
+function MarketEmbeddedSwapLoading() {
+  return (
+    <Stack height={520} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
+}
 
 function getDraftToken(token?: ISwapToken): ISwapToken | undefined {
   return token
@@ -58,33 +63,26 @@ function MarketEmbeddedSwapContent({
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
 }) {
+  // The content mounts only after the route token is execution-ready. Keep
+  // that first complete token as the visual and initialization seed so detail
+  // polling cannot replace its image source or reinitialize the embedded pair.
+  const [swapTokenSeed] = useState(swapToken);
   // Consume the route's draft once per mount; live input must not reinitialize Swap.
   const [initialInputAmountDraft] = useState(inputDraft);
-  const { defaultTokens } = useSpeedSwapInit(swapToken.networkId, true);
-  const defaultFromToken = useMemo(
+  const { defaultTokens } = useSpeedSwapInit(swapTokenSeed.networkId, true);
+  const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
-      defaultTokens.find(
-        (token) =>
-          !equalTokenNoCaseSensitive({
-            token1: token,
-            token2: swapToken,
-          }),
-      ),
-    [defaultTokens, swapToken],
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens,
+        inputDraft: initialInputAmountDraft,
+        swapToken: swapTokenSeed,
+      }),
+    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
   );
-  const swapInitParams = useMemo<ISwapInitParams>(
-    () => ({
-      importFromToken: initialInputAmountDraft?.fromToken ?? defaultFromToken,
-      importNetworkId:
-        initialInputAmountDraft?.fromToken?.networkId ??
-        defaultFromToken?.networkId ??
-        swapToken.networkId,
-      importToToken: initialInputAmountDraft?.toToken ?? swapToken,
-      swapSource: ESwapSource.MARKET,
-      swapTabSwitchType: ESwapTabSwitchType.SWAP,
-    }),
-    [defaultFromToken, initialInputAmountDraft, swapToken],
-  );
+
+  if (!swapInitParams) {
+    return <MarketEmbeddedSwapLoading />;
+  }
 
   return (
     <Stack
