@@ -104,8 +104,24 @@ export interface ITradingViewNativeChartComponentGroup {
   children: readonly ITradingViewNativeChartComponentNode[];
 }
 
+export interface ITradingViewNativeTradeMark {
+  id: string;
+  label: 'B' | 'S';
+  text: string;
+  time: number;
+}
+
+export interface ITradingViewNativeTradeMarksComponent {
+  id: string;
+  type: 'tradeMarks';
+  props: {
+    marks: readonly ITradingViewNativeTradeMark[];
+  };
+}
+
 export type ITradingViewNativeChartLeafComponent =
-  ITradingViewNativeReferenceLineComponent;
+  | ITradingViewNativeReferenceLineComponent
+  | ITradingViewNativeTradeMarksComponent;
 
 export type ITradingViewNativeChartComponentNode =
   | ITradingViewNativeChartComponentGroup
