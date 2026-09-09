@@ -2,7 +2,7 @@ diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_
 index 47addac..110de63 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,98 @@ function unlisten() {
+@@ -160,22 +160,125 @@
    }), dispose.clear();
  }
  var setupVersion = -1;
@@ -11,6 +11,18 @@ index 47addac..110de63 100644
 +const ScreenOrientation = require('expo-screen-orientation');
 +const { Dimensions } = require('react-native');
 +const { ReactNativeDeviceUtils } = require('@onekeyfe/react-native-device-utils');
++
++// OneKey: full-screen surfaces (onboarding v2) opt out of the tablet clamp so
++// iPad evaluates breakpoints against the real window width. App code flips
++// `useRealWidth` and calls `refresh()`; see
++// packages/components/src/hooks/nativeTabletRealWidthMedia.native.ts.
++const nativeMediaControl =
++  globalThis.$$onekeyNativeMedia ||
++  (globalThis.$$onekeyNativeMedia = { useRealWidth: false });
++let mediaUpdaters = [];
++nativeMediaControl.refresh = function () {
++  mediaUpdaters.forEach((update) => update());
++};
 +
 +// Orientation constants from expo-screen-orientation
 +const ORIENTATION_LANDSCAPE_LEFT = 3;
@@ -55,6 +67,10 @@ index 47addac..110de63 100644
 +  if (isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()) {
 +    // DualScreen device in spanning mode: use half screen width for media queries
 +    callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
++  } else if (nativeMediaControl.useRealWidth) {
++    // Full-screen surface opted out of the tablet/Android clamp: keep the raw
++    // matchMedia result computed from the real window width.
++    callback({ shouldOverride: false, overrideWidth: null });
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
 +    // Tablet: check if landscape (spanning layout)
 +    isLandscapeOrientation((isLandscape) => {
@@ -102,3 +118,16 @@ index 47addac..110de63 100644
      }, str = mediaObjectToString(mediaQueryConfig[key2], key2), getMatch = function() {
        return (0, import_matchMedia.matchMedia)(str);
      }, match = getMatch();
+     if (!match)
+       throw new Error("\u26A0\uFE0F No match");
+-    match.addListener(update), dispose.add(function() {
++    mediaUpdaters.push(update), match.addListener(update), dispose.add(function() {
+       match.removeListener(update);
+     }), update();
+   };
+   if (!(import_constants.isWeb && import_constants.isServer) && setupVersion !== mediaVersion) {
+-    setupVersion = mediaVersion, unlisten();
++    setupVersion = mediaVersion, unlisten(), mediaUpdaters = [];
+     for (var key in mediaQueryConfig) _loop(key);
+   }
+ }

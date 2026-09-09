@@ -71,6 +71,13 @@ declare global {
   var $$onekeyDisabledSetTimeout: boolean | undefined;
   var $$onekeyDisabledSetInterval: boolean | undefined;
 
+  // Native-only bridge to the patched Tamagui media driver
+  // (patches/@tamagui+web+*.patch). See
+  // packages/components/src/hooks/nativeTabletRealWidthMedia.native.ts
+  var $$onekeyNativeMedia:
+    | { useRealWidth: boolean; refresh?: () => void }
+    | undefined;
+
   // defined in preload-html-head.js, check ext html bootstrap timeline:
   //      window.$$onekeyPerfTrace.timeline
   var $$onekeyPerfTrace: IOneKeyPerfTrace | undefined;
