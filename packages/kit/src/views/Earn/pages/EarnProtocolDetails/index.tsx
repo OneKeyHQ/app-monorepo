@@ -215,9 +215,12 @@ const ProtocolHeader = ({
                 >
                   {tokenInfo?.token.symbol || symbol}
                 </SizableText>
+                {/* The provider name is the second line of the header, not a
+                    caption: the design sets it in the body weight and default
+                    text color (OK-62407). */}
                 <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
+                  size="$bodyMdMedium"
+                  color="$text"
                   numberOfLines={1}
                   flexShrink={1}
                 >
