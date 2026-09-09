@@ -367,8 +367,8 @@ export interface IPassphraseFormProps {
   initialKeepAccessible?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
-   * is handed out, no character rule to show. Off, the printable-ASCII
-   * rule and its bullets apply. The driver decides it from the request.
+   * is handed out. Off, the printable-ASCII validation applies. The
+   * driver decides it from the request.
    */
   allowProtocolV2Utf8?: boolean;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
@@ -508,45 +508,40 @@ export function PassphraseForm({
         {/* The character rules as bullets; each dot box matches one text
             line, so the dot centers on the first line and the text owns
             any wrap. */}
-        {/* The two bullets state the ASCII rule; a protocol V2 device has
-            no character rule to state, so they stay off there — the
-            shipped dialog dropped its own description the same way. */}
-        {allowProtocolV2Utf8 ? null : (
-          <YStack gap="$1">
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  { id: ETranslations.device_stage_allowed_characters__desc },
-                  {
-                    link: (chunks: ReactNode[]) => (
-                      <Anchor
-                        key="link"
-                        href="https://www.ascii-code.com/"
-                        size="$bodyMd"
-                        color="$textSubdued"
-                      >
-                        {chunks}
-                      </Anchor>
-                    ),
-                  },
-                )}
-              </SizableText>
-            </XStack>
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.passphrase_character_limit,
-                })}
-              </SizableText>
-            </XStack>
-          </YStack>
-        )}
+        <YStack gap="$1">
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                { id: ETranslations.device_stage_allowed_characters__desc },
+                {
+                  link: (chunks: ReactNode[]) => (
+                    <Anchor
+                      key="link"
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
+                      {chunks}
+                    </Anchor>
+                  ),
+                },
+              )}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.passphrase_character_limit,
+              })}
+            </SizableText>
+          </XStack>
+        </YStack>
         {shownError ? (
           <SizableText size="$bodyMd" color="$textCritical">
             {shownError}
