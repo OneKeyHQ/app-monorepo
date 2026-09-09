@@ -22241,6 +22241,7 @@
     "packages/kit/src/views/Perp/utils/orderBookVisualScheduler.ts": 22771,
     "packages/kit/src/views/Perp/utils/perpAccountStatusAnalytics.ts": 7630,
     "packages/kit/src/views/Perp/utils/perpDepositAnalytics.ts": 12967,
+    "packages/kit/src/views/Perp/utils/perpsDepositReceiveAccount.ts": 15675,
     "packages/kit/src/views/Perp/utils/perpsMarketDataFreshness.ts": 5858,
     "packages/kit/src/views/Perp/utils/perpsOrderPanelEnableTrading.ts": 9536,
     "packages/kit/src/views/Perp/utils/popularTickers.ts": 14426,
