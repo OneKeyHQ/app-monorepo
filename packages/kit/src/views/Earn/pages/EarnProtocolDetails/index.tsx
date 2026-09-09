@@ -189,9 +189,10 @@ const ProtocolHeader = ({
   // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back
   // to the single string the server rendered when the breakdown is missing.
+  const totalApyText = yieldSheetData?.yieldSummary?.totalApy?.description?.text;
   const headlineApyParts = useMemo(
-    () => buildHeadlineApyParts(yieldSheetData?.items),
-    [yieldSheetData?.items],
+    () => buildHeadlineApyParts(yieldSheetData?.items, totalApyText),
+    [yieldSheetData?.items, totalApyText],
   );
 
   return (
