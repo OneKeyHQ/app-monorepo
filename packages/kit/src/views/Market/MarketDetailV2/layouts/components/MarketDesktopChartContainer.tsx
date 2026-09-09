@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CSSProperties,
   KeyboardEvent,
@@ -44,9 +44,11 @@ export function MarketDesktopChartContainer({
   );
   const [layoutState, setLayoutState] = useMarketDesktopLayoutAtom();
   const [dragHeight, setDragHeight] = useState<number>();
+  const [pendingHeight, setPendingHeight] = useState<number>();
   const savedHeight = layoutState.chartHeight;
   const chartHeight = clampChartHeight(
     dragHeight ??
+      pendingHeight ??
       (typeof savedHeight === 'number' && Number.isFinite(savedHeight)
         ? savedHeight
         : MARKET_DESKTOP_CHART_MIN_HEIGHT),
@@ -63,8 +65,17 @@ export function MarketDesktopChartContainer({
     | undefined
   >(undefined);
 
+  // Extension writes round-trip through bg. Keep the latest local value until
+  // it is reflected by the shared atom, independently of an active drag.
+  useEffect(() => {
+    if (pendingHeight !== undefined && savedHeight === pendingHeight) {
+      setPendingHeight(undefined);
+    }
+  }, [pendingHeight, savedHeight]);
+
   const saveHeight = useCallback(
     (height: number) => {
+      setPendingHeight(height);
       setLayoutState((prev) =>
         prev.chartHeight === height ? prev : { ...prev, chartHeight: height },
       );
@@ -148,7 +159,11 @@ export function MarketDesktopChartContainer({
         return;
       }
       event.preventDefault();
-      saveHeight(clampChartHeight(nextHeight, maxHeight));
+      const clampedHeight = clampChartHeight(nextHeight, maxHeight);
+      if (event.key !== 'Home' && clampedHeight === chartHeight) {
+        return;
+      }
+      saveHeight(clampedHeight);
     },
     [chartHeight, maxHeight, saveHeight],
   );

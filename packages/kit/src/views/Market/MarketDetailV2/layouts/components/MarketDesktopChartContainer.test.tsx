@@ -9,6 +9,8 @@ import { MarketDesktopChartContainer } from './MarketDesktopChartContainer';
 
 let mockSavedLayout: IMarketDesktopLayout = {};
 let mockViewportHeight = 900;
+let mockDelayWrites = false;
+let mockPendingWrites: IMarketDesktopLayout[] = [];
 const mockPersist = jest.fn();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
@@ -18,8 +20,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
       const [, refresh] = React.useState(0);
       const set = React.useCallback(
         (update: (prev: IMarketDesktopLayout) => IMarketDesktopLayout) => {
-          mockSavedLayout = update(mockSavedLayout);
-          mockPersist(mockSavedLayout);
+          const next = update(mockSavedLayout);
+          mockPersist(next);
+          if (mockDelayWrites) {
+            mockPendingWrites.push(next);
+            return;
+          }
+          mockSavedLayout = next;
           refresh((value) => value + 1);
         },
         [],
@@ -76,6 +83,93 @@ describe('MarketDesktopChartContainer', () => {
     mockSavedLayout = {};
     mockViewportHeight = 900;
     mockPersist.mockClear();
+    mockDelayWrites = false;
+    mockPendingWrites = [];
+  });
+
+  it('preserves the saved preference for clamped arrow keys but lets Home reset it', () => {
+    mockSavedLayout = { chartHeight: 900 };
+    mockViewportHeight = 800;
+    const chart = () => (
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>
+    );
+    const { rerender } = render(chart());
+    const handle = screen.getByTestId('market-chart-resize-handle');
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('640');
+    expect(mockSavedLayout.chartHeight).toBe(900);
+    expect(mockPersist).not.toHaveBeenCalled();
+
+    mockViewportHeight = 1200;
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('900');
+    mockViewportHeight = 600;
+    rerender(chart());
+    fireEvent.keyDown(handle, { key: 'ArrowUp' });
+    expect(mockSavedLayout.chartHeight).toBe(900);
+    fireEvent.keyDown(handle, { key: 'Home' });
+    expect(mockSavedLayout.chartHeight).toBe(456);
+  });
+
+  it('keeps the latest keyboard height until delayed writes catch up', () => {
+    mockDelayWrites = true;
+    const chart = () => (
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>
+    );
+    const { rerender } = render(chart());
+    const handle = screen.getByTestId('market-chart-resize-handle');
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('504');
+    expect(mockPendingWrites.map((value) => value.chartHeight)).toEqual([
+      480, 504,
+    ]);
+    mockSavedLayout = mockPendingWrites[0];
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('504');
+    mockSavedLayout = mockPendingWrites[1];
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('504');
+    mockSavedLayout = { chartHeight: 600 };
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('600');
+  });
+
+  it('does not snap back on release or let an earlier acknowledgement interrupt a new drag', () => {
+    mockDelayWrites = true;
+    const chart = () => (
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen={false}>
+        <div>chart</div>
+      </MarketDesktopChartContainer>
+    );
+    const { rerender } = render(chart());
+    const handle = screen.getByTestId('market-chart-resize-handle');
+    Object.defineProperties(handle, {
+      hasPointerCapture: { value: jest.fn(() => true) },
+      releasePointerCapture: { value: jest.fn() },
+      setPointerCapture: { value: jest.fn() },
+    });
+    firePointerEvent(handle, 'pointerdown', 400);
+    firePointerEvent(handle, 'pointermove', 460);
+    firePointerEvent(handle, 'pointerup', 460);
+    expect(handle.getAttribute('aria-valuenow')).toBe('516');
+    firePointerEvent(handle, 'pointerdown', 460);
+    firePointerEvent(handle, 'pointermove', 500);
+    mockSavedLayout = mockPendingWrites[0];
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('556');
+    firePointerEvent(handle, 'pointerup', 500);
+    expect(handle.getAttribute('aria-valuenow')).toBe('556');
+    mockSavedLayout = mockPendingWrites[1];
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('556');
+    mockSavedLayout = { chartHeight: 620 };
+    rerender(chart());
+    expect(handle.getAttribute('aria-valuenow')).toBe('620');
   });
 
   it('restores persisted height on remount and clamps only the display on resize', () => {
