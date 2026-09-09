@@ -156,7 +156,7 @@ function AccountNotificationSettingsProvider({
               for (const account of wallet.dbAccounts ??
                 wallet.dbIndexedAccounts ??
                 []) {
-                const savedAccount = savedWallet.accounts[account.id];
+                const savedAccount = savedWallet.accounts?.[account.id];
                 if (savedAccount) {
                   accounts[account.id] = { ...savedAccount };
                 }
@@ -622,6 +622,7 @@ function WalletAccordionItemContainer({
 
         newSettings[wallet.id] = {
           ...newSettings?.[wallet.id],
+          accounts: newSettings?.[wallet.id]?.accounts ?? {},
           enabled: formatSavedEnabledValue(newValue),
         };
         onWalletEnabledChange({

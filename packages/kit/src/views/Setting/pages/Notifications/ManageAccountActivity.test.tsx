@@ -227,6 +227,52 @@ describe('ManageAccountActivity stale account settings', () => {
     expect(mockSaveSettings).not.toHaveBeenCalled();
   });
 
+  it('initializes account settings when enabling a wallet without saved settings', async () => {
+    mockWallets = [buildWallet('wallet', ['account'])];
+    const { getByText } = render(<ManageAccountActivityPage />);
+    await act(async () => undefined);
+
+    fireEvent.click(getRowSwitch(getByText('wallet'), true));
+    await waitFor(() =>
+      expect(getLastSavedSettings()).toEqual({ wallet: buildSettings([]) }),
+    );
+
+    fireEvent.click(getRowSwitch(getByText('account')));
+    await waitFor(() => expect(getByText('(1/1)')).toBeTruthy());
+    expect(getLastSavedSettings()).toEqual({
+      wallet: buildSettings(['account']),
+    });
+  });
+
+  it.each(['wallet', 'account'] as const)(
+    'saves the %s switch when stored wallet settings omit accounts',
+    async (switchType) => {
+      mockWallets = [buildWallet('wallet', ['account'])];
+      // Older wallet toggles can persist this shape despite the required type.
+      mockSettings = {
+        wallet: { enabled: true },
+      } as unknown as IAccountActivityNotificationSettings;
+      const { getByText } = render(<ManageAccountActivityPage />);
+      await act(async () => undefined);
+
+      fireEvent.click(
+        getRowSwitch(getByText(switchType), switchType === 'wallet'),
+      );
+      await waitFor(() =>
+        expect(getLastSavedSettings()).toEqual({
+          wallet:
+            switchType === 'wallet'
+              ? { enabled: false, accounts: {} }
+              : buildSettings(['account']),
+        }),
+      );
+      expect(
+        getByText(switchType === 'wallet' ? '(0/1)' : '(1/1)'),
+      ).toBeTruthy();
+      expect(mockConfirm).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps all 20 live accounts enabled after replacing two removed accounts and reopening the wallet', async () => {
     const originalIds = Array.from(
       { length: 20 },
