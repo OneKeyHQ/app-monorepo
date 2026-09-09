@@ -10,8 +10,8 @@ describe('runAddAccountFlowOnce', () => {
         }),
     );
 
-    const first = runAddAccountFlowOnce(flow);
-    const second = runAddAccountFlowOnce(flow);
+    const first = runAddAccountFlowOnce('wallet-1', flow);
+    const second = runAddAccountFlowOnce('wallet-1', flow);
 
     expect(second).toBe(first);
     expect(flow).toHaveBeenCalledTimes(1);
@@ -19,10 +19,32 @@ describe('runAddAccountFlowOnce', () => {
     finishFlow?.();
     await first;
 
-    const third = runAddAccountFlowOnce(flow);
+    const third = runAddAccountFlowOnce('wallet-1', flow);
     expect(flow).toHaveBeenCalledTimes(2);
     finishFlow?.();
     await third;
+  });
+
+  it('runs flows for different wallets independently', async () => {
+    let finishFirstFlow: (() => void) | undefined;
+    const firstFlow = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishFirstFlow = resolve;
+        }),
+    );
+    const secondFlow = jest.fn(async () => undefined);
+
+    const first = runAddAccountFlowOnce('wallet-2', firstFlow);
+    const second = runAddAccountFlowOnce('wallet-3', secondFlow);
+
+    expect(second).not.toBe(first);
+    await expect(second).resolves.toBeUndefined();
+    expect(firstFlow).toHaveBeenCalledTimes(1);
+    expect(secondFlow).toHaveBeenCalledTimes(1);
+
+    finishFirstFlow?.();
+    await first;
   });
 
   it('releases the guard after a rejected flow', async () => {
@@ -31,8 +53,12 @@ describe('runAddAccountFlowOnce', () => {
       .mockRejectedValueOnce(new Error('failed'))
       .mockResolvedValueOnce(undefined);
 
-    await expect(runAddAccountFlowOnce(flow)).rejects.toThrow('failed');
-    await expect(runAddAccountFlowOnce(flow)).resolves.toBeUndefined();
+    await expect(runAddAccountFlowOnce('wallet-4', flow)).rejects.toThrow(
+      'failed',
+    );
+    await expect(
+      runAddAccountFlowOnce('wallet-4', flow),
+    ).resolves.toBeUndefined();
     expect(flow).toHaveBeenCalledTimes(2);
   });
 });

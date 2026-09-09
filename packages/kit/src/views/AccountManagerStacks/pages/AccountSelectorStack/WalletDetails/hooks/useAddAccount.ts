@@ -101,7 +101,7 @@ export function useAddAccount({
         return;
       }
 
-      return runAddAccountFlowOnce(async () => {
+      return runAddAccountFlowOnce(focusedWalletInfo.wallet.id, async () => {
         let isNavigationPopped = false;
         const popNavigation = () => {
           if (isNavigationPopped) {
