@@ -497,11 +497,13 @@ describe('DeviceStage certificate error classification', () => {
       name: 'invalid public-key certificate',
       response: { verified: false, result: { code: 10_105 } },
       reason: 'unofficialDevice',
+      allowsContinue: false,
     },
     {
       name: 'network service failure',
       response: { verified: false, result: { code: 10_104 } },
       reason: 'network',
+      allowsContinue: true,
     },
     {
       name: 'server unavailable',
@@ -511,11 +513,33 @@ describe('DeviceStage certificate error classification', () => {
         message: 'Service Unavailable',
       },
       reason: 'unavailable',
+      allowsContinue: true,
     },
     {
       name: 'request timeout',
       error: { code: 'ECONNABORTED', message: 'timeout of 30000ms exceeded' },
-      reason: 'unknown',
+      reason: 'network',
+      allowsContinue: true,
+    },
+    {
+      name: 'offline request layer error',
+      error: {
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        message: 'Network Error',
+      },
+      reason: 'network',
+      allowsContinue: true,
+    },
+    {
+      name: 'device unplugged mid-check',
+      // Bridged hardware errors carry the marker the matcher keys on.
+      error: {
+        $isHardwareError: true,
+        code: HardwareErrorCode.DeviceNotFound,
+        message: 'not found',
+      },
+      reason: 'disconnected',
+      allowsContinue: false,
     },
     {
       name: 'SE request failure',
@@ -524,28 +548,31 @@ describe('DeviceStage certificate error classification', () => {
         message: 'Failure_ProcessError,SE request failed',
       },
       reason: 'unknown',
+      allowsContinue: false,
     },
     {
       name: 'defective firmware',
       error: { code: HardwareErrorCode.DefectiveFirmware },
       reason: 'defective',
+      allowsContinue: false,
     },
-  ])('classifies $name without continuing verification', async (scenario) => {
-    if ('error' in scenario) {
-      mockFirmwareAuthenticate.mockRejectedValueOnce(scenario.error);
-    } else {
-      mockFirmwareAuthenticate.mockResolvedValueOnce(scenario.response);
-    }
-    const { result } = renderHook(() => useDeviceStageFirmwareVerify());
-    let verification: Promise<unknown> | undefined;
-    await act(async () => {
-      verification = result.current.runDeviceStageFirmwareVerify({
-        device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
-        features: undefined,
+  ])(
+    'classifies $name and opens Continue anyway only where the device cannot be at fault',
+    async (scenario) => {
+      if ('error' in scenario) {
+        mockFirmwareAuthenticate.mockRejectedValueOnce(scenario.error);
+      } else {
+        mockFirmwareAuthenticate.mockResolvedValueOnce(scenario.response);
+      }
+      const { result } = renderHook(() => useDeviceStageFirmwareVerify());
+      let verification: Promise<unknown> | undefined;
+      await act(async () => {
+        verification = result.current.runDeviceStageFirmwareVerify({
+          device: { connectId: 'connect-id', deviceType: 'pro2' } as IDBDevice,
+          features: undefined,
+        });
       });
-    });
 
-    try {
       expect(mockDeviceStageNoteAuthStep).toHaveBeenCalledWith(
         expect.objectContaining({
           step: 'authFailure',
@@ -557,27 +584,45 @@ describe('DeviceStage certificate error classification', () => {
       );
       expect(mockGetFirmwareVerificationFeatures).not.toHaveBeenCalled();
       expect(mockVerifyFirmwareHash).not.toHaveBeenCalled();
-      if (scenario.reason !== 'unofficialDevice') {
+
+      if (scenario.allowsContinue) {
+        // Our side failed, the device did its part: the NOTE-confirmed
+        // Continue anyway ends the run unverified (OK-62484).
         await act(async () => {
           appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
             action: 'continueAnyway',
           });
+          await expect(verification).resolves.toEqual({ checked: false });
         });
-        expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+        expect(mockDeviceStageNoteAuthResolved).toHaveBeenCalledTimes(1);
+        return;
       }
-    } finally {
-      await act(async () => {
-        appEventBus.emit(
-          EAppEventBusNames.CloseHardwareUiStateDialogManually,
-          undefined,
-        );
-        await expect(verification).resolves.toEqual({
-          checked: false,
-          closed: true,
+
+      try {
+        if (scenario.reason !== 'unofficialDevice') {
+          // A verdict against the device, a device that vanished, or one
+          // that stayed on the line yet failed: no bypass (OK-61777).
+          await act(async () => {
+            appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, {
+              action: 'continueAnyway',
+            });
+          });
+          expect(mockDeviceStageNoteAuthResolved).not.toHaveBeenCalled();
+        }
+      } finally {
+        await act(async () => {
+          appEventBus.emit(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            undefined,
+          );
+          await expect(verification).resolves.toEqual({
+            checked: false,
+            closed: true,
+          });
         });
-      });
-    }
-  });
+      }
+    },
+  );
 });
 
 describe('EnumBasicDialogContentContainer', () => {

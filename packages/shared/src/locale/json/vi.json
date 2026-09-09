@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Nhập theo vị trí các số trên thiết bị",
   "device_stage_pin_set_to_app__desc": "Áp dụng từ lần sau. Lần này, hãy nhập trên thiết bị.",
   "device_stage_pin_set_to_app__title": "Đã đặt nhập mã PIN trong ứng dụng",
+  "device_stage_pin_too_short__msg": "Ít nhất 4 chữ số.",
   "device_stage_prefer_pin_in_app__action": "Bạn muốn nhập mã PIN trong ứng dụng?",
   "device_stage_processing__title": "Đang xử lý…",
   "device_stage_reconnect__action": "Kết nối lại",
@@ -5677,6 +5678,5 @@
   "wc_pay_tx_reverted__msg": "Giao dịch đã bị hoàn tác trên chuỗi",
   "word": "Từ",
   "your_device_is_ready": "Thiết bị của bạn đã sẵn sàng",
-  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng",
-  "perp_twap_orders__title": "Lệnh TWAP"
+  "your_wallet_is_ready": "Ví của bạn đã sẵn sàng"
 }

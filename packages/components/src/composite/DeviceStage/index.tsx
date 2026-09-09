@@ -130,9 +130,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
  * pose flip ever builds native views mid-animation.
  *
- * The stage is modal without a scrim: while it is there the app behind
- * takes no touch — the person stays with the device — and nothing dims
- * (the design leaves the overlay layer off here). Dismissal is the
+ * The stage is modal, and undimmed for asks and waits: while it is there
+ * the app behind takes no touch — the person stays with the device — and
+ * nothing dims (the design leaves the overlay layer off here). The
+ * terminal failure cards are the exception (OK-62072): a bright app
+ * under an unnoticed error card read as "still tappable", so those
+ * three arrangements wear the scrim. Dismissal is the
  * container's (close button, drag, tap outside) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
@@ -2134,6 +2137,15 @@ export function DeviceStage({
     [intl],
   );
 
+  // The failure cards dim the app behind them (OK-62072); the error
+  // notice keeps the capsule's undimmed grammar — it is a beat, not a
+  // wall, and leaves on its own.
+  const scrim =
+    pose === 'card' &&
+    (activeArrangement === 'error' ||
+      activeArrangement === 'authFailure' ||
+      activeArrangement === 'deviceNotFound');
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2145,6 +2157,7 @@ export function DeviceStage({
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
       modal
+      scrim={scrim}
       capsuleKey={capsuleText.title}
       capsule={capsule}
       stageLayer={stageLayer}

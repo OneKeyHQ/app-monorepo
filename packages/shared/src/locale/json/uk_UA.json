@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Зіставте позиції цифр на пристрої",
   "device_stage_pin_set_to_app__desc": "Почне діяти наступного разу. Цього разу введіть PIN-код на пристрої.",
   "device_stage_pin_set_to_app__title": "Введення PIN-коду переведено в застосунок",
+  "device_stage_pin_too_short__msg": "Щонайменше 4 цифри.",
   "device_stage_prefer_pin_in_app__action": "Бажаєте вводити PIN-код у застосунку?",
   "device_stage_processing__title": "Обробка…",
   "device_stage_reconnect__action": "Перепідключити",
@@ -5677,6 +5678,5 @@
   "wc_pay_tx_reverted__msg": "Транзакцію скасовано в мережі",
   "word": "Слово",
   "your_device_is_ready": "Ваш пристрій готовий",
-  "your_wallet_is_ready": "Ваш гаманець готовий",
-  "perp_twap_orders__title": "TWAP-ордер"
+  "your_wallet_is_ready": "Ваш гаманець готовий"
 }

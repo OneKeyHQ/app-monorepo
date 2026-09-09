@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "匹配設備上的數字位置",
   "device_stage_pin_set_to_app__desc": "下次生效。本次請在裝置上輸入。",
   "device_stage_pin_set_to_app__title": "PIN 碼輸入已設為 App",
+  "device_stage_pin_too_short__msg": "至少 4 位。",
   "device_stage_prefer_pin_in_app__action": "想在 App 內輸入 PIN 碼？",
   "device_stage_processing__title": "處理中…",
   "device_stage_reconnect__action": "重新連線",
@@ -5677,6 +5678,5 @@
   "wc_pay_tx_reverted__msg": "交易在鏈上被回滾",
   "word": "助記詞",
   "your_device_is_ready": "你的裝置已就緒",
-  "your_wallet_is_ready": "您的錢包已準備就緒",
-  "perp_twap_orders__title": "分時委託"
+  "your_wallet_is_ready": "您的錢包已準備就緒"
 }

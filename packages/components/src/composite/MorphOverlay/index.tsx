@@ -735,8 +735,10 @@ export interface IMorphOverlayProps<T> {
   modal?: boolean;
   /**
    * The dark scrim over the blocked app (implies `modal`), fading with
-   * the shell's presence. The design's overlay layer — optional, and
-   * off for the hardware flows, which block without dimming.
+   * the shell's presence, and cross-fading when flipped while the shell
+   * is up. The design's overlay layer — off for the hardware asks and
+   * waits, which block without dimming; on for their terminal failure
+   * cards (OK-62072).
    */
   scrim?: boolean;
   /**
@@ -1084,6 +1086,13 @@ export function MorphOverlay<T>({
       (1 - presence.value) *
       (height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT);
     return {
+      // The hard gate on the hidden rest (OK-62485): fully departed, the
+      // shell paints nothing at all. The slide itself stays opaque to the
+      // last frame, so no exit looks different — but the parked shell can
+      // no longer be caught on screen when the anchor and this transform
+      // land in different frames (a rotation flips the posture, and with
+      // it the anchor's edge and this door's direction).
+      opacity: presence.value > 0 ? 1 : 0,
       transform: [
         {
           translateY: phonePosture
@@ -1097,12 +1106,25 @@ export function MorphOverlay<T>({
     };
   }, [bottomClearance, height, keyboard, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
-  // the exit and the drag alike.
+  // the exit and the drag alike. Its level rides a clock of its own, so a
+  // flip while the shell is up (a wait turning into a failure card,
+  // OK-62072) fades the tint in on the swap-in beat instead of popping;
+  // at level 0 the tinted wall IS the bare transparent wall, so one style
+  // serves both grants.
+  const scrimLevel = useSharedValue(scrim ? 1 : 0);
+  useEffect(() => {
+    const target = scrim ? 1 : 0;
+    scrimLevel.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: SWAP_IN_MS });
+  }, [reducedMotion, scrim, scrimLevel]);
   const scrimFadeStyle = useAnimatedStyle(
     () => ({
-      opacity: interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP),
+      opacity:
+        interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP) *
+        scrimLevel.value,
     }),
-    [presence],
+    [presence, scrimLevel],
   );
   // The face clips, so it re-rounds in step with the shell — and the
   // native ring wears the same style to hug the same corner.
@@ -1163,22 +1185,20 @@ export function MorphOverlay<T>({
     [progress],
   );
 
-  // The wall over the app: painted and faded only as the scrim, a bare
-  // transparent wall otherwise.
+  // The wall over the app: the scrim's tint under its animated level —
+  // fully clear without the grant, so the bare blocking wall is this same
+  // view at level 0.
   const backdropStyle = useMemo(
-    () =>
-      scrim
-        ? [
-            styles.backdrop,
-            {
-              backgroundColor: `rgba(0,0,0,${
-                themeName === 'dark' ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
-              })`,
-            },
-            scrimFadeStyle,
-          ]
-        : styles.backdrop,
-    [scrim, scrimFadeStyle, themeName],
+    () => [
+      styles.backdrop,
+      {
+        backgroundColor: `rgba(0,0,0,${
+          themeName === 'dark' ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
+        })`,
+      },
+      scrimFadeStyle,
+    ],
+    [scrimFadeStyle, themeName],
   );
   const shellStyle = useMemo(
     () =>

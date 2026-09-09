@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Match the number positions on device",
   "device_stage_pin_set_to_app__desc": "Starts next time. This time, enter it on your device.",
   "device_stage_pin_set_to_app__title": "PIN entry set to app",
+  "device_stage_pin_too_short__msg": "At least 4 digits.",
   "device_stage_prefer_pin_in_app__action": "Prefer to enter PIN in app?",
   "device_stage_processing__title": "Processing…",
   "device_stage_reconnect__action": "Reconnect",
@@ -5677,6 +5678,5 @@
   "wc_pay_tx_reverted__msg": "Transaction reverted on chain",
   "word": "Word",
   "your_device_is_ready": "Your device is ready",
-  "your_wallet_is_ready": "Your wallet is ready",
-  "perp_twap_orders__title": "TWAP Orders"
+  "your_wallet_is_ready": "Your wallet is ready"
 }

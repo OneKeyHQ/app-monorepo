@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Abbina i numeri sul dispositivo",
   "device_stage_pin_set_to_app__desc": "Valido dalla prossima volta. Questa volta inseriscilo sul dispositivo.",
   "device_stage_pin_set_to_app__title": "Inserimento del PIN impostato sull'app",
+  "device_stage_pin_too_short__msg": "Almeno 4 cifre.",
   "device_stage_prefer_pin_in_app__action": "Preferisci inserire il PIN nell'app?",
   "device_stage_processing__title": "Elaborazione…",
   "device_stage_reconnect__action": "Riconnetti",
@@ -5677,6 +5678,5 @@
   "wc_pay_tx_reverted__msg": "Transazione annullata on-chain",
   "word": "Parola",
   "your_device_is_ready": "Il tuo dispositivo è pronto",
-  "your_wallet_is_ready": "Il tuo portafoglio è pronto",
-  "perp_twap_orders__title": "Ordine TWAP"
+  "your_wallet_is_ready": "Il tuo portafoglio è pronto"
 }

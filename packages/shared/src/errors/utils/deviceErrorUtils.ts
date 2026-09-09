@@ -330,6 +330,20 @@ export async function convertDeviceResponse<T>(
   } catch (e) {
     const error: Error | undefined = e as Error;
     console.error(error);
+    // A thrown SDK HardwareError (the transport's TypedError, e.g. the
+    // Bluetooth-off check in hd-transport-react-native) still carries its
+    // code on `errorCode`. Route it through the same table as a failed
+    // response, so it keeps its class, code and i18n key instead of
+    // arriving as a generic error wearing the SDK's English sentence
+    // (OK-62113).
+    const sdkErrorCode = (error as { errorCode?: unknown } | undefined)
+      ?.errorCode;
+    if (typeof sdkErrorCode === 'number') {
+      throw convertDeviceError(
+        { code: sdkErrorCode, error: error?.message },
+        options,
+      );
+    }
     const hardwareCommonError = new HardwareErrors.OneKeyHardwareError(error);
     throw hardwareCommonError;
   }
