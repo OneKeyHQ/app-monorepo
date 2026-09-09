@@ -268,9 +268,8 @@ export function AmountInput({
             <Image
               size="$7"
               borderRadius="$full"
-              source={{
-                uri: selectedTokenImageUri,
-              }}
+              src={selectedTokenImageUri}
+              placeholder={<Stack width="100%" height="100%" />}
               fallback={
                 <Image.Fallback
                   borderRadius="$full"
@@ -301,9 +300,8 @@ export function AmountInput({
               <Image
                 size="$3"
                 borderRadius="$full"
-                source={{
-                  uri: selectedNetworkImageUri,
-                }}
+                src={selectedNetworkImageUri}
+                placeholder={<Stack width="100%" height="100%" />}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
                     <Icon
