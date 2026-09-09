@@ -1,0 +1,2452 @@
+[
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execFile",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.autoUpdater",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.autoUpdater",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.BrowserWindow",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.BrowserWindow",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.dialog",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.dialog",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.inAppPurchase",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.inAppPurchase",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.Menu",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.Menu",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.nativeImage",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.nativeImage",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.Notification",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.Notification",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.session",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.session",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ShareMenu",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ShareMenu",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.shell",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.shell",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.systemPreferences",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.systemPreferences",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.accessSync",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.constants",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.createReadStream",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.createWriteStream",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.mkdirSync",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.close",
+    "resource": "@onekeyhq/kit-bg>yauzl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.fstat",
+    "resource": "@onekeyhq/kit-bg>yauzl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.open",
+    "resource": "@onekeyhq/kit-bg>yauzl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.close",
+    "resource": "@onekeyhq/kit-bg>yauzl>fd-slicer",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.read",
+    "resource": "@onekeyhq/kit-bg>yauzl>fd-slicer",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.write",
+    "resource": "@onekeyhq/kit-bg>yauzl>fd-slicer",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "indexedDB",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.pathname.startsWith",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "ServiceWorker",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "@onekeyhq/shared",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/shared>react-native-uuid",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "__SENTRY_IPC__",
+    "resource": "@sentry/electron",
+    "type": "global",
+    "value": "write"
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron",
+    "resource": "@sentry/electron",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron",
+    "resource": "@sentry/electron",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "@sentry/electron",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.promises",
+    "resource": "@sentry/electron",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:child_process.exec",
+    "resource": "@sentry/electron",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@sentry/electron>@sentry/browser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "importScripts",
+    "resource": "@sentry/electron>@sentry/browser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "indexedDB.open",
+    "resource": "@sentry/electron>@sentry/browser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly",
+    "resource": "@sentry/electron>@sentry/browser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest.prototype",
+    "resource": "@sentry/electron>@sentry/browser",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest.prototype",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/feedback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/feedback",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.href",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.origin",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "parent",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:net.isIPv6",
+    "resource": "@sentry/electron>@sentry/node",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module._resolveFilename",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module._resolveFilename",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module.builtinModules",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module.builtinModules",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module.isBuiltin",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module.isBuiltin",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module.prototype.require",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module.prototype.require",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/resources",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.promises.readFile",
+    "resource": "@sentry/electron>@sentry/node>@opentelemetry/resources",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module.register",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module.register",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:child_process.execFile",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.createReadStream",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.existsSync",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.readdir",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.readFile",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.readFileSync",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:http",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:https",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:net.connect",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:net.isIP",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:net.isIPv6",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:net.Socket",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:tls.connect",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:worker_threads.Worker",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "worker_threads.isMainThread",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "worker_threads.threadId",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.mkdirSync",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.readFileSync",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:fs.writeFileSync",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "node:module.prototype._compile",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "node:module.prototype._compile",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.Instance",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>@apm-js-collab/code-transformer",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.Module",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>@apm-js-collab/code-transformer",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "module.isBuiltin",
+    "resource": "@sentry/electron>@sentry/node>import-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "module.isBuiltin",
+    "resource": "@sentry/electron>@sentry/node>import-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "worker_threads.MessageChannel",
+    "resource": "@sentry/electron>@sentry/node>import-in-the-middle",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs",
+    "resource": "adm-zip",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.on",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.on",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.removeListener",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.removeListener",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.BrowserWindow.getAllWindows",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.BrowserWindow.getAllWindows",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.clipboard.readText",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.clipboard.readText",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.clipboard.write",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.clipboard.write",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.clipboard.writeText",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.clipboard.writeText",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.Menu.buildFromTemplate",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.Menu.buildFromTemplate",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.shell.openExternal",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.shell.openExternal",
+    "resource": "electron-context-menu",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.badgeCount",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.badgeCount",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.dock.downloadFinished",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.dock.downloadFinished",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.getPath",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.getPath",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app.on",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app.on",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.BrowserWindow.fromWebContents",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.BrowserWindow.fromWebContents",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.BrowserWindow.getAllWindows",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.BrowserWindow.getAllWindows",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.dialog.showErrorBox",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.dialog.showErrorBox",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.shell.showItemInFolder",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.shell.showItemInFolder",
+    "resource": "electron-context-menu>electron-dl",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.access",
+    "resource": "electron-context-menu>electron-dl>unused-filename>path-exists",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.accessSync",
+    "resource": "electron-context-menu>electron-dl>unused-filename>path-exists",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron",
+    "resource": "electron-is-dev",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron",
+    "resource": "electron-is-dev",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.closeSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdirSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.openSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.renameSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.statSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFile",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFileSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcRenderer",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcRenderer",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.shell.openPath",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.shell.openPath",
+    "resource": "electron-store",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdirSync",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.watch",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.watchFile",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFileSync",
+    "resource": "electron-store>conf",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.chmod",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.chmodSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.chown",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.chownSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.close",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.closeSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.fsync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.fsyncSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdir",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdirSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.open",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.openSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.realpath",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.realpathSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.rename",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.renameSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.stat",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.statSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlink",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlinkSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.write",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeSync",
+    "resource": "electron-store>conf>atomically",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.access",
+    "resource": "electron-store>conf>pkg-up>find-up>locate-path>path-exists",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.accessSync",
+    "resource": "electron-store>conf>pkg-up>find-up>locate-path>path-exists",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execFile",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execFileSync",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawnSync",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.app",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.app",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.autoUpdater",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.autoUpdater",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.net.request",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.net.request",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.Notification",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.Notification",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.session.fromPartition",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.session.fromPartition",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.shell.openPath",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.shell.openPath",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.createReadStream",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.createWriteStream",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlinkSync",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http.createServer",
+    "resource": "electron-updater",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.createWriteStream",
+    "resource": "electron-updater>builder-util-runtime",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs",
+    "resource": "electron-updater>fs-extra>graceful-fs",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs",
+    "resource": "electron-updater>fs-extra>jsonfile",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.origin",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.setItem",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.hostname",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.getItem",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.origin",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain.handle",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain.handle",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain.removeHandler",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain.removeHandler",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.webContents.getAllWebContents",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.webContents.getAllWebContents",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/openpgp/dist/node/openpgp.min.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/openpgp/dist/node/openpgp.min.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/openpgp/dist/node/openpgp.min.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/openpgp/dist/node/openpgp.min.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/audio.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/audio.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/battery.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/battery.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/systeminformation/lib/battery.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/battery.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/bluetooth.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/bluetooth.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/bluetooth.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/cpu.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/cpu.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/systeminformation/lib/cpu.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/cpu.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.stat",
+    "resource": "external:../../node_modules/systeminformation/lib/cpu.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net.createConnection",
+    "resource": "external:../../node_modules/systeminformation/lib/dockerSocket.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/filesystem.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/filesystem.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/systeminformation/lib/filesystem.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.statSync",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/memory.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/memory.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/systeminformation/lib/memory.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/network.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/network.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/network.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/network.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execFile",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.stat",
+    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/printer.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/processes.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/processes.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/processes.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/system.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/system.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/system.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "external:../../node_modules/systeminformation/lib/system.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/usb.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/users.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.lstatSync",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "external:../../node_modules/systeminformation/lib/util.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/virtualbox.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "external:../../node_modules/systeminformation/lib/wifi.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/wifi.js",
+    "type": "builtin",
+    "value": true
+  }
+]

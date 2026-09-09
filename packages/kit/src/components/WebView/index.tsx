@@ -39,6 +39,8 @@ export interface IWebViewProps
   containerProps?: ComponentProps<typeof Stack>;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   nativeWebviewSource?: WebViewSource | undefined;
+  /** Android-only fixed APK WebEmbed loader; ordinary WebViews leave it disabled. */
+  oneKeyWebEmbedAssets?: boolean;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
   pullToRefreshEnabled?: boolean;

@@ -115,13 +115,36 @@ index d6a5247..1531385 100644
          type: isBuiltin(module.userRequest) ? 'builtin' : 'js',
          packageName,
          content: module.originalSource()?.source()?.toString(),
+diff --git a/node_modules/@lavamoat/webpack/src/buildtime/types.ts b/node_modules/@lavamoat/webpack/src/buildtime/types.ts
+index f223fc7..52dd553 100644
+--- a/node_modules/@lavamoat/webpack/src/buildtime/types.ts
++++ b/node_modules/@lavamoat/webpack/src/buildtime/types.ts
+@@ -1,3 +1,4 @@
++import type { Resolver } from '@lavamoat/aa'
+ import type { LavaMoatPolicy } from '@lavamoat/types'
+ import type { LavaMoatScuttleOpts } from 'lavamoat-core'
+ import type { LockdownOptions } from 'ses'
+@@ -12,6 +13,8 @@ export interface CompleteLavaMoatPluginOptions {
+   generatePolicy?: boolean
+   generatePolicyOnly?: boolean
+   rootDir?: string
++  // OneKey patch: match canonical naming to an explicitly configured Node target.
++  canonicalNameMapResolve?: Resolver
+   policyLocation: string
+   emitPolicySnapshot?: boolean
+   readableResourceIds?: boolean
 diff --git a/node_modules/@lavamoat/webpack/src/plugin.js b/node_modules/@lavamoat/webpack/src/plugin.js
-index 62fe34d..d587b5c 100644
+index 62fe34d..7b35869 100644
 --- a/node_modules/@lavamoat/webpack/src/plugin.js
 +++ b/node_modules/@lavamoat/webpack/src/plugin.js
-@@ -220,7 +220,20 @@ class LavaMoatPlugin {
+@@ -218,9 +218,26 @@ class LavaMoatPlugin {
+       loadCanonicalNameMap({
+         rootDir: STORE.options.rootDir || compiler.context,
          includeDevDeps: true, // even the most proper projects end up including devDeps in their bundles :(
-         resolve: browserResolve,
+-        resolve: browserResolve,
++        // OneKey patch: Node targets use their explicit non-browser resolver.
++        // resolve: browserResolve,
++        resolve: STORE.options.canonicalNameMapResolve ?? browserResolve,
        })
 -        .then((map) => {
 +        // OneKey patch: load the production map before publishing canonical names.
@@ -133,7 +156,9 @@ index 62fe34d..d587b5c 100644
 +          const productionMap = await loadCanonicalNameMap({
 +            rootDir: STORE.options.rootDir || compiler.context,
 +            includeDevDeps: false,
-+            resolve: browserResolve,
++            // OneKey patch: use the same resolver for both dependency maps.
++            // resolve: browserResolve,
++            resolve: STORE.options.canonicalNameMapResolve ?? browserResolve,
 +          })
 +          for (const [packageDir, canonicalName] of productionMap) {
 +            map.set(packageDir, canonicalName)

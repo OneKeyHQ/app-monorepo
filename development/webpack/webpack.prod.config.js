@@ -6,6 +6,7 @@ const webpack = require('webpack');
 
 const babelTools = require('../babelTools');
 
+const { isLavaMoatEnabled, isLavaMoatPolicyGeneration } = require('./lavamoat');
 const utils = require('./utils');
 
 const FILES_TO_DELETE_AFTER_UPLOAD = [
@@ -16,6 +17,7 @@ const FILES_TO_DELETE_AFTER_UPLOAD = [
 
 module.exports = ({ platform, basePath }) => {
   const isExt = platform === babelTools.developmentConsts.platforms.ext;
+  const isPolicyGeneration = isLavaMoatPolicyGeneration();
   const shouldUploadSourcemapsByCli =
     process.env.SENTRY_UPLOAD_BY_CLI === 'true';
   const rootPath = isExt
@@ -27,7 +29,7 @@ module.exports = ({ platform, basePath }) => {
   console.log('filesToDeleteAfterUpload', filesToDeleteAfterUpload);
   return {
     mode: 'production',
-    devtool: isExt ? false : 'source-map',
+    devtool: isExt || isPolicyGeneration ? false : 'source-map',
     output: {
       clean: true,
     },
@@ -39,6 +41,7 @@ module.exports = ({ platform, basePath }) => {
         ),
       }),
       !isExt &&
+        !isPolicyGeneration &&
         !shouldUploadSourcemapsByCli &&
         sentryWebpackPlugin({
           org: 'onekey-bb',
@@ -54,8 +57,13 @@ module.exports = ({ platform, basePath }) => {
         }),
     ].filter(Boolean),
     optimization: {
+      // Policy is collected from the module graph before asset minification.
+      // Audit-only builds need neither minification nor source-map uploads.
+      minimize: !isPolicyGeneration,
       minimizer: [
         new TerserPlugin({
+          // One worker limits concurrent ASTs and keeps them off the graph's heap.
+          parallel: isLavaMoatEnabled() ? 1 : true,
           terserOptions: {
             keep_classnames: true,
             keep_fnames: true,

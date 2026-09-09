@@ -12,6 +12,7 @@ const LavaMoatPlugin = require('@lavamoat/webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { chromium } = require('playwright-core');
 const webpack = require('webpack');
+const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(__dirname, '../..');
@@ -102,6 +103,7 @@ test('Web smoke validates parsed HTML and catches native promise rejections even
         path: artifact,
         filename: '[name].[contenthash:10].bundle.js',
         publicPath: '/',
+        crossOriginLoading: 'anonymous',
       },
       optimization: {
         minimize: false,
@@ -116,6 +118,7 @@ test('Web smoke validates parsed HTML and catches native promise rejections even
             });
           </script></head><body></body></html>`,
         }),
+        new SubresourceIntegrityPlugin(),
         new LavaMoatPlugin({
           rootDir: directory,
           policyLocation: directory,
@@ -216,6 +219,24 @@ test('Web smoke validates parsed HTML and catches native promise rejections even
         ),
         error: /Scripts must be local/,
       },
+      {
+        name: 'missing integrity',
+        source: originalHtml.replace(/ integrity="[^"]+"/, ''),
+        error: /HTML integrity must match the final bytes/,
+      },
+      {
+        name: 'altered integrity',
+        source: originalHtml.replace(
+          /integrity="[^"]+"/,
+          'integrity="sha384-invalid"',
+        ),
+        error: /HTML integrity must match the final bytes/,
+      },
+      {
+        name: 'missing cross-origin mode',
+        source: originalHtml.replace(' crossorigin="anonymous"', ''),
+        error: /HTML must retain anonymous cross-origin loading/,
+      },
     ];
     for (const scenario of invalidHtml) {
       fs.writeFileSync(html, scenario.source);
@@ -256,6 +277,21 @@ test('Web smoke validates parsed HTML and catches native promise rejections even
       },
     );
     fs.unlinkSync(extraRuntime);
+    const applicationPath = path.join(artifact, application);
+    const applicationSource = fs.readFileSync(applicationPath);
+    fs.appendFileSync(
+      applicationPath,
+      '\n/* Simulate a post-build source mutation. */',
+    );
+    await assert.rejects(
+      runSmoke(path.join(directory, 'mutated-source')),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /HTML integrity must match the final bytes/);
+        return true;
+      },
+    );
+    fs.writeFileSync(applicationPath, applicationSource);
     const healthyOutput = path.join(directory, 'healthy');
     await runSmoke(healthyOutput);
     const healthy = JSON.parse(

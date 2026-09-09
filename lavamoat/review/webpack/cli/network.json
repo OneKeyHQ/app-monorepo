@@ -1,0 +1,63 @@
+{
+  "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
+  "resources": {
+    "@babel/traverse>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyfe/hd-core>axios": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "navigator": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/shared>localforage": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/micro-ftch/index.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

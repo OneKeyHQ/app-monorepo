@@ -1,0 +1,101 @@
+{
+  "description": "浏览器存储、剪贴板、cookie、文件读取等隐私相关 API",
+  "resources": {
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "document": true,
+        "localStorage": true,
+        "navigator": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "document": true,
+        "indexedDB": true,
+        "localStorage": true,
+        "navigator": true
+      }
+    },
+    "@sentry/electron": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/browser": {
+      "globals": {
+        "indexedDB.open": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/core": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": {
+      "globals": {
+        "document": true,
+        "localStorage": true,
+        "navigator": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": {
+      "globals": {
+        "document": true,
+        "localStorage": true,
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "document": true,
+        "localStorage": true,
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+      "globals": {
+        "localStorage.setItem": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "localStorage.getItem": true
+      }
+    },
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

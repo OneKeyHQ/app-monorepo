@@ -61,6 +61,11 @@
         "crypto": true
       }
     },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
     "@onekeyhq/core>@solana/web3.js>jayson>uuid": {
       "globals": {
         "crypto": true

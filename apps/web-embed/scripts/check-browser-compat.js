@@ -1,4 +1,5 @@
 /* eslint-disable onekey/no-raw-error */
+// cspell:ignore lavamoat
 const fs = require('fs');
 const path = require('path');
 
@@ -239,23 +240,30 @@ function extractHtmlScripts(html) {
   return scripts;
 }
 
-function inspectHtmlScripts(failures) {
+function inspectHtmlScripts(failures, { lavamoat = false } = {}) {
   const html = fs.readFileSync(indexHtmlPath, 'utf8');
   const scripts = extractHtmlScripts(html);
   const entryScripts = scripts.filter((script) =>
     getScriptAttribute(script.attributes, 'src'),
   );
-  if (entryScripts.length !== 2) {
+  const expectedEntryCount = lavamoat ? 3 : 2;
+  if (entryScripts.length !== expectedEntryCount) {
     throw new Error(
-      `Expected two web-embed entry scripts, found ${entryScripts.length}`,
+      `Expected ${expectedEntryCount} web-embed entry scripts, found ${entryScripts.length}`,
     );
   }
-  entryScripts.forEach((script) => {
+  const protectedEntries = ['lavamoat-runtime', 'web-embed-sentry', 'main'];
+  entryScripts.forEach((script, index) => {
     const source = getScriptAttribute(script.attributes, 'src');
     const type = getScriptAttribute(script.attributes, 'type');
-    if (!source?.startsWith('./web-embed.')) {
+    const expectedSource = lavamoat
+      ? new RegExp(
+          `^\\./${protectedEntries[index]}\\.[a-f0-9]{10}\\.bundle\\.js$`,
+        )
+      : /^\.\/web-embed\./;
+    if (!source || !expectedSource.test(source)) {
       throw new Error(
-        `Web-embed entry scripts must use relative file URLs: ${source}`,
+        `Web-embed entry script ${index} has an invalid relative URL or order: ${source}`,
       );
     }
     if (type?.toLowerCase() === 'module') {
@@ -293,11 +301,17 @@ function inspectHtmlScripts(failures) {
 }
 
 function main() {
+  const args = process.argv.slice(2);
+  if (args.some((arg) => arg !== '--lavamoat')) {
+    throw new Error(`Unknown arguments: ${args.join(', ')}`);
+  }
   if (!fs.existsSync(indexHtmlPath)) {
     throw new Error(`Web-embed build output is missing: ${indexHtmlPath}`);
   }
   const failures = [];
-  const inlineScriptCount = inspectHtmlScripts(failures);
+  const inlineScriptCount = inspectHtmlScripts(failures, {
+    lavamoat: args.includes('--lavamoat'),
+  });
   const javaScriptFiles = collectJavaScriptFiles(buildDir);
   javaScriptFiles.forEach((filePath) => {
     const source = fs.readFileSync(filePath, 'utf8');

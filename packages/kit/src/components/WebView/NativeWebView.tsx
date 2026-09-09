@@ -17,6 +17,7 @@ import { WebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getIOSWebEmbedMessageOrigin } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -127,12 +128,28 @@ const NativeWebView = forwardRef(
         if (isUnmountingRef.current) return;
 
         const { data, url } = event.nativeEvent;
+        const protectedIOSOrigin =
+          props.oneKeyWebEmbedAssets &&
+          platformEnv.isNativeIOS &&
+          process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER;
+        const verifiedIOSOrigin = protectedIOSOrigin
+          ? getIOSWebEmbedMessageOrigin({
+              sourceUrl:
+                props.source && 'uri' in props.source
+                  ? props.source.uri
+                  : undefined,
+              messageUrl: url,
+            })
+          : undefined;
+        if (protectedIOSOrigin && !verifiedIOSOrigin) return;
         // Skip bridge receive when bridge is disabled (content-only overlay).
         // The injected provider script is also absent in this mode, so this
         // is a defense-in-depth guard against direct postMessage calls.
         if (!disableBridge) {
           try {
-            const origin = uriUtils.getOriginFromUrl({ url: url || src });
+            const origin =
+              verifiedIOSOrigin ||
+              uriUtils.getOriginFromUrl({ url: url || src });
             if (origin) {
               jsBridge.receive(data, { origin });
             }
@@ -142,7 +159,14 @@ const NativeWebView = forwardRef(
         }
         onMessage?.(event);
       },
-      [disableBridge, jsBridge, onMessage, src],
+      [
+        disableBridge,
+        jsBridge,
+        onMessage,
+        props.oneKeyWebEmbedAssets,
+        props.source,
+        src,
+      ],
     );
 
     useImperativeHandle(ref, (): IWebViewWrapperRef => {

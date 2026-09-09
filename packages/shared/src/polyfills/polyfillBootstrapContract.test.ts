@@ -192,7 +192,30 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
   return ast.program.body.flatMap((statement) => {
     const dependency = findImmediateRequire(statement);
     if (dependency) {
-      return [`require:${dependency}`];
+      const normalizedDependency =
+        dependency ===
+        '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native'
+          ? '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker'
+          : dependency;
+      return [`require:${normalizedDependency}`];
+    }
+    if (
+      statement.type === 'ExpressionStatement' &&
+      statement.expression.type === 'CallExpression' &&
+      statement.expression.callee.type === 'Identifier' &&
+      statement.expression.callee.name ===
+        'prepareNativePromiseRejectionTracker'
+    ) {
+      return [
+        statement.expression.arguments.length === 0
+          ? 'call:prepareNativePromiseRejectionTracker'
+          : 'invalid:prepareNativePromiseRejectionTracker',
+      ];
+    }
+    if (
+      containsImmediateCall(statement, 'prepareNativePromiseRejectionTracker')
+    ) {
+      return ['conditional:prepareNativePromiseRejectionTracker'];
     }
     if (
       statement.type === 'ExpressionStatement' &&
@@ -215,11 +238,59 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
 function nativeBootstrapPrefix(runtime: 'main' | 'background'): string[] {
   return [
     'require:@onekeyhq/shared/src/polyfills',
+    'require:@onekeyhq/shared/src/errors/nativePromiseRejectionTracker',
+    'call:prepareNativePromiseRejectionTracker',
     'require:./src/security/finishMobileLockdown',
     `call:finishMobileLockdown:${runtime}`,
     'require:@onekeyhq/shared/src/polyfills/runtimeCapabilities',
     'call:markRuntimePolyfillsReady',
   ];
+}
+
+// Count all syntactic calls, including deferred or conditional duplicates after
+// the valid prefix; a second preparation must never escape prefix validation.
+function countNamedCalls(value: unknown, calleeName: string): number {
+  if (Array.isArray(value))
+    return value.reduce<number>(
+      (total, item) => total + countNamedCalls(item, calleeName),
+      0,
+    );
+  if (!value || typeof value !== 'object') return 0;
+  const node = value as {
+    type?: string;
+    callee?: { type?: string; name?: string };
+    [key: string]: unknown;
+  };
+  const current =
+    node.type === 'CallExpression' &&
+    node.callee?.type === 'Identifier' &&
+    node.callee.name === calleeName
+      ? 1
+      : 0;
+  return (
+    current +
+    Object.values(node).reduce<number>(
+      (total, child) => total + countNamedCalls(child, calleeName),
+      0,
+    )
+  );
+}
+
+function hasNativeBootstrapContract(
+  source: string,
+  runtime: 'main' | 'background',
+): boolean {
+  const expected = nativeBootstrapPrefix(runtime);
+  const events = collectTopLevelBootstrapEvents(source);
+  const ast = parse(source, {
+    plugins: ['jsx', 'typescript'],
+    sourceType: 'unambiguous',
+  });
+  return (
+    expected.every((event, index) => events[index] === event) &&
+    countNamedCalls(ast, 'prepareNativePromiseRejectionTracker') === 1 &&
+    countNamedCalls(ast, 'finishMobileLockdown') === 1
+  );
 }
 
 describe('runtime polyfill bootstrap contract', () => {
@@ -262,34 +333,77 @@ describe('runtime polyfill bootstrap contract', () => {
       const runtime =
         relativePath === 'apps/mobile/index.ts' ? 'main' : 'background';
 
-      expect(collectTopLevelBootstrapEvents(source).slice(0, 5)).toEqual(
-        nativeBootstrapPrefix(runtime),
-      );
+      expect(hasNativeBootstrapContract(source, runtime)).toBe(true);
     },
   );
 
-  it('rejects missing, late, conditional, or wrong-runtime native lockdown finalization', () => {
-    const source = readFileSync(
-      path.join(repoRoot, 'apps/mobile/index.ts'),
-      'utf8',
-    );
-    const finalization = "finishMobileLockdown('main');";
-    expect(source).toContain(finalization);
-    const missing = source.replace(finalization, '');
-    for (const invalid of [
-      missing,
-      missing.replace(
-        'markRuntimePolyfillsReady();',
-        `markRuntimePolyfillsReady(); ${finalization}`,
-      ),
-      source.replace(finalization, `if (enabled) { ${finalization} }`),
-      source.replace(finalization, "finishMobileLockdown('background');"),
-    ]) {
-      expect(collectTopLevelBootstrapEvents(invalid).slice(0, 5)).not.toEqual(
-        nativeBootstrapPrefix('main'),
-      );
-    }
-  });
+  it.each(nativeRuntimeEntries)(
+    '%s rejects missing, early, late, conditional, duplicate, or invalid preparation',
+    (relativePath) => {
+      const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
+      const runtime =
+        relativePath === 'apps/mobile/index.ts' ? 'main' : 'background';
+      const preparation = 'prepareNativePromiseRejectionTracker();';
+      const finalization = `finishMobileLockdown('${runtime}');`;
+      expect(source).toContain(preparation);
+      const missing = source.replace(preparation, '');
+      for (const invalid of [
+        missing,
+        missing.replace(
+          "require('@onekeyhq/shared/src/polyfills');",
+          `${preparation} require('@onekeyhq/shared/src/polyfills');`,
+        ),
+        missing.replace(finalization, `${finalization} ${preparation}`),
+        source.replace(preparation, `if (enabled) { ${preparation} }`),
+        source.replace(
+          preparation,
+          `const deferred = () => { ${preparation} };`,
+        ),
+        source.replace(
+          preparation,
+          'prepareNativePromiseRejectionTracker("main");',
+        ),
+        `${source}
+${preparation}`,
+        `${source}
+if (enabled) { ${preparation} }`,
+        source.replace(
+          /nativePromiseRejectionTracker(?:\.native)?'/g,
+          "nativePromiseRejectionTracker.web'",
+        ),
+      ]) {
+        expect(hasNativeBootstrapContract(invalid, runtime)).toBe(false);
+      }
+    },
+  );
+
+  it.each(nativeRuntimeEntries)(
+    '%s rejects missing, late, conditional, duplicate, or wrong-runtime lockdown finalization',
+    (relativePath) => {
+      const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
+      const runtime =
+        relativePath === 'apps/mobile/index.ts' ? 'main' : 'background';
+      const finalization = `finishMobileLockdown('${runtime}');`;
+      expect(source).toContain(finalization);
+      const missing = source.replace(finalization, '');
+      for (const invalid of [
+        missing,
+        missing.replace(
+          'markRuntimePolyfillsReady();',
+          `markRuntimePolyfillsReady(); ${finalization}`,
+        ),
+        source.replace(finalization, `if (enabled) { ${finalization} }`),
+        source.replace(
+          finalization,
+          `finishMobileLockdown('${runtime === 'main' ? 'background' : 'main'}');`,
+        ),
+        `${source}
+${finalization}`,
+      ]) {
+        expect(hasNativeBootstrapContract(invalid, runtime)).toBe(false);
+      }
+    },
+  );
 
   it.each(
     collectSourceFiles(path.join(repoRoot, 'packages/shared/src/polyfills')),

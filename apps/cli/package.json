@@ -11,7 +11,7 @@
     "bin/"
   ],
   "scripts": {
-    "build": "node esbuild.config.js && node scripts/assert-no-deprecated-buffer.js",
+    "build": "node webpack.config.lavamoat.cjs --production-output",
     "dev": "node esbuild.config.js --watch",
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",
@@ -24,7 +24,11 @@
     "version:major": "node scripts/bump-version.js major",
     "version:alpha": "node scripts/bump-version.js alpha",
     "version:beta": "node scripts/bump-version.js beta",
-    "generate:cli-types": "node -r esbuild-register scripts/generate-cli-types.ts"
+    "generate:cli-types": "node -r esbuild-register scripts/generate-cli-types.ts",
+    "lavamoat:policy": "node webpack.config.lavamoat.cjs --generate-policy",
+    "build:lavamoat": "node webpack.config.lavamoat.cjs",
+    "test:lavamoat": "node scripts/smoke-lavamoat.cjs",
+    "build:unprotected": "node esbuild.config.js && node scripts/assert-no-deprecated-buffer.js"
   },
   "devDependencies": {
     "@babel/parser": "7.27.2",

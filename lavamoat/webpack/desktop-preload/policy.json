@@ -1,0 +1,15 @@
+{
+  "resources": {
+    "@onekeyfe/hd-shared": {
+      "globals": {
+        "setTimeout": true,
+        "SuppressedError": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "globals": {
+        "require": true
+      }
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "resources": {
+    "@babel/parser>@babel/types": {
+      "globals": {
+        "console.warn": true,
+        "process.env": true
+      },
+      "packages": {
+        "@babel/parser>@babel/types>@babel/helper-string-parser": true,
+        "@babel/parser>@babel/types>@babel/helper-validator-identifier": true
+      }
+    },
+    "@babel/traverse": {
+      "globals": {
+        "console.log": true
+      },
+      "packages": {
+        "@babel/parser": true,
+        "@babel/parser>@babel/types": true,
+        "@babel/traverse>@babel/code-frame": true,
+        "@babel/traverse>@babel/generator": true,
+        "@babel/traverse>@babel/template": true,
+        "@babel/traverse>debug": true,
+        "@babel/traverse>globals": true
+      }
+    },
+    "@babel/traverse>@babel/code-frame": {
+      "globals": {
+        "console.warn": true,
+        "process": true
+      },
+      "packages": {
+        "@babel/parser>@babel/types>@babel/helper-validator-identifier": true,
+        "@babel/traverse>@babel/code-frame>js-tokens": true,
+        "@babel/traverse>@babel/code-frame>picocolors": true
+      }
+    },
+    "@babel/traverse>@babel/code-frame>picocolors": {
+      "globals": {
+        "process": true
+      }
+    },
+    "@babel/traverse>@babel/generator": {
+      "globals": {
+        "console.error": true,
+        "console.warn": true
+      },
+      "packages": {
+        "@babel/parser>@babel/types": true,
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping": true,
+        "@babel/traverse>@babel/generator>@jridgewell/trace-mapping": true,
+        "@babel/traverse>@babel/generator>jsesc": true
+      }
+    },
+    "@babel/traverse>@babel/generator>@jridgewell/gen-mapping": {
+      "packages": {
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/set-array": true,
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/sourcemap-codec": true,
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/trace-mapping": true
+      }
+    },
+    "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/sourcemap-codec": {
+      "globals": {
+        "Buffer": true,
+        "TextDecoder": true
+      }
+    },
+    "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/trace-mapping": {
+      "packages": {
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/sourcemap-codec": true,
+        "@babel/traverse>@babel/generator>@jridgewell/trace-mapping>@jridgewell/resolve-uri": true
+      }
+    },
+    "@babel/traverse>@babel/generator>@jridgewell/trace-mapping": {
+      "packages": {
+        "@babel/traverse>@babel/generator>@jridgewell/gen-mapping>@jridgewell/sourcemap-codec": true,
+        "@babel/traverse>@babel/generator>@jridgewell/trace-mapping>@jridgewell/resolve-uri": true
+      }
+    },
+    "@babel/traverse>@babel/generator>jsesc": {
+      "globals": {
+        "Buffer": true
+      }
+    },
+    "@babel/traverse>@babel/template": {
+      "packages": {
+        "@babel/parser": true,
+        "@babel/parser>@babel/types": true,
+        "@babel/traverse>@babel/code-frame": true
+      }
+    },
+    "@babel/traverse>debug": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.format": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@babel/traverse>debug>ms": true,
+        "chalk>supports-color": true
+      }
+    },
+    "chalk>supports-color": {
+      "builtin": {
+        "os.release": true,
+        "tty.isatty": true
+      },
+      "globals": {
+        "process.env": true,
+        "process.platform": true
+      },
+      "packages": {
+        "chalk>supports-color>has-flag": true
+      }
+    },
+    "chalk>supports-color>has-flag": {
+      "globals": {
+        "process.argv": true
+      }
+    },
+    "esbuild": {
+      "builtin": {
+        "child_process.execFileSync": true,
+        "child_process.spawn": true,
+        "crypto.randomBytes": true,
+        "fs.chmodSync": true,
+        "fs.copyFileSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.unlink": true,
+        "fs.unlinkSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "os.arch": true,
+        "os.endianness": true,
+        "os.tmpdir": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.join": true,
+        "tty.isatty": true,
+        "worker_threads": true
+      },
+      "globals": {
+        "__dirname": true,
+        "__filename": true,
+        "Buffer": true,
+        "console.log": true,
+        "console.warn": true,
+        "process.cwd": true,
+        "process.env.ESBUILD_BINARY_PATH": true,
+        "process.env.ESBUILD_MAX_BUFFER": true,
+        "process.env.ESBUILD_WORKER_THREADS": true,
+        "process.platform": true,
+        "process.versions.node.split": true,
+        "setTimeout": true,
+        "TextDecoder": true,
+        "TextEncoder": true,
+        "URL": true,
+        "WebAssembly.Module": true
+      }
+    }
+  }
+}

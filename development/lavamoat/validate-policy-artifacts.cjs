@@ -59,6 +59,23 @@ const requiredToolFiles = [
   'development/lavamoat/generated-file-security.test.cjs',
   'development/lavamoat/normalize-policy-artifacts.cjs',
   'development/lavamoat/split-policy-for-review.cjs',
+  'apps/cli/scripts/smoke-lavamoat.cjs',
+  'apps/cli/scripts/package-macos-standalone.js',
+  'apps/desktop/scripts/smoke-lavamoat-preload.cjs',
+  'apps/desktop/scripts/smoke-lavamoat-services.cjs',
+  'apps/desktop/scripts/smoke-lavamoat.cjs',
+  'apps/desktop/scripts/lavamoat-sdk-requires.cjs',
+  'apps/ext/scripts/smoke-lavamoat.cjs',
+  'apps/ext/scripts/smoke-lavamoat.test.cjs',
+  'development/lavamoat/smoke-web-embed.cjs',
+  'development/lavamoat/webpack-web-embed.test.cjs',
+  'development/lavamoat/webpack-extension.test.cjs',
+  'development/lavamoat/webpack-extension-kaspa.test.cjs',
+  'development/lavamoat/node-webpack.cjs',
+  'development/lavamoat/node-webpack-loader.cjs',
+  'development/lavamoat/node-webpack.test.cjs',
+  'development/lavamoat/node-build-runtime.mjs',
+  'development/lavamoat/node-build-runtime.test.cjs',
   'development/lavamoat/smoke-web.cjs',
   'development/lavamoat/smoke-web.test.cjs',
   'development/lavamoat/targets.cjs',
@@ -70,6 +87,9 @@ const requiredToolFiles = [
   'development/lavamoat/webpack-runtime-chunks.test.cjs',
   'development/lavamoat/webpack-host-globals.test.cjs',
   'development/webpack/lavamoat.js',
+  'development/webpack/lavamoat-ext-locales-loader.cjs',
+  'development/webpack/lavamoat-ext-kaspa-loader.cjs',
+  'development/webpack/lavamoat-kaspa-compatibility.cjs',
   'development/webpack/lavamoat-wasm-loader.cjs',
 ];
 
@@ -615,14 +635,18 @@ function validateWorkflowCoverage() {
     'name: lavamoat-policy-diff-all',
     'path: lavamoat-policy-diff-all.patch',
     "failure() && steps.check-working-tree.outcome == 'failure'",
-    ...enabledTargets.map(
-      (target) => `yarn lavamoat:build:${target.scriptSuffix}`,
-    ),
   ];
   const missingValidateWorkflowSnippets =
     requiredValidateWorkflowSnippets.filter(
       (snippet) => !validateWorkflow.includes(snippet),
     );
+  for (const target of enabledTargets) {
+    const command = `yarn lavamoat:build:${target.scriptSuffix}`;
+    const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!new RegExp(`${escaped}(?=$|[\\s;&])`).test(validateWorkflow)) {
+      missingValidateWorkflowSnippets.push(command);
+    }
+  }
   assert(
     missingValidateWorkflowSnippets.length === 0,
     `validate-lavamoat-policies.yml is missing required commands:\n${missingValidateWorkflowSnippets.join(

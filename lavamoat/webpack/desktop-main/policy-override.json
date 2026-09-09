@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "globals": {
+        "require": false
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "description": "Node.js 系统 builtin 和 native module 能力",
+  "resources": {
+    "electron-log": {
+      "builtins": {
+        "child_process.exec": true,
+        "electron": true,
+        "fs.closeSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.openSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "fs.readSync": true,
+        "fs.renameSync": true,
+        "fs.statSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "http": true,
+        "https": true
+      }
+    }
+  }
+}

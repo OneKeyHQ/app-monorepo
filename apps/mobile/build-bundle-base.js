@@ -961,6 +961,10 @@ const runUnionBuild = ({
 };
 
 const buildWebEmbed = async () => {
+  const {
+    prepareCandidateWebEmbed,
+  } = require('./scripts/prepare-lockdown-web-embed');
+  if (prepareCandidateWebEmbed()) return;
   // Skip the web-embed build if web-build/ is already populated.
   // In CI we run web-embed-build as an upstream job and let each platform
   // job download its `web-build/` as an artifact, so this skip path lets

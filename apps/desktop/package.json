@@ -17,8 +17,8 @@
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 yarn run -T rspack serve --config-loader jiti",
     "dev:renderer:rspack": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 yarn run -T rspack serve --config-loader jiti",
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
-    "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
-    "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js",
+    "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --production-output",
+    "build:renderer": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer:compile && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js",
     "build:renderer:startup-budget": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti",
     "check:renderer-startup-budget": "node scripts/check-renderer-startup-graph-budget.js",
     "check:main-bundle-budget": "node scripts/check-main-bundle-budget.js",
@@ -39,11 +39,31 @@
     "build:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti",
+    "build:JsBundle": "cross-env BUILD_BUNDLE_UPDATE=true yarn build:renderer:compile",
     "test:e2e:browser": "node e2e/open-url.e2e.js",
     "test:e2e:sni-request": "cross-env DESKTOP_E2E_FLOW=sni-request node e2e/open-url.e2e.js",
     "build:renderer:lavamoat": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
-    "lavamoat:policy:renderer": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build"
+    "lavamoat:policy:renderer": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build -c webpack.config.lavamoat.js",
+    "build:main:unprotected": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
+    "build:renderer:compile": "cross-env NODE_ENV=production SENTRY_UPLOAD_BY_CLI=true ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=0 NODE_OPTIONS=--max-old-space-size=8192 webpack build -c webpack.config.lavamoat.js",
+    "build:renderer:unprotected": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti && node scripts/finalize-production-assets.js && node scripts/finalize-renderer-assets.js",
+    "build:JsBundle:unprotected": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti",
+    "lavamoat:policy:main": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=app --generate-policy",
+    "build:main:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=app",
+    "lavamoat:policy:preload": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=preload --generate-policy",
+    "build:preload:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=preload",
+    "lavamoat:policy:service:index": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/index --generate-policy",
+    "build:service:index:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/index",
+    "lavamoat:policy:service:enum": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/enum --generate-policy",
+    "build:service:enum:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/enum",
+    "lavamoat:policy:service:windowsHello": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/windowsHello --generate-policy",
+    "build:service:windowsHello:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/windowsHello",
+    "lavamoat:policy:service:checkBiometricAuthChanged": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/checkBiometricAuthChanged --generate-policy",
+    "build:service:checkBiometricAuthChanged:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs --entry=service/checkBiometricAuthChanged",
+    "build:node:lavamoat": "cross-env NODE_ENV=production node scripts/build-lavamoat.cjs",
+    "test:preload:lavamoat": "node scripts/smoke-lavamoat-preload.cjs",
+    "test:services:lavamoat": "node scripts/smoke-lavamoat-services.cjs",
+    "test:lavamoat": "node scripts/smoke-lavamoat.cjs"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
@@ -79,6 +99,7 @@
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
     "rimraf": "3.0.2",
-    "webpack-cli": "5.1.4"
+    "webpack-cli": "5.1.4",
+    "webpack": "5.90.3"
   }
 }

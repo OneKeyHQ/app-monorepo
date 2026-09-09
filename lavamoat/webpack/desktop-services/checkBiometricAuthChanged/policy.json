@@ -1,0 +1,13 @@
+{
+  "resources": {
+    "electron-check-biometric-auth-changed": {
+      "builtin": {
+        "electron-check-biometric-auth-changed/auth-arm64.node": true,
+        "electron-check-biometric-auth-changed/auth-x64.node": true
+      },
+      "globals": {
+        "process": true
+      }
+    }
+  }
+}

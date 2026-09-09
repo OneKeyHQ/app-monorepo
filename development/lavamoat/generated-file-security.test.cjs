@@ -10,6 +10,8 @@ const { test } = require('node:test');
 const YAML = require('yaml');
 
 const { isGeneratedPolicyFile } = require('./generated-files.cjs');
+const { enabledTargets } = require('./targets.cjs');
+const policyTargets = enabledTargets.map(({ policy }) => path.dirname(policy));
 
 const repoRoot = path.resolve(__dirname, '../..');
 const workflow = YAML.parse(
@@ -59,18 +61,16 @@ function write(directory, file, content = '{}\n') {
 
 const rejectedFiles = [
   'lavamoat/supply-chain/install-scripts.json',
-  'lavamoat/webpack/web/policy-override.json',
-  'lavamoat/webpack/desktop-renderer/policy-override.json',
+  ...enabledTargets.map(({ override }) => `lavamoat/${override}`),
   'lavamoat/review/payload.js',
 ];
 const cases = [
   {
-    name: 'both policies and regular review JSON/README are allowed',
+    name: 'enabled policies and regular review JSON/README are allowed',
     allowed: true,
     change(directory) {
       for (const file of [
-        'lavamoat/webpack/web/policy.json',
-        'lavamoat/webpack/desktop-renderer/policy.json',
+        ...enabledTargets.map(({ policy }) => `lavamoat/${policy}`),
         'lavamoat/review/README.review.md',
         'lavamoat/review/webpack/web/new-report.json',
         'lavamoat/review/literal[1].json',
@@ -132,8 +132,7 @@ for (const scenario of cases) {
       git(checkout, ['config', 'core.fileMode', 'true']);
       for (const file of [
         'src/input.js',
-        'lavamoat/webpack/web/policy.json',
-        'lavamoat/webpack/desktop-renderer/policy.json',
+        ...enabledTargets.map(({ policy }) => `lavamoat/${policy}`),
         'lavamoat/review/README.review.md',
         'lavamoat/review/obsolete.json',
       ]) {
@@ -287,9 +286,9 @@ test('normalization only changes generated policies and preserves manual overrid
       );
     }
     const original = '{"resources":{"z":{},"a":{}}}\n';
-    for (const target of ['web', 'desktop-renderer']) {
+    for (const target of policyTargets) {
       for (const file of ['policy.json', 'policy-override.json']) {
-        write(directory, `lavamoat/webpack/${target}/${file}`, original);
+        write(directory, `lavamoat/${target}/${file}`, original);
       }
     }
     const result = execute(
@@ -303,20 +302,17 @@ test('normalization only changes generated policies and preserves manual overrid
       directory,
     );
     assert.equal(result.status, 0, result.stderr);
-    for (const target of ['web', 'desktop-renderer']) {
+    for (const target of policyTargets) {
       assert.equal(
         fs.readFileSync(
-          path.join(directory, `lavamoat/webpack/${target}/policy.json`),
+          path.join(directory, `lavamoat/${target}/policy.json`),
           'utf8',
         ),
         `${JSON.stringify({ resources: { a: {}, z: {} } }, null, 2)}\n`,
       );
       assert.equal(
         fs.readFileSync(
-          path.join(
-            directory,
-            `lavamoat/webpack/${target}/policy-override.json`,
-          ),
+          path.join(directory, `lavamoat/${target}/policy-override.json`),
           'utf8',
         ),
         original,

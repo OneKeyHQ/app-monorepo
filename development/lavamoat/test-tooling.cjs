@@ -7,6 +7,8 @@ const os = require('os');
 const path = require('path');
 
 const { LavaMoatError } = require('./error.cjs');
+const { disabledTargetDirs, enabledTargets } = require('./targets.cjs');
+const policyTargets = enabledTargets.map(({ policy }) => path.dirname(policy));
 
 const repoRoot = path.resolve(__dirname, '../..');
 const dollarSign = String.fromCodePoint(36);
@@ -307,9 +309,20 @@ function testPolicyReview(tempRoot) {
           { globals },
         ]),
       ),
+      'node-loader': { builtin: { 'module.createRequire': true } },
+      'node-prefixed-loader': { builtin: { 'node:module._load': true } },
+      'electron-bridge': {
+        builtin: { 'electron.ipcRenderer.send': true },
+        globals: { ipcRenderer: true },
+      },
       caller: {
         packages: Object.fromEntries(
-          Object.keys(grants).map((resource) => [resource, true]),
+          [
+            ...Object.keys(grants),
+            'node-loader',
+            'node-prefixed-loader',
+            'electron-bridge',
+          ].map((resource) => [resource, true]),
         ),
       },
     },
@@ -319,8 +332,8 @@ function testPolicyReview(tempRoot) {
       denied: { globals: { navigator: false, document: false } },
     },
   };
-  for (const target of ['web', 'desktop-renderer']) {
-    const policyDir = path.join(repo, 'lavamoat/webpack', target);
+  for (const target of policyTargets) {
+    const policyDir = path.join(repo, 'lavamoat', target);
     writeFile(path.join(policyDir, 'policy.json'), JSON.stringify(policy));
     writeFile(
       path.join(policyDir, 'policy-override.json'),
@@ -347,11 +360,18 @@ function testPolicyReview(tempRoot) {
     'dom-create-ns': ['dom-injection-navigation'],
     'dom-query': ['dom-injection-navigation'],
     'bucket-storage': ['storage-privacy'],
+    'node-loader': ['code-execution', 'node-system'],
+    'node-prefixed-loader': ['code-execution', 'node-system'],
+    'electron-bridge': [
+      'extension-desktop-bridge',
+      'extension-desktop-bridge',
+      'node-system',
+    ],
     safe: [],
     denied: [],
   };
-  for (const target of ['web', 'desktop-renderer']) {
-    const reviewDir = path.join(repo, 'lavamoat/review/webpack', target);
+  for (const target of policyTargets) {
+    const reviewDir = path.join(repo, 'lavamoat/review', target);
     const readReview = (file) =>
       JSON.parse(fs.readFileSync(path.join(reviewDir, file), 'utf8'));
     const entries = readReview('all-high-risk-entries.json');
@@ -391,20 +411,19 @@ function testPolicyReview(tempRoot) {
       'write',
       `${target} report preserves the original permission value`,
     );
+    assert.deepEqual(
+      readReview('extension-desktop-bridge.json').resources['electron-bridge'],
+      {
+        builtins: { 'electron.ipcRenderer.send': true },
+        globals: { ipcRenderer: true },
+      },
+      `${target} report preserves globals and builtins in the same category`,
+    );
   }
 }
 
 function copyLavamoatValidationFixture(targetRepo) {
-  for (const dir of [
-    'lavamoat/build-system',
-    'lavamoat/esbuild/desktop-main',
-    'lavamoat/metro/mobile-bg',
-    'lavamoat/metro/mobile-main',
-    'lavamoat/node/cli',
-    'lavamoat/webpack/ext/mv2',
-    'lavamoat/webpack/ext/mv3',
-    'lavamoat/webpack/web-embed',
-  ]) {
+  for (const dir of disabledTargetDirs.map((target) => `lavamoat/${target}`)) {
     writeFile(path.join(targetRepo, dir, '.gitkeep'), 'placeholder\n');
   }
 
@@ -424,6 +443,23 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/generated-file-security.test.cjs',
     'development/lavamoat/normalize-policy-artifacts.cjs',
     'development/lavamoat/split-policy-for-review.cjs',
+    'apps/cli/scripts/smoke-lavamoat.cjs',
+    'apps/cli/scripts/package-macos-standalone.js',
+    'apps/desktop/scripts/smoke-lavamoat-preload.cjs',
+    'apps/desktop/scripts/smoke-lavamoat-services.cjs',
+    'apps/desktop/scripts/smoke-lavamoat.cjs',
+    'apps/desktop/scripts/lavamoat-sdk-requires.cjs',
+    'apps/ext/scripts/smoke-lavamoat.cjs',
+    'apps/ext/scripts/smoke-lavamoat.test.cjs',
+    'development/lavamoat/smoke-web-embed.cjs',
+    'development/lavamoat/webpack-web-embed.test.cjs',
+    'development/lavamoat/webpack-extension.test.cjs',
+    'development/lavamoat/webpack-extension-kaspa.test.cjs',
+    'development/lavamoat/node-webpack.cjs',
+    'development/lavamoat/node-webpack-loader.cjs',
+    'development/lavamoat/node-webpack.test.cjs',
+    'development/lavamoat/node-build-runtime.mjs',
+    'development/lavamoat/node-build-runtime.test.cjs',
     'development/lavamoat/smoke-web.cjs',
     'development/lavamoat/smoke-web.test.cjs',
     'development/lavamoat/targets.cjs',
@@ -435,19 +471,22 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/webpack-runtime-chunks.test.cjs',
     'development/lavamoat/webpack-host-globals.test.cjs',
     'development/webpack/lavamoat.js',
+    'development/webpack/lavamoat-ext-locales-loader.cjs',
+    'development/webpack/lavamoat-ext-kaspa-loader.cjs',
+    'development/webpack/lavamoat-kaspa-compatibility.cjs',
     'development/webpack/lavamoat-wasm-loader.cjs',
     'package.json',
     'lavamoat/review/README.review.md',
     'lavamoat/review/summary.json',
-    'lavamoat/webpack/web/policy.json',
-    'lavamoat/webpack/web/policy-override.json',
-    'lavamoat/webpack/desktop-renderer/policy.json',
-    'lavamoat/webpack/desktop-renderer/policy-override.json',
+    ...enabledTargets.flatMap(({ policy, override }) => [
+      `lavamoat/${policy}`,
+      `lavamoat/${override}`,
+    ]),
   ]) {
     copyFileFromRepo(targetRepo, file);
   }
 
-  for (const target of ['web', 'desktop-renderer']) {
+  for (const target of policyTargets) {
     for (const file of [
       'all-high-risk-entries.json',
       'code-execution.json',
@@ -465,7 +504,7 @@ function copyLavamoatValidationFixture(targetRepo) {
       'storage-privacy.json',
       'summary.json',
     ]) {
-      copyFileFromRepo(targetRepo, `lavamoat/review/webpack/${target}/${file}`);
+      copyFileFromRepo(targetRepo, `lavamoat/review/${target}/${file}`);
     }
   }
 }
@@ -536,8 +575,8 @@ function testPolicyArtifactValidation(tempRoot) {
   const disabledRootPackageJson = JSON.parse(
     fs.readFileSync(disabledRootPackageJsonFile, 'utf8'),
   );
-  disabledRootPackageJson.scripts['lavamoat:policy:ext'] =
-    'yarn workspace @onekeyhq/ext lavamoat:policy';
+  disabledRootPackageJson.scripts['lavamoat:policy:mobile'] =
+    'yarn workspace @onekeyhq/mobile lavamoat:policy';
   writeFile(
     disabledRootPackageJsonFile,
     `${JSON.stringify(disabledRootPackageJson, null, 2)}\n`,
@@ -624,16 +663,20 @@ function testPolicyArtifactValidation(tempRoot) {
   );
   fs.mkdirSync(disabledWorkspaceScriptRepo);
   copyLavamoatValidationFixture(disabledWorkspaceScriptRepo);
-  const extPackageJsonFile = path.join(
+  const mobilePackageJsonFile = path.join(
     disabledWorkspaceScriptRepo,
-    'apps/ext/package.json',
+    'apps/mobile/package.json',
   );
-  const extPackageJson = JSON.parse(
-    fs.readFileSync(extPackageJsonFile, 'utf8'),
+  const mobilePackageJson = JSON.parse(
+    fs.readFileSync(mobilePackageJsonFile, 'utf8'),
   );
-  extPackageJson.scripts ||= {};
-  extPackageJson.scripts['lavamoat:policy'] = 'ONEKEY_LAVAMOAT=1 webpack build';
-  writeFile(extPackageJsonFile, `${JSON.stringify(extPackageJson, null, 2)}\n`);
+  mobilePackageJson.scripts ||= {};
+  mobilePackageJson.scripts['lavamoat:policy'] =
+    'ONEKEY_LAVAMOAT=1 webpack build';
+  writeFile(
+    mobilePackageJsonFile,
+    `${JSON.stringify(mobilePackageJson, null, 2)}\n`,
+  );
   expectStatus(
     runScript(validatePolicyArtifactsScript, disabledWorkspaceScriptRepo),
     1,
@@ -647,7 +690,7 @@ function testPolicyArtifactValidation(tempRoot) {
   fs.mkdirSync(disabledTargetPolicyRepo);
   copyLavamoatValidationFixture(disabledTargetPolicyRepo);
   writeFile(
-    path.join(disabledTargetPolicyRepo, 'lavamoat/webpack/ext/mv3/policy.json'),
+    path.join(disabledTargetPolicyRepo, 'lavamoat/webpack/ext/mv2/policy.json'),
     '{"resources":{}}\n',
   );
   expectStatus(

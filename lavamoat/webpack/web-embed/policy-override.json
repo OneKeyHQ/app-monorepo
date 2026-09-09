@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    }
+  }
+}

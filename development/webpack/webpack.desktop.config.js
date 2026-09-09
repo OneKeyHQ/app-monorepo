@@ -13,7 +13,11 @@ const {
   createLavaMoatWebpackPlugin,
   createLavaMoatWebpackRules,
   createLavaMoatWebpackValidationPlugin,
+  isLavaMoatEnabled,
 } = require('./lavamoat');
+const {
+  createKaspaCompatibilityRule,
+} = require('./lavamoat-kaspa-compatibility.cjs');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
@@ -73,7 +77,8 @@ class FileHashMetadataPlugin {
         const isIgnoreFile = (filePath) => {
           return (
             filePath.endsWith('.DS_Store') ||
-            filePath.endsWith('.js.LICENSE.txt') ||
+            filePath.endsWith('.LICENSE.txt') ||
+            filePath.endsWith('.css.map') ||
             filePath.endsWith('.js.map')
           );
         };
@@ -160,7 +165,10 @@ module.exports = ({
             crossOriginLoading: 'anonymous',
           },
           module: {
-            rules: createLavaMoatWebpackRules(),
+            rules: [
+              ...createLavaMoatWebpackRules(),
+              ...(isLavaMoatEnabled() ? [createKaspaCompatibilityRule()] : []),
+            ],
           },
           optimization: createLavaMoatWebpackOptimization(),
           plugins: [

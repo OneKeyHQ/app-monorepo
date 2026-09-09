@@ -1,5 +1,10 @@
 {
   "resources": {
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
     "@onekeyhq/core>near-api-js>node-fetch": {
       "globals": {
         "fetch": true,

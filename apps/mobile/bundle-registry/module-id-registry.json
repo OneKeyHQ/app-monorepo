@@ -24229,7 +24229,15 @@
     "packages/shared/types/transactionSecurity.ts": 13379,
     "packages/shared/types/tx.ts": 20536,
     "packages/shared/types/unifoldDeposit.ts": 11163,
-    "packages/shared/types/wallet.ts": 1105
+    "packages/shared/types/wallet.ts": 1105,
+    "apps/mobile/src/security/finishMobileLockdown.ts": 6090,
+    "apps/mobile/src/security/mobileLockdownReleaseCheck.ts": 7711,
+    "apps/mobile/src/security/mobileLockdownReleaseMarker.ts": 18286,
+    "apps/mobile/src/security/mobileLockdownReleaseProbe.ts": 10576,
+    "apps/mobile/src/security/mobileLockdownWebEmbedReleaseCheck.ts": 11904,
+    "node_modules/@lavamoat/react-native-lockdown/node_modules/ses/dist/ses-hermes.cjs": 49441,
+    "node_modules/@lavamoat/react-native-lockdown/src/repair.js": 27523,
+    "packages/shared/src/security/sesHarden/loadSes.native.ts": 23949
   },
   "tombstones": {}
 }

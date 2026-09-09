@@ -7,34 +7,34 @@ on:
   workflow_call:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: string
         default: 'false'
       build_number:
-        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        description: 'Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided.'
         required: false
         type: string
         default: ''
       build_bundle_version:
-        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
         type: string
         default: ''
       source_ref_name:
-        description: "Original source ref name to use for build metadata when running from a temporary CI tag."
+        description: 'Original source ref name to use for build metadata when running from a temporary CI tag.'
         required: false
         type: string
         default: ''
     outputs:
       build_number:
-        description: "Build number generated during renderer build"
+        description: 'Build number generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_number }}
       build_bundle_version:
-        description: "Bundle version generated during renderer build"
+        description: 'Bundle version generated during renderer build'
         value: ${{ jobs.build-renderer.outputs.build_bundle_version }}
       build_app_version:
-        description: "App version from package.json"
+        description: 'App version from package.json'
         value: ${{ jobs.build-renderer.outputs.build_app_version }}
     secrets:
       COVALENT_KEY:
@@ -138,9 +138,9 @@ jobs:
         run: |
           cd apps/desktop
           npx cross-env NODE_ENV=production yarn clean:build
-          yarn run -T cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti
+          yarn build:renderer:compile
 
-      # Desktop Rspack builds with SRI enabled, so upload sourcemaps after the
+      # Desktop builds with SRI enabled, so upload sourcemaps after the
       # build without mutating emitted JS files. Sentry failures should not block
       # renderer artifact creation; failed uploads are archived separately before
       # sourcemaps are stripped from the packaged renderer artifact.

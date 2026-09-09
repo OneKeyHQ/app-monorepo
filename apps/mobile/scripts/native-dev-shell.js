@@ -109,6 +109,28 @@ function parseMetroBaseUrl(value) {
   return metroUrl.toString().replace(/\/$/u, '');
 }
 
+
+function parseMetroBindHost(value = '0.0.0.0') {
+  if (!['0.0.0.0', '127.0.0.1'].includes(value)) {
+    throw new Error(
+      '[nativeDevShell] --metro-bind-host must be 127.0.0.1 or 0.0.0.0.',
+    );
+  }
+  return value;
+}
+
+function getMetroCommandArgs({ metroPort, metroBindHost }) {
+  return [
+    'workspace',
+    '@onekeyhq/mobile',
+    'native-bundle',
+    '--port',
+    String(metroPort),
+    '--host',
+    parseMetroBindHost(metroBindHost),
+  ];
+}
+
 function getNativeRuntimeBundleUrl({
   backgroundHMR = false,
   embedded = false,
@@ -227,6 +249,7 @@ function getErrorMessage(error) {
 
 function createRunReport({
   deviceId,
+  metroBindHost = '0.0.0.0',
   metroPort,
   metroUrl,
   platform,
@@ -239,6 +262,7 @@ function createRunReport({
     contract: getContractManifest(platform),
     deviceId,
     finishedAt: undefined,
+    metroBindHost,
     metroPort,
     metroUrl,
     platform,
@@ -318,7 +342,7 @@ async function writeRunReport(report) {
 }
 
 function printRunSummary(report) {
-  const summary = `${formatRunContext(report)} status=${report.status} shell.source=${report.shell.source || 'unresolved'} vendor.source=${report.vendor.source || 'unresolved'} webEmbed.source=${report.webEmbed.source || 'not-required'} metro.url=${report.metroUrl} metro.port=${String(report.metroPort)} userNoticeRequired=${String(report.userNoticeRequired)}`;
+  const summary = `${formatRunContext(report)} status=${report.status} shell.source=${report.shell.source || 'unresolved'} vendor.source=${report.vendor.source || 'unresolved'} webEmbed.source=${report.webEmbed.source || 'not-required'} metro.url=${report.metroUrl} metro.port=${String(report.metroPort)} metro.bindHost=${report.metroBindHost} userNoticeRequired=${String(report.userNoticeRequired)}`;
   console.error(`[ONEKEY_RUN_SUMMARY] ${summary}`);
   for (const { notice } of report.userNotices) {
     console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
@@ -544,7 +568,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|resolve|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--metro-bind-host <127.0.0.1|0.0.0.0>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -558,6 +582,7 @@ function parseArgs(argv = process.argv.slice(2)) {
       ![
         'artifact',
         'device',
+        'metro-bind-host',
         'metro-port',
         'metro-url',
         'output',
@@ -579,6 +604,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     command,
     artifact: values.artifact,
     device: values.device,
+    metroBindHost: parseMetroBindHost(values['metro-bind-host']),
     metroPort: values['metro-port'],
     metroUrl: values['metro-url'],
     output: values.output,
@@ -2788,12 +2814,14 @@ async function prepareVendor({ platform, report, vendor }) {
 
 async function launchDevShell({
   device,
+  metroBindHost,
   metroPort: requestedMetroPort,
   metroUrl,
   platform,
   shell,
   vendor,
 }) {
+  const listenerHost = parseMetroBindHost(metroBindHost);
   devVendorConfig.applyTransformationEnvironment(process.env);
   const requestedDeviceMetroUrl = metroUrl
     ? parseMetroBaseUrl(metroUrl)
@@ -2842,6 +2870,7 @@ async function launchDevShell({
     const metroPort = metroAllocation.port;
     const deviceMetro = configureDeviceMetro({
       deviceId: selectedDevice.id,
+      metroBindHost: listenerHost,
       metroPort,
       platform,
       requestedMetroUrl: requestedDeviceMetroUrl,
@@ -2888,10 +2917,10 @@ async function launchDevShell({
         'workspace',
         '@onekeyhq/mobile',
         'native-bundle',
-        '--port',
-        String(metroPort),
-        '--host',
-        '0.0.0.0',
+        ...getMetroCommandArgs({
+          metroPort,
+          metroBindHost: listenerHost,
+        }),
       ],
       {
         cwd: REPO_ROOT,
@@ -3041,6 +3070,7 @@ module.exports = {
   getAndroidPrivateSessionRenewalArgs,
   getAndroidLocalBuildEnvironment,
   getContractManifest,
+  getMetroCommandArgs,
   getIosPhysicalAppProcessIds,
   getNativeRuntimeBundleUrl,
   getPlatformArtifact,
@@ -3055,6 +3085,7 @@ module.exports = {
   parseArgs,
   parseIosSimulators,
   parseMetroBaseUrl,
+  parseMetroBindHost,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
   prepareWebEmbedForDevSession,

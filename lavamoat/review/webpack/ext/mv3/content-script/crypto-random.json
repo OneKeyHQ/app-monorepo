@@ -1,0 +1,10 @@
+{
+  "description": "加密、随机数、密钥相关 API",
+  "resources": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/node_modules/uuid/dist/esm-browser/rng.js": {
+      "globals": {
+        "crypto": true
+      }
+    }
+  }
+}

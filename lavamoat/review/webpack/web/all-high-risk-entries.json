@@ -637,6 +637,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto.getRandomValues",
+    "resource": "@onekeyhq/core>@onekeyfe/kaspa-wasm",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>@solana/web3.js",

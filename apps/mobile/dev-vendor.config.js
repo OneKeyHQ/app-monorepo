@@ -1,4 +1,11 @@
+const assert = require('assert/strict');
 const path = require('path');
+
+const {
+  getMobileLockdownE2ERunId,
+  getMobileLockdownWebEmbedCandidateEnabled,
+  isMobileLockdownEnabled,
+} = require('./plugins/mobileLockdown');
 
 const SCHEMA_VERSION = 4;
 const STRATEGY_VERSION = 5;
@@ -23,6 +30,9 @@ const transformationEnvironment = {
   NODE_ENV: 'development',
   ONEKEY_STARTUP_PROFILE: undefined,
   ONEKEY_PLATFORM: 'app',
+  ONEKEY_MOBILE_LOCKDOWN: 'true',
+  ONEKEY_MOBILE_LOCKDOWN_E2E: undefined,
+  ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER: 'false',
   PERF_MONITOR_ENABLED: undefined,
   RN_HARNESS: undefined,
   SPLIT_BUNDLE_SEGMENTS: undefined,
@@ -44,10 +54,16 @@ const fingerprintFiles = [
   'apps/mobile/scripts/native-dev-shell.js',
   'apps/mobile/plugins/index.js',
   'apps/mobile/plugins/map.js',
+  'apps/mobile/plugins/mobileLockdown.js',
   'apps/mobile/plugins/moduleIdRegistry.js',
   'apps/mobile/plugins/startupProfilePrologue.js',
   'apps/mobile/scripts/build-dev-vendor.js',
   'apps/mobile/svgx-transformer.js',
+  'apps/mobile/src/security/finishMobileLockdown.ts',
+  'apps/mobile/src/security/mobileLockdownReleaseCheck.ts',
+  'apps/mobile/src/security/mobileLockdownReleaseMarker.ts',
+  'apps/mobile/src/security/mobileLockdownReleaseProbe.ts',
+  'apps/mobile/src/security/mobileLockdownWebEmbedReleaseCheck.ts',
   'development/babelTools.js',
   'development/developmentConsts.js',
   'development/env.js',
@@ -63,11 +79,7 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: [
-    '@onekeyfe/react-native-text',
-    'expo-image-loader',
-    'expo-navigation-bar',
-  ],
+  android: ['expo-image-loader', 'expo-navigation-bar'],
   ios: [
     'burnt',
     'expo-apple-authentication',
@@ -284,6 +296,13 @@ const shellInputFiles = {
 };
 
 function applyTransformationEnvironment(env) {
+  assert.equal(
+    getMobileLockdownWebEmbedCandidateEnabled(env),
+    false,
+    'Protected WebEmbed candidates require Release bundles, not development vendor caches.',
+  );
+  const mobileLockdownEnabled = isMobileLockdownEnabled(env);
+  const e2eRunId = getMobileLockdownE2ERunId(env);
   for (const [key, value] of Object.entries(transformationEnvironment)) {
     if (value === undefined) {
       delete env[key];
@@ -291,6 +310,8 @@ function applyTransformationEnvironment(env) {
       env[key] = value;
     }
   }
+  env.ONEKEY_MOBILE_LOCKDOWN = String(mobileLockdownEnabled);
+  if (e2eRunId) env.ONEKEY_MOBILE_LOCKDOWN_E2E = e2eRunId;
 }
 
 function getTransformationEnvironment(env) {

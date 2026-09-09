@@ -1,0 +1,31 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "chrome": true,
+        "desktopApi.arch": true,
+        "desktopApi.channel": true,
+        "desktopApi.deskChannel": true,
+        "desktopApi.isMas": true,
+        "desktopApi.platform": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js": {
+      "globals": {
+        "chrome.runtime.getURL": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": {
+      "globals": {
+        "chrome.runtime.connect": true,
+        "chrome.runtime.lastError": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js": {
+      "globals": {
+        "chrome.runtime.onConnect.addListener": true
+      }
+    }
+  }
+}

@@ -5,8 +5,8 @@
       "resources": 21
     },
     "crypto-random": {
-      "entries": 83,
-      "resources": 78
+      "entries": 84,
+      "resources": 79
     },
     "dom-injection-navigation": {
       "entries": 254,
@@ -35,7 +35,7 @@
   },
   "deniedOverrides": 0,
   "generatedResources": 4326,
-  "highRiskEntries": 789,
+  "highRiskEntries": 790,
   "highRiskResources": 311,
   "packageEdgesToRiskyResources": 1103,
   "reviewMode": "effective-policy",
