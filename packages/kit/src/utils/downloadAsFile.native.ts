@@ -13,7 +13,7 @@ export async function downloadAsFile({
     return;
   }
 
-  const filepath = `${RNFS.DocumentDirectoryPath}/${filename}`;
+  const filepath = `${RNFS.CachesDirectoryPath}/${filename}`;
   if (await RNFS.exists(filepath)) {
     await RNFS.unlink(filepath);
   }
