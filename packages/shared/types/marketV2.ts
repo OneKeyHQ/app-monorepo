@@ -187,6 +187,7 @@ export interface IMarketStockTradingActivity {
 }
 
 export interface IMarketStockInfo {
+  stockId?: string;
   title?: string;
   subtitle: string;
   source?: string;

@@ -70,6 +70,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -770,6 +771,12 @@ function FinalizeWalletSetupPage({
             isFirmwareVerified,
           });
         }
+        // The device conversation is over: release the hold and let the
+        // stage leave before the page turns to its ready state, so the
+        // processing capsule never overlaps the Enter-wallet button
+        // (OK-62092). The finally's endBurst is a no-op after this.
+        await endBurst();
+        await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -1155,7 +1162,12 @@ function FinalizeWalletSetupPage({
         {setupError ? (
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
-              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              {/* The size variant's 24pt line box clipped the 48pt emoji to
+                  a band on iOS (OK-62173); the line height must grow with
+                  the glyph. */}
+              <SizableText fontSize={48} lineHeight={60}>
+                💆‍♀️
+              </SizableText>
               <SizableText size="$heading4xl" fontWeight={600}>
                 {intl.formatMessage({
                   id: ETranslations.failed_to_create_wallet,

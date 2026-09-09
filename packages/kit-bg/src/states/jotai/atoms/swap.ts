@@ -3,9 +3,33 @@ import type {
   IMarketPresetTokenContext,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
+
+export const {
+  target: swapTradingViewChartSettingsPersistAtom,
+  use: useSwapTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.swapTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: swapTradingViewIndicatorSettingsPersistAtom,
+  use: useSwapTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.swapTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
+});
 
 export enum ESwapProJumpTokenDirection {
   BUY = 'buy',

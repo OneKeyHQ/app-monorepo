@@ -22,6 +22,10 @@ import {
   sortSecurityFindings,
 } from './securityCheckModel';
 
+import type {
+  ISecurityCheckFinding,
+  ISecurityCheckStatus,
+} from './securityCheckModel';
 import type { IntlShape } from 'react-intl';
 
 const intl = {
@@ -964,4 +968,227 @@ describe('security check display helpers', () => {
     ]);
     expect(card.hasHiddenDecisionFindings).toBe(true);
   });
+});
+
+describe('getCardSecurityFindings presentation', () => {
+  function cardFinding(
+    id: string,
+    status: ISecurityCheckFinding['status'],
+    overrides: Partial<ISecurityCheckFinding> = {},
+  ): ISecurityCheckFinding {
+    return {
+      id,
+      category: 'operation',
+      status,
+      title: id,
+      ...overrides,
+    };
+  }
+
+  const siteUnknown = cardFinding('site-unknown', 'unknown', {
+    category: 'site',
+  });
+  const parseFallback = cardFinding('tx-parse-fallback', 'unknown');
+  const partialCoverage = cardFinding(
+    'tx-security-partial-coverage',
+    'unknown',
+  );
+  const siteAction = {
+    type: 'site' as const,
+    origin: 'https://app.example.com',
+    urlSecurityInfo: verifiedSite,
+  };
+
+  it.each([
+    ['site-unknown', undefined, undefined, true],
+    ['tx-parse-fallback', undefined, undefined, true],
+    ['tx-security-partial-coverage', undefined, undefined, true],
+    ['site-unknown', '   ', undefined, true],
+    ['site-unknown', 'Coverage is incomplete', undefined, false],
+    ['tx-parse-fallback', undefined, siteAction, false],
+    ['tx-security-check-failed', undefined, undefined, false],
+    ['message-parse-fallback', undefined, undefined, false],
+    ['tx-security-unable_to_assess', undefined, undefined, false],
+  ] as const)(
+    'unknown whitelist omits %s only without description or action',
+    (id, description, action, hidden) => {
+      const finding = cardFinding(id, 'unknown', {
+        ...(id === 'site-unknown' ? { category: 'site' } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(action ? { action } : {}),
+      });
+      const omitted = getCardSecurityFindings([finding], 'unknown');
+      const withoutStatus = getCardSecurityFindings([finding]);
+
+      expect(omitted.visibleFindings).toHaveLength(hidden ? 0 : 1);
+      expect(withoutStatus.visibleFindings).toEqual([finding]);
+    },
+  );
+
+  it('keeps an unknown-only card from becoming success and leaves raw findings', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+      decodedTxs: [
+        {
+          isLocalParsed: true,
+          txDisplay: { title: 'Transaction', components: [], alerts: [] },
+        } as unknown as IDecodedTx,
+      ],
+      intl,
+    });
+    expect(model.status).toBe('unknown');
+    expect(model.findings.map((finding) => finding.id)).toEqual([
+      'site-unknown',
+      'tx-parse-fallback',
+    ]);
+    const rawFindings = stableStringify(model.findings);
+    const card = getCardSecurityFindings(model.findings, model.status);
+
+    expect(stableStringify(model.findings)).toBe(rawFindings);
+    expect(card.visibleFindings).toEqual([]);
+    expect(card.allDecisionFindings).toEqual([]);
+  });
+
+  it('keeps Retry on the check-failed row when the header is unknown', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: {
+        level: EHostSecurityLevel.Unknown,
+        detail: {
+          code: ETransactionSecurityResultCode.CheckFailed,
+          features: [],
+        },
+      },
+      intl,
+    });
+    const card = getCardSecurityFindings(model.findings, model.status);
+
+    expect(model.status).toBe('unknown');
+    expect(model.findings.map((finding) => finding.id)).toEqual([
+      'site-unknown',
+      'tx-security-check-failed',
+    ]);
+    expect(card.visibleFindings.map((finding) => finding.id)).toEqual([
+      'tx-security-check-failed',
+    ]);
+    expect(canRetryTransactionSecurityCheck(card.visibleFindings)).toBe(true);
+  });
+
+  it.each([
+    'warning',
+    'critical',
+    'loading',
+    'check_failed',
+  ] as const satisfies readonly ISecurityCheckStatus[])(
+    'keeps generic unknown rows when the header is %s',
+    (status) => {
+      const siteWarning = cardFinding('site-medium', 'warning', {
+        category: 'site',
+      });
+      const extraWarning = cardFinding('extra', 'warning');
+      const findings = [
+        siteUnknown,
+        parseFallback,
+        partialCoverage,
+        extraWarning,
+        siteWarning,
+      ];
+      const card = getCardSecurityFindings(findings, status);
+
+      expect(card.allDecisionFindings.map((finding) => finding.id)).toEqual([
+        'site-medium',
+        'extra',
+      ]);
+      expect(card.visibleFindings.map((finding) => finding.id)).toEqual([
+        'site-medium',
+        'extra',
+        'site-unknown',
+        'tx-parse-fallback',
+        'tx-security-partial-coverage',
+      ]);
+    },
+  );
+
+  it.each([
+    ['message-typed-data', 'info', true],
+    ['message-typed-data', 'warning', false],
+    ['message-permit', 'warning', false],
+    ['message-order', 'warning', false],
+    ['message-risk-sign-method', 'critical', false],
+  ] as const)('hides typed-data info only for %s %s', (id, status, hidden) => {
+    const finding = cardFinding(id, status, {
+      description: `${id} description`,
+    });
+    const card = getCardSecurityFindings([finding], status);
+
+    expect(card.visibleFindings).toHaveLength(hidden ? 0 : 1);
+  });
+
+  it.each([
+    'tx-confirmation-required',
+    'message-confirmation-required',
+  ] as const)(
+    'keeps %s alone or with site-only risk and hides it beside operation risk',
+    (genericId) => {
+      const generic = cardFinding(genericId, 'warning', {
+        description: 'Review this request before continuing.',
+      });
+      const siteWarning = cardFinding('site-medium', 'warning', {
+        category: 'site',
+      });
+      const operationWarning = cardFinding('parser-alert-0', 'warning');
+      const extraWarnings = [
+        cardFinding('spender', 'warning'),
+        cardFinding('allowance', 'warning'),
+        cardFinding('extra', 'warning'),
+      ];
+
+      const alone = getCardSecurityFindings([generic], 'warning');
+      const siteOnly = getCardSecurityFindings(
+        [generic, siteWarning],
+        'warning',
+      );
+      const withOperation = getCardSecurityFindings(
+        [generic, siteWarning, operationWarning, ...extraWarnings],
+        'warning',
+      );
+
+      expect(alone.visibleFindings.map((finding) => finding.id)).toEqual([
+        genericId,
+      ]);
+      expect(alone.allDecisionFindings.map((finding) => finding.id)).toEqual([
+        genericId,
+      ]);
+      expect(siteOnly.visibleFindings.map((finding) => finding.id)).toEqual([
+        'site-medium',
+        genericId,
+      ]);
+      expect(siteOnly.allDecisionFindings.map((finding) => finding.id)).toEqual(
+        ['site-medium', genericId],
+      );
+      expect(
+        withOperation.visibleFindings.map((finding) => finding.id),
+      ).toEqual(['site-medium', 'parser-alert-0', 'spender']);
+      expect(
+        withOperation.allDecisionFindings.map((finding) => finding.id),
+      ).toEqual([
+        'site-medium',
+        'parser-alert-0',
+        'spender',
+        'allowance',
+        'extra',
+      ]);
+      expect(withOperation.hasHiddenDecisionFindings).toBe(true);
+      expect(
+        withOperation.allDecisionFindings.some(
+          (finding) => finding.id === genericId,
+        ),
+      ).toBe(false);
+    },
+  );
 });

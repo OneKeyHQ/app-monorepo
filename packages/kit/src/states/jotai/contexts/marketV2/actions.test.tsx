@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { useMarketNativeChartPriceUpdate } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -108,6 +109,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 const dogeAssetDetail: IMarketAssetDetailData = {
+  about: '',
   asset: {
     assetId: 'doge',
     name: 'Dogecoin',
@@ -164,6 +166,147 @@ function createWrapper() {
 
   return { store, Wrapper };
 }
+
+describe('market native chart price updates', () => {
+  const tokenDetail = {
+    address: '0xabc',
+    networkId: 'evm--1',
+    name: 'Test token',
+    symbol: 'TEST',
+    decimals: 18,
+    logoUrl: '',
+    price: '1',
+  };
+  const receivedAt = 1_788_332_400_000;
+  const realtimeUpdate = {
+    price: 2,
+    receivedAt,
+    source: 'realtime' as const,
+    timestamp: 1_788_328_800,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(receivedAt);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('keeps the latest chart price when the detail poll returns an older price', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), tokenDetail);
+    const { result } = renderHook(
+      () => ({
+        onPriceUpdate: useMarketNativeChartPriceUpdate({
+          networkId: tokenDetail.networkId,
+          tokenAddress: tokenDetail.address,
+        }),
+        actions: useTokenDetailActions().current,
+      }),
+      { wrapper: Wrapper },
+    );
+
+    act(() => result.current.onPriceUpdate(realtimeUpdate));
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      lastUpdated: receivedAt,
+      chartPriceUpdatedAt: receivedAt,
+    });
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...tokenDetail, price: '1.5', volume24h: '100' } },
+    });
+    await act(async () => {
+      await result.current.actions.fetchTokenDetail('0xabc', 'evm--1');
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      volume24h: '100',
+      lastUpdated: receivedAt,
+    });
+  });
+
+  it('ignores historical candles and invalid realtime prices', () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), tokenDetail);
+    const { result } = renderHook(
+      () =>
+        useMarketNativeChartPriceUpdate({
+          networkId: tokenDetail.networkId,
+          tokenAddress: tokenDetail.address,
+        }),
+      { wrapper: Wrapper },
+    );
+
+    act(() => {
+      result.current({ ...realtimeUpdate, source: 'history' });
+      for (const price of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        result.current({ ...realtimeUpdate, price });
+      }
+    });
+    expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
+  });
+
+  it.each([
+    { networkId: 'evm--1', enabled: false },
+    { networkId: '', enabled: true },
+  ])(
+    'ignores updates when the token price source is inactive: %j',
+    (params) => {
+      const { store, Wrapper } = createWrapper();
+      store.set(tokenDetailAtom(), tokenDetail);
+      const { result } = renderHook(
+        () =>
+          useMarketNativeChartPriceUpdate({
+            ...params,
+            tokenAddress: tokenDetail.address,
+          }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current(realtimeUpdate));
+      expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
+    },
+  );
+
+  it.each([
+    { networkId: 'evm--1', tokenAddress: '0xdef' },
+    { networkId: 'evm--8453', tokenAddress: '0xabc' },
+  ])(
+    'discards a late update after switching token identity: %j',
+    (nextToken) => {
+      const { store, Wrapper } = createWrapper();
+      store.set(tokenDetailAtom(), tokenDetail);
+      const { result, rerender } = renderHook(
+        (params) => useMarketNativeChartPriceUpdate(params),
+        {
+          initialProps: {
+            networkId: tokenDetail.networkId,
+            tokenAddress: tokenDetail.address,
+          },
+          wrapper: Wrapper,
+        },
+      );
+      const previousOnPriceUpdate = result.current;
+      const nextDetail = {
+        ...tokenDetail,
+        networkId: nextToken.networkId,
+        address: nextToken.tokenAddress,
+        price: '3',
+      };
+
+      act(() => store.set(tokenDetailAtom(), nextDetail));
+      rerender(nextToken);
+      act(() => previousOnPriceUpdate(realtimeUpdate));
+      expect(store.get(tokenDetailAtom())).toEqual(nextDetail);
+
+      act(() => result.current({ ...realtimeUpdate, price: 4 }));
+      expect(store.get(tokenDetailAtom())?.price).toBe('4');
+    },
+  );
+});
 
 describe('marketV2 asset token detail actions', () => {
   beforeEach(() => {

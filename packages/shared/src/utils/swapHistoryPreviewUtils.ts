@@ -4,25 +4,13 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-// Terminal (finished) swap-history statuses. Anything not in this set is
-// treated as "in-flight" by the preview module (PENDING / CANCELING /
-// DEPOSIT_SUCCESS / ...).
-export const SWAP_HISTORY_TERMINAL_STATUSES = new Set<ESwapTxHistoryStatus>([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
-export function isSwapHistoryTerminalStatus(
-  status: ESwapTxHistoryStatus,
-): boolean {
-  return SWAP_HISTORY_TERMINAL_STATUSES.has(status);
-}
+import { isSwapHistoryTerminalStatus } from './swapHistoryUtils';
 
 export type ISwapHistoryPreviewBadgeKind =
   | 'pending'
   | 'failed'
+  | 'expired'
+  | 'refunded'
   | 'canceled'
   | 'hold'
   | 'none';
@@ -42,6 +30,12 @@ export function getSwapHistoryPreviewBadgeKind(
   }
   if (item.status === ESwapTxHistoryStatus.FAILED) {
     return 'failed';
+  }
+  if (item.status === ESwapTxHistoryStatus.EXPIRED) {
+    return 'expired';
+  }
+  if (item.status === ESwapTxHistoryStatus.REFUNDED) {
+    return 'refunded';
   }
   if (item.status === ESwapTxHistoryStatus.CANCELED) {
     return 'canceled';

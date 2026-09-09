@@ -143,6 +143,7 @@ function StockTokenVariantRow({
         tokenImageUri={variant.logoUrl}
         networkImageUri={variant.networkLogoUrl}
         showNetworkIcon
+        placeholder={<Stack width="100%" height="100%" />}
       />
 
       <YStack flex={1} flexBasis={0} minWidth={0} gap="$0.5">
@@ -375,6 +376,7 @@ export function StockTokenVariantSelector({
             tokenImageUri={selectedTokenVariant.logoUrl}
             networkImageUri={selectedTokenVariant.networkLogoUrl}
             showNetworkIcon
+            placeholder={<Stack width="100%" height="100%" />}
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>

@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +14,8 @@ import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useMarketTradingViewChartSettingsPersistAtom,
   useMarketTradingViewIndicatorSettingsPersistAtom,
+  useSwapTradingViewChartSettingsPersistAtom,
+  useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -158,10 +168,22 @@ function getDataStateDebugLevel(status: ITradingViewNativeDataState['status']) {
   return 'info' as const;
 }
 
-export const TradingViewNativeContainer = memo(
+type ITradingViewNativeContentProps = ITradingViewNativeProps & {
+  chartSettingsState: ReturnType<
+    typeof useMarketTradingViewChartSettingsPersistAtom
+  >;
+  indicatorSettingsState: ReturnType<
+    typeof useMarketTradingViewIndicatorSettingsPersistAtom
+  >;
+};
+
+const TradingViewNativeContent = memo(
   ({
     testID,
     source,
+    storageNamespace,
+    chartSettingsState,
+    indicatorSettingsState,
     forcedChartType,
     chartComponents,
     enableNativeChartSettings,
@@ -181,13 +203,11 @@ export const TradingViewNativeContainer = memo(
     onNativeSubIndicatorCountChange,
     onNativeChartFullscreenChange,
     onPriceUpdate,
-  }: ITradingViewNativeProps) => {
+  }: ITradingViewNativeContentProps) => {
     const intl = useIntl();
     const themeColors = useTradingViewSettingsThemeColors();
-    const [storedChartSettings, setStoredChartSettings] =
-      useMarketTradingViewChartSettingsPersistAtom();
-    const [indicatorSettings, setIndicatorSettings] =
-      useMarketTradingViewIndicatorSettingsPersistAtom();
+    const [storedChartSettings, setStoredChartSettings] = chartSettingsState;
+    const [indicatorSettings, setIndicatorSettings] = indicatorSettingsState;
     const normalizedChartSettings = useMemo(
       () => normalizeTradingViewNativeChartSettings(storedChartSettings),
       [storedChartSettings],
@@ -306,7 +326,9 @@ export const TradingViewNativeContainer = memo(
         ),
       [subIndicatorInstances],
     );
-    onPriceUpdateRef.current = onPriceUpdate;
+    useLayoutEffect(() => {
+      onPriceUpdateRef.current = onPriceUpdate;
+    }, [onPriceUpdate]);
     const handleRealtimePoint = useCallback(
       (point: { c: number; t: number }) => {
         realtimePointRef.current = point;
@@ -340,6 +362,7 @@ export const TradingViewNativeContainer = memo(
     } = useTradingViewNativeKLine({
       onRealtimePoint: handleRealtimePoint,
       source,
+      storageNamespace,
     });
     const chartType = useMemo(
       () =>
@@ -841,7 +864,9 @@ export const TradingViewNativeContainer = memo(
               </Button>
             </YStack>
           ) : null}
-          {isMobileControlsLayout && enableNativeChartSettings ? (
+          {isMobileControlsLayout &&
+          enableNativeChartSettings &&
+          !isNativeChartFullscreen ? (
             <TradingViewNativeChartSettingsButton
               priceAxisWidth={priceAxisWidth}
               isChartSwitchDisabled={isChartSwitchDisabled}
@@ -863,6 +888,43 @@ export const TradingViewNativeContainer = memo(
       </Stack>
     );
   },
+);
+
+TradingViewNativeContent.displayName = 'TradingViewNativeContent';
+
+function MarketTradingViewNativeContainer(props: ITradingViewNativeProps) {
+  const chartSettingsState = useMarketTradingViewChartSettingsPersistAtom();
+  const indicatorSettingsState =
+    useMarketTradingViewIndicatorSettingsPersistAtom();
+  return (
+    <TradingViewNativeContent
+      {...props}
+      chartSettingsState={chartSettingsState}
+      indicatorSettingsState={indicatorSettingsState}
+    />
+  );
+}
+
+function SwapTradingViewNativeContainer(props: ITradingViewNativeProps) {
+  const chartSettingsState = useSwapTradingViewChartSettingsPersistAtom();
+  const indicatorSettingsState =
+    useSwapTradingViewIndicatorSettingsPersistAtom();
+  return (
+    <TradingViewNativeContent
+      {...props}
+      chartSettingsState={chartSettingsState}
+      indicatorSettingsState={indicatorSettingsState}
+    />
+  );
+}
+
+export const TradingViewNativeContainer = memo(
+  (props: ITradingViewNativeProps) =>
+    props.storageNamespace === 'swap' ? (
+      <SwapTradingViewNativeContainer {...props} />
+    ) : (
+      <MarketTradingViewNativeContainer {...props} />
+    ),
 );
 
 TradingViewNativeContainer.displayName = 'TradingViewNativeContainer';

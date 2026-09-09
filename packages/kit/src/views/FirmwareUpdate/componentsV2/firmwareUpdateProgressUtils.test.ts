@@ -1,3 +1,5 @@
+import { createIntl } from 'react-intl';
+
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
@@ -8,6 +10,7 @@ import {
 } from './firmwareUpdateProgressUtils';
 
 describe('firmwareUpdateProgressUtils', () => {
+  const intl = createIntl({ locale: 'en-US' });
   test('将 bootloader 就绪事件归一到重启阶段，避免 UI 直接进入传输阶段', () => {
     expect(
       normalizeFirmwareUpdateProgressType(
@@ -63,29 +66,35 @@ describe('firmwareUpdateProgressUtils', () => {
 
   test('formats stable transfer speed and ETA after warm-up', () => {
     expect(
-      getFirmwareTransferDisplayMetrics({
-        transferredBytes: 1_220_281,
-        totalBytes: 2_440_562,
-        rateBytesPerSecond: 16_760,
-        elapsedMs: 72_810,
-      }),
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 1_220_281,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 16_760,
+          elapsedMs: 72_810,
+        },
+        intl,
+      ),
     ).toEqual({
       transferredText: '1.2 MiB',
       totalText: '2.3 MiB',
       speedText: '16.4 KiB/s',
-      elapsedText: '1m 13s',
-      estimatedRemainingText: '1m 13s',
+      elapsedText: '1 min 13 sec',
+      estimatedRemainingText: '1 min 13 sec',
     });
   });
 
   test('hides ETA until enough transfer data has been sampled', () => {
     expect(
-      getFirmwareTransferDisplayMetrics({
-        transferredBytes: 32 * 1024,
-        totalBytes: 2_440_562,
-        rateBytesPerSecond: 9380,
-        elapsedMs: 1500,
-      }),
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 32 * 1024,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 9380,
+          elapsedMs: 1500,
+        },
+        intl,
+      ),
     ).toEqual(
       expect.objectContaining({
         speedText: '9.2 KiB/s',
@@ -96,12 +105,33 @@ describe('firmwareUpdateProgressUtils', () => {
 
   test('rejects incomplete or zero-rate transfer samples', () => {
     expect(
-      getFirmwareTransferDisplayMetrics({
-        transferredBytes: 1024,
-        totalBytes: 2048,
-        rateBytesPerSecond: 0,
-        elapsedMs: 1000,
-      }),
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 1024,
+          totalBytes: 2048,
+          rateBytesPerSecond: 0,
+          elapsedMs: 1000,
+        },
+        intl,
+      ),
     ).toBeUndefined();
+  });
+
+  test('localizes countdown units with the selected language', () => {
+    const chineseIntl = createIntl({ locale: 'zh-CN' });
+    expect(
+      getFirmwareTransferDisplayMetrics(
+        {
+          transferredBytes: 128 * 1024,
+          totalBytes: 256 * 1024,
+          rateBytesPerSecond: (128 * 1024) / 73,
+          elapsedMs: 73_000,
+        },
+        chineseIntl,
+      ),
+    ).toMatchObject({
+      elapsedText: '1分钟 13秒',
+      estimatedRemainingText: '1分钟 13秒',
+    });
   });
 });

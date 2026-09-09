@@ -73,7 +73,7 @@ function MarketStockListImpl({
   const intl = useIntl();
   const { md } = useMedia();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const baseColumns = useMarketStockColumns();
+  const baseColumns = useMarketStockColumns({ showWatchlist: true });
   const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
     useMarketDesktopResponsiveColumns({
       columns: baseColumns,
