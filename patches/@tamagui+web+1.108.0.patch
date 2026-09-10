@@ -2,19 +2,26 @@ diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_
 index 47addac..110de63 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -160,11 +160,98 @@ function unlisten() {
+@@ -160,22 +160,116 @@
    }), dispose.clear();
  }
  var setupVersion = -1;
 +
 +const ExpoDevice = require('expo-device');
-+const ScreenOrientation = require('expo-screen-orientation');
 +const { Dimensions } = require('react-native');
 +const { ReactNativeDeviceUtils } = require('@onekeyfe/react-native-device-utils');
 +
-+// Orientation constants from expo-screen-orientation
-+const ORIENTATION_LANDSCAPE_LEFT = 3;
-+const ORIENTATION_LANDSCAPE_RIGHT = 4;
++// OneKey: full-screen surfaces (onboarding v2) opt out of the tablet clamp so
++// iPad evaluates breakpoints against the real window width. App code flips
++// `useRealWidth` and calls `refresh()`; see
++// packages/components/src/hooks/nativeTabletRealWidthMedia.native.ts.
++const nativeMediaControl =
++  globalThis.$$onekeyNativeMedia ||
++  (globalThis.$$onekeyNativeMedia = { useRealWidth: false });
++let mediaUpdaters = [];
++nativeMediaControl.refresh = function () {
++  mediaUpdaters.forEach((update) => update());
++};
 +
 +// Check if device is a DualScreen device
 +let isDualScreen;
@@ -25,13 +32,13 @@ index 47addac..110de63 100644
 +  return isDualScreen;
 +}
 +
-+// Check if current orientation is landscape using expo-screen-orientation
-+function isLandscapeOrientation(callback) {
-+  ScreenOrientation.getOrientationAsync().then((orientation) => {
-+    const isLandscape = orientation === ORIENTATION_LANDSCAPE_LEFT ||
-+                        orientation === ORIENTATION_LANDSCAPE_RIGHT;
-+    callback(isLandscape);
-+  });
++// Landscape is derived from the window size rather than an async orientation
++// query: every caller runs from a Dimensions/orientation change or from
++// refresh(), and a late async result could overwrite a mode switch made in
++// between (e.g. onboarding acquiring/releasing real-width breakpoints).
++function isLandscapeWindow() {
++  const { width, height } = Dimensions.get('window');
++  return width > height;
 +}
 +
 +const MAX_OVERRIDE_WIDTH = 767;
@@ -55,16 +62,16 @@ index 47addac..110de63 100644
 +  if (isDualScreenDevice() && ReactNativeDeviceUtils.isSpanning()) {
 +    // DualScreen device in spanning mode: use half screen width for media queries
 +    callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
++  } else if (nativeMediaControl.useRealWidth) {
++    // Full-screen surface opted out of the tablet/Android clamp: keep the raw
++    // matchMedia result computed from the real window width.
++    callback({ shouldOverride: false, overrideWidth: null });
 +  } else if (ExpoDevice.deviceType === ExpoDevice.DeviceType.TABLET) {
-+    // Tablet: check if landscape (spanning layout)
-+    isLandscapeOrientation((isLandscape) => {
-+      if (isLandscape) {
-+        // Tablet landscape: use half screen width for media queries
-+        callback({ shouldOverride: true, overrideWidth: getHalfScreenWidth() });
-+      } else {
-+        // Tablet portrait: simulate md-level width (md=true, gtMd=false)
-+        callback({ shouldOverride: true, overrideWidth: getScreenWidth() });
-+      }
++    // Tablet landscape (split-view pane): half screen width; portrait: clamp to
++    // md-level width. Synchronous so refresh() settles mediaState before paint.
++    callback({
++      shouldOverride: true,
++      overrideWidth: isLandscapeWindow() ? getHalfScreenWidth() : getScreenWidth(),
 +    });
 +  } else if (import_constants.isAndroid) {
 +    // Non-spanning layout + Android: simulate md-level width
@@ -102,3 +109,16 @@ index 47addac..110de63 100644
      }, str = mediaObjectToString(mediaQueryConfig[key2], key2), getMatch = function() {
        return (0, import_matchMedia.matchMedia)(str);
      }, match = getMatch();
+     if (!match)
+       throw new Error("\u26A0\uFE0F No match");
+-    match.addListener(update), dispose.add(function() {
++    mediaUpdaters.push(update), match.addListener(update), dispose.add(function() {
+       match.removeListener(update);
+     }), update();
+   };
+   if (!(import_constants.isWeb && import_constants.isServer) && setupVersion !== mediaVersion) {
+-    setupVersion = mediaVersion, unlisten();
++    setupVersion = mediaVersion, unlisten(), mediaUpdaters = [];
+     for (var key in mediaQueryConfig) _loop(key);
+   }
+ }

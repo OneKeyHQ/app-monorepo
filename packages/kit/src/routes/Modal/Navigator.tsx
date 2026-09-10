@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
 import {
   EPageType,
   Theme,
+  acquireNativeTabletRealWidthMedia,
+  releaseNativeTabletRealWidthMedia,
   setGlassHeaderUIStyle,
   useThemeName,
 } from '@onekeyhq/components';
@@ -45,6 +47,24 @@ export function FullScreenPushNavigator() {
 }
 
 export function OnboardingNavigator() {
+  const isFocused = useIsFocused();
+  // Onboarding is full-screen (never inside a split-view pane), so iPad
+  // evaluates breakpoints against the real window width while this root route
+  // is in the foreground. The flag is global to the UI runtime, so it is held
+  // for the focused lifetime only: a V1 modal pushed on top, or the main tab
+  // tree after onboarding is replaced, must get the clamped breakpoints their
+  // narrower containers were designed for. Layout effect, not passive: the
+  // switch must land before the first paint, otherwise iPad paints the phone
+  // layout and re-lays out everything mid-transition.
+  useLayoutEffect(() => {
+    if (!isFocused) {
+      return undefined;
+    }
+    acquireNativeTabletRealWidthMedia();
+    return () => {
+      releaseNativeTabletRealWidthMedia();
+    };
+  }, [isFocused]);
   // Onboarding forces a dark Theme for its content, so the iOS 26 glass header
   // bar must use the dark variant while onboarding is the foreground route —
   // otherwise it flashes the light variant (the app theme is usually light).
@@ -58,7 +78,6 @@ export function OnboardingNavigator() {
   // tracks whoever is actually foreground; the unmount cleanup covers the
   // onboarding-replaced-by-main case where we never blur first.
   const appThemeName = useThemeName();
-  const isFocused = useIsFocused();
   const appGlassStyle = appThemeName === 'dark' ? 'dark' : 'light';
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);

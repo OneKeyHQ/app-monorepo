@@ -556,11 +556,23 @@ diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View
 index a99f103..27865c2 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-@@ -828,6 +828,19 @@ - (UIView *)currentContainerView
- }
+@@ -603,6 +603,12 @@
+ {
+   [super prepareForRecycle];
+ 
++  // Native containers (e.g. a UITabBarController host) may stamp a flexible
++  // autoresizingMask on child component views. This view is recycled for
++  // unrelated <View>s afterwards, and UIKit would autoresize it to whatever
++  // superview it lands in, so clear the mask with the rest of the UIKit state.
++  self.autoresizingMask = UIViewAutoresizingNone;
++
+   // If view was managed by animated, its props need to align with UIView's properties.
+   const auto &props = static_cast<const ViewProps &>(*_props);
+   if ([_propKeysManagedByAnimated_DO_NOT_USE_THIS_IS_BROKEN containsObject:@"transform"]) {
+@@ -829,6 +835,19 @@
  
  - (void)invalidateLayer
-+{
+ {
 +  // During modal transition, prevent backgroundColor and layer changes from being animated.
 +  extern BOOL RNSModalTransitionInProgress;
 +  if (RNSModalTransitionInProgress) {
@@ -573,9 +585,10 @@ index a99f103..27865c2 100644
 +}
 +
 +- (void)_invalidateLayerImpl
- {
++{
    CALayer *layer = self.layer;
  
+   if (CGSizeEqualToSize(layer.bounds.size, CGSizeZero)) {
 diff --git a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
 index 9f50554..23eaaa8 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm

@@ -487,7 +487,19 @@ function DialogFrame({
               {...floatingPanelProps}
               zIndex={floatingPanelProps?.zIndex || zIndex}
             >
-              {renderDialogContent}
+              {platformEnv.isNative ? (
+                // Native only: the centered frame sits in an absolute-fill
+                // Stack, so Yoga measures its subtree in AtMost mode and any
+                // `flex: 1` child (e.g. ListItem's Pressable wrapper) collapses
+                // to zero height and overlaps its siblings. A ScrollView
+                // measures its content unconstrained (overflow: scroll), which
+                // restores content sizing and also lets tall content scroll.
+                <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+                  {renderDialogContent}
+                </ScrollView>
+              ) : (
+                renderDialogContent
+              )}
             </TMDialog.Content>
           </Stack>
         ) : null}
