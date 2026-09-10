@@ -292,7 +292,6 @@ function RawPopover({
       )
     : undefined;
   const triggerRef = useRef<View | null>(null);
-  const contentRef = useRef<View | null>(null);
   const placement = getPlacement(placementProp, triggerRef);
   const transformOrigin = useMemo(() => {
     switch (placement) {
@@ -417,14 +416,18 @@ function RawPopover({
     () => ({ transformOrigin }),
     [transformOrigin],
   );
-  useIsomorphicLayoutEffect(() => {
-    if (!shouldUseWebKeepMountedTransition) {
+  const contentRef = useRef<View | null>(null);
+  const contentStateRef = useRef({ isOpen, shouldUseWebKeepMountedTransition });
+  // Adapt can replace the DOM without changing open state, while Tamagui can
+  // retain the first forwarded ref. Keep the attachment callback stable and
+  // also update the current node on open-state changes.
+  const handleContentRef = useCallback((node: View | null) => {
+    contentRef.current = node;
+    const state = contentStateRef.current;
+    if (!state.shouldUseWebKeepMountedTransition || !node) {
       return;
     }
-    const popperElement = contentRef.current as unknown as HTMLElement;
-    if (!popperElement) {
-      return;
-    }
+    const popperElement = node as unknown as HTMLElement;
     const contentElement = popperElement.hasAttribute('data-state')
       ? popperElement
       : (popperElement.firstElementChild as HTMLElement | null);
@@ -437,13 +440,17 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    contentElement.style.transition = isOpen
+    contentElement.style.transition = state.isOpen
       ? WEB_KEEP_MOUNTED_TRANSITION
       : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    contentElement.style.opacity = isOpen ? '1' : '0';
-    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
-    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
-  }, [isOpen, shouldUseWebKeepMountedTransition]);
+    contentElement.style.opacity = state.isOpen ? '1' : '0';
+    contentElement.style.transform = `scale(${state.isOpen ? 1 : 0.95})`;
+    contentElement.style.visibility = state.isOpen ? 'visible' : 'hidden';
+  }, []);
+  useIsomorphicLayoutEffect(() => {
+    contentStateRef.current = { isOpen, shouldUseWebKeepMountedTransition };
+    handleContentRef(contentRef.current);
+  }, [handleContentRef, isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
@@ -471,7 +478,7 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
-          ref={contentRef}
+          ref={handleContentRef}
           zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
           trapFocus={false}
           unstyled
