@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   Alert,
+  Button,
   Divider,
   Icon,
   Page,
@@ -61,6 +62,7 @@ import {
   isEModePendingGuardActive,
 } from '../BorrowEModeSwitch/emodeUtils';
 
+import { EModeGetFundsAction } from './EModeGetFundsAction';
 import { EModeShortfallCard } from './EModeShortfallCard';
 import {
   balanceLookupAddress,
@@ -74,6 +76,8 @@ import {
   getPrimaryLineKind,
   isStepConfirming,
   normalizeApproveSubStatusForConfirmation,
+  shouldShowTopUpFooter,
+  splitBalanceShortfallLines,
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
@@ -143,8 +147,6 @@ function StepRow({
   categoryLabel,
   approveSubStatus,
   funding,
-  getFundsActionItems,
-  onGetFundsPress,
 }: {
   step: IEModeStep;
   stepNumber: number;
@@ -158,8 +160,6 @@ function StepRow({
   categoryLabel: string;
   approveSubStatus: IEModeApproveSubStatus;
   funding: boolean;
-  getFundsActionItems: (step: IEModeStep) => IActionListItemProps[] | undefined;
-  onGetFundsPress: () => void;
 }) {
   const intl = useIntl();
 
@@ -244,16 +244,18 @@ function StepRow({
     });
   }
 
-  const balanceText =
+  const balanceLines =
     underfunded && walletBalance
-      ? intl.formatMessage(
-          { id: ETranslations.defi_emode_wallet_balance_short },
-          {
-            balance: withSymbol(walletBalance),
-            short: withSymbol(shortfallText ?? ''),
-          },
+      ? splitBalanceShortfallLines(
+          intl.formatMessage(
+            { id: ETranslations.defi_emode_wallet_balance_short },
+            {
+              balance: withSymbol(walletBalance),
+              short: withSymbol(shortfallText ?? ''),
+            },
+          ),
         )
-      : '';
+      : [];
 
   return (
     <XStack gap="$3" p="$3.5" ai="flex-start">
@@ -316,10 +318,8 @@ function StepRow({
           <Stack ml="$5">
             <EModeShortfallCard
               symbol={step.symbol ?? ''}
-              balanceText={balanceText}
+              balanceLines={balanceLines}
               funding={funding}
-              items={getFundsActionItems(step)}
-              onGetFundsPress={onGetFundsPress}
             />
           </Stack>
         ) : null}
@@ -696,6 +696,24 @@ function BorrowEModeNeedActionView() {
   // history still reports the original transaction as pending.
   const pendingGuardBlocksAction = pendingGuardActive && !canRetryCheck;
 
+  // The footer is disabled for exactly as long as the active repay is
+  // underfunded, so leaving Top up inline on the step left the page with no
+  // live control at the one moment something has to happen. Hand the footer to
+  // the remedy and keep the blocked step's own label beside it, disabled — the
+  // shape Send uses for an insufficient balance. While a top-up is confirming
+  // there is nothing to press, so the plain footer comes back.
+  const activeGetFundsItems = activeUnderfundedRepay
+    ? getFundsActionItems(activeUnderfundedRepay)
+    : undefined;
+  const showTopUpFooter = shouldShowTopUpFooter({
+    canRetryCheck,
+    funding,
+    isBusy,
+    pendingGuardBlocksAction,
+    hasUnderfundedActiveRepay: !!activeUnderfundedRepay,
+    hasGetFundsItems: !!activeGetFundsItems?.length,
+  });
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -772,8 +790,6 @@ function BorrowEModeNeedActionView() {
                     categoryLabel={categoryLabel}
                     approveSubStatus={approveSubStatus}
                     funding={funding}
-                    getFundsActionItems={getFundsActionItems}
-                    onGetFundsPress={handleGetFundsPress}
                   />
                   {index < steps.length - 1 ? <Divider /> : null}
                 </YStack>
@@ -803,26 +819,54 @@ function BorrowEModeNeedActionView() {
           </YStack>
         ) : null}
       </Page.Body>
-      <Page.Footer
-        onConfirmText={
-          canRetryCheck
-            ? intl.formatMessage({ id: ETranslations.global_retry })
-            : confirmText
-        }
-        confirmButtonProps={{
-          testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
-          loading: isBusy || pendingGuardBlocksAction || isChecking,
-          disabled:
-            isBusy ||
-            pendingGuardBlocksAction ||
-            (!canRetryCheck &&
-              (!check ||
-                checkingActiveBalance ||
-                !!activeUnderfundedRepay ||
-                (activeStep?.kind === 'switch' && !check.canSwitch))),
-        }}
-        onConfirm={canRetryCheck ? refresh : run}
-      />
+      {showTopUpFooter && activeUnderfundedRepay && activeGetFundsItems ? (
+        <Page.Footer
+          confirmButton={
+            <XStack gap="$2.5" flex={1}>
+              <EModeGetFundsAction
+                symbol={activeUnderfundedRepay.symbol ?? ''}
+                items={activeGetFundsItems}
+                onPress={handleGetFundsPress}
+              />
+              <Button
+                testID={BorrowTestIDs.eModeNeedActionConfirmBtn}
+                disabled
+                flexGrow={1}
+                flexShrink={1}
+                textEllipsis
+                $md={
+                  {
+                    size: 'large',
+                  } as any
+                }
+              >
+                {confirmText}
+              </Button>
+            </XStack>
+          }
+        />
+      ) : (
+        <Page.Footer
+          onConfirmText={
+            canRetryCheck
+              ? intl.formatMessage({ id: ETranslations.global_retry })
+              : confirmText
+          }
+          confirmButtonProps={{
+            testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
+            loading: isBusy || pendingGuardBlocksAction || isChecking,
+            disabled:
+              isBusy ||
+              pendingGuardBlocksAction ||
+              (!canRetryCheck &&
+                (!check ||
+                  checkingActiveBalance ||
+                  !!activeUnderfundedRepay ||
+                  (activeStep?.kind === 'switch' && !check.canSwitch))),
+          }}
+          onConfirm={canRetryCheck ? refresh : run}
+        />
+      )}
     </Page>
   );
 }
