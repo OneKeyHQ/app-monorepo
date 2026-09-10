@@ -196,46 +196,43 @@ const disclosureProps = () =>
   stackProps().find((p) => p.accessibilityRole === 'button');
 
 describe('BorrowPositionCard amount hierarchy', () => {
-  // The amount is what the user holds; the fiat value is a conversion of it.
-  // The desktop table's AmountField already stacks them that way, and this card
-  // had them inverted — fiat first, in $text, over a subdued amount.
-  it('leads with the amount and trails the fiat value', () => {
+  // ListItem.Text's pairing, which Earn's asset rows render through: title on
+  // top in $bodyLgMedium/$text, subtitle under it in $bodyMd/$textSubdued.
+  // The fiat value is the title here, the token amount the subtitle.
+  it('leads with the fiat value and trails the token amount', () => {
     const { container } = renderCard({
       tokenAmount: { text: '20' },
       fiatValue: { text: '$20' },
     });
     const lines = Array.from(container.querySelectorAll('[data-size]')).map(
-      (n) => [n.textContent, n.getAttribute('data-color')],
+      (n) => [
+        n.textContent,
+        n.getAttribute('data-size'),
+        n.getAttribute('data-color'),
+      ],
     );
-    const amount = lines.findIndex(([t]) => t === '20');
     const fiat = lines.findIndex(([t]) => t === '$20');
+    const amount = lines.findIndex(([t]) => t === '20');
 
-    expect(amount).toBeGreaterThanOrEqual(0);
-    expect(fiat).toBeGreaterThan(amount);
-    expect(lines[amount][1]).toBe('$text');
-    expect(lines[fiat][1]).toBe('$textSubdued');
+    expect(fiat).toBeGreaterThanOrEqual(0);
+    expect(amount).toBeGreaterThan(fiat);
+    expect(lines[fiat].slice(1)).toEqual(['$bodyLgMedium', '$text']);
+    expect(lines[amount].slice(1)).toEqual(['$bodyMd', '$textSubdued']);
   });
 
-  // $bodyLgMedium is the tier Earn's asset rows use for the token name and the
-  // APY. A position and the offering that creates it should not read at
-  // different weights.
-  it("sizes the amount and the token symbol to Earn's asset rows", () => {
-    const { container, getAllByText } = renderCard({
+  // The unit has to sit on the same tier as the number it trails, or the
+  // amount reads as two values glued together.
+  it('renders the trailing symbol on the same tier as the amount', () => {
+    const { getAllByText } = renderCard({
       tokenAmount: { text: '20' },
       fiatValue: { text: '$20' },
     });
-    const amount = Array.from(container.querySelectorAll('[data-size]')).find(
-      (n) => n.textContent === '20',
-    );
-    // The symbol renders twice: once as the asset's name, once as the unit
-    // trailing the amount. Both sit on the primary tier.
-    const symbols = getAllByText('USDC');
+    // Twice: the asset's name on the left, the unit after the amount.
+    const [name, unit] = getAllByText('USDC');
 
-    expect(amount?.getAttribute('data-size')).toBe('$bodyLgMedium');
-    expect(symbols).toHaveLength(2);
-    symbols.forEach((node) =>
-      expect(node.getAttribute('data-size')).toBe('$bodyLgMedium'),
-    );
+    expect(name.getAttribute('data-size')).toBe('$bodyLgMedium');
+    expect(unit.getAttribute('data-size')).toBe('$bodyMd');
+    expect(unit.getAttribute('data-color')).toBe('$textSubdued');
   });
 
   it('lets the server override the amount treatment', () => {

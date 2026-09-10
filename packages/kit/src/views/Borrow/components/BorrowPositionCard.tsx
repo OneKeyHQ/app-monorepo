@@ -72,12 +72,12 @@ export function BorrowPositionCard({
 }: IBorrowPositionCardProps) {
   const reducedMotion = useReducedMotion();
   const isPressable = Boolean(onToggleExpand);
-  // The amount leads and the fiat value trails it, the same way the desktop
-  // table's AmountField stacks them. $bodyLgMedium is the tier Earn's asset
-  // rows use for the token name and the APY, so a position reads at the same
-  // weight as the thing you would have opened to create it.
-  const amountSize = tokenAmount?.size ?? '$bodyLgMedium';
-  const amountColor = tokenAmount?.color ?? '$text';
+  // ListItem.Text's own pairing, which is what Earn's asset rows render
+  // through: the title is $bodyLgMedium on $text, the subtitle $bodyMd on
+  // $textSubdued. The fiat value is the title here and the token amount the
+  // subtitle under it.
+  const amountSize = tokenAmount?.size ?? '$bodyMd';
+  const amountColor = tokenAmount?.color ?? '$textSubdued';
 
   // The whole card is the pointer target, but it can't carry the button role:
   // the collateral Switch is a focusable role="switch" and ARIA forbids
@@ -198,6 +198,14 @@ export function BorrowPositionCard({
           </YStack>
           <XStack ai="center" gap="$2" flexShrink={0}>
             <YStack ai="flex-end">
+              {fiatValue ? (
+                <EarnText
+                  text={fiatValue}
+                  size="$bodyLgMedium"
+                  color="$text"
+                  numberOfLines={1}
+                />
+              ) : null}
               {tokenAmount ? (
                 <XStack ai="center" gap="$1">
                   <EarnText
@@ -210,14 +218,6 @@ export function BorrowPositionCard({
                     {token.symbol}
                   </SizableText>
                 </XStack>
-              ) : null}
-              {fiatValue ? (
-                <EarnText
-                  text={fiatValue}
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                />
               ) : null}
             </YStack>
             {isPressable ? (
