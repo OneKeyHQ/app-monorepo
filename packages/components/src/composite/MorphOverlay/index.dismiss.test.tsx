@@ -12,67 +12,19 @@ import {
   PointerType,
   State,
 } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
 import type { Gesture } from 'react-native-gesture-handler';
 
-jest.mock('react-native', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  const element = (tag: 'button' | 'div') => {
-    const Component = React.forwardRef<HTMLElement, Record<string, unknown>>(
-      ({ children, onPress, testID }, ref) =>
-        React.createElement(
-          tag,
-          {
-            ref,
-            'data-testid': testID,
-            ...(onPress ? { onClick: onPress } : {}),
-          },
-          children as ReactNode,
-        ),
-    );
-    Component.displayName = `Mock${tag}`;
-    return Component;
-  };
-  return {
-    Pressable: element('button'),
-    StyleSheet: {
-      absoluteFill: {},
-      create: <T,>(styles: T) => styles,
-      hairlineWidth: 1,
-    },
-    View: element('div'),
-    useWindowDimensions: () => ({ width: 1024, height: 768 }),
-  };
-});
+// This UI suite needs RN Web, not the CLI's repository-wide manual mock.
+jest.unmock('react-native');
 
 jest.mock('react-native-gesture-handler', () => ({
-  Gesture: {
-    Pan: jest.fn(() => {
-      const handlers: Record<string, (...args: unknown[]) => void> = {};
-      const gesture = {
-        handlers,
-        enabled: () => gesture,
-        activeOffsetY: () => gesture,
-        onUpdate: (handler: (...args: unknown[]) => void) => {
-          handlers.onUpdate = handler;
-          return gesture;
-        },
-        onEnd: (handler: (...args: unknown[]) => void) => {
-          handlers.onEnd = handler;
-          return gesture;
-        },
-        onFinalize: (handler: (...args: unknown[]) => void) => {
-          handlers.onFinalize = handler;
-          return gesture;
-        },
-      };
-      return gesture;
-    }),
-  },
+  ...jest.requireActual<typeof import('react-native-gesture-handler')>(
+    'react-native-gesture-handler',
+  ),
   GestureDetector: jest.fn(({ children }: { children: ReactNode }) => children),
-  PointerType: { TOUCH: 0 },
-  State: { ACTIVE: 4, BEGAN: 2 },
 }));
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
@@ -81,11 +33,11 @@ jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   useThemeName: () => 'dark',
 }));
 jest.mock('../../primitives', () => ({
-  Stack: jest.requireMock<typeof import('react-native')>('react-native').View,
+  Stack: jest.requireActual<typeof import('react-native')>('react-native').View,
 }));
 jest.mock('../../actions/IconButton', () => ({
   IconButton:
-    jest.requireMock<typeof import('react-native')>('react-native').Pressable,
+    jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
 jest.mock('../../hocs', () => ({
   Portal: {
@@ -110,7 +62,7 @@ jest.mock('../../content/deviceScene', () => ({
 jest.mock('react-native-reanimated', () => {
   const { useRef } = jest.requireActual<typeof import('react')>('react');
   const { View } =
-    jest.requireMock<typeof import('react-native')>('react-native');
+    jest.requireActual<typeof import('react-native')>('react-native');
   const identity = <T,>(value: T): T => value;
   const fade = { duration: () => ({ delay: () => undefined }) };
   return {
@@ -121,7 +73,8 @@ jest.mock('react-native-reanimated', () => {
     Easing: { bezierFn: () => identity },
     Extrapolation: { CLAMP: 'clamp' },
     cancelAnimation: jest.fn(),
-    runOnJS: identity,
+    makeMutable: <T,>(value: T) => ({ value }),
+    runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
     useAnimatedStyle: () => ({}),
     useReducedMotion: () => false,
@@ -228,6 +181,53 @@ describe('MorphOverlay dismiss gesture', () => {
     });
     expect(state.result.current.presence.value).toBe(0);
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['update', 'end', 'cancel', 'dismiss'] as const)(
+    'ignores an old drag %s after the stage is shown again',
+    (event) => {
+      const { state, gesture, latestGesture, setPose, onDismiss } = setup();
+      act(() => gesture.handlers.onUpdate?.(dragEvent));
+      setPose('hidden');
+      setPose('card');
+      act(() => {
+        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+      });
+      const reopenedPresence = state.result.current.presence.value;
+      expect(reopenedPresence).toBeLessThan(1);
+
+      act(() => {
+        if (event === 'update') gesture.handlers.onUpdate?.(dragEvent);
+        if (event === 'end') gesture.handlers.onEnd?.(dragEvent, true);
+        if (event === 'cancel') {
+          gesture.handlers.onFinalize?.(dragEvent, false);
+        }
+        if (event === 'dismiss') {
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+        }
+      });
+      expect(state.result.current.presence.value).toBe(reopenedPresence);
+      expect(onDismiss).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores a queued drag dismissal after the stage is shown again', () => {
+    const { state, gesture, setPose, onDismiss } = setup();
+    jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
+    act(() => {
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+    });
+    const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
+    expect(queuedDismiss).toBeInstanceOf(Function);
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    setPose('hidden');
+    setPose('card');
+    act(() => {
+      if (typeof queuedDismiss === 'function') queuedDismiss();
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it('keeps the close button wired to dismissal', () => {

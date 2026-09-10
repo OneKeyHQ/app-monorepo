@@ -17,6 +17,7 @@ import Animated, {
   FadeOut,
   cancelAnimation,
   interpolate,
+  makeMutable,
   runOnJS,
   useAnimatedKeyboard,
   useAnimatedStyle,
@@ -851,7 +852,15 @@ export function MorphOverlay<T>({
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
   const dragEnabled = dismissible && pose === 'card';
-  const dragAllowed = useSharedValue(dragEnabled);
+  // Each enabled period owns its grant. Reopening must never re-arm the
+  // shared value retained by a recognizer from before the stage hid.
+  const dragAllowed = useMemo(() => makeMutable(dragEnabled), [dragEnabled]);
+  useLayoutEffect(() => {
+    dragAllowed.value = dragEnabled;
+    return () => {
+      dragAllowed.value = false;
+    };
+  }, [dragAllowed, dragEnabled]);
   const blocking = modal || scrim;
   // The capsule's close button rides outside the measured row, so the
   // box simply widens by the button when the grant arrives — no
@@ -872,10 +881,6 @@ export function MorphOverlay<T>({
   // re-render instead of one frame behind it — and the mount lands its
   // pose targets before the estimates ever paint.
   useLayoutEffect(() => {
-    // Disabling an active recognizer can deliver its final callbacks after
-    // the exit starts. Share the live grant with those old worklets before
-    // aiming presence, so they cannot pull a hidden shell back on screen.
-    dragAllowed.value = dragEnabled;
     // First, before anything can reveal: the seat flip rides the same
     // turn as every aim below, and as the reveal the hook issues after.
     litKey.value = activeSeatKey;
@@ -985,8 +990,6 @@ export function MorphOverlay<T>({
     cardHeight,
     cardRadius,
     cardWidth,
-    dragAllowed,
-    dragEnabled,
     height,
     heightArrangeToken,
     lift,
@@ -1010,6 +1013,10 @@ export function MorphOverlay<T>({
   const dismiss = useCallback(() => {
     onDismissRef.current?.();
   }, []);
+  const dismissFromDrag = useCallback(() => {
+    // The stage may have hidden and reopened while runOnJS was queued.
+    if (dragAllowed.value) dismiss();
+  }, [dismiss, dragAllowed]);
   // The drag rides presence — see DRAG_*. Armed only for a dismissible
   // card: the capsule has no drag (its close button is its one exit),
   // and an unarmed stage cannot be pulled at all.
@@ -1043,7 +1050,7 @@ export function MorphOverlay<T>({
           const projected = drag + dragVelocity * DRAG_PROJECTION_S;
           if (projected > height.value * DRAG_DISMISS_FRACTION) {
             presence.value = withSpring(0, { ...MORPH_SPRING, velocity });
-            runOnJS(dismiss)();
+            runOnJS(dismissFromDrag)();
             return;
           }
           presence.value = withSpring(1, { ...MORPH_SPRING, velocity });
@@ -1056,7 +1063,7 @@ export function MorphOverlay<T>({
         }),
     [
       bottomClearance,
-      dismiss,
+      dismissFromDrag,
       dragAllowed,
       dragEnabled,
       height,
