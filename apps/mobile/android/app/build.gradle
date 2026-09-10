@@ -418,6 +418,30 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
         dependsOn(tasks.named(mergeAssetsTaskName))
 
         doLast {
+            // Gradle's intermediate asset directories survive incremental builds.
+            // Refresh the generated background paths and protected WebEmbed so
+            // an older candidate cannot remain in the packaged APK.
+            def clearBackgroundOutputs = { destination ->
+                ['background.bundle', 'segments', 'segments-background'].each {
+                    relative -> delete file("${destination}/${relative}")
+                }
+            }
+            def replaceWebEmbed = { destination ->
+                def target = file("${destination}/web-embed")
+                delete target
+                def source = file("${appProjectRootDir}/android/app/src/main/assets/web-embed")
+                if (!source.exists()) {
+                    return
+                }
+                copy {
+                    from source
+                    into target
+                }
+            }
+
+            clearBackgroundOutputs(mergedAssetsDir)
+            clearBackgroundOutputs(sentryInjectedAssetsDir)
+
             copy {
                 from(backgroundBundleOutputFile)
                 into(mergedAssetsDir)
@@ -452,11 +476,18 @@ def registerBackgroundReleaseBundleTask(variant, appProjectRootDir) {
                     into(file("${sentryInjectedAssetsDir}/segments-background"))
                 }
             }
+            replaceWebEmbed(mergedAssetsDir)
+            replaceWebEmbed(sentryInjectedAssetsDir)
         }
     }
 
     tasks.matching { it.name == injectSentryAssetsTaskName }.configureEach {
         dependsOn(syncBackgroundBundleTask)
+        doFirst {
+            // The Sentry task copies merged assets into an incremental output
+            // directory without removing files from an older candidate.
+            delete sentryInjectedAssetsDir
+        }
     }
     tasks.named(compressAssetsTaskName).configure {
         dependsOn(syncBackgroundBundleTask)
@@ -541,6 +572,38 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
         dependsOn(tasks.named(mergeAssetsTaskName))
 
         doLast {
+            // Gradle's intermediate asset directories survive incremental builds.
+            // Remove union-owned paths before copying so a previous candidate
+            // cannot leave stale bundles, segments, or WebEmbed files in the APK.
+            def clearUnionOutputs = { destination ->
+                [
+                    'common.bundle',
+                    'index.android.bundle',
+                    'background.bundle',
+                    'module-id-map.json',
+                    'segments',
+                    'segments-background',
+                ].each { relative ->
+                    delete file("${destination}/${relative}")
+                }
+            }
+            def replaceWebEmbed = { destination ->
+                def target = file("${destination}/web-embed")
+                delete target
+                def source = file("${appProjectRootDir}/android/app/src/main/assets/web-embed")
+                if (!source.exists()) {
+                    return
+                }
+                copy {
+                    from source
+                    into target
+                }
+            }
+
+            clearUnionOutputs(mainBundleAssetsDir)
+            clearUnionOutputs(mergedAssetsDir)
+            clearUnionOutputs(sentryInjectedAssetsDir)
+
             // Copy union build output into Gradle's generated assets dir
             // (overwriting what the standard bundle task produced)
 
@@ -621,13 +684,20 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
                 if (moduleIdMap.exists()) {
                     copy { from moduleIdMap; into destDir }
                 }
+                replaceWebEmbed(destDir)
             }
+            replaceWebEmbed(mainBundleAssetsDir)
         }
     }
 
     // Wire the union build into the Gradle lifecycle
     tasks.matching { it.name == injectSentryAssetsTaskName }.configureEach {
         dependsOn(syncUnionBuildTask)
+        doFirst {
+            // The Sentry task copies merged assets into an incremental output
+            // directory without removing files from an older candidate.
+            delete sentryInjectedAssetsDir
+        }
     }
     tasks.named(compressAssetsTaskName).configure {
         dependsOn(syncUnionBuildTask)
