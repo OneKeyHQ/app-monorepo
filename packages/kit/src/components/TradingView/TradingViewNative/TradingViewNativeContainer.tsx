@@ -674,6 +674,7 @@ const TradingViewNativeContent = memo(
           const targetInterval = getTradingViewNativeKLineIntervalForTimeRange({
             chartWidth,
             currentInterval: intervalConfig.activeInterval,
+            intervals: intervalConfig.intervals,
             from: target.from,
             to: target.to,
           });
@@ -700,6 +701,7 @@ const TradingViewNativeContent = memo(
         getVisibleTimeRange,
         handleViewportTargetChange,
         intervalConfig.activeInterval,
+        intervalConfig.intervals,
       ],
     );
 
