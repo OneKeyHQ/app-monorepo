@@ -8,9 +8,14 @@ import { collateralBadgeVariant } from '../collateralControls.utils';
 export function CollateralBadge({
   canBeCollateral,
   ml,
+  // The neutral chip reads as a chip only against a lighter surface. On a card
+  // that is itself $bgSubdued the default renders at 1.00:1 — the container
+  // disappears and only the glyph survives — so those callers pass their own.
+  bg = '$bgSubdued',
 }: {
   canBeCollateral?: boolean;
   ml?: IIconProps['ml'];
+  bg?: IIconProps['bg'];
 }) {
   const variant = collateralBadgeVariant(canBeCollateral);
   if (!variant) return null;
@@ -18,7 +23,7 @@ export function CollateralBadge({
   return (
     <Icon
       br="$1"
-      bg={can ? '$bgSuccess' : '$bgSubdued'}
+      bg={can ? '$bgSuccess' : bg}
       ml={ml}
       name={can ? 'Checkmark2SmallOutline' : 'MinusSmallOutline'}
       size="$5"

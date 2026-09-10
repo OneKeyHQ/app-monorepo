@@ -128,8 +128,18 @@ jest.mock('./CollateralSwitchCell', () => ({
 
 jest.mock('./BorrowTableList/CollateralBadge', () => ({
   __esModule: true,
-  CollateralBadge: ({ canBeCollateral }: { canBeCollateral?: boolean }) => (
-    <span data-testid="collateral-badge" data-can={String(canBeCollateral)} />
+  CollateralBadge: ({
+    canBeCollateral,
+    bg,
+  }: {
+    canBeCollateral?: boolean;
+    bg?: string;
+  }) => (
+    <span
+      data-testid="collateral-badge"
+      data-can={String(canBeCollateral)}
+      data-bg={bg}
+    />
   ),
 }));
 
@@ -381,6 +391,19 @@ describe('BorrowMobilePositions collateral state', () => {
     expect(queryByTestId('collateral-switch')).toBeNull();
     expect(getByTestId('collateral-badge').getAttribute('data-can')).toBe(
       'false',
+    );
+  });
+
+  // The chip's default fill is $bgSubdued, which is this card's own fill: the
+  // container would render at 1.00:1 and vanish.
+  it('gives the chip a fill that survives the card it sits on', () => {
+    const { getByTestId } = renderSupplied({
+      usageAsCollateral: false,
+      canBeCollateral: false,
+    });
+
+    expect(getByTestId('collateral-badge').getAttribute('data-bg')).toBe(
+      '$bgStrong',
     );
   });
 

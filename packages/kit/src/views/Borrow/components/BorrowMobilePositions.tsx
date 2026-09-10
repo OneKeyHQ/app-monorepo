@@ -315,7 +315,10 @@ export function BorrowMobilePositions({
                           labels.collateralNotAvailable,
                         ].join(', ')}
                       >
-                        <CollateralBadge canBeCollateral={false} />
+                        <CollateralBadge
+                          canBeCollateral={false}
+                          bg="$bgStrong"
+                        />
                       </Stack>
                     ) : (
                       <CollateralSwitchCell
