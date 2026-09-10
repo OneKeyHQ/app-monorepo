@@ -29,6 +29,10 @@ import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
+  restoreAndroidSoftInputMode,
+  suspendAndroidSoftInputPan,
+} from '../../hooks/useKeyboardController';
+import {
   Button,
   Haptics,
   Icon,
@@ -582,6 +586,25 @@ export function DeviceStage({
       fireStepHaptic(step);
     }
   }, [step]);
+  // The system-keyboard steps own their lift: the shell already rides the
+  // keyboard (MorphOverlay), so the Android window must not pan on top of
+  // it. The manifest's adjustPan did exactly that for the passphrase field
+  // — it sits low on the screen, so the OS shoved the whole window up by
+  // the overlap while the shell rose by the keyboard's height, and the card
+  // ended a keyboard's worth above the keys with its title in the status
+  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
+  // back the moment it leaves. No-op off Android.
+  const systemKeyboardStep =
+    step === 'passphraseOnApp' || step === 'pairingCode';
+  useEffect(() => {
+    if (!systemKeyboardStep) {
+      return undefined;
+    }
+    suspendAndroidSoftInputPan();
+    return () => {
+      restoreAndroidSoftInputMode();
+    };
+  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
