@@ -320,6 +320,28 @@ describe('stocks / perps universal links', () => {
     });
   });
 
+  it('preserves a Cosmos factory denomination in an App Clip handoff', async () => {
+    const factoryDenom = 'factory/osmo1creator/subdenom';
+    handleDeepLinkUrl({
+      url: `https://app.onekey.so/clip/market?network=cosmos--osmosis-1&address=${encodeURIComponent(
+        factoryDenom,
+      )}&is_native=false`,
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: factoryDenom,
+          network: 'cosmos--osmosis-1',
+          isNative: false,
+        },
+      },
+    });
+  });
+
   it('unwraps a validated App Clip custom-scheme market handoff', async () => {
     const originalIsNativeIOS = platformEnv.isNativeIOS;
     platformEnv.isNativeIOS = true;

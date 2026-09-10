@@ -63,6 +63,7 @@ private enum AppClipAttributionFallbackStore {
   private static let recordKey = "app_clip_attribution_pending_fallback_v1"
   private static let updatedAtKey = "app_clip_attribution_pending_fallback_updated_at_v1"
   private static let clearedClickIdKey = "app_clip_attribution_cleared_click_id_v1"
+  private static let clearedAtKey = "app_clip_attribution_cleared_at_v1"
   private static let defaults = UserDefaults.standard
 
   static func load(sharedRecord: AppClipAttributionRecord?) -> [String: Any]? {
@@ -70,10 +71,14 @@ private enum AppClipAttributionFallbackStore {
       guard let sharedRecord else {
         return nil
       }
-      if sharedRecord.clickId == clearedClickId {
+      let clearedAt = defaults.double(forKey: clearedAtKey)
+      if
+        sharedRecord.clickId == clearedClickId,
+        sharedRecord.updatedAt.timeIntervalSince1970 <= clearedAt
+      {
         return nil
       }
-      defaults.removeObject(forKey: clearedClickIdKey)
+      clearTombstone()
     }
     guard
       let data = defaults.data(forKey: recordKey),
@@ -115,6 +120,7 @@ private enum AppClipAttributionFallbackStore {
   }
 
   static func clear(matchingClickId clickId: String) {
+    clearTombstone()
     guard
       let data = defaults.data(forKey: recordKey),
       let record = try? PropertyListSerialization.propertyList(
@@ -132,10 +138,16 @@ private enum AppClipAttributionFallbackStore {
   static func markCleared(clickId: String) {
     clear()
     defaults.set(clickId, forKey: clearedClickIdKey)
+    defaults.set(Date().timeIntervalSince1970, forKey: clearedAtKey)
   }
 
   private static func clear() {
     defaults.removeObject(forKey: recordKey)
     defaults.removeObject(forKey: updatedAtKey)
+  }
+
+  private static func clearTombstone() {
+    defaults.removeObject(forKey: clearedClickIdKey)
+    defaults.removeObject(forKey: clearedAtKey)
   }
 }
