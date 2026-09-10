@@ -169,7 +169,10 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
-import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
+import {
+  fetchFundingPageWithRetry,
+  fetchPerpFundingHistoryPages,
+} from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
@@ -1779,29 +1782,54 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async getUserFundingHistory({
     accountAddress,
+    force = false,
   }: {
     accountAddress: IHex;
+    force?: boolean;
   }): Promise<IUserFunding[]> {
-    const { infoClient } = hyperLiquidApiClients;
     const user = accountAddress.toLowerCase() as IHex;
-    const endTime = Date.now();
-
-    return fetchPerpFundingHistoryPages({
-      startTime: 0,
-      endTime,
-      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
-      getRecordKey: (record) =>
-        [
-          record.time,
-          record.hash,
-          record.delta.coin,
-          record.delta.szi,
-          record.delta.usdc,
-          record.delta.fundingRate,
-          record.delta.nSamples ?? '',
-        ].join(':'),
-    });
+    if (force && !this._fundingHistoryRequestsInFlight.has(user)) {
+      void this._getUserFundingHistoryMemo.delete(user);
+    }
+    return this._getUserFundingHistoryMemo(user);
   }
+
+  private _fundingHistoryRequestsInFlight = new Set<IHex>();
+
+  private _getUserFundingHistoryMemo = cacheUtils.memoizee(
+    async (user: IHex): Promise<IUserFunding[]> => {
+      const { infoClient } = hyperLiquidApiClients;
+      this._fundingHistoryRequestsInFlight.add(user);
+      try {
+        return await fetchPerpFundingHistoryPages({
+          startTime: 0,
+          endTime: Date.now(),
+          fetchPage: (page) =>
+            fetchFundingPageWithRetry(() =>
+              infoClient.userFunding({ user, ...page }),
+            ),
+          getRecordKey: (record) =>
+            [
+              record.time,
+              record.hash,
+              record.delta.coin,
+              record.delta.szi,
+              record.delta.usdc,
+              record.delta.fundingRate,
+              record.delta.nSamples ?? '',
+            ].join(':'),
+        });
+      } finally {
+        this._fundingHistoryRequestsInFlight.delete(user);
+      }
+    },
+    {
+      // Share in-flight requests and completed history across UI consumers.
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 3,
+    },
+  );
 
   @backgroundMethod()
   async getPerpRecentTrades({
