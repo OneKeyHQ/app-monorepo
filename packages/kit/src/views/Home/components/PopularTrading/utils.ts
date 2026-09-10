@@ -6,6 +6,7 @@ import type {
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   getNativeTokenInfo,
   normalizeStockMetadataValue,
@@ -88,6 +89,7 @@ function mapMarketTokenToDisplay(
   const { isNative } = getNativeTokenInfo(item.isNative, item.address);
 
   return {
+    stockId: resolveMarketStockId(item),
     chainId,
     contractAddress: isNative ? '' : (item.address ?? ''),
     isNative,
