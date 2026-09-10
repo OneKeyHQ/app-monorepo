@@ -21574,6 +21574,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/FinancialChart.tsx": 17364,
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/StockFinancials.tsx": 5078,
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/financialChartData.ts": 3721,
+    "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/financialValueFormat.ts": 4015,
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/financialsUtils.ts": 14878,
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/stockFinancialLabels.ts": 10284,
     "packages/kit/src/views/Market/MarketDetailV2/components/StockFinancials/useStockFinancials.ts": 18056,

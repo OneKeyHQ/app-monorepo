@@ -150,7 +150,7 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
-  it('centers the watermark within a small main chart', () => {
+  it('centers the watermark within the main chart excluding the price axis and sub-panes', () => {
     const height = 360;
     const timeAxisHeight = 20;
     const width = 320;
@@ -164,6 +164,7 @@ describe('TradingViewNative shared chart scene', () => {
       measureTextWidth: (text) => text.length * 6,
       candleLabels: CANDLE_LABELS,
       points: POINTS,
+      priceAxisWidth: 64,
       subIndicatorPanes: createTradingViewNativeSubIndicatorRenderSnapshots({
         configs: [{ id: 'RSI', indicator: 'RSI' }],
         points: POINTS,
@@ -186,9 +187,10 @@ describe('TradingViewNative shared chart scene', () => {
     expect(paneTopBorder).toBeDefined();
     expect(watermark).toMatchObject({
       kind: 'watermark',
-      rect: { width: 70.4, x: 124.8 },
+      rect: { width: 56.32, x: 99.84 },
     });
     if (watermark?.kind === 'watermark') {
+      expect(watermark.rect.x + watermark.rect.width / 2).toBeCloseTo(128);
       expect(watermark.rect.y + watermark.rect.height / 2).toBeCloseTo(142);
     }
   });

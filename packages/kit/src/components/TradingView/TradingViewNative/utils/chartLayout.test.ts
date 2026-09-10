@@ -739,7 +739,7 @@ describe('TradingViewNative chart layout', () => {
     ).toBe(0);
   });
 
-  it('centers the watermark on small screens and uses bottom-left on large screens', () => {
+  it('centers the watermark on all screen sizes', () => {
     const regularLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 640,
       mainChartBottom: 300,
@@ -760,7 +760,8 @@ describe('TradingViewNative chart layout', () => {
       canvasWidth: 3840,
       mainChartBottom: 2160,
     });
-    expect(wideLayout).toMatchObject({ width: 320, x: 8 });
+    expect(wideLayout).toMatchObject({ width: 320, x: 1760 });
+    expect(wideLayout?.y).toBeCloseTo(1031.2195);
 
     const mobileLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 320,
@@ -790,7 +791,7 @@ describe('TradingViewNative chart layout', () => {
         canvasWidth: 768,
         mainChartBottom: 300,
       })?.x,
-    ).toBe(8);
+    ).toBeCloseTo(326.4);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 100,
