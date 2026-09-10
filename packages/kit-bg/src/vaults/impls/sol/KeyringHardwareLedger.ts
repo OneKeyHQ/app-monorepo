@@ -87,12 +87,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             this.backgroundApi,
             dbDevice,
             'sol',
-            (deviceId) =>
-              adapter.hw.solGetAddress(dbDevice.connectId, deviceId, {
+            (deviceId, connectId) =>
+              adapter.hw.solGetAddress(connectId, deviceId, {
                 path,
                 showOnDevice: params.isVerifyAddressAction ?? false,
                 ...ledgerCommonCallParamsForCreateScene(params),
               }),
+            {
+              interactionId:
+                params.deviceParams.deviceCommonParams?.interactionId,
+            },
           );
 
           let address: string | null = null;
@@ -127,7 +131,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const { feePayer } = unsignedTx.payload as { feePayer: string };
     const feePayerPublicKey = new PublicKey(feePayer);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
@@ -155,11 +160,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'sol',
-      (deviceId) =>
-        adapter.hw.solSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.solSignTransaction(connectId, deviceId, {
           path,
           serializedTx: rawTx,
         }),
+      {
+        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {

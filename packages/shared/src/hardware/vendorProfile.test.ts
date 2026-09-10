@@ -1,6 +1,6 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { getVendorProfile } from './vendorProfile';
+import { getVendorProfile, isHardwareVendorSupported } from './vendorProfile';
 
 describe('hardware vendor profile', () => {
   it('registers Trezor as OneKey-like and Ledger as app-aware', () => {
@@ -41,5 +41,27 @@ describe('hardware vendor profile', () => {
       getVendorProfile(EHardwareVendor.ledger)
         .requiresSeedVerifyOnConnectIdMatch,
     ).toBe(true);
+  });
+
+  it('marks Keystone address verification as manual-only', () => {
+    expect(
+      getVendorProfile(EHardwareVendor.keystone)
+        .supportsOnDeviceAddressVerification,
+    ).toBe(false);
+    expect(
+      getVendorProfile(EHardwareVendor.onekey)
+        .supportsOnDeviceAddressVerification,
+    ).toBe(true);
+  });
+
+  it('detects vendors introduced by a newer app without weakening strict lookups', () => {
+    const futureVendor = 'future-vendor' as EHardwareVendor;
+
+    expect(isHardwareVendorSupported(undefined)).toBe(true);
+    expect(isHardwareVendorSupported(EHardwareVendor.onekey)).toBe(true);
+    expect(isHardwareVendorSupported(futureVendor)).toBe(false);
+    expect(() => getVendorProfile(futureVendor)).toThrow(
+      'Unknown hardware vendor: "future-vendor"',
+    );
   });
 });

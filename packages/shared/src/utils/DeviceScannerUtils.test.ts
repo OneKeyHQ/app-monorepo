@@ -461,6 +461,34 @@ describe('DeviceScannerUtils', () => {
     scanner.stopScan();
   });
 
+  it('passes search-target discovery only when explicitly requested', async () => {
+    const search = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest.fn(() => search.promise);
+    const scanner = createScanner(searchDevices);
+
+    scanner.startDeviceScan(
+      jest.fn(),
+      jest.fn(),
+      1,
+      60_000,
+      1,
+      EHardwareVendor.ledger,
+      { discoveryMethod: 'searchDeviceTargets' },
+    );
+    await flushMicrotasks();
+
+    expect(searchDevices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vendor: EHardwareVendor.ledger,
+        discoveryMethod: 'searchDeviceTargets',
+      }),
+    );
+
+    search.resolve(successResponse('ledger'));
+    await flushMicrotasks();
+    scanner.stopScan();
+  });
+
   it('ignores an explicit protocol hint during OneKey device search', async () => {
     const search = createDeferred<Success<SearchDevice[]>>();
     const searchDevices = jest.fn(() => search.promise);
