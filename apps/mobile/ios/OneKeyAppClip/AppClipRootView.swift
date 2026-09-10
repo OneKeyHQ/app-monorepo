@@ -192,7 +192,7 @@ struct AppClipRootView: View {
     if model.isLoadingCandles && model.candles.isEmpty {
       ProgressView()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    } else if model.candleLoadFailed || model.candles.isEmpty {
+    } else if model.candleLoadFailed && model.candles.isEmpty {
       VStack(spacing: 12) {
         Image(systemName: "chart.xyaxis.line")
           .font(.system(size: 28))
