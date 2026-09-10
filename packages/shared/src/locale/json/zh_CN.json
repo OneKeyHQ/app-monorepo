@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "盈亏",
   "perp_portfolio_chart_type_value": "净值",
   "perp_portfolio_fees_paid": "已付手续费",
+  "perp_portfolio_funding_all__action": "全部",
   "perp_portfolio_funding_by_market__title": "各市场净资金费",
   "perp_portfolio_funding_empty__desc": "此时间段内暂无资金费记录",
+  "perp_portfolio_funding_empty__title": "暂无资金费记录",
   "perp_portfolio_funding_net_24h__label": "24小时净额",
   "perp_portfolio_funding_net_7d__label": "7天净额",
   "perp_portfolio_funding_net__label": "净资金费",
   "perp_portfolio_funding_net_all_time__label": "累计净额",
+  "perp_portfolio_funding_no_history__title": "暂无资金费记录",
   "perp_portfolio_funding_total_paid__label": "累计支付",
   "perp_portfolio_funding_total_received__label": "累计收取",
+  "perp_portfolio_funding_view_all__desc": "选择{all}查看资金费历史记录",
   "perp_portfolio_health_status_healthy": "健康",
   "perp_portfolio_health_status_high_risk": "高风险",
   "perp_portfolio_health_status_moderate": "中等风险",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "交易在链上被回滚",
   "word": "助记词",
   "your_device_is_ready": "设备已就绪",
-  "your_wallet_is_ready": "您的钱包已准备就绪",
-  "perp_twap_orders__title": "分时委托"
+  "your_wallet_is_ready": "您的钱包已准备就绪"
 }
