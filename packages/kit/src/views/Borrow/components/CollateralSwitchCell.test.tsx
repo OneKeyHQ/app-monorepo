@@ -166,6 +166,14 @@ const switchTestId = 'borrow-supplied-collateral-switch';
 const pendingSetCollateralTx = {
   stakingInfo: { tags: ['borrow:aave:setCollateral'] },
 };
+const scopedPendingSetCollateralTx = {
+  stakingInfo: {
+    tags: [
+      'borrow:aave:setCollateral',
+      'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+    ],
+  },
+};
 const successData = [
   {
     signedTx: { txid: '0xset-collateral' },
@@ -317,6 +325,12 @@ describe('CollateralSwitchCell settlement guard', () => {
         reserveAddress: '0xreserve',
         useAsCollateral: true,
         eModeId: 0,
+        stakingInfo: expect.objectContaining({
+          tags: expect.arrayContaining([
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xreserve',
+          ]),
+        }),
       }),
     );
   });
@@ -368,6 +382,26 @@ describe('CollateralSwitchCell settlement guard', () => {
     );
 
     expect(getSwitch(view).props.disabled).toBe(true);
+  });
+
+  it('disables only the reserve matched by a scoped pending transaction', () => {
+    borrowContext.pendingTxs = [scopedPendingSetCollateralTx];
+
+    const matchingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDe')}
+        eModeId={1}
+      />,
+    );
+    const siblingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDt')}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(matchingView).props.disabled).toBe(true);
+    expect(getSwitch(siblingView).props.disabled).toBe(false);
   });
 
   it('allows a successful preview that omits optional collateral eligibility', async () => {

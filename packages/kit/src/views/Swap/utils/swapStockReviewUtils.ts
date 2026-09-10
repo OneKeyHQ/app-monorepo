@@ -11,6 +11,25 @@ export function getValidStockTokenToAssetRatio(value?: string) {
   return ratioBN.isFinite() && ratioBN.gt(0) ? ratio : undefined;
 }
 
+export function resolveStockTokenToAssetRatio({
+  selectedVariantRatio,
+  tokenDetailRatio,
+  hasSelectedVariant,
+  selectedVariantMatchesTokenDetail,
+}: {
+  selectedVariantRatio?: string;
+  tokenDetailRatio?: string;
+  hasSelectedVariant: boolean;
+  selectedVariantMatchesTokenDetail: boolean;
+}) {
+  return (
+    getValidStockTokenToAssetRatio(selectedVariantRatio) ??
+    (!hasSelectedVariant || selectedVariantMatchesTokenDetail
+      ? getValidStockTokenToAssetRatio(tokenDetailRatio)
+      : undefined)
+  );
+}
+
 export function calculateSwapStockEstimatedShares({
   stockTokenAmount,
   tokenToAssetRatio,

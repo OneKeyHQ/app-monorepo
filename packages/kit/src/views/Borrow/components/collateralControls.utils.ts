@@ -1,4 +1,7 @@
-import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import {
+  buildBorrowTag,
+  parseBorrowTag,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
 // Pure predicates for the Borrow collateral/borrowable controls.
 // Client composes server-owned flags without duplicating health-factor math.
@@ -100,16 +103,42 @@ export function getCollateralSettlementRefreshDecision({
   return 'retry';
 }
 
-// buildBorrowTag carries provider+action only (no reserve identity), so this
-// check is provider-scoped by construction: any pending setCollateral tx
-// disables ALL of that provider's switches until data refreshes.
 export function hasPendingSetCollateral({
   pendingTxs,
   provider,
+  networkId,
+  marketAddress,
+  reserveAddress,
 }: {
   pendingTxs: { stakingInfo: { tags?: string[] } }[];
   provider: string;
+  networkId: string;
+  marketAddress: string;
+  reserveAddress: string;
 }): boolean {
-  const tag = buildBorrowTag({ provider, action: 'setCollateral' });
-  return pendingTxs.some((tx) => tx.stakingInfo.tags?.includes(tag));
+  const providerTag = buildBorrowTag({ provider, action: 'setCollateral' });
+  const reserveTag = buildBorrowTag({
+    provider,
+    action: 'setCollateral',
+    setCollateralScope: { networkId, marketAddress, reserveAddress },
+  });
+
+  return pendingTxs.some((tx) => {
+    const tags = tx.stakingInfo.tags ?? [];
+    const hasReserveScopedTag = tags.some((tag) => {
+      const parsed = parseBorrowTag(tag);
+      return (
+        parsed?.provider === provider.toLowerCase() &&
+        parsed.action === 'setCollateral' &&
+        parsed.setCollateralScope !== undefined
+      );
+    });
+
+    // Older pending entries do not identify the reserve. Keep their original
+    // provider-wide lock until they settle; newly created entries use the
+    // exact reserve tag and no longer affect sibling switches.
+    return hasReserveScopedTag
+      ? tags.includes(reserveTag)
+      : tags.includes(providerTag);
+  });
 }

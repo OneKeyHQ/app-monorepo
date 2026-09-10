@@ -81,6 +81,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -118,6 +119,7 @@ import {
 import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
+import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
@@ -192,6 +194,13 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     swapInitParams?.swapSource === ESwapSource.MARKET;
+  const [marketSwapApprovalFlowId] = useState(() => generateUUID());
+  useEffect(() => {
+    if (isMarketEmbeddedSwap) {
+      return registerMarketSwapApprovalFlow(marketSwapApprovalFlowId);
+    }
+    return undefined;
+  }, [isMarketEmbeddedSwap, marketSwapApprovalFlowId]);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
@@ -220,7 +229,12 @@ const SwapMainLoad = ({
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
     markCurrentGasAccountReviewSubmitted,
-  } = useSwapBuildTx({ onSwapBroadcast });
+  } = useSwapBuildTx({
+    onSwapBroadcast,
+    marketSwapApprovalFlowId: isMarketEmbeddedSwap
+      ? marketSwapApprovalFlowId
+      : undefined,
+  });
   const rebuildReviewWithSlippage = useCallback(
     (slippagePercentage: number) =>
       rebuildSwapWithSlippage({ slippagePercentage }),
