@@ -32,7 +32,13 @@ const resolveMarketStockIdentity = createCachedMarketIdentityResolver({
   },
 });
 
-export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
+export function MarketStockStar({
+  stock,
+  from = EWatchlistFrom.Homepage,
+}: {
+  stock: IMarketStockPublicItem;
+  from?: EWatchlistFrom;
+}) {
   const identities = useMemo(
     () => getMarketStockVariantSummaryIdentities(stock.variants),
     [stock.variants],
@@ -49,7 +55,7 @@ export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
       resolveIdentity={resolveIdentity}
       identityKey={stock.stockId}
       resolveOnMount={identities.length === 0}
-      from={EWatchlistFrom.Homepage}
+      from={from}
       tokenSymbol={stock.symbol}
       testID={MarketTestIDs.stockStarButton(stock.stockId)}
     />

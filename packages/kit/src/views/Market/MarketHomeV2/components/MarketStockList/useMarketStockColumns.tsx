@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -99,12 +100,14 @@ export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
   showWatchlist = false,
+  watchlistFrom = EWatchlistFrom.Homepage,
 }: {
   /** Use the selector layout with a wider company column and denser rows. */
   compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
   showWatchlist?: boolean;
+  watchlistFrom?: EWatchlistFrom;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
@@ -146,7 +149,7 @@ export function useMarketStockColumns({
               justifyContent="center"
             >
               {showWatchlist ? (
-                <MarketStockStar stock={record} />
+                <MarketStockStar stock={record} from={watchlistFrom} />
               ) : (
                 <Icon name="StarOutline" size="$4" color="$iconSubdued" />
               )}
@@ -354,5 +357,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [compact, intl, showSparkline, showWatchlist]);
+  }, [compact, intl, showSparkline, showWatchlist, watchlistFrom]);
 }
