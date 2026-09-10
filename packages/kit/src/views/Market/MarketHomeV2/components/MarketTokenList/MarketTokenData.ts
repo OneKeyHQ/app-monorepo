@@ -1,4 +1,5 @@
 export interface IMarketToken {
+  assetId?: string;
   id: string;
   name: string;
   symbol: string;

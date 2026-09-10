@@ -116,11 +116,15 @@ function MarketBannerListComponent() {
 
   // md = true when screen width <= 767px (small screen)
   const isSmallScreen = md;
-  // The native page waits for the first banner decision before mounting.
-  // Keep that decision until re-entry; a reconnect must not insert a header.
-  const [initialBannerList] = useState(bannerList);
-  const initiallyHasBanners = initialBannerList.length > 0;
-  if (platformEnv.isNative && !initiallyHasBanners) return null;
+  // Commit only a successful response; a failed request can still recover.
+  // A successful empty response keeps the native header absent until re-entry.
+  const [initialBannerList, setInitialBannerList] = useState(
+    isFetched ? bannerList : undefined,
+  );
+  if (initialBannerList === undefined && isFetched) {
+    setInitialBannerList(bannerList);
+  }
+  if (platformEnv.isNative && !initialBannerList?.length) return null;
 
   // Only show skeleton on initial load (before first fetch completes).
   // Skip skeleton on re-fetch to avoid header height flicker when
@@ -133,7 +137,7 @@ function MarketBannerListComponent() {
   if (hidden && !platformEnv.isNative) return null;
   // Preserve the actual card dimensions (including tablet layouts) if a
   // reconnect removes the banners, without retaining interactive stale links.
-  const visibleBannerList = hidden ? initialBannerList : bannerList;
+  const visibleBannerList = hidden ? (initialBannerList ?? []) : bannerList;
   const bannerItems = visibleBannerList.map((item) => (
     <MarketBannerItem
       key={item._id}
