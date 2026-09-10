@@ -52,10 +52,15 @@ function buildDisabledByReserve<T extends { reserveAddress: string }>(
   return map;
 }
 
+// Wider than the $2 that separates an expanded card from its own action row,
+// narrower than the $5 between page sections, so a card and its buttons still
+// group tighter than two adjacent positions.
+const POSITION_CARD_GAP = '$4';
+
 function PositionCardSkeleton() {
   return (
     <YStack
-      bg="$bgApp"
+      bg="$bgSubdued"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderRadius="$3"
@@ -203,7 +208,7 @@ export function BorrowMobilePositions({
 
   if (isBorrowReservesPending(borrowDataStatus)) {
     return (
-      <YStack gap="$3">
+      <YStack gap={POSITION_CARD_GAP}>
         <PositionCardSkeleton />
         <PositionCardSkeleton />
       </YStack>
@@ -211,7 +216,7 @@ export function BorrowMobilePositions({
   }
 
   return (
-    <YStack gap="$3">
+    <YStack gap={POSITION_CARD_GAP}>
       {entries.map((entry) => {
         const reserveKey = earnUtils.normalizeBorrowAddress({
           networkId,
