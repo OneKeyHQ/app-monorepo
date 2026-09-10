@@ -36,6 +36,13 @@ jest.mock('@onekeyhq/components', () => {
       children?: React.ReactNode;
       testID?: string;
     }) => React.createElement('div', { 'data-testid': testID }, children),
+    YStack: ({
+      children,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      testID?: string;
+    }) => React.createElement('div', { 'data-testid': testID }, children),
     useTheme: () => ({
       borderActive: { val: '#00f' },
       borderSubdued: { val: '#ccc' },
@@ -72,6 +79,45 @@ describe('MarketDesktopChartContainer', () => {
 
     fireEvent.keyDown(resizeHandle, { key: 'Home' });
     expect(resizeHandle.getAttribute('aria-valuenow')).toBe('456');
+  });
+
+  it('keeps the chart mounted across a fullscreen toggle, footer or not', () => {
+    const handleChartMount = jest.fn();
+    const footer = <div data-testid="market-chart-footer">toolbar</div>;
+    const { rerender } = render(
+      <MarketDesktopChartContainer
+        testID="market-chart"
+        isFullscreen={false}
+        footer={footer}
+      >
+        <ChartMountProbe onMount={handleChartMount} />
+      </MarketDesktopChartContainer>,
+    );
+    expect(handleChartMount).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('market-chart-footer')).toBeTruthy();
+
+    // The caller drops its toolbar in fullscreen, so the footer goes from a
+    // node to undefined at the same time. Neither may change the element the
+    // chart hangs off: a remount costs the user their zoom and pan.
+    rerender(
+      <MarketDesktopChartContainer testID="market-chart" isFullscreen>
+        <ChartMountProbe onMount={handleChartMount} />
+      </MarketDesktopChartContainer>,
+    );
+    expect(handleChartMount).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('market-chart-footer')).toBeNull();
+
+    rerender(
+      <MarketDesktopChartContainer
+        testID="market-chart"
+        isFullscreen={false}
+        footer={footer}
+      >
+        <ChartMountProbe onMount={handleChartMount} />
+      </MarketDesktopChartContainer>,
+    );
+    expect(handleChartMount).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('market-chart-footer')).toBeTruthy();
   });
 
   it('hides the resize handle in fullscreen and restores its height on exit', () => {

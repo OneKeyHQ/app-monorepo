@@ -232,6 +232,18 @@ function StockEventRow({
                 </SizableText>
               </Stack>
             ) : null}
+            {/* Per Figma, the chevron follows the title inline rather than
+            sitting at the row's far right. */}
+            <Icon
+              name={
+                isExpanded
+                  ? 'ChevronTopSmallOutline'
+                  : 'ChevronDownSmallOutline'
+              }
+              size="$5"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
           </XStack>
           {isExpanded && detailLines.length > 0 ? (
             detailLines.map((line) => (
@@ -245,17 +257,6 @@ function StockEventRow({
             </SizableText>
           )}
         </YStack>
-        {/* The chevron keeps its own 16px vertical padding so it stays near the
-        title row instead of centering against the expanded detail lines. */}
-        <XStack alignItems="center" py="$4" flexShrink={0}>
-          <Icon
-            name={
-              isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-            }
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
       </XStack>
     </YStack>
   );

@@ -3,13 +3,11 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DashText,
   Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -28,8 +26,12 @@ import {
   MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
+import { MARKET_FIXED_24H_RANGE } from '../../utils';
 import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
-import { MARKET_CELL_SUBTITLE_SIZE } from '../MarketListCell';
+import {
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
 import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
 
 import { MarketStockStar } from './MarketStockStar';
@@ -40,7 +42,6 @@ const EMPTY_VALUE = '--';
 
 // `$bodyMd`'s line box: the company name and the variant summary share it so
 // the hover slide lands cleanly on the second line.
-const STOCK_SUBTITLE_LINE_HEIGHT = 20;
 const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
 
 const COMPACT_METRIC_COLUMN_PROPS: IStackProps = {
@@ -176,10 +177,10 @@ export function useMarketStockColumns({
                   {record.symbol}
                 </SizableText>
                 <MarketHoverRevealLine
-                  lineHeight={STOCK_SUBTITLE_LINE_HEIGHT}
+                  lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                   resting={
                     <SizableText
-                      height={STOCK_SUBTITLE_LINE_HEIGHT}
+                      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                       size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
                       color="$textSubdued"
                       numberOfLines={1}
@@ -191,7 +192,7 @@ export function useMarketStockColumns({
                   revealed={
                     record.variants?.length && !compact ? (
                       <XStack
-                        height={STOCK_SUBTITLE_LINE_HEIGHT}
+                        height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
                         alignItems="center"
                         gap="$1"
                         minWidth={0}
@@ -231,37 +232,16 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: compact ? (
-          <Tooltip
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                dashThickness={0.5}
-                dashSpacing={0}
-                color="$textSubdued"
-                // The header still sorts on press; the dashes and the tooltip
-                // are the hover affordance, so the cursor stays a pointer.
-                cursor="pointer"
-              >
-                {intl.formatMessage({ id: ETranslations.global_price })}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.market_stock_price_underlying_tooltip,
-                })}
-              </SizableText>
-            }
-            placement="top"
-          />
-        ) : (
-          intl.formatMessage({ id: ETranslations.global_price })
-        ),
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        // The header sorts on press, so the tooltip is built by HeaderColumn
+        // rather than nested in the title: a trigger in there would swallow
+        // the click.
+        titleTooltip: intl.formatMessage({
+          id: ETranslations.market_stock_price_underlying_tooltip,
+        }),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps: compact ? undefined : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
@@ -279,9 +259,10 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_banner_token_24hchange,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'priceChange24hPercent',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -296,7 +277,7 @@ export function useMarketStockColumns({
           return (
             <NumberSizeableText
               size={metricTextSize}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               color={changeColor}
               formatterOptions={{ showPlusMinusSigns }}
             >
@@ -328,9 +309,10 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'volume24h',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,

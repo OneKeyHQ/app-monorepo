@@ -46,6 +46,8 @@ export interface IMarketToken {
 export interface IMarketAssetListItem {
   assetId: string;
   symbol: string;
+  // Optional because only some list projections carry it; top_coins does.
+  name?: string;
   logoUrl: string;
   price: string;
   priceChange24hPercent: string;
