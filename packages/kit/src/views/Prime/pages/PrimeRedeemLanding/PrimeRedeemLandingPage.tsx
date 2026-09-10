@@ -39,7 +39,13 @@ import {
   type ETabHomeRoutes as ETabHomeRoutesType,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  getBoundOAuthProviders,
+  getOneKeyIdOAuthProviderIcon,
+  getOneKeyIdOAuthProviderName,
+} from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IOneKeyIdAccount } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
@@ -249,13 +255,21 @@ function RedeemLandingLayout({
 function RedeemLandingEmailChip({
   disabled,
   displayEmail,
+  onekeyAccount,
   onLogout,
 }: {
   disabled?: boolean;
   displayEmail: string | undefined;
+  onekeyAccount: IOneKeyIdAccount | undefined;
   onLogout: () => void;
 }) {
   const intl = useIntl();
+  const oauthProviders = getBoundOAuthProviders(onekeyAccount);
+  const displayEmailLabel = getDisplayEmailOrUnknown({
+    displayEmail,
+    intl,
+  });
+  const oauthProviderNames = oauthProviders.map(getOneKeyIdOAuthProviderName);
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => (
       <ActionList.Item
@@ -296,8 +310,24 @@ function RedeemLandingEmailChip({
           hoverStyle={disabled ? undefined : { opacity: 0.8 }}
           pressStyle={disabled ? undefined : { opacity: 0.6 }}
           focusable={!disabled}
+          accessibilityLabel={
+            oauthProviderNames.length
+              ? `${oauthProviderNames.join(' · ')} · ${displayEmailLabel}`
+              : displayEmailLabel
+          }
         >
-          <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
+          {oauthProviders.length === 0 ? (
+            <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
+          ) : (
+            oauthProviders.map((provider) => (
+              <Icon
+                key={provider}
+                name={getOneKeyIdOAuthProviderIcon(provider)}
+                size="$4"
+                color="$icon"
+              />
+            ))
+          )}
           <SizableText
             size="$bodySmMedium"
             color="$text"
@@ -305,10 +335,7 @@ function RedeemLandingEmailChip({
             ellipsizeMode="middle"
             flexShrink={1}
           >
-            {getDisplayEmailOrUnknown({
-              intl,
-              displayEmail,
-            })}
+            {displayEmailLabel}
           </SizableText>
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
@@ -348,6 +375,7 @@ function PrimeRedeemFormSection({
   initialCode,
   isLoginLoading,
   isPrimeActiveBeforeRedeem,
+  onekeyAccount,
   onLogin,
 }: {
   canRedeem: boolean;
@@ -356,6 +384,7 @@ function PrimeRedeemFormSection({
   initialCode: string;
   isLoginLoading: boolean;
   isPrimeActiveBeforeRedeem: boolean;
+  onekeyAccount: IOneKeyIdAccount | undefined;
   onLogin: () => void;
 }) {
   const intl = useIntl();
@@ -423,15 +452,6 @@ function PrimeRedeemFormSection({
               })}
             </Button>
           </RedeemLandingAction>
-          <Button
-            variant="tertiary"
-            testID={PrimeTestIDs.redemptionDoneBtn}
-            onPress={goToWebHome}
-          >
-            {intl.formatMessage({
-              id: ETranslations.redemption_done_button,
-            })}
-          </Button>
         </RedeemLandingContent>
       </RedeemLandingLayout>
     );
@@ -447,6 +467,7 @@ function PrimeRedeemFormSection({
               <RedeemLandingEmailChip
                 disabled={isSubmitting}
                 displayEmail={displayEmail}
+                onekeyAccount={onekeyAccount}
                 onLogout={handleLogout}
               />
             ) : undefined
@@ -569,6 +590,7 @@ function PrimeRedeemLandingPage() {
                 isPrimeActiveBeforeRedeem={Boolean(
                   user?.primeSubscription?.isActive,
                 )}
+                onekeyAccount={user?.onekeyAccount}
                 onLogin={handleLogin}
               />
             </YStack>
