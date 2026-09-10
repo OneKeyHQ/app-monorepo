@@ -857,6 +857,34 @@ describe('DeviceStageBurstScope', () => {
     expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    'preserves a portfolio package rejection after cleanup (RPC copy: %s)',
+    async (acrossRpc) => {
+      const isDeviceStillConnected = jest.fn(async () => false);
+      const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      const error = convertDeviceError({
+        code: HardwareErrorCode.RuntimeError,
+        error: 'Failure_DataError,Invalid portfolio package',
+      });
+      const landedError: unknown = acrossRpc
+        ? JSON.parse(JSON.stringify(toPlainErrorObject(error)))
+        : error;
+
+      await scope.end({ error: landedError });
+
+      expect(stage).toMatchObject({
+        step: 'error',
+        errorMessage: error.message,
+        errorI18n: { key: error.key, info: error.info },
+      });
+      expect(stage?.errorReason).toBeUndefined();
+      expect(isDeviceStillConnected).not.toHaveBeenCalled();
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps an unknown transport failure on the disconnected stage when unplugged', async () => {
     const isDeviceStillConnected = jest.fn(async () => false);
     const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
