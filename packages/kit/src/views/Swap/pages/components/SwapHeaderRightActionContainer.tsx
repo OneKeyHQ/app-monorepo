@@ -438,7 +438,7 @@ const SwapSettingsDialogContent = ({
               id: ETranslations.swap_page_settings_simple_mode,
             })}
             content={intl.formatMessage({
-              id: ETranslations.swap_page_settings_simple_mode_content,
+              id: ETranslations.description_sim_swap_smart_mode,
             })}
             badgeContent="Beta"
             value={swapBatchApproveAndSwap}

@@ -120,7 +120,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
-const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3;
 const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
@@ -232,7 +232,10 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
   )}${value.slice(firstSignificantDigitIndex)}`;
 }
 
-export function formatTradingViewNativePriceTick(price: number) {
+export function formatTradingViewNativePriceTick(
+  price: number,
+  significantFractionDigits: 4 | 6 = PRICE_SIGNIFICANT_FRACTION_DIGITS,
+) {
   'worklet';
 
   if (!Number.isFinite(price)) {
@@ -251,11 +254,9 @@ export function formatTradingViewNativePriceTick(price: number) {
     -Math.floor(Math.log10(absolutePrice)) - 1,
     0,
   );
-  const fractionDigits = leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS;
+  const fractionDigits = leadingZeroCount + significantFractionDigits;
   if (fractionDigits > MAX_TO_FIXED_FRACTION_DIGITS) {
-    return Number(
-      price.toPrecision(PRICE_SIGNIFICANT_FRACTION_DIGITS),
-    ).toString();
+    return Number(price.toPrecision(significantFractionDigits)).toString();
   }
 
   const fixedPrice = price.toFixed(fractionDigits);

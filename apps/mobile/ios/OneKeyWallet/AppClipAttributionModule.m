@@ -1,0 +1,21 @@
+#import <React/RCTBridgeModule.h>
+
+@interface RCT_EXTERN_MODULE(AppClipAttribution, NSObject)
+
+RCT_EXTERN_METHOD(readPending:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(savePending:(NSDictionary *)record
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(clearPending:(NSString *)clickId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(clearPendingHandoff:(NSString *)clickId
+                  openedAt:(NSNumber *)openedAt
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+@end

@@ -69,6 +69,42 @@ describe('TradingViewNative sub-indicator coordinates', () => {
     ).toBe('0.0₅2547');
   });
 
+  it.each([
+    [0.000_003_194_79, '0.0₅319479'],
+    [-0.000_003_194_79, '-0.0₅319479'],
+    [0.000_000_000_319_479, '0.0₉319479'],
+    [0.000_031_947_9, '0.0₄319479'],
+    [-0.000_031_947_9, '-0.0₄319479'],
+    [0.000_319_479, '0.000319479'],
+    [0.000_009_999_999, '0.0₄1'],
+    [0.000_099_999_99, '0.0001'],
+    [0, '0'],
+  ] as const)(
+    'compacts small volume indicator value %s to %s',
+    (value, expected) => {
+      expect(
+        formatTradingViewNativeSubIndicatorValue(value, { type: 'volume' }),
+      ).toBe(expected);
+    },
+  );
+
+  it('measures EMV axis labels using the same compact format as its ticks', () => {
+    const { pane } = createTradingViewNativeSubIndicatorRenderSnapshot({
+      config: { id: 'emv', indicator: 'EMV' },
+      points: POINTS,
+    });
+    pane.scale = {
+      kind: 'fixed',
+      maxValue: 0.000_004,
+      minValue: 0.000_002,
+    };
+
+    const label = getTradingViewNativeSubIndicatorAxisLabel([pane]);
+    expect(label).toContain('₅');
+    expect(label.length).toBeLessThan('0.00000319479'.length);
+    expect(label.length).toBeGreaterThanOrEqual('0.0₅319479'.length);
+  });
+
   it('finds a pane label wide enough for negative volume studies', () => {
     const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
       config: { id: 'obv', indicator: 'OBV' },
@@ -151,7 +187,25 @@ describe('TradingViewNative sub-indicator coordinates', () => {
     ).toBeLessThanOrEqual(volumeLabel.length);
   });
 
-  it('reserves scientific exponent width for ranges crossing zero', () => {
+  it('keeps a signed K-unit range narrower than a theoretical scientific label', () => {
+    const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
+      config: { id: 'obv', indicator: 'OBV' },
+      points: POINTS,
+    }).pane;
+    pane.scale = { kind: 'fixed', maxValue: 54_309, minValue: -141_663 };
+
+    const widestLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
+
+    expect(widestLabel).not.toMatch(/e/i);
+    expect(widestLabel.length).toBeLessThanOrEqual('-0.888888'.length);
+    for (const value of [54_309, 5316, -92_670, -141_663]) {
+      expect(
+        formatTradingViewNativeSubIndicatorValue(value, pane.format).length,
+      ).toBeLessThanOrEqual(widestLabel.length);
+    }
+  });
+
+  it('sizes tiny signed ranges for their formatted ticks', () => {
     const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
       config: { id: 'rsi', indicator: 'RSI' },
       points: POINTS,
@@ -162,23 +216,15 @@ describe('TradingViewNative sub-indicator coordinates', () => {
       minValue: -0.000_000_001,
     };
 
-    pane.format = { type: 'inherit' };
-    const inheritLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
-    expect(
-      formatTradingViewNativeSubIndicatorValue(
-        -0.000_000_000_088_88,
-        pane.format,
-      ).length,
-    ).toBeLessThanOrEqual(inheritLabel.length);
-
-    pane.format = { type: 'volume' };
-    const volumeLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
-    expect(
-      formatTradingViewNativeSubIndicatorValue(
-        -0.000_000_000_088_888_8,
-        pane.format,
-      ).length,
-    ).toBeLessThanOrEqual(volumeLabel.length);
+    for (const type of ['inherit', 'volume'] as const) {
+      pane.format = { type };
+      const widestLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
+      for (const value of [-1e-9, -5e-10, 0, 5e-10, 1e-9]) {
+        expect(
+          formatTradingViewNativeSubIndicatorValue(value, pane.format).length,
+        ).toBeLessThanOrEqual(widestLabel.length);
+      }
+    }
   });
 
   it('reserves the widest trillion-unit mantissa', () => {
