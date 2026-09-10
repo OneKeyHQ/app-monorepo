@@ -1142,6 +1142,14 @@ function ConnectYourDevicePage({
         if (isOneKeyHardwareError(error)) {
           const { code } = error;
           if (
+            platformEnv.isNativeIOS &&
+            code === HardwareErrorCode.BleDeviceNotBonded
+          ) {
+            // The iOS pairing prompt may still be open after this request fails.
+            // End this preflight quietly; the next Connect starts a new attempt.
+            return;
+          }
+          if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.BlePermissionError ||
             code === HardwareErrorCode.BleLocationError
