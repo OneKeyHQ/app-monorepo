@@ -11,7 +11,10 @@ import {
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  getDeviceErrorPayloadMessage,
+  toPlainErrorObject,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -834,6 +837,12 @@ export class DeviceStageBurstScope {
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // Firmware rejected the package; later cleanup must not turn this into
+    // a transport failure or a firmware-upgrade suggestion.
+    const isInvalidPortfolioPackage =
+      isHardwareErrorByCode({ error, code: HardwareErrorCode.RuntimeError }) &&
+      getDeviceErrorPayloadMessage(error?.payload ?? {}) ===
+        'Failure_DataError,Invalid portfolio package';
     // DeviceNotFound splits by whether this burst ever heard from the
     // device (see resolveDeviceNotFoundLanding). The at-initiation half
     // lands the Device-not-connected card and is done — synchronously,
@@ -858,6 +867,7 @@ export class DeviceStageBurstScope {
     if (
       reason === 'generic' &&
       !wasVendorBurst &&
+      !isInvalidPortfolioPackage &&
       // These failures identify the cause even when the transport tracker
       // has already cleared the connection (for example USB blocking BLE).
       !isHardwareErrorByCode({
@@ -919,6 +929,7 @@ export class DeviceStageBurstScope {
     }
     if (
       reason === 'generic' &&
+      !isInvalidPortfolioPackage &&
       isHardwareErrorByCode({
         error,
         code: [
