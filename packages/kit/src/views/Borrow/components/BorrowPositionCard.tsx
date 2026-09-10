@@ -25,6 +25,8 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
 import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
 
+const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
+
 export type IBorrowPositionCardAction = {
   key: string;
   label: string;
@@ -87,13 +89,24 @@ export function BorrowPositionCard({
   // amounts, then the button role and expanded state.
   const disclosureProps = isPressable
     ? ({
-        role: 'button',
         'aria-expanded': isExpanded,
-        tabIndex: 0,
         accessible: true,
         accessibilityRole: 'button',
         accessibilityState: { expanded: isExpanded },
-        onAccessibilityTap: onToggleExpand,
+        // accessibilityActions, not onAccessibilityTap: that one is wired to
+        // iOS accessibilityActivate only, and `accessible` collapses this
+        // subtree into a single node whose TalkBack double-tap arrives as
+        // ACTION_CLICK. With no onPress on the row (see above) the click has
+        // nothing to land on and does not bubble, so Android screen readers
+        // could not expand the card at all.
+        accessibilityActions: ACCESSIBILITY_ACTIVATE,
+        onAccessibilityAction: (event: {
+          nativeEvent: { actionName: string };
+        }) => {
+          if (event.nativeEvent.actionName === 'activate') {
+            onToggleExpand?.();
+          }
+        },
         // focusVisibleStyle, not focusStyle: the row takes DOM focus on every
         // pointer press, so a plain :focus ring boxes the asset row the moment
         // the card is tapped.
@@ -103,8 +116,11 @@ export function BorrowPositionCard({
           outlineStyle: 'solid',
           outlineOffset: 1,
         },
+        // role and tabIndex are DOM-only; React warns about them on native.
         ...(platformEnv.isRuntimeBrowser
           ? {
+              role: 'button' as const,
+              tabIndex: 0,
               onKeyDown: (event: {
                 key: string;
                 preventDefault: () => void;
