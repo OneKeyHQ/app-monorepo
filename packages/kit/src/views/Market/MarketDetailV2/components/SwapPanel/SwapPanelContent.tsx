@@ -74,6 +74,7 @@ const stockPercentageAmountEnterSources = [
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  isReviewActive?: boolean;
   quoteLoading?: boolean;
   isActionDisabled?: boolean;
   isRefreshQuote?: boolean;
@@ -137,6 +138,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     enableAddressTypeSelector,
     swapPanel,
     isLoading,
+    isReviewActive,
     quoteLoading = false,
     isActionDisabled,
     isRefreshQuote,
@@ -641,7 +643,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           </SizableText>
         ) : null}
 
-        {shouldUseSwapFallbackAction ? (
+        {shouldUseSwapFallbackAction && !isReviewActive ? (
           <ActionButton
             supportSpeedSwap={!!supportSpeedSwap.enabled}
             isAccountNetworkSupported={
@@ -669,6 +671,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           />
         ) : (
           <SwapActionsState
+            isReviewActive={isReviewActive}
             forceNoConnectWallet={noAccount}
             disabled={
               !noAccount &&

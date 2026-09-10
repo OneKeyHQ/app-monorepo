@@ -96,6 +96,8 @@ interface ISwapActionsStateProps {
   disabled?: boolean;
   forceNoConnectWallet?: boolean;
   forceQuoteActionLoading?: boolean;
+  // The Market review dialog owns loading; the background action stays inert.
+  isReviewActive?: boolean;
   onRefreshQuote?: () => void;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
@@ -108,6 +110,7 @@ const SwapActionsState = ({
   disabled,
   forceNoConnectWallet,
   forceQuoteActionLoading,
+  isReviewActive = false,
   onRefreshQuote,
   onPreSwap,
   onOpenRecipientAddress,
@@ -134,6 +137,13 @@ const SwapActionsState = ({
   const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
     useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const lastActionLabelRef = useRef(swapActionState.label);
+  if (!isReviewActive) {
+    lastActionLabelRef.current = swapActionState.label;
+  }
+  const actionLabel = isReviewActive
+    ? lastActionLabelRef.current
+    : swapActionState.label;
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
   );
@@ -400,18 +410,22 @@ const SwapActionsState = ({
     });
 
   const shouldShowQuoteActionLoading =
+    !isReviewActive &&
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
-  const isActionDisabled = noConnectWallet
-    ? shouldRedirectOnboardingToTravelMode()
-    : Boolean(disabled) ||
-      swapActionState.disabled ||
-      swapActionState.isLoading ||
-      shouldShowQuoteActionLoading ||
-      shouldBlockIncognitoRecipientAction;
+  const isActionDisabled =
+    isReviewActive ||
+    (noConnectWallet
+      ? shouldRedirectOnboardingToTravelMode()
+      : Boolean(disabled) ||
+        swapActionState.disabled ||
+        swapActionState.isLoading ||
+        shouldShowQuoteActionLoading ||
+        shouldBlockIncognitoRecipientAction);
 
   const onActionHandlerBefore = useCallback(async () => {
+    if (isReviewActive) return;
     if (noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -455,6 +469,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    isReviewActive,
     navigation,
     onOpenRecipientAddress,
     onPreSwap,
@@ -1008,13 +1023,13 @@ const SwapActionsState = ({
         >
           {noConnectWallet
             ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
-            : swapActionState.label}
+            : actionLabel}
         </SizableText>
       ),
     [
       intl,
       noConnectWallet,
-      swapActionState.label,
+      actionLabel,
       shouldShowQuoteActionLoading,
       themeVariant,
     ],
@@ -1044,6 +1059,7 @@ const SwapActionsState = ({
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={isActionDisabled}
+            opacity={isReviewActive ? 1 : undefined}
             borderRadius="$full"
             childrenAsText={false}
           >
@@ -1058,6 +1074,7 @@ const SwapActionsState = ({
       onActionHandlerBefore,
       actionButtonChildren,
       isActionDisabled,
+      isReviewActive,
       isDesktopModalPage,
       recipientComponent,
       shouldShowRecipientInActionRow,
@@ -1169,6 +1186,7 @@ const SwapActionsState = ({
                 size="medium"
                 variant="primary"
                 disabled={isActionDisabled}
+                opacity={isReviewActive ? 1 : undefined}
                 borderRadius="$full"
                 {...(desktopActionWidth ? { width: '100%' } : {})}
               >
@@ -1190,6 +1208,7 @@ const SwapActionsState = ({
       desktopActionWidth,
       desktopActionWidthProps,
       isActionDisabled,
+      isReviewActive,
       onActionHandlerBefore,
       onDesktopActionTagLayout,
       onSelectPercentageStage,

@@ -389,6 +389,21 @@ describe('SwapPanelContent', () => {
     });
   });
 
+  it('passes review ownership to the shared stock action without changing execution handlers', () => {
+    const props = {
+      ...createProps(),
+      stockDetailDesktopLayout: true,
+      isReviewActive: true,
+    };
+    render(<SwapPanelContent {...props} />);
+    expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        isReviewActive: true,
+        onPreSwap: expect.any(Function),
+      }),
+    );
+  });
+
   it('renders live stock quote values and delegates rate and provider details to Swap', () => {
     const props = createProps();
     props.stockDetailDesktopLayout = true;
@@ -521,6 +536,33 @@ describe('SwapPanelContent', () => {
         supportSpeedSwap: false,
         isAccountNetworkSupported: true,
       }),
+    );
+  });
+
+  it('keeps the review action mounted when speed swap becomes unavailable until review closes', () => {
+    const props = { ...createProps(), stockDetailDesktopLayout: true };
+    const { rerender } = render(<SwapPanelContent {...props} />);
+    actionButtonMock.mockClear();
+    rerender(
+      <SwapPanelContent
+        {...props}
+        isReviewActive
+        supportSpeedSwap={{ ...props.supportSpeedSwap, enabled: false }}
+      />,
+    );
+    expect(actionButtonMock).not.toHaveBeenCalled();
+    expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isReviewActive: true }),
+    );
+    rerender(
+      <SwapPanelContent
+        {...props}
+        supportSpeedSwap={{ ...props.supportSpeedSwap, enabled: false }}
+      />,
+    );
+    expect(screen.queryByTestId('swap-actions-state')).toBeNull();
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ supportSpeedSwap: false }),
     );
   });
 
