@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useDeviceFlickerTrace } from '../../debugDeviceFlicker';
 import { DeviceManagementTestIDs } from '../../testIDs';
 
 const MIN_BRIGHTNESS = 10;
@@ -117,11 +116,6 @@ export function DeviceBrightnessSlider({
   const intl = useIntl();
   const { displayValue, handleChange, handleSlideComplete } =
     useDeviceBrightnessSlider({ value, onCommit });
-  const { onLayout } = useDeviceFlickerTrace('details-brightness', {
-    value,
-    displayValue,
-    disabled,
-  });
 
   return (
     <YStack
@@ -130,7 +124,6 @@ export function DeviceBrightnessSlider({
       gap="$3"
       opacity={disabled ? 0.5 : 1}
       testID={DeviceManagementTestIDs.brightnessItem}
-      onLayout={onLayout}
     >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyMdMedium" color="$text">

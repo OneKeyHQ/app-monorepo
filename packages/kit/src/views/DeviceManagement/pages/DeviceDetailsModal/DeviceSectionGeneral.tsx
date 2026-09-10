@@ -32,7 +32,6 @@ import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDevi
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { useDeviceFlickerTrace } from '../../debugDeviceFlicker';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
@@ -629,18 +628,6 @@ function DeviceSectionGeneral() {
     showAutoShutDown ||
     showHapticFeedback;
 
-  const { onLayout } = useDeviceFlickerTrace('details-general', {
-    languageOptions: languageOptions.length,
-    autoLockOptions: autoLockOptions.length,
-    autoShutDownOptions: autoShutDownOptions.length,
-    showLanguage,
-    showAutoLock,
-    showAutoShutDown,
-    showBrightness,
-    showWallpaper,
-    showHapticFeedback,
-  });
-
   if (!hasVisibleItem) {
     return null;
   }
@@ -662,7 +649,6 @@ function DeviceSectionGeneral() {
 
   return (
     <ListItemGroup
-      groupProps={{ onLayout }}
       withSeparator
       itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
