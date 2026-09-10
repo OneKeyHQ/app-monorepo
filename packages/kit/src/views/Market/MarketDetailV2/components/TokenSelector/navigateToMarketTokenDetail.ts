@@ -26,7 +26,7 @@ export async function navigateToMarketTokenDetail(
     tokenDetailActions: {
       current: Pick<
         ReturnType<typeof useTokenDetailActions>['current'],
-        'clearTokenDetail' | 'changeActiveToken'
+        'clearTokenDetail' | 'changeActiveToken' | 'prepareTokenDetailPreview'
       >;
     };
     beforeNavigate?: () => void;
@@ -34,6 +34,7 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -70,10 +71,23 @@ export async function navigateToMarketTokenDetail(
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
     stock: opts.tokenDetailPreview?.stock,
+    name: opts.tokenDetailPreview?.name,
+    symbol: opts.tokenDetailPreview?.symbol,
   });
+  const shouldResolveMarketAsset = Boolean(
+    opts.resolveMarketAsset && !token.assetId && !stockId,
+  );
 
   if (stockId) {
     opts.tokenDetailActions.current.clearTokenDetail();
+  } else if (shouldResolveMarketAsset) {
+    if (opts.tokenDetailPreview) {
+      opts.tokenDetailActions.current.prepareTokenDetailPreview(
+        opts.tokenDetailPreview,
+      );
+    } else {
+      opts.tokenDetailActions.current.clearTokenDetail();
+    }
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -99,6 +113,13 @@ export async function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(shouldResolveMarketAsset
+      ? {
+          resolveMarketAsset: true,
+          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
+          legacyTokenPreview: opts.tokenDetailPreview,
+        }
+      : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),
