@@ -1,4 +1,7 @@
+import { HttpRequestError } from '@nktkas/hyperliquid';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const PERP_FUNDING_HISTORY_PAGE_SIZE = 500;
 
@@ -85,4 +88,31 @@ export async function fetchPerpFundingHistoryPages<
   }
 
   return records;
+}
+
+export async function fetchFundingPageWithRetry<T>(
+  fetchPage: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchPage();
+    } catch (error) {
+      if (
+        !(error instanceof HttpRequestError) ||
+        error.response?.status !== 429 ||
+        attempt >= 3
+      ) {
+        throw error;
+      }
+      const retryAfter = error.response.headers.get('Retry-After');
+      const seconds = retryAfter?.trim() ? Number(retryAfter) : NaN;
+      const delay = Number.isFinite(seconds)
+        ? seconds * 1000
+        : Date.parse(retryAfter ?? '') - Date.now();
+      // Keep the current page cursor while backing off; never publish partial history.
+      await timerUtils.wait(
+        Math.max(2000 * 2 ** attempt, Number.isFinite(delay) ? delay : 0),
+      );
+    }
+  }
 }
