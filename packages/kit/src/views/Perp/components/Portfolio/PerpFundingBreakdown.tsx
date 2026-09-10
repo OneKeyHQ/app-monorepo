@@ -33,7 +33,7 @@ import type {
   View as RNView,
 } from 'react-native';
 
-const MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT = 220;
+const FUNDING_DISTRIBUTION_CARD_HEIGHT = 220;
 const DONUT_SIZE = 112;
 const DONUT_STROKE_WIDTH = 7;
 const DONUT_ACTIVE_STROKE_WIDTH = 10;
@@ -48,7 +48,7 @@ function FundingDistributionCardSkeleton({ isMobile }: { isMobile: boolean }) {
   return (
     <YStack
       flex={isMobile ? undefined : 1}
-      height={isMobile ? MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined}
+      height={isMobile ? FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined}
       bg="$bgSubdued"
       borderRadius="$3"
       p="$3.5"
@@ -254,14 +254,15 @@ function FundingDistributionCard({
   isLoading,
   direction,
   isMobile,
+  stretch,
 }: {
   rows: IFundingDistributionRow[];
   title: string;
   isLoading: boolean;
   direction: 'received' | 'paid';
   isMobile: boolean;
+  stretch: boolean;
 }) {
-  const intl = useIntl();
   const theme = useTheme();
   const [hoveredCoin, setHoveredCoin] = useState<string | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
@@ -385,8 +386,13 @@ function FundingDistributionCard({
 
   return (
     <YStack
-      flex={isMobile ? undefined : 1}
-      height={isMobile ? MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined}
+      flex={stretch ? 1 : undefined}
+      flexShrink={0}
+      height={
+        !stretch && rows.length > 0
+          ? FUNDING_DISTRIBUTION_CARD_HEIGHT
+          : undefined
+      }
       bg="$bgSubdued"
       borderRadius="$3"
       p="$3.5"
@@ -470,41 +476,7 @@ function FundingDistributionCard({
             ))}
           </YStack>
         </XStack>
-      ) : (
-        <XStack flex={1} minHeight={DONUT_SIZE} alignItems="center" gap="$6">
-          <XStack
-            width={DONUT_SIZE}
-            height={DONUT_SIZE}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Svg
-              width={DONUT_SIZE}
-              height={DONUT_SIZE}
-              pointerEvents={platformEnv.isNative ? 'none' : 'auto'}
-            >
-              <Circle
-                cx={DONUT_CENTER}
-                cy={DONUT_CENTER}
-                r={DONUT_RADIUS}
-                stroke={theme.neutral5.val}
-                strokeWidth={DONUT_STROKE_WIDTH}
-                fill="none"
-              />
-            </Svg>
-          </XStack>
-          <SizableText
-            flex={1}
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_portfolio_funding_empty__desc,
-            })}
-          </SizableText>
-        </XStack>
-      )}
+      ) : null}
     </YStack>
   );
 }
@@ -538,9 +510,7 @@ export function PerpFundingBreakdown({
     return (
       <YStack
         flex={isMobile ? undefined : 1}
-        minHeight={
-          isMobile ? MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined
-        }
+        minHeight={isMobile ? FUNDING_DISTRIBUTION_CARD_HEIGHT : undefined}
         alignItems="center"
         justifyContent="center"
         gap="$3"
@@ -560,6 +530,43 @@ export function PerpFundingBreakdown({
     );
   }
 
+  if (
+    !isLoading &&
+    distribution.received.length === 0 &&
+    distribution.paid.length === 0
+  ) {
+    return (
+      <YStack bg="$bgSubdued" borderRadius="$3" px="$3.5">
+        {[
+          ETranslations.perp_portfolio_funding_total_received__label,
+          ETranslations.perp_portfolio_funding_total_paid__label,
+        ].map((label, index) => (
+          <XStack
+            key={label}
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+            py="$4"
+            borderTopWidth={index === 0 ? 0 : '$px'}
+            borderColor="$borderSubdued"
+          >
+            <SizableText flex={1} size="$bodySmMedium" color="$textDisabled">
+              {intl.formatMessage({ id: label })}
+            </SizableText>
+            <SizableText flexShrink={0} size="$bodySmMedium" color="$text">
+              {formatPerpsUsd(0)}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
+    );
+  }
+
+  const stretchCards =
+    !isMobile &&
+    distribution.received.length > 0 &&
+    distribution.paid.length > 0;
+
   return (
     <YStack flex={isMobile ? undefined : 1} gap="$3">
       <FundingDistributionCard
@@ -570,6 +577,7 @@ export function PerpFundingBreakdown({
         isLoading={isLoading}
         direction="received"
         isMobile={isMobile}
+        stretch={stretchCards}
       />
       <FundingDistributionCard
         rows={distribution.paid}
@@ -579,6 +587,7 @@ export function PerpFundingBreakdown({
         isLoading={isLoading}
         direction="paid"
         isMobile={isMobile}
+        stretch={stretchCards}
       />
     </YStack>
   );
