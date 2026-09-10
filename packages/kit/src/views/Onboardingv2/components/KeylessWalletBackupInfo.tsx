@@ -13,10 +13,12 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import type { IBackupDataExportPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { downloadAsFile } from '../../../utils/downloadAsFile';
 import { OnboardingTestIDs } from '../testIDs';
@@ -42,8 +44,23 @@ function KeylessWalletBackupDetails({
     if (!backup?.content) {
       throw new OneKeyLocalError('Backup data is empty');
     }
+    let content = backup.content;
+    if (platformEnv.isNativeAndroid) {
+      const { userId } =
+        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
+      if (!userId) {
+        throw new OneKeyLocalError(
+          'Google user ID is required to export backup data',
+        );
+      }
+      const payload: IBackupDataExportPayload = {
+        ...backup.payload,
+        googleUserId: userId,
+      };
+      content = stringUtils.stableStringify(payload);
+    }
     await downloadAsFile({
-      content: backup.content,
+      content,
       filename: `onekey-cloud-backup-${backupRecordId}.json`,
     });
   }, [backupRecordId]);
