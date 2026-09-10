@@ -122,7 +122,10 @@ export function BorrowPositionCard({
       <YStack
         testID={testID}
         cursor={isPressable ? 'pointer' : undefined}
-        bg="$bgApp"
+        // $bgSubdued, not $bgApp: the card has to read as a block against the
+        // page, the way the e-mode bar below it already does. The fill is only
+        // one step off the page background, so the hairline border stays.
+        bg="$bgSubdued"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
