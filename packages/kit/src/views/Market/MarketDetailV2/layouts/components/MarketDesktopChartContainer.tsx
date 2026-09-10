@@ -8,7 +8,7 @@ import type {
 
 import { useWindowDimensions } from 'react-native';
 
-import { Stack, useTheme } from '@onekeyhq/components';
+import { Stack, YStack, useTheme } from '@onekeyhq/components';
 import { useMarketDesktopLayoutAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -62,13 +62,21 @@ export function MarketDesktopChartContainer({
   fullscreenStyle,
   fullscreenZIndex,
   isFullscreen,
-  testID,
+  footer,
+  testID = 'market-desktop-chart',
 }: {
   children: ReactNode;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
   isFullscreen: boolean;
-  testID: string;
+  // Rendered under the resize handle, outside the resizable box. The handle's
+  // line has to sit on the box's own clipping edge to read as the cut it makes
+  // while dragging, so anything that belongs below it lives out here.
+  footer?: ReactNode;
+  // Defaulted rather than required: the handle and the drag shield derive
+  // their own ids from it, so a caller that has no need to name the container
+  // must not leave them reading `undefined-resize-handle`.
+  testID?: string;
 }) {
   const theme = useTheme();
   const { height: viewportHeight } = useWindowDimensions();
@@ -343,7 +351,7 @@ export function MarketDesktopChartContainer({
     [],
   );
 
-  return (
+  const box = (
     <Stack
       testID={testID}
       width="100%"
@@ -400,5 +408,16 @@ export function MarketDesktopChartContainer({
         />
       ) : null}
     </Stack>
+  );
+
+  // The wrapper is unconditional: returning `box` bare in fullscreen changes
+  // the element the chart hangs off, which remounts the whole subtree and
+  // costs the user their zoom and pan every time they toggle. Fullscreen drops
+  // the footer instead, and the box keeps carrying the frame styles itself.
+  return (
+    <YStack width="100%" gap="$2">
+      {box}
+      {isFullscreen ? null : footer}
+    </YStack>
   );
 }
