@@ -141,6 +141,7 @@ export enum EAtomNames {
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
   swapTradingViewIndicatorSettingsPersistAtom = 'swapTradingViewIndicatorSettingsPersistAtom',
   // market
+  marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
