@@ -126,7 +126,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1H': '1h',
   '1D': '1d',
   '1W': '1w',
-  '1M': '1y',
+  '1M': '1m',
   '1Y': '1y',
   All: 'all',
 };
@@ -191,7 +191,6 @@ export async function fetchStockSimpleChartPoints(
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
         stockId,
         period: STOCK_SHARE_CHART_PERIODS[range],
-        points: range === '1M' ? 180 : 100,
       });
     const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
@@ -201,17 +200,7 @@ export async function fetchStockSimpleChartPoints(
       )
       .toSorted((a, b) => a[0] - b[0]);
 
-    if (range !== '1M') {
-      return points;
-    }
-
-    const latestTimestamp = points.at(-1)?.[0];
-    if (latestTimestamp === undefined) {
-      return points;
-    }
-
-    const timeFrom = latestTimestamp - STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS;
-    return points.filter(([timestamp]) => timestamp >= timeFrom);
+    return points;
   }
 
   const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
