@@ -727,6 +727,9 @@ describe('DeviceStageBurstScope', () => {
     HardwareErrorCode.BleBondInvalid,
     HardwareErrorCode.DeviceNotOpenedPassphrase,
     HardwareErrorCode.NewFirmwareForceUpdate,
+    HardwareErrorCode.BlePermissionError,
+    HardwareErrorCode.BleLocationError,
+    HardwareErrorCode.BleLocationServicesDisabled,
   ])('leaves the stage when recovery UI owns error %s', async (code) => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });

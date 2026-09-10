@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "デバイスの数字の位置を合わせる",
   "device_stage_pin_set_to_app__desc": "次回から有効になります。今回はデバイスで入力してください。",
   "device_stage_pin_set_to_app__title": "PIN入力をアプリに設定しました",
+  "device_stage_pin_too_short__msg": "4桁以上で入力してください。",
   "device_stage_prefer_pin_in_app__action": "アプリでPINを入力しますか？",
   "device_stage_processing__title": "処理中…",
   "device_stage_reconnect__action": "再接続",
