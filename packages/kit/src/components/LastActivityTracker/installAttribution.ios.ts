@@ -3,6 +3,7 @@ import { NativeModules } from 'react-native';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppClipInstallAttributionParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/install';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -169,7 +170,12 @@ async function reportPendingInstallAttribution(): Promise<void> {
     return;
   }
   const attribution = mergeClaimWithPending(claim, pending);
-  await nativeModule.savePending(attribution);
+  const didSaveAttribution = await nativeModule.savePending(attribution);
+  if (!didSaveAttribution) {
+    throw new OneKeyLocalError(
+      'Failed to persist App Clip attribution snapshot.',
+    );
+  }
   await defaultLogger.app.install.reportAppClipInstallAttribution(attribution);
   await nativeModule.savePending({
     ...attribution,

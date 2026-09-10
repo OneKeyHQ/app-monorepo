@@ -340,7 +340,7 @@ describe('reportInstallAttribution', () => {
     expect(mockClearPending).toHaveBeenCalledTimes(2);
   });
 
-  it('continues reporting when the first-claim snapshot cannot persist', async () => {
+  it('keeps the pending record when the first-claim snapshot cannot persist', async () => {
     mockPost.mockResolvedValue({
       data: {
         data: {
@@ -350,10 +350,12 @@ describe('reportInstallAttribution', () => {
     });
     mockSavePending.mockResolvedValueOnce(false);
 
-    await reportInstallAttribution();
+    await expect(reportInstallAttribution()).rejects.toThrow(
+      'Failed to persist App Clip attribution snapshot.',
+    );
 
-    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
-    expect(mockClearPending).toHaveBeenCalledTimes(1);
+    expect(mockReportAttribution).not.toHaveBeenCalled();
+    expect(mockClearPending).not.toHaveBeenCalled();
   });
 
   it('deduplicates concurrent attribution consumption', async () => {
