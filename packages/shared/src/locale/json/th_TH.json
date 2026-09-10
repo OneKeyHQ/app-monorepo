@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "ประวัติอัตรา Funding",
   "perp_funding_rate_history_empty__desc": "ไม่มีประวัติอัตรา Funding สำหรับตลาดนี้",
   "perp_funding_rate_short__title": "อัตรา",
+  "perp_funding_settlement_currency__title": "สกุลเงินที่ใช้ชำระราคา",
   "perp_funding_side__label": "ฝั่ง",
   "perp_guide_title": "คู่มือการเทรด",
   "perp_holdings_empty_message": "ไม่มีสินทรัพย์สปอต",

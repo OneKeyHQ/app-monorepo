@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "फंडिंग दर का इतिहास",
   "perp_funding_rate_history_empty__desc": "इस मार्केट के लिए फंडिंग दर का इतिहास उपलब्ध नहीं है।",
   "perp_funding_rate_short__title": "दर",
+  "perp_funding_settlement_currency__title": "निपटान मुद्रा",
   "perp_funding_side__label": "दिशा",
   "perp_guide_title": "ट्रेडिंग गाइड",
   "perp_holdings_empty_message": "कोई स्पॉट एसेट नहीं",

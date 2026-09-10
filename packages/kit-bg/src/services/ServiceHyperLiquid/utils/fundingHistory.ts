@@ -1,9 +1,22 @@
 import { HttpRequestError } from '@nktkas/hyperliquid';
 
+import { PERP_USER_FUNDING_HISTORY_LIMIT } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 export const PERP_FUNDING_HISTORY_PAGE_SIZE = 500;
+
+export async function fetchRecentUserFundingHistory(
+  fetchRecent: () => Promise<IUserFunding[]>,
+): Promise<IUserFunding[]> {
+  // With no time bounds, userFunding returns the latest 2000 records.
+  // Time-bounded requests instead page from oldest to newest.
+  const records = await fetchFundingPageWithRetry(fetchRecent);
+  return records
+    .toSorted((a, b) => b.time - a.time || b.hash.localeCompare(a.hash))
+    .slice(0, PERP_USER_FUNDING_HISTORY_LIMIT);
+}
 
 type ITimedFundingHistoryRecord = {
   time: number;

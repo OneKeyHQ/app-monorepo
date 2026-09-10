@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "历史资金费率",
   "perp_funding_rate_history_empty__desc": "该市场暂无历史资金费率数据。",
   "perp_funding_rate_short__title": "资金费率",
+  "perp_funding_settlement_currency__title": "结算币种",
   "perp_funding_side__label": "方向",
   "perp_guide_title": "交易指南",
   "perp_holdings_empty_message": "没有现货资产",
