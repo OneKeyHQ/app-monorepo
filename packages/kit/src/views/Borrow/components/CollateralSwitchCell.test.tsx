@@ -330,8 +330,9 @@ describe('CollateralSwitchCell settlement guard', () => {
 
   // A padded halo pulled back with a negative margin lands outside this view's
   // parent, where Android never hit-tests and hitSlop is ignored, while on web
-  // it swallowed the desktop row press and overhung the next column. The small
-  // track is 38x24 and already clears WCAG 2.5.8, so there is nothing to buy.
+  // it swallowed the desktop row press and overhung the next column. Nothing to
+  // buy either: the web track is 38x24, at the WCAG 2.5.8 floor, and native
+  // hands off to the platform control, which is larger.
   it('keeps the press target on the track instead of a padded halo', () => {
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
