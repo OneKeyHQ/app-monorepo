@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
-index 7821793..58d7fef 100644
+index 7821793..58100c3 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 +++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
 @@ -410,6 +410,7 @@ internal class NativeListRowView(
@@ -34,7 +34,16 @@ index 7821793..58d7fef 100644
      }
      mainColumn.addView(mediaMetadataRow, 0)
      mainColumn.addView(titleLine, 1)
-@@ -2469,7 +2473,9 @@ internal class NativeListRowView(
+@@ -2465,11 +2469,17 @@ internal class NativeListRowView(
+     val isIcon = kind == "icon"
+     val cornerIconData = visual.optJSONObject("cornerIcon")
+     val fallback = visual.optString("fallbackText").take(2)
+-    leadingFallback.text = fallback
++    val fallbackIconData = visual.optJSONObject("fallbackIcon")
++    val handlesSourceFallback =
++      !isIcon && sources.isNotEmpty() &&
++        (visual.has("fallbackText") || fallbackIconData != null)
++    leadingFallback.text = if (handlesSourceFallback) "" else fallback
      leadingFallback.setTextColor(parseNativeListColor("#00000072"))
      val visualBackground = safeColor(
        visual.optString("backgroundColor"),
@@ -45,26 +54,90 @@ index 7821793..58d7fef 100644
      )
      if (!isIcon && visual.optString("backgroundColor").isNotEmpty()) {
        leadingFrame.background = roundedFill(
-@@ -2536,7 +2542,9 @@ internal class NativeListRowView(
+@@ -2477,8 +2487,12 @@ internal class NativeListRowView(
+         leadingCornerRadius(shape, sizeDp),
+       )
+     }
+-    leadingFallback.background = roundedFill(visualBackground, leadingCornerRadius(shape, sizeDp))
+-    leadingFallback.visibility = if (!isIcon && sources.isEmpty()) VISIBLE else GONE
++    leadingFallback.background = roundedFill(
++      if (handlesSourceFallback) parseNativeListColor(imagePlaceholderColor) else visualBackground,
++      leadingCornerRadius(shape, sizeDp),
++    )
++    leadingFallback.visibility =
++      if (!isIcon && (sources.isEmpty() || handlesSourceFallback)) VISIBLE else GONE
+     if (isIcon) {
+       leadingFrame.background = GradientDrawable().apply {
+         setColor(visualBackground)
+@@ -2491,6 +2505,14 @@ internal class NativeListRowView(
+         parseNativeListColor("#0000009B"),
+       )
+       leadingIcon.visibility = VISIBLE
++    } else if (sources.isEmpty() && fallbackIconData != null) {
++      leadingFallback.visibility = GONE
++      leadingIcon.iconName = fallbackIconData.optString("name")
++      leadingIcon.tintColor = safeColor(
++        fallbackIconData.optString("tintColor"),
++        parseNativeListColor("#0000009B"),
++      )
++      leadingIcon.visibility = VISIBLE
+     }
+     val visibleSources = sources.take(leadingImages.size)
+     val tokenPair = kind == "token" && visibleSources.size > 1
+@@ -2536,7 +2558,10 @@ internal class NativeListRowView(
      }
      visibleSources.forEachIndexed { index, (source, variant) ->
        val image = leadingImages[index]
 -      image.visibility = VISIBLE
-+      // OneKey patch: Secondary token/network images are decorative badges.
++      // OneKey patch: Decorative badges and source-owned fallbacks stay hidden until loaded.
 +      // image.visibility = VISIBLE
-+      image.visibility = if (index > 0) INVISIBLE else VISIBLE
++      val ownsSourceFallback = index == 0 && handlesSourceFallback
++      image.visibility = if (index > 0 || ownsSourceFallback) INVISIBLE else VISIBLE
        image.layoutParams = leadingImageLayout(
          index = index,
          count = visibleSources.size,
-@@ -2563,6 +2571,7 @@ internal class NativeListRowView(
-             leadingIcon.visibility = VISIBLE
+@@ -2548,21 +2573,32 @@ internal class NativeListRowView(
+         else -> leadingOutlineProvider(shape)
+       }
+       image.clipToOutline = true
+-      val fallbackIcon = if (index == 0) visual.optJSONObject("fallbackIcon") else null
++      val fallbackIcon = if (index == 0) fallbackIconData else null
+       val expectedEpoch = bindingEpoch
+       bindImage(source, image, boundKey ?: "", index, variant,
+-        onLoad = if (fallbackIcon == null) null else ({
+-          if (bindingEpoch == expectedEpoch) { image.visibility = VISIBLE; leadingIcon.visibility = GONE }
++        onLoad = if (!ownsSourceFallback) null else ({
++          if (bindingEpoch == expectedEpoch) {
++            image.visibility = VISIBLE
++            leadingFallback.visibility = GONE
++            leadingIcon.visibility = GONE
++          }
+         }),
+-        onError = if (fallbackIcon == null) null else ({
++        onError = if (!ownsSourceFallback) null else ({
+           if (bindingEpoch == expectedEpoch) {
+             image.visibility = GONE
+-            leadingFallback.visibility = GONE
+-            leadingIcon.iconName = fallbackIcon.optString("name")
+-            leadingIcon.tintColor = safeColor(fallbackIcon.optString("tintColor"), parseNativeListColor("#0000009B"))
+-            leadingIcon.visibility = VISIBLE
++            if (fallbackIcon != null) {
++              leadingFallback.visibility = GONE
++              leadingIcon.iconName = fallbackIcon.optString("name")
++              leadingIcon.tintColor = safeColor(fallbackIcon.optString("tintColor"), parseNativeListColor("#0000009B"))
++              leadingIcon.visibility = VISIBLE
++            } else {
++              leadingIcon.visibility = GONE
++              leadingFallback.text = fallback
++              leadingFallback.visibility = VISIBLE
++            }
            }
          }),
-+        hideUntilLoaded = index > 0,
++        hideUntilLoaded = index > 0 || ownsSourceFallback,
        )
      }
      // OneKey patch: wallet overlays retain source images, provider colors and QR text.
-@@ -2585,7 +2594,7 @@ internal class NativeListRowView(
+@@ -2585,7 +2621,7 @@ internal class NativeListRowView(
          val image = overlay.optJSONObject("image")
          val view = when {
            image != null -> OneKeyImageReusableView(reactContext).also {
@@ -73,7 +146,7 @@ index 7821793..58d7fef 100644
              selectorImages.add(it)
            }
            overlay.optString("text").isNotEmpty() -> TextView(context).apply {
-@@ -3294,12 +3303,26 @@ internal class NativeListRowView(
+@@ -3294,12 +3330,26 @@ internal class NativeListRowView(
      variant: String,
      onLoad: (() -> Unit)? = null,
      onError: (() -> Unit)? = null,
@@ -100,7 +173,7 @@ index 7821793..58d7fef 100644
      imageView.configure(
        sourceUri = uri,
        sourceHeadersJson = source.optJSONObject("headers")?.toString(),
-@@ -3311,20 +3334,21 @@ internal class NativeListRowView(
+@@ -3311,20 +3361,21 @@ internal class NativeListRowView(
        optimizeTos = retryAttempt == 0 && source.optBoolean("optimizeTos", true),
        overscan = source.optDouble("overscan", 1.1),
        loadingStrategy = source.optString("loadingStrategy", "static"),
@@ -128,7 +201,7 @@ index 7821793..58d7fef 100644
              }
              selectorImageRetries[imageView] = retry
 diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
-index 81836fa..d0a7475 100644
+index 81836fa..3c827f0 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 +++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 @@ -2055,13 +2055,15 @@ final class NativeListCell: UICollectionViewCell {
@@ -149,42 +222,102 @@ index 81836fa..d0a7475 100644
        )
      }
      mainStack.insertArrangedSubview(mediaMetadataStack, at: 0)
-@@ -2725,7 +2727,12 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2723,14 +2725,23 @@ final class NativeListCell: UICollectionViewCell {
+       default: kind == "image" || mediaHeight.isActive ? "rounded" : "circle"
+     )
      let cornerIcon = visual.dictionary("cornerIcon")
-     fallbackLabel.text = String(visual.string("fallbackText").prefix(2))
+-    fallbackLabel.text = String(visual.string("fallbackText").prefix(2))
++    let fallbackText = String(visual.string("fallbackText").prefix(2))
++    let fallbackIconData = visual.dictionary("fallbackIcon")
++    let handlesSourceFallback = !isIcon && !sources.isEmpty &&
++      (visual["fallbackText"] != nil || fallbackIconData != nil)
++    fallbackLabel.text = handlesSourceFallback ? nil : fallbackText
++    let sourceFallbackBackground = currentTheme?["strongBackground"] as? String ?? "#0000000F"
      leadingContainer.backgroundColor = UIColor(
 -      nativeListHex: visual.string("backgroundColor", default: isIcon ? "#F0F0F0" : "#E0E0E0"),
 +      // OneKey patch: Visual loading and fallback use the active list theme.
 +      // nativeListHex: visual.string("backgroundColor", default: isIcon ? "#F0F0F0" : "#E0E0E0"),
-+      nativeListHex: visual.string(
-+        "backgroundColor",
-+        default: currentTheme?["strongBackground"] as? String ?? "#0000000F"
-+      ),
++      nativeListHex: handlesSourceFallback
++        ? sourceFallbackBackground
++        : visual.string("backgroundColor", default: sourceFallbackBackground),
        fallback: .gray
      )
      leadingContainer.layer.cornerRadius = leadingCornerRadius(shape: shape)
-@@ -2778,7 +2785,9 @@ final class NativeListCell: UICollectionViewCell {
+     leadingContainer.clipsToBounds = true
+-    fallbackLabel.isHidden = isIcon || !sources.isEmpty
++    fallbackLabel.isHidden = isIcon || (!sources.isEmpty && !handlesSourceFallback)
+     if isIcon {
+       leadingContainer.layer.borderWidth = 1 / UIScreen.main.scale
+       leadingContainer.layer.borderColor = UIColor(
+@@ -2744,6 +2755,15 @@ final class NativeListCell: UICollectionViewCell {
+       )
+       leadingIconImageView.image = nativeListIcon(named: visual.string("name"))
+       leadingIconImageView.contentMode = .scaleAspectFit
++    } else if sources.isEmpty, let fallbackIconData {
++      fallbackLabel.isHidden = true
++      leadingIconImageView.isHidden = false
++      leadingIconImageView.tintColor = UIColor(
++        nativeListHex: fallbackIconData.string("tintColor", default: "#646464"),
++        fallback: .darkGray
++      )
++      leadingIconImageView.image = nativeListIcon(named: fallbackIconData.string("name"))
++      leadingIconImageView.contentMode = .scaleAspectFit
+     }
+     let visibleSources = Array(sources.prefix(leadingImages.count))
+     let tokenPair = kind == "token" && visibleSources.count > 1
+@@ -2778,7 +2798,10 @@ final class NativeListCell: UICollectionViewCell {
      }
      for (index, source) in visibleSources.enumerated() {
        let imageView = leadingImages[index]
 -      imageView.isHidden = false
-+      // OneKey patch: Secondary token/network images are decorative badges.
++      // OneKey patch: Decorative badges and source-owned fallbacks stay hidden until loaded.
 +      // imageView.isHidden = false
-+      imageView.isHidden = index > 0
++      let ownsSourceFallback = index == 0 && handlesSourceFallback
++      imageView.isHidden = index > 0 || ownsSourceFallback
        imageView.clipsToBounds = true
        leadingSlotConstraints.append(contentsOf: leadingConstraints(
          imageView,
-@@ -2807,7 +2816,8 @@ final class NativeListCell: UICollectionViewCell {
-           self.leadingIconImageView.image = nativeListIcon(named: fallbackIcon.string("name"))
-           self.leadingIconImageView.tintColor = UIColor(nativeListHex: fallbackIcon.string("tintColor", default: "#646464"), fallback: .darkGray)
-           self.leadingIconImageView.isHidden = false
+@@ -2792,22 +2815,30 @@ final class NativeListCell: UICollectionViewCell {
+         imageView.layer.cornerRadius = 0
+         imageView.clipsToBounds = false
+       }
+-      let fallbackIcon = index == 0 ? visual.dictionary("fallbackIcon") : nil
++      let fallbackIcon = index == 0 ? fallbackIconData : nil
+       let expectedEpoch = bindingEpoch
+       bindImage(source.data, into: imageView, token: key, slot: index, variant: source.variant,
+-        onLoad: fallbackIcon == nil ? nil : { [weak self, weak imageView] in
++        onLoad: !ownsSourceFallback ? nil : { [weak self, weak imageView] in
+           guard let self, self.bindingEpoch == expectedEpoch else { return }
+           imageView?.isHidden = false
++          self.fallbackLabel.isHidden = true
+           self.leadingIconImageView.isHidden = true
+         },
+-        onError: fallbackIcon == nil ? nil : { [weak self, weak imageView] in
+-          guard let self, self.bindingEpoch == expectedEpoch, let fallbackIcon else { return }
++        onError: !ownsSourceFallback ? nil : { [weak self, weak imageView] in
++          guard let self, self.bindingEpoch == expectedEpoch else { return }
+           imageView?.isHidden = true
+-          self.fallbackLabel.isHidden = true
+-          self.leadingIconImageView.image = nativeListIcon(named: fallbackIcon.string("name"))
+-          self.leadingIconImageView.tintColor = UIColor(nativeListHex: fallbackIcon.string("tintColor", default: "#646464"), fallback: .darkGray)
+-          self.leadingIconImageView.isHidden = false
 -        })
++          if let fallbackIcon {
++            self.fallbackLabel.isHidden = true
++            self.leadingIconImageView.image = nativeListIcon(named: fallbackIcon.string("name"))
++            self.leadingIconImageView.tintColor = UIColor(nativeListHex: fallbackIcon.string("tintColor", default: "#646464"), fallback: .darkGray)
++            self.leadingIconImageView.isHidden = false
++          } else {
++            self.leadingIconImageView.isHidden = true
++            self.fallbackLabel.text = fallbackText
++            self.fallbackLabel.isHidden = false
++          }
 +        },
-+        hideUntilLoaded: index > 0)
++        hideUntilLoaded: index > 0 || ownsSourceFallback)
      }
      // OneKey patch: source-derived wallet decorations may occupy both corners.
      let overlays = visual.dictionaries("overlays")
-@@ -2824,7 +2834,15 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2824,7 +2855,15 @@ final class NativeListCell: UICollectionViewCell {
        let width = CGFloat(overlay.double("width", default: isWalletText ? Double(naturalTextWidth) : Double(size)))
        let frame = UIView()
        frame.translatesAutoresizingMaskIntoConstraints = false
@@ -201,7 +334,7 @@ index 81836fa..d0a7475 100644
        frame.layer.cornerRadius = min(width, height) / 2
        frame.clipsToBounds = true
        leadingContainer.addSubview(frame)
-@@ -2839,7 +2857,14 @@ final class NativeListCell: UICollectionViewCell {
+@@ -2839,7 +2878,14 @@ final class NativeListCell: UICollectionViewCell {
        let content: UIView
        if let image = overlay.dictionary("image") {
          let imageView = OneKeyImageReusableView(frame: .zero)
@@ -217,7 +350,7 @@ index 81836fa..d0a7475 100644
          selectorImages.append(imageView)
          content = imageView
        } else if !overlay.string("text").isEmpty {
-@@ -3297,6 +3322,7 @@ final class NativeListCell: UICollectionViewCell {
+@@ -3297,6 +3343,7 @@ final class NativeListCell: UICollectionViewCell {
      variant: String,
      onLoad: (() -> Void)? = nil,
      onError: (() -> Void)? = nil,
@@ -225,7 +358,7 @@ index 81836fa..d0a7475 100644
      retryAttempt: Int = 0
    ) {
      let imageID = ObjectIdentifier(imageView)
-@@ -3311,6 +3337,17 @@ final class NativeListCell: UICollectionViewCell {
+@@ -3311,6 +3358,17 @@ final class NativeListCell: UICollectionViewCell {
      } else {
        headersJson = nil
      }
@@ -243,7 +376,7 @@ index 81836fa..d0a7475 100644
      imageView.configure(
        sourceUri: source.string("uri").trimmingCharacters(in: .whitespacesAndNewlines),
        sourceHeadersJson: headersJson,
-@@ -3322,19 +3359,20 @@ final class NativeListCell: UICollectionViewCell {
+@@ -3322,19 +3380,20 @@ final class NativeListCell: UICollectionViewCell {
        optimizeTos: retryAttempt == 0 && (source["optimizeTos"] == nil || source.bool("optimizeTos")),
        overscan: source["overscan"] == nil ? 1.1 : source.double("overscan"),
        loadingStrategy: source.string("loadingStrategy", default: "static"),
@@ -367,7 +500,7 @@ index f651fb9..a06b0d2 100644
  //# sourceMappingURL=index.js.map
 \ No newline at end of file
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index f5636a0..5746770 100644
+index f5636a0..278f984 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -572,11 +572,32 @@ function configureWebAvatar(image, source, uri) {
@@ -436,7 +569,7 @@ index f5636a0..5746770 100644
    });
    frame.insertBefore(paint, image);
    if (image.complete && image.naturalWidth > 0) update();
-@@ -883,7 +915,9 @@ function createVisual(context, visual, selectorPresentation) {
+@@ -883,8 +915,13 @@ function createVisual(context, visual, selectorPresentation) {
      frame.appendChild(fallback);
      return frame;
    }
@@ -445,8 +578,37 @@ index f5636a0..5746770 100644
 +  // if ('backgroundColor' in visual && visual.backgroundColor) frame.style.background = visual.backgroundColor;
 +  frame.style.background = 'backgroundColor' in visual && visual.backgroundColor ? visual.backgroundColor : 'var(--nl-strong)';
    const source = visual.kind === 'image' ? visual.image : visual.image;
++  const fallbackIcon = 'fallbackIcon' in visual ? visual.fallbackIcon : undefined;
++  const handlesSourceFallback = !!source && (fallbackIcon !== undefined || 'fallbackText' in visual);
++  if (handlesSourceFallback) frame.style.background = 'var(--nl-strong)';
    const image = source ? createImage(context, source) : undefined;
    if (image) {
+     image.className = 'ok-native-list-visual-main';
+@@ -904,17 +941,19 @@ function createVisual(context, visual, selectorPresentation) {
+     frame.appendChild(corner);
+   }
+   // OneKey patch: image failure uses the same source-derived fallback as v1.
+-  if ('fallbackIcon' in visual && visual.fallbackIcon) {
+-    const icon = visual.fallbackIcon;
++  const hasFallbackText = 'fallbackText' in visual;
++  if (fallbackIcon || hasFallbackText) {
+     const showFallback = () => {
+       if (image) {
+         disposeWebImageRetries(image);
+         image.remove();
+       }
+       frame.querySelector('.ok-native-list-visual-fallback:not(.ok-native-list-visual-corner)')?.remove();
+-      const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback');
+-      applySelectorIcon(fallback, icon.name);
+-      if (icon.tintColor) fallback.style.color = icon.tintColor;
++      const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', fallbackIcon ? undefined : 'fallbackText' in visual ? visual.fallbackText ?? '' : '');
++      if (fallbackIcon) {
++        applySelectorIcon(fallback, fallbackIcon.name);
++        if (fallbackIcon.tintColor) fallback.style.color = fallbackIcon.tintColor;
++      }
+       frame.prepend(fallback);
+     };
+     if (image) image.addEventListener('error', showFallback, {
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
 index 2d4d817..60bc77a 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
@@ -624,7 +786,7 @@ index f819475..9e61558 100644
    ActionAnchorState,
    NativeListProps,
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index b9d3e13..ec70efc 100644
+index b9d3e13..d73b21f 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 @@ -963,6 +963,30 @@ function configureWebAvatar(
@@ -710,7 +872,7 @@ index b9d3e13..ec70efc 100644
    });
    frame.insertBefore(paint, image);
    if (image.complete && image.naturalWidth > 0) update();
-@@ -1380,8 +1421,13 @@ function createVisual(
+@@ -1380,8 +1421,18 @@ function createVisual(
      return frame;
    }
 
@@ -724,5 +886,43 @@ index b9d3e13..ec70efc 100644
 +      ? visual.backgroundColor
 +      : 'var(--nl-strong)';
    const source = visual.kind === 'image' ? visual.image : visual.image;
++  const fallbackIcon =
++    'fallbackIcon' in visual ? visual.fallbackIcon : undefined;
++  const handlesSourceFallback =
++    !!source && (fallbackIcon !== undefined || 'fallbackText' in visual);
++  if (handlesSourceFallback) frame.style.background = 'var(--nl-strong)';
    const image = source ? createImage(context, source) : undefined;
    if (image) {
+@@ -1420,8 +1471,8 @@ function createVisual(
+     frame.appendChild(corner);
+   }
+   // OneKey patch: image failure uses the same source-derived fallback as v1.
+-  if ('fallbackIcon' in visual && visual.fallbackIcon) {
+-    const icon = visual.fallbackIcon;
++  const hasFallbackText = 'fallbackText' in visual;
++  if (fallbackIcon || hasFallbackText) {
+     const showFallback = () => {
+       if (image) {
+         disposeWebImageRetries(image);
+@@ -1435,10 +1486,18 @@ function createVisual(
+       const fallback = createElement(
+         context.document,
+         'span',
+-        'ok-native-list-visual-fallback'
++        'ok-native-list-visual-fallback',
++        fallbackIcon
++          ? undefined
++          : 'fallbackText' in visual
++          ? visual.fallbackText ?? ''
++          : ''
+       );
+-      applySelectorIcon(fallback, icon.name);
+-      if (icon.tintColor) fallback.style.color = icon.tintColor;
++      if (fallbackIcon) {
++        applySelectorIcon(fallback, fallbackIcon.name);
++        if (fallbackIcon.tintColor)
++          fallback.style.color = fallbackIcon.tintColor;
++      }
+       frame.prepend(fallback);
+     };
+     if (image) image.addEventListener('error', showFallback, { once: true });
