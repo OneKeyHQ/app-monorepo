@@ -55,6 +55,32 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/kit/src/components/MultipleClickStack', () => ({
+  MultipleClickStack: ({
+    children,
+    onSinglePress,
+    testID,
+  }: {
+    children?: ReactNode;
+    onSinglePress?: () => void;
+    testID?: string;
+  }) => (
+    <div
+      role="button"
+      tabIndex={0}
+      data-testid={testID}
+      onClick={onSinglePress}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          onSinglePress?.();
+        }
+      }}
+    >
+      {children}
+    </div>
+  ),
+}));
+
 describe('KeylessWalletBackupInfo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
