@@ -885,11 +885,9 @@ describe('marketV2 watchlist optimistic actions', () => {
 
     await act(async () => {
       newerRequest.resolve(undefined);
-      await newerAction;
-    });
-    await act(async () => {
       olderRequest.reject(new Error('older add failed'));
       await expect(olderAction).rejects.toThrow('older add failed');
+      await newerAction;
     });
 
     expect(store.get(marketWatchListV2Atom()).data).toEqual([

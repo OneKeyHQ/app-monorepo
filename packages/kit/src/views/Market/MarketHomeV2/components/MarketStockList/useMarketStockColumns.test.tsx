@@ -37,6 +37,10 @@ jest.mock('./StockSparkline', () => ({
   StockSparkline: () => null,
 }));
 
+jest.mock('./MarketStockStar', () => ({
+  MarketStockStar: () => null,
+}));
+
 const mockStock: IMarketStockPublicItem = {
   stockId: 'AAPL',
   symbol: 'AAPL',
