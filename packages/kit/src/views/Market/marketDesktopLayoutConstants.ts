@@ -1,14 +1,14 @@
-const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1480;
+const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1440;
+const MARKET_HOME_DESKTOP_CONTENT_GUTTER = 20;
 
 export const MARKET_DESKTOP_CHART_MIN_HEIGHT = 456;
 
-// The Market desktop design has 62px gutters inside its 1364px content area.
-// Keep those gutters stable through ordinary desktop widths, then cap the
-// content at 1480px so wide windows retain balanced breathing room. The same
-// frame is shared by home lists, detail pages, and portalled sticky headers so
-// their outer edges stay aligned.
+// The content runs to the window minus a 20px gutter on each side, capped at
+// 1440px so wide windows keep balanced breathing room. The same frame is
+// shared by home lists, detail pages, and portalled sticky headers so their
+// outer edges stay aligned.
 export const MARKET_DESKTOP_CONTENT_FRAME_PROPS = {
-  width: 'calc(100% - 124px)',
+  width: `calc(100% - ${MARKET_HOME_DESKTOP_CONTENT_GUTTER * 2}px)`,
   maxWidth: MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH,
   alignSelf: 'center',
   mx: 'auto',
