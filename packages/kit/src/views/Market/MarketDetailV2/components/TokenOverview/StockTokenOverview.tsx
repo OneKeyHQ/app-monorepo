@@ -21,7 +21,6 @@ import {
   formatStockAnalystConsensus,
 } from '../../utils/stockPublicDataUtils';
 import { StockDescriptionRows } from '../StockDescriptionRows';
-import { stockFinancialLabels } from '../StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
@@ -144,11 +143,7 @@ export function StockTokenOverview() {
       <Divider my="$1" />
 
       {stockId ? (
-        <StockFinancials
-          stockId={stockId}
-          labels={stockFinancialLabels}
-          withHorizontalPadding={false}
-        />
+        <StockFinancials stockId={stockId} withHorizontalPadding={false} />
       ) : null}
 
       <Stack gap="$3" py="$2">

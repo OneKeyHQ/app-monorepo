@@ -46,7 +46,6 @@ import {
   StockAnalystGauge,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
-import { stockFinancialLabels } from '../components/StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
   type IStockSimpleChartRange,
@@ -1274,9 +1273,7 @@ function StockOverview({
           </YStack>
           <StockEventsSection />
           <StockAnalystRatings />
-          {stockId ? (
-            <StockFinancials stockId={stockId} labels={stockFinancialLabels} />
-          ) : null}
+          {stockId ? <StockFinancials stockId={stockId} /> : null}
           <StockNewsSection />
           <StockAbout />
         </>
