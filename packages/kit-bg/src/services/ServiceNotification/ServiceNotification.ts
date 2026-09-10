@@ -1159,36 +1159,53 @@ export default class ServiceNotification extends ServiceBase {
       );
     }
 
-    const accountActivity = await this.rebuildAccountActivity({
+    const accountActivity = this.rebuildAccountActivity({
       notificationWallets,
       maxAccountCount,
-      originalAccountActivity,
       currentAccountActivity,
       settings,
     });
     await this.saveAccountActivityNotificationSettings(accountActivity);
   }
 
-  async rebuildAccountActivity({
+  rebuildAccountActivity({
     notificationWallets,
     maxAccountCount,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    originalAccountActivity,
     currentAccountActivity,
     settings,
   }: {
     notificationWallets: IDBWallet[];
     maxAccountCount: number;
-    originalAccountActivity: IAccountActivityNotificationSettings;
     currentAccountActivity: IAccountActivityNotificationSettings;
     settings: ISimpleDbNotificationSettings | null | undefined;
   }) {
     const accountActivity: IAccountActivityNotificationSettings = {};
 
-    const currentEnabledAccountCount =
-      await this.backgroundApi.simpleDb.notificationSettings.getEnabledAccountCount();
+    const allNotificationWallets = notificationWallets.flatMap((wallet) => [
+      wallet,
+      ...(wallet.hiddenWallets || []),
+    ]);
+    // Reserve quota only for enabled accounts that still exist, including
+    // settings restored from the Prime backup.
+    const currentEnabledAccountCount = allNotificationWallets.reduce(
+      (count, wallet) => {
+        const walletSettings = currentAccountActivity[wallet.id];
+        if (!walletSettings || walletSettings.enabled === false) {
+          return count;
+        }
+        return (
+          count +
+          (wallet.dbAccounts || wallet.dbIndexedAccounts || []).filter(
+            (account) =>
+              walletSettings.accounts?.[account.id]?.enabled === true,
+          ).length
+        );
+      },
+      0,
+    );
 
     let totalEnabledCount = 0;
+    let newlyEnabledAccountCount = 0;
     const isInit = !settings?.accountActivity;
     const updateWalletAccountActivity = ({
       wallet,
@@ -1199,12 +1216,10 @@ export default class ServiceNotification extends ServiceBase {
       skipDisabledAccounts?: boolean;
       oldAccountActivity: IAccountActivityNotificationSettings;
     }) => {
-      accountActivity[wallet.id] = oldAccountActivity?.[wallet.id] || {
-        enabled: false,
+      accountActivity[wallet.id] = {
+        enabled: oldAccountActivity[wallet.id]?.enabled ?? false,
         accounts: {},
       };
-      accountActivity[wallet.id].accounts =
-        accountActivity[wallet.id].accounts || {};
       let enabledCountInWallet = 0;
       const disableAccount = (account: IDBAccount | IDBIndexedAccount) => {
         if (skipDisabledAccounts) {
@@ -1220,6 +1235,12 @@ export default class ServiceNotification extends ServiceBase {
             enabled: true,
           };
           totalEnabledCount += 1;
+          if (
+            oldAccountActivity[wallet.id]?.accounts?.[account.id]?.enabled ===
+            undefined
+          ) {
+            newlyEnabledAccountCount += 1;
+          }
           enabledCountInWallet += 1;
           accountActivity[wallet.id].enabled = true;
         } else {
@@ -1243,10 +1264,18 @@ export default class ServiceNotification extends ServiceBase {
             oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
               true || isAccountEnabledUndefined;
 
-          if (isWalletEnabled && isAccountEnabled) {
+          if (!isWalletEnabled) {
+            // Keep selections without consuming quota while the wallet is disabled.
+            accountActivity[wallet.id].accounts[account.id] = {
+              enabled:
+                oldAccountActivity[wallet.id]?.accounts?.[account.id]
+                  ?.enabled ?? false,
+            };
+          } else if (isAccountEnabled) {
             if (
               isAccountEnabledUndefined &&
-              currentEnabledAccountCount >= maxAccountCount
+              currentEnabledAccountCount + newlyEnabledAccountCount >=
+                maxAccountCount
             ) {
               disableAccount(account);
             } else {
@@ -1271,23 +1300,11 @@ export default class ServiceNotification extends ServiceBase {
         accountActivity[wallet.id].enabled = false;
       }
     };
-    for (const wallet of notificationWallets) {
-      // TODO only update enabled=true accounts
-      // updateWalletAccountActivity(wallet, originalAccountActivity);
-      // for (const hiddenWallet of wallet.hiddenWallets || []) {
-      //   updateWalletAccountActivity(hiddenWallet, originalAccountActivity);
-      // }
-
+    for (const wallet of allNotificationWallets) {
       updateWalletAccountActivity({
         wallet,
         oldAccountActivity: currentAccountActivity,
       });
-      for (const hiddenWallet of wallet.hiddenWallets || []) {
-        updateWalletAccountActivity({
-          wallet: hiddenWallet,
-          oldAccountActivity: currentAccountActivity,
-        });
-      }
     }
 
     return accountActivity;
