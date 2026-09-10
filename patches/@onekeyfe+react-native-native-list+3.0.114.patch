@@ -1,0 +1,728 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+index 7821793..58d7fef 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+@@ -410,6 +410,7 @@ internal class NativeListRowView(
+   private var checkboxUsesSelectorStyle = false
+   private var iconSubduedColor = Color.rgb(141, 141, 141)
+   private var visualBackdropColor = Color.WHITE
++  private var imagePlaceholderColor = "#0000000F"
+   private val circleOutlineProvider = object : ViewOutlineProvider() {
+     override fun getOutline(view: View, outline: Outline) {
+       outline.setOval(0, 0, view.width, view.height)
+@@ -686,6 +687,8 @@ internal class NativeListRowView(
+     }
+     iconSubduedColor = color(theme, "iconSubdued", "#00000072")
+     visualBackdropColor = color(theme, "rowBackground", "#FFFFFF")
++    imagePlaceholderColor = theme?.optString("strongBackground", "#0000000F")
++      ?.takeIf(String::isNotEmpty) ?: "#0000000F"
+     unreadDot.background = roundedFill(
+       parseNativeListColor("#E5484D"),
+       4f,
+@@ -1834,11 +1837,12 @@ internal class NativeListRowView(
+     mediaMetadataRow.gravity = Gravity.CENTER_VERTICAL
+     mediaMetadataRow.addView(subtitle, weighted().apply { marginEnd = dp(8) })
+     item.json.optJSONObject("networkImage")?.let { networkImage ->
+-      mediaNetworkImage.visibility = VISIBLE
++      // OneKey patch: Preserve badge layout without exposing a loading/error tile.
++      // mediaNetworkImage.visibility = VISIBLE
+       mediaNetworkImage.outlineProvider = circleOutlineProvider
+       mediaNetworkImage.clipToOutline = true
+       mediaMetadataRow.addView(mediaNetworkImage, LayoutParams(dp(14), dp(14)))
+-      bindImage(networkImage, mediaNetworkImage, item.key, 2, "network")
++      bindImage(networkImage, mediaNetworkImage, item.key, 2, "network", hideUntilLoaded = true)
+     }
+     mainColumn.addView(mediaMetadataRow, 0)
+     mainColumn.addView(titleLine, 1)
+@@ -2469,7 +2473,9 @@ internal class NativeListRowView(
+     leadingFallback.setTextColor(parseNativeListColor("#00000072"))
+     val visualBackground = safeColor(
+       visual.optString("backgroundColor"),
+-      parseNativeListColor(if (isIcon) "#0000000F" else "#E0E0E0"),
++      // OneKey patch: Visual loading and fallback use the active list theme.
++      // parseNativeListColor(if (isIcon) "#0000000F" else "#E0E0E0"),
++      parseNativeListColor(imagePlaceholderColor),
+     )
+     if (!isIcon && visual.optString("backgroundColor").isNotEmpty()) {
+       leadingFrame.background = roundedFill(
+@@ -2536,7 +2542,9 @@ internal class NativeListRowView(
+     }
+     visibleSources.forEachIndexed { index, (source, variant) ->
+       val image = leadingImages[index]
+-      image.visibility = VISIBLE
++      // OneKey patch: Secondary token/network images are decorative badges.
++      // image.visibility = VISIBLE
++      image.visibility = if (index > 0) INVISIBLE else VISIBLE
+       image.layoutParams = leadingImageLayout(
+         index = index,
+         count = visibleSources.size,
+@@ -2563,6 +2571,7 @@ internal class NativeListRowView(
+             leadingIcon.visibility = VISIBLE
+           }
+         }),
++        hideUntilLoaded = index > 0,
+       )
+     }
+     // OneKey patch: wallet overlays retain source images, provider colors and QR text.
+@@ -2585,7 +2594,7 @@ internal class NativeListRowView(
+         val image = overlay.optJSONObject("image")
+         val view = when {
+           image != null -> OneKeyImageReusableView(reactContext).also {
+-            bindImage(image, it, boundKey ?: "", 10 + index, "generic")
++            bindImage(image, it, boundKey ?: "", 10 + index, "generic", hideUntilLoaded = true)
+             selectorImages.add(it)
+           }
+           overlay.optString("text").isNotEmpty() -> TextView(context).apply {
+@@ -3294,12 +3303,26 @@ internal class NativeListRowView(
+     variant: String,
+     onLoad: (() -> Unit)? = null,
+     onError: (() -> Unit)? = null,
++    hideUntilLoaded: Boolean = false,
+     retryAttempt: Int = 0,
+   ) {
+     selectorImageRetries.remove(imageView)?.let(imageView::removeCallbacks)
+     val expectedEpoch = bindingEpoch
+     val retryLimit = source.optInt("retryTimes", 0).coerceAtLeast(0)
+     val uri = source.optString("uri").trim().takeIf(String::isNotEmpty)
++    if (hideUntilLoaded) imageView.visibility = INVISIBLE
++    val handleLoad: (() -> Unit)? = if (hideUntilLoaded) ({
++      if (bindingEpoch == expectedEpoch) {
++        imageView.visibility = VISIBLE
++        onLoad?.invoke()
++      }
++    }) else onLoad
++    val handleError: (() -> Unit)? = if (hideUntilLoaded) ({
++      if (bindingEpoch == expectedEpoch) {
++        imageView.visibility = INVISIBLE
++        onError?.invoke()
++      }
++    }) else onError
+     imageView.configure(
+       sourceUri = uri,
+       sourceHeadersJson = source.optJSONObject("headers")?.toString(),
+@@ -3311,20 +3334,21 @@ internal class NativeListRowView(
+       optimizeTos = retryAttempt == 0 && source.optBoolean("optimizeTos", true),
+       overscan = source.optDouble("overscan", 1.1),
+       loadingStrategy = source.optString("loadingStrategy", "static"),
+-      onLoad = if (retryLimit == 0) onLoad else ({
++      placeholderColor = imagePlaceholderColor,
++      onLoad = if (retryLimit == 0) handleLoad else ({
+         if (bindingEpoch == expectedEpoch) {
+           selectorImageRetries.remove(imageView)?.let(imageView::removeCallbacks)
+-          onLoad?.invoke()
++          handleLoad?.invoke()
+         }
+       }),
+-      onError = if (retryLimit == 0) onError else ({
++      onError = if (retryLimit == 0) handleError else ({
+         if (bindingEpoch == expectedEpoch) {
+-          if (retryAttempt >= retryLimit) onError?.invoke()
++          if (retryAttempt >= retryLimit) handleError?.invoke()
+           else if (!selectorImageRetries.containsKey(imageView)) {
+             val retry = Runnable {
+               if (bindingEpoch == expectedEpoch) {
+                 selectorImageRetries.remove(imageView)
+-                bindImage(source, imageView, token, slot, variant, onLoad, onError, retryAttempt + 1)
++                bindImage(source, imageView, token, slot, variant, onLoad, onError, hideUntilLoaded, retryAttempt + 1)
+               }
+             }
+             selectorImageRetries[imageView] = retry
+diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
+index 81836fa..d0a7475 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
++++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
+@@ -2055,13 +2055,15 @@ final class NativeListCell: UICollectionViewCell {
+     subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+     if let networkImage = item.data.dictionary("networkImage") {
+       mediaMetadataStack.addArrangedSubview(mediaNetworkImage)
+-      mediaNetworkImage.isHidden = false
++      // OneKey patch: Preserve badge layout without exposing a loading/error tile.
++      // mediaNetworkImage.isHidden = false
+       bindImage(
+         networkImage,
+         into: mediaNetworkImage,
+         token: item.key,
+         slot: 2,
+-        variant: "network"
++        variant: "network",
++        hideUntilLoaded: true
+       )
+     }
+     mainStack.insertArrangedSubview(mediaMetadataStack, at: 0)
+@@ -2725,7 +2727,12 @@ final class NativeListCell: UICollectionViewCell {
+     let cornerIcon = visual.dictionary("cornerIcon")
+     fallbackLabel.text = String(visual.string("fallbackText").prefix(2))
+     leadingContainer.backgroundColor = UIColor(
+-      nativeListHex: visual.string("backgroundColor", default: isIcon ? "#F0F0F0" : "#E0E0E0"),
++      // OneKey patch: Visual loading and fallback use the active list theme.
++      // nativeListHex: visual.string("backgroundColor", default: isIcon ? "#F0F0F0" : "#E0E0E0"),
++      nativeListHex: visual.string(
++        "backgroundColor",
++        default: currentTheme?["strongBackground"] as? String ?? "#0000000F"
++      ),
+       fallback: .gray
+     )
+     leadingContainer.layer.cornerRadius = leadingCornerRadius(shape: shape)
+@@ -2778,7 +2785,9 @@ final class NativeListCell: UICollectionViewCell {
+     }
+     for (index, source) in visibleSources.enumerated() {
+       let imageView = leadingImages[index]
+-      imageView.isHidden = false
++      // OneKey patch: Secondary token/network images are decorative badges.
++      // imageView.isHidden = false
++      imageView.isHidden = index > 0
+       imageView.clipsToBounds = true
+       leadingSlotConstraints.append(contentsOf: leadingConstraints(
+         imageView,
+@@ -2807,7 +2816,8 @@ final class NativeListCell: UICollectionViewCell {
+           self.leadingIconImageView.image = nativeListIcon(named: fallbackIcon.string("name"))
+           self.leadingIconImageView.tintColor = UIColor(nativeListHex: fallbackIcon.string("tintColor", default: "#646464"), fallback: .darkGray)
+           self.leadingIconImageView.isHidden = false
+-        })
++        },
++        hideUntilLoaded: index > 0)
+     }
+     // OneKey patch: source-derived wallet decorations may occupy both corners.
+     let overlays = visual.dictionaries("overlays")
+@@ -2824,7 +2834,15 @@ final class NativeListCell: UICollectionViewCell {
+       let width = CGFloat(overlay.double("width", default: isWalletText ? Double(naturalTextWidth) : Double(size)))
+       let frame = UIView()
+       frame.translatesAutoresizingMaskIntoConstraints = false
+-      frame.backgroundColor = UIColor(nativeListHex: overlay.string("backgroundColor", default: "#FFFFFF"), fallback: .clear)
++      // OneKey patch: The row theme, not a light-only white, owns badge backing.
++      // frame.backgroundColor = UIColor(nativeListHex: overlay.string("backgroundColor", default: "#FFFFFF"), fallback: .clear)
++      frame.backgroundColor = UIColor(
++        nativeListHex: overlay.string(
++          "backgroundColor",
++          default: currentTheme?["rowBackground"] as? String ?? "#00000000"
++        ),
++        fallback: .clear
++      )
+       frame.layer.cornerRadius = min(width, height) / 2
+       frame.clipsToBounds = true
+       leadingContainer.addSubview(frame)
+@@ -2839,7 +2857,14 @@ final class NativeListCell: UICollectionViewCell {
+       let content: UIView
+       if let image = overlay.dictionary("image") {
+         let imageView = OneKeyImageReusableView(frame: .zero)
+-        bindImage(image, into: imageView, token: key, slot: 10 + index, variant: "generic")
++        bindImage(
++          image,
++          into: imageView,
++          token: key,
++          slot: 10 + index,
++          variant: "generic",
++          hideUntilLoaded: true
++        )
+         selectorImages.append(imageView)
+         content = imageView
+       } else if !overlay.string("text").isEmpty {
+@@ -3297,6 +3322,7 @@ final class NativeListCell: UICollectionViewCell {
+     variant: String,
+     onLoad: (() -> Void)? = nil,
+     onError: (() -> Void)? = nil,
++    hideUntilLoaded: Bool = false,
+     retryAttempt: Int = 0
+   ) {
+     let imageID = ObjectIdentifier(imageView)
+@@ -3311,6 +3337,17 @@ final class NativeListCell: UICollectionViewCell {
+     } else {
+       headersJson = nil
+     }
++    if hideUntilLoaded { imageView.isHidden = true }
++    let handleLoad: (() -> Void)? = hideUntilLoaded ? { [weak self, weak imageView] in
++      guard let self, self.bindingEpoch == expectedEpoch else { return }
++      imageView?.isHidden = false
++      onLoad?()
++    } : onLoad
++    let handleError: (() -> Void)? = hideUntilLoaded ? { [weak self, weak imageView] in
++      guard let self, self.bindingEpoch == expectedEpoch else { return }
++      imageView?.isHidden = true
++      onError?()
++    } : onError
+     imageView.configure(
+       sourceUri: source.string("uri").trimmingCharacters(in: .whitespacesAndNewlines),
+       sourceHeadersJson: headersJson,
+@@ -3322,19 +3359,20 @@ final class NativeListCell: UICollectionViewCell {
+       optimizeTos: retryAttempt == 0 && (source["optimizeTos"] == nil || source.bool("optimizeTos")),
+       overscan: source["overscan"] == nil ? 1.1 : source.double("overscan"),
+       loadingStrategy: source.string("loadingStrategy", default: "static"),
+-      onLoad: retryLimit == 0 ? onLoad : { [weak self] in
++      placeholderColor: currentTheme?["strongBackground"] as? String ?? "#0000000F",
++      onLoad: retryLimit == 0 ? handleLoad : { [weak self] in
+         guard let self, self.bindingEpoch == expectedEpoch else { return }
+         self.selectorImageRetries.removeValue(forKey: imageID)?.cancel()
+-        onLoad?()
++        handleLoad?()
+       },
+-      onError: retryLimit == 0 ? onError : { [weak self, weak imageView] in
++      onError: retryLimit == 0 ? handleError : { [weak self, weak imageView] in
+         guard let self, self.bindingEpoch == expectedEpoch, let imageView else { return }
+-        guard retryAttempt < retryLimit else { onError?(); return }
++        guard retryAttempt < retryLimit else { handleError?(); return }
+         guard self.selectorImageRetries[imageID] == nil else { return }
+         let retry = DispatchWorkItem { [weak self, weak imageView] in
+           guard let self, self.bindingEpoch == expectedEpoch, let imageView else { return }
+           self.selectorImageRetries.removeValue(forKey: imageID)
+-          self.bindImage(source, into: imageView, token: token, slot: slot, variant: variant, onLoad: onLoad, onError: onError, retryAttempt: retryAttempt + 1)
++          self.bindImage(source, into: imageView, token: token, slot: slot, variant: variant, onLoad: onLoad, onError: onError, hideUntilLoaded: hideUntilLoaded, retryAttempt: retryAttempt + 1)
+         }
+         self.selectorImageRetries[imageID] = retry
+         DispatchQueue.main.asyncAfter(deadline: .now() + Double(Int.random(in: 0...2)), execute: retry)
+diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
+index a94be09..9bdf217 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
++++ b/node_modules/@onekeyfe/react-native-native-list/ios/RNCNativeListView.swift
+@@ -244,12 +244,11 @@ final class NativeListView: UIView {
+     guard let next = try? NativeListConfig.parse(json: json) else { return }
+     invalidateActionAnchor(reason: "snapshot")
+     if let current = config, isControlledSelectionSnapshotUpdate(from: current, to: next) {
+-      let changedSummaryKeys = Set(zip(current.items, next.items).compactMap { old, new in
+-        old.content != new.content ? new.key : nil
+-      })
+       config = next
+       itemsByKey = Dictionary(uniqueKeysWithValues: next.items.map { ($0.key, $0) })
+-      refreshVisibleSelection(changedSummaryKeys: changedSummaryKeys)
++      // OneKey patch: A controlled selection echo is fully handled by the
++      // lightweight updater. Rebinding unchanged visuals clears cached images.
++      refreshVisibleSelection()
+       return
+     }
+     let oldItems = itemsByKey
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
+index a37d199..05d1f0c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
+@@ -10,6 +10,17 @@ import { applyRowPatches, serializePatches, serializeSnapshot } from "./validati
+ import { jsx as _jsx } from "react/jsx-runtime";
+ const NativeListConfig = require('../nitrogen/generated/shared/json/NativeListConfig.json');
+ const NativeListHost = getHostComponent('NativeList', () => NativeListConfig);
++export function preloadNativeListAvatarImages(sources) {
++  return OneKeyImageCache.preload(sources.map(source => ({
++    uri: source.uri,
++    headers: source.headers,
++    resizeWidth: source.width,
++    resizeHeight: source.height,
++    optimizeTos: source.optimizeTos !== false,
++    overscan: source.overscan,
++    cachePolicy: source.cachePolicy === 'memory' ? OneKeyImageCachePolicy.MEMORY : source.cachePolicy === 'disk' ? OneKeyImageCachePolicy.DISK : OneKeyImageCachePolicy.MEMORY_DISK
++  })));
++}
+ function parsePayload(payloadJson) {
+   return JSON.parse(payloadJson);
+ }
+@@ -78,14 +89,7 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+   updateAvatarPrefetchRef.current = updateAvatarPrefetch;
+   useEffect(() => {
+     avatarLifecycle.current = 'mounted';
+-    const queue = new NativeAvatarPrefetchQueue(source => OneKeyImageCache.preload([{
+-      uri: source.uri,
+-      headers: source.headers,
+-      resizeWidth: source.width,
+-      resizeHeight: source.height,
+-      optimizeTos: false,
+-      cachePolicy: source.cachePolicy === 'memory' ? OneKeyImageCachePolicy.MEMORY : source.cachePolicy === 'disk' ? OneKeyImageCachePolicy.DISK : OneKeyImageCachePolicy.MEMORY_DISK
+-    }]));
++    const queue = new NativeAvatarPrefetchQueue(source => preloadNativeListAvatarImages([source]));
+     avatarQueueRef.current = queue;
+     updateAvatarPrefetchRef.current();
+     return () => {
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js
+index 8d7048d..680212c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.web.js
+@@ -5,7 +5,21 @@ import { View } from 'react-native';
+ import { normalizeIndexScroll, normalizeKeyScroll, normalizePositionScroll, resolveLocationIndex, scrollFailure, validateOffset } from "./scrolling.js";
+ import { serializePatches, validateSnapshot } from "./validation.js";
+ import { NativeListWebEngine } from "./web/NativeListWebEngine.js";
++import { acquireNativeListAvatar, canonicalNativeListAvatarUri } from "./web/NativeListWebAvatarCache.js";
+ import { jsx as _jsx } from "react/jsx-runtime";
++export function preloadNativeListAvatarImages(sources) {
++  if (typeof document === 'undefined') return Promise.resolve(false);
++  const uris = [...new Set(sources.map(source => canonicalNativeListAvatarUri(source.uri)).filter(uri => uri !== undefined))];
++  if (!uris.length) return Promise.resolve(false);
++  return Promise.all(uris.map(uri => new Promise(resolve => {
++    let release;
++    const settle = success => {
++      resolve(success);
++      queueMicrotask(() => release?.());
++    };
++    release = acquireNativeListAvatar(document, uri, () => settle(true), () => settle(false), 0);
++  }))).then(results => results.every(Boolean));
++}
+ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
+   snapshot,
+   webVirtualizationEnabled = true,
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/index.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/index.js
+index f651fb9..a06b0d2 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/index.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/index.js
+@@ -1,6 +1,6 @@
+ "use strict";
+
+-export { NativeList } from './NativeList';
++export { NativeList, preloadNativeListAvatarImages } from './NativeList';
+ export { applyRowPatches, serializePatches, serializeSnapshot, validatePatches, validateSnapshot } from "./validation.js";
+ export { checkboxStateForKeys, checkboxStateForSection, isSelectableRow, reduceSelection, selectionStateFromSnapshot } from "./selection.js";
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+index f5636a0..5746770 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+@@ -572,11 +572,32 @@ function configureWebAvatar(image, source, uri) {
+   });
+   webAvatarCleanup.set(image, dispose);
+ }
++const WEB_IMAGE_FADE_DELAY_MS = 100;
++const WEB_IMAGE_FADE_DURATION_MS = 140;
++function webImageNow(image) {
++  return image.ownerDocument.defaultView?.performance.now() ?? Date.now();
++}
++function revealWebImage(element, startedAt) {
++  element.getAnimations?.().forEach(animation => animation.cancel());
++  element.style.opacity = '1';
++  const view = element.ownerDocument.defaultView;
++  if (webImageNow(element) - startedAt < WEB_IMAGE_FADE_DELAY_MS || view?.matchMedia?.('(prefers-reduced-motion: reduce)').matches || typeof element.animate !== 'function') return;
++  element.animate([{
++    opacity: 0
++  }, {
++    opacity: 1
++  }], {
++    duration: WEB_IMAGE_FADE_DURATION_MS,
++    easing: 'ease-out'
++  });
++}
+ function createImage(context, source, className) {
+   const avatarUri = canonicalNativeListAvatarUri(source.uri);
+   const uri = avatarUri ?? safeImageUri(source.uri);
+   if (!uri) return undefined;
+   const image = context.document.createElement('img');
++  const startedAt = webImageNow(image);
++  image.style.opacity = '0';
+   if (className) image.className = className;
+   // OneKey patch: consume recoverable errors before the visual's final fallback listener.
+   if (avatarUri) {
+@@ -590,6 +611,13 @@ function createImage(context, source, className) {
+   image.loading = 'lazy';
+   image.decoding = 'async';
+   image.style.objectFit = source.contentFit === 'fill' ? 'fill' : source.contentFit ?? 'cover';
++  image.addEventListener('load', () => {
++    if (image.dataset.nativeListSelectorPaint !== 'true') revealWebImage(image, startedAt);
++  });
++  image.addEventListener('error', () => {
++    image.style.opacity = '0';
++  });
++  image.dataset.nativeListImageStartedAt = String(startedAt);
+   return image;
+ }
+
+@@ -599,14 +627,18 @@ function paintSelectorImageBackground(image, frame, inset = 0) {
+   const paint = createElement(image.ownerDocument, 'span', 'ok-native-list-selector-image-background');
+   paint.style.cssText = 'position:absolute;pointer-events:none;border-radius:inherit;background-position:center;background-repeat:no-repeat';
+   paint.style.inset = String(inset) + 'px';
++  paint.style.opacity = '0';
+   paint.style.backgroundSize = image.style.objectFit === 'fill' ? '100% 100%' : image.style.objectFit === 'center' ? 'auto' : image.style.objectFit;
++  image.dataset.nativeListSelectorPaint = 'true';
+   image.style.opacity = '0';
+   const update = () => {
+     paint.style.backgroundImage = 'url(' + JSON.stringify(image.currentSrc || image.src) + ')';
++    revealWebImage(paint, Number(image.dataset.nativeListImageStartedAt) || webImageNow(image));
+   };
+   image.addEventListener('load', update);
+   image.addEventListener('error', () => {
+     paint.style.backgroundImage = 'none';
++    paint.style.opacity = '0';
+   });
+   frame.insertBefore(paint, image);
+   if (image.complete && image.naturalWidth > 0) update();
+@@ -883,7 +915,9 @@ function createVisual(context, visual, selectorPresentation) {
+     frame.appendChild(fallback);
+     return frame;
+   }
+-  if ('backgroundColor' in visual && visual.backgroundColor) frame.style.background = visual.backgroundColor;
++  // OneKey patch: Every image visual starts from the current theme backing.
++  // if ('backgroundColor' in visual && visual.backgroundColor) frame.style.background = visual.backgroundColor;
++  frame.style.background = 'backgroundColor' in visual && visual.backgroundColor ? visual.backgroundColor : 'var(--nl-strong)';
+   const source = visual.kind === 'image' ? visual.image : visual.image;
+   const image = source ? createImage(context, source) : undefined;
+   if (image) {
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
+index 2d4d817..60bc77a 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.d.ts
+@@ -1,7 +1,9 @@
+ import React from 'react';
+ import type { NativeListProps } from './NativeList.types';
++import type { ImageSource } from './models';
+ export type { NativeListProps, NativeListRef } from './NativeList.types';
+ export type { ActionAnchorState, ScrollAlignment, ScrollPositionOptions, ScrollToEndParams, ScrollToIndexFailedInfo, ScrollToIndexParams, ScrollToItemParams, ScrollToKeyParams, ScrollToLocationParams, ScrollToOffsetParams, } from './NativeList.types';
++export declare function preloadNativeListAvatarImages(sources: readonly ImageSource[]): Promise<boolean>;
+ export declare const NativeList: React.ForwardRefExoticComponent<NativeListProps & React.RefAttributes<Readonly<{
+     applySnapshot(snapshot: import("./models").NativeListSnapshot): void;
+     applyPatches(patches: readonly import("./models").RowPatch[]): void;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.web.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.web.d.ts
+index d571dd9..8e7645b 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.web.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.web.d.ts
+@@ -1,8 +1,9 @@
+ import React from 'react';
+ import type { NativeListProps } from './NativeList.types';
+-import type { NativeListSnapshot, RowPatch } from './models';
++import type { ImageSource, NativeListSnapshot, RowPatch } from './models';
+ export type { NativeListProps, NativeListRef } from './NativeList.types';
+ export type { ActionAnchorState, ScrollAlignment, ScrollPositionOptions, ScrollToEndParams, ScrollToIndexFailedInfo, ScrollToIndexParams, ScrollToItemParams, ScrollToKeyParams, ScrollToLocationParams, ScrollToOffsetParams, } from './NativeList.types';
++export declare function preloadNativeListAvatarImages(sources: readonly ImageSource[]): Promise<boolean>;
+ export declare const NativeList: React.ForwardRefExoticComponent<NativeListProps & React.RefAttributes<Readonly<{
+     applySnapshot(snapshot: NativeListSnapshot): void;
+     applyPatches(patches: readonly RowPatch[]): void;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/index.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/index.d.ts
+index 7cb5e1e..6db1f17 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/index.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/index.d.ts
+@@ -1,4 +1,4 @@
+-export { NativeList } from './NativeList';
++export { NativeList, preloadNativeListAvatarImages } from './NativeList';
+ export type { ActionAnchorState, NativeListProps, NativeListRef, ScrollAlignment, ScrollPositionOptions, ScrollToEndParams, ScrollToIndexFailedInfo, ScrollToIndexParams, ScrollToItemParams, ScrollToKeyParams, ScrollToLocationParams, ScrollToOffsetParams, } from './NativeList';
+ export type * from './models';
+ export { applyRowPatches, serializePatches, serializeSnapshot, validatePatches, validateSnapshot, } from './validation';
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
+index 68d21cd..0e0eaf8 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
++++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
+@@ -20,6 +20,7 @@ import type {
+ } from './NativeList.nitro';
+ import type {
+   ActionAnchorInvalidatedEvent,
++  ImageSource,
+   RowActionEvent,
+   SelectionDeltaEvent,
+   ReorderEvent,
+@@ -64,6 +65,27 @@ const NativeListHost = getHostComponent<
+   NativeListMethods
+ >('NativeList', () => NativeListConfig);
+
++export function preloadNativeListAvatarImages(
++  sources: readonly ImageSource[]
++): Promise<boolean> {
++  return OneKeyImageCache.preload(
++    sources.map((source) => ({
++      uri: source.uri,
++      headers: source.headers,
++      resizeWidth: source.width,
++      resizeHeight: source.height,
++      optimizeTos: source.optimizeTos !== false,
++      overscan: source.overscan,
++      cachePolicy:
++        source.cachePolicy === 'memory'
++          ? OneKeyImageCachePolicy.MEMORY
++          : source.cachePolicy === 'disk'
++          ? OneKeyImageCachePolicy.DISK
++          : OneKeyImageCachePolicy.MEMORY_DISK,
++    }))
++  );
++}
++
+ function parsePayload<T>(payloadJson: string): T {
+   return JSON.parse(payloadJson) as T;
+ }
+@@ -151,21 +173,7 @@ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
+     useEffect(() => {
+       avatarLifecycle.current = 'mounted';
+       const queue = new NativeAvatarPrefetchQueue((source) =>
+-        OneKeyImageCache.preload([
+-          {
+-            uri: source.uri,
+-            headers: source.headers,
+-            resizeWidth: source.width,
+-            resizeHeight: source.height,
+-            optimizeTos: false,
+-            cachePolicy:
+-              source.cachePolicy === 'memory'
+-                ? OneKeyImageCachePolicy.MEMORY
+-                : source.cachePolicy === 'disk'
+-                ? OneKeyImageCachePolicy.DISK
+-                : OneKeyImageCachePolicy.MEMORY_DISK,
+-          },
+-        ])
++        preloadNativeListAvatarImages([source])
+       );
+       avatarQueueRef.current = queue;
+       updateAvatarPrefetchRef.current();
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx
+index 5fd274c..2254d2d 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx
++++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.web.tsx
+@@ -9,7 +9,7 @@ import React, {
+ } from 'react';
+ import { View } from 'react-native';
+ import type { NativeListProps, NativeListRef } from './NativeList.types';
+-import type { NativeListSnapshot, RowPatch } from './models';
++import type { ImageSource, NativeListSnapshot, RowPatch } from './models';
+ import {
+   normalizeIndexScroll,
+   normalizeKeyScroll,
+@@ -24,6 +24,10 @@ import {
+   NativeListWebEngine,
+   type NativeListWebCallbacks,
+ } from './web/NativeListWebEngine';
++import {
++  acquireNativeListAvatar,
++  canonicalNativeListAvatarUri,
++} from './web/NativeListWebAvatarCache';
+
+ export type { NativeListProps, NativeListRef } from './NativeList.types';
+ export type {
+@@ -39,6 +43,39 @@ export type {
+   ScrollToOffsetParams,
+ } from './NativeList.types';
+
++export function preloadNativeListAvatarImages(
++  sources: readonly ImageSource[]
++): Promise<boolean> {
++  if (typeof document === 'undefined') return Promise.resolve(false);
++  const uris = [
++    ...new Set(
++      sources
++        .map((source) => canonicalNativeListAvatarUri(source.uri))
++        .filter((uri): uri is string => uri !== undefined)
++    ),
++  ];
++  if (!uris.length) return Promise.resolve(false);
++  return Promise.all(
++    uris.map(
++      (uri) =>
++        new Promise<boolean>((resolve) => {
++          let release: (() => void) | undefined;
++          const settle = (success: boolean) => {
++            resolve(success);
++            queueMicrotask(() => release?.());
++          };
++          release = acquireNativeListAvatar(
++            document,
++            uri,
++            () => settle(true),
++            () => settle(false),
++            0
++          );
++        })
++    )
++  ).then((results) => results.every(Boolean));
++}
++
+ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
+   function NativeList(
+     {
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/index.ts b/node_modules/@onekeyfe/react-native-native-list/src/index.ts
+index f819475..9e61558 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/index.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/index.ts
+@@ -1,4 +1,4 @@
+-export { NativeList } from './NativeList';
++export { NativeList, preloadNativeListAvatarImages } from './NativeList';
+ export type {
+   ActionAnchorState,
+   NativeListProps,
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+index b9d3e13..ec70efc 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+@@ -963,6 +963,30 @@ function configureWebAvatar(
+   webAvatarCleanup.set(image, dispose);
+ }
+
++const WEB_IMAGE_FADE_DELAY_MS = 100;
++const WEB_IMAGE_FADE_DURATION_MS = 140;
++
++function webImageNow(image: HTMLImageElement): number {
++  return image.ownerDocument.defaultView?.performance.now() ?? Date.now();
++}
++
++function revealWebImage(element: HTMLElement, startedAt: number) {
++  element.getAnimations?.().forEach((animation) => animation.cancel());
++  element.style.opacity = '1';
++  const view = element.ownerDocument.defaultView;
++  if (
++    webImageNow(element as HTMLImageElement) - startedAt <
++      WEB_IMAGE_FADE_DELAY_MS ||
++    view?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
++    typeof element.animate !== 'function'
++  )
++    return;
++  element.animate([{ opacity: 0 }, { opacity: 1 }], {
++    duration: WEB_IMAGE_FADE_DURATION_MS,
++    easing: 'ease-out',
++  });
++}
++
+ function createImage(
+   context: RenderContext,
+   source: ImageSource,
+@@ -972,6 +996,8 @@ function createImage(
+   const uri = avatarUri ?? safeImageUri(source.uri);
+   if (!uri) return undefined;
+   const image = context.document.createElement('img');
++  const startedAt = webImageNow(image);
++  image.style.opacity = '0';
+   if (className) image.className = className;
+   // OneKey patch: consume recoverable errors before the visual's final fallback listener.
+   if (avatarUri) {
+@@ -986,6 +1012,14 @@ function createImage(
+   image.decoding = 'async';
+   image.style.objectFit =
+     source.contentFit === 'fill' ? 'fill' : source.contentFit ?? 'cover';
++  image.addEventListener('load', () => {
++    if (image.dataset.nativeListSelectorPaint !== 'true')
++      revealWebImage(image, startedAt);
++  });
++  image.addEventListener('error', () => {
++    image.style.opacity = '0';
++  });
++  image.dataset.nativeListImageStartedAt = String(startedAt);
+   return image;
+ }
+
+@@ -1004,20 +1038,27 @@ function paintSelectorImageBackground(
+   paint.style.cssText =
+     'position:absolute;pointer-events:none;border-radius:inherit;background-position:center;background-repeat:no-repeat';
+   paint.style.inset = String(inset) + 'px';
++  paint.style.opacity = '0';
+   paint.style.backgroundSize =
+     image.style.objectFit === 'fill'
+       ? '100% 100%'
+       : image.style.objectFit === 'center'
+       ? 'auto'
+       : image.style.objectFit;
++  image.dataset.nativeListSelectorPaint = 'true';
+   image.style.opacity = '0';
+   const update = () => {
+     paint.style.backgroundImage =
+       'url(' + JSON.stringify(image.currentSrc || image.src) + ')';
++    revealWebImage(
++      paint,
++      Number(image.dataset.nativeListImageStartedAt) || webImageNow(image)
++    );
+   };
+   image.addEventListener('load', update);
+   image.addEventListener('error', () => {
+     paint.style.backgroundImage = 'none';
++    paint.style.opacity = '0';
+   });
+   frame.insertBefore(paint, image);
+   if (image.complete && image.naturalWidth > 0) update();
+@@ -1380,8 +1421,13 @@ function createVisual(
+     return frame;
+   }
+
+-  if ('backgroundColor' in visual && visual.backgroundColor)
+-    frame.style.background = visual.backgroundColor;
++  // OneKey patch: Every image visual starts from the current theme backing.
++  // if ('backgroundColor' in visual && visual.backgroundColor)
++  //   frame.style.background = visual.backgroundColor;
++  frame.style.background =
++    'backgroundColor' in visual && visual.backgroundColor
++      ? visual.backgroundColor
++      : 'var(--nl-strong)';
+   const source = visual.kind === 'image' ? visual.image : visual.image;
+   const image = source ? createImage(context, source) : undefined;
+   if (image) {

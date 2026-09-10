@@ -1,0 +1,1203 @@
+diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+index 0f60f74..f94dac9 100644
+--- a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
++++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+@@ -1,14 +1,20 @@
+ package com.margelo.nitro.onekeyimage
+ 
++import android.animation.ValueAnimator
+ import android.app.Activity
+ import android.content.Context
+ import android.content.ContextWrapper
++import android.content.res.Configuration
+ import android.graphics.Canvas
+ import android.graphics.Color
+ import android.graphics.Paint
+ import android.graphics.drawable.Animatable
+ import android.graphics.drawable.Drawable
++import android.os.Build
++import android.os.SystemClock
++import android.provider.Settings
+ import android.view.View
++import android.view.animation.DecelerateInterpolator
+ import android.widget.ImageView
+ import com.bumptech.glide.Glide
+ import com.bumptech.glide.load.DataSource
+@@ -88,8 +94,16 @@ private class OneKeyImageHostView(context: ThemedReactContext) : ImageView(conte
+     syncPlayback()
+   }
+ 
+-  fun updateSkeletonStyle() {
+-    skeleton.updateStyle(null, 3.0)
++  fun updateSkeletonStyle(baseColor: Int) {
++    val average = (Color.red(baseColor) + Color.green(baseColor) + Color.blue(baseColor)) / 3
++    val delta = if (average < 128) 18 else -12
++    val highlightColor = Color.argb(
++      Color.alpha(baseColor),
++      (Color.red(baseColor) + delta).coerceIn(0, 255),
++      (Color.green(baseColor) + delta).coerceIn(0, 255),
++      (Color.blue(baseColor) + delta).coerceIn(0, 255),
++    )
++    skeleton.updateStyle(intArrayOf(baseColor, highlightColor), 3.0)
+     skeleton.updateBounds(width, height)
+   }
+ 
+@@ -137,6 +143,10 @@ internal fun oneKeyImageRequestSignature(
+ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   HybridOneKeyImageSpec(), RecyclableView {
+   private enum class DisplayState { LOADING, IMAGE, ERROR, FALLBACK }
++  private companion object {
++    const val FADE_DELAY_THRESHOLD_MS = 100L
++    const val FADE_DURATION_MS = 140L
++  }
+ 
+   private val hostView = OneKeyImageHostView(context)
+   // The Activity outlives ScreenStack Fragments but still provides bounded
+@@ -156,6 +166,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private var displayRunnable: Runnable? = null
+   private var pendingDisplayGeneration: Long? = null
+   private var fallbackRunnable: Runnable? = null
++  private var requestStartedAtMs: Long? = null
+ 
+   /**
+    * Native reusable containers own their request cleanup explicitly, so their
+@@ -236,6 +247,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       field = value
+       if (!suppressPropEffects) applyVariant()
+     }
++  override var placeholderColor: String? = null
++    set(value) {
++      field = value
++      if (!suppressPropEffects) applyVariant()
++    }
+   override var onLoadStart: (() -> Unit)? = null
+   override var onLoad: ((width: Double, height: Double, cacheType: OneKeyImageCacheType) -> Unit)? = null
+   override var onDisplay: (() -> Unit)? = null
+@@ -244,7 +268,6 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+ 
+   init {
+     OneKeyImageGlideRegistry.ensureRegistered(context)
+-    hostView.updateSkeletonStyle()
+     hostView.onReadyForRequest = { scheduleLoad() }
+     hostView.onAttachmentChanged = { attached ->
+       if (attached) {
+@@ -317,6 +333,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     resizeWidth = null
+     overscan = 1.1
+     loadingStrategy = OneKeyImageLoadingStrategy.STATIC
++    placeholderColor = null
+     onLoadStart = null
+     onLoad = null
+     onDisplay = null
+@@ -375,6 +392,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+ 
+     cancelCurrent(invalidateGeneration = true)
+     val requestGeneration = generation
++    requestStartedAtMs = SystemClock.uptimeMillis()
+     onLoadStart?.invoke()
+ 
+     val customIdentity = OneKeyImageModel.headers(sourceHeadersJson).isNotEmpty()
+@@ -430,6 +448,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+         hostView.drawStateSymbol = false
+         hostView.setBackgroundColor(Color.TRANSPARENT)
+         hostView.setImageDrawable(resource)
++        applyLoadedImageTransition(resolvedCacheType)
+         applyAutoplay()
+         val loadCallback = onLoad
+         val loadEndCallback = onLoadEnd
+@@ -563,6 +582,8 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     clearCurrentTarget()
+     requestActive = false
+     hostView.skeletonRequested = false
++    requestStartedAtMs = null
++    resetImageTransition()
+     if (invalidateGeneration) generation++
+   }
+ 
+@@ -605,6 +626,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private fun showLoading(requestIsActive: Boolean) {
+     displayState = DisplayState.LOADING
+     requestActive = requestIsActive
++    resetImageTransition()
+     hostView.setImageDrawable(null)
+     hostView.drawStateSymbol = false
+     applyLoadingAppearance()
+@@ -621,11 +643,15 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private fun showTerminalState(state: DisplayState) {
+     displayState = state
+     requestActive = false
++    resetImageTransition()
+     hostView.setImageDrawable(null)
+     hostView.skeletonRequested = false
+-    hostView.drawStateSymbol = true
++    val hidesTerminalState = loadingStrategy == OneKeyImageLoadingStrategy.NONE
++    hostView.drawStateSymbol = !hidesTerminalState
+     hostView.stateSymbol = stateSymbol()
+-    hostView.setBackgroundColor(placeholderColor())
++    hostView.setBackgroundColor(
++      if (hidesTerminalState) Color.TRANSPARENT else resolvedPlaceholderColor(),
++    )
+     hostView.invalidate()
+   }
+ 
+@@ -634,7 +660,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       DisplayState.IMAGE -> Unit
+       DisplayState.LOADING -> applyLoadingAppearance()
+       DisplayState.ERROR, DisplayState.FALLBACK -> {
+-        hostView.setBackgroundColor(placeholderColor())
++        val hidesTerminalState = loadingStrategy == OneKeyImageLoadingStrategy.NONE
++        hostView.setBackgroundColor(
++          if (hidesTerminalState) Color.TRANSPARENT else resolvedPlaceholderColor(),
++        )
++        hostView.drawStateSymbol = !hidesTerminalState
+         hostView.stateSymbol = stateSymbol()
+         hostView.invalidate()
+       }
+@@ -644,10 +681,12 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private fun applyLoadingAppearance() {
+     val strategy = loadingStrategy ?: OneKeyImageLoadingStrategy.STATIC
++    val placeholder = resolvedPlaceholderColor()
+     hostView.setBackgroundColor(
+-      if (strategy == OneKeyImageLoadingStrategy.NONE) Color.TRANSPARENT else placeholderColor(),
++      if (strategy == OneKeyImageLoadingStrategy.NONE) Color.TRANSPARENT else placeholder,
+     )
++    hostView.updateSkeletonStyle(placeholder)
+     hostView.skeletonRequested =
+-      requestActive && strategy == OneKeyImageLoadingStrategy.SKELETON
++      requestActive && strategy == OneKeyImageLoadingStrategy.SKELETON && animationsEnabled()
+     hostView.invalidate()
+   }
+ 
+@@ -658,11 +688,66 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     OneKeyImageVariant.AVATAR -> "●"
+   }
+ 
+-  private fun placeholderColor(): Int = when (variant ?: OneKeyImageVariant.GENERIC) {
+-    OneKeyImageVariant.GENERIC -> Color.rgb(232, 232, 232)
+-    OneKeyImageVariant.TOKEN -> Color.rgb(232, 237, 249)
+-    OneKeyImageVariant.NETWORK -> Color.rgb(229, 240, 245)
+-    OneKeyImageVariant.AVATAR -> Color.rgb(234, 234, 240)
++  private fun applyLoadedImageTransition(cacheType: OneKeyImageCacheType) {
++    resetImageTransition()
++    val startedAt = requestStartedAtMs ?: return
++    if (
++      cacheType == OneKeyImageCacheType.MEMORY ||
++      SystemClock.uptimeMillis() - startedAt < FADE_DELAY_THRESHOLD_MS ||
++      !animationsEnabled()
++    ) {
++      return
++    }
++    hostView.alpha = 0f
++    hostView.animate()
++      .alpha(1f)
++      .setDuration(FADE_DURATION_MS)
++      .setInterpolator(DecelerateInterpolator())
++      .start()
++  }
++
++  private fun resetImageTransition() {
++    hostView.animate().cancel()
++    hostView.alpha = 1f
++  }
++
++  private fun animationsEnabled(): Boolean =
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++      ValueAnimator.areAnimatorsEnabled()
++    } else {
++      Settings.Global.getFloat(
++        context.contentResolver,
++        Settings.Global.ANIMATOR_DURATION_SCALE,
++        1f,
++      ) != 0f
++    }
++
++  private fun resolvedPlaceholderColor(): Int {
++    parseRgbaHex(placeholderColor)?.let { return it }
++    // OneKey patch: fall back to a dark-aware low-contrast fill instead of light-only RGB values.
++    // return when (variant ?: OneKeyImageVariant.GENERIC) {
++    //   OneKeyImageVariant.GENERIC -> Color.rgb(232, 232, 232)
++    //   OneKeyImageVariant.TOKEN -> Color.rgb(232, 237, 249)
++    //   OneKeyImageVariant.NETWORK -> Color.rgb(229, 240, 245)
++    //   OneKeyImageVariant.AVATAR -> Color.rgb(234, 234, 240)
++    // }
++    val nightMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
++    return if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
++      Color.rgb(38, 38, 38)
++    } else {
++      Color.rgb(238, 238, 238)
++    }
++  }
++
++  private fun parseRgbaHex(value: String?): Int? {
++    val hex = value?.trim()?.removePrefix("#") ?: return null
++    if (hex.length != 6 && hex.length != 8) return null
++    val parsed = hex.toLongOrNull(16) ?: return null
++    val red = ((parsed shr (if (hex.length == 8) 24 else 16)) and 0xFF).toInt()
++    val green = ((parsed shr (if (hex.length == 8) 16 else 8)) and 0xFF).toInt()
++    val blue = ((parsed shr (if (hex.length == 8) 8 else 0)) and 0xFF).toInt()
++    val alpha = if (hex.length == 8) (parsed and 0xFF).toInt() else 0xFF
++    return Color.argb(alpha, red, green, blue)
+   }
+ 
+   private fun applyContentFit() {
+diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImageReusableView.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImageReusableView.kt
+index 3120623..0d49d90 100644
+--- a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImageReusableView.kt
++++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImageReusableView.kt
+@@ -28,6 +28,7 @@ class OneKeyImageReusableView(context: ThemedReactContext) : FrameLayout(context
+     optimizeTos: Boolean,
+     overscan: Double,
+     loadingStrategy: String,
++    placeholderColor: String,
+     onLoad: (() -> Unit)? = null,
+     onError: (() -> Unit)? = null,
+   ) {
+@@ -62,6 +63,7 @@ class OneKeyImageReusableView(context: ThemedReactContext) : FrameLayout(context
+       "none" -> OneKeyImageLoadingStrategy.NONE
+       else -> OneKeyImageLoadingStrategy.STATIC
+     }
++    image.placeholderColor = placeholderColor
+     image.sourceUri = sourceUri
+     image.afterUpdate()
+   }
+diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift
+index f4588c6..2354db3 100644
+--- a/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift
++++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyAvatarImageLoader.swift
+@@ -11,7 +11,9 @@ final class OneKeyAvatarImageLoader: NSObject, SDImageLoader {
+     config.maxDiskAge = 30 * 24 * 60 * 60
+     config.maxDiskSize = 32 * 1024 * 1024
+     config.maxMemoryCost = 8 * 1024 * 1024
+-    config.maxMemoryCount = 128
++    // OneKey patch: Keep several large-account wallets resident while the byte
++    // budget remains the hard memory bound.
++    config.maxMemoryCount = 512
+     return SDImageCache(namespace: "onekey-avatar-blockie-v1", diskCacheDirectory: nil, config: config)
+   }()
+ 
+diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
+index 6d83c77..876b76d 100644
+--- a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
++++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
+@@ -22,6 +22,7 @@ private final class OneKeyImageHostView: SDAnimatedImageView {
+ private final class OneKeyImageSkeletonView: UIView {
+   private lazy var renderer = OneKeySkeletonRenderer(hostLayer: layer)
+   private var requestedRunning = false
++  private var colors: [UIColor]?
+ 
+   override init(frame: CGRect) {
+     super.init(frame: frame)
+@@ -36,7 +37,7 @@ private final class OneKeyImageSkeletonView: UIView {
+ 
+   override func layoutSubviews() {
+     super.layoutSubviews()
+-    renderer.update(width: bounds.width, height: bounds.height)
++    renderer.update(width: bounds.width, height: bounds.height, colors: colors)
+   }
+ 
+   override func didMoveToWindow() {
+@@ -50,9 +51,14 @@ private final class OneKeyImageSkeletonView: UIView {
+     syncRenderer()
+   }
+ 
++  func updateColors(_ colors: [UIColor]) {
++    self.colors = colors
++    renderer.update(width: bounds.width, height: bounds.height, colors: colors)
++  }
++
+   private func syncRenderer() {
+     if requestedRunning, window != nil, !bounds.isEmpty {
+-      renderer.update(width: bounds.width, height: bounds.height)
++      renderer.update(width: bounds.width, height: bounds.height, colors: colors)
+       renderer.start()
+     } else {
+       renderer.stop()
+@@ -66,7 +72,7 @@ private final class OneKeyImageSkeletonIndicator: NSObject, SDWebImageIndicator
+   var indicatorView: UIView { skeletonView }
+ 
+   func startAnimatingIndicator() {
+-    skeletonView.setRunning(true)
++    skeletonView.setRunning(!UIAccessibility.isReduceMotionEnabled)
+   }
+ 
+   func stopAnimatingIndicator() {
+@@ -76,10 +82,16 @@ private final class OneKeyImageSkeletonIndicator: NSObject, SDWebImageIndicator
+   func updateFrame(_ frame: CGRect) {
+     skeletonView.frame = frame
+   }
++
++  func updateColors(_ colors: [UIColor]) {
++    skeletonView.updateColors(colors)
++  }
+ }
+ 
+ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+   private enum DisplayState { case loading, image, error, fallback }
++  private static let fadeDelayThreshold: CFTimeInterval = 0.1
++  private static let fadeDuration: TimeInterval = 0.14
+ 
+   private let hostView = OneKeyImageHostView()
+   private let skeletonIndicator = OneKeyImageSkeletonIndicator()
+@@ -95,6 +97,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+   private var requestActive = false
+   private var isResetting = false
+   private var displayState = DisplayState.loading
++  private var requestStartedAt: CFTimeInterval?
+ 
+   var view: UIView { hostView }
+ 
+@@ -132,6 +135,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     }
+   }
+   var loadingStrategy: OneKeyImageLoadingStrategy? = .static { didSet { applyVariant() } }
++  var placeholderColor: String? { didSet { applyVariant() } }
+   var onLoadStart: (() -> Void)?
+   var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)?
+   var onDisplay: (() -> Void)?
+@@ -215,7 +219,9 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+       self.cancelCurrentRequest(invalidateGeneration: true)
+       self.lastRequestSignature = nil
+       if let source = self.sourceUri, !source.isEmpty {
+-        self.showLoading(requestIsActive: false, letLibraryStartIndicator: false)
++        if !self.showMemoryCachedImageIfAvailable(requestIsActive: false) {
++          self.showLoading(requestIsActive: false, letLibraryStartIndicator: false)
++        }
+       } else {
+         self.showFallback()
+       }
+@@ -258,7 +264,10 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+ 
+     cancelCurrentRequest(invalidateGeneration: true)
+     let generation = requestGeneration
+-    showLoading(requestIsActive: true, letLibraryStartIndicator: true)
++    if !showMemoryCachedImageIfAvailable(requestIsActive: true) {
++      showLoading(requestIsActive: true, letLibraryStartIndicator: true)
++    }
++    requestStartedAt = CACurrentMediaTime()
+     onLoadStart?()
+     guard Self.isCurrentRequestGeneration(generation, current: requestGeneration) else { return }
+ 
+@@ -372,6 +381,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+         self.skeletonIndicator.stopAnimatingIndicator()
+         self.fallbackLayer.isHidden = true
+         self.hostView.backgroundColor = .clear
++        let resolvedCacheType = Self.cacheType(cacheType)
++        self.applyLoadedImageTransition(cacheType: resolvedCacheType)
+         self.applyAutoplay()
+         let onLoad = self.onLoad
+         let onLoadEnd = self.onLoadEnd
+@@ -380,7 +391,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+             onLoad?(
+               Double(image?.size.width ?? 0),
+               Double(image?.size.height ?? 0),
+-              Self.cacheType(cacheType)
++              resolvedCacheType
+             )
+           },
+           onLoadEnd: { onLoadEnd?() }
+@@ -428,6 +439,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     activeSafetyHandle = nil
+     requestActive = false
+     skeletonIndicator.stopAnimatingIndicator()
++    requestStartedAt = nil
++    resetImageTransition()
+     if invalidateGeneration { requestGeneration &+= 1 }
+   }
+ 
+@@ -474,6 +487,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     resizeWidth = nil
+     overscan = 1.1
+     loadingStrategy = .static
++    placeholderColor = nil
+     onLoadStart = nil
+     onLoad = nil
+     onDisplay = nil
+@@ -498,11 +512,68 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+   ) {
+     displayState = .loading
+     requestActive = requestIsActive
++    resetImageTransition()
+     hostView.image = nil
+     fallbackLayer.isHidden = true
+     applyLoadingAppearance(letLibraryStartIndicator: letLibraryStartIndicator)
+   }
+ 
++  private func showMemoryCachedImageIfAvailable(requestIsActive: Bool) -> Bool {
++    guard cachePolicy == .memory || cachePolicy == .memoryDisk,
++          let sourceUri,
++          let rawURL = URL(string: sourceUri) else {
++      return false
++    }
++    let rawScreenScale: CGFloat = hostView.window?.screen.scale ?? UIScreen.main.scale
++    let screenScale = min(max(rawScreenScale, 1), 3)
++    let hasCustomIdentity = OneKeyImageRequestContext.headers(from: sourceHeadersJson) != nil
++    let displaySize = resizeWidth.flatMap { $0.isFinite && $0 > 0 ? CGFloat($0) : nil }
++      ?? max(hostView.bounds.width, hostView.bounds.height)
++    let requestURL =
++      (optimizeTos ?? true)
++      ? OneKeyTosURL.optimized(
++        rawURL: rawURL,
++        displaySize: displaySize,
++        scale: screenScale,
++        overscan: overscan ?? 1.1,
++        hasCustomIdentity: hasCustomIdentity
++      )
++      : rawURL
++    let thumbnailPixelSize = OneKeyImageDecodeSizing.thumbnailPixelSize(
++      viewSize: hostView.bounds.size,
++      scale: screenScale,
++      contentFit: contentFit ?? .cover
++    )
++    func memoryCachedImage(for url: URL) -> UIImage? {
++      let context = OneKeyImageRequestContext.make(
++        headersJson: sourceHeadersJson,
++        cachePolicy: cachePolicy ?? .memoryDisk,
++        thumbnailPixelSize: thumbnailPixelSize,
++        safetyTracker: nil,
++        manager: OneKeyImagePipeline.manager,
++        url: url
++      )
++      let cache = context[.imageCache] as? SDImageCache ?? SDImageCache.shared
++      guard let key = OneKeyImagePipeline.manager.cacheKey(for: url, context: context) else {
++        return nil
++      }
++      return cache.imageFromMemoryCache(forKey: key)
++    }
++    guard let image = memoryCachedImage(for: requestURL)
++      ?? (requestURL == rawURL ? nil : memoryCachedImage(for: rawURL)) else {
++      return false
++    }
++    displayState = .image
++    requestActive = requestIsActive
++    skeletonIndicator.stopAnimatingIndicator()
++    fallbackLayer.isHidden = true
++    resetImageTransition()
++    hostView.image = image
++    hostView.backgroundColor = .clear
++    applyAutoplay()
++    return true
++  }
++
+   private func showError() {
+     showTerminalState(.error)
+   }
+@@ -515,13 +586,15 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     displayState = state
+     requestActive = false
+     skeletonIndicator.stopAnimatingIndicator()
++    resetImageTransition()
+     hostView.image = nil
+-    hostView.backgroundColor = placeholderColor
++    let hidesTerminalState = loadingStrategy == .none
++    hostView.backgroundColor = hidesTerminalState ? .clear : resolvedPlaceholderColor
+     fallbackLayer.string = stateSymbol
+     fallbackLayer.fontSize = min(hostView.bounds.width, hostView.bounds.height) * 0.35
+     layoutFallbackLayer()
+     fallbackLayer.foregroundColor = UIColor.secondaryLabel.cgColor
+-    fallbackLayer.isHidden = false
++    fallbackLayer.isHidden = hidesTerminalState
+   }
+ 
+   private func applyVariant() {
+@@ -531,22 +614,27 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     case .loading:
+       applyLoadingAppearance(letLibraryStartIndicator: false)
+     case .error, .fallback:
+-      hostView.backgroundColor = placeholderColor
++      let hidesTerminalState = loadingStrategy == .none
++      hostView.backgroundColor = hidesTerminalState ? .clear : resolvedPlaceholderColor
+       fallbackLayer.string = stateSymbol
++      fallbackLayer.isHidden = hidesTerminalState
+     }
+   }
+ 
+   private func applyLoadingAppearance(letLibraryStartIndicator: Bool) {
+     let strategy = loadingStrategy ?? .static
+-    hostView.backgroundColor = strategy == .none ? .clear : placeholderColor
++    hostView.backgroundColor = strategy == .none ? .clear : resolvedPlaceholderColor
+ 
+     if strategy == .skeleton {
++      skeletonIndicator.updateColors(skeletonGradientColors)
+       if hostView.sd_imageIndicator !== skeletonIndicator {
+         hostView.sd_imageIndicator = skeletonIndicator
+       }
+       skeletonIndicator.updateFrame(hostView.bounds)
+-      if requestActive, !letLibraryStartIndicator {
++      if requestActive, !letLibraryStartIndicator, !UIAccessibility.isReduceMotionEnabled {
+         skeletonIndicator.startAnimatingIndicator()
++      } else if UIAccessibility.isReduceMotionEnabled {
++        skeletonIndicator.stopAnimatingIndicator()
+       }
+     } else {
+       skeletonIndicator.stopAnimatingIndicator()
+@@ -566,13 +654,77 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     )
+   }
+ 
+-  private var placeholderColor: UIColor {
+-    switch variant ?? .generic {
+-    case .generic: return UIColor(white: 0.91, alpha: 1)
+-    case .token: return UIColor(red: 0.91, green: 0.93, blue: 0.98, alpha: 1)
+-    case .network: return UIColor(red: 0.90, green: 0.94, blue: 0.96, alpha: 1)
+-    case .avatar: return UIColor(red: 0.92, green: 0.92, blue: 0.94, alpha: 1)
++  private var resolvedPlaceholderColor: UIColor {
++    if let color = Self.color(from: placeholderColor) { return color }
++    // OneKey patch: fall back to a semantic system fill instead of a light-only color.
++    // switch variant ?? .generic {
++    // case .generic: return UIColor(white: 0.91, alpha: 1)
++    // case .token: return UIColor(red: 0.91, green: 0.93, blue: 0.98, alpha: 1)
++    // case .network: return UIColor(red: 0.90, green: 0.94, blue: 0.96, alpha: 1)
++    // case .avatar: return UIColor(red: 0.92, green: 0.92, blue: 0.94, alpha: 1)
++    // }
++    return .secondarySystemFill
++  }
++
++  private var skeletonGradientColors: [UIColor] {
++    let base = resolvedPlaceholderColor
++    let resolvedBase = base.resolvedColor(with: hostView.traitCollection)
++    var red: CGFloat = 0
++    var green: CGFloat = 0
++    var blue: CGFloat = 0
++    var alpha: CGFloat = 0
++    guard resolvedBase.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
++      return [base, base]
++    }
++    let average = (red + green + blue) / 3
++    let delta: CGFloat = average < 0.5 ? 18.0 / 255.0 : -12.0 / 255.0
++    let highlight = UIColor(
++      red: min(max(red + delta, 0), 1),
++      green: min(max(green + delta, 0), 1),
++      blue: min(max(blue + delta, 0), 1),
++      alpha: alpha
++    )
++    return [base, highlight]
++  }
++
++  private func applyLoadedImageTransition(cacheType: OneKeyImageCacheType) {
++    resetImageTransition()
++    guard cacheType != .memory,
++          let requestStartedAt,
++          CACurrentMediaTime() - requestStartedAt >= Self.fadeDelayThreshold,
++          !UIAccessibility.isReduceMotionEnabled else {
++      return
++    }
++    hostView.alpha = 0
++    UIView.animate(
++      withDuration: Self.fadeDuration,
++      delay: 0,
++      options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut]
++    ) {
++      self.hostView.alpha = 1
++    }
++  }
++
++  private func resetImageTransition() {
++    hostView.layer.removeAllAnimations()
++    hostView.alpha = 1
++  }
++
++  private static func color(from value: String?) -> UIColor? {
++    guard var hex = value?.trimmingCharacters(in: .whitespacesAndNewlines),
++          hex.hasPrefix("#") else {
++      return nil
++    }
++    hex.removeFirst()
++    guard hex.count == 6 || hex.count == 8,
++          let parsed = UInt64(hex, radix: 16) else {
++      return nil
+     }
++    let red = CGFloat((parsed >> (hex.count == 8 ? 24 : 16)) & 0xFF) / 255
++    let green = CGFloat((parsed >> (hex.count == 8 ? 16 : 8)) & 0xFF) / 255
++    let blue = CGFloat((parsed >> (hex.count == 8 ? 8 : 0)) & 0xFF) / 255
++    let alpha = hex.count == 8 ? CGFloat(parsed & 0xFF) / 255 : 1
++    return UIColor(red: red, green: green, blue: blue, alpha: alpha)
+   }
+ 
+   private var stateSymbol: String {
+diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageReusableView.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageReusableView.swift
+index f15571d..9bd8b07 100644
+--- a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageReusableView.swift
++++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImageReusableView.swift
+@@ -28,6 +28,7 @@ public final class OneKeyImageReusableView: UIView {
+     optimizeTos: Bool,
+     overscan: Double,
+     loadingStrategy: String,
++    placeholderColor: String,
+     onLoad: (() -> Void)? = nil,
+     onError: (() -> Void)? = nil
+   ) {
+@@ -43,6 +44,7 @@ public final class OneKeyImageReusableView: UIView {
+     image.optimizeTos = optimizeTos
+     image.overscan = overscan
+     image.loadingStrategy = OneKeyImageLoadingStrategy(fromString: loadingStrategy) ?? .static
++    image.placeholderColor = placeholderColor
+     image.sourceUri = sourceUri
+     image.afterUpdate()
+   }
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/module/index.js b/node_modules/@onekeyfe/react-native-image/lib/module/index.js
+index a3eb58b..b2942ef 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/module/index.js
++++ b/node_modules/@onekeyfe/react-native-image/lib/module/index.js
+@@ -47,6 +47,7 @@ export function OneKeyImage({
+   resizeWidth,
+   overscan = 1.1,
+   loadingStrategy = OneKeyImageLoadingStrategy.STATIC,
++  placeholderColor,
+   hybridRef,
+   onLoadStart,
+   onLoad,
+@@ -176,7 +177,7 @@ export function OneKeyImage({
+     ...viewProps,
+     ...nativeCallbacks,
+     style: shouldWrapNative ? StyleSheet.absoluteFill : style,
+-    sourceUri: normalized?.uri,
++    sourceUri: normalized?.uri ?? '',
+     sourceHeadersJson: normalized?.headers ? JSON.stringify(normalized.headers) : undefined,
+     variant,
+     contentFit,
+@@ -186,7 +187,8 @@ export function OneKeyImage({
+     optimizeTos,
+     resizeWidth,
+     overscan,
+-    loadingStrategy: placeholder == null ? loadingStrategy : OneKeyImageLoadingStrategy.NONE
++    loadingStrategy: placeholder == null ? loadingStrategy : OneKeyImageLoadingStrategy.NONE,
++    placeholderColor
+   });
+   if (!shouldWrapNative) return native;
+   return /*#__PURE__*/_jsxs(View, {
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
+index ee5bfa1..92847e8 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
+@@ -165,6 +165,15 @@ namespace margelo::nitro::onekeyimage {
+     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JOneKeyImageLoadingStrategy> /* loadingStrategy */)>("setLoadingStrategy");
+     method(_javaPart, loadingStrategy.has_value() ? JOneKeyImageLoadingStrategy::fromCpp(loadingStrategy.value()) : nullptr);
+   }
++  std::optional<std::string> JHybridOneKeyImageSpec::getPlaceholderColor() {
++    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getPlaceholderColor");
++    auto __result = method(_javaPart);
++    return __result != nullptr ? std::make_optional(__result->toStdString()) : std::nullopt;
++  }
++  void JHybridOneKeyImageSpec::setPlaceholderColor(const std::optional<std::string>& placeholderColor) {
++    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* placeholderColor */)>("setPlaceholderColor");
++    method(_javaPart, placeholderColor.has_value() ? jni::make_jstring(placeholderColor.value()) : nullptr);
++  }
+   std::optional<std::function<void()>> JHybridOneKeyImageSpec::getOnLoadStart() {
+     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void::javaobject>()>("getOnLoadStart_cxx");
+     auto __result = method(_javaPart);
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
+index 0f5bf04..2c4c045 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
+@@ -72,6 +72,8 @@ namespace margelo::nitro::onekeyimage {
+     void setOverscan(std::optional<double> overscan) override;
+     std::optional<OneKeyImageLoadingStrategy> getLoadingStrategy() override;
+     void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) override;
++    std::optional<std::string> getPlaceholderColor() override;
++    void setPlaceholderColor(const std::optional<std::string>& placeholderColor) override;
+     std::optional<std::function<void()>> getOnLoadStart() override;
+     void setOnLoadStart(const std::optional<std::function<void()>>& onLoadStart) override;
+     std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>> getOnLoad() override;
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
+index ae2faac..d07f176 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
+@@ -108,6 +108,11 @@ void JHybridOneKeyImageStateUpdater::updateViewProps(jni::alias_ref<jni::JClass>
+         : !newProps->loadingStrategy.hasSameValue(oldProps->loadingStrategy)) {
+     hybridView->setLoadingStrategy(newProps->loadingStrategy.get());
+   }
++  if (oldProps == nullptr
++        ? newProps->placeholderColor.isProvided()
++        : !newProps->placeholderColor.hasSameValue(oldProps->placeholderColor)) {
++    hybridView->setPlaceholderColor(newProps->placeholderColor.get());
++  }
+   if (oldProps == nullptr
+         ? newProps->onLoadStart.isProvided()
+         : !newProps->onLoadStart.hasSameValue(oldProps->onLoadStart)) {
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
+index e097a68..4fb1b30 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
+@@ -93,6 +93,12 @@ abstract class HybridOneKeyImageSpec: HybridView() {
+   @set:Keep
+   abstract var loadingStrategy: OneKeyImageLoadingStrategy?
+   
++  @get:DoNotStrip
++  @get:Keep
++  @set:DoNotStrip
++  @set:Keep
++  abstract var placeholderColor: String?
++
+   abstract var onLoadStart: (() -> Unit)?
+   
+   private var onLoadStart_cxx: Func_void?
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
+index 0cc6685..a5b66ba 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
+@@ -155,6 +155,13 @@ namespace margelo::nitro::onekeyimage {
+     inline void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) noexcept override {
+       _swiftPart.setLoadingStrategy(loadingStrategy);
+     }
++    inline std::optional<std::string> getPlaceholderColor() noexcept override {
++      auto __result = _swiftPart.getPlaceholderColor();
++      return __result;
++    }
++    inline void setPlaceholderColor(const std::optional<std::string>& placeholderColor) noexcept override {
++      _swiftPart.setPlaceholderColor(placeholderColor);
++    }
+     inline std::optional<std::function<void()>> getOnLoadStart() noexcept override {
+       auto __result = _swiftPart.getOnLoadStart();
+       return __result;
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
+index 46b90f5..6d5e8e0 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
+@@ -164,6 +164,12 @@ - (void) updateProps:(const std::shared_ptr<const react::Props>&)props
+           : !newViewProps.loadingStrategy.hasSameValue(oldViewProps->loadingStrategy)) {
+       swiftPart.setLoadingStrategy(newViewProps.loadingStrategy.get());
+     }
++    // placeholderColor: optional
++    if (oldViewProps == nullptr
++          ? newViewProps.placeholderColor.isProvided()
++          : !newViewProps.placeholderColor.hasSameValue(oldViewProps->placeholderColor)) {
++      swiftPart.setPlaceholderColor(newViewProps.placeholderColor.get());
++    }
+     // onLoadStart: optional
+     if (oldViewProps == nullptr
+           ? newViewProps.onLoadStart.isProvided()
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
+index e3eeb05..77215d5 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
+@@ -21,6 +21,7 @@ public protocol HybridOneKeyImageSpec_protocol: HybridObject, HybridView {
+   var resizeWidth: Double? { get set }
+   var overscan: Double? { get set }
+   var loadingStrategy: OneKeyImageLoadingStrategy? { get set }
++  var placeholderColor: String? { get set }
+   var onLoadStart: (() -> Void)? { get set }
+   var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)? { get set }
+   var onDisplay: (() -> Void)? { get set }
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
+index bf02bc9..f16c4e2 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
+@@ -357,6 +357,30 @@ open class HybridOneKeyImageSpec_cxx {
+     }
+   }
+   
++  public final var placeholderColor: bridge.std__optional_std__string_ {
++    @inline(__always)
++    get {
++      return { () -> bridge.std__optional_std__string_ in
++        if let __unwrappedValue = self.__implementation.placeholderColor {
++          return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
++        } else {
++          return .init()
++        }
++      }()
++    }
++    @inline(__always)
++    set {
++      self.__implementation.placeholderColor = { () -> String? in
++        if bridge.has_value_std__optional_std__string_(newValue) {
++          let __unwrapped = bridge.get_std__optional_std__string_(newValue)
++          return String(__unwrapped)
++        } else {
++          return nil
++        }
++      }()
++    }
++  }
++
+   public final var onLoadStart: bridge.std__optional_std__function_void____ {
+     @inline(__always)
+     get {
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
+index 84b8bc4..b8cab8b 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
+@@ -36,6 +36,8 @@ namespace margelo::nitro::onekeyimage {
+       prototype.registerHybridSetter("overscan", &HybridOneKeyImageSpec::setOverscan);
+       prototype.registerHybridGetter("loadingStrategy", &HybridOneKeyImageSpec::getLoadingStrategy);
+       prototype.registerHybridSetter("loadingStrategy", &HybridOneKeyImageSpec::setLoadingStrategy);
++      prototype.registerHybridGetter("placeholderColor", &HybridOneKeyImageSpec::getPlaceholderColor);
++      prototype.registerHybridSetter("placeholderColor", &HybridOneKeyImageSpec::setPlaceholderColor);
+       prototype.registerHybridGetter("onLoadStart", &HybridOneKeyImageSpec::getOnLoadStart);
+       prototype.registerHybridSetter("onLoadStart", &HybridOneKeyImageSpec::setOnLoadStart);
+       prototype.registerHybridGetter("onLoad", &HybridOneKeyImageSpec::getOnLoad);
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
+index a3b37ed..6ce7231 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
+@@ -82,6 +82,8 @@ namespace margelo::nitro::onekeyimage {
+       virtual void setOverscan(std::optional<double> overscan) = 0;
+       virtual std::optional<OneKeyImageLoadingStrategy> getLoadingStrategy() = 0;
+       virtual void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) = 0;
++      virtual std::optional<std::string> getPlaceholderColor() = 0;
++      virtual void setPlaceholderColor(const std::optional<std::string>& placeholderColor) = 0;
+       virtual std::optional<std::function<void()>> getOnLoadStart() = 0;
+       virtual void setOnLoadStart(const std::optional<std::function<void()>>& onLoadStart) = 0;
+       virtual std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>> getOnLoad() = 0;
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
+index 990bf41..246f23c 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
+@@ -31,6 +31,7 @@ namespace margelo::nitro::onekeyimage::views {
+     resizeWidth(nitro::ReactProp<std::optional<double>>::fromRawValue("OneKeyImage", "resizeWidth", rawProps, sourceProps.resizeWidth)),
+     overscan(nitro::ReactProp<std::optional<double>>::fromRawValue("OneKeyImage", "overscan", rawProps, sourceProps.overscan)),
+     loadingStrategy(nitro::ReactProp<std::optional<OneKeyImageLoadingStrategy>>::fromRawValue("OneKeyImage", "loadingStrategy", rawProps, sourceProps.loadingStrategy)),
++    placeholderColor(nitro::ReactProp<std::optional<std::string>>::fromRawValue("OneKeyImage", "placeholderColor", rawProps, sourceProps.placeholderColor)),
+     onLoadStart(nitro::ReactProp<std::optional<std::function<void()>>>::fromRawValue("OneKeyImage", "onLoadStart", rawProps, sourceProps.onLoadStart)),
+     onLoad(nitro::ReactProp<std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>>>::fromRawValue("OneKeyImage", "onLoad", rawProps, sourceProps.onLoad)),
+     onDisplay(nitro::ReactProp<std::optional<std::function<void()>>>::fromRawValue("OneKeyImage", "onDisplay", rawProps, sourceProps.onDisplay)),
+@@ -51,6 +52,7 @@ namespace margelo::nitro::onekeyimage::views {
+       case hashString("resizeWidth"): return true;
+       case hashString("overscan"): return true;
+       case hashString("loadingStrategy"): return true;
++      case hashString("placeholderColor"): return true;
+       case hashString("onLoadStart"): return true;
+       case hashString("onLoad"): return true;
+       case hashString("onDisplay"): return true;
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
+index cb2c6d1..109c239 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
+@@ -59,6 +59,7 @@ namespace margelo::nitro::onekeyimage::views {
+     nitro::ReactProp<std::optional<double>> resizeWidth;
+     nitro::ReactProp<std::optional<double>> overscan;
+     nitro::ReactProp<std::optional<OneKeyImageLoadingStrategy>> loadingStrategy;
++    nitro::ReactProp<std::optional<std::string>> placeholderColor;
+     nitro::ReactProp<std::optional<std::function<void()>>> onLoadStart;
+     nitro::ReactProp<std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>>> onLoad;
+     nitro::ReactProp<std::optional<std::function<void()>>> onDisplay;
+@@ -79,6 +80,7 @@ namespace margelo::nitro::onekeyimage::views {
+              resizeWidth.hasSameValue(other.resizeWidth) &&
+              overscan.hasSameValue(other.overscan) &&
+              loadingStrategy.hasSameValue(other.loadingStrategy) &&
++             placeholderColor.hasSameValue(other.placeholderColor) &&
+              onLoadStart.hasSameValue(other.onLoadStart) &&
+              onLoad.hasSameValue(other.onLoad) &&
+              onDisplay.hasSameValue(other.onDisplay) &&
+@@ -100,6 +102,7 @@ namespace margelo::nitro::onekeyimage::views {
+              resizeWidth.isProvided() ||
+              overscan.isProvided() ||
+              loadingStrategy.isProvided() ||
++             placeholderColor.isProvided() ||
+              onLoadStart.isProvided() ||
+              onLoad.isProvided() ||
+              onDisplay.isProvided() ||
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/json/OneKeyImageConfig.json b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/json/OneKeyImageConfig.json
+index d56c364..978703c 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/json/OneKeyImageConfig.json
++++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/json/OneKeyImageConfig.json
+@@ -15,6 +15,7 @@
+     "resizeWidth": true,
+     "overscan": true,
+     "loadingStrategy": true,
++    "placeholderColor": true,
+     "onLoadStart": true,
+     "onLoad": true,
+     "onDisplay": true,
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
+index 46d5f96..c974545 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
++++ b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
+@@ -36,6 +36,8 @@ export interface OneKeyImageNativeProps extends HybridViewProps {
+     resizeWidth?: number;
+     overscan?: number;
+     loadingStrategy?: OneKeyImageLoadingStrategy;
++    /** Theme-aware color used by static loading, error, and fallback states. */
++    placeholderColor?: string;
+     onLoadStart?: () => void;
+     onLoad?: (width: number, height: number, cacheType: OneKeyImageCacheType) => void;
+     onDisplay?: () => void;
+diff --git a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
+index 4861259..5a6b8f5 100644
+--- a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
++++ b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
+@@ -45,7 +45,7 @@ export interface OneKeyImageProps extends Omit<OneKeyImageNativeProps, 'sourceUr
+     onError?: MaybeWrappedCallback<(event: OneKeyImageErrorEvent) => void>;
+     onLoadEnd?: MaybeWrappedCallback<() => void>;
+ }
+-export declare function OneKeyImage({ source, placeholder, fallback, variant, contentFit, cachePolicy, autoplay, recyclingKey, optimizeTos, resizeWidth, overscan, loadingStrategy, hybridRef, onLoadStart, onLoad, onDisplay, onError, onLoadEnd, style, ...viewProps }: OneKeyImageProps): import("react/jsx-runtime").JSX.Element;
++export declare function OneKeyImage({ source, placeholder, fallback, variant, contentFit, cachePolicy, autoplay, recyclingKey, optimizeTos, resizeWidth, overscan, loadingStrategy, placeholderColor, hybridRef, onLoadStart, onLoad, onDisplay, onError, onLoadEnd, style, ...viewProps }: OneKeyImageProps): import("react/jsx-runtime").JSX.Element;
+ export declare const OneKeyImageCache: {
+     preload(sources: OneKeyImagePreloadInput[]): Promise<boolean>;
+     clearMemory: () => Promise<void>;
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
+index ee5bfa1..92847e8 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.cpp
+@@ -165,6 +165,15 @@ namespace margelo::nitro::onekeyimage {
+     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JOneKeyImageLoadingStrategy> /* loadingStrategy */)>("setLoadingStrategy");
+     method(_javaPart, loadingStrategy.has_value() ? JOneKeyImageLoadingStrategy::fromCpp(loadingStrategy.value()) : nullptr);
+   }
++  std::optional<std::string> JHybridOneKeyImageSpec::getPlaceholderColor() {
++    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getPlaceholderColor");
++    auto __result = method(_javaPart);
++    return __result != nullptr ? std::make_optional(__result->toStdString()) : std::nullopt;
++  }
++  void JHybridOneKeyImageSpec::setPlaceholderColor(const std::optional<std::string>& placeholderColor) {
++    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* placeholderColor */)>("setPlaceholderColor");
++    method(_javaPart, placeholderColor.has_value() ? jni::make_jstring(placeholderColor.value()) : nullptr);
++  }
+   std::optional<std::function<void()>> JHybridOneKeyImageSpec::getOnLoadStart() {
+     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void::javaobject>()>("getOnLoadStart_cxx");
+     auto __result = method(_javaPart);
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
+index 0f5bf04..2c4c045 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/JHybridOneKeyImageSpec.hpp
+@@ -72,6 +72,8 @@ namespace margelo::nitro::onekeyimage {
+     void setOverscan(std::optional<double> overscan) override;
+     std::optional<OneKeyImageLoadingStrategy> getLoadingStrategy() override;
+     void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) override;
++    std::optional<std::string> getPlaceholderColor() override;
++    void setPlaceholderColor(const std::optional<std::string>& placeholderColor) override;
+     std::optional<std::function<void()>> getOnLoadStart() override;
+     void setOnLoadStart(const std::optional<std::function<void()>>& onLoadStart) override;
+     std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>> getOnLoad() override;
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
+index ae2faac..d07f176 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/c++/views/JHybridOneKeyImageStateUpdater.cpp
+@@ -108,6 +108,11 @@ void JHybridOneKeyImageStateUpdater::updateViewProps(jni::alias_ref<jni::JClass>
+         : !newProps->loadingStrategy.hasSameValue(oldProps->loadingStrategy)) {
+     hybridView->setLoadingStrategy(newProps->loadingStrategy.get());
+   }
++  if (oldProps == nullptr
++        ? newProps->placeholderColor.isProvided()
++        : !newProps->placeholderColor.hasSameValue(oldProps->placeholderColor)) {
++    hybridView->setPlaceholderColor(newProps->placeholderColor.get());
++  }
+   if (oldProps == nullptr
+         ? newProps->onLoadStart.isProvided()
+         : !newProps->onLoadStart.hasSameValue(oldProps->onLoadStart)) {
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
+index e097a68..4fb1b30 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
+@@ -93,6 +93,12 @@ abstract class HybridOneKeyImageSpec: HybridView() {
+   @set:Keep
+   abstract var loadingStrategy: OneKeyImageLoadingStrategy?
+   
++  @get:DoNotStrip
++  @get:Keep
++  @set:DoNotStrip
++  @set:Keep
++  abstract var placeholderColor: String?
++
+   abstract var onLoadStart: (() -> Unit)?
+   
+   private var onLoadStart_cxx: Func_void?
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
+index 0cc6685..a5b66ba 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/HybridOneKeyImageSpecSwift.hpp
+@@ -155,6 +155,13 @@ namespace margelo::nitro::onekeyimage {
+     inline void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) noexcept override {
+       _swiftPart.setLoadingStrategy(loadingStrategy);
+     }
++    inline std::optional<std::string> getPlaceholderColor() noexcept override {
++      auto __result = _swiftPart.getPlaceholderColor();
++      return __result;
++    }
++    inline void setPlaceholderColor(const std::optional<std::string>& placeholderColor) noexcept override {
++      _swiftPart.setPlaceholderColor(placeholderColor);
++    }
+     inline std::optional<std::function<void()>> getOnLoadStart() noexcept override {
+       auto __result = _swiftPart.getOnLoadStart();
+       return __result;
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
+index 46b90f5..6d5e8e0 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/c++/views/HybridOneKeyImageComponent.mm
+@@ -164,6 +164,12 @@ - (void) updateProps:(const std::shared_ptr<const react::Props>&)props
+           : !newViewProps.loadingStrategy.hasSameValue(oldViewProps->loadingStrategy)) {
+       swiftPart.setLoadingStrategy(newViewProps.loadingStrategy.get());
+     }
++    // placeholderColor: optional
++    if (oldViewProps == nullptr
++          ? newViewProps.placeholderColor.isProvided()
++          : !newViewProps.placeholderColor.hasSameValue(oldViewProps->placeholderColor)) {
++      swiftPart.setPlaceholderColor(newViewProps.placeholderColor.get());
++    }
+     // onLoadStart: optional
+     if (oldViewProps == nullptr
+           ? newViewProps.onLoadStart.isProvided()
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
+index e3eeb05..77215d5 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec.swift
+@@ -21,6 +21,7 @@ public protocol HybridOneKeyImageSpec_protocol: HybridObject, HybridView {
+   var resizeWidth: Double? { get set }
+   var overscan: Double? { get set }
+   var loadingStrategy: OneKeyImageLoadingStrategy? { get set }
++  var placeholderColor: String? { get set }
+   var onLoadStart: (() -> Void)? { get set }
+   var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)? { get set }
+   var onDisplay: (() -> Void)? { get set }
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
+index bf02bc9..f16c4e2 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
+@@ -357,6 +357,30 @@ open class HybridOneKeyImageSpec_cxx {
+     }
+   }
+   
++  public final var placeholderColor: bridge.std__optional_std__string_ {
++    @inline(__always)
++    get {
++      return { () -> bridge.std__optional_std__string_ in
++        if let __unwrappedValue = self.__implementation.placeholderColor {
++          return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
++        } else {
++          return .init()
++        }
++      }()
++    }
++    @inline(__always)
++    set {
++      self.__implementation.placeholderColor = { () -> String? in
++        if bridge.has_value_std__optional_std__string_(newValue) {
++          let __unwrapped = bridge.get_std__optional_std__string_(newValue)
++          return String(__unwrapped)
++        } else {
++          return nil
++        }
++      }()
++    }
++  }
++
+   public final var onLoadStart: bridge.std__optional_std__function_void____ {
+     @inline(__always)
+     get {
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
+index 84b8bc4..b8cab8b 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.cpp
+@@ -36,6 +36,8 @@ namespace margelo::nitro::onekeyimage {
+       prototype.registerHybridSetter("overscan", &HybridOneKeyImageSpec::setOverscan);
+       prototype.registerHybridGetter("loadingStrategy", &HybridOneKeyImageSpec::getLoadingStrategy);
+       prototype.registerHybridSetter("loadingStrategy", &HybridOneKeyImageSpec::setLoadingStrategy);
++      prototype.registerHybridGetter("placeholderColor", &HybridOneKeyImageSpec::getPlaceholderColor);
++      prototype.registerHybridSetter("placeholderColor", &HybridOneKeyImageSpec::setPlaceholderColor);
+       prototype.registerHybridGetter("onLoadStart", &HybridOneKeyImageSpec::getOnLoadStart);
+       prototype.registerHybridSetter("onLoadStart", &HybridOneKeyImageSpec::setOnLoadStart);
+       prototype.registerHybridGetter("onLoad", &HybridOneKeyImageSpec::getOnLoad);
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
+index a3b37ed..6ce7231 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/HybridOneKeyImageSpec.hpp
+@@ -82,6 +82,8 @@ namespace margelo::nitro::onekeyimage {
+       virtual void setOverscan(std::optional<double> overscan) = 0;
+       virtual std::optional<OneKeyImageLoadingStrategy> getLoadingStrategy() = 0;
+       virtual void setLoadingStrategy(std::optional<OneKeyImageLoadingStrategy> loadingStrategy) = 0;
++      virtual std::optional<std::string> getPlaceholderColor() = 0;
++      virtual void setPlaceholderColor(const std::optional<std::string>& placeholderColor) = 0;
+       virtual std::optional<std::function<void()>> getOnLoadStart() = 0;
+       virtual void setOnLoadStart(const std::optional<std::function<void()>>& onLoadStart) = 0;
+       virtual std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>> getOnLoad() = 0;
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
+index 990bf41..246f23c 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.cpp
+@@ -31,6 +31,7 @@ namespace margelo::nitro::onekeyimage::views {
+     resizeWidth(nitro::ReactProp<std::optional<double>>::fromRawValue("OneKeyImage", "resizeWidth", rawProps, sourceProps.resizeWidth)),
+     overscan(nitro::ReactProp<std::optional<double>>::fromRawValue("OneKeyImage", "overscan", rawProps, sourceProps.overscan)),
+     loadingStrategy(nitro::ReactProp<std::optional<OneKeyImageLoadingStrategy>>::fromRawValue("OneKeyImage", "loadingStrategy", rawProps, sourceProps.loadingStrategy)),
++    placeholderColor(nitro::ReactProp<std::optional<std::string>>::fromRawValue("OneKeyImage", "placeholderColor", rawProps, sourceProps.placeholderColor)),
+     onLoadStart(nitro::ReactProp<std::optional<std::function<void()>>>::fromRawValue("OneKeyImage", "onLoadStart", rawProps, sourceProps.onLoadStart)),
+     onLoad(nitro::ReactProp<std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>>>::fromRawValue("OneKeyImage", "onLoad", rawProps, sourceProps.onLoad)),
+     onDisplay(nitro::ReactProp<std::optional<std::function<void()>>>::fromRawValue("OneKeyImage", "onDisplay", rawProps, sourceProps.onDisplay)),
+@@ -51,6 +52,7 @@ namespace margelo::nitro::onekeyimage::views {
+       case hashString("resizeWidth"): return true;
+       case hashString("overscan"): return true;
+       case hashString("loadingStrategy"): return true;
++      case hashString("placeholderColor"): return true;
+       case hashString("onLoadStart"): return true;
+       case hashString("onLoad"): return true;
+       case hashString("onDisplay"): return true;
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
+index cb2c6d1..109c239 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/c++/views/HybridOneKeyImageComponent.hpp
+@@ -59,6 +59,7 @@ namespace margelo::nitro::onekeyimage::views {
+     nitro::ReactProp<std::optional<double>> resizeWidth;
+     nitro::ReactProp<std::optional<double>> overscan;
+     nitro::ReactProp<std::optional<OneKeyImageLoadingStrategy>> loadingStrategy;
++    nitro::ReactProp<std::optional<std::string>> placeholderColor;
+     nitro::ReactProp<std::optional<std::function<void()>>> onLoadStart;
+     nitro::ReactProp<std::optional<std::function<void(double /* width */, double /* height */, OneKeyImageCacheType /* cacheType */)>>> onLoad;
+     nitro::ReactProp<std::optional<std::function<void()>>> onDisplay;
+@@ -79,6 +80,7 @@ namespace margelo::nitro::onekeyimage::views {
+              resizeWidth.hasSameValue(other.resizeWidth) &&
+              overscan.hasSameValue(other.overscan) &&
+              loadingStrategy.hasSameValue(other.loadingStrategy) &&
++             placeholderColor.hasSameValue(other.placeholderColor) &&
+              onLoadStart.hasSameValue(other.onLoadStart) &&
+              onLoad.hasSameValue(other.onLoad) &&
+              onDisplay.hasSameValue(other.onDisplay) &&
+@@ -100,6 +102,7 @@ namespace margelo::nitro::onekeyimage::views {
+              resizeWidth.isProvided() ||
+              overscan.isProvided() ||
+              loadingStrategy.isProvided() ||
++             placeholderColor.isProvided() ||
+              onLoadStart.isProvided() ||
+              onLoad.isProvided() ||
+              onDisplay.isProvided() ||
+diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/json/OneKeyImageConfig.json b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/json/OneKeyImageConfig.json
+index d56c364..978703c 100644
+--- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/json/OneKeyImageConfig.json
++++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/shared/json/OneKeyImageConfig.json
+@@ -15,6 +15,7 @@
+     "resizeWidth": true,
+     "overscan": true,
+     "loadingStrategy": true,
++    "placeholderColor": true,
+     "onLoadStart": true,
+     "onLoad": true,
+     "onDisplay": true,
+diff --git a/node_modules/@onekeyfe/react-native-image/src/OneKeyImage.nitro.ts b/node_modules/@onekeyfe/react-native-image/src/OneKeyImage.nitro.ts
+index 8611727..8866ada 100644
+--- a/node_modules/@onekeyfe/react-native-image/src/OneKeyImage.nitro.ts
++++ b/node_modules/@onekeyfe/react-native-image/src/OneKeyImage.nitro.ts
+@@ -47,6 +47,8 @@ export interface OneKeyImageNativeProps extends HybridViewProps {
+   resizeWidth?: number;
+   overscan?: number;
+   loadingStrategy?: OneKeyImageLoadingStrategy;
++  /** Theme-aware color used by static loading, error, and fallback states. */
++  placeholderColor?: string;
+   onLoadStart?: () => void;
+   onLoad?: (
+     width: number,
+diff --git a/node_modules/@onekeyfe/react-native-image/src/index.tsx b/node_modules/@onekeyfe/react-native-image/src/index.tsx
+index be71e2e..986fa36 100644
+--- a/node_modules/@onekeyfe/react-native-image/src/index.tsx
++++ b/node_modules/@onekeyfe/react-native-image/src/index.tsx
+@@ -156,6 +156,7 @@ export function OneKeyImage({
+   resizeWidth,
+   overscan = 1.1,
+   loadingStrategy = OneKeyImageLoadingStrategy.STATIC,
++  placeholderColor,
+   hybridRef,
+   onLoadStart,
+   onLoad,
+@@ -330,7 +331,7 @@ export function OneKeyImage({
+     ...viewProps,
+     ...nativeCallbacks,
+     style: shouldWrapNative ? StyleSheet.absoluteFill : style,
+-    sourceUri: normalized?.uri,
++    sourceUri: normalized?.uri ?? '',
+     sourceHeadersJson: normalized?.headers
+       ? JSON.stringify(normalized.headers)
+       : undefined,
+@@ -343,6 +344,7 @@ export function OneKeyImage({
+     overscan,
+     loadingStrategy:
+       placeholder == null ? loadingStrategy : OneKeyImageLoadingStrategy.NONE,
++    placeholderColor,
+   });
+ 
+   if (!shouldWrapNative) return native;
