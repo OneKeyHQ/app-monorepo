@@ -64,47 +64,76 @@ function buildTransactionSecurityResult(
   };
 }
 
-describe('securityCheckModel', () => {
-  it('keeps request confirmation separate from a safe verdict', () => {
-    const messageModel = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: parsedMessage,
-      isConfirmationRequired: true,
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Security,
-      ),
-      intl,
-    });
-    const transactionModel = buildSecurityCheckModel({
-      kind: 'transaction',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      decodedTxs: [
-        {
-          isConfirmationRequired: true,
-          isLocalParsed: false,
-          txDisplay: { title: 'Approval', components: [], alerts: [] },
-        } as unknown as IDecodedTx,
-      ],
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Security,
-      ),
-      intl,
-    });
+function buildDecodedTx(overrides: Partial<IDecodedTx> = {}): IDecodedTx {
+  return {
+    isLocalParsed: false,
+    isConfirmationRequired: false,
+    txDisplay: { title: 'Send', components: [], alerts: [] },
+    ...overrides,
+  } as unknown as IDecodedTx;
+}
 
-    expect(messageModel).toMatchObject({
-      status: 'success',
-      confirmation: 'request',
-      findings: [],
-    });
-    expect(transactionModel).toMatchObject({
-      status: 'success',
-      confirmation: 'request',
-      findings: [],
-    });
-  });
+function buildAddressComponent({
+  displayType,
+  address = '0xrisk',
+  value = 'Risky address',
+}: {
+  displayType: 'warning' | 'critical';
+  address?: string;
+  value?: string;
+}) {
+  return {
+    type: EParseTxComponentType.Address as const,
+    label: 'To',
+    address,
+    tags: [{ value, displayType }],
+  };
+}
+
+describe('securityCheckModel', () => {
+  it.each([
+    [
+      'message',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: parsedMessage,
+          isConfirmationRequired: true,
+          transactionSecurityInfo: buildTransactionSecurityResult(
+            EHostSecurityLevel.Security,
+          ),
+          intl,
+        }),
+      'message-confirmation-required',
+    ],
+    [
+      'transaction',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isConfirmationRequired: true })],
+          transactionSecurityInfo: buildTransactionSecurityResult(
+            EHostSecurityLevel.Security,
+          ),
+          intl,
+        }),
+      'tx-confirmation-required',
+    ],
+  ] as const)(
+    'treats an explicit %s confirmation flag as risk even when Prime is Safe',
+    (_kind, buildModel, findingId) => {
+      const model = buildModel();
+      expect(model.confirmation).toBe('risk');
+      expect(model.status).toBe('warning');
+      expect(model.findings).toContainEqual(
+        expect.objectContaining({ id: findingId, status: 'warning' }),
+      );
+    },
+  );
 
   it('uses a Prime risk result for both the card and confirmation gate', () => {
     const model = buildSecurityCheckModel({
@@ -145,11 +174,14 @@ describe('securityCheckModel', () => {
     ).not.toBe(warning.acknowledgementKey);
   });
 
-  it('invalidates acknowledgement when the effective address risk escalates', () => {
-    const buildModel = (
-      displayType: 'warning' | 'critical',
-      transactionSecurityInfo?: ITransactionSecurityCheckResult,
-    ) =>
+  it('invalidates acknowledgement when a trusted Permit address risk changes', () => {
+    const buildModel = ({
+      displayType,
+      address = '0xrisk',
+    }: {
+      displayType: 'warning' | 'critical';
+      address?: string;
+    }) =>
       buildSecurityCheckModel({
         kind: 'message',
         requestKey: 'same-request',
@@ -157,31 +189,28 @@ describe('securityCheckModel', () => {
         urlSecurityInfo: verifiedSite,
         messageDisplay: {
           ...parsedMessage,
-          components: [
-            {
-              type: EParseTxComponentType.Address,
-              label: 'Spender',
-              address: '0xrisk',
-              tags: [{ value: 'Risky address', displayType }],
-            },
-          ],
+          components: [buildAddressComponent({ displayType, address })],
         },
-        transactionSecurityInfo,
+        unsignedMessage: permitMessage,
+        transactionSecurityInfo: buildTransactionSecurityResult(
+          EHostSecurityLevel.Security,
+        ),
         intl,
       });
 
-    const warning = buildModel('warning');
-    const critical = buildModel('critical');
-    expect(warning.confirmation).toBe('risk');
-    expect(critical.confirmation).toBe('risk');
+    const warning = buildModel({ displayType: 'warning' });
+    const critical = buildModel({ displayType: 'critical' });
+    const otherTarget = buildModel({
+      displayType: 'warning',
+      address: '0xother',
+    });
+    expect(warning).toMatchObject({
+      confirmation: 'risk',
+      status: undefined,
+      findings: [],
+    });
     expect(critical.acknowledgementKey).not.toBe(warning.acknowledgementKey);
-
-    const conclusiveScan = buildTransactionSecurityResult(
-      EHostSecurityLevel.Medium,
-    );
-    expect(buildModel('critical', conclusiveScan).acknowledgementKey).toBe(
-      buildModel('warning', conclusiveScan).acknowledgementKey,
-    );
+    expect(otherTarget.acknowledgementKey).not.toBe(warning.acknowledgementKey);
   });
 
   it('keeps Prime features off the card and behind the finding action', () => {
@@ -265,71 +294,71 @@ describe('securityCheckModel', () => {
     expect(models[0]?.confirmation).toBe('none');
   });
 
-  it('uses address risk as a fallback when the targeted scan has no conclusion', () => {
-    const withoutScan = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: {
-        ...parsedMessage,
-        components: [
-          {
-            type: EParseTxComponentType.Address,
-            label: 'Spender',
-            address: '0xrisk',
-            tags: [{ value: 'Suspicious address', displayType: 'warning' }],
-          },
+  it.each(['warning', 'critical'] as const)(
+    'keeps ordinary %s address tags off the card and out of the confirmation gate',
+    (displayType) => {
+      const internalSend = buildSecurityCheckModel({
+        kind: 'transaction',
+        decodedTxs: [
+          buildDecodedTx({
+            txDisplay: {
+              title: 'Send',
+              components: [
+                buildAddressComponent({
+                  displayType,
+                  value: 'Initial transfer',
+                }),
+              ],
+              alerts: [],
+            },
+          }),
         ],
-      },
-      intl,
-    });
-    const unknownScan = buildSecurityCheckModel({
-      kind: 'message',
-      origin: 'https://app.example.com',
-      urlSecurityInfo: verifiedSite,
-      messageDisplay: {
-        ...parsedMessage,
-        components: [
-          {
-            type: EParseTxComponentType.Address,
-            label: 'Spender',
-            address: '0xrisk',
-            tags: [{ value: 'Malicious address', displayType: 'critical' }],
-          },
+        intl,
+      });
+      const message = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: {
+          ...parsedMessage,
+          components: [buildAddressComponent({ displayType })],
+        },
+        intl,
+      });
+      const transaction = buildSecurityCheckModel({
+        kind: 'transaction',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        decodedTxs: [
+          buildDecodedTx({
+            txDisplay: {
+              title: 'Send',
+              components: [buildAddressComponent({ displayType })],
+              alerts: [],
+            },
+          }),
         ],
-      },
-      transactionSecurityInfo: buildTransactionSecurityResult(
-        EHostSecurityLevel.Unknown,
-      ),
-      intl,
-    });
+        intl,
+      });
 
-    expect(withoutScan).toMatchObject({
-      status: 'warning',
-      confirmation: 'risk',
-      findings: [],
-    });
-    expect(unknownScan).toMatchObject({
-      status: 'critical',
-      confirmation: 'risk',
-    });
-  });
+      for (const model of [internalSend, message, transaction]) {
+        expect(model).toMatchObject({
+          status: undefined,
+          confirmation: 'none',
+          findings: [],
+        });
+      }
+    },
+  );
 
-  it('prefers a conclusive targeted scan over address tags', () => {
+  it('does not let a Safe Prime scan restore success over address tags', () => {
     const model = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
       messageDisplay: {
         ...parsedMessage,
-        components: [
-          {
-            type: EParseTxComponentType.Address,
-            label: 'Spender',
-            address: '0xrisk',
-            tags: [{ value: 'Suspicious address', displayType: 'warning' }],
-          },
-        ],
+        components: [buildAddressComponent({ displayType: 'warning' })],
       },
       transactionSecurityInfo: buildTransactionSecurityResult(
         EHostSecurityLevel.Security,
@@ -337,7 +366,7 @@ describe('securityCheckModel', () => {
       intl,
     });
 
-    expect(model.status).toBe('success');
+    expect(model.status).toBeUndefined();
     expect(model.confirmation).toBe('none');
 
     const partialModel = buildSecurityCheckModel({
@@ -346,14 +375,7 @@ describe('securityCheckModel', () => {
       urlSecurityInfo: verifiedSite,
       messageDisplay: {
         ...parsedMessage,
-        components: [
-          {
-            type: EParseTxComponentType.Address,
-            label: 'Spender',
-            address: '0xrisk',
-            tags: [{ value: 'Malicious address', displayType: 'critical' }],
-          },
-        ],
+        components: [buildAddressComponent({ displayType: 'critical' })],
       },
       transactionSecurityInfo: {
         ...buildTransactionSecurityResult(EHostSecurityLevel.Medium),
@@ -365,7 +387,8 @@ describe('securityCheckModel', () => {
       intl,
     });
 
-    expect(partialModel.status).toBe('critical');
+    expect(partialModel.status).toBe('warning');
+    expect(partialModel.confirmation).toBe('risk');
     expect(
       partialModel.coverage.find((item) => item.source === 'requestScan')
         ?.state,
@@ -405,8 +428,11 @@ describe('securityCheckModel', () => {
     expect(untrustedPermit.findings).toContainEqual(
       expect.objectContaining({ id: 'message-permit', status: 'warning' }),
     );
-    expect(trustedPermitWithAddressRisk.confirmation).toBe('risk');
-    expect(trustedPermitWithAddressRisk.status).toBe('warning');
+    expect(trustedPermitWithAddressRisk).toMatchObject({
+      confirmation: 'risk',
+      status: undefined,
+      findings: [],
+    });
   });
 
   it('keeps an existing warning visible while Prime is still checking', () => {
@@ -611,6 +637,7 @@ describe('securityCheckModel', () => {
     });
 
     expect(model.status).toBe('critical');
+    expect(model.confirmation).toBe('risk');
     expect(
       model.coverage.find((item) => item.source === 'requestScan')?.state,
     ).toBe('failed');
@@ -739,6 +766,325 @@ describe('securityCheckModel', () => {
     );
     expect(model.findings[0]?.description).toBeUndefined();
     expect(model.findings[0]?.action).toBeUndefined();
+  });
+
+  it.each([
+    [
+      'parser alerts',
+      {
+        txDisplay: {
+          title: 'Send',
+          components: [],
+          alerts: ['The spender is an EOA'],
+        },
+      },
+    ],
+    ['custom hex', { isCustomHexData: true }],
+  ])('does not gate a transaction for %s', (_title, overrides) => {
+    const model = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx(overrides)],
+      intl,
+    });
+    expect(model.confirmation).toBe('none');
+    expect(model.status).toBe('warning');
+    expect(model.findings.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [EHostSecurityLevel.Unknown, 'risk'],
+    [EHostSecurityLevel.Security, 'none'],
+  ] as const)(
+    'gates ordinary message parser alerts for site %s',
+    (level, confirmation) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: { ...verifiedSite, level } as IHostSecurity,
+        messageDisplay: {
+          ...parsedMessage,
+          alerts: ['Review this request'],
+        },
+        intl,
+      });
+      expect(model.confirmation).toBe(confirmation);
+      expect(
+        model.findings.some((finding) => finding.id.includes('parser-alert')),
+      ).toBe(true);
+    },
+  );
+
+  it('keeps a trusted Permit generic alert exempt and a specific alert as risk', () => {
+    const genericAlert = ETranslations.dapp_connect_permit_sign_alert;
+    const generic = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: { ...parsedMessage, alerts: [genericAlert] },
+      unsignedMessage: permitMessage,
+      isConfirmationRequired: true,
+      intl,
+    });
+    const specific = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        alerts: ['The spender is known to be malicious.'],
+      },
+      unsignedMessage: permitMessage,
+      intl,
+    });
+
+    expect(generic).toMatchObject({
+      confirmation: 'none',
+      status: 'success',
+      findings: [],
+    });
+    expect(specific.confirmation).toBe('risk');
+    expect(
+      specific.findings.some((finding) => finding.id.includes('parser-alert')),
+    ).toBe(true);
+  });
+
+  it.each([EHostSecurityLevel.High, EHostSecurityLevel.Medium] as const)(
+    'keeps a trusted Permit at Prime %s as risk',
+    (level) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: verifiedSite,
+        messageDisplay: parsedMessage,
+        unsignedMessage: permitMessage,
+        transactionSecurityInfo: buildTransactionSecurityResult(level),
+        intl,
+      });
+      expect(model.confirmation).toBe('risk');
+    },
+  );
+
+  it.each(['Permit', 'Order'] as const)(
+    'gates an unknown-site %s with no parser alert through isRiskSignMethod',
+    (primaryType) => {
+      const model = buildSecurityCheckModel({
+        kind: 'message',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+        messageDisplay: parsedMessage,
+        unsignedMessage: buildTypedDataMessage(primaryType),
+        isRiskSignMethod: true,
+        intl,
+      });
+      expect(model.confirmation).toBe('risk');
+    },
+  );
+
+  it('keeps Security-site eth_sign gated by isRiskSignMethod', () => {
+    // Intentional strengthening versus the historical Security short-circuit.
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      unsignedMessage: {
+        type: EMessageTypesEth.ETH_SIGN,
+        message: '0xdead',
+      },
+      isRiskSignMethod: true,
+      intl,
+    });
+    expect(model.confirmation).toBe('risk');
+    expect(model.findings).toContainEqual(
+      expect.objectContaining({
+        id: 'message-risk-sign-method',
+        status: 'critical',
+      }),
+    );
+  });
+
+  it.each([
+    ['transaction', EHostSecurityLevel.High, 'critical'],
+    ['transaction', EHostSecurityLevel.Medium, 'warning'],
+    ['message', EHostSecurityLevel.High, 'critical'],
+    ['message', EHostSecurityLevel.Medium, 'warning'],
+  ] as const)('gates a %s on site %s', (kind, level, status) => {
+    const model = buildSecurityCheckModel({
+      kind,
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { ...verifiedSite, level } as IHostSecurity,
+      ...(kind === 'transaction'
+        ? { decodedTxs: [buildDecodedTx()] }
+        : { messageDisplay: parsedMessage }),
+      intl,
+    });
+    expect(model.confirmation).toBe('risk');
+    expect(model.status).toBe(status);
+  });
+
+  it('keeps acknowledgement stable for ordinary display-only changes', () => {
+    const baseTx = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-tx',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx({ isConfirmationRequired: true })],
+      intl,
+    });
+    const withAlert = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-tx',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [
+        buildDecodedTx({
+          isConfirmationRequired: true,
+          txDisplay: {
+            title: 'Send',
+            components: [],
+            alerts: ['The spender is an EOA'],
+          },
+        }),
+      ],
+      intl,
+    });
+    const withHex = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-tx',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [
+        buildDecodedTx({ isConfirmationRequired: true, isCustomHexData: true }),
+      ],
+      intl,
+    });
+    const withTag = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-tx',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [
+        buildDecodedTx({
+          isConfirmationRequired: true,
+          txDisplay: {
+            title: 'Send',
+            components: [buildAddressComponent({ displayType: 'warning' })],
+            alerts: [],
+          },
+        }),
+      ],
+      intl,
+    });
+    const baseMessage = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      isConfirmationRequired: true,
+      intl,
+    });
+    const taggedMessage = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        components: [buildAddressComponent({ displayType: 'critical' })],
+      },
+      isConfirmationRequired: true,
+      intl,
+    });
+
+    expect(baseTx.confirmation).toBe('risk');
+    expect(baseMessage.confirmation).toBe('risk');
+    expect(withAlert.acknowledgementKey).toBe(baseTx.acknowledgementKey);
+    expect(withHex.acknowledgementKey).toBe(baseTx.acknowledgementKey);
+    expect(withTag.acknowledgementKey).toBe(baseTx.acknowledgementKey);
+    expect(taggedMessage.acknowledgementKey).toBe(
+      baseMessage.acknowledgementKey,
+    );
+  });
+
+  it('invalidates acknowledgement when pending, request, or risk reasons change', () => {
+    const messageWithAlert = (alert: string) =>
+      buildSecurityCheckModel({
+        kind: 'message',
+        requestKey: 'same-request',
+        origin: 'https://app.example.com',
+        urlSecurityInfo: {
+          ...verifiedSite,
+          level: EHostSecurityLevel.Unknown,
+        },
+        messageDisplay: { ...parsedMessage, alerts: [alert] },
+        intl,
+      });
+    const firstAlert = messageWithAlert('The spender is an EOA');
+    const secondAlert = messageWithAlert(
+      'The spender is known to be malicious',
+    );
+    expect(firstAlert.confirmation).toBe('risk');
+    expect(secondAlert.confirmation).toBe('risk');
+    expect(secondAlert.acknowledgementKey).not.toBe(
+      firstAlert.acknowledgementKey,
+    );
+    const pending = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      isTransactionSecurityPending: true,
+      intl,
+    });
+    const resolved = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      intl,
+    });
+    const fallback = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      isMessageParseFallback: true,
+      intl,
+    });
+    const primeMedium = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx()],
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Medium,
+      ),
+      intl,
+    });
+    const primeHigh = buildSecurityCheckModel({
+      kind: 'transaction',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx()],
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.High,
+      ),
+      intl,
+    });
+
+    expect(pending.acknowledgementKey).not.toBe(resolved.acknowledgementKey);
+    expect(fallback.acknowledgementKey).not.toBe(resolved.acknowledgementKey);
+    expect(primeHigh.acknowledgementKey).not.toBe(
+      primeMedium.acknowledgementKey,
+    );
   });
 });
 

@@ -359,63 +359,60 @@ describe('DesktopLayout', () => {
     );
   });
 
-  it('uses Asset K-line data for the Top Coins Pro chart', async () => {
-    mockMarketPriceSource = 'token';
-    mockStockDetailState = {
-      isStockRoute: false,
-      stockId: '',
-      selectedTokenVariant: {
-        networkId: 'doge--0',
-        contractAddress: '',
-        symbol: 'DOGE',
-        decimals: 8,
-      },
-    };
-
-    render(
-      <DesktopLayout
-        isChartFullscreen={false}
-        isTradingViewNative={false}
-        onChartSwitch={jest.fn()}
-        onChartFullscreenChange={jest.fn()}
-        isNative
-        networkId="doge--0"
-        tokenAddress=""
-        marketTokenId="doge"
-        marketTokenCategory="top_coins"
-      />,
-    );
-
-    const marketTradingView = mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0]
-      ?.marketTradingView as {
-      key: string;
-      props: {
-        kLineDataFallback: (params: {
-          interval: string;
-          networkId: string;
-          timeFrom: number;
-          timeTo: number;
-          tokenAddress: string;
-        }) => Promise<unknown>;
-        primaryKLineDataUnavailable: boolean;
+  it.each([false, true])(
+    'uses token K-line data for Top Coins Pro (native: %s)',
+    (isTradingViewNative) => {
+      mockMarketPriceSource = 'token';
+      mockStockDetailState = {
+        ...mockStockDetailState,
+        isStockRoute: false,
+        stockId: '',
       };
-    };
-    await marketTradingView.props.kLineDataFallback({
-      interval: '1H',
-      networkId: 'doge--0',
-      timeFrom: 100,
-      timeTo: 200,
-      tokenAddress: '',
-    });
 
-    expect(marketTradingView.key).toBe('asset:doge');
-    expect(marketTradingView.props.primaryKLineDataUnavailable).toBe(true);
-    expect(fetchMarketAssetKLineDataMock).toHaveBeenCalledWith({
-      assetId: 'doge',
-      interval: '1H',
-      timeFrom: 100,
-      timeTo: 200,
-    });
-    expect(fetchMarketStockKLineDataMock).not.toHaveBeenCalled();
-  });
+      render(
+        <DesktopLayout
+          isChartFullscreen={false}
+          isTradingViewNative={isTradingViewNative}
+          onChartSwitch={jest.fn()}
+          onChartFullscreenChange={jest.fn()}
+          isNative={false}
+          networkId="evm--1"
+          tokenAddress="0xaapl"
+          marketTokenId="top-coin"
+          marketTokenCategory="top_coins"
+        />,
+      );
+
+      const marketTradingView = mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0]
+        ?.marketTradingView as {
+        props: {
+          source?: { kind: string; networkId: string; tokenAddress: string };
+          networkId?: string;
+          tokenAddress?: string;
+          kLineDataFallback?: unknown;
+          primaryKLineDataUnavailable?: boolean;
+        };
+      };
+      if (isTradingViewNative) {
+        expect(marketTradingView.props.source).toEqual(
+          expect.objectContaining({
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xaapl',
+          }),
+        );
+      } else {
+        expect(marketTradingView.props).toEqual(
+          expect.objectContaining({
+            networkId: 'evm--1',
+            tokenAddress: '0xaapl',
+            primaryKLineDataUnavailable: false,
+          }),
+        );
+        expect(marketTradingView.props.kLineDataFallback).toBeUndefined();
+      }
+      expect(fetchMarketAssetKLineDataMock).not.toHaveBeenCalled();
+      expect(fetchMarketStockKLineDataMock).not.toHaveBeenCalled();
+    },
+  );
 });

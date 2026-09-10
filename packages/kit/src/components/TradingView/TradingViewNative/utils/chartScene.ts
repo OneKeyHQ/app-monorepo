@@ -95,6 +95,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackLayout,
 } from './subIndicatorRender';
+import { appendTradingViewNativeTradeMarkCommands } from './tradeMarkScene';
 
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
@@ -1458,6 +1459,23 @@ export function buildTradingViewNativeChartScene({
       pointIndex: legendPointIndex,
       priceAxisX,
     });
+
+  appendTradingViewNativeTradeMarkCommands({
+    candleIntervalSeconds,
+    commands,
+    components: chartComponents,
+    crosshair,
+    customPaintStyles,
+    getPointX,
+    maxPrice,
+    measureTextWidth,
+    minPrice,
+    points,
+    priceAxisX,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+    priceSource: primarySeries.priceSource,
+  });
 
   return {
     autoPriceRange: layout.autoPriceRange,
