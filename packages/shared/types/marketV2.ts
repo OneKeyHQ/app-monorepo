@@ -855,7 +855,39 @@ export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
   } & Record<string, unknown>;
 }
 
-export type IMarketStockPublicChartPeriod = '1h' | '1d' | '1w' | '1y' | 'all';
+export type IMarketStockPublicChartPeriod =
+  | '1h'
+  | '1d'
+  | '1w'
+  | '1m'
+  | '1y'
+  | 'all';
+
+export type IMarketStockPublicChartInterval =
+  | '1min'
+  | '5min'
+  | '15min'
+  | '30min'
+  | '1hour'
+  | '4hour'
+  | '1day'
+  | '1week'
+  | '1month';
+
+export type IMarketStockPublicChartRequest = { stockId: string } & (
+  | {
+      period?: IMarketStockPublicChartPeriod;
+      interval?: undefined;
+      from?: undefined;
+      to?: undefined;
+    }
+  | {
+      period?: undefined;
+      interval: IMarketStockPublicChartInterval;
+      from: number;
+      to: number;
+    }
+);
 
 export interface IMarketStockPublicChartPoint {
   o: number;
@@ -868,7 +900,8 @@ export interface IMarketStockPublicChartPoint {
 
 export interface IMarketStockPublicChartResponse {
   stockId: string;
-  period: IMarketStockPublicChartPeriod;
+  period?: IMarketStockPublicChartPeriod;
+  interval?: IMarketStockPublicChartInterval;
   currency: 'USD';
   points: IMarketStockPublicChartPoint[];
 }
