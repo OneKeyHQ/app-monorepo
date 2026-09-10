@@ -67,14 +67,19 @@ index 5b1d59b201..8070355c6d 100644
    const important = !!pseudo;
    let rules = [];
 diff --git a/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts b/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
-index eb1ff9921f..2609799120 100644
+index eb1ff9921f..7f36832a00 100644
 --- a/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
 +++ b/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
-@@ -190,6 +190,4 @@ function createAtomicRules(
+@@ -190,6 +190,9 @@ function createAtomicRules(
 -  // enter style on css driver needs both:
 -  //   .t_unmounted .selector
 -  //   .selector.t_unmounted
-+  // Root mount state applies to descendants; component mount state applies only to itself.
++  // `t_unmounted` is shared by TamaguiRoot and animated components. A broad
++  // descendant selector lets an entering ancestor such as Popover activate a
++  // nested child's enterStyle even when AnimatePresence uses initial={false}.
++  // This made the Web account panel slide from the right whenever it reopened.
++  // `_dsp_contents` identifies TamaguiRoot, preserving its hydration gate while
++  // component enter styles only match their own `t_unmounted` class.
    if (pseudoSelector === pseudoDescriptors.enterStyle.selector) {
 -    selector = `${selector}, .${identifier}${pseudoSelector}`
 +    selector = `._dsp_contents${pseudoSelector} ${cls}, .${identifier}${pseudoSelector}`
