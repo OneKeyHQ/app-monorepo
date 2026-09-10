@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,6 +40,8 @@ export const useStarV2Checked = ({
 }) => {
   const actions = useWatchListV2Action();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+  const [isMutating, setIsMutating] = useState(false);
+  const isMutatingRef = useRef(false);
 
   // Calculate checked state based on atom data
   const checked = useMemo(() => {
@@ -56,57 +58,71 @@ export const useStarV2Checked = ({
   }, [watchListData, isMounted, chainId, contractAddress, assetId, stockId]);
 
   const handlePress = useCallback(async () => {
-    if (!isMounted) return;
-    if (checked) {
-      actions.removeFromWatchListV2(chainId, contractAddress, {
-        assetId,
-        stockId,
-      });
-      // Dex analytics
-      defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
-        network: chainId,
-        tokenSymbol: tokenSymbol || '',
-        tokenContract: contractAddress,
-        removeFrom: from,
-      });
-    } else {
-      actions.addIntoWatchListV2([
-        {
-          chainId: assetId || stockId ? '' : chainId,
-          contractAddress: assetId || stockId ? '' : contractAddress,
-          isNative,
-          assetId,
-          stockId,
-        },
-      ]);
-      // Dex analytics
-      defaultLogger.dex.watchlist.dexAddToWatchlist({
-        network: chainId,
-        tokenSymbol: tokenSymbol || '',
-        tokenContract: contractAddress,
-        addFrom: from,
-      });
+    if (!isMounted || isMutatingRef.current) {
+      return;
+    }
+    isMutatingRef.current = true;
+    setIsMutating(true);
+    try {
+      if (checked) {
+        const removed = await actions.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          { assetId, stockId },
+        );
+        if (!removed) {
+          return;
+        }
+        defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+          network: chainId,
+          tokenSymbol: tokenSymbol || '',
+          tokenContract: contractAddress,
+          removeFrom: from,
+        });
+      } else {
+        const added = await actions.addIntoWatchListV2([
+          {
+            chainId: assetId || stockId ? '' : chainId,
+            contractAddress: assetId || stockId ? '' : contractAddress,
+            isNative,
+            assetId,
+            stockId,
+          },
+        ]);
+        if (!added) {
+          return;
+        }
+        defaultLogger.dex.watchlist.dexAddToWatchlist({
+          network: chainId,
+          tokenSymbol: tokenSymbol || '',
+          tokenContract: contractAddress,
+          addFrom: from,
+        });
+      }
+    } finally {
+      isMutatingRef.current = false;
+      setIsMutating(false);
     }
   }, [
-    checked,
     actions,
-    chainId,
-    contractAddress,
-    from,
-    tokenSymbol,
-    isNative,
     assetId,
     stockId,
+    chainId,
+    checked,
+    contractAddress,
+    from,
     isMounted,
+    isNative,
+    tokenSymbol,
   ]);
 
   return useMemo(
     () => ({
       checked,
-      isMounted,
+      disabled: !isMounted || isMutating,
       onPress: handlePress,
     }),
-    [checked, handlePress, isMounted],
+    [checked, handlePress, isMounted, isMutating],
   );
 };
 
@@ -123,7 +139,7 @@ function BasicMarketStarV2({
   ...props
 }: IMarketStarV2Props) {
   const intl = useIntl();
-  const { onPress, checked, isMounted } = useStarV2Checked({
+  const { onPress, checked, disabled } = useStarV2Checked({
     assetId,
     stockId,
     chainId,
@@ -152,7 +168,7 @@ function BasicMarketStarV2({
         ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
-      disabled={!isMounted}
+      disabled={disabled}
       {...(props as IXStackProps)}
     />
   );

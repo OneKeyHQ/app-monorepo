@@ -778,6 +778,7 @@ const NS = {
   earnAccount: 'earnAccount',
   earnProtocolDetail: 'earnProtocolDetail',
   fiatCryptoTokenList: 'fiatCryptoTokenList',
+  fiatCryptoNetworkSupport: 'fiatCryptoNetSupport',
   bulkSendAddressesInputSeed: 'bulkSendSeed',
   bulkCopyAddressesWallets: 'bulkCopyWallets',
   bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
@@ -1321,6 +1322,17 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
+  // "Does this network have any buy/sell fiat token" flag behind the home
+  // Buy/Sell entry. The entry is fail-closed on it, so without a snapshot
+  // every cold start paints it disabled until fiat-pay/list returns
+  // (OK-61505). Network + type only: the bg check takes no account input.
+  fiatCryptoNetworkSupport: ({
+    networkId,
+    type,
+  }: {
+    networkId: string;
+    type: string;
+  }) => [NS.fiatCryptoNetworkSupport, 'v1', networkId, type].join(':'),
   bulkSendAddressesInputSeed: ({
     networkId,
     accountId,

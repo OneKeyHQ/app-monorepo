@@ -734,6 +734,39 @@ describe('marketV2 watchlist optimistic actions', () => {
     expect(store.get(marketWatchListV2Atom()).data).toEqual([asset, stock]);
   });
 
+  test('removes same-named asset and stock independently while writes are queued', async () => {
+    const asset = { assetId: 'BTC', chainId: '', contractAddress: '' };
+    const stock = { stockId: 'BTC', chainId: '', contractAddress: '' };
+    const { result, store } = setupWatchList([asset, stock]);
+    const pending = createDeferred<unknown>();
+    mockRemoveMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({ data: [] });
+    let removeAsset: Promise<unknown> | undefined;
+    let removeStock: Promise<unknown> | undefined;
+    act(() => {
+      removeAsset = result.current.removeFromWatchListV2('', '', {
+        assetId: 'BTC',
+      });
+      removeStock = result.current.removeFromWatchListV2('', '', {
+        stockId: 'BTC',
+      });
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([]);
+    await act(async () => {
+      pending.resolve(undefined);
+      await Promise.all([removeAsset, removeStock]);
+    });
+    expect(mockRemoveMarketWatchListV2).toHaveBeenCalledTimes(2);
+    expect(mockRemoveMarketWatchListV2).toHaveBeenNthCalledWith(1, {
+      items: [asset],
+      callerName: 'jotaiContextActions_removeFromWatchListV2',
+    });
+    expect(mockRemoveMarketWatchListV2).toHaveBeenNthCalledWith(2, {
+      items: [stock],
+      callerName: 'jotaiContextActions_removeFromWatchListV2',
+    });
+  });
+
   test('restores the previous list when adding a spot token fails', async () => {
     const initialData = [spotItem];
     const { result, store } = setupWatchList(initialData);
@@ -830,11 +863,9 @@ describe('marketV2 watchlist optimistic actions', () => {
 
     await act(async () => {
       newerRequest.resolve(undefined);
-      await newerAction;
-    });
-    await act(async () => {
       olderRequest.reject(new Error('older add failed'));
       await expect(olderAction).rejects.toThrow('older add failed');
+      await newerAction;
     });
 
     expect(store.get(marketWatchListV2Atom()).data).toEqual([

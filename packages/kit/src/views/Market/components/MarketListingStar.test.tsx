@@ -1,10 +1,13 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+
+import { MarketStockStar } from '../MarketHomeV2/components/MarketStockList/MarketStockStar';
+import { MarketTopCoinStar } from '../MarketHomeV2/components/MarketTopCoinsList/MarketTopCoinStar';
 
 import { MarketListingStar } from './MarketListingStar';
 
@@ -78,7 +81,7 @@ beforeEach(() => {
 });
 it.each(['asset', 'stock'] as const)(
   'renders and saves %s without resolving a token variant',
-  (kind) => {
+  async (kind) => {
     render(
       <MarketListingStar
         kind={kind}
@@ -88,7 +91,9 @@ it.each(['asset', 'stock'] as const)(
     );
     const button = screen.getByRole('button');
     expect(button.textContent).toBe('StarOutline');
-    fireEvent.click(button);
+    await act(async () => {
+      fireEvent.click(button);
+    });
     expect(mockAdd).toHaveBeenCalledWith([
       expect.objectContaining({
         chainId: '',
@@ -99,7 +104,7 @@ it.each(['asset', 'stock'] as const)(
     expect(mockAcquire).not.toHaveBeenCalled();
   },
 );
-it('uses the persisted listing identity immediately and isolates recycled rows', () => {
+it('uses the persisted listing identity immediately and isolates recycled rows', async () => {
   mockData = [{ chainId: '', contractAddress: '', assetId: 'BTC' }];
   const { rerender } = render(
     <MarketListingStar
@@ -109,7 +114,9 @@ it('uses the persisted listing identity immediately and isolates recycled rows',
     />,
   );
   expect(screen.getByRole('button').textContent).toBe('StarSolid');
-  fireEvent.click(screen.getByRole('button'));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button'));
+  });
   expect(mockRemove).toHaveBeenCalledWith('', '', {
     assetId: 'BTC',
     stockId: undefined,
@@ -124,7 +131,7 @@ it('uses the persisted listing identity immediately and isolates recycled rows',
   expect(screen.getByRole('button').textContent).toBe('StarOutline');
   expect(mockAcquire).not.toHaveBeenCalled();
 });
-it('does not mutate storage before hydration or navigate the row on a star click', () => {
+it('does not mutate storage before hydration or navigate the row on a star click', async () => {
   mockMounted = false;
   const onRowPress = jest.fn();
   const { rerender } = render(
@@ -136,7 +143,9 @@ it('does not mutate storage before hydration or navigate the row on a star click
       />
     </div>,
   );
-  fireEvent.click(screen.getByRole('button'));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button'));
+  });
   expect(mockAdd).not.toHaveBeenCalled();
   mockMounted = true;
   rerender(
@@ -148,6 +157,66 @@ it('does not mutate storage before hydration or navigate the row on a star click
       />
     </div>,
   );
-  fireEvent.click(screen.getByRole('button'));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button'));
+  });
   expect(onRowPress).not.toHaveBeenCalled();
 });
+
+it.each(['asset', 'stock'] as const)(
+  'keeps the %s list entry on listing favorites with pending-write protection',
+  async (kind) => {
+    let finishWrite: (value: boolean) => void = () => undefined;
+    mockAdd.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
+    render(
+      kind === 'asset' ? (
+        <MarketTopCoinStar
+          token={{
+            assetId: 'BTC',
+            symbol: 'btc',
+            logoUrl: '',
+            price: '1',
+            priceChange24hPercent: '0',
+            priceChange7dPercent: '0',
+            marketCap: '1',
+            volume24h: '1',
+            sparkline24h: [],
+          }}
+        />
+      ) : (
+        <MarketStockStar
+          stock={{
+            stockId: 'BTC',
+            symbol: 'BTC',
+            name: 'BTC',
+            logoUrl: '',
+            assetType: 'stock',
+            currency: 'USD',
+          }}
+        />
+      ),
+    );
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(mockAdd).toHaveBeenCalledTimes(1);
+    expect(mockAdd).toHaveBeenCalledWith([
+      expect.objectContaining({
+        chainId: '',
+        contractAddress: '',
+        [kind === 'asset' ? 'assetId' : 'stockId']: 'BTC',
+      }),
+    ]);
+    expect(button.hasAttribute('disabled')).toBe(true);
+    await act(async () => {
+      finishWrite(true);
+    });
+    expect(button.hasAttribute('disabled')).toBe(false);
+    expect(mockAcquire).not.toHaveBeenCalled();
+  },
+);
