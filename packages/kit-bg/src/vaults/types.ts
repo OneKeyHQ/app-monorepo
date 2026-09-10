@@ -490,6 +490,11 @@ export type IHwAllNetworkPrepareAccountsItem =
             vendor: 'trezor';
             type: 'deviceId';
             value: string;
+          }
+        | {
+            vendor: 'keystone';
+            type: 'walletId';
+            value: string;
           };
       chainFingerprint?: string;
       chainFingerprintChain?: ChainForFingerprint;
