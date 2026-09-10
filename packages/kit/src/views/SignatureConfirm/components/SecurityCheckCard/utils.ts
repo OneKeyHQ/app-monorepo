@@ -22,8 +22,8 @@ function findParserAlertSentenceEnd(text: string) {
   return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
-// Address details stay next to the address row. The card consumes only their
-// severity as a fallback when a targeted request scan has no conclusion.
+// Address details stay next to the address row. The card uses their presence
+// only to suppress a contradictory success verdict, never as whole-card status.
 export function getAddressRiskStatus(components: IDisplayComponent[]) {
   let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
 
@@ -48,15 +48,20 @@ export function getAddressRiskStatus(components: IDisplayComponent[]) {
 
 export function shouldShowNoIssueSection({
   hasCardFindings,
+  hasAddressRisk,
   hasResolvedRequiredChecks,
   isSecurityCheckPending,
 }: {
   hasCardFindings: boolean;
+  hasAddressRisk: boolean;
   hasResolvedRequiredChecks: boolean;
   isSecurityCheckPending?: boolean;
 }) {
   return (
-    !hasCardFindings && hasResolvedRequiredChecks && !isSecurityCheckPending
+    !hasCardFindings &&
+    !hasAddressRisk &&
+    hasResolvedRequiredChecks &&
+    !isSecurityCheckPending
   );
 }
 
