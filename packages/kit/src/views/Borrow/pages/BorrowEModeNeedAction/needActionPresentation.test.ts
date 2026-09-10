@@ -1,5 +1,5 @@
 import {
-  shouldShowTopUpFooter,
+  shouldShowFundingFooter,
   splitBalanceShortfallLines,
 } from './needActionPresentation';
 
@@ -17,10 +17,7 @@ describe('splitBalanceShortfallLines', () => {
       splitBalanceShortfallLines(
         '钱包余额：0.000008 cbBTC · 还差 0.000019 cbBTC',
       ),
-    ).toEqual([
-      '钱包余额：0.000008 cbBTC',
-      '还差 0.000019 cbBTC',
-    ]);
+    ).toEqual(['钱包余额：0.000008 cbBTC', '还差 0.000019 cbBTC']);
   });
 
   // Losing the shortfall figure would be worse than keeping the mid-dot, so a
@@ -46,52 +43,54 @@ describe('splitBalanceShortfallLines', () => {
   });
 });
 
-describe('shouldShowTopUpFooter', () => {
+describe('shouldShowFundingFooter', () => {
   const underfunded = {
     canRetryCheck: false,
     funding: false,
     isBusy: false,
     pendingGuardBlocksAction: false,
     hasUnderfundedActiveRepay: true,
-    hasGetFundsItems: true,
+    hasSwapTarget: true,
   };
 
   it('hands the footer to the remedy while the active repay is underfunded', () => {
-    expect(shouldShowTopUpFooter(underfunded)).toBe(true);
+    expect(shouldShowFundingFooter(underfunded)).toBe(true);
   });
 
   it('keeps the plain footer when nothing is underfunded', () => {
     expect(
-      shouldShowTopUpFooter({
+      shouldShowFundingFooter({
         ...underfunded,
         hasUnderfundedActiveRepay: false,
       }),
     ).toBe(false);
   });
 
-  // Without a resolvable funding token there is no swap or receive to offer;
-  // the disabled step label alone is the honest footer.
-  it('keeps the plain footer when there is no way to get the funds', () => {
+  // Without a resolvable funding token there is no swap to offer; the plain
+  // disabled footer is the honest one.
+  it('keeps the plain footer when there is nothing to swap into', () => {
     expect(
-      shouldShowTopUpFooter({ ...underfunded, hasGetFundsItems: false }),
+      shouldShowFundingFooter({ ...underfunded, hasSwapTarget: false }),
     ).toBe(false);
   });
 
-  it('keeps the plain footer while a top-up is confirming', () => {
-    expect(shouldShowTopUpFooter({ ...underfunded, funding: true })).toBe(false);
+  it('keeps the plain footer while a swap is confirming', () => {
+    expect(shouldShowFundingFooter({ ...underfunded, funding: true })).toBe(
+      false,
+    );
   });
 
   // A retry owns the footer label, and it never broadcasts.
   it('keeps the plain footer when a recheck is the available action', () => {
-    expect(shouldShowTopUpFooter({ ...underfunded, canRetryCheck: true })).toBe(
+    expect(shouldShowFundingFooter({ ...underfunded, canRetryCheck: true })).toBe(
       false,
     );
   });
 
   it('keeps the plain footer mid-signature', () => {
-    expect(shouldShowTopUpFooter({ ...underfunded, isBusy: true })).toBe(false);
+    expect(shouldShowFundingFooter({ ...underfunded, isBusy: true })).toBe(false);
     expect(
-      shouldShowTopUpFooter({
+      shouldShowFundingFooter({
         ...underfunded,
         pendingGuardBlocksAction: true,
       }),

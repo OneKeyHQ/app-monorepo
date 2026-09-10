@@ -128,22 +128,22 @@ export function splitBalanceShortfallLines(message: string): string[] {
 // disabled for exactly as long as the active repay is underfunded, so without
 // this the page has no live control at the one moment something has to happen.
 // Every other blocking state keeps the plain footer: a retry has its own label,
-// a confirming top-up has nothing left to press, and a busy or guarded flow
+// a confirming swap has nothing left to press, and a busy or guarded flow
 // must not offer a second detour mid-signature.
-export function shouldShowTopUpFooter({
+export function shouldShowFundingFooter({
   canRetryCheck,
   funding,
   isBusy,
   pendingGuardBlocksAction,
   hasUnderfundedActiveRepay,
-  hasGetFundsItems,
+  hasSwapTarget,
 }: {
   canRetryCheck: boolean;
   funding: boolean;
   isBusy: boolean;
   pendingGuardBlocksAction: boolean;
   hasUnderfundedActiveRepay: boolean;
-  hasGetFundsItems: boolean;
+  hasSwapTarget: boolean;
 }): boolean {
   return (
     !canRetryCheck &&
@@ -151,6 +151,6 @@ export function shouldShowTopUpFooter({
     !isBusy &&
     !pendingGuardBlocksAction &&
     hasUnderfundedActiveRepay &&
-    hasGetFundsItems
+    hasSwapTarget
   );
 }
