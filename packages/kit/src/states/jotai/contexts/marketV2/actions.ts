@@ -179,6 +179,57 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(perpsInfoAtom(), undefined);
   });
 
+  prepareStockTokenDetail = contextAtomMethod(
+    (
+      get,
+      set,
+      target: { tokenAddress: string; networkId: string; isNative?: boolean },
+    ) => {
+      // A stock listing without a token leaves selection to the stock provider.
+      if (!target.networkId || (!target.tokenAddress && !target.isNative)) {
+        // Do not keep showing the previous stock's detail while the provider
+        // resolves a variant (or when variant resolution fails).
+        set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+        set(tokenDetailAtom(), undefined);
+        set(tokenDetailPreviewAtom(), undefined);
+        set(tokenDetailLoadingAtom(), false);
+        set(tokenAddressAtom(), '');
+        set(networkIdAtom(), '');
+        set(isNativeAtom(), false);
+        set(tokenDetailWebsocketAtom(), undefined);
+        set(perpsInfoAtom(), undefined);
+        return;
+      }
+      // Navigation can reuse the same stock page without rerunning its identity
+      // effect. Preserve a matching token, including its in-flight request.
+      if (
+        get(isNativeAtom()) === Boolean(target.isNative) &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: get(networkIdAtom()),
+            contractAddress: get(tokenAddressAtom()),
+          },
+          token2: {
+            networkId: target.networkId,
+            contractAddress: target.tokenAddress,
+          },
+        })
+      ) {
+        return;
+      }
+
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailPreviewAtom(), undefined);
+      set(tokenDetailLoadingAtom(), false);
+      set(tokenAddressAtom(), target.tokenAddress);
+      set(networkIdAtom(), target.networkId);
+      set(isNativeAtom(), Boolean(target.isNative));
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+    },
+  );
+
   applyChartPriceUpdate = contextAtomMethod(
     (
       get,
@@ -893,6 +944,7 @@ export function useTokenDetailActions() {
   const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
+  const prepareStockTokenDetail = actions.prepareStockTokenDetail.use();
   const changeActiveToken = actions.changeActiveToken.use();
   const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
@@ -909,6 +961,7 @@ export function useTokenDetailActions() {
     setPerpsInfo,
     fetchTokenDetail,
     clearTokenDetail,
+    prepareStockTokenDetail,
     changeActiveToken,
     applyChartPriceUpdate,
   });

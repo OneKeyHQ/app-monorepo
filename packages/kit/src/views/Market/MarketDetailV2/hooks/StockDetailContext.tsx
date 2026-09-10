@@ -87,12 +87,14 @@ export function StockDetailProvider({
   initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
+  onSelectedTokenChange,
   children,
 }: PropsWithChildren<{
   stockId?: string;
   initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
+  onSelectedTokenChange?: (variant: IMarketStockTokenVariant) => void;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const stockPreview =
@@ -100,6 +102,12 @@ export function StockDetailProvider({
       ? initialStockPreview
       : undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
+  const appliedRouteTokenRef = useRef<string | undefined>(undefined);
+  const routeTokenKey = JSON.stringify([
+    normalizedStockId,
+    initialNetworkId,
+    initialTokenAddress,
+  ]);
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
   const successfulStockDetailsRef = useRef(
@@ -219,14 +227,17 @@ export function StockDetailProvider({
   useEffect(() => {
     if (!normalizedStockId) {
       setSelectedTokenId(undefined);
+      appliedRouteTokenRef.current = undefined;
       return;
     }
-    if (tokenVariantResult?.failed) return;
+    if (!hasCurrentTokenVariants || tokenVariantResult?.failed) return;
 
     const hasCurrentToken = tokenVariants.some(
       (item) => item.tokenId === selectedTokenId,
     );
-    if (hasCurrentToken) return;
+    if (hasCurrentToken && appliedRouteTokenRef.current === routeTokenKey) {
+      return;
+    }
 
     const routeToken = tokenVariants.find(
       (item) =>
@@ -246,11 +257,14 @@ export function StockDetailProvider({
       tokenVariants,
       tokenVariantResult?.defaultTokenId,
     );
+    appliedRouteTokenRef.current = routeTokenKey;
     setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
   }, [
+    hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
     normalizedStockId,
+    routeTokenKey,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
     tokenVariantResult?.failed,
@@ -266,9 +280,10 @@ export function StockDetailProvider({
       const token = tokenVariants.find((item) => item.tokenId === tokenId);
       if (token && isStockTokenVariantTradable(token)) {
         setSelectedTokenId(tokenId);
+        onSelectedTokenChange?.(token);
       }
     },
-    [tokenVariants],
+    [onSelectedTokenChange, tokenVariants],
   );
 
   const value = useMemo<IStockDetailContextValue>(

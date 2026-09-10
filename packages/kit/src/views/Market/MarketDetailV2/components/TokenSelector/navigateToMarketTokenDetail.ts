@@ -26,15 +26,20 @@ export async function navigateToMarketTokenDetail(
     tokenDetailActions: {
       current: Pick<
         ReturnType<typeof useTokenDetailActions>['current'],
-        'clearTokenDetail' | 'changeActiveToken' | 'prepareTokenDetailPreview'
-      >;
+        'prepareStockTokenDetail' | 'changeActiveToken'
+      > &
+        Partial<
+          Pick<
+            ReturnType<typeof useTokenDetailActions>['current'],
+            'prepareTokenDetailPreview'
+          >
+        >;
     };
     beforeNavigate?: () => void;
     isCurrentRequest?: () => boolean;
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -70,24 +75,25 @@ export async function navigateToMarketTokenDetail(
 
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
-    stock: opts.tokenDetailPreview?.stock,
     name: opts.tokenDetailPreview?.name,
     symbol: opts.tokenDetailPreview?.symbol,
+    stock: opts.tokenDetailPreview?.stock,
   });
+
   const shouldResolveMarketAsset = Boolean(
     opts.resolveMarketAsset && !token.assetId && !stockId,
   );
 
   if (stockId) {
-    opts.tokenDetailActions.current.clearTokenDetail();
+    opts.tokenDetailActions.current.prepareStockTokenDetail({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+      isNative: token.isNative,
+    });
   } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
-    } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
-    }
+    opts.tokenDetailActions.current.prepareTokenDetailPreview?.(
+      opts.tokenDetailPreview,
+    );
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,

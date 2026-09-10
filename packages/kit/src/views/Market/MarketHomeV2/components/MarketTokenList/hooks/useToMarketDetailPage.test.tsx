@@ -16,7 +16,7 @@ jest.mock('react-intl', () => ({
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
-const mockClearTokenDetail = jest.fn();
+const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
 let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
@@ -87,7 +87,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
     current: {
-      clearTokenDetail: mockClearTokenDetail,
+      clearTokenDetail: jest.fn(),
+      prepareStockTokenDetail: mockPrepareStockTokenDetail,
       prepareTokenDetailPreview: mockPrepareTokenDetailPreview,
     },
   })),
@@ -381,6 +382,28 @@ describe('useToDetailPage', () => {
       layout: 'mobile',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('prepares stock identity through the actual global-search entrance', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const { result } = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    await act(async () => {
+      await result.current({
+        tokenAddress: 'AAPLx',
+        networkId: 'sol--101',
+        symbol: 'AAPLx',
+        name: 'Apple xStock',
+        isNative: false,
+      });
+    });
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledWith({
+      tokenAddress: 'AAPLx',
+      networkId: 'sol--101',
+      isNative: false,
+    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
   });
 
   it('navigates xStocks search items without stock metadata to stock detail', async () => {
