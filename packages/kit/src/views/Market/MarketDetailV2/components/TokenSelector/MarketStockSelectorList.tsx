@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketStockColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -37,6 +38,8 @@ const MarketStockSelectorList = memo(
     const columns = useMarketStockColumns({
       compact: true,
       showSparkline: false,
+      showWatchlist: true,
+      watchlistFrom: EWatchlistFrom.Search,
     });
     const normalizedQuery = query?.trim() ?? '';
     const {
