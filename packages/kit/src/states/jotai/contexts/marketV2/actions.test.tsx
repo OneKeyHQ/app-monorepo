@@ -16,10 +16,13 @@ import {
   ProviderJotaiContextMarketV2,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
+  networkIdAtom,
   perpsInfoAtom,
+  tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 
@@ -175,6 +178,145 @@ function createWrapper() {
 
   return { store, Wrapper };
 }
+
+describe('stock navigation identity', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('preserves loaded state and a pending request on same-token reentry', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const target = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+    const token = {
+      address: 'AAPLx',
+      networkId: 'sol--101',
+      name: 'Apple xStock',
+      symbol: 'AAPLx',
+      decimals: 8,
+      logoUrl: '',
+      price: '318',
+    };
+    act(() => {
+      result.current.prepareStockTokenDetail(target);
+      result.current.setTokenDetail(token);
+    });
+    const deferred = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      deferred.promise,
+    );
+    let request: Promise<unknown> | undefined;
+    await act(async () => {
+      request = result.current.fetchTokenDetail(
+        target.tokenAddress,
+        target.networkId,
+      );
+      await Promise.resolve();
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+    act(() => result.current.prepareStockTokenDetail(target));
+    expect(store.get(tokenDetailAtom())).toBe(token);
+    expect(store.get(tokenAddressAtom())).toBe('AAPLx');
+    expect(store.get(networkIdAtom())).toBe('sol--101');
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(true);
+    await act(async () => {
+      deferred.resolve({ data: { token: { ...token, price: '319' } } });
+      await request;
+    });
+    expect(store.get(tokenDetailAtom())?.price).toBe('319');
+  });
+
+  it('publishes a new identity atomically and rejects a late previous response', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const deferred = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      deferred.promise,
+    );
+    act(() =>
+      result.current.prepareStockTokenDetail({
+        networkId: 'sol--101',
+        tokenAddress: 'AAPLx',
+      }),
+    );
+    let request: Promise<unknown> | undefined;
+    await act(async () => {
+      request = result.current.fetchTokenDetail('AAPLx', 'sol--101');
+      await Promise.resolve();
+    });
+    act(() =>
+      result.current.prepareStockTokenDetail({
+        networkId: 'evm--1',
+        tokenAddress: '0xaapl',
+      }),
+    );
+    expect(store.get(networkIdAtom())).toBe('evm--1');
+    expect(store.get(tokenAddressAtom())).toBe('0xaapl');
+    await act(async () => {
+      deferred.resolve({
+        data: { token: { address: 'AAPLx', name: 'Late', price: '1' } },
+      });
+      await request;
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(networkIdAtom())).toBe('evm--1');
+  });
+
+  it('leaves tokenless stock selection to the provider without clearing identity', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() =>
+      result.current.prepareStockTokenDetail({
+        networkId: 'sol--101',
+        tokenAddress: 'AAPLx',
+      }),
+    );
+    const requestId = store.get(tokenDetailRequestIdAtom());
+    act(() =>
+      result.current.prepareStockTokenDetail({
+        networkId: '',
+        tokenAddress: '',
+      }),
+    );
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+    expect(store.get(networkIdAtom())).toBe('sol--101');
+    expect(store.get(tokenAddressAtom())).toBe('AAPLx');
+  });
+
+  it.each([
+    ['sol--101', 'AAPLx', 'aaplx', true],
+    ['evm--1', '0xABC', '0xabc', false],
+  ])(
+    'respects address case semantics on %s',
+    (networkId, previous, next, changes) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      act(() =>
+        result.current.prepareStockTokenDetail({
+          networkId,
+          tokenAddress: previous,
+        }),
+      );
+      const requestId = store.get(tokenDetailRequestIdAtom());
+      act(() =>
+        result.current.prepareStockTokenDetail({
+          networkId,
+          tokenAddress: next,
+        }),
+      );
+      expect(store.get(tokenDetailRequestIdAtom())).toBe(
+        requestId + (changes ? 1 : 0),
+      );
+    },
+  );
+});
 
 describe('market native chart price updates', () => {
   const tokenDetail = {

@@ -15,7 +15,7 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: { intl: { formatMessage: ({ id }: { id: string }) => id } },
 }));
 const navigateMock = jest.fn();
-const clearTokenDetailMock = jest.fn();
+const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
@@ -67,7 +67,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         tokenDetailActions: {
           current: {
-            clearTokenDetail: clearTokenDetailMock,
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
             changeActiveToken: changeActiveTokenMock,
           },
         } as Parameters<
@@ -101,7 +101,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         tokenDetailActions: {
           current: {
-            clearTokenDetail: clearTokenDetailMock,
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
             changeActiveToken: changeActiveTokenMock,
           },
         } as Parameters<
@@ -133,7 +133,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         tokenDetailActions: {
           current: {
-            clearTokenDetail: clearTokenDetailMock,
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
             changeActiveToken: changeActiveTokenMock,
           },
         } as never,
@@ -150,7 +150,49 @@ describe('navigateToMarketTokenDetail', () => {
 
     jest.runAllTimers();
 
-    expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
+    expect(prepareStockTokenDetailMock).toHaveBeenCalledTimes(1);
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith('main', {
+      screen: 'Market',
+      params: {
+        screen: 'MarketStockDetail',
+        params: {
+          stockId: 'AAPL',
+          tokenAddress: '0xaapl',
+          network: 'eth',
+          isNative: undefined,
+        },
+      },
+    });
+  });
+
+  it('routes xStocks search results without stock metadata to stock detail', () => {
+    void navigateToMarketTokenDetail(
+      {
+        address: '0xaapl',
+        networkId: 'evm--1',
+      },
+      {
+        tokenDetailActions: {
+          current: {
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
+            changeActiveToken: changeActiveTokenMock,
+          },
+        } as Parameters<
+          typeof navigateToMarketTokenDetail
+        >[1]['tokenDetailActions'],
+        tokenDetailPreview: {
+          name: 'Apple xStock',
+          symbol: 'AAPLx',
+        } as Parameters<
+          typeof navigateToMarketTokenDetail
+        >[1]['tokenDetailPreview'],
+      },
+    );
+
+    jest.runAllTimers();
+
+    expect(prepareStockTokenDetailMock).toHaveBeenCalledTimes(1);
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
@@ -177,7 +219,7 @@ describe('navigateToMarketTokenDetail', () => {
         marketTokenCategory: 'top_coins',
         tokenDetailActions: {
           current: {
-            clearTokenDetail: clearTokenDetailMock,
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
             changeActiveToken: changeActiveTokenMock,
           },
         } as never,
@@ -221,7 +263,7 @@ describe('navigateToMarketTokenDetail', () => {
       const onError = jest.fn();
       const tokenDetailActions = {
         current: {
-          clearTokenDetail: clearTokenDetailMock,
+          prepareStockTokenDetail: prepareStockTokenDetailMock,
           changeActiveToken: changeActiveTokenMock,
         },
       } as Parameters<
@@ -276,7 +318,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         tokenDetailActions: {
           current: {
-            clearTokenDetail: clearTokenDetailMock,
+            prepareStockTokenDetail: prepareStockTokenDetailMock,
             changeActiveToken: changeActiveTokenMock,
           },
         } as Parameters<

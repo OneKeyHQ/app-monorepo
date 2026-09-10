@@ -106,6 +106,77 @@ describe('StockDetailProvider', () => {
     focusControl.__resetFocus();
   });
 
+  it('consumes route variant changes once and synchronizes manual selection', async () => {
+    const variants: IMarketStockTokenVariant[] = [
+      {
+        tokenId: 'aapl-sol',
+        issuer: 'xstock',
+        networkId: 'sol--101',
+        contractAddress: 'AAPLx',
+        currency: 'USD',
+        status: 'active',
+        tradingEnabled: true,
+      },
+      {
+        tokenId: 'aapl-eth',
+        issuer: 'ondo',
+        networkId: 'evm--1',
+        contractAddress: '0xaapl',
+        currency: 'USD',
+        status: 'active',
+        tradingEnabled: true,
+      },
+    ];
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: variants,
+      defaultTokenId: 'aapl-sol',
+    });
+    let route = { networkId: 'sol--101', address: 'AAPLx' };
+    const onSelectedTokenChange = jest.fn(
+      (variant: IMarketStockTokenVariant) => {
+        route = {
+          networkId: variant.networkId,
+          address: variant.contractAddress,
+        };
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId={route.networkId}
+        initialTokenAddress={route.address}
+        onSelectedTokenChange={onSelectedTokenChange}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-sol'),
+    );
+    act(() => result.current.setSelectedTokenId('aapl-eth'));
+    rerender();
+    expect(onSelectedTokenChange).toHaveBeenCalledWith(variants[1]);
+    expect(result.current.selectedTokenId).toBe('aapl-eth');
+    await act(async () => {
+      await result.current.retryTokenVariants();
+    });
+    expect(result.current.selectedTokenId).toBe('aapl-eth');
+    route = { networkId: 'sol--101', address: 'AAPLx' };
+    rerender();
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-sol'),
+    );
+    route = { networkId: 'evm--1', address: '0xaapl' };
+    rerender();
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-eth'),
+    );
+  });
+
   it('exposes a matching route preview before the stock detail request settles', () => {
     const stockPreview = {
       stockId: 'AAPL',

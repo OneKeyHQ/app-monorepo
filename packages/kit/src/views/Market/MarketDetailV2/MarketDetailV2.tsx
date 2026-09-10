@@ -420,6 +420,18 @@ function MarketDetailV2(
             initialStockPreview={stockPreview}
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
+            onSelectedTokenChange={(variant) => {
+              // Keep explicit searches distinguishable from the user's current
+              // variant, even when navigating back to the original stock URL.
+              props.navigation.setParams({
+                network:
+                  networkUtils.getNetworkShortCode({
+                    networkId: variant.networkId,
+                  }) || variant.networkId,
+                tokenAddress: variant.contractAddress,
+                isNative: false,
+              });
+            }}
           >
             <MarketDetail
               {...props}
