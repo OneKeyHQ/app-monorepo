@@ -327,7 +327,9 @@ function DeviceStageContainerCmp() {
           })
           .catch(() => undefined);
       }
-      void serviceHardwareUI.deviceStageNoteInputSubmitted();
+      void serviceHardwareUI.deviceStageNoteInputSubmitted({
+        hostPassphraseEntered: passphrase.length > 0,
+      });
     },
     [saveKeepAccessible, sendVendorUiResponse, serviceHardwareUI],
   );
