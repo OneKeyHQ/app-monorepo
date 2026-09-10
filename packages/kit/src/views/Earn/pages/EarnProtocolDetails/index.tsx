@@ -189,9 +189,11 @@ const ProtocolHeader = ({
   // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back
   // to the single string the server rendered when the breakdown is missing.
+  const totalApyText =
+    yieldSheetData?.yieldSummary?.totalApy?.description?.text;
   const headlineApyParts = useMemo(
-    () => buildHeadlineApyParts(yieldSheetData?.items),
-    [yieldSheetData?.items],
+    () => buildHeadlineApyParts(yieldSheetData?.items, totalApyText),
+    [yieldSheetData?.items, totalApyText],
   );
 
   return (
@@ -215,9 +217,12 @@ const ProtocolHeader = ({
                 >
                   {tokenInfo?.token.symbol || symbol}
                 </SizableText>
+                {/* The provider name is the second line of the header, not a
+                    caption: the design sets it in the body weight and default
+                    text color (OK-62407). */}
                 <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
+                  size="$bodyMdMedium"
+                  color="$text"
                   numberOfLines={1}
                   flexShrink={1}
                 >
@@ -257,34 +262,39 @@ const ProtocolHeader = ({
             title={yieldSheetData.title?.text ?? ''}
             renderTrigger={
               // The whole figure is the trigger, marked by a dotted rule rather
-              // than an icon — the affordance the design uses.
-              <XStack
-                ai="baseline"
-                alignSelf="flex-start"
-                cursor="pointer"
-                // borderStyle applies to all four edges, and an edge with no
-                // explicit width falls back to the CSS initial `medium` — which
-                // drew a dotted box instead of a rule. The other three widths
-                // have to be zeroed, same as DeFiPositionHealthFactorRow.
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$borderSubdued"
-                borderStyle="dotted"
-                pb="$1"
-              >
+              // than an icon — the affordance the design uses. The rule is a
+              // text decoration, not a border: a dotted border on one edge only
+              // renders on web, while iOS draws dashed/dotted borders through
+              // CAShapeLayer and needs all four widths equal, so on device it
+              // disappeared. Same approach as SwapRateDifferenceText, and
+              // $borderStrong instead of $borderSubdued so the dots read on a
+              // high-DPI screen (OK-62392).
+              <XStack ai="baseline" alignSelf="flex-start" cursor="pointer">
                 {headlineApyParts ? (
                   <>
-                    <SizableText size="$heading2xl" color="$textSuccess">
+                    <SizableText
+                      size="$heading2xl"
+                      color="$textSuccess"
+                      textDecorationLine="underline"
+                      textDecorationStyle="dotted"
+                      textDecorationColor="$borderStrong"
+                    >
                       {headlineApyParts.base}
                     </SizableText>
                     {headlineApyParts.bonus ? (
                       <SizableText
                         size="$heading2xl"
                         color={headlineApyParts.bonusColor}
+                        textDecorationLine="underline"
+                        textDecorationStyle="dotted"
+                        textDecorationColor="$borderStrong"
                       >
                         {headlineApyParts.bonus}
+                      </SizableText>
+                    ) : null}
+                    {headlineApyParts.unit ? (
+                      <SizableText size="$heading2xl" color="$textSuccess">
+                        {` ${headlineApyParts.unit}`}
                       </SizableText>
                     ) : null}
                   </>
@@ -385,74 +395,75 @@ function ChartSection({
   );
 
   // Fetch chart data to get high/low values
-  const { result: chartData } = usePromiseResult(async () => {
-    if (isPendleProvider) {
-      // underlying-history returns both impliedApy and underlyingApy, single request suffices
-      const underlyingApyHistoryData =
-        await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+  const { result: chartData, isLoading: isChartLoading } =
+    usePromiseResult(async () => {
+      if (isPendleProvider) {
+        // underlying-history returns both impliedApy and underlyingApy, single request suffices
+        const underlyingApyHistoryData =
+          await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+            networkId,
+            symbol,
+            provider,
+            vault,
+          });
+
+        const impliedApyHistory = underlyingApyHistoryData.results.map(
+          (item) => ({
+            timestamp: item.timestamp,
+            apy: item.impliedApy,
+          }),
+        );
+
+        const underlyingApyHistory = underlyingApyHistoryData.results.map(
+          (item) => ({
+            timestamp: item.timestamp,
+            apy: item.underlyingApy,
+          }),
+        );
+
+        return {
+          impliedApyHistory,
+          underlyingApyHistory,
+          hasNonZeroUnderlyingApy:
+            underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+        };
+      }
+
+      const impliedApyHistory =
+        await backgroundApiProxy.serviceStaking.getApyHistory({
           networkId,
           symbol,
           provider,
           vault,
         });
 
-      const impliedApyHistory = underlyingApyHistoryData.results.map(
-        (item) => ({
+      // Second line = campaign boost + protocol reward APYs, summed by the
+      // server. Only points that actually carry one are kept, so a history that
+      // predates the campaign simply starts the line later instead of dropping
+      // to zero.
+      const extraApyHistory = impliedApyHistory
+        .filter((item) => item.extraApy !== undefined)
+        .map((item) => ({
           timestamp: item.timestamp,
-          apy: item.impliedApy,
-        }),
-      );
-
-      const underlyingApyHistory = underlyingApyHistoryData.results.map(
-        (item) => ({
-          timestamp: item.timestamp,
-          apy: item.underlyingApy,
-        }),
-      );
+          apy: item.extraApy as string,
+        }));
+      // Campaign wins over reward, matching the rule the server applies per
+      // point ("a campaign present at all makes the line orange") and the
+      // headline's split. Taking the first point that happens to carry a kind
+      // would paint a window that starts with plain rewards and later gains a
+      // campaign entirely blue, and label it Rewards.
+      const extraApyKind = impliedApyHistory.some(
+        (item) => item.extraApyKind === 'campaign',
+      )
+        ? ('campaign' as const)
+        : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
 
       return {
         impliedApyHistory,
-        underlyingApyHistory,
-        hasNonZeroUnderlyingApy:
-          underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+        extraApyHistory,
+        extraApyKind,
       };
-    }
-
-    const impliedApyHistory =
-      await backgroundApiProxy.serviceStaking.getApyHistory({
-        networkId,
-        symbol,
-        provider,
-        vault,
-      });
-
-    // Second line = campaign boost + protocol reward APYs, summed by the
-    // server. Only points that actually carry one are kept, so a history that
-    // predates the campaign simply starts the line later instead of dropping
-    // to zero.
-    const extraApyHistory = impliedApyHistory
-      .filter((item) => item.extraApy !== undefined)
-      .map((item) => ({
-        timestamp: item.timestamp,
-        apy: item.extraApy as string,
-      }));
-    // Campaign wins over reward, matching the rule the server applies per
-    // point ("a campaign present at all makes the line orange") and the
-    // headline's split. Taking the first point that happens to carry a kind
-    // would paint a window that starts with plain rewards and later gains a
-    // campaign entirely blue, and label it Rewards.
-    const extraApyKind = impliedApyHistory.some(
-      (item) => item.extraApyKind === 'campaign',
-    )
-      ? ('campaign' as const)
-      : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
-
-    return {
-      impliedApyHistory,
-      extraApyHistory,
-      extraApyKind,
-    };
-  }, [networkId, symbol, provider, vault, isPendleProvider]);
+    }, [networkId, symbol, provider, vault, isPendleProvider]);
 
   const {
     impliedApyHistory,
@@ -521,6 +532,14 @@ function ChartSection({
     underlyingApyHistory &&
     underlyingApyHistory.length > 0,
   );
+
+  // A provider with no APY history (BTC, for one) has nothing to draw; an
+  // empty chart with an axis and a range selector is worse than no chart, so
+  // the block hides once the request has settled empty (OK-62411). While it is
+  // still loading ApyChart shows its own skeleton, so loading is not hidden.
+  if (!isChartLoading && chartData && !impliedApyHistory?.length) {
+    return null;
+  }
 
   return (
     <YStack gap="$3">
@@ -787,6 +806,7 @@ const DetailsPartComponent = ({
   isMobileLayout,
   providerSubtitle,
   hasPortfolio,
+  onRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -802,6 +822,7 @@ const DetailsPartComponent = ({
   isMobileLayout?: boolean;
   providerSubtitle?: string;
   hasPortfolio?: boolean;
+  onRedeem?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -887,6 +908,7 @@ const DetailsPartComponent = ({
                       provider={provider}
                       vault={detailInfo.protocol?.vault ?? vault}
                       onActionSuccess={onRefresh}
+                      onRedeem={onRedeem}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
                     />
@@ -1248,6 +1270,52 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     ],
   );
 
+  // Babylon, Stakefish SOL/ETH and Everstake SOL redeem per position, so the
+  // server sends `withdrawOrder` instead of `withdraw`, and that one goes to the
+  // position picker (WithdrawOptions), the way ManagePosition's own withdraw
+  // tab hands it off. Everything else opens ManagePosition on the withdraw tab.
+  const redeemAction = useMemo(
+    () =>
+      detailInfo?.actions?.find(
+        (action) =>
+          action.type === 'withdraw' || action.type === 'withdrawOrder',
+      ),
+    [detailInfo?.actions],
+  );
+  const handleOpenRedeem = useCallback(() => {
+    const earnAccountId = protocolInfo?.earnAccount?.accountId;
+    if (
+      redeemAction?.type === 'withdrawOrder' &&
+      earnAccountId &&
+      protocolInfo
+    ) {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params: {
+          accountId: earnAccountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
+          onSuccess: refreshData,
+        },
+      });
+      return;
+    }
+    handleOpenManageModal('withdraw');
+  }, [
+    appNavigation,
+    handleOpenManageModal,
+    networkId,
+    protocolInfo,
+    provider,
+    redeemAction?.type,
+    refreshData,
+    symbol,
+    tokenInfo,
+  ]);
+
   // Generate share URL
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId) return undefined;
@@ -1289,12 +1357,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
-  // Redeem is only offered when the server says this protocol supports it for
-  // this account — never derived from the balance alone.
-  const canRedeem = Boolean(detailInfo?.mobilePortfolio?.capabilities.redeem);
-
   const pageFooter = useMemo(() => {
     if (gtMd) {
+      return null;
+    }
+    // The phone footer mirrors the server's actions, so until the response is
+    // in there is nothing to mirror: a default Deposit rendered over the
+    // loading skeleton and then swapped for the real pair once the page loaded.
+    if (isMobileLayout && !detailInfo) {
       return null;
     }
 
@@ -1306,9 +1376,19 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
 
-    // With a position the phone layout gains a Redeem button beside the primary
-    // action; without one the footer stays single-button as before.
-    const showRedeem = isMobileLayout && canRedeem;
+    // The phone footer is driven by the server's actions, which already model
+    // what the design asks for: both buttons stay put, and one that cannot be
+    // used right now is disabled rather than removed (OK-62410, OK-62406).
+    // Deriving it from capabilities.redeem meant "no ability, no button", so a
+    // token with no position lost its Redeem entirely. A protocol whose
+    // actions carry no deposit/withdraw at all (hold-to-earn) keeps the single
+    // primary button it always had.
+    const depositAction = detailInfo?.actions?.find(
+      (action) => action.type === 'deposit',
+    );
+    const showRedeem = isMobileLayout && Boolean(redeemAction);
+    const depositDisabled = Boolean(depositAction?.disabled);
+    const withdrawDisabled = Boolean(redeemAction?.disabled);
 
     return (
       <Page.Footer
@@ -1316,6 +1396,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         confirmButtonProps={{
           variant: 'primary',
           onPress,
+          disabled: depositDisabled,
           mb: tabBarHeight,
         }}
         {...(showRedeem
@@ -1325,9 +1406,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               }),
               cancelButtonProps: {
                 variant: 'secondary',
-                // ManagePosition defaults to the deposit tab, so Redeem has to
-                // name its own or it opens the wrong side of the modal.
-                onPress: () => handleOpenManageModal('withdraw'),
+                disabled: withdrawDisabled,
+                onPress: handleOpenRedeem,
                 mb: tabBarHeight,
               },
             }
@@ -1338,10 +1418,12 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     gtMd,
     intl,
     handleOpenManageModal,
+    handleOpenRedeem,
+    redeemAction,
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
-    canRedeem,
+    detailInfo,
   ]);
 
   return (
@@ -1382,6 +1464,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isMobileLayout={isMobileLayout}
             providerSubtitle={providerSubtitle}
             hasPortfolio={hasPortfolio}
+            onRedeem={handleOpenRedeem}
           />
         </Stack>
         {gtMd ? (
