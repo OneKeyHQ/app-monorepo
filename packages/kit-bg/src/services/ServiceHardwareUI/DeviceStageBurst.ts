@@ -16,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -116,18 +117,21 @@ const DEDICATED_DIALOG_ERROR_CODES = [
   HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
+  // Bluetooth off / no BLE permission / location services off: the SDK
+  // (and the Android pre-check) raise the "Enable Bluetooth" family of
+  // dialogs for these, so the stage stands down instead of landing a
+  // second notice under the sheet (OK-62113).
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleLocationServicesDisabled,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
- * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
-const DISCONNECTED_CODES = [
-  HardwareErrorCode.PollingTimeout,
-  HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BleScanError,
-  HardwareErrorCode.BleTimeoutError,
-];
+ * territory (doc §05 mapping A), classified apart in mapErrorToReason.
+ * The set itself lives in shared so the authenticity flow's classifier
+ * reads "disconnected" the same way. */
+const DISCONNECTED_CODES = DEVICE_STAGE_DISCONNECTED_CODES;
 
 const ACTION_TO_STEP: Partial<Record<string, IDeviceStageStepValue>> = {
   [EHardwareUiStateAction.DeviceChecking]: 'connecting',
