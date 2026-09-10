@@ -3376,7 +3376,7 @@ PODS:
   - RNPurchases (10.4.3):
     - PurchasesHybridCommon (= 18.21.0)
     - React-Core
-  - RNReanimated (4.5.1):
+  - RNReanimated (4.5.5):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3397,35 +3397,12 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/apple (= 4.5.1)
-    - RNReanimated/common (= 4.5.1)
-    - RNReanimated/view (= 4.5.1)
+    - RNReanimated/apple (= 4.5.5)
+    - RNReanimated/common (= 4.5.5)
+    - RNReanimated/view (= 4.5.5)
     - RNWorklets
     - Yoga
-  - RNReanimated/apple (4.5.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - RNWorklets
-    - Yoga
-  - RNReanimated/common (4.5.1):
+  - RNReanimated/apple (4.5.5):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3448,7 +3425,30 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - RNReanimated/view (4.5.1):
+  - RNReanimated/common (4.5.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - Yoga
+  - RNReanimated/view (4.5.5):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4623,7 +4623,7 @@ SPEC CHECKSUMS:
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 65744c28ad4e2d6da536624adf6bae64c9e16e12
   RNPurchases: 33dbce0054a0833a8c20c8d6244e971dfedaa0c3
-  RNReanimated: 58ea1b138bbb87124b252b0469026bf5047457a8
+  RNReanimated: c56a02afc991e62288e7f51e2067282bc06c1294
   RNScreens: f70105574a584d49163f0d1918d25897d7ff78f3
   RNSentry: f9219292e372d83cccb99b7f5fa7a9d06c204adf
   RNSVG: 26c9fd280121dbb1639fae26d476a54c8016ed81
