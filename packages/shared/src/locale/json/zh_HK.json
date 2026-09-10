@@ -3301,14 +3301,18 @@
   "perp_portfolio_chart_type_pnl": "損益",
   "perp_portfolio_chart_type_value": "淨值",
   "perp_portfolio_fees_paid": "已付手續費",
+  "perp_portfolio_funding_all__action": "全部",
   "perp_portfolio_funding_by_market__title": "各市場淨資金費",
   "perp_portfolio_funding_empty__desc": "此期間暫無資金費記錄。",
+  "perp_portfolio_funding_empty__title": "暫無資金費記錄",
   "perp_portfolio_funding_net_24h__label": "24小時淨額",
   "perp_portfolio_funding_net_7d__label": "7天淨額",
   "perp_portfolio_funding_net__label": "淨資金費",
   "perp_portfolio_funding_net_all_time__label": "累計淨額",
+  "perp_portfolio_funding_no_history__title": "暫無資金費記錄",
   "perp_portfolio_funding_total_paid__label": "累計支付",
   "perp_portfolio_funding_total_received__label": "累計收取",
+  "perp_portfolio_funding_view_all__desc": "選擇{all}查看資金費歷史記錄",
   "perp_portfolio_health_status_healthy": "健康",
   "perp_portfolio_health_status_high_risk": "高風險",
   "perp_portfolio_health_status_moderate": "中等風險",
@@ -5677,6 +5681,5 @@
   "wc_pay_tx_reverted__msg": "交易在鏈上被回滾",
   "word": "助記詞",
   "your_device_is_ready": "你的裝置已就緒",
-  "your_wallet_is_ready": "你的錢包已準備就緒",
-  "perp_twap_orders__title": "分時委託"
+  "your_wallet_is_ready": "你的錢包已準備就緒"
 }
