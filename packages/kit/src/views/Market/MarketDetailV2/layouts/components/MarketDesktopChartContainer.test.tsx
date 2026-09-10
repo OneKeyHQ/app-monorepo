@@ -288,6 +288,122 @@ describe('MarketDesktopChartContainer', () => {
     ).toBe('504');
   });
 
+  it.each([false, true])(
+    'releases an adopted failed repair (origin unmounted: %s)',
+    async (unmounted) => {
+      mockDelayWrites = true;
+      const chart = (id: string) => (
+        <MarketDesktopChartContainer testID={id} isFullscreen={false}>
+          <div>chart</div>
+        </MarketDesktopChartContainer>
+      );
+      const first = render(chart('first'));
+      fireEvent.keyDown(screen.getByTestId('first-resize-handle'), {
+        key: 'ArrowDown',
+      });
+      await act(async () => {});
+      const second = render(chart('second'));
+      fireEvent.keyDown(screen.getByTestId('second-resize-handle'), {
+        key: 'ArrowDown',
+      });
+      fireEvent.keyDown(screen.getByTestId('second-resize-handle'), {
+        key: 'ArrowDown',
+      });
+      await act(async () => {});
+      if (unmounted) second.unmount();
+      await act(async () => {
+        mockWriteResults[1].reject();
+      });
+      await act(async () => {
+        mockSavedLayout = mockPendingWrites[0];
+        mockWriteResults[0].resolve();
+        first.rerender(chart('first'));
+      });
+      expect(
+        screen.getByTestId('first-resize-handle').getAttribute('aria-valuenow'),
+      ).toBe('504');
+      await act(async () => {
+        mockWriteResults[2].reject();
+      });
+      mockSavedLayout = { chartHeight: 600 };
+      first.rerender(chart('first'));
+      expect(
+        screen.getByTestId('first-resize-handle').getAttribute('aria-valuenow'),
+      ).toBe('600');
+      if (!unmounted) {
+        second.rerender(chart('second'));
+        expect(
+          screen
+            .getByTestId('second-resize-handle')
+            .getAttribute('aria-valuenow'),
+        ).toBe('600');
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'retries an adopted repair once when the broadcast is lost (origin unmounted: %s)',
+    async (unmounted) => {
+      jest.useFakeTimers();
+      try {
+        mockDelayWrites = true;
+        const chart = (id: string) => (
+          <MarketDesktopChartContainer testID={id} isFullscreen={false}>
+            <div>chart</div>
+          </MarketDesktopChartContainer>
+        );
+        const first = render(chart('first'));
+        fireEvent.keyDown(screen.getByTestId('first-resize-handle'), {
+          key: 'ArrowDown',
+        });
+        await act(async () => {});
+        const second = render(chart('second'));
+        fireEvent.keyDown(screen.getByTestId('second-resize-handle'), {
+          key: 'ArrowDown',
+        });
+        fireEvent.keyDown(screen.getByTestId('second-resize-handle'), {
+          key: 'ArrowDown',
+        });
+        await act(async () => {});
+        await act(async () => {
+          mockWriteResults[1].resolve();
+        });
+        if (unmounted) second.unmount();
+        await act(async () => {
+          mockSavedLayout = mockPendingWrites[0];
+          mockWriteResults[0].resolve();
+          first.rerender(chart('first'));
+        });
+        await act(async () => {
+          mockWriteResults[2].resolve();
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(5000);
+        });
+        expect(mockPendingWrites).toHaveLength(4);
+        expect(mockPendingWrites[3]).toEqual(mockPendingWrites[1]);
+        await act(async () => {
+          mockSavedLayout = mockPendingWrites[3];
+          mockWriteResults[3].resolve();
+          first.rerender(chart('first'));
+        });
+        mockSavedLayout = { chartHeight: 600 };
+        first.rerender(chart('first'));
+        expect(
+          screen
+            .getByTestId('first-resize-handle')
+            .getAttribute('aria-valuenow'),
+        ).toBe('600');
+        await act(async () => {
+          jest.advanceTimersByTime(60_000);
+        });
+        expect(mockPendingWrites).toHaveLength(4);
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
   it('stops repairing when every bridge write, including repairs, takes eight seconds', async () => {
     jest.useFakeTimers();
     try {
@@ -332,10 +448,16 @@ describe('MarketDesktopChartContainer', () => {
         mockSavedLayout = mockPendingWrites[2];
         mockWriteResults[2].resolve();
       });
+      expect(mockPendingWrites[3]).toEqual(mockPendingWrites[1]);
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+        mockSavedLayout = mockPendingWrites[3];
+        mockWriteResults[3].resolve();
+      });
       await act(async () => {
         jest.advanceTimersByTime(60_000);
       });
-      expect(mockPendingWrites).toHaveLength(3);
+      expect(mockPendingWrites).toHaveLength(4);
       expect(mockSavedLayout.chartHeight).toBe(504);
       act(() => {
         jest.runAllTicks();

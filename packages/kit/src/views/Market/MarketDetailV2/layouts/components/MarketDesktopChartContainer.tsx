@@ -25,12 +25,14 @@ interface IChartHeightSave {
   height: number;
   started: boolean;
   accepted: boolean;
+  acknowledgementRetried: boolean;
   write: () => Promise<void>;
 }
 
 // Shared by chart instances in this UI runtime, including after navigation.
 let latestChartHeightSave: IChartHeightSave | undefined;
 const repairListeners = new Set<(request: IChartHeightSave) => void>();
+const releaseListeners = new Set<(id: string) => void>();
 
 async function persistChartHeight(request: IChartHeightSave): Promise<void> {
   let current = request;
@@ -116,19 +118,48 @@ export function MarketDesktopChartContainer({
     }
   }, []);
 
+  const startAcknowledgementWatchdog = useCallback(
+    (request: IChartHeightSave) => {
+      if (
+        isMountedRef.current &&
+        pendingSaveRef.current?.id === request.id &&
+        latestChartHeightSave === request &&
+        !request.acknowledgementRetried
+      ) {
+        clearTimeout(acknowledgementTimerRef.current);
+        acknowledgementTimerRef.current = setTimeout(() => {
+          if (
+            latestChartHeightSave === request &&
+            pendingSaveRef.current?.id === request.id &&
+            !request.acknowledgementRetried
+          ) {
+            // Adopting instances can retry after the originator unmounts, but
+            // all instances share one retry allowance for this user request.
+            request.acknowledgementRetried = true;
+            void persistChartHeight(request).catch(() => undefined);
+          }
+        }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     isMountedRef.current = true;
     const onRepair = (request: IChartHeightSave) => {
       pendingSaveRef.current = request;
       setPendingSave(request);
+      startAcknowledgementWatchdog(request);
     };
     repairListeners.add(onRepair);
+    releaseListeners.add(clearPendingSave);
     return () => {
       repairListeners.delete(onRepair);
+      releaseListeners.delete(clearPendingSave);
       isMountedRef.current = false;
       clearTimeout(acknowledgementTimerRef.current);
     };
-  }, []);
+  }, [clearPendingSave, startAcknowledgementWatchdog]);
 
   useEffect(() => {
     // A matching height alone can be the stale mirror of a return-to-start save.
@@ -153,6 +184,7 @@ export function MarketDesktopChartContainer({
         height,
         started: false,
         accepted: false,
+        acknowledgementRetried: false,
         write: async () => {
           try {
             await Promise.resolve(
@@ -165,7 +197,7 @@ export function MarketDesktopChartContainer({
             request.accepted = true;
           } catch (error) {
             if (!request.accepted) {
-              clearPendingSave(request.id);
+              releaseListeners.forEach((listener) => listener(request.id));
             }
             throw error;
           }
@@ -175,31 +207,13 @@ export function MarketDesktopChartContainer({
       pendingSaveRef.current = request;
       clearTimeout(acknowledgementTimerRef.current);
       setPendingSave(request);
-      const startAcknowledgementWatchdog = () => {
-        if (
-          isMountedRef.current &&
-          pendingSaveRef.current?.id === request.id &&
-          latestChartHeightSave === request
-        ) {
-          acknowledgementTimerRef.current = setTimeout(() => {
-            if (
-              latestChartHeightSave === request &&
-              pendingSaveRef.current?.id === request.id
-            ) {
-              // Retry a missing broadcast once, without changing the request
-              // identity or dropping the user's height back to a stale mirror.
-              void persistChartHeight(request).catch(() => undefined);
-            }
-          }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
-        }
-      };
       // Coalesce queued inputs, but keep a bound on an unresponsive bridge.
       saveQueueRef.current = saveQueueRef.current.then(() => {
         if (latestChartHeightSave !== request) {
           return undefined;
         }
         if (request.started) {
-          startAcknowledgementWatchdog();
+          startAcknowledgementWatchdog(request);
           return undefined;
         }
         let timedOut = false;
@@ -212,14 +226,17 @@ export function MarketDesktopChartContainer({
           timeoutRejectError: new OneKeyLocalError(
             'Chart height save timed out',
           ),
-        })(undefined).then(startAcknowledgementWatchdog, () => {
-          if (timedOut) {
-            startAcknowledgementWatchdog();
-          }
-        });
+        })(undefined).then(
+          () => startAcknowledgementWatchdog(request),
+          () => {
+            if (timedOut) {
+              startAcknowledgementWatchdog(request);
+            }
+          },
+        );
       });
     },
-    [clearPendingSave, setLayoutState],
+    [setLayoutState, startAcknowledgementWatchdog],
   );
 
   const handlePointerDown = useCallback(
