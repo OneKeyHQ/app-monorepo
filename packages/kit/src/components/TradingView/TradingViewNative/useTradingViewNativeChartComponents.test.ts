@@ -148,6 +148,55 @@ describe('useTradingViewNativeChartComponents', () => {
     expect(result.current[0]?.id).toBe('system.initialPriceReferenceLine');
   });
 
+  it('anchors the reference line on the reported previous close', () => {
+    const { result, rerender } = renderHook(
+      ({ latestPrice, previousClose }) =>
+        useTradingViewNativeChartComponents({
+          chartComponents: CUSTOM_COMPONENT_TREE,
+          dataProviderKey: 'source-a',
+          latestPrice,
+          previousClose,
+          referenceLineColor: '#initial',
+          showPreviousClose: true,
+        }),
+      {
+        initialProps: {
+          latestPrice: 100,
+          previousClose: 95.5 as number | undefined,
+        },
+      },
+    );
+
+    expect(
+      getReferenceLine(result.current, 'system.initialPriceReferenceLine')
+        ?.props.anchor.price,
+    ).toBe(95.5);
+
+    // The quote refreshes while the captured first price stays at 100.
+    rerender({ latestPrice: 120, previousClose: 96 });
+
+    expect(
+      getReferenceLine(result.current, 'system.initialPriceReferenceLine')
+        ?.props.anchor.price,
+    ).toBe(96);
+
+    // Losing the figure falls back to the captured first price, and a
+    // non-finite figure is treated as missing.
+    rerender({ latestPrice: 120, previousClose: undefined });
+
+    expect(
+      getReferenceLine(result.current, 'system.initialPriceReferenceLine')
+        ?.props.anchor.price,
+    ).toBe(100);
+
+    rerender({ latestPrice: 120, previousClose: Number.NaN });
+
+    expect(
+      getReferenceLine(result.current, 'system.initialPriceReferenceLine')
+        ?.props.anchor.price,
+    ).toBe(100);
+  });
+
   it('keeps the previous close hidden until enabled', () => {
     const { result, rerender } = renderHook(
       ({ latestPrice, showPreviousClose }) =>

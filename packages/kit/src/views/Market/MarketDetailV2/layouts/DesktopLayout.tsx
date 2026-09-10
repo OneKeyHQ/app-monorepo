@@ -35,6 +35,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { getMarketStockPreviousClose } from '../utils/marketStockPreviousClose';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -166,7 +167,8 @@ export function DesktopLayout({
     perpsInfo,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
+    useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
@@ -174,6 +176,11 @@ export function DesktopLayout({
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
+  // Only the share quote reports a previous session close. Token-price and
+  // on-chain charts keep the widget's own first-price fallback.
+  const stockPreviousClose = isStockSharePrice
+    ? getMarketStockPreviousClose(stockDetail)
+    : undefined;
   const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
   const stockTokenAddress =
     selectedTokenVariant?.contractAddress || routeTokenAddress;
@@ -363,6 +370,7 @@ export function DesktopLayout({
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
@@ -449,6 +457,7 @@ export function DesktopLayout({
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,
+    stockPreviousClose,
     proKLineDataFallback,
     tradingViewNativeSource,
   ]);

@@ -188,6 +188,7 @@ const TradingViewNativeContent = memo(
     indicatorSettingsState,
     forcedChartType,
     chartComponents,
+    previousClose,
     enableNativeChartSettings,
     initialRightOffset,
     nativeChartDisplayMode,
@@ -456,6 +457,7 @@ const TradingViewNativeContent = memo(
       chartComponents,
       dataProviderKey,
       latestPrice,
+      previousClose,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
       showPreviousClose: normalizedChartSettings.options.previousClose,

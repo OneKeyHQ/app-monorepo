@@ -25,6 +25,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -58,7 +59,7 @@ export function StockSimpleChart({
   const [chartHeight, setChartHeight] = useState(
     STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
   );
-  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
+  const { isNative, networkId, tokenAddress } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
   const {
     coinGeckoId: requestCoinGeckoId,
@@ -78,6 +79,12 @@ export function StockSimpleChart({
     range,
     stockId,
     tokenAddress,
+  });
+
+  const previousClose = resolveStockSimpleChartPreviousClose({
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockDetail,
   });
 
   const {
@@ -180,10 +187,8 @@ export function StockSimpleChart({
         testID="stock-simple-chart-content"
         data={chartState.data}
         height={chartHeight}
-        pulseLastPoint={
-          stockDetail?.marketStatus?.isOpen === true ||
-          tokenDetail?.stock?.isOpen === true
-        }
+        previousClose={previousClose}
+        showCurrentPriceLabel
         // Design decision: the hover card keeps its price even though the
         // price header above also mirrors the hovered point.
         hoverLabelShowsPrice

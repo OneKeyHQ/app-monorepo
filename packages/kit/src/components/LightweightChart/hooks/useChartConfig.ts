@@ -52,6 +52,8 @@ interface IUseChartConfigProps {
   histogramOptions?: ILightweightChartHistogramOptions;
   referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
@@ -90,6 +92,8 @@ export function useChartConfig({
   histogramOptions,
   referenceLine,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   showTimeScale = true,
   useTimeScaleTickMarkWithoutUnit,
@@ -172,6 +176,8 @@ export function useChartConfig({
       histogramOptions,
       referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
@@ -212,6 +218,8 @@ export function useChartConfig({
       histogramOptions,
       referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,

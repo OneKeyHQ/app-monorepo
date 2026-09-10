@@ -133,6 +133,12 @@ export interface ITradingViewNativeProps {
   storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  /**
+   * Close of the previous trading session, anchoring the "Prev close"
+   * reference line. Without it the line falls back to the first price the
+   * chart receives for its data source.
+   */
+  previousClose?: number;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;

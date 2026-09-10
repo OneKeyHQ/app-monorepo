@@ -23,18 +23,26 @@ export function useTradingViewNativeChartComponents({
   chartComponents = EMPTY_CHART_COMPONENTS,
   dataProviderKey,
   latestPrice,
+  previousClose,
   referenceLineColor,
   showPreviousClose,
 }: {
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   dataProviderKey: string;
   latestPrice?: number;
+  // Reported previous session close. Takes precedence over the captured first
+  // price, which only stands in while no real figure is available.
+  previousClose?: number;
   referenceLineColor: string;
   showPreviousClose: boolean;
 }): readonly ITradingViewNativeChartLeafComponent[] {
   const finiteLatestPrice =
     latestPrice !== undefined && Number.isFinite(latestPrice)
       ? latestPrice
+      : undefined;
+  const finitePreviousClose =
+    previousClose !== undefined && Number.isFinite(previousClose)
+      ? previousClose
       : undefined;
   const [capturedInitialPrice, setCapturedInitialPrice] =
     useState<ICapturedInitialPrice>(() => ({
@@ -47,6 +55,7 @@ export function useTradingViewNativeChartComponents({
       : null;
   const isCurrentSourceCaptured = currentCapturedPrice !== null;
   const initialPrice = currentCapturedPrice ?? finiteLatestPrice;
+  const referencePrice = finitePreviousClose ?? initialPrice;
   const uncapturedPrice = isCurrentSourceCaptured
     ? undefined
     : finiteLatestPrice;
@@ -67,12 +76,12 @@ export function useTradingViewNativeChartComponents({
     const initialPriceReferenceLine:
       | ITradingViewNativeReferenceLineComponent
       | undefined =
-      !showPreviousClose || initialPrice === undefined
+      !showPreviousClose || referencePrice === undefined
         ? undefined
         : {
             id: INITIAL_PRICE_REFERENCE_LINE_ID,
             props: {
-              anchor: { price: initialPrice, type: 'price' },
+              anchor: { price: referencePrice, type: 'price' },
               color: referenceLineColor,
               interactive: false,
               style: 'dashed',
@@ -85,5 +94,5 @@ export function useTradingViewNativeChartComponents({
       ...(initialPriceReferenceLine ? [initialPriceReferenceLine] : []),
       ...chartComponents,
     ]);
-  }, [chartComponents, initialPrice, referenceLineColor, showPreviousClose]);
+  }, [chartComponents, referencePrice, referenceLineColor, showPreviousClose]);
 }

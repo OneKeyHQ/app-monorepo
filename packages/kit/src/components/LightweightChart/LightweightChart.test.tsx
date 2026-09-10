@@ -57,6 +57,9 @@ jest.mock('./hooks/useChartConfig', () => {
       horzLineStyle,
       histogramOptions,
       referenceLine,
+      showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
     }: {
       data: IMarketTokenChart;
       secondaryLineData?: IMarketTokenChart;
@@ -79,7 +82,14 @@ jest.mock('./hooks/useChartConfig', () => {
         lineWidth?: 1 | 2 | 3 | 4;
         lineStyle?: 'solid' | 'dotted' | 'dashed';
         axisLabelVisible?: boolean;
+        title?: string;
+        axisLabelColor?: string;
+        axisLabelTextColor?: string;
+        includeInAutoscale?: boolean;
       };
+      showLastValue?: boolean;
+      showLastValuePriceLine?: boolean;
+      lastValueLabelColor?: string;
     }) => {
       // Mirrors the real hook: each source array is mapped on its own, so
       // replacing only the overlay leaves the primary data referentially stable.
@@ -119,6 +129,9 @@ jest.mock('./hooks/useChartConfig', () => {
           baselineOptions,
           histogramOptions,
           referenceLine,
+          showLastValue,
+          showLastValuePriceLine,
+          lastValueLabelColor,
           showTimeScale: true,
         }),
         [
@@ -127,11 +140,14 @@ jest.mock('./hooks/useChartConfig', () => {
           histogramOptions,
           horzLineColor,
           horzLineStyle,
+          lastValueLabelColor,
           lineType,
           priceScalePosition,
           referenceLine,
           seriesType,
           showHorzGridLines,
+          showLastValue,
+          showLastValuePriceLine,
         ],
       );
     },
@@ -309,6 +325,98 @@ describe('LightweightChart', () => {
         },
       }),
     );
+  });
+
+  it('keeps the last-value label without its price line and tags the reference line', async () => {
+    const createPriceLine = jest.fn();
+    const series = {
+      applyOptions: jest.fn(),
+      createPriceLine,
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn(),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn(),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+
+    render(
+      <LightweightChart
+        data={[
+          [1, 10],
+          [2, 20],
+        ]}
+        height={240}
+        seriesType="dotted-area"
+        showLastValue
+        showLastValuePriceLine={false}
+        lastValueLabelColor="#00ff00"
+        referenceLine={{
+          price: 5,
+          color: '#555555',
+          lineStyle: 'dashed',
+          axisLabelVisible: true,
+          title: 'Prev close',
+          axisLabelColor: '#777777',
+          includeInAutoscale: true,
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(chart.addCustomSeries).toHaveBeenCalledTimes(1));
+    expect(chart.addCustomSeries).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        lastValueVisible: true,
+        priceLineVisible: false,
+        priceLineColor: '#00ff00',
+      }),
+    );
+    expect(createPriceLine).toHaveBeenCalledWith({
+      price: 5,
+      color: '#555555',
+      lineWidth: 1,
+      lineStyle: 2,
+      lineVisible: true,
+      axisLabelVisible: true,
+      title: 'Prev close',
+      axisLabelColor: '#777777',
+    });
+
+    const autoscaleOptions = series.applyOptions.mock.calls
+      .map(([options]) => options as { autoscaleInfoProvider?: unknown })
+      .find((options) => options.autoscaleInfoProvider);
+    const autoscaleInfoProvider = autoscaleOptions?.autoscaleInfoProvider as
+      | ((
+          base: () => {
+            priceRange: { minValue: number; maxValue: number };
+          } | null,
+        ) => { priceRange: { minValue: number; maxValue: number } } | null)
+      | undefined;
+    expect(autoscaleInfoProvider).toEqual(expect.any(Function));
+    expect(
+      autoscaleInfoProvider?.(() => ({
+        priceRange: { minValue: 10, maxValue: 20 },
+      })),
+    ).toEqual({ priceRange: { minValue: 5, maxValue: 20 } });
+    expect(
+      autoscaleInfoProvider?.(() => ({
+        priceRange: { minValue: 1, maxValue: 3 },
+      })),
+    ).toEqual({ priceRange: { minValue: 1, maxValue: 5 } });
+    expect(autoscaleInfoProvider?.(() => null)).toBeNull();
   });
 
   it('renders signed histogram points with the configured colors', async () => {

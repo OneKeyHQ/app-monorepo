@@ -7,6 +7,8 @@ import {
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
+import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
+
 export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
@@ -22,6 +24,31 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES =
   TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+
+// The previous session close frames the within-day ranges. On longer ranges
+// it is one of the many closes already on the line, so it stays off.
+const STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES =
+  new Set<IStockSimpleChartRange>(['1H', '1D']);
+
+export function resolveStockSimpleChartPreviousClose({
+  priceMode,
+  range,
+  stockDetail,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+}): number | undefined {
+  // Only the share quote reports the figure; a tokenized share trades on its
+  // own price and has no session close to compare against.
+  if (
+    priceMode !== 'share' ||
+    !STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES.has(range)
+  ) {
+    return undefined;
+  }
+  return getMarketStockPreviousClose(stockDetail);
+}
 
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;

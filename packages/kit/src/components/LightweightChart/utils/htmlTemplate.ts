@@ -352,6 +352,33 @@ function getChartInitScript(): string {
         if (lineStyle === 'sparse-dotted') return LightweightCharts.LineStyle.SparseDotted;
         return LightweightCharts.LineStyle.Solid;
       }
+      function getLastValueSeriesOptions(nextConfig) {
+        var showLast = Boolean(nextConfig.showLastValue);
+        return {
+          lastValueVisible: showLast,
+          priceLineVisible: showLast && nextConfig.showLastValuePriceLine !== false,
+          priceLineColor: nextConfig.lastValueLabelColor || '',
+        };
+      }
+      function getReferenceLineAutoscaleInfoProvider(nextConfig) {
+        var referenceLine = nextConfig.referenceLine;
+        var price =
+          referenceLine && referenceLine.includeInAutoscale
+            ? referenceLine.price
+            : undefined;
+        return function(baseImplementation) {
+          var autoscaleInfo = baseImplementation();
+          if (!Number.isFinite(price) || !autoscaleInfo || !autoscaleInfo.priceRange) {
+            return autoscaleInfo;
+          }
+          return Object.assign({}, autoscaleInfo, {
+            priceRange: {
+              minValue: Math.min(autoscaleInfo.priceRange.minValue, price),
+              maxValue: Math.max(autoscaleInfo.priceRange.maxValue, price),
+            },
+          });
+        };
+      }
       function getHistogramSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
@@ -464,24 +491,35 @@ function getChartInitScript(): string {
         } else {
           applyPrimarySeriesOptions(nextConfig);
         }
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
       }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
+        window.series.applyOptions({
+          autoscaleInfoProvider: getReferenceLineAutoscaleInfoProvider(nextConfig),
+        });
         if (window.referencePriceLine) {
           window.series.removePriceLine(window.referencePriceLine);
           window.referencePriceLine = null;
         }
         if (!nextConfig.referenceLine) return;
-        window.referencePriceLine = window.series.createPriceLine({
+        var referenceLineOptions = {
           price: nextConfig.referenceLine.price,
           color: nextConfig.referenceLine.color,
           lineWidth: getNormalizedLineWidth(nextConfig.referenceLine.lineWidth, 1),
           lineStyle: getReferenceLineStyle(nextConfig.referenceLine.lineStyle),
           lineVisible: true,
           axisLabelVisible: Boolean(nextConfig.referenceLine.axisLabelVisible),
-          title: '',
-        });
+          title: nextConfig.referenceLine.title || '',
+        };
+        if (nextConfig.referenceLine.axisLabelColor) {
+          referenceLineOptions.axisLabelColor = nextConfig.referenceLine.axisLabelColor;
+        }
+        if (nextConfig.referenceLine.axisLabelTextColor) {
+          referenceLineOptions.axisLabelTextColor = nextConfig.referenceLine.axisLabelTextColor;
+        }
+        window.referencePriceLine = window.series.createPriceLine(referenceLineOptions);
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {

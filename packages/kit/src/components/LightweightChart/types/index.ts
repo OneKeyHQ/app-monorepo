@@ -28,6 +28,15 @@ export interface ILightweightChartReferenceLine {
   lineWidth?: 1 | 2 | 3 | 4;
   lineStyle?: ILightweightChartReferenceLineStyle;
   axisLabelVisible?: boolean;
+  // Drawn on the plot beside the axis label, on the line's own color. Only
+  // shown together with `axisLabelVisible`.
+  title?: string;
+  // Axis label colors. Default to the line color with a contrasting text.
+  axisLabelColor?: string;
+  axisLabelTextColor?: string;
+  // Extends the price autoscale so the line stays on screen even when the
+  // series never reaches it (e.g. a gap open away from the previous close).
+  includeInAutoscale?: boolean;
 }
 
 export interface ILightweightChartHistogramOptions {
@@ -79,6 +88,8 @@ export interface ILightweightChartConfig {
   histogramOptions?: ILightweightChartHistogramOptions;
   referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
@@ -133,6 +144,13 @@ export interface ILightweightChartProps {
   histogramOptions?: ILightweightChartHistogramOptions;
   referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  // Defaults to `showLastValue`. Pass false to keep the last-value axis label
+  // while dropping the dashed price line it normally comes with.
+  showLastValuePriceLine?: boolean;
+  // Background of the last-value axis label (and of the price line when it is
+  // shown). Defaults to the series color, so a dimmed line can still carry a
+  // full-strength label.
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;

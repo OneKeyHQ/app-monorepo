@@ -4,6 +4,7 @@ import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -563,5 +564,59 @@ describe('stock simple chart request identity', () => {
     });
 
     expect(secondVariant).not.toEqual(firstVariant);
+  });
+});
+
+describe('resolveStockSimpleChartPreviousClose', () => {
+  const stockDetail = { previousClose: '328.21' };
+
+  it('frames the intraday share ranges with the reported previous close', () => {
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1H',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+  });
+
+  it('stays off for longer ranges, token price mode, and missing quotes', () => {
+    for (const range of ['1W', '1M', '1Y', 'All'] as const) {
+      expect(
+        resolveStockSimpleChartPreviousClose({
+          priceMode: 'share',
+          range,
+          stockDetail,
+        }),
+      ).toBeUndefined();
+    }
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'token',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: { previousClose: '' },
+      }),
+    ).toBeUndefined();
   });
 });
