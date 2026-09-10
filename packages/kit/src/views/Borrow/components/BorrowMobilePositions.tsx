@@ -7,6 +7,7 @@ import {
   ESwitchSize,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -27,6 +28,8 @@ import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowPositionCard } from './BorrowPositionCard';
 import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
+import { CollateralBadge } from './BorrowTableList/CollateralBadge';
+import { getCollateralCellState } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 import type { IBorrowPositionCardAction } from './BorrowPositionCard';
@@ -144,6 +147,9 @@ export function BorrowMobilePositions({
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       repay: intl.formatMessage({ id: ETranslations.defi_repay }),
       collateral: intl.formatMessage({ id: ETranslations.defi_collateral }),
+      collateralNotAvailable: intl.formatMessage({
+        id: ETranslations.global_not_available,
+      }),
     }),
     [intl],
   );
@@ -219,6 +225,7 @@ export function BorrowMobilePositions({
 
         if (entry.kind === 'supplied') {
           const suppliedAsset = entry.asset;
+          const collateralState = getCollateralCellState(suppliedAsset);
           const positionKey = getPositionKey({
             kind: 'supplied',
             accountId,
@@ -278,17 +285,40 @@ export function BorrowMobilePositions({
               statusBadgeType="success"
               platformBonusApy={suppliedAsset.platformBonusApy}
               collateral={
-                hasCollateralControls &&
-                suppliedAsset.usageAsCollateral !== undefined ? (
+                hasCollateralControls && collateralState !== 'hidden' ? (
                   <>
                     <SizableText size="$bodySm" color="$text" numberOfLines={1}>
                       {labels.collateral}
                     </SizableText>
-                    <CollateralSwitchCell
-                      item={suppliedAsset}
-                      eModeId={eModeId}
-                      size={ESwitchSize.small}
-                    />
+                    {collateralState === 'unavailable' ? (
+                      // The kit already stamps "this capability is not
+                      // available for this asset" as a gray dash chip —
+                      // CollateralBadge in the desktop table, CapabilityBadge
+                      // in the e-mode table. Reuse the mark and leave the
+                      // words to the accessibility label, the way the e-mode
+                      // table does, instead of spending a third vocabulary on
+                      // the state 23 of 40 mainnet reserves are in.
+                      <Stack
+                        testID={BorrowTestIDs.positionCardCollateralUnavailable(
+                          suppliedAsset.reserveAddress,
+                        )}
+                        accessible
+                        accessibilityRole="text"
+                        accessibilityLabel={[
+                          suppliedAsset.token.symbol,
+                          labels.collateral,
+                          labels.collateralNotAvailable,
+                        ].join(', ')}
+                      >
+                        <CollateralBadge canBeCollateral={false} />
+                      </Stack>
+                    ) : (
+                      <CollateralSwitchCell
+                        item={suppliedAsset}
+                        eModeId={eModeId}
+                        size={ESwitchSize.small}
+                      />
+                    )}
                   </>
                 ) : null
               }

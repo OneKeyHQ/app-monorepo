@@ -12,6 +12,8 @@ export const BorrowTestIDs = {
     kind: 'supplied' | 'borrowed',
     reserveAddress: string,
   ) => `borrow-position-card-actions-${kind}-${reserveAddress.toLowerCase()}`,
+  positionCardCollateralUnavailable: (reserveAddress: string) =>
+    `borrow-position-card-collateral-unavailable-${reserveAddress.toLowerCase()}`,
   positionCardAction: (
     kind: 'supplied' | 'borrowed',
     reserveAddress: string,
