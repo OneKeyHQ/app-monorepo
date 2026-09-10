@@ -7,7 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChangeHistoryContentType,
@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
@@ -41,22 +40,20 @@ export function WalletRenameButton({
     return !!editable;
   }, [editable, wallet?.id]);
 
-  // Third-party HW wallets without vendor-routed settings (e.g. Ledger) rename
-  // is DB-only. Trezor has a dedicated settings route, so it can update the
-  // hardware label through serviceHardware.setDeviceLabel.
+  // Local wallet names must not trigger unsupported device-label writes.
   const shouldUseDbOnlyWalletRename = useMemo(() => {
     const vendor = wallet?.associatedDeviceInfo?.vendor;
     if (!vendor) return false;
     const profile = getVendorProfile(vendor);
-    return profile.isThirdParty && !profile.supportsDeviceSettings;
+    return profile.deviceLabel.mode === 'local';
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
-  // Trezor device labels only hold printable ASCII, so restrict the label
-  // input for Trezor (OneKey accepts CJK and keeps the shared dialog as-is).
-  const labelAsciiOnly = useMemo(
-    () => wallet?.associatedDeviceInfo?.vendor === EHardwareVendor.trezor,
-    [wallet?.associatedDeviceInfo?.vendor],
-  );
+  const labelAsciiOnly = useMemo(() => {
+    const { deviceLabel } = getVendorProfile(
+      wallet?.associatedDeviceInfo?.vendor,
+    );
+    return deviceLabel.mode === 'device' && deviceLabel.asciiOnly;
+  }, [wallet?.associatedDeviceInfo?.vendor]);
 
   const labelAsciiAlphanumericWithSpacesOnly = useMemo(
     () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),

@@ -33,9 +33,13 @@ export function getWebUsbConnectedDeviceKey(
   if (!device.serialNumber) {
     return undefined;
   }
-  return isKeystoneWebUsbDevice(device)
-    ? `keystone-usb:${device.serialNumber}`
-    : device.serialNumber;
+  // A Keystone USB descriptor identifies a physical transport endpoint, not
+  // the wallet currently loaded on it. Only a completed SDK handshake can
+  // provide the stable wallet identity used by wallet connection status.
+  if (isKeystoneWebUsbDevice(device)) {
+    return undefined;
+  }
+  return device.serialNumber;
 }
 
 export function buildHardwareConnectedDeviceKeys({

@@ -143,6 +143,8 @@ export const OnboardingTestIDs = {
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
   connectionFlowKeystoneUsbBtn: 'onboarding-connection-flow-keystone-usb-btn',
   connectionFlowKeystoneQrBtn: 'onboarding-connection-flow-keystone-qr-btn',
+  connectionFlowKeystoneDeviceOption: (index: number) =>
+    `onboarding-connection-flow-keystone-device-${index}`,
 
   // Import phrase / private key
   importPhraseConfirmBtn: 'onboarding-import-phrase-confirm-btn',

@@ -7,6 +7,7 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { LEDGER_CONFIG } from '@onekeyhq/shared/src/hardware/config/ledger';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -202,11 +203,23 @@ export const thirdPartyHardwareAdapterRegistry = {
     // offscreen connector via the bridge; on other platforms it sets directly.
     // Either way, the next `ThpHandshakeInitRequest` ships these to the device
     // and the device routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    let knownDeviceConnections: Array<{
+      deviceId: string;
+      usbConnectId?: string;
+      bleConnectId?: string;
+    }> = [];
     try {
       const localDbModule =
         await import('@onekeyhq/kit-bg/src/dbs/local/localDb');
       const localDb = localDbModule.default;
       const { devices } = await localDb.getAllDevices();
+      knownDeviceConnections = devices
+        .filter((device) => device.vendor === EHardwareVendor.trezor)
+        .map((device) => ({
+          deviceId: device.deviceId,
+          usbConnectId: device.usbConnectId || undefined,
+          bleConnectId: device.bleConnectId || undefined,
+        }));
       // Only Trezor devices ever store thpCredentials, so presence is enough.
       const stored = devices.flatMap(
         (device) => device.settings?.thpCredentials ?? [],
@@ -233,8 +246,9 @@ export const thirdPartyHardwareAdapterRegistry = {
 
     const HwkTrezorAdapterCtor = HwkTrezorAdapter as unknown as new (
       adapterConnector: typeof connector,
+      options: { knownDeviceConnections: typeof knownDeviceConnections },
     ) => InstanceType<typeof HwkTrezorAdapter>;
-    const hw = new HwkTrezorAdapterCtor(connector);
+    const hw = new HwkTrezorAdapterCtor(connector, { knownDeviceConnections });
     await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.trezor);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] trezor adapter ready',
@@ -267,7 +281,9 @@ export const thirdPartyHardwareAdapterRegistry = {
     // Auto-install a missing Ledger app in-flight: on AppNotInstalled the SDK
     // prompts (REQUEST_INSTALL_APP), installs with progress, then retries.
     // A specific call can opt out via commonParams.autoInstallApp = false.
-    const hw = new HwkLedgerAdapter(connector, { autoInstallApp: true });
+    const hw = new HwkLedgerAdapter(connector, {
+      autoInstallApp: LEDGER_CONFIG.autoInstallApp,
+    });
     await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.ledger);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger adapter ready',
@@ -281,9 +297,7 @@ export const thirdPartyHardwareAdapterRegistry = {
     const { KeystoneAdapter } = await import('./KeystoneAdapter');
     const { KeystoneAdapter: HwkKeystoneAdapter } =
       await import('@onekeyfe/hwk-keystone-adapter');
-    // WebUSB only for now (see connector-loader/keystone.ts) — NodeUSB and
-    // extension-offscreen bridging aren't wired yet. A picker permission
-    // failure here must not block QR-only usage, so fall back to undefined
+    // Unsupported USB environments must not block QR-only usage, so fall back to undefined
     // (matches the adapter's own "undefined usbConnector = QR-only" contract).
     let usbConnector:
       | Awaited<
@@ -291,11 +305,21 @@ export const thirdPartyHardwareAdapterRegistry = {
             typeof import('@onekeyhq/shared/src/hardware/connector-loader/keystone').createKeystoneUsbConnector
           >
         >
-      | undefined = undefined;
+      | undefined;
     try {
       const { createKeystoneUsbConnector } =
         await import('@onekeyhq/shared/src/hardware/connector-loader/keystone');
-      usbConnector = await createKeystoneUsbConnector();
+      if (platformEnv.isExtensionBackground) {
+        const { getOffscreenHardwareBridgeClient } =
+          await import('./offscreenHardwareBridgeClient');
+        usbConnector = await (
+          createKeystoneUsbConnector as (options: {
+            bridge: IHardwareBridge;
+          }) => ReturnType<typeof createKeystoneUsbConnector>
+        )({ bridge: getOffscreenHardwareBridgeClient() });
+      } else {
+        usbConnector = await createKeystoneUsbConnector();
+      }
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Registry] keystone USB connector unavailable, QR-only: ${

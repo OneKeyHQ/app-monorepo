@@ -15,9 +15,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -1313,7 +1313,7 @@ class ServiceHardwareUI extends ServiceBase {
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
     const isThirdPartyVendor = getVendorProfile(
-      device?.vendor ?? EHardwareVendor.onekey,
+      device?.vendor ?? device?.settings?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
     let deviceResetToHome = true;
     let isBusy = false;

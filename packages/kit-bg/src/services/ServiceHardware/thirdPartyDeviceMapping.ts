@@ -1,6 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import type { IThirdPartyHardwareSearchTarget } from '@onekeyhq/shared/types/device';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import { getThirdPartyDeviceDisplayName } from '@onekeyhq/shared/src/utils/thirdPartyDeviceName';
+import type {
+  EHardwareVendor,
+  IThirdPartyHardwareSearchTarget,
+} from '@onekeyhq/shared/types/device';
 
 import type { DeviceInfo } from './adapters/types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -14,26 +18,25 @@ export function mapThirdPartySearchTargetToSearchDevice({
   target: IThirdPartyHardwareSearchTarget;
   defaultDeviceName?: string;
 }): SearchDevice {
-  const hasPersistentConnectId =
-    target.connectionType === 'qr' ||
-    getVendorProfile(target.vendor).hasPersistentConnectId(
-      target.connectionType,
-    );
+  const canReconnectWithoutDiscovery =
+    target.searchTargetReusePolicy === 'reconnectable';
   return {
     connectId:
-      hasPersistentConnectId && target.searchTargetId
+      canReconnectWithoutDiscovery && target.searchTargetId
         ? target.searchTargetId
         : null,
     deviceId: null,
-    name:
-      target.label ||
-      target.modelName ||
-      target.model ||
-      defaultDeviceName ||
-      '',
+    name: getThirdPartyDeviceDisplayName({
+      brand:
+        defaultDeviceName || getVendorProfile(target.vendor).defaultDeviceName,
+      modelName: target.modelName,
+      model: target.model,
+      name: target.label,
+    }),
     deviceType: 'unknown',
     uuid: '',
     commType: 'bridge',
+    vendor: target.vendor,
     vendorModel: target.model,
     vendorModelName: target.modelName,
     raw: {
@@ -82,9 +85,9 @@ export function normalizeThirdPartySearchDevicesForTransport({
 export function mapThirdPartyDeviceToSearchDevice({
   device,
   defaultDeviceName,
-  canMatchDeviceByConnectId = (connectId) => Boolean(connectId),
-  hasPersistentConnectId = (transport) => transport === 'ble',
-  hasPersistentDeviceId = () => false,
+  canMatchDeviceByConnectId,
+  hasPersistentConnectId,
+  hasPersistentDeviceId,
 }: {
   device: DeviceInfo;
   defaultDeviceName?: string;
@@ -99,14 +102,17 @@ export function mapThirdPartyDeviceToSearchDevice({
   hasPersistentConnectId?: (transport: 'usb' | 'ble') => boolean;
   hasPersistentDeviceId?: (transport: 'usb' | 'ble') => boolean;
 }): SearchDevice {
-  const isUuidLike = (s?: string) =>
-    s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;
+  const profile = getVendorProfile(device.vendor as EHardwareVendor);
   const rawName =
     device.label || (device as DeviceInfo & { name?: string }).name || '';
   const stableConnectId =
-    device.connectId && canMatchDeviceByConnectId(device.connectId)
+    device.connectId &&
+    (canMatchDeviceByConnectId?.(device.connectId) ??
+      profile.canMatchDeviceByConnectId(device.connectId))
       ? device.connectId
       : null;
+  const connectorClaimsPersistentIdentity =
+    device.capabilities?.persistentDeviceIdentity;
 
   let connectId: string | null;
   switch (device.connectionType) {
@@ -120,22 +126,32 @@ export function mapThirdPartyDeviceToSearchDevice({
       // Vendors with a stable USB connectId (Trezor: serial number, OneKey
       // ditto) keep it. Vendors with ephemeral USB connectId (Ledger DMK)
       // null it out — downstream code matches by chain fingerprint instead.
-      connectId = hasPersistentConnectId('usb') ? stableConnectId : null;
+      connectId =
+        (connectorClaimsPersistentIdentity ??
+        hasPersistentConnectId?.('usb') ??
+        profile.hasPersistentConnectId('usb'))
+          ? stableConnectId
+          : null;
       break;
     default:
       // Transport unknown — fall back to connectId shape heuristic.
       connectId = stableConnectId;
   }
 
-  const displayName =
-    rawName && !isUuidLike(rawName)
-      ? rawName
-      : device.model || defaultDeviceName || '';
+  const displayName = getThirdPartyDeviceDisplayName({
+    brand: defaultDeviceName || profile.defaultDeviceName,
+    modelName: (device as DeviceInfo & { modelName?: string }).modelName,
+    model: device.model,
+    name: rawName,
+  });
+  const resolvePersistentDeviceId = (transport: 'usb' | 'ble') =>
+    hasPersistentDeviceId?.(transport) ??
+    profile.hasPersistentDeviceId(transport);
   const transport = device.connectionType;
   const hasStableDeviceId =
     transport === 'usb' || transport === 'ble'
-      ? hasPersistentDeviceId(transport)
-      : hasPersistentDeviceId('usb') || hasPersistentDeviceId('ble');
+      ? resolvePersistentDeviceId(transport)
+      : resolvePersistentDeviceId('usb') || resolvePersistentDeviceId('ble');
   const firmwareDeviceId = hasStableDeviceId ? device.deviceId || null : null;
 
   // Stash the full DeviceInfo (which itself carries `raw.features` and

@@ -41,9 +41,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
@@ -678,7 +678,6 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const bleBindingSettledRef = useRef(false);
   const thirdPartyDeviceSelectionDialogInstanceRef =
     useRef<IDialogInstance | null>(null);
-  const thirdPartyDeviceSelectionSettledRef = useRef(false);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
   const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
   // Deferred-close timer so a rapid next-chain request reuses the same dialog.
@@ -774,8 +773,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const expectedState = uiStateRef.current;
     const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
       expectedState,
-      getState: () => thirdPartyHardwareUiStateAtom.get(),
-      setState: (state) => thirdPartyHardwareUiStateAtom.set(state),
+      clearInBackground: (params) =>
+        backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+          params,
+        ),
     });
     uiStateRef.current = cleared
       ? undefined
@@ -785,7 +786,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const handleDialogClose = useCallback(
     async (params?: { flag?: string }) => {
       if (params?.flag === AUTO_CLOSED_FLAG) {
-        await clearCurrentUiState();
+        // The state already moved on; closing the old dialog must not clear its successor.
         return;
       }
       await cancelThirdPartyHardwareUiRequest({
@@ -857,12 +858,15 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const expectedState = uiState;
     const vendor = expectedState?.vendor;
     const deviceSearchTargets = expectedState?.payload?.deviceSearchTargets;
+    const selection = expectedState?.payload?.deviceSelection;
 
     const clearExpectedState = async () => {
       const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
         expectedState,
-        getState: () => thirdPartyHardwareUiStateAtom.get(),
-        setState: (state) => thirdPartyHardwareUiStateAtom.set(state),
+        clearInBackground: (params) =>
+          backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+            params,
+          ),
       });
       uiStateRef.current = cleared
         ? undefined
@@ -871,9 +875,20 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
     if (!vendor || !deviceSearchTargets?.length) {
       if (vendor) {
-        void backgroundApiProxy.serviceThirdPartyHardware
-          .thirdPartyHardwareCancel({ vendor })
-          .finally(clearExpectedState);
+        const cancelRequest = selection?.requestId
+          ? backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+              {
+                vendor,
+                response: {
+                  type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+                  payload: { requestId: selection.requestId, cancelled: true },
+                },
+              },
+            )
+          : backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+              { vendor },
+            );
+        void cancelRequest.finally(clearExpectedState);
       } else {
         void clearExpectedState();
       }
@@ -883,11 +898,15 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       return;
     }
 
-    thirdPartyDeviceSelectionSettledRef.current = false;
+    const settledRef = { current: false };
+    const localDialogRef: { current: IDialogInstance | null } = {
+      current: null,
+    };
     const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
       vendor,
-      dialogInstanceRef: thirdPartyDeviceSelectionDialogInstanceRef,
-      settledRef: thirdPartyDeviceSelectionSettledRef,
+      requestId: selection?.requestId,
+      dialogInstanceRef: localDialogRef,
+      settledRef,
       uiResponse: (requestParams) =>
         backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
           requestParams,
@@ -900,11 +919,20 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     });
     const instance = showThirdPartyDeviceSelectionDialog({
       targets: deviceSearchTargets,
+      context: selection?.context,
       onSelected: callbacks.onSelected,
       onClose: callbacks.onClose,
       intl,
     });
     thirdPartyDeviceSelectionDialogInstanceRef.current = instance;
+    localDialogRef.current = instance;
+    return () => {
+      settledRef.current = true;
+      if (thirdPartyDeviceSelectionDialogInstanceRef.current === instance) {
+        thirdPartyDeviceSelectionDialogInstanceRef.current = null;
+      }
+      void instance.close();
+    };
   }, [intl, isThirdPartyDeviceSelection, uiState]);
 
   // Keystone QR round trip. Not a generic Dialog action (see isDialogAction)
@@ -956,8 +984,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       } finally {
         const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
           expectedState,
-          getState: () => thirdPartyHardwareUiStateAtom.get(),
-          setState: (state) => thirdPartyHardwareUiStateAtom.set(state),
+          clearInBackground: (params) =>
+            backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+              params,
+            ),
         });
         uiStateRef.current = cleared
           ? undefined

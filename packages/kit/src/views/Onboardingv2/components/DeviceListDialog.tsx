@@ -49,27 +49,27 @@ function DeviceListDialogContent({
       <YStack pb="$2" mx="$-5">
         {items.map(
           ({ title, image, testID, logKey, routeName, routeParams }) => (
-          <ListItem
-            key={logKey}
-            testID={testID}
-            renderAvatar={
-              <Image w="$10" h="$10" borderRadius="$2" source={image} />
-            }
-            title={title}
-            drillIn
-            onPress={async () => {
-              await dialog.close();
-              defaultLogger.onboarding.page.pickYourDevice(logKey);
-              if (routeName === EOnboardingPagesV2.ConnectKeystoneDevice) {
-                navigation.push(routeName);
-              } else {
-                navigation.push(
-                  EOnboardingPagesV2.ConnectYourDevice,
-                  routeParams,
-                );
+            <ListItem
+              key={logKey}
+              testID={testID ?? `onboarding-device-option-${logKey}`}
+              renderAvatar={
+                <Image w="$10" h="$10" borderRadius="$2" source={image} />
               }
-            }}
-          />
+              title={title}
+              drillIn
+              onPress={async () => {
+                await dialog.close();
+                defaultLogger.onboarding.page.pickYourDevice(logKey);
+                if (routeName === EOnboardingPagesV2.ConnectKeystoneDevice) {
+                  navigation.push(routeName);
+                } else {
+                  navigation.push(
+                    EOnboardingPagesV2.ConnectYourDevice,
+                    routeParams,
+                  );
+                }
+              }}
+            />
           ),
         )}
       </YStack>

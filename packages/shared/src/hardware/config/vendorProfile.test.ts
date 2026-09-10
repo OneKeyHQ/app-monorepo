@@ -1,8 +1,34 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { getVendorProfile, isHardwareVendorSupported } from './vendorProfile';
+import {
+  getVendorProfile,
+  isHardwareVendorSupported,
+  resolvePersistentConnectIdCapability,
+} from './vendorProfile';
 
 describe('hardware vendor profile', () => {
+  it.each([
+    [
+      EHardwareVendor.onekey,
+      { mode: 'device', asciiOnly: false },
+      'transportLocator',
+    ],
+    [
+      EHardwareVendor.trezor,
+      { mode: 'device', asciiOnly: true },
+      'transportLocator',
+    ],
+    [EHardwareVendor.ledger, { mode: 'local' }, 'transportLocator'],
+    [EHardwareVendor.keystone, { mode: 'local' }, 'walletIdentity'],
+  ] as const)(
+    'describes label writes and connection identity independently for %s',
+    (vendor, deviceLabel, connectIdRole) => {
+      expect(getVendorProfile(vendor)).toMatchObject({
+        deviceLabel,
+        connectIdRole,
+      });
+    },
+  );
   it('registers Trezor as OneKey-like and Ledger as app-aware', () => {
     expect(
       getVendorProfile(EHardwareVendor.onekey).supportsHiddenWalletCreation,
@@ -43,14 +69,40 @@ describe('hardware vendor profile', () => {
     ).toBe(true);
   });
 
-  it('marks Keystone address verification as manual-only', () => {
+  it.each([
+    [EHardwareVendor.onekey, 'device', 'buttonRequest'],
+    [EHardwareVendor.ledger, 'device', 'confirmOnDevice'],
+    [EHardwareVendor.trezor, 'device', 'confirmOnDevice'],
+    [EHardwareVendor.keystone, 'manual', 'none'],
+    [undefined, 'device', 'buttonRequest'],
+  ] as const)(
+    'defines address verification capabilities for %s',
+    (vendor, mode, confirmationEvent) => {
+      expect(getVendorProfile(vendor).addressVerification).toEqual({
+        mode,
+        confirmationEvent,
+      });
+    },
+  );
+
+  it('lets per-device identity capability override the vendor transport fallback', () => {
+    const trezor = getVendorProfile(EHardwareVendor.trezor);
+
+    expect(trezor.hasPersistentConnectId('usb')).toBe(true);
+    expect(trezor.hasPersistentConnectId('ble')).toBe(false);
     expect(
-      getVendorProfile(EHardwareVendor.keystone)
-        .supportsOnDeviceAddressVerification,
+      resolvePersistentConnectIdCapability({
+        profile: trezor,
+        transport: 'usb',
+        capabilities: { persistentDeviceIdentity: false },
+      }),
     ).toBe(false);
     expect(
-      getVendorProfile(EHardwareVendor.onekey)
-        .supportsOnDeviceAddressVerification,
+      resolvePersistentConnectIdCapability({
+        profile: trezor,
+        transport: 'usb',
+        capabilities: { persistentDeviceIdentity: true },
+      }),
     ).toBe(true);
   });
 

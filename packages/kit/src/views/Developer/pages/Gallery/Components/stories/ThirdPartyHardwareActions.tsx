@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import {
   EThirdPartyHardwareUiAction,
+  publishThirdPartyHardwareUiState,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -132,7 +133,7 @@ function ActionRows({
           <Button
             size="small"
             onPress={() =>
-              void thirdPartyHardwareUiStateAtom.set({
+              void publishThirdPartyHardwareUiState({
                 action: item.action,
                 vendor: device.vendor,
                 payload: item.payload,

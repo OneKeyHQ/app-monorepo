@@ -2,6 +2,7 @@
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -27,6 +28,7 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { DeviceSelectionRequest } from '@onekeyfe/hwk-adapter-core';
 
 export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 export type IHardwareUiResponseCorrelation = {
@@ -328,6 +330,8 @@ export function isThirdPartyConfirmOnDevice(
 }
 
 export type IThirdPartyHardwareUiState = {
+  /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
+  uiRequestId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
@@ -359,6 +363,7 @@ export type IThirdPartyHardwareUiState = {
     trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
     /** SDK operation-first selection candidates from the current discovery. */
     deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
+    deviceSelection?: Omit<DeviceSelectionRequest, 'devices'>;
     /** Keystone QR: BC-UR type of the payload to display (requestKeystoneQrDisplay only). */
     urType?: string;
     /** Keystone QR: hex-encoded CBOR of the payload to display (requestKeystoneQrDisplay only). */
@@ -375,6 +380,16 @@ export const {
   initialValue: undefined,
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
+
+export async function publishThirdPartyHardwareUiState(
+  state: Omit<IThirdPartyHardwareUiState, 'uiRequestId'>,
+  uiRequestId = generateUUID(),
+): Promise<void> {
+  await thirdPartyHardwareUiStateAtom.set({
+    ...state,
+    uiRequestId,
+  });
+}
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;

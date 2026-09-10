@@ -121,7 +121,7 @@ function buildAllNetworksService({
   const service = new ServiceAccountSelector({
     backgroundApi: {
       serviceAccount: {
-        getWallet: jest.fn(
+        getWalletSafe: jest.fn(
           async () =>
             ({
               id: HD_WALLET_ID,

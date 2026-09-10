@@ -1,5 +1,5 @@
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { resolveHardwarePassphraseEnabled } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import type {
   EHardwareVendor,
   IOneKeyDeviceFeatures,
@@ -29,10 +29,7 @@ export function shouldShowAddHiddenWalletButtonForWallet(params: {
   const { isKeyless, isHiddenWallet, isHwOrQrWallet, vendor } = params;
   if (isKeyless) return false;
   const profile = getVendorProfile(vendor);
-  if (
-    !profile.supportsPassphraseSetting ||
-    !profile.supportsHiddenWalletCreation
-  ) {
+  if (!profile.supportsHiddenWalletCreation) {
     return false;
   }
   return !isHiddenWallet && isHwOrQrWallet;

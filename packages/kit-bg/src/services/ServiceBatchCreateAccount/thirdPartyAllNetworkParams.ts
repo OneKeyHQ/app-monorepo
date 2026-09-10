@@ -1,15 +1,14 @@
-import { getLedgerNetworkCapability } from '@onekeyhq/shared/src/hardware/ledgerApps';
+import {
+  type IAllNetworkAddressMethodName,
+  getAllNetworkAddressMethod,
+} from '@onekeyhq/shared/src/hardware/config/allNetworkAddress';
+import { getLedgerNetworkCapability } from '@onekeyhq/shared/src/hardware/config/ledger';
 
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 
 export type IThirdPartyAllNetworkAddressParams = AllNetworkAddressParams & {
-  methodName?:
-    | 'evmGetAddress'
-    | 'btcGetAddress'
-    | 'btcGetPublicKey'
-    | 'solGetAddress'
-    | 'tronGetAddress';
+  methodName?: IAllNetworkAddressMethodName | 'btcGetAddress';
   showOnDevice?: boolean;
   chainId?: number;
 };
@@ -47,14 +46,10 @@ function normalizeItem(
     normalized.showOnDevice = showOnDevice;
   }
 
-  const ledgerCapability = getLedgerNetworkCapability({
-    network: item.network,
-  });
-  if (ledgerCapability) {
-    normalized.methodName ??= ledgerCapability.methodName;
-  }
+  const methodName = getAllNetworkAddressMethod(item.network);
+  if (methodName) normalized.methodName ??= methodName;
 
-  if (ledgerCapability?.methodName === 'evmGetAddress') {
+  if (normalized.methodName === 'evmGetAddress') {
     normalized.chainId ??= parseChainId(item.chainName);
   }
 
@@ -127,4 +122,22 @@ export function attachLedgerAllNetworkFingerprints({
     }
   }
   return true;
+}
+
+export function getMissingLedgerFingerprintChains({
+  bundle,
+  settingsRaw,
+}: {
+  bundle: AllNetworkAddressParams[];
+  settingsRaw: string | undefined;
+}): ChainForFingerprint[] {
+  const fingerprints = getDeviceChainFingerprints(settingsRaw);
+  const missing = new Set<ChainForFingerprint>();
+  for (const item of bundle) {
+    const chain = getLedgerFingerprintChain(item);
+    if (chain && !fingerprints[chain]) {
+      missing.add(chain);
+    }
+  }
+  return Array.from(missing);
 }

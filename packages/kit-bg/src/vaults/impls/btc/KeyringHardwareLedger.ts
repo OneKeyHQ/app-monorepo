@@ -105,8 +105,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               this.backgroundApi,
               dbDevice,
               'btc',
-              (deviceId, connectId) =>
+              (deviceId, connectId, context) =>
                 adapter.hw.btcGetPublicKey(connectId, deviceId, {
+                  ...context,
                   path: accountPath,
                   showOnDevice: params.isVerifyAddressAction ?? false,
                   ...ledgerCommonCallParamsForCreateScene(params),
@@ -114,6 +115,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               {
                 interactionId:
                   params.deviceParams.deviceCommonParams?.interactionId,
+                allowFingerprintBootstrap:
+                  params.deviceParams.deviceCommonParams
+                    ?.allowDeviceIdentityBootstrap === true,
               },
             ));
 
@@ -285,8 +289,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         this.backgroundApi,
         dbDevice,
         'btc',
-        (deviceId, connectId) =>
-          adapter.hw.btcGetMasterFingerprint(connectId, deviceId),
+        (deviceId, connectId, context) =>
+          adapter.hw.btcGetMasterFingerprint(connectId, deviceId, context),
         {
           interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
           allowFingerprintBootstrap: false,
@@ -454,8 +458,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       this.backgroundApi,
       dbDevice,
       'btc',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.btcSignTransaction(connectId, deviceId, {
+          ...context,
           psbt: psbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
           path: dbAccount.path,
@@ -529,8 +534,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           this.backgroundApi,
           dbDevice,
           'btc',
-          (deviceId, connectId) =>
-            adapter.hw.btcGetMasterFingerprint(connectId, deviceId),
+          (deviceId, connectId, context) =>
+            adapter.hw.btcGetMasterFingerprint(connectId, deviceId, context),
           {
             interactionId:
               checkedDeviceParams.deviceCommonParams?.interactionId,
@@ -576,8 +581,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       this.backgroundApi,
       dbDevice,
       'btc',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.btcSignPsbt(connectId, deviceId, {
+          ...context,
           psbt: enrichedPsbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
           path: dbAccount.path,
@@ -648,43 +654,45 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const fullPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
 
-    const result = await Promise.all(
-      params.messages.map(
-        async (payload: { message: string; type?: string }) => {
-          if (payload.type === 'bip322-simple') {
-            throw new ThirdPartyMethodNotSupported();
-          }
+    const result: string[] = [];
+    for (const payload of params.messages as Array<{
+      message: string;
+      type?: string;
+    }>) {
+      if (payload.type === 'bip322-simple') {
+        throw new ThirdPartyMethodNotSupported();
+      }
 
-          const messageHex = Buffer.from(payload.message).toString('hex');
+      const messageHex = Buffer.from(payload.message).toString('hex');
 
-          const res = await callLedgerWithFingerprint(
-            this.backgroundApi,
-            dbDevice,
-            'btc',
-            (deviceId, connectId) =>
-              adapter.hw.btcSignMessage(connectId, deviceId, {
-                path: fullPath,
-                message: messageHex,
-                coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
-              }),
-            {
-              interactionId:
-                checkedDeviceParams.deviceCommonParams?.interactionId,
-              allowFingerprintBootstrap: false,
-            },
-          );
+      const res =
+        // eslint-disable-next-line no-await-in-loop
+        await callLedgerWithFingerprint(
+          this.backgroundApi,
+          dbDevice,
+          'btc',
+          (deviceId, connectId, context) =>
+            adapter.hw.btcSignMessage(connectId, deviceId, {
+              ...context,
+              path: fullPath,
+              message: messageHex,
+              coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
+            }),
+          {
+            interactionId:
+              checkedDeviceParams.deviceCommonParams?.interactionId,
+            allowFingerprintBootstrap: false,
+          },
+        );
 
-          if (!res.success) {
-            throw convertThirdPartyDeviceError(res.payload, {
-              vendor: 'Ledger',
-              chain: 'Bitcoin',
-            });
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return res.payload.signature;
-        },
-      ),
-    );
+      if (!res.success) {
+        throw convertThirdPartyDeviceError(res.payload, {
+          vendor: 'Ledger',
+          chain: 'Bitcoin',
+        });
+      }
+      result.push(res.payload.signature);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
@@ -735,8 +743,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         this.backgroundApi,
         dbDevice,
         'btc',
-        (deviceId, connectId) =>
+        (deviceId, connectId, context) =>
           adapter.hw.btcGetAddress(connectId, deviceId, {
+            ...context,
             path: accountPath,
             showOnDevice,
             addressIndex,

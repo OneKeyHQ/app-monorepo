@@ -2,27 +2,28 @@ import { failure } from '@onekeyfe/hwk-adapter-core';
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
+  LEDGER_CONFIG,
+  LEDGER_FINGERPRINT_CHAINS,
+} from '@onekeyhq/shared/src/hardware/config/ledger';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
-import { thirdPartyCommonCallParamsForCreateScene } from './thirdPartyHardwareCommonParams';
+import {
+  thirdPartyCommonCallParamsForCreateScene,
+  thirdPartyConnectionContextFromDevice,
+} from './thirdPartyHardwareCommonParams';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBDevice } from '../../dbs/local/types';
+import type { IDBDeviceSettings } from '../../dbs/local/types';
 import type {
   ChainForFingerprint,
   ICommonCallParams,
   Response,
 } from '@onekeyfe/hwk-adapter-core';
-
-export const LEDGER_FINGERPRINT_CHAINS: readonly ChainForFingerprint[] = [
-  'evm',
-  'btc',
-  'sol',
-  'tron',
-];
 
 export function isLedgerFingerprintChain(
   chain: unknown,
@@ -46,8 +47,50 @@ type IDbDeviceForFingerprint = {
   settingsRaw: string;
   deviceId: string;
   connectId: string;
+  usbConnectId?: string;
+  bleConnectId?: string;
   vendor?: string;
 };
+
+function getStoredLedgerFingerprints(
+  settingsRaw: string,
+): Record<string, string> {
+  try {
+    const settings = JSON.parse(settingsRaw || '{}') as IDBDeviceSettings;
+    return settings.chainFingerprints ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export function hasStoredLedgerChainFingerprint(settingsRaw: string): boolean {
+  const stored = getStoredLedgerFingerprints(settingsRaw);
+  return LEDGER_FINGERPRINT_CHAINS.some((chain) => !!stored[chain]);
+}
+
+/** Keep the device call and fingerprint checks on one acquired connection. */
+export async function withNewLedgerInteraction<T>(
+  backgroundApi: IBackgroundApi,
+  connectId: string,
+  run: (interactionId: string) => Promise<T>,
+  context: ICommonCallParams,
+): Promise<T> {
+  const adapter =
+    await backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+      EHardwareVendor.ledger,
+    );
+  if (!adapter) throw new OneKeyInternalError('Ledger adapter not available');
+  const connected = await adapter.connectDevice(connectId, context);
+  if (!connected.success) {
+    throw convertThirdPartyDeviceError(connected.payload, { vendor: 'Ledger' });
+  }
+  const { interactionId } = connected.payload;
+  try {
+    return await run(interactionId);
+  } finally {
+    await adapter.releaseInteraction(interactionId);
+  }
+}
 
 // In-memory cache: deviceDbId → chain → fingerprint
 const fingerprintCache = new Map<string, Map<string, string>>();
@@ -178,6 +221,14 @@ async function generateAndStoreFingerprint(
         chain,
         fingerprint,
       });
+      // Confirm the newly persisted anchor on the same interaction so the SDK
+      // can finish a pending BLE binding without trusting discovery alone.
+      const verified = await adapter.hw.getChainFingerprint(
+        connectId,
+        fingerprint,
+        chain,
+      );
+      if (!verified.success || verified.payload !== fingerprint) return '';
       return fingerprint;
     }
     defaultLogger.hardware.sdkLog.log(
@@ -198,8 +249,10 @@ async function generateAndStoreFingerprint(
  *
  * Flow:
  * 1. Look up fingerprint (cache/DB). If found, pass to fn for verification.
- * 2. Signing calls fail closed when no fingerprint has been recorded yet.
- * 3. Address-creation calls may bootstrap after a successful device call.
+ * 2. A new-wallet flow may explicitly establish its first fingerprint.
+ * 3. By default, a missing chain is recorded after its first successful call.
+ *    Optional cross-chain verification requires another stored chain to match
+ *    first, at the cost of opening that chain's app.
  *
  * DeviceMismatch is NOT silently recovered here: a mismatch means the live
  * device's seed differs from what we recorded, and silently rewriting the DB
@@ -210,26 +263,60 @@ export async function callLedgerWithFingerprint<T>(
   backgroundApi: IBackgroundApi,
   dbDevice: IDbDeviceForFingerprint,
   chain: ChainForFingerprint,
-  fn: (deviceId: string, connectId: string) => Promise<Response<T>>,
+  fn: (
+    deviceId: string,
+    connectId: string,
+    context: ICommonCallParams,
+  ) => Promise<Response<T>>,
   options?: {
     interactionId?: string;
     allowFingerprintBootstrap?: boolean;
   },
 ): Promise<Response<T>> {
+  const ledgerConfig = LEDGER_CONFIG;
   const deviceId = await ensureLedgerChainFingerprint(
     backgroundApi,
     dbDevice,
     chain,
   );
-  if (!deviceId && options?.allowFingerprintBootstrap === false) {
-    return failure(
-      HardwareErrorCode.DeviceMismatch,
-      `No trusted ${chain} fingerprint is available for signing. Verify an address with this Ledger first.`,
+  if (
+    !deviceId &&
+    !options?.interactionId &&
+    (!ledgerConfig.enableCrossChainFingerprintVerification ||
+      options?.allowFingerprintBootstrap === true ||
+      hasStoredLedgerChainFingerprint(dbDevice.settingsRaw))
+  ) {
+    return withNewLedgerInteraction(
+      backgroundApi,
+      dbDevice.connectId,
+      (interactionId) =>
+        callLedgerWithFingerprint(backgroundApi, dbDevice, chain, fn, {
+          ...options,
+          interactionId,
+        }),
+      thirdPartyConnectionContextFromDevice(dbDevice),
     );
   }
-
   const connectId = options?.interactionId || dbDevice.connectId;
-  const result = await fn(deviceId, connectId);
+  if (
+    ledgerConfig.enableCrossChainFingerprintVerification &&
+    !deviceId &&
+    options?.allowFingerprintBootstrap !== true
+  ) {
+    const seedMatch = await verifySeedMatch(backgroundApi, dbDevice, connectId);
+    if (seedMatch !== 'match') {
+      return failure(
+        HardwareErrorCode.DeviceMismatch,
+        `No trusted ${chain} fingerprint is available and this Ledger could not be verified from another chain. Reconnect the original device and retry.`,
+      );
+    }
+  }
+
+  const result = await fn(
+    deviceId,
+    connectId,
+    thirdPartyConnectionContextFromDevice(dbDevice),
+  );
 
   // Bootstrap path: main call ran without a stored FP. The post-success FP
   // generation MUST succeed and persist before the result is allowed to flow
@@ -271,10 +358,16 @@ export async function callLedgerWithFingerprint<T>(
  */
 export async function verifySeedMatch(
   backgroundApi: IBackgroundApi,
-  dbDevice: IDBDevice,
+  dbDevice: IDbDeviceForFingerprint,
   liveConnectId: string,
 ): Promise<'match' | 'mismatch' | 'unknown'> {
   if (dbDevice.vendor !== EHardwareVendor.ledger) return 'unknown';
+  if (!liveConnectId) return 'unknown';
+
+  const stored = getStoredLedgerFingerprints(dbDevice.settingsRaw);
+
+  const candidates = LEDGER_FINGERPRINT_CHAINS.filter((c) => !!stored[c]);
+  if (candidates.length === 0) return 'unknown';
 
   const adapter =
     await backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
@@ -282,26 +375,20 @@ export async function verifySeedMatch(
     );
   if (!adapter) return 'unknown';
 
-  let stored: Record<string, string> = {};
-  try {
-    const settings = JSON.parse(dbDevice.settingsRaw || '{}');
-    stored = (settings.chainFingerprints as Record<string, string>) ?? {};
-  } catch {
-    // Malformed settingsRaw — treat as "nothing stored", no guarantee to offer.
-    return 'unknown';
-  }
-
-  const candidates = LEDGER_FINGERPRINT_CHAINS.filter((c) => !!stored[c]);
-  if (candidates.length === 0) return 'unknown';
-
   for (const chain of candidates) {
     let live: string;
     try {
       const res = await adapter.hw.getChainFingerprint(
         liveConnectId,
-        '',
+        stored[chain],
         chain,
       );
+      if (
+        !res.success &&
+        res.payload.code === HardwareErrorCode.DeviceMismatch
+      ) {
+        return 'mismatch';
+      }
       // eslint-disable-next-line no-continue
       if (!res.success || !res.payload) continue;
       live = res.payload;

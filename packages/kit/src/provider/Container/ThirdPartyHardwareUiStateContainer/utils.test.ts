@@ -136,23 +136,22 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
 
   it('does not clear a newer Trezor UI request when an older request finishes', async () => {
     const passphraseState: IThirdPartyHardwareUiState = {
+      uiRequestId: 'old-prompt',
       action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
       vendor: EHardwareVendor.trezor,
       payload: { connectId: 'trezor-connect-id' },
     };
-    const confirmOnDeviceState: IThirdPartyHardwareUiState = {
-      action: EThirdPartyHardwareUiAction.confirmOnDevice,
-      vendor: EHardwareVendor.trezor,
-    };
-    const setState = jest.fn(async () => undefined);
+    const clearInBackground = jest.fn(async () => false);
 
-    await clearThirdPartyHardwareUiStateIfCurrent({
+    const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
       expectedState: passphraseState,
-      getState: () => confirmOnDeviceState,
-      setState,
+      clearInBackground,
     });
 
-    expect(setState).not.toHaveBeenCalled();
+    expect(cleared).toBe(false);
+    expect(clearInBackground).toHaveBeenCalledWith({
+      expectedRequestId: 'old-prompt',
+    });
   });
 
   it('sends the declined UI response and clears state when a request dialog is cancelled', async () => {
@@ -265,6 +264,7 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     const settledRef = { current: false };
     const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
       vendor: EHardwareVendor.ledger,
+      requestId: 'selection-1',
       dialogInstanceRef,
       settledRef,
       uiResponse,
@@ -273,6 +273,7 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     });
 
     await callbacks.onSelected('ledger-target-b');
+    await callbacks.onSelected('ledger-target-c');
     await callbacks.onClose();
 
     expect(uiResponse).toHaveBeenCalledTimes(1);
@@ -280,7 +281,7 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
       vendor: EHardwareVendor.ledger,
       response: {
         type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
-        payload: { sdkConnectId: 'ledger-target-b' },
+        payload: { sdkConnectId: 'ledger-target-b', requestId: 'selection-1' },
       },
     });
     expect(cancel).not.toHaveBeenCalled();
@@ -311,5 +312,40 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     });
     expect(clearState).toHaveBeenCalledTimes(1);
     expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('closes only its correlated request without a vendor-wide cancel', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.trezor,
+      requestId: 'selection-old',
+      dialogInstanceRef: { current: {} },
+      settledRef: { current: false },
+      uiResponse,
+      cancel,
+      clearState: jest.fn(async () => undefined),
+    });
+    await callbacks.onClose();
+    await callbacks.onClose();
+    expect(uiResponse).toHaveBeenCalledTimes(1);
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.trezor,
+      response: {
+        type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+        payload: { requestId: 'selection-old', cancelled: true },
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it('does not issue an unconditional clear without an expected request', async () => {
+    const clearInBackground = jest.fn(async () => true);
+    const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+      expectedState: undefined,
+      clearInBackground,
+    });
+    expect(cleared).toBe(false);
+    expect(clearInBackground).not.toHaveBeenCalled();
   });
 });

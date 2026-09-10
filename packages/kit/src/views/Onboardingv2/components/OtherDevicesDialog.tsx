@@ -1,5 +1,5 @@
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { showDeviceListDialog } from './DeviceListDialog';
 

@@ -6,6 +6,7 @@ import {
   EFirmwareType,
   isSameOnekeyBleName,
 } from '@onekeyfe/hd-shared';
+import { hasHardwareRuntimeIdPrefix } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import {
   cloneDeep,
@@ -92,16 +93,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  getVendorProfile,
+  isHardwareVendorSupported,
+  resolvePersistentConnectIdCapability,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import {
-  getVendorProfile,
-  isHardwareVendorSupported,
-} from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -182,6 +184,7 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
 import { EIndexedDBBucketNames } from './types';
+import { matchesVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 
 import type {
   ILocalSecretEnvelopeCredentialMigrationConfig,
@@ -227,8 +230,27 @@ import type {
   ILocalDBTxGetRecordByIdResult,
   ITrezorThpCredential,
 } from './types';
+import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+function assertHardwareRuntimeIdsNotPersisted({
+  operation,
+  fields,
+}: {
+  operation: string;
+  fields: ReadonlyArray<readonly [field: string, value: unknown]>;
+}): void {
+  const runtimeIdentityField = fields.find(
+    (entry): entry is readonly [string, string] =>
+      typeof entry[1] === 'string' && hasHardwareRuntimeIdPrefix(entry[1]),
+  );
+  if (runtimeIdentityField) {
+    throw new OneKeyLocalError(
+      `${operation} ERROR: runtime hardware id cannot be persisted in ${runtimeIdentityField[0]}`,
+    );
+  }
+}
 
 export function sanitizeDeviceStateForPersistence(
   state: IOneKeyDeviceState,
@@ -4161,12 +4183,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixName) {
           if (profile.isThirdParty) {
-            // Third-party with a settable on-device label (Trezor): wallet name
-            // follows the device label, same as OneKey. Gate on device-settings
-            // support so vendors without a real label (Ledger) fall through.
+            // Only vendors with device-label support synchronize wallet names.
             const label = device?.featuresInfo?.label;
             if (
-              profile.supportsDeviceSettings &&
+              profile.deviceLabel.mode === 'device' &&
               device &&
               label &&
               label !== wallet.name
@@ -6154,19 +6174,74 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async updateDeviceConnectId({
     dbDeviceId,
+    connectId,
     usbConnectId,
     bleConnectId,
+    verifiedDeviceIdentity,
+    verifiedLedgerFingerprint,
   }: {
     dbDeviceId: string;
+    connectId?: string;
     usbConnectId?: string;
     bleConnectId?: string;
+    verifiedDeviceIdentity?: IVerifiedDeviceIdentity;
+    /** @deprecated Pass verifiedDeviceIdentity instead. */
+    verifiedLedgerFingerprint?: { chain: string; fingerprint: string };
   }) {
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'updateDeviceConnectId',
+      fields: [
+        ['connectId', connectId],
+        ['usbConnectId', usbConnectId],
+        ['bleConnectId', bleConnectId],
+      ],
+    });
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
+          const currentSettings = parseDeviceSettingsRaw(item.settingsRaw);
+          if (
+            verifiedDeviceIdentity &&
+            !matchesVerifiedDeviceIdentity(
+              {
+                vendor: currentSettings.vendor,
+                deviceId: item.deviceId,
+                connectId: item.connectId,
+                chainFingerprints: currentSettings.chainFingerprints,
+              },
+              verifiedDeviceIdentity,
+            )
+          ) {
+            throw new OneKeyLocalError(
+              'Verified connection identity no longer matches the device record',
+            );
+          }
+          if (
+            verifiedDeviceIdentity?.identity.type === 'walletId' &&
+            connectId !== undefined &&
+            connectId !== verifiedDeviceIdentity.identity.value
+          ) {
+            throw new OneKeyLocalError(
+              'A wallet identity cannot be replaced with a transport locator',
+            );
+          }
+          if (
+            verifiedLedgerFingerprint &&
+            (currentSettings.vendor !== EHardwareVendor.ledger ||
+              currentSettings.chainFingerprints?.[
+                verifiedLedgerFingerprint.chain
+              ] !== verifiedLedgerFingerprint.fingerprint)
+          ) {
+            throw new OneKeyLocalError(
+              'Verified Ledger binding no longer matches the device record',
+            );
+          }
+          if (connectId !== undefined) {
+            item.connectId = connectId;
+          }
           if (usbConnectId !== undefined) {
             item.usbConnectId = usbConnectId;
           }
@@ -6207,6 +6282,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     bleConnectId: string;
     verifiedDeviceId: string;
   }): Promise<{ cleanedRecordIds: string[] }> {
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'updateDeviceBleConnectIdAndCleanStaleAliases',
+      fields: [
+        ['bleConnectId', bleConnectId],
+        ['verifiedDeviceId', verifiedDeviceId],
+      ],
+    });
     const keepDevice = await this.getDeviceSafe(dbDeviceId);
     // The binding is committed in the same transaction as the cleanup, so
     // the alias set cannot be read back from the record — include the
@@ -6243,6 +6325,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
+          if (
+            item.deviceId !== verifiedDeviceId ||
+            (parseDeviceSettingsRaw(item.settingsRaw).vendor ??
+              EHardwareVendor.onekey) !== keepVendor
+          ) {
+            throw new OneKeyLocalError(
+              'Verified BLE binding no longer matches the device record',
+            );
+          }
           item.bleConnectId = bleConnectId;
           item.updatedAt = await this.timeNow();
           return item;
@@ -6980,18 +7071,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
       vendor,
     } = params;
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'createHwWallet',
+      fields: [
+        ['device.connectId', device.connectId],
+        ['device.deviceId', device.deviceId],
+        ['device.uuid', device.uuid],
+        [
+          'device.usbConnectId',
+          (device as typeof device & { usbConnectId?: string }).usbConnectId,
+        ],
+        [
+          'device.bleConnectId',
+          (device as typeof device & { bleConnectId?: string }).bleConnectId,
+        ],
+        [
+          'features.deviceId',
+          (features as IOneKeyDeviceFeatures & { deviceId?: string }).deviceId,
+        ],
+        [
+          'features.device_id',
+          (features as IOneKeyDeviceFeatures & { device_id?: string })
+            .device_id,
+        ],
+      ],
+    });
     const { connectId } = device;
     const resolvedVendor = vendor ?? EHardwareVendor.onekey;
     const profile = getVendorProfile(resolvedVendor);
     const isUsbTransport =
       transportType === EHardwareTransportType.WEBUSB ||
       transportType === EHardwareTransportType.Bridge;
+    const deviceCapabilities = (
+      device as typeof device & {
+        raw?: {
+          capabilities?: { persistentDeviceIdentity?: unknown };
+        };
+      }
+    ).raw?.capabilities;
+    const hasPersistentUsbConnectId = resolvePersistentConnectIdCapability({
+      profile,
+      transport: 'usb',
+      capabilities: deviceCapabilities,
+    });
 
     // Empty connectId is allowed only for non-persistent USB transports.
     if (
       !connectId &&
-      (profile.hasPersistentConnectId('usb') ||
-        (profile.isThirdParty && !isUsbTransport))
+      (hasPersistentUsbConnectId || (profile.isThirdParty && !isUsbTransport))
     ) {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
@@ -7069,8 +7196,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
           // Bridge and WEBUSB are both USB-based connections
-          usbConnectId = connectId ?? undefined;
-          compatibleConnectId = connectId ?? undefined;
+          if (hasPersistentUsbConnectId) {
+            usbConnectId = connectId ?? undefined;
+            compatibleConnectId = connectId ?? undefined;
+          }
           break;
         case EHardwareTransportType.BLE:
           bleConnectId = resolvedBleConnectId;
@@ -9207,8 +9336,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (createAtNetwork) {
             updatedAccount.createAtNetwork = createAtNetwork;
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return updatedAccount as any;
+          return item;
         },
       });
     });

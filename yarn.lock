@@ -7540,48 +7540,47 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/context-module@npm:^1.0.0, @ledgerhq/context-module@npm:^1.15.0":
-  version: 1.16.0
-  resolution: "@ledgerhq/context-module@npm:1.16.0"
+"@ledgerhq/context-module@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@ledgerhq/context-module@npm:2.2.0"
   dependencies:
-    axios: "npm:1.13.5"
+    bs58: "npm:^6.0.0"
     crypto-js: "npm:^4.2.0"
     ethers: "npm:6.14.1"
     inversify: "npm:7.5.1"
     purify-ts: "npm:2.1.0"
     reflect-metadata: "npm:0.2.2"
   peerDependencies:
-    "@ledgerhq/device-management-kit": ^1.2.0
-  checksum: 10/e131190b3a2c601c8df9abe251b22007e0b8657d7340679407f7687145353156eb4825d1c2f5769a7da587f1f8961f77be3611c03540f37d35f86b14b7ed31d2
+    "@ledgerhq/device-management-kit": ^1.7.1
+  checksum: 10/8ad74694501f3516bcac5c93e8e59b759da0d49b50029dc2bf7996709015dd8936d9a64c35c5085ea0cb0146df1bd062dd5b93ba98f7f750d98e8f99b0beae84
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-management-kit@npm:^1.1.0":
-  version: 1.2.0
-  resolution: "@ledgerhq/device-management-kit@npm:1.2.0"
+"@ledgerhq/device-management-kit@npm:1.7.1":
+  version: 1.7.1
+  resolution: "@ledgerhq/device-management-kit@npm:1.7.1"
   dependencies:
     "@noble/hashes": "npm:^1.8.0"
     "@sentry/minimal": "npm:6.19.7"
-    axios: "npm:1.13.5"
     inversify: "npm:7.5.1"
     isomorphic-ws: "npm:^5.0.0"
     purify-ts: "npm:2.1.0"
     reflect-metadata: "npm:0.2.2"
     semver: "npm:7.7.2"
-    url: "npm:^0.11.4"
     uuid: "npm:11.0.3"
     ws: "npm:^8.18.0"
     xstate: "npm:5.19.2"
   peerDependencies:
     rxjs: 7.8.2
-  checksum: 10/0ba9ff0373bd45dd62a9021e3254247b203f2f65a0494e72f6ad184f27223b8c2222ed851d6a710d0a6989aab8b494c5dae00632679ff33bdbebf3048901264c
+  checksum: 10/bb46a39b98c87b094cc67f8caceb9445f9c17156478c763a67e99fca2ae75b09bb5e3d75a77f842bb86d45323cf8c9a071cd27dbe8b2cc167e1f0ac247554083
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-signer-kit-bitcoin@npm:^1.0.0":
-  version: 1.3.0
-  resolution: "@ledgerhq/device-signer-kit-bitcoin@npm:1.3.0"
+"@ledgerhq/device-signer-kit-bitcoin@npm:1.3.3":
+  version: 1.3.3
+  resolution: "@ledgerhq/device-signer-kit-bitcoin@npm:1.3.3"
   dependencies:
+    "@ledgerhq/signer-utils": "npm:^1.3.0"
     "@types/crypto-js": "npm:^4.2.0"
     crypto-js: "npm:^4.2.0"
     inversify: "npm:7.5.1"
@@ -7589,15 +7588,15 @@ __metadata:
     reflect-metadata: "npm:0.2.2"
     xstate: "npm:5.19.2"
   peerDependencies:
-    "@ledgerhq/device-management-kit": ^1.2.0
+    "@ledgerhq/device-management-kit": ^1.7.1
     bitcoinjs-lib: ^6.1.6
-  checksum: 10/a1a6070befa65b8b9fe67cc1e7d29de00be928b40bb61f4087ba4cb3868cba45befc6cc70b1f6c1b1d1ae048680b5ab97667d72e11e2c938ea75870c2c700480
+  checksum: 10/9370181311569ed41d77eab49651549569f8c203b575415bf7e48cd1988f3966de9ddb73d2c2fe9b6a35f4fc2164eaa76f448800b2b8e429413b994f948166fc
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-signer-kit-ethereum@npm:^1.9.0":
-  version: 1.14.0
-  resolution: "@ledgerhq/device-signer-kit-ethereum@npm:1.14.0"
+"@ledgerhq/device-signer-kit-ethereum@npm:1.16.0":
+  version: 1.16.0
+  resolution: "@ledgerhq/device-signer-kit-ethereum@npm:1.16.0"
   dependencies:
     "@ledgerhq/signer-utils": "npm:^1.2.0"
     ethers: "npm:6.14.1"
@@ -7607,19 +7606,18 @@ __metadata:
     semver: "npm:7.7.2"
     xstate: "npm:5.19.2"
   peerDependencies:
-    "@ledgerhq/context-module": ^1.16.0
-    "@ledgerhq/device-management-kit": ^1.2.0
-  checksum: 10/15b0701daa86d827e24cf5c5391a13f1ab1a640b4c45e3c02b69c5900fbfb0d13ab2850ea11cbc92263b73301fac85e4bbd30049e7d0e2fabf80cc826631819c
+    "@ledgerhq/context-module": ^2.0.0
+    "@ledgerhq/device-management-kit": ^1.5.0
+  checksum: 10/29869ce9a1a2284af4c89d8496fd347998aaa9462ffdf8ff5f805494e20e1ed76ddc667934111b6b17b24d5654307af51d5ba3567f4324bb3230d0abed0539e6
   languageName: node
   linkType: hard
 
-"@ledgerhq/device-signer-kit-solana@npm:1.7.1":
-  version: 1.7.1
-  resolution: "@ledgerhq/device-signer-kit-solana@npm:1.7.1"
+"@ledgerhq/device-signer-kit-solana@npm:1.10.0":
+  version: 1.10.0
+  resolution: "@ledgerhq/device-signer-kit-solana@npm:1.10.0"
   dependencies:
-    "@ledgerhq/context-module": "npm:^1.15.0"
-    "@ledgerhq/signer-utils": "npm:^1.1.3"
-    "@solana/spl-token": "npm:^0.4.13"
+    "@ledgerhq/context-module": "npm:^2.2.0"
+    "@ledgerhq/signer-utils": "npm:^1.3.0"
     "@solana/web3.js": "npm:^1.98.2"
     bs58: "npm:^6.0.0"
     buffer: "npm:^6.0.3"
@@ -7629,8 +7627,8 @@ __metadata:
     semver: "npm:7.7.2"
     xstate: "npm:5.19.2"
   peerDependencies:
-    "@ledgerhq/device-management-kit": ^1.2.0
-  checksum: 10/05bbd6798c83966f6103c7599c4aabc648fcfd664939ea19eb9f4c827aeafd4b044f4c5aaa7c9ea2d5ccf6adeb61e67d66a74d6bb108c15b937dde3e2c5043fc
+    "@ledgerhq/device-management-kit": ^1.7.1
+  checksum: 10/5bece071a34cb426e655d62436528324f7daada582687f5f5c312ea208cea958ff18cab11ffac6b3e7301a2d92bf35067842d449499aa1a0395b199219c4054c
   languageName: node
   linkType: hard
 
@@ -7763,14 +7761,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ledgerhq/signer-utils@npm:^1.1.3, @ledgerhq/signer-utils@npm:^1.2.0":
-  version: 1.2.0
-  resolution: "@ledgerhq/signer-utils@npm:1.2.0"
+"@ledgerhq/signer-utils@npm:1.3.0":
+  version: 1.3.0
+  resolution: "@ledgerhq/signer-utils@npm:1.3.0"
   dependencies:
     semver: "npm:7.7.2"
   peerDependencies:
-    "@ledgerhq/device-management-kit": ^1.2.0
-  checksum: 10/3665d0be9048df996d580c0f83c75e044f450fca57b19f060eca419cc78d2192fd8673c037d436be821da8c6f5a107bf413450628e7c9cd552759ce7a1fdcaaf
+    "@ledgerhq/device-management-kit": ^1.7.1
+  checksum: 10/c84860c8ae8d6a59c254d0d996555567f9d161f1a3eaf2e81e76ca192ddd1342e280cf4b3e0185b9e4aa1f949c01bde5d2765f059a8478c8c1d0b9bd538048a4
   languageName: node
   linkType: hard
 
@@ -10429,6 +10427,7 @@ __metadata:
     retry: "npm:0.13.1"
     rimraf: "npm:3.0.2"
     rlp: "npm:^3.0.0"
+    rxjs: "npm:7.8.2"
     semver: "npm:7.5.4"
     set-interval-async: "npm:^3.0.3"
     shamir-secret-sharing: "npm:^0.0.4"
@@ -16554,17 +16553,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/codecs-core@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/codecs-core@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/errors": "npm:2.0.0-rc.1"
-  peerDependencies:
-    typescript: ">=5"
-  checksum: 10/4ea0b7a12dfb2d28e132bd1ab7a574bad375fcc4a938ea79f38e881cfd56878a6d09a8b2173a28d5be477c28cbb2eb6deeb33902661ec44687fe3749c2aa0dd7
-  languageName: node
-  linkType: hard
-
 "@solana/codecs-core@npm:2.1.1":
   version: 2.1.1
   resolution: "@solana/codecs-core@npm:2.1.1"
@@ -16600,19 +16588,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/codecs-data-structures@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/codecs-data-structures@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/codecs-core": "npm:2.0.0-rc.1"
-    "@solana/codecs-numbers": "npm:2.0.0-rc.1"
-    "@solana/errors": "npm:2.0.0-rc.1"
-  peerDependencies:
-    typescript: ">=5"
-  checksum: 10/738cde99885b7e111a9e237e04364cb4157290b28bd91ed1933120e27a43588e51c51983d074677941f734c380cabb7821c2e2c2047e5879f2f17b5d21cd1888
-  languageName: node
-  linkType: hard
-
 "@solana/codecs-numbers@npm:2.0.0-preview.2":
   version: 2.0.0-preview.2
   resolution: "@solana/codecs-numbers@npm:2.0.0-preview.2"
@@ -16632,18 +16607,6 @@ __metadata:
   peerDependencies:
     typescript: ">=5"
   checksum: 10/51c6b9fc2f632e216b47469b5538c28c50f1c1c94b314e49fdf4264e1caa8c32477152a187a1f80f3144de5062af98a20395562fcff692c6f603f314608b267e
-  languageName: node
-  linkType: hard
-
-"@solana/codecs-numbers@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/codecs-numbers@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/codecs-core": "npm:2.0.0-rc.1"
-    "@solana/errors": "npm:2.0.0-rc.1"
-  peerDependencies:
-    typescript: ">=5"
-  checksum: 10/dade8f7cdba9004a26abc8845424b5b4efe9cf0008ac9b4f5e7663676f42957a3c146c87cfa47b764e06c05119692d5a5011e8daa8abf07ce08a28445f401f8e
   languageName: node
   linkType: hard
 
@@ -16686,20 +16649,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/codecs-strings@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/codecs-strings@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/codecs-core": "npm:2.0.0-rc.1"
-    "@solana/codecs-numbers": "npm:2.0.0-rc.1"
-    "@solana/errors": "npm:2.0.0-rc.1"
-  peerDependencies:
-    fastestsmallesttextencoderdecoder: ^1.0.22
-    typescript: ">=5"
-  checksum: 10/2e10b54ca73374e86fb9afea15ae2ea63f24f2cc6c93386bd8f4d9193c8f55b7df103c5438a02dfc0c34e8cd0369f09c678b5aab07c1d7c38c37a8fa9b79b7da
-  languageName: node
-  linkType: hard
-
 "@solana/codecs@npm:2.0.0-preview.2":
   version: 2.0.0-preview.2
   resolution: "@solana/codecs@npm:2.0.0-preview.2"
@@ -16728,21 +16677,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/codecs@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/codecs@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/codecs-core": "npm:2.0.0-rc.1"
-    "@solana/codecs-data-structures": "npm:2.0.0-rc.1"
-    "@solana/codecs-numbers": "npm:2.0.0-rc.1"
-    "@solana/codecs-strings": "npm:2.0.0-rc.1"
-    "@solana/options": "npm:2.0.0-rc.1"
-  peerDependencies:
-    typescript: ">=5"
-  checksum: 10/eb9dbd8fad5d6e34d1a14f3184d1e6764a895667c6ca5cf785a199eb07a3f129a7681f4e330e8d983d0844b1581720235dc910b7bb22afdca4a2363ebc6481e2
-  languageName: node
-  linkType: hard
-
 "@solana/errors@npm:2.0.0-preview.2":
   version: 2.0.0-preview.2
   resolution: "@solana/errors@npm:2.0.0-preview.2"
@@ -16766,20 +16700,6 @@ __metadata:
   bin:
     errors: bin/cli.mjs
   checksum: 10/3115e6b111590aa68d2ec52b995fd1691ae8d1a84abaa15f1a8ab9a1021d7c047edb1dc1a55f1559ba888aef188df4351723810a4fb35a8090101f80da44dd2f
-  languageName: node
-  linkType: hard
-
-"@solana/errors@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/errors@npm:2.0.0-rc.1"
-  dependencies:
-    chalk: "npm:^5.3.0"
-    commander: "npm:^12.1.0"
-  peerDependencies:
-    typescript: ">=5"
-  bin:
-    errors: bin/cli.mjs
-  checksum: 10/e084d9930d4b17163e838c59fb5255d4ea85e87a3a1142cf1731505eaa036525818980abe9c9230eae6a5076d63e8559780d2126c81b9989e2d217f9326f6063
   languageName: node
   linkType: hard
 
@@ -16822,21 +16742,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/options@npm:2.0.0-rc.1":
-  version: 2.0.0-rc.1
-  resolution: "@solana/options@npm:2.0.0-rc.1"
-  dependencies:
-    "@solana/codecs-core": "npm:2.0.0-rc.1"
-    "@solana/codecs-data-structures": "npm:2.0.0-rc.1"
-    "@solana/codecs-numbers": "npm:2.0.0-rc.1"
-    "@solana/codecs-strings": "npm:2.0.0-rc.1"
-    "@solana/errors": "npm:2.0.0-rc.1"
-  peerDependencies:
-    typescript: ">=5"
-  checksum: 10/99091f2a79c8745e63d3a618724daf296789b9d4d1a465bfdebe470c9eae191832f8e4c1d5c75797a3398f9ef5ba62a23d9afbf66bb8b19cd572bb0169408283
-  languageName: node
-  linkType: hard
-
 "@solana/spl-token-group@npm:^0.0.5":
   version: 0.0.5
   resolution: "@solana/spl-token-group@npm:0.0.5"
@@ -16849,17 +16754,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/spl-token-group@npm:^0.0.7":
-  version: 0.0.7
-  resolution: "@solana/spl-token-group@npm:0.0.7"
-  dependencies:
-    "@solana/codecs": "npm:2.0.0-rc.1"
-  peerDependencies:
-    "@solana/web3.js": ^1.95.3
-  checksum: 10/9a048fee471e1e829b39c30991f2e168bcf5b2ad269f891cf6148c0226f66463a221545e306e395e43826dd7e44de431a1266b70e366bb0682d4b8f799f5195b
-  languageName: node
-  linkType: hard
-
 "@solana/spl-token-metadata@npm:^0.1.2, @solana/spl-token-metadata@npm:^0.1.3":
   version: 0.1.4
   resolution: "@solana/spl-token-metadata@npm:0.1.4"
@@ -16869,17 +16763,6 @@ __metadata:
   peerDependencies:
     "@solana/web3.js": ^1.91.6
   checksum: 10/e4bfd43a325d306c82f8946543526d62a39a23d3df7205b54c09ffd47ef27aab48e88dc378566d9fc9336e45d9b8c6f1e4fa1e1d4026b4e6b5fbc4804542b5dd
-  languageName: node
-  linkType: hard
-
-"@solana/spl-token-metadata@npm:^0.1.6":
-  version: 0.1.6
-  resolution: "@solana/spl-token-metadata@npm:0.1.6"
-  dependencies:
-    "@solana/codecs": "npm:2.0.0-rc.1"
-  peerDependencies:
-    "@solana/web3.js": ^1.95.3
-  checksum: 10/c38c656c22248aff6c89c52930301cbcf571061e0d99ba80f05cd7d4bde7cb243e4a13c0d28116a0e6e8ccd2dac1f5094c206426a95d3cc6c188cfd6f6a8d2b5
   languageName: node
   linkType: hard
 
@@ -16920,21 +16803,6 @@ __metadata:
   peerDependencies:
     "@solana/web3.js": ^1.88.0
   checksum: 10/e2f424f034c5b99de5aaaf15f05e11045aa3e92e2940e2b727790aff3c212b64b8eb8238a5c24f81a2b5c23b9e43ec6a226a98b8bd4619a7266cdf484b89d9b9
-  languageName: node
-  linkType: hard
-
-"@solana/spl-token@npm:^0.4.13":
-  version: 0.4.14
-  resolution: "@solana/spl-token@npm:0.4.14"
-  dependencies:
-    "@solana/buffer-layout": "npm:^4.0.0"
-    "@solana/buffer-layout-utils": "npm:^0.2.0"
-    "@solana/spl-token-group": "npm:^0.0.7"
-    "@solana/spl-token-metadata": "npm:^0.1.6"
-    buffer: "npm:^6.0.3"
-  peerDependencies:
-    "@solana/web3.js": ^1.95.5
-  checksum: 10/c10cee32f8e01f73ea0ed12a6a5c241516125843b23db67ea7abb1c5f0083333474c5104b247dd4bdcc6a18e4bd86465a87ddcf76a8a55172e83a2d7c39123c8
   languageName: node
   linkType: hard
 
@@ -42439,15 +42307,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qs@npm:^6.12.3":
-  version: 6.15.1
-  resolution: "qs@npm:6.15.1"
-  dependencies:
-    side-channel: "npm:^1.1.0"
-  checksum: 10/ec10b9957446b3f4a38000940f6374720b4e2985209b89df197066038c951472ea24cd98d6bc6df73a0cbec75bc056f638032e3fb447345017ff7e0f0a2693ac
-  languageName: node
-  linkType: hard
-
 "qs@npm:^6.14.0":
   version: 6.14.0
   resolution: "qs@npm:6.14.0"
@@ -44913,7 +44772,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:7.8.2":
+"rxjs@npm:7.8.2, rxjs@npm:^7.5.5, rxjs@npm:^7.8.0, rxjs@npm:^7.8.1":
   version: 7.8.2
   resolution: "rxjs@npm:7.8.2"
   dependencies:
@@ -44928,15 +44787,6 @@ __metadata:
   dependencies:
     tslib: "npm:^1.9.0"
   checksum: 10/c8263ebb20da80dd7a91c452b9e96a178331f402344bbb40bc772b56340fcd48d13d1f545a1e3d8e464893008c5e306cc42a1552afe0d562b1a6d4e1e6262b03
-  languageName: node
-  linkType: hard
-
-"rxjs@npm:^7.5.5, rxjs@npm:^7.8.0, rxjs@npm:^7.8.1":
-  version: 7.8.1
-  resolution: "rxjs@npm:7.8.1"
-  dependencies:
-    tslib: "npm:^2.1.0"
-  checksum: 10/b10cac1a5258f885e9dd1b70d23c34daeb21b61222ee735d2ec40a8685bdca40429000703a44f0e638c27a684ac139e1c37e835d2a0dc16f6fc061a138ae3abb
   languageName: node
   linkType: hard
 
@@ -48927,16 +48777,6 @@ __metadata:
     punycode: "npm:^1.4.1"
     qs: "npm:^6.11.2"
   checksum: 10/a3a5ba64d8afb4dda111355d94073a9754b88b1de4035554c398b75f3e4d4244d5e7ae9e4554f0d91be72efd416aedbb646fbb1f3dd4cacecca45ed6c9b75145
-  languageName: node
-  linkType: hard
-
-"url@npm:^0.11.4":
-  version: 0.11.4
-  resolution: "url@npm:0.11.4"
-  dependencies:
-    punycode: "npm:^1.4.1"
-    qs: "npm:^6.12.3"
-  checksum: 10/e787d070f0756518b982a4653ef6cdf4d9030d8691eee2d483344faf2b530b71d302287fa63b292299455fea5075c502a5ad5f920cb790e95605847f957a65e4
   languageName: node
   linkType: hard
 

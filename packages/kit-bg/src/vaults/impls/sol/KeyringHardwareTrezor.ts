@@ -12,12 +12,14 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
@@ -26,6 +28,8 @@ import {
   callTrezorWithBleFallback,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
+
+import { buildHardwareSolSignOffchainMessageV1Params } from './KeyringHardware';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -81,8 +85,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'sol';
 
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
+  private getBleFallbackOptions(
+    replayPolicy: 'read-only' | 'never' = 'read-only',
+  ) {
+    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
   }
 
   // Best-effort: returns undefined on any failure so signing still proceeds.
@@ -213,7 +219,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
           }),
           ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
         }),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {
@@ -236,12 +242,49 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    _params: ISignMessageParams,
+    params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // Trezor firmware does not implement Solana message signing — only
-    // SolanaSignTx exists. solSignMessage surfaces MethodNotSupported, so we
-    // block proactively here, mirroring the Ledger SOL keyring.
-    throw new ThirdPartyMethodNotSupported();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { dbDevice } = deviceParams;
+    const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
+    const path = await this.vault.getAccountPath();
+
+    const signatures: string[] = [];
+    for (const payload of params.messages) {
+      if (payload.type !== EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+        throw new ThirdPartyMethodNotSupported();
+      }
+      const messagePayload = payload.payload;
+      const { messageHex, ...offchainParams } =
+        buildHardwareSolSignOffchainMessageV1Params({
+          message: payload.message,
+          messagePayload,
+        });
+      const result =
+        // eslint-disable-next-line no-await-in-loop
+        await callTrezorWithBleFallback(
+          dbDevice,
+          (connectId) =>
+            adapter.hw.solSignMessage(connectId, dbDevice.deviceId, {
+              path,
+              message: messageHex,
+              ...offchainParams,
+              ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+            }),
+          this.getBleFallbackOptions('never'),
+        );
+      if (!result.success) {
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: 'Trezor',
+          chain: 'Solana',
+        });
+      }
+      signatures.push(result.payload.signature);
+    }
+
+    return signatures.map((signature) =>
+      bs58.encode(Buffer.from(signature, 'hex')),
+    );
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(

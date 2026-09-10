@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';

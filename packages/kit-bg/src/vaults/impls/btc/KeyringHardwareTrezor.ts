@@ -231,8 +231,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'btc';
 
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
+  private getBleFallbackOptions(
+    replayPolicy: 'read-only' | 'never' = 'read-only',
+  ) {
+    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
   }
 
   override async prepareAccounts(
@@ -425,7 +427,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
           }),
           ...thirdPartyPassphraseParamsFromDeviceParams(params.deviceParams),
         }),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {
@@ -489,7 +491,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
                 params.deviceParams,
               ),
             }),
-          this.getBleFallbackOptions(),
+          this.getBleFallbackOptions('never'),
         );
       if (!res.success) {
         throw convertThirdPartyDeviceError(res.payload, {

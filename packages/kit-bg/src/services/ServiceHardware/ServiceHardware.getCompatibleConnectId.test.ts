@@ -1394,7 +1394,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses a bound Trezor BLE connectId when desktop BLE is selected', async () => {
+  it('leaves Trezor transport resolution to the SDK even when desktop BLE is selected', async () => {
     const trezorDevice = {
       id: 'db-device-1',
       connectId: 'USB_ID',
@@ -1439,15 +1439,37 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         vendor: EHardwareVendor.trezor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('BLE_ID');
-    expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
-      {
-        connectId: 'USB_ID',
-        featuresDeviceId: 'FEATURES_DEVICE_ID',
-        vendor: EHardwareVendor.trezor,
-      },
-    ]);
+    ).resolves.toBe('USB_ID');
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+    expect(shouldSwitchTransportTypeMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    EHardwareVendor.keystone,
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+  ])(
+    'never sends a fresh %s target through OneKey transport resolution',
+    async (vendor) => {
+      const service = new ServiceHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      const resolveTransportType = jest.spyOn(
+        service.connectionManager,
+        'resolveTransportType',
+      );
+      await expect(
+        service.getCompatibleConnectId({
+          connectId: 'fresh-sdk-target',
+          vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toBe('fresh-sdk-target');
+      expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(checkBLEPermissions).not.toHaveBeenCalled();
+    },
+  );
 
   it('uses USB when any authorized OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
