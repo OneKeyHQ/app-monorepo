@@ -9,11 +9,48 @@ import type {
 import { useWindowDimensions } from 'react-native';
 
 import { Stack, YStack, useTheme } from '@onekeyhq/components';
+import { useMarketDesktopLayoutAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
 
 const MARKET_DESKTOP_CHART_VIEWPORT_GUTTER = 160;
 const MARKET_DESKTOP_CHART_KEYBOARD_STEP = 24;
+const MARKET_DESKTOP_CHART_SAVE_TIMEOUT = 5000;
+
+interface IChartHeightSave {
+  id: string;
+  height: number;
+  started: boolean;
+  accepted: boolean;
+  acknowledgementRetried: boolean;
+  write: () => Promise<void>;
+}
+
+// Shared by chart instances in this UI runtime, including after navigation.
+let latestChartHeightSave: IChartHeightSave | undefined;
+const repairListeners = new Set<(request: IChartHeightSave) => void>();
+const releaseListeners = new Set<
+  (id: string, acceptedHeight?: number) => void
+>();
+
+async function persistChartHeight(request: IChartHeightSave): Promise<void> {
+  let current = request;
+  for (;;) {
+    current.started = true;
+    await current.write();
+    const latest = latestChartHeightSave;
+    if (!latest || latest === current) {
+      return;
+    }
+    // Repair even a previously acknowledged write. Reuse the user request so
+    // slow repairs cannot create new generations and sustain a write loop.
+    repairListeners.forEach((listener) => listener(latest));
+    current = latest;
+  }
+}
 
 function clampChartHeight(height: number, maxHeight: number) {
   return Math.min(
@@ -49,22 +86,197 @@ export function MarketDesktopChartContainer({
     MARKET_DESKTOP_CHART_MIN_HEIGHT,
     Math.floor(viewportHeight - MARKET_DESKTOP_CHART_VIEWPORT_GUTTER),
   );
-  const [chartHeight, setChartHeight] = useState(
-    MARKET_DESKTOP_CHART_MIN_HEIGHT,
+  const [layoutState, setLayoutState] = useMarketDesktopLayoutAtom();
+  const [dragHeight, setDragHeight] = useState<number>();
+  const [pendingSave, setPendingSave] = useState<{
+    id: string;
+    height: number;
+  }>();
+  const pendingSaveRef = useRef(pendingSave);
+  const acknowledgementTimerRef =
+    useRef<ReturnType<typeof setTimeout>>(undefined);
+  const saveQueueRef = useRef(Promise.resolve());
+  const isMountedRef = useRef(true);
+  const savedHeight = layoutState.chartHeight;
+  const layoutStateRef = useRef(layoutState);
+  layoutStateRef.current = layoutState;
+  const pendingMirrorRef = useRef(layoutState);
+  const [releasedSave, setReleasedSave] = useState<{
+    height: number;
+    mirror: typeof layoutState;
+  }>();
+  const chartHeight = clampChartHeight(
+    dragHeight ??
+      pendingSave?.height ??
+      (releasedSave?.mirror === layoutState
+        ? releasedSave.height
+        : undefined) ??
+      (typeof savedHeight === 'number' && Number.isFinite(savedHeight)
+        ? savedHeight
+        : MARKET_DESKTOP_CHART_MIN_HEIGHT),
+    maxHeight,
   );
   const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef<
     | {
         pointerId: number;
         startHeight: number;
+        currentHeight: number;
         startY: number;
       }
     | undefined
   >(undefined);
 
+  const clearPendingSave = useCallback((id: string) => {
+    if (pendingSaveRef.current?.id !== id) {
+      return;
+    }
+    clearTimeout(acknowledgementTimerRef.current);
+    pendingSaveRef.current = undefined;
+    if (isMountedRef.current) {
+      setPendingSave(undefined);
+    }
+  }, []);
+
+  const startAcknowledgementWatchdog = useCallback(
+    (request: IChartHeightSave) => {
+      if (
+        isMountedRef.current &&
+        pendingSaveRef.current?.id === request.id &&
+        latestChartHeightSave === request &&
+        !request.acknowledgementRetried
+      ) {
+        clearTimeout(acknowledgementTimerRef.current);
+        acknowledgementTimerRef.current = setTimeout(() => {
+          if (
+            latestChartHeightSave === request &&
+            pendingSaveRef.current?.id === request.id &&
+            !request.acknowledgementRetried
+          ) {
+            // Adopting instances can retry after the originator unmounts, but
+            // all instances share one retry allowance for this user request.
+            request.acknowledgementRetried = true;
+            void persistChartHeight(request).catch(() => undefined);
+          }
+        }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
-    setChartHeight((height) => clampChartHeight(height, maxHeight));
-  }, [maxHeight]);
+    isMountedRef.current = true;
+    const onRepair = (request: IChartHeightSave) => {
+      pendingMirrorRef.current = layoutStateRef.current;
+      pendingSaveRef.current = request;
+      setPendingSave(request);
+      startAcknowledgementWatchdog(request);
+    };
+    const onRelease = (id: string, acceptedHeight?: number) => {
+      if (pendingSaveRef.current?.id !== id) {
+        return;
+      }
+      // Preserve a previously accepted height only while this exact mirror is
+      // stale. Any subsequent atom update takes precedence over the fallback.
+      setReleasedSave(
+        acceptedHeight === undefined
+          ? undefined
+          : { height: acceptedHeight, mirror: pendingMirrorRef.current },
+      );
+      clearPendingSave(id);
+    };
+    repairListeners.add(onRepair);
+    releaseListeners.add(onRelease);
+    return () => {
+      repairListeners.delete(onRepair);
+      releaseListeners.delete(onRelease);
+      isMountedRef.current = false;
+      clearTimeout(acknowledgementTimerRef.current);
+    };
+  }, [clearPendingSave, startAcknowledgementWatchdog]);
+
+  useEffect(() => {
+    // A matching height alone can be the stale mirror of a return-to-start save.
+    if (
+      pendingSave &&
+      layoutState.chartHeightUpdateId === latestChartHeightSave?.id &&
+      savedHeight === latestChartHeightSave?.height
+    ) {
+      clearPendingSave(pendingSave.id);
+    }
+  }, [
+    clearPendingSave,
+    layoutState.chartHeightUpdateId,
+    pendingSave,
+    savedHeight,
+  ]);
+
+  const saveHeight = useCallback(
+    (height: number) => {
+      const request: IChartHeightSave = {
+        id: generateUUID(),
+        height,
+        started: false,
+        accepted: false,
+        acknowledgementRetried: false,
+        write: async () => {
+          try {
+            await Promise.resolve(
+              setLayoutState((prev) => ({
+                ...prev,
+                chartHeight: height,
+                chartHeightUpdateId: request.id,
+              })),
+            );
+            request.accepted = true;
+          } catch (error) {
+            releaseListeners.forEach((listener) =>
+              listener(
+                request.id,
+                request.accepted ? request.height : undefined,
+              ),
+            );
+            throw error;
+          }
+        },
+      };
+      latestChartHeightSave = request;
+      setReleasedSave(undefined);
+      pendingMirrorRef.current = layoutStateRef.current;
+      pendingSaveRef.current = request;
+      clearTimeout(acknowledgementTimerRef.current);
+      setPendingSave(request);
+      // Coalesce queued inputs, but keep a bound on an unresponsive bridge.
+      saveQueueRef.current = saveQueueRef.current.then(() => {
+        if (latestChartHeightSave !== request) {
+          return undefined;
+        }
+        if (request.started) {
+          startAcknowledgementWatchdog(request);
+          return undefined;
+        }
+        let timedOut = false;
+        return makeTimeoutPromise({
+          asyncFunc: () => persistChartHeight(request),
+          timeout: MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
+          onTimeout: () => {
+            timedOut = true;
+          },
+          timeoutRejectError: new OneKeyLocalError(
+            'Chart height save timed out',
+          ),
+        })(undefined).then(
+          () => startAcknowledgementWatchdog(request),
+          () => {
+            if (timedOut) {
+              startAcknowledgementWatchdog(request);
+            }
+          },
+        );
+      });
+    },
+    [setLayoutState, startAcknowledgementWatchdog],
+  );
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -76,6 +288,7 @@ export function MarketDesktopChartContainer({
       dragStateRef.current = {
         pointerId: event.pointerId,
         startHeight: chartHeight,
+        currentHeight: chartHeight,
         startY: event.clientY,
       };
       try {
@@ -95,12 +308,11 @@ export function MarketDesktopChartContainer({
       if (!dragState || dragState.pointerId !== event.pointerId) {
         return;
       }
-      setChartHeight(
-        clampChartHeight(
-          dragState.startHeight + event.clientY - dragState.startY,
-          maxHeight,
-        ),
+      dragState.currentHeight = clampChartHeight(
+        dragState.startHeight + event.clientY - dragState.startY,
+        maxHeight,
       );
+      setDragHeight(dragState.currentHeight);
     },
     [maxHeight],
   );
@@ -111,7 +323,11 @@ export function MarketDesktopChartContainer({
       if (!dragState || dragState.pointerId !== event.pointerId) {
         return;
       }
+      if (dragState.currentHeight !== dragState.startHeight) {
+        saveHeight(clampChartHeight(dragState.currentHeight, maxHeight));
+      }
       dragStateRef.current = undefined;
+      setDragHeight(undefined);
       setIsDragging(false);
       try {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -121,7 +337,7 @@ export function MarketDesktopChartContainer({
         // Pointer capture may already have been released by the browser.
       }
     },
-    [],
+    [maxHeight, saveHeight],
   );
 
   const handleKeyDown = useCallback(
@@ -138,9 +354,13 @@ export function MarketDesktopChartContainer({
         return;
       }
       event.preventDefault();
-      setChartHeight(clampChartHeight(nextHeight, maxHeight));
+      const clampedHeight = clampChartHeight(nextHeight, maxHeight);
+      if (event.key !== 'Home' && clampedHeight === chartHeight) {
+        return;
+      }
+      saveHeight(clampedHeight);
     },
-    [chartHeight, maxHeight],
+    [chartHeight, maxHeight, saveHeight],
   );
 
   const resizeHandleStyle = useMemo<CSSProperties>(
