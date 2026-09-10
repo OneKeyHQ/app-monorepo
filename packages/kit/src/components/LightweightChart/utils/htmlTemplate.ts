@@ -498,15 +498,19 @@ function getChartInitScript(): string {
           Array.isArray(nextConfig.secondaryLineData) &&
           nextConfig.secondaryLineData.length > 0;
         if (!hasSecondaryData) {
-          // Hide rather than remove. Both lines share one price scale, and
-          // removing a series from it mid-session left the chart blank on
-          // device — line and axis both gone — until the series came back
-          // (the Pendle "show underlying APY" toggle, OK-62390). Emptying the
-          // data and hiding the series keeps the scale intact and costs
-          // nothing when there was never a secondary line.
           if (window.secondarySeries) {
             window.secondarySeries.setData([]);
             window.secondarySeries.applyOptions({ visible: false });
+            // Taking a series' points away (emptying it, and removing it
+            // alike) can leave the time scale with no visible range once the
+            // line has been shown before: the whole chart goes blank, axes
+            // included, and fitContent / autoscale do not bring it back
+            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
+            // primary data is the one call that rebuilds the range — it is
+            // what a date-range switch does, which is why that "repaired" it.
+            if (window.series) {
+              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+            }
           }
           return;
         }
