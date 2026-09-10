@@ -171,6 +171,7 @@ export function PortfolioTab({
   protocolInfo,
   tokenInfo,
   onActionSuccess,
+  onRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -182,34 +183,13 @@ export function PortfolioTab({
   // Claiming and redeeming both change the balances this tab renders, and both
   // hand off to a modal; this is how they report back.
   onActionSuccess?: () => void;
+  // The page owns the Redeem destination (ManagePosition, or the position
+  // picker for per-position providers) so the row and the footer cannot drift.
+  onRedeem?: () => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const accountId = protocolInfo?.earnAccount?.accountId;
-
-  // Same destination as the page footer's Redeem, so the two cannot drift.
-  const openRedeem = useCallback(() => {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ManagePosition,
-      params: {
-        networkId,
-        symbol,
-        provider,
-        vault,
-        tab: 'withdraw',
-        tokenImageUri: tokenInfo?.token?.logoURI,
-        onStakeWithdrawSuccess: onActionSuccess,
-      },
-    });
-  }, [
-    navigation,
-    networkId,
-    symbol,
-    provider,
-    vault,
-    tokenInfo?.token?.logoURI,
-    onActionSuccess,
-  ]);
 
   // Only the distributed rows carry a history entry worth opening; the other
   // rows describe live state that this page already shows in full.
@@ -290,7 +270,7 @@ export function PortfolioTab({
               }
               onRedeem={
                 item.redeemable && portfolio.capabilities.redeem
-                  ? openRedeem
+                  ? onRedeem
                   : undefined
               }
               onActionSuccess={onActionSuccess}

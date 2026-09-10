@@ -189,7 +189,8 @@ const ProtocolHeader = ({
   // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back
   // to the single string the server rendered when the breakdown is missing.
-  const totalApyText = yieldSheetData?.yieldSummary?.totalApy?.description?.text;
+  const totalApyText =
+    yieldSheetData?.yieldSummary?.totalApy?.description?.text;
   const headlineApyParts = useMemo(
     () => buildHeadlineApyParts(yieldSheetData?.items, totalApyText),
     [yieldSheetData?.items, totalApyText],
@@ -394,75 +395,75 @@ function ChartSection({
   );
 
   // Fetch chart data to get high/low values
-  const { result: chartData, isLoading: isChartLoading } = usePromiseResult(
-    async () => {
-    if (isPendleProvider) {
-      // underlying-history returns both impliedApy and underlyingApy, single request suffices
-      const underlyingApyHistoryData =
-        await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+  const { result: chartData, isLoading: isChartLoading } =
+    usePromiseResult(async () => {
+      if (isPendleProvider) {
+        // underlying-history returns both impliedApy and underlyingApy, single request suffices
+        const underlyingApyHistoryData =
+          await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+            networkId,
+            symbol,
+            provider,
+            vault,
+          });
+
+        const impliedApyHistory = underlyingApyHistoryData.results.map(
+          (item) => ({
+            timestamp: item.timestamp,
+            apy: item.impliedApy,
+          }),
+        );
+
+        const underlyingApyHistory = underlyingApyHistoryData.results.map(
+          (item) => ({
+            timestamp: item.timestamp,
+            apy: item.underlyingApy,
+          }),
+        );
+
+        return {
+          impliedApyHistory,
+          underlyingApyHistory,
+          hasNonZeroUnderlyingApy:
+            underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+        };
+      }
+
+      const impliedApyHistory =
+        await backgroundApiProxy.serviceStaking.getApyHistory({
           networkId,
           symbol,
           provider,
           vault,
         });
 
-      const impliedApyHistory = underlyingApyHistoryData.results.map(
-        (item) => ({
+      // Second line = campaign boost + protocol reward APYs, summed by the
+      // server. Only points that actually carry one are kept, so a history that
+      // predates the campaign simply starts the line later instead of dropping
+      // to zero.
+      const extraApyHistory = impliedApyHistory
+        .filter((item) => item.extraApy !== undefined)
+        .map((item) => ({
           timestamp: item.timestamp,
-          apy: item.impliedApy,
-        }),
-      );
-
-      const underlyingApyHistory = underlyingApyHistoryData.results.map(
-        (item) => ({
-          timestamp: item.timestamp,
-          apy: item.underlyingApy,
-        }),
-      );
+          apy: item.extraApy as string,
+        }));
+      // Campaign wins over reward, matching the rule the server applies per
+      // point ("a campaign present at all makes the line orange") and the
+      // headline's split. Taking the first point that happens to carry a kind
+      // would paint a window that starts with plain rewards and later gains a
+      // campaign entirely blue, and label it Rewards.
+      const extraApyKind = impliedApyHistory.some(
+        (item) => item.extraApyKind === 'campaign',
+      )
+        ? ('campaign' as const)
+        : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
 
       return {
         impliedApyHistory,
-        underlyingApyHistory,
-        hasNonZeroUnderlyingApy:
-          underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+        extraApyHistory,
+        extraApyKind,
       };
-    }
-
-    const impliedApyHistory =
-      await backgroundApiProxy.serviceStaking.getApyHistory({
-        networkId,
-        symbol,
-        provider,
-        vault,
-      });
-
-    // Second line = campaign boost + protocol reward APYs, summed by the
-    // server. Only points that actually carry one are kept, so a history that
-    // predates the campaign simply starts the line later instead of dropping
-    // to zero.
-    const extraApyHistory = impliedApyHistory
-      .filter((item) => item.extraApy !== undefined)
-      .map((item) => ({
-        timestamp: item.timestamp,
-        apy: item.extraApy as string,
-      }));
-    // Campaign wins over reward, matching the rule the server applies per
-    // point ("a campaign present at all makes the line orange") and the
-    // headline's split. Taking the first point that happens to carry a kind
-    // would paint a window that starts with plain rewards and later gains a
-    // campaign entirely blue, and label it Rewards.
-    const extraApyKind = impliedApyHistory.some(
-      (item) => item.extraApyKind === 'campaign',
-    )
-      ? ('campaign' as const)
-      : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
-
-    return {
-      impliedApyHistory,
-      extraApyHistory,
-      extraApyKind,
-    };
-  }, [networkId, symbol, provider, vault, isPendleProvider]);
+    }, [networkId, symbol, provider, vault, isPendleProvider]);
 
   const {
     impliedApyHistory,
@@ -805,6 +806,7 @@ const DetailsPartComponent = ({
   isMobileLayout,
   providerSubtitle,
   hasPortfolio,
+  onRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -820,6 +822,7 @@ const DetailsPartComponent = ({
   isMobileLayout?: boolean;
   providerSubtitle?: string;
   hasPortfolio?: boolean;
+  onRedeem?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -905,6 +908,7 @@ const DetailsPartComponent = ({
                       provider={provider}
                       vault={detailInfo.protocol?.vault ?? vault}
                       onActionSuccess={onRefresh}
+                      onRedeem={onRedeem}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
                     />
@@ -1266,6 +1270,52 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     ],
   );
 
+  // Babylon, Stakefish SOL/ETH and Everstake SOL redeem per position, so the
+  // server sends `withdrawOrder` instead of `withdraw`, and that one goes to the
+  // position picker (WithdrawOptions), the way ManagePosition's own withdraw
+  // tab hands it off. Everything else opens ManagePosition on the withdraw tab.
+  const redeemAction = useMemo(
+    () =>
+      detailInfo?.actions?.find(
+        (action) =>
+          action.type === 'withdraw' || action.type === 'withdrawOrder',
+      ),
+    [detailInfo?.actions],
+  );
+  const handleOpenRedeem = useCallback(() => {
+    const earnAccountId = protocolInfo?.earnAccount?.accountId;
+    if (
+      redeemAction?.type === 'withdrawOrder' &&
+      earnAccountId &&
+      protocolInfo
+    ) {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params: {
+          accountId: earnAccountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
+          onSuccess: refreshData,
+        },
+      });
+      return;
+    }
+    handleOpenManageModal('withdraw');
+  }, [
+    appNavigation,
+    handleOpenManageModal,
+    networkId,
+    protocolInfo,
+    provider,
+    redeemAction?.type,
+    refreshData,
+    symbol,
+    tokenInfo,
+  ]);
+
   // Generate share URL
   const shareUrl = useMemo(() => {
     if (!symbol || !provider || !networkId) return undefined;
@@ -1307,7 +1357,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
-
   const pageFooter = useMemo(() => {
     if (gtMd) {
       return null;
@@ -1331,12 +1380,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const withdrawAction = detailInfo?.actions?.find(
-      (action) => action.type === 'withdraw',
-    );
-    const showRedeem = isMobileLayout && Boolean(withdrawAction);
+    const showRedeem = isMobileLayout && Boolean(redeemAction);
     const depositDisabled = Boolean(depositAction?.disabled);
-    const withdrawDisabled = Boolean(withdrawAction?.disabled);
+    const withdrawDisabled = Boolean(redeemAction?.disabled);
 
     return (
       <Page.Footer
@@ -1355,9 +1401,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               cancelButtonProps: {
                 variant: 'secondary',
                 disabled: withdrawDisabled,
-                // ManagePosition defaults to the deposit tab, so Redeem has to
-                // name its own or it opens the wrong side of the modal.
-                onPress: () => handleOpenManageModal('withdraw'),
+                onPress: handleOpenRedeem,
                 mb: tabBarHeight,
               },
             }
@@ -1368,6 +1412,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     gtMd,
     intl,
     handleOpenManageModal,
+    handleOpenRedeem,
+    redeemAction,
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
@@ -1412,6 +1458,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isMobileLayout={isMobileLayout}
             providerSubtitle={providerSubtitle}
             hasPortfolio={hasPortfolio}
+            onRedeem={handleOpenRedeem}
           />
         </Stack>
         {gtMd ? (
