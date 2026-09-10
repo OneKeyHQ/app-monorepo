@@ -1,0 +1,140 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt
+new file mode 100644
+index 0000000..3804afd
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt
+@@ -0,0 +1,26 @@
++package com.margelo.nitro.nativelist
++
++import org.json.JSONObject
++
++/** Only text and tone inside existing subtitle slots may change without rebuilding an identity row. */
++internal fun canUpdateIdentitySubtitle(previous: NativeListItem, next: NativeListItem): Boolean {
++  if (previous.key != next.key || previous.type != "identity" || next.type != "identity") return false
++
++  fun structure(item: NativeListItem): String? {
++    val data = JSONObject(item.content)
++    if (data.optString("presentation") != "accountSelector") return null
++    val segments = data.optJSONArray("subtitleSegments") ?: return null
++    if (segments.length() == 0) return null
++    for (index in 0 until segments.length()) {
++      val segment = segments.optJSONObject(index) ?: return null
++      segment.remove("text")
++      segment.remove("textSegments")
++      segment.remove("tone")
++    }
++    data.remove("accessibilityLabel")
++    return data.toString()
++  }
++
++  val previousStructure = structure(previous) ?: return false
++  return previousStructure == structure(next)
++}
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+index 7821793..42a70fa 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+@@ -339,6 +339,9 @@ internal class NativeListRowView(
+   private val selectorLineHeights = mutableMapOf<TextView, Int>()
+   private val selectorFontSizes = mutableMapOf<TextView, Float>()
+   private val selectorImages = mutableListOf<OneKeyImageReusableView>()
++  private val identitySubtitleLabels = mutableListOf<TextView>()
++  private var boundTheme: String? = null
++  private var boundOrientation: String? = null
+   private var selectorHeight: Int? = null
+   private val leadingImages = List(3) { OneKeyImageReusableView(reactContext) }
+   private val leadingOverlayBackground = View(context)
+@@ -649,6 +652,24 @@ internal class NativeListRowView(
+     checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String,
+     useSourceScale: Boolean = false,
+   ) {
++    val previous = tag as? NativeListItem
++    val sourceScale = item.usesSelectorSourceScale || useSourceScale
++    if (
++      boundKey == item.key && previous != null &&
++      boundTheme == theme?.toString() && currentLayout == layout &&
++      boundOrientation == listOrientation && selectorUsesSourceScale == sourceScale &&
++      identitySubtitleLabels.isNotEmpty() && canUpdateIdentitySubtitle(previous, item)
++    ) {
++      // Balance patches keep the same avatar and its in-flight/completed image request.
++      val segments = item.json.getJSONArray("subtitleSegments")
++      identitySubtitleLabels.forEachIndexed { index, label ->
++        bindIdentitySubtitleLabel(label, segments.getJSONObject(index), theme)
++      }
++      contentDescription = item.json.optString("accessibilityLabel", item.json.optString("title"))
++      bindSelection(item, theme, layout, itemIndex, selected, checkboxState)
++      applySelectorTypography(item)
++      return
++    }
+     val shouldRestorePressed = touchPressed && boundKey == item.key
+     invalidateCurrentBinding()
+     bindingEpoch += 1
+@@ -656,7 +677,11 @@ internal class NativeListRowView(
+     touchPressed = shouldRestorePressed
+     currentLayout = layout
+     tag = item
+-    selectorUsesSourceScale = item.usesSelectorSourceScale || useSourceScale
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // selectorUsesSourceScale = item.usesSelectorSourceScale || useSourceScale
++    selectorUsesSourceScale = sourceScale
++    boundTheme = theme?.toString()
++    boundOrientation = listOrientation
+     reorderActive = false
+     leadingImages.forEach(OneKeyImageReusableView::prepareForReuse)
+     secondaryImage.prepareForReuse()
+@@ -939,6 +964,7 @@ internal class NativeListRowView(
+   }
+ 
+   private fun resetViews() {
++    identitySubtitleLabels.clear()
+     clipChildren = true
+     clipToPadding = true
+     selectorOriginalFontFeatures.forEach { (view, original) -> view.fontFeatureSettings = original }
+@@ -1442,17 +1468,22 @@ internal class NativeListRowView(
+           line.addView(dot, LayoutParams(dp(4), dp(4)).apply { marginStart = dp(6); marginEnd = dp(6) })
+         }
+         val label = TextView(context).apply {
+-          text = segment.optString("text")
++          // OneKey patch: preserve images during updates and removal (app-modules#98).
++          // text = segment.optString("text")
+           typeface = NativeListFonts.regular(context)
+           textSize = sp(14f)
+           includeFontPadding = false
+           maxLines = 1
+           ellipsize = TextUtils.TruncateAt.END
+-          val toneKey = when (segment.optString("tone")) { "primary" -> "primaryText"; "disabled" -> "disabledText"; "caution" -> "caution"; "positive" -> "positive"; "negative" -> "negative"; else -> "secondaryText" }
+-          setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
++          // OneKey patch: preserve images during updates and removal (app-modules#98).
++          // val toneKey = when (segment.optString("tone")) { "primary" -> "primaryText"; "disabled" -> "disabledText"; "caution" -> "caution"; "positive" -> "positive"; "negative" -> "negative"; else -> "secondaryText" }
++          // setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
+         }
+         TextViewCompat.setLineHeight(label, dp(20))
+-        applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++        // OneKey patch: preserve images during updates and removal (app-modules#98).
++        // applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++        bindIdentitySubtitleLabel(label, segment, theme)
++        identitySubtitleLabels.add(label)
+         line.addView(label, LayoutParams(LayoutParams.WRAP_CONTENT, dp(20)))
+       }
+       mainColumn.addView(line, 2, LayoutParams(LayoutParams.MATCH_PARENT, dp(20)))
+@@ -2311,6 +2342,20 @@ internal class NativeListRowView(
+     applyValueSegments(trailingViews[0], item.json.optJSONArray("valueSegments"))
+   }
+ 
++  private fun bindIdentitySubtitleLabel(label: TextView, segment: JSONObject, theme: JSONObject?) {
++    label.text = segment.optString("text")
++    val toneKey = when (segment.optString("tone")) {
++      "primary" -> "primaryText"
++      "disabled" -> "disabledText"
++      "caution" -> "caution"
++      "positive" -> "positive"
++      "negative" -> "negative"
++      else -> "secondaryText"
++    }
++    label.setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
++    applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++  }
++
+   // OneKey patch: preserve compact zero-count digits without changing their baseline.
+   private fun applyValueSegments(view: TextView, segments: JSONArray?, fontSize: Int = 16, lineHeight: Int = 24, medium: Boolean = true) {
+     if (segments == null || segments.length() == 0) return
