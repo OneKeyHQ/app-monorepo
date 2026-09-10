@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -8,10 +10,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   resolveActiveTabKey,
   resolveDefaultTabKey,
+  resolveSwipeTargetKey,
   resolveVisibleTabKeys,
 } from './mobileDetailTabs.utils';
 
 import type { IMobileDetailTabKey } from './mobileDetailTabs.utils';
+import type { LayoutChangeEvent } from 'react-native';
+
+// A drag has to commit horizontally before the pan claims it, and any clear
+// vertical drift hands the touch back to the page scroll.
+const PAN_ACTIVE_OFFSET_X: [number, number] = [-24, 24];
+const PAN_FAIL_OFFSET_Y: [number, number] = [-12, 12];
 
 const TAB_LABEL_IDS: Record<IMobileDetailTabKey, ETranslations> = {
   portfolio: ETranslations.global_portfolio,
@@ -99,6 +108,47 @@ export function MobileDetailTabs({
     setSelectedKey(key);
   }, []);
 
+  const [bodyWidth, setBodyWidth] = useState(0);
+  const handleBodyLayout = useCallback((event: LayoutChangeEvent) => {
+    setBodyWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const handleSwipe = useCallback(
+    (translationX: number, velocityX: number) => {
+      const target = resolveSwipeTargetKey({
+        activeKey,
+        visibleKeys,
+        translationX,
+        velocityX,
+        width: bodyWidth,
+      });
+      if (target) {
+        setSelectedKey(target);
+      }
+    },
+    [activeKey, visibleKeys, bodyWidth],
+  );
+
+  // Swiping the body switches tabs (OK-62395). A pan rather than a pager: the
+  // page keeps its own vertical scroll, nothing is nested, and the body swaps
+  // the way it does on a tap. The chart sits above the tab bar, outside this
+  // detector, so its horizontal drag is untouched; the page scroll wins
+  // through failOffsetY, and the stack's edge swipe-back keeps its priority
+  // as a native gesture.
+  const swipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX(PAN_ACTIVE_OFFSET_X)
+        .failOffsetY(PAN_FAIL_OFFSET_Y)
+        .enabled(visibleKeys.length > 1)
+        .onEnd((event) => {
+          'worklet';
+
+          runOnJS(handleSwipe)(event.translationX, event.velocityX);
+        }),
+    [handleSwipe, visibleKeys.length],
+  );
+
   const content = useMemo(() => {
     switch (activeKey) {
       case 'portfolio':
@@ -127,7 +177,9 @@ export function MobileDetailTabs({
           />
         ))}
       </XStack>
-      {content}
+      <GestureDetector gesture={swipeGesture}>
+        <YStack onLayout={handleBodyLayout}>{content}</YStack>
+      </GestureDetector>
     </YStack>
   );
 }

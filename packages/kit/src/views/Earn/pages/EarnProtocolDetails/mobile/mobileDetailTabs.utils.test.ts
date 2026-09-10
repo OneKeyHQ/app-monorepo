@@ -1,6 +1,7 @@
 import {
   resolveActiveTabKey,
   resolveDefaultTabKey,
+  resolveSwipeTargetKey,
   resolveVisibleTabKeys,
 } from './mobileDetailTabs.utils';
 
@@ -71,6 +72,96 @@ describe('mobileDetailTabs.utils', () => {
           defaultKey: 'portfolio',
         }),
       ).toBe('portfolio');
+    });
+  });
+
+  describe('resolveSwipeTargetKey', () => {
+    const visibleKeys = ['portfolio', 'info', 'protocol'] as const;
+    const base = {
+      visibleKeys: [...visibleKeys],
+      width: 400,
+      velocityX: 0,
+    };
+
+    it('moves to the next tab on a long drag to the left', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'portfolio',
+          translationX: -120,
+        }),
+      ).toBe('info');
+    });
+
+    it('moves to the previous tab on a long drag to the right', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'protocol',
+          translationX: 120,
+        }),
+      ).toBe('info');
+    });
+
+    it('ignores a short, slow drift', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'info',
+          translationX: -60,
+          velocityX: -200,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('commits a short flick in the drag direction', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'info',
+          translationX: -40,
+          velocityX: -900,
+        }),
+      ).toBe('protocol');
+    });
+
+    it('treats a flick back against the drag as a change of mind', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'info',
+          translationX: -40,
+          velocityX: 900,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('does not wrap past either end', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'protocol',
+          translationX: -200,
+        }),
+      ).toBeUndefined();
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'portfolio',
+          translationX: 200,
+        }),
+      ).toBeUndefined();
+    });
+
+    it('does nothing before the body has a width', () => {
+      expect(
+        resolveSwipeTargetKey({
+          ...base,
+          activeKey: 'portfolio',
+          translationX: -200,
+          width: 0,
+        }),
+      ).toBeUndefined();
     });
   });
 });
