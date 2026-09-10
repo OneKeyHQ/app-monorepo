@@ -21386,6 +21386,7 @@
     "packages/kit/src/views/Home/components/TokenListBlock/buildHomeTokenListCacheIngestRound.ts": 2900,
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
     "packages/kit/src/views/Home/components/TokenListBlock/index.ts": 1645,
+    "packages/kit/src/views/Home/components/TokenListBlock/offTabRefresh.ts": 2687,
     "packages/kit/src/views/Home/components/TokenListBlock/selectHardwarePortfolioTokens.ts": 23848,
     "packages/kit/src/views/Home/components/TokenListBlock/useTokenListReactivePipeline.ts": 9900,
     "packages/kit/src/views/Home/components/Upgrade/Upgrade.tsx": 1178,
