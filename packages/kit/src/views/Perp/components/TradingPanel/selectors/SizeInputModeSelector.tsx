@@ -8,6 +8,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
   useInPageDialog,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
@@ -29,13 +30,15 @@ function SizeInputModeContent({
   allowMarginInput = true,
 }: ISizeInputModeSelectorProps) {
   const intl = useIntl();
+  const dialog = useDialogInstance();
   const [value, setValue] = useState(initialValue);
   const onChange = useCallback(
     (nextValue: ISizeInputModeSelectorProps['value']) => {
       setValue(nextValue);
       onValueChange(nextValue);
+      void dialog.close();
     },
-    [onValueChange],
+    [dialog, onValueChange],
   );
   const tokenFallbackLabel = intl.formatMessage({
     id: ETranslations.wallet_bulk_send_approval_token_fallback,
@@ -53,10 +56,8 @@ function SizeInputModeContent({
       );
 
   const handleUsdCardPress = useCallback(() => {
-    if (!isUsdSelected) {
-      onChange('usd');
-    }
-  }, [isUsdSelected, onChange]);
+    onChange(isUsdSelected ? resolvedValue : 'usd');
+  }, [isUsdSelected, onChange, resolvedValue]);
 
   const renderRadioItem = (
     label: string,
