@@ -2,6 +2,20 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
+const mockFetchAssetDetail = jest.fn<Promise<unknown>, unknown[]>();
+const mockToastError = jest.fn();
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceMarket: {
+      fetchMarketAssetDetail: (...args: unknown[]) =>
+        mockFetchAssetDetail(...args),
+    },
+  },
+}));
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: { intl: { formatMessage: ({ id }: { id: string }) => id } },
+}));
 const navigateMock = jest.fn();
 const clearTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
@@ -13,11 +27,16 @@ const tokenDetailActions = {
     changeActiveToken: changeActiveTokenMock,
     prepareTokenDetailPreview: prepareTokenDetailPreviewMock,
   },
-} as unknown as Parameters<
+} satisfies Parameters<
   typeof navigateToMarketTokenDetail
 >[1]['tokenDetailActions'];
 
 jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+  },
   rootNavigationRef: {
     current: {
       navigate: (...args: unknown[]) => {
@@ -59,7 +78,7 @@ describe('navigateToMarketTokenDetail', () => {
 
   it.each([false, true])(
     'resolves search asset identity before fetching token data (native: %s)',
-    (isNativePlatform) => {
+    async (isNativePlatform) => {
       platformEnv.isNative = isNativePlatform;
       const preview = {
         address: '',
@@ -71,7 +90,7 @@ describe('navigateToMarketTokenDetail', () => {
         selectedAt: 1,
       };
       const beforeNavigate = jest.fn();
-      navigateToMarketTokenDetail(preview, {
+      await navigateToMarketTokenDetail(preview, {
         tokenDetailActions,
         resolveMarketAsset: true,
         tokenDetailPreview: preview,
@@ -100,7 +119,7 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
-  it('routes xStock search results without stock metadata to stock detail', () => {
+  it('routes xStock search results without stock metadata to stock detail', async () => {
     const preview = {
       address: '0xaapl',
       networkId: 'evm--1',
@@ -109,7 +128,7 @@ describe('navigateToMarketTokenDetail', () => {
       decimals: 18,
       selectedAt: 1,
     };
-    navigateToMarketTokenDetail(preview, {
+    await navigateToMarketTokenDetail(preview, {
       tokenDetailActions,
       resolveMarketAsset: true,
       tokenDetailPreview: preview,
@@ -133,19 +152,142 @@ describe('navigateToMarketTokenDetail', () => {
     });
   });
 
+  it.each([false, true])(
+    'preserves a tokenized stock favorite with only a top-level stockId (native: %s)',
+    async (isNativePlatform) => {
+      platformEnv.isNative = isNativePlatform;
+      const preview = {
+        address: '0xnvda',
+        networkId: 'evm--1',
+        name: 'NVIDIA Tokenized Stock',
+        symbol: 'NVDAon',
+        decimals: 18,
+        selectedAt: 1,
+        stock: { subtitle: 'NVIDIA', sourceLogoUri: '' },
+      };
+      await navigateToMarketTokenDetail(
+        { ...preview, stockId: 'NVDA' },
+        {
+          tokenDetailActions,
+          resolveMarketAsset: true,
+          tokenDetailPreview: preview,
+        },
+      );
+      jest.runAllTimers();
+
+      expect(navigateMock).toHaveBeenCalledWith('main', {
+        screen: isNativePlatform ? 'Discovery' : 'Market',
+        params: {
+          screen: 'MarketStockDetail',
+          params: {
+            stockId: 'NVDA',
+            tokenAddress: '0xnvda',
+            network: 'eth',
+            isNative: undefined,
+          },
+        },
+      });
+      expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
+      expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(mockFetchAssetDetail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not resolve a known asset favorite again through search', async () => {
+    mockFetchAssetDetail.mockResolvedValueOnce({
+      selectedVariant: {
+        tokenAddress: '',
+        networkId: 'btc--0',
+        isNative: true,
+        variantId: 'btc-native',
+      },
+    });
+    await navigateToMarketTokenDetail(
+      { assetId: 'bitcoin', address: '', networkId: '' },
+      {
+        tokenDetailActions,
+        resolveMarketAsset: true,
+        marketTokenCategory: 'trending',
+      },
+    );
+    jest.runAllTimers();
+
+    expect(mockFetchAssetDetail).toHaveBeenCalledTimes(1);
+    expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith('main', {
+      screen: 'Market',
+      params: {
+        screen: 'MarketDetailV2',
+        params: {
+          marketTokenId: 'bitcoin',
+          marketVariantId: 'btc-native',
+          marketTokenCategory: 'top_coins',
+          tokenAddress: '',
+          network: 'eth',
+          isNative: true,
+        },
+      },
+    });
+  });
+
+  it('keeps a stock listing ID when no token variant exists', async () => {
+    await navigateToMarketTokenDetail(
+      { address: '', networkId: '', stockId: 'AAPL' },
+      {
+        tokenDetailActions,
+      },
+    );
+    jest.runAllTimers();
+    expect(navigateMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          params: expect.objectContaining({ stockId: 'AAPL' }),
+        }),
+      }),
+    );
+    expect(mockFetchAssetDetail).not.toHaveBeenCalled();
+  });
+
+  it('resolves an asset only on navigation and preserves the asset route', async () => {
+    mockFetchAssetDetail.mockResolvedValue({
+      selectedVariant: {
+        tokenAddress: '',
+        networkId: 'btc--0',
+        isNative: true,
+        variantId: 'btc-native',
+      },
+    });
+    await navigateToMarketTokenDetail(
+      { address: '', networkId: '', assetId: 'bitcoin' },
+      {
+        tokenDetailActions,
+      },
+    );
+    jest.runAllTimers();
+    expect(navigateMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          params: expect.objectContaining({
+            marketTokenId: 'bitcoin',
+            marketVariantId: 'btc-native',
+            marketTokenCategory: 'top_coins',
+          }),
+        }),
+      }),
+    );
+  });
+
   it('routes stock selector items to stock detail by stockId', () => {
-    navigateToMarketTokenDetail(
+    void navigateToMarketTokenDetail(
       {
         address: '0xaapl',
         networkId: 'evm--1',
       },
       {
-        tokenDetailActions: {
-          current: {
-            clearTokenDetail: clearTokenDetailMock,
-            changeActiveToken: changeActiveTokenMock,
-          },
-        } as never,
+        tokenDetailActions,
         tokenDetailPreview: {
           symbol: 'AAPLon',
           stock: {
@@ -176,7 +318,7 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it('keeps the current category when selecting another normal token', () => {
-    navigateToMarketTokenDetail(
+    void navigateToMarketTokenDetail(
       {
         address: '',
         networkId: 'evm--1',
@@ -184,12 +326,7 @@ describe('navigateToMarketTokenDetail', () => {
       },
       {
         marketTokenCategory: 'top_coins',
-        tokenDetailActions: {
-          current: {
-            clearTokenDetail: clearTokenDetailMock,
-            changeActiveToken: changeActiveTokenMock,
-          },
-        } as never,
+        tokenDetailActions,
         tokenDetailPreview: {
           symbol: 'ETH',
           name: 'Ethereum',
@@ -212,5 +349,75 @@ describe('navigateToMarketTokenDetail', () => {
         },
       },
     });
+  });
+  it.each(['resolve', 'reject'])(
+    'ignores a superseded asset lookup that later %ss',
+    async (outcome) => {
+      let resolveLookup: (value: unknown) => void = () => {};
+      let rejectLookup: (reason: Error) => void = () => {};
+      mockFetchAssetDetail.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveLookup = resolve;
+            rejectLookup = reject;
+          }),
+      );
+      let requestId = 1;
+      const beforeNavigate = jest.fn();
+      const onError = jest.fn();
+      const first = navigateToMarketTokenDetail(
+        { assetId: 'bitcoin', networkId: '', address: '' },
+        {
+          tokenDetailActions,
+          beforeNavigate,
+          onError,
+          isCurrentRequest: () => requestId === 1,
+        },
+      );
+      requestId = 2;
+      await navigateToMarketTokenDetail(
+        { stockId: 'AAPL', networkId: '', address: '' },
+        { tokenDetailActions, isCurrentRequest: () => requestId === 2 },
+      );
+      if (outcome === 'resolve') {
+        resolveLookup({
+          selectedVariant: {
+            networkId: 'btc--0',
+            tokenAddress: '',
+            isNative: true,
+          },
+        });
+      } else {
+        rejectLookup(new Error('offline'));
+      }
+      await first;
+      jest.runAllTimers();
+      expect(beforeNavigate).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledTimes(1);
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ stockId: 'AAPL' }),
+          }),
+        }),
+      );
+    },
+  );
+
+  it('cancels delayed navigation when another selection supersedes it', async () => {
+    let current = true;
+    await navigateToMarketTokenDetail(
+      { stockId: 'AAPL', address: '', networkId: '' },
+      {
+        tokenDetailActions,
+        isCurrentRequest: () => current,
+      },
+    );
+    current = false;
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });
