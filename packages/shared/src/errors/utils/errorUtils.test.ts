@@ -1,4 +1,7 @@
+import { CanceledError } from 'axios';
+
 import {
+  isRequestCanceledError,
   markOneKeyIdFailureServerLogged,
   toPlainErrorObject,
   wasOneKeyIdFailureServerLogged,
@@ -28,5 +31,29 @@ describe('OneKey ID failure server log marker', () => {
 
     expect(error.data).toBe(42);
     expect(wasOneKeyIdFailureServerLogged(error)).toBe(false);
+  });
+});
+
+describe('isRequestCanceledError', () => {
+  it('detects a live axios CanceledError', () => {
+    expect(isRequestCanceledError(new CanceledError('canceled'))).toBe(true);
+  });
+
+  it('detects a cancel error rebuilt from its serialized RPC form', () => {
+    const plain = toPlainErrorObject(new CanceledError('canceled'));
+    const rebuilt = Object.assign(new Error(plain.message), {
+      name: plain.name,
+      code: plain.code,
+    });
+
+    expect(rebuilt).not.toBeInstanceOf(CanceledError);
+    expect(isRequestCanceledError(rebuilt)).toBe(true);
+    expect(isRequestCanceledError({ code: 'ERR_CANCELED' })).toBe(true);
+  });
+
+  it('ignores other errors and non-objects', () => {
+    expect(isRequestCanceledError(new Error('boom'))).toBe(false);
+    expect(isRequestCanceledError(undefined)).toBe(false);
+    expect(isRequestCanceledError('canceled')).toBe(false);
   });
 });
