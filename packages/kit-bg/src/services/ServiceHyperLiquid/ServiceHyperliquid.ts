@@ -172,8 +172,8 @@ import {
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 import {
-  fetchFundingPageWithRetry,
   fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
 } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
@@ -1872,24 +1872,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { infoClient } = hyperLiquidApiClients;
       this._fundingHistoryRequestsInFlight.add(user);
       try {
-        return await fetchPerpFundingHistoryPages({
-          startTime: 0,
-          endTime: Date.now(),
-          fetchPage: (page) =>
-            fetchFundingPageWithRetry(() =>
-              infoClient.userFunding({ user, ...page }),
-            ),
-          getRecordKey: (record) =>
-            [
-              record.time,
-              record.hash,
-              record.delta.coin,
-              record.delta.szi,
-              record.delta.usdc,
-              record.delta.fundingRate,
-              record.delta.nSamples ?? '',
-            ].join(':'),
-        });
+        return await fetchRecentUserFundingHistory(() =>
+          infoClient.userFunding({ user }),
+        );
       } finally {
         this._fundingHistoryRequestsInFlight.delete(user);
       }
