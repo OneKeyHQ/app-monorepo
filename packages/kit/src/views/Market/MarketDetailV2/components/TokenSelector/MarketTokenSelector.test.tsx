@@ -15,6 +15,7 @@ const mockTopCoinPress = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockSearchTokenList: IMarketToken[] = [];
+let mockWatchlistToken: IMarketToken | undefined;
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: undefined }),
@@ -231,6 +232,17 @@ jest.mock('./MarketTokenSelectorList', () => ({
           Select search result
         </button>
       ) : null}
+      {isWatchlistMode && mockWatchlistToken ? (
+        <button
+          data-testid="market-token-selector-watchlist-result"
+          type="button"
+          onClick={() => {
+            if (mockWatchlistToken) onItemPress(mockWatchlistToken);
+          }}
+        >
+          Select favorite
+        </button>
+      ) : null}
     </>
   ),
 }));
@@ -248,6 +260,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockTopCoinPress.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
     mockSearchTokenList = [];
+    mockWatchlistToken = undefined;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
@@ -335,6 +348,51 @@ describe('MarketTokenSelector stock default category', () => {
     });
   });
 
+  it.each([
+    ['BTC', 'btc--0'],
+    ['ETH', 'evm--1'],
+  ])(
+    'resolves %s from Favorites without a search query',
+    (symbol, networkId) => {
+      mockWatchlistToken = {
+        id: symbol,
+        symbol,
+        name: symbol,
+        address: '',
+        networkId,
+        isNative: true,
+        decimals: 18,
+        price: 1,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+      };
+      renderOpenStockSelector();
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      );
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-watchlist-result'),
+      );
+
+      expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
+        expect.objectContaining({ symbol, networkId, isNative: true }),
+        expect.objectContaining({
+          resolveMarketAsset: true,
+          marketTokenCategory: undefined,
+          tokenDetailPreview: expect.objectContaining({ symbol, networkId }),
+        }),
+      );
+      expect(mockTopCoinPress).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps the opened stock list mounted when a custom trigger updates', () => {
     const { rerender } = render(
       <MarketTokenSelector
@@ -392,7 +450,10 @@ describe('MarketTokenSelector stock default category', () => {
         address: '0xdex',
         networkId: 'evm--1',
       }),
-      expect.objectContaining({ marketTokenCategory: undefined }),
+      expect.objectContaining({
+        marketTokenCategory: undefined,
+        resolveMarketAsset: true,
+      }),
     );
   });
 });

@@ -11,11 +11,15 @@ import {
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  getDeviceErrorPayloadMessage,
+  toPlainErrorObject,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -116,18 +120,21 @@ const DEDICATED_DIALOG_ERROR_CODES = [
   HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
+  // Bluetooth off / no BLE permission / location services off: the SDK
+  // (and the Android pre-check) raise the "Enable Bluetooth" family of
+  // dialogs for these, so the stage stands down instead of landing a
+  // second notice under the sheet (OK-62113).
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleLocationServicesDisabled,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
- * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
-const DISCONNECTED_CODES = [
-  HardwareErrorCode.PollingTimeout,
-  HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BleScanError,
-  HardwareErrorCode.BleTimeoutError,
-];
+ * territory (doc §05 mapping A), classified apart in mapErrorToReason.
+ * The set itself lives in shared so the authenticity flow's classifier
+ * reads "disconnected" the same way. */
+const DISCONNECTED_CODES = DEVICE_STAGE_DISCONNECTED_CODES;
 
 const ACTION_TO_STEP: Partial<Record<string, IDeviceStageStepValue>> = {
   [EHardwareUiStateAction.DeviceChecking]: 'connecting',
@@ -252,6 +259,32 @@ export function resolveDeviceNotFoundLanding({
     return 'disconnected';
   }
   return 'deviceNotFound';
+}
+
+/**
+ * The devices that confirm a passphrase typed on the app on their own
+ * screen with no ButtonRequest to announce it — so no `ui-button` ever
+ * reaches the stage, and the submit has to paint the confirm itself.
+ *
+ * Each asks "use this passphrase?" for every non-empty host passphrase:
+ * - Pro: since firmware 4.13.0 the screen is a bare wait (firmware-pro
+ *   09b371804e dropped the ProtectCall `interact`); older builds still
+ *   send the request, which only repaints the same step.
+ * - Pro 2 / Neo: the V2 session's confirm page (firmware-pro2
+ *   `wallet_session_show_passphrase_confirm`) reports to the device
+ *   alone, and the SDK closes no phase until the call returns.
+ * Touch still sends the request; Classic and Mini show no confirm at all.
+ */
+const HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES: ReadonlySet<
+  IHardwareUiPayload['deviceType']
+> = new Set([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]);
+
+export function confirmsHostPassphraseOnScreen(
+  payload: IHardwareUiPayload | undefined,
+): boolean {
+  return Boolean(
+    payload && HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES.has(payload.deviceType),
+  );
 }
 
 /** The steps that ask something of the person. Only an ask outranks an
@@ -440,6 +473,9 @@ export class DeviceStageBurstScope {
    * write it back: its ask belongs to a call the person already left. */
   private dismissSeq = 0;
 
+  // Unlike silence, userClose discards every outstanding burst claim.
+  private burstResetSeq = 0;
+
   /** The stage yielded to a dialog (see silence) while a burst still
    * holds it. Until that burst ends, the person closes, or the device
    * asks again, stragglers from the call the dialog interrupted — its
@@ -551,75 +587,91 @@ export class DeviceStageBurstScope {
       return false;
     }
     const dismissal = this.dismissSeq;
+    const burstReset = this.burstResetSeq;
     this.clearOffTimer();
     this.depth += 1;
     setDeviceStageBurstActive(true);
-    if (params.confirmContent) {
-      this.confirmContent = params.confirmContent;
-    }
-    if (this.depth === 1) {
-      this.activeVendor = params.vendor;
-      this.authoredAuthStep = undefined;
-      this.yieldedToDialog = false;
-      // A fresh initiation makes its own presence finding — a device the
-      // PREVIOUS burst heard from proves nothing about this one.
-      this.sawDeviceEventThisBurst = false;
-      // A new burst owns the stage; a nested wrapper joining mid-dwell
-      // (depth >= 2) is not a new narrative and must not disarm it.
-      this.clearAuthHold();
-      const prev = await deviceStageAtom.get();
-      const stillEnabled = await this.isEnabled();
-      // Re-checked after the awaits: the firmware workflow can take the
-      // stage meanwhile (or the person can close it) — its silence found no
-      // pendingOpen to clear yet, so the opening timer below would have
-      // painted connecting over the update page, and the caller would have
-      // been told a burst it does not have is open. Roll this claim back.
-      if (dismissal !== this.dismissSeq || !stillEnabled) {
-        this.depth = Math.max(this.depth - 1, 0);
-        if (this.depth === 0) {
-          setDeviceStageBurstActive(false);
-        }
-        return false;
+    const rollback = () => {
+      // A dismissed call cannot release a claim from the next burst.
+      if (burstReset !== this.burstResetSeq) return;
+      this.depth = Math.max(this.depth - 1, 0);
+      if (this.depth === 0) {
+        setDeviceStageBurstActive(false);
+        this.clearPendingOpen();
+        this.confirmContent = undefined;
+        this.activeVendor = undefined;
+        this.scheduleOff(END_GRACE_MS);
       }
-      const stageStillOn = prev && prev.step !== 'off';
-      // A follow-up wrapper inside the grace window rejoins the visible
-      // stage: keep the burstId so the container's close grant stays armed.
-      this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
-      // The opening `connecting` beat is deferred a beat: a flow whose
-      // first real step follows immediately (the genuine check) opens
-      // straight into it, instead of flashing the connecting scene first.
-      this.clearPendingOpen();
-      this.pendingOpen = params;
-      this.openingTimer = setTimeout(() => {
-        const opening = this.pendingOpen;
-        this.pendingOpen = undefined;
-        this.openingTimer = undefined;
-        if (!opening) {
-          return;
+    };
+    try {
+      if (this.depth === 1) {
+        this.confirmContent = params.confirmContent;
+        this.activeVendor = params.vendor;
+        this.authoredAuthStep = undefined;
+        this.yieldedToDialog = false;
+        // A fresh initiation makes its own presence finding — a device the
+        // PREVIOUS burst heard from proves nothing about this one.
+        this.sawDeviceEventThisBurst = false;
+        // A new burst owns the stage; a nested wrapper joining mid-dwell
+        // (depth >= 2) is not a new narrative and must not disarm it.
+        this.clearAuthHold();
+        const prev = await deviceStageAtom.get();
+        const stillEnabled = await this.isEnabled();
+        // Re-checked after the awaits: the firmware workflow can take the
+        // stage meanwhile (or the person can close it) — its silence found no
+        // pendingOpen to clear yet, so the opening timer below would have
+        // painted connecting over the update page, and the caller would have
+        // been told a burst it does not have is open. Roll this claim back.
+        if (dismissal !== this.dismissSeq || !stillEnabled) {
+          rollback();
+          return false;
         }
-        void this.setStep('connecting', {
-          connectId: opening.connectId,
-          deviceType: opening.deviceType,
-          deviceName: opening.deviceName,
-          vendor: opening.vendor,
-          vendorModel: opening.vendorModel,
-          vendorModelName: opening.vendorModelName,
-          resetOutcome: true,
-        });
-      }, OPENING_BEAT_DEFER_MS);
+        const stageStillOn = prev && prev.step !== 'off';
+        // A follow-up wrapper inside the grace window rejoins the visible
+        // stage: keep the burstId so the container's close grant stays armed.
+        this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
+        // The opening `connecting` beat is deferred a beat: a flow whose
+        // first real step follows immediately (the genuine check) opens
+        // straight into it, instead of flashing the connecting scene first.
+        this.clearPendingOpen();
+        this.pendingOpen = params;
+        this.openingTimer = setTimeout(() => {
+          const opening = this.pendingOpen;
+          this.pendingOpen = undefined;
+          this.openingTimer = undefined;
+          if (!opening) {
+            return;
+          }
+          void this.setStep('connecting', {
+            connectId: opening.connectId,
+            deviceType: opening.deviceType,
+            deviceName: opening.deviceName,
+            vendor: opening.vendor,
+            vendorModel: opening.vendorModel,
+            vendorModelName: opening.vendorModelName,
+            resetOutcome: true,
+          });
+        }, OPENING_BEAT_DEFER_MS);
+        return true;
+      }
+      // Joined a burst already on stage (typically a UI-held one): the flow
+      // is mid-step, so only the device identity refreshes — the caller
+      // often knows the device the holder could not name yet.
+      // A call beginning inside the hold is the device at work: news for
+      // the container's idle clock, folded into the identity write so a
+      // split-runtime target pays one bridge hop, not two.
+      await this.mergeDeviceIdentity(params, { activity: true });
+      if (params.vendor && !this.activeVendor) {
+        this.activeVendor = params.vendor;
+      }
+      if (params.confirmContent) {
+        this.confirmContent = params.confirmContent;
+      }
       return true;
+    } catch (error) {
+      rollback();
+      throw error;
     }
-    // Joined a burst already on stage (typically a UI-held one): the flow
-    // is mid-step, so only the device identity refreshes — the caller
-    // often knows the device the holder could not name yet.
-    if (params.vendor && !this.activeVendor) {
-      this.activeVendor = params.vendor;
-    }
-    // A call beginning inside the hold is the device at work: news for
-    // the container's idle clock, folded into the identity write so a
-    // split-runtime target pays one bridge hop, not two.
-    await this.mergeDeviceIdentity(params, { activity: true });
-    return true;
   }
 
   /**
@@ -785,6 +837,12 @@ export class DeviceStageBurstScope {
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // Firmware rejected the package; later cleanup must not turn this into
+    // a transport failure or a firmware-upgrade suggestion.
+    const isInvalidPortfolioPackage =
+      isHardwareErrorByCode({ error, code: HardwareErrorCode.RuntimeError }) &&
+      getDeviceErrorPayloadMessage(error?.payload ?? {}) ===
+        'Failure_DataError,Invalid portfolio package';
     // DeviceNotFound splits by whether this burst ever heard from the
     // device (see resolveDeviceNotFoundLanding). The at-initiation half
     // lands the Device-not-connected card and is done — synchronously,
@@ -809,6 +867,7 @@ export class DeviceStageBurstScope {
     if (
       reason === 'generic' &&
       !wasVendorBurst &&
+      !isInvalidPortfolioPackage &&
       // These failures identify the cause even when the transport tracker
       // has already cleared the connection (for example USB blocking BLE).
       !isHardwareErrorByCode({
@@ -870,6 +929,7 @@ export class DeviceStageBurstScope {
     }
     if (
       reason === 'generic' &&
+      !isInvalidPortfolioPackage &&
       isHardwareErrorByCode({
         error,
         code: [
@@ -1445,8 +1505,14 @@ export class DeviceStageBurstScope {
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
-   * instead of the legacy close-then-reopen. */
-  async noteInputSubmitted() {
+   * instead of the legacy close-then-reopen — or, for a passphrase typed
+   * on the app, as the confirm the device goes on to show without asking
+   * (see confirmsHostPassphraseOnScreen). */
+  async noteInputSubmitted({
+    hostPassphraseEntered = false,
+  }: {
+    hostPassphraseEntered?: boolean;
+  } = {}) {
     // Not gated on the firmware workflow: the card this answers was the
     // device's own ask, which plays there too (OK-62087) — and no authored
     // narrative can be standing behind an update.
@@ -1455,8 +1521,14 @@ export class DeviceStageBurstScope {
     if (!prev || prev.step === 'off') {
       return;
     }
+    const narrative = firmwareWorkflow ? undefined : this.authoredAuthStep;
+    const confirmsOnScreen =
+      hostPassphraseEntered &&
+      prev.step === 'passphraseOnApp' &&
+      !prev.vendor &&
+      confirmsHostPassphraseOnScreen(prev.payload);
     await this.setStep(
-      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      narrative ?? (confirmsOnScreen ? 'confirm' : 'processing'),
       {},
     );
   }
@@ -1534,6 +1606,7 @@ export class DeviceStageBurstScope {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
+    this.burstResetSeq += 1;
     this.depth = 0;
     this.yieldedToDialog = false;
     setDeviceStageBurstActive(false);

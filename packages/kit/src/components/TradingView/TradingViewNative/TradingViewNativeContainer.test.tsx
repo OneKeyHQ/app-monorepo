@@ -14,6 +14,7 @@ import {
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { TRADING_VIEW_NATIVE_KLINE_INTERVALS } from './data/tradingViewNativeIntervals';
 import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
@@ -24,6 +25,7 @@ import {
 } from './TradingViewNativeContainer';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
+import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type {
   ITradingViewNativeChartType,
   ITradingViewNativeDataState,
@@ -114,7 +116,10 @@ const mockUseTradingViewNativeKLine = jest.fn(
       handleViewportTargetChange: mockHandleViewportTargetChange,
       handleViewportRequestApplied: mockHandleViewportRequestApplied,
       handleVisiblePointRangeChange: jest.fn(),
-      intervalConfig: { activeInterval: mockActiveInterval, intervals: [] },
+      intervalConfig: {
+        activeInterval: mockActiveInterval,
+        intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+      },
       isSwitchingInterval: false,
       points: mockPoints,
       viewportRequest: mockViewportRequest,
@@ -1216,6 +1221,51 @@ describe('TradingViewNativeContainer', () => {
       screen.getByTestId('trading-view-native-fullscreen-toggle'),
     );
     expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('reuses the native runtime across fullscreen and resets it for another data provider', () => {
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const onFullscreenChange = jest.fn();
+    const chart = (isFullscreen: boolean) => (
+      <TradingViewNativeContainer
+        source={{ ...source }}
+        nativeControlsLayoutMode="mobile"
+        isNativeChartFullscreen={isFullscreen}
+        onNativeChartFullscreenChange={onFullscreenChange}
+      />
+    );
+    const getRuntimeRef = () =>
+      (
+        mockTradingViewNativeChart.mock.calls.at(
+          -1,
+        )?.[0] as ITradingViewNativeChartProps
+      ).runtimeRef;
+    const { rerender } = render(chart(false));
+    const inlineRuntimeRef = getRuntimeRef();
+    expect(inlineRuntimeRef).toBeDefined();
+
+    rerender(chart(true));
+    expect(getRuntimeRef()).toBe(inlineRuntimeRef);
+    expect(
+      screen.queryByTestId('trading-view-native-fullscreen-toggle'),
+    ).toBeNull();
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isFullscreen: true, onFullscreenChange }),
+    );
+
+    rerender(chart(false));
+    expect(getRuntimeRef()).toBe(inlineRuntimeRef);
+    mockDataProviderKey = 'market:evm--1:0xdef:OTHER';
+    rerender(chart(false));
+    expect(getRuntimeRef()).not.toBe(inlineRuntimeRef);
   });
 
   it('renders chart settings inside the opted-in mobile native chart', () => {

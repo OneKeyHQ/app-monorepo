@@ -96,6 +96,11 @@ export const TRADING_VIEW_NATIVE_KLINE_INTERVALS: ITradingViewNativeKLineInterva
     },
   ];
 
+export const TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS =
+  TRADING_VIEW_NATIVE_KLINE_INTERVALS.filter(
+    (interval) => interval.value !== '1W' && interval.value !== '1M',
+  );
+
 export function getTradingViewNativeKLineInterval(
   interval: string,
 ): ITradingViewNativeKLineInterval | undefined {
@@ -143,16 +148,18 @@ export function buildTradingViewNativeGoToDateTimeRange({
 export function getTradingViewNativeKLineIntervalForTimeRange({
   chartWidth,
   currentInterval,
+  intervals = TRADING_VIEW_NATIVE_KLINE_INTERVALS,
   from,
   to,
 }: {
   chartWidth?: number;
   currentInterval: string;
+  intervals?: ITradingViewNativeKLineInterval[];
   from: number;
   to: number;
 }) {
   const currentIntervalConfig =
-    getTradingViewNativeKLineInterval(currentInterval) ??
+    intervals.find((interval) => interval.value === currentInterval) ??
     TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
   const rangeSeconds = to - from;
   if (!Number.isFinite(rangeSeconds) || rangeSeconds <= 0) {
@@ -178,10 +185,14 @@ export function getTradingViewNativeKLineIntervalForTimeRange({
   const adaptiveIntervalConfig =
     getTradingViewNativeKLineInterval(adaptiveInterval) ??
     currentIntervalConfig;
+  const minimumSeconds = Math.max(
+    currentIntervalConfig.seconds,
+    adaptiveIntervalConfig.seconds,
+  );
+  const coarsestInterval = intervals.at(-1) ?? currentIntervalConfig;
   const minimumIntervalConfig =
-    currentIntervalConfig.seconds < adaptiveIntervalConfig.seconds
-      ? adaptiveIntervalConfig
-      : currentIntervalConfig;
+    intervals.find((interval) => interval.seconds >= minimumSeconds) ??
+    coarsestInterval;
   if (
     chartWidth === undefined ||
     !Number.isFinite(chartWidth) ||
@@ -201,18 +212,15 @@ export function getTradingViewNativeKLineIntervalForTimeRange({
     visibleCandleCount,
     TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT,
   );
-  const minimumIntervalIndex = TRADING_VIEW_NATIVE_KLINE_INTERVALS.findIndex(
+  const minimumIntervalIndex = intervals.findIndex(
     (interval) => interval.value === minimumIntervalConfig.value,
   );
   return (
-    TRADING_VIEW_NATIVE_KLINE_INTERVALS.slice(
-      Math.max(minimumIntervalIndex, 0),
-    ).find(
-      (interval) =>
-        Math.ceil(rangeSeconds / interval.seconds) + 1 <= candleBudget,
-    ) ??
-    TRADING_VIEW_NATIVE_KLINE_INTERVALS[
-      TRADING_VIEW_NATIVE_KLINE_INTERVALS.length - 1
-    ]
+    intervals
+      .slice(Math.max(minimumIntervalIndex, 0))
+      .find(
+        (interval) =>
+          Math.ceil(rangeSeconds / interval.seconds) + 1 <= candleBudget,
+      ) ?? coarsestInterval
   );
 }

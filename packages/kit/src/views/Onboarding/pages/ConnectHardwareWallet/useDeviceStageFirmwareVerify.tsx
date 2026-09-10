@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -24,6 +23,11 @@ import type {
   IDeviceStageAuthChecklistItem,
   IDeviceStageAuthFailureReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
+
+import {
+  authFailureAllowsContinue,
+  classifyAuthFailureError,
+} from './authFailureClassifier';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -289,24 +293,9 @@ export function useDeviceStageFirmwareVerify() {
               });
               return 'aborted';
             }
-            let reason: IDeviceStageAuthFailureReasonValue = 'unknown';
-            if (
-              err?.className === EOneKeyErrorClassNames.OneKeyServerApiError
-            ) {
-              reason = 'unavailable';
-            } else if (
-              err?.code === HardwareErrorCode.NetworkError ||
-              err?.code === HardwareErrorCode.BridgeNetworkError ||
-              (err?.code as unknown) === 'ERR_NETWORK'
-            ) {
-              reason = 'network';
-            } else if (err?.code === HardwareErrorCode.DefectiveFirmware) {
-              reason = 'defective';
-            } else if (
-              err?.code === HardwareErrorCode.NotAllowInBootloaderMode
-            ) {
-              reason = 'unofficialDevice';
-            }
+            // Sorted by whose fault the check did not stand — see
+            // classifyAuthFailureError for the rule and its exits.
+            const reason = classifyAuthFailureError(err);
             // v6.5.0 dialog parity: the fallback card speaks the error's
             // own words — server messages may be translation ids, resolved
             // here where intl lives — and every card carries the code as a
@@ -345,9 +334,11 @@ export function useDeviceStageFirmwareVerify() {
           }
         };
 
-        // Retry runs the whole check again. Support opens the help channel
-        // and leaves the card standing. Developer overrides always continue
-        // unverified; outside developer mode only unofficial verdicts allow it.
+        // The card's exits, by whose fault the check did not stand: Retry
+        // always re-runs; Continue anyway is honoured only where the device
+        // cannot be what stopped the check (network / unavailable, behind
+        // the NOTE beat), for the unofficial verdicts' hidden override, or
+        // in developer mode — and it always returns unverified.
         for (;;) {
           const outcome = await runOnce();
           if (outcome === 'verified') {
@@ -359,6 +350,9 @@ export function useDeviceStageFirmwareVerify() {
           const allowsDevSkip =
             failureReason === 'unofficialDevice' ||
             failureReason === 'unofficialFirmware';
+          // The one production bypass: our side failed, the device did its
+          // part (network / unavailable) — behind the card's NOTE beat.
+          const allowsContinue = authFailureAllowsContinue(failureReason);
           const action = await new Promise<
             'retry' | 'closed' | 'continueAnyway'
           >((resolve) => {
@@ -378,7 +372,7 @@ export function useDeviceStageFirmwareVerify() {
                 next !== 'retry' &&
                 !(
                   next === 'continueAnyway' &&
-                  (allowsDevSkip || devSkipAllowedRef.current)
+                  (allowsContinue || allowsDevSkip || devSkipAllowedRef.current)
                 )
               ) {
                 return;

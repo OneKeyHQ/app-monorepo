@@ -170,6 +170,18 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       symbol: 'ABNBon',
       isNative: false,
       stock: item.payload.stock,
+      tokenDetailPreview: expect.objectContaining({
+        address: '0xabnb',
+        networkId: 'evm--56',
+        name: 'Airbnb (Ondo Tokenized)',
+        symbol: 'ABNBon',
+        isNative: false,
+        decimals: 18,
+        price: 183.37,
+        turnover: 625_182_693.52,
+        stock: item.payload.stock,
+        selectedAt: expect.any(Number),
+      }),
     });
   });
 
@@ -210,6 +222,18 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       symbol: 'ABNBx',
       isNative: false,
       stock: undefined,
+      tokenDetailPreview: expect.objectContaining({
+        address: '0xc156',
+        networkId: 'evm--196',
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+        isNative: false,
+        decimals: 18,
+        price: 182.3,
+        turnover: 0,
+        stock: undefined,
+        selectedAt: expect.any(Number),
+      }),
     });
   });
 });
