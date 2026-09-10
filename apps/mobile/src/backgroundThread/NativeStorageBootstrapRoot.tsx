@@ -19,7 +19,11 @@ import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBri
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
-import { bootstrapNativeStorage } from './bootstrapNativeStorage';
+import {
+  bootstrapNativeStorage,
+  hydrateColdStartSnapshotAfterRuntimeLaunch,
+  waitForColdStartCriticalImagesBeforeMount,
+} from './bootstrapNativeStorage';
 import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
 
@@ -115,8 +119,18 @@ function startBootstrap(force = false) {
     if (generation !== bootstrapGeneration) {
       return false;
     }
+    // Sync storage reads are masked until the runtime launch is acknowledged,
+    // so the cold-start snapshot can only be read from here on.
+    hydrateColdStartSnapshotAfterRuntimeLaunch();
     stage = 'jotai';
     await initializeJotaiFromBackground();
+    if (generation !== bootstrapGeneration) {
+      return false;
+    }
+    // The home header/banner images were started by the snapshot hydration
+    // above; give them a bounded chance to land in the memory cache before
+    // the first React frame lays them out (OK-61505).
+    await waitForColdStartCriticalImagesBeforeMount();
     return generation === bootstrapGeneration;
   })();
   const nextPromise = withNativeBootstrapTimeout(bootstrapWork)
