@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/types/endpoint';
 
 type IAppClipAttributionRecord = IAppClipInstallAttributionParams & {
+  reportCompleted?: boolean;
   schemaVersion: number;
 };
 
@@ -92,6 +93,9 @@ function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (typeof record.selectedIsNative === 'boolean') {
     result.selectedIsNative = record.selectedIsNative;
   }
+  if (typeof record.reportCompleted === 'boolean') {
+    result.reportCompleted = record.reportCompleted;
+  }
   const shortLinkPath = record.shortLinkPath;
   if (typeof shortLinkPath === 'string' && shortLinkPath.length <= 256) {
     result.shortLinkPath = shortLinkPath;
@@ -144,6 +148,10 @@ async function reportPendingInstallAttribution(): Promise<void> {
   if (!pending?.clickId) {
     return;
   }
+  if (pending.reportCompleted) {
+    await nativeModule.clearPending();
+    return;
+  }
   await analytics.whenInitialized();
   const client = await appApiClient.getClient({
     endpoint: await getEndpointByServiceName(EServiceEndpointEnum.Utility),
@@ -163,6 +171,10 @@ async function reportPendingInstallAttribution(): Promise<void> {
   const attribution = mergeClaimWithPending(claim, pending);
   await nativeModule.savePending(attribution);
   await defaultLogger.app.install.reportAppClipInstallAttribution(attribution);
+  await nativeModule.savePending({
+    ...attribution,
+    reportCompleted: true,
+  });
   await nativeModule.clearPending();
 }
 

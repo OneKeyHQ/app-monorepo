@@ -15,6 +15,7 @@ struct AppClipAttributionRecord: Codable {
   var firstOpenedAt: String?
   var experience: String
   var route: String
+  var reportCompleted: Bool?
   var selectedAddress: String?
   var selectedIsNative: Bool?
   var selectedNetwork: String?
@@ -56,6 +57,9 @@ struct AppClipAttributionRecord: Codable {
     }
     if let selectedIsNative {
       result["selectedIsNative"] = selectedIsNative
+    }
+    if let reportCompleted {
+      result["reportCompleted"] = reportCompleted
     }
     if let shortLinkVersion {
       result["shortLinkVersion"] = shortLinkVersion
@@ -114,6 +118,7 @@ enum AppClipAttributionStore {
     record.firstOpenedAt = snapshot["firstOpenedAt"] as? String
     record.experience = (snapshot["experience"] as? String) ?? record.experience
     record.route = (snapshot["route"] as? String) ?? record.route
+    record.reportCompleted = snapshot["reportCompleted"] as? Bool
     record.selectedAddress = snapshot["selectedAddress"] as? String
     record.selectedIsNative = snapshot["selectedIsNative"] as? Bool
     record.selectedNetwork = snapshot["selectedNetwork"] as? String
@@ -125,11 +130,15 @@ enum AppClipAttributionStore {
     return save(record)
   }
 
-  static func clear() {
+  static func clear() throws {
     guard let pendingRecordURL else {
+      throw AppClipAttributionStoreError.appGroupContainerUnavailable
+    }
+    do {
+      try FileManager.default.removeItem(at: pendingRecordURL)
+    } catch let error as CocoaError where error.code == .fileNoSuchFile {
       return
     }
-    try? FileManager.default.removeItem(at: pendingRecordURL)
   }
 
   private static var pendingRecordURL: URL? {
@@ -140,4 +149,12 @@ enum AppClipAttributionStore {
 
   private static let encoder = JSONEncoder()
   private static let decoder = JSONDecoder()
+}
+
+private enum AppClipAttributionStoreError: LocalizedError {
+  case appGroupContainerUnavailable
+
+  var errorDescription: String? {
+    "App Group container is unavailable."
+  }
 }

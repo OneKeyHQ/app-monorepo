@@ -309,6 +309,37 @@ describe('reportInstallAttribution', () => {
     expect(mockClearPending).toHaveBeenCalledTimes(1);
   });
 
+  it('does not report again when cleanup retries after analytics succeeds', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        data: {
+          found: true,
+        },
+      },
+    });
+    mockClearPending.mockRejectedValueOnce(new Error('cleanup failed'));
+
+    await expect(reportInstallAttribution()).rejects.toThrow('cleanup failed');
+
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+    expect(mockSavePending).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        clickId: pendingRecord.clickId,
+        reportCompleted: true,
+      }),
+    );
+
+    mockReadPending.mockResolvedValueOnce({
+      ...pendingRecord,
+      reportCompleted: true,
+    });
+    await reportInstallAttribution();
+
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+    expect(mockClearPending).toHaveBeenCalledTimes(2);
+  });
+
   it('continues reporting when the first-claim snapshot cannot persist', async () => {
     mockPost.mockResolvedValue({
       data: {

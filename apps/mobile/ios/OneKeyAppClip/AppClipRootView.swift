@@ -380,6 +380,14 @@ private struct RemoteImage: View {
   @State private var currentIndex = 0
 
   var body: some View {
+    content
+      .onChange(of: urls) { _ in
+        currentIndex = 0
+      }
+  }
+
+  @ViewBuilder
+  private var content: some View {
     if urls.indices.contains(currentIndex) {
       AsyncImage(url: urls[currentIndex]) { phase in
         switch phase {

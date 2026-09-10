@@ -30,7 +30,15 @@ final class AppClipAttributionModule: NSObject {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    AppClipAttributionStore.clear()
-    resolve(nil)
+    do {
+      try AppClipAttributionStore.clear()
+      resolve(nil)
+    } catch {
+      reject(
+        "APP_CLIP_ATTRIBUTION_CLEAR_FAILED",
+        error.localizedDescription,
+        error
+      )
+    }
   }
 }
