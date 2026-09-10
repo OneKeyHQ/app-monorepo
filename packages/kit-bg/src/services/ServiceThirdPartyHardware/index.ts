@@ -1,48 +1,83 @@
+import { isHardwareInteractionId } from '@onekeyfe/hwk-adapter-core';
+
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getAllNetworkAddressMethod } from '@onekeyhq/shared/src/hardware/config/allNetworkAddress';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  type IOneKeyDeviceFeatures,
+  type IThirdPartyHardwareSearchTarget,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
   EThirdPartyHardwareUiAction,
+  publishThirdPartyHardwareUiState,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
+import {
+  thirdPartyCommonCallParamsForCreateScene,
+  thirdPartyConnectionContextFromDevice,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
   buildTrezorBleFallbackOptions,
   callTrezorWithBleFallback,
 } from '../../vaults/base/trezorTransportUtils';
+import { buildAddAccountsNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
+import { normalizeAllNetworkInstallCancelErrors } from '../ServiceBatchCreateAccount/thirdPartyAllNetworkErrors';
+import {
+  type IThirdPartyAllNetworkAddressParams,
+  normalizeThirdPartyAllNetworkBundle,
+} from '../ServiceBatchCreateAccount/thirdPartyAllNetworkParams';
 import {
   type IThirdPartyVendor,
   thirdPartyHardwareAdapterRegistry,
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
-import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
+import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
+import {
+  mapThirdPartyDeviceToSearchDevice,
+  normalizeThirdPartySearchDevicesForTransport,
+} from '../ServiceHardware/thirdPartyDeviceMapping';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBDevice } from '../../dbs/local/types';
+import type {
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type {
+  IHwAllNetworkPrepareAccountsItem,
+  IHwSdkNetwork,
+} from '../../vaults/types';
 import type {
   IAdapterUiResponse,
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
+  IThirdPartyHardwareConnectionStateEvent,
 } from '../ServiceHardware/adapters/types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { AllNetworkAddressParams, SearchDevice } from '@onekeyfe/hd-core';
+import type { ICommonCallParams } from '@onekeyfe/hwk-adapter-core';
 
 type IThirdPartySearchDevicesResponse =
   | {
@@ -59,6 +94,45 @@ type IThirdPartySearchDevicesResponse =
         };
       };
     };
+
+type IThirdPartyDeviceSearchTargetsResponse =
+  | {
+      success: true;
+      payload: IThirdPartyHardwareSearchTarget[];
+    }
+  | {
+      success: false;
+      payload: { code: number; error: string };
+    };
+
+type IThirdPartyConnectDeviceParams = {
+  vendor: EHardwareVendor;
+  searchTargetId: string;
+};
+
+type IThirdPartyAllNetworkGetAddressHw = {
+  allNetworkGetAddress: (
+    connectId: string,
+    deviceId: string,
+    params: ICommonCallParams & {
+      bundle: IThirdPartyAllNetworkAddressParams[];
+    },
+  ) => Promise<
+    | { success: true; payload: IHwAllNetworkPrepareAccountsItem[] }
+    | {
+        success: false;
+        payload: {
+          error: string;
+          code: number;
+          params?: IHwAllNetworkPrepareAccountsItem['payload'] extends infer P
+            ? P extends { params?: infer Q }
+              ? Q
+              : never
+            : never;
+        };
+      }
+  >;
+};
 
 function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
   return new OneKeyLocalError({
@@ -94,9 +168,6 @@ function summarizeThirdPartySearchDevice(
     };
   };
   return {
-    connectId: device.connectId,
-    deviceId: device.deviceId,
-    uuid: device.uuid,
     name: device.name,
     model: device.model,
     connectionType: device.connectionType,
@@ -108,7 +179,7 @@ function summarizeThirdPartySearchDevice(
 }
 
 /**
- * ServiceThirdPartyHardware — owns the third-party (Trezor / Ledger) hardware
+ * ServiceThirdPartyHardware — owns the third-party (Trezor / Ledger / Keystone) hardware
  * adapter lifecycle and the third-party-only methods, extracted from
  * ServiceHardware to keep that service focused on OneKey-own hardware. OneKey's
  * own SDK paths, BLE transport binding (getCompatibleConnectId) and device
@@ -137,6 +208,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
   private thirdPartyAdapterInitPromises = new Map<
     IThirdPartyVendor,
     Promise<void>
+  >();
+
+  /** Background-runtime-only connection state; never persisted to the device table. */
+  private thirdPartyConnectionStateByInteraction = new Map<
+    string,
+    { vendor: IThirdPartyVendor; identityKeys: Set<string> }
+  >();
+
+  private thirdPartyConnectionStateDisposers = new Map<
+    IThirdPartyVendor,
+    () => void
   >();
 
   /** In-flight BLE binding dialog request; concurrent callers share it. */
@@ -168,6 +250,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       p = factory()
         .then((adapter) => {
           this.thirdPartyAdapters.set(vendor, adapter);
+          const dispose = adapter.onConnectionStateChange?.((event) => {
+            this.handleThirdPartyConnectionStateChange(vendor, event);
+          });
+          if (dispose) {
+            this.thirdPartyConnectionStateDisposers.set(vendor, dispose);
+          }
         })
         .catch((error) => {
           defaultLogger.hardware.sdkLog.log(
@@ -213,14 +301,82 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return this.thirdPartyAdapters.get(vendor);
   }
 
+  private handleThirdPartyConnectionStateChange(
+    vendor: IThirdPartyVendor,
+    event: IThirdPartyHardwareConnectionStateEvent,
+  ): void {
+    if (event.type === 'disconnected') {
+      if (
+        this.thirdPartyConnectionStateByInteraction.delete(event.interactionId)
+      ) {
+        appEventBus.emit(
+          EAppEventBusNames.HardwareConnectionStateUpdate,
+          undefined,
+        );
+      }
+      return;
+    }
+
+    const { device } = event;
+    if (device.connectionType === 'qr') return;
+    const identityKeys = new Set(
+      [device.deviceId, device.connectId].filter((value): value is string =>
+        Boolean(value),
+      ),
+    );
+    if (identityKeys.size === 0) return;
+    const previous = this.thirdPartyConnectionStateByInteraction.get(
+      device.interactionId,
+    );
+    const changed =
+      !previous ||
+      previous.vendor !== vendor ||
+      previous.identityKeys.size !== identityKeys.size ||
+      [...identityKeys].some((key) => !previous.identityKeys.has(key));
+    if (!changed) return;
+    this.thirdPartyConnectionStateByInteraction.set(device.interactionId, {
+      vendor,
+      identityKeys,
+    });
+    appEventBus.emit(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+  }
+
+  private clearThirdPartyConnectionState(vendor: IThirdPartyVendor): void {
+    let changed = false;
+    for (const [interactionId, state] of this
+      .thirdPartyConnectionStateByInteraction) {
+      if (state.vendor === vendor) {
+        this.thirdPartyConnectionStateByInteraction.delete(interactionId);
+        changed = true;
+      }
+    }
+    if (changed) {
+      appEventBus.emit(
+        EAppEventBusNames.HardwareConnectionStateUpdate,
+        undefined,
+      );
+    }
+  }
+
   /** Reset the adapter and evict it from the registry (use instead of adapter.reset() directly). */
-  resetThirdPartyAdapter(vendor: string): void {
+  async resetThirdPartyAdapter(vendor: string): Promise<void> {
     if (!this.isRegisteredThirdPartyVendor(vendor)) return;
     const adapter = this.thirdPartyAdapters.get(vendor);
-    if (!adapter) return;
+    if (!adapter) {
+      this.thirdPartyConnectionStateDisposers.get(vendor)?.();
+      this.thirdPartyConnectionStateDisposers.delete(vendor);
+      this.clearThirdPartyConnectionState(vendor);
+      return;
+    }
     try {
-      adapter.reset();
+      await adapter.reset();
     } finally {
+      this.thirdPartyConnectionStateDisposers.get(vendor)?.();
+      this.thirdPartyConnectionStateDisposers.delete(vendor);
+      this.clearThirdPartyConnectionState(vendor);
       this.thirdPartyAdapters.delete(vendor);
     }
   }
@@ -271,12 +427,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    // A picked candidate that ISN'T this device asks to pair (its static key
-    // doesn't match the shared credential). Suppress the THP pairing dialog and
-    // cancel silently during the probe — treat the pairing request as "not this
-    // one". Handled inside the adapter so it overrides its own pairing UI
-    // (a second listener can't stop the adapter's own handler from firing).
-    adapter.beginBindingProbe?.(bleConnectId);
+    // Pairing cannot identify the device: an expired credential makes the
+    // expected device ask too. Complete the handshake, then compare device_id.
+    let probeInteractionId: string | undefined;
 
     try {
       const result = await adapter.connectDevice(bleConnectId);
@@ -288,6 +441,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
           vendor: EHardwareVendor.trezor,
         });
       }
+      probeInteractionId = result.payload.interactionId;
       // No device_id is "could not verify", not "different device" — a
       // mismatch verdict would grey the user's own device out for good.
       if (!result.payload.deviceId) {
@@ -352,8 +506,11 @@ class ServiceThirdPartyHardware extends ServiceBase {
       );
       return bleConnectId;
     } finally {
-      adapter.endBindingProbe?.();
-      await adapter.disconnect(bleConnectId).catch(() => undefined);
+      if (probeInteractionId) {
+        await adapter
+          .releaseInteraction(probeInteractionId)
+          .catch(() => undefined);
+      }
     }
   }
 
@@ -409,7 +566,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         reject,
       });
 
-      void thirdPartyHardwareUiStateAtom.set({
+      void publishThirdPartyHardwareUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorBleBinding,
         vendor: EHardwareVendor.trezor,
         payload: {
@@ -467,6 +624,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const adapter = this.thirdPartyAdapters.get(vendor);
     this.thirdPartyAdapters.delete(vendor);
     this.thirdPartyAdapterInitPromises.delete(vendor);
+    this.thirdPartyConnectionStateDisposers.get(vendor)?.();
+    this.thirdPartyConnectionStateDisposers.delete(vendor);
+    this.clearThirdPartyConnectionState(vendor);
     try {
       await adapter?.hw?.dispose?.();
     } catch (error) {
@@ -663,13 +823,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
         }),
       });
     }
-    // Mirror the signing path: resolve the passphrase state with USB→BLE
-    // fallback so a BLE-only Trezor doesn't fail with DeviceNotFound. Without a
-    // dbDevice (older callers) keep the plain single-connectId call.
+    // The SDK resolves transport and verifies the physical identity before
+    // prompting for a wallet. Older explicit-target callers keep their target.
     const result = dbDevice
       ? await callTrezorWithBleFallback(
           dbDevice,
-          (cid) => getPassphraseState(cid, passphraseState),
+          (cid) =>
+            getPassphraseState(cid, passphraseState, {
+              ...thirdPartyConnectionContextFromDevice(dbDevice),
+              ...(isHardwareInteractionId(connectId)
+                ? { interactionId: connectId }
+                : {}),
+              expectedDeviceIdentity: {
+                vendor: 'trezor',
+                type: 'deviceId',
+                value: dbDevice.deviceId,
+              },
+            }),
           buildTrezorBleFallbackOptions(this.backgroundApi),
         )
       : await getPassphraseState(connectId, passphraseState);
@@ -714,7 +884,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     vendor: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
-    transportType?: 'usb' | 'ble';
+    transportType?: 'usb' | 'ble' | 'qr';
   }): Promise<IThirdPartySearchDevicesResponse> {
     const serviceStartedAt = Date.now();
     const vendorProfile = getVendorProfile(params.vendor);
@@ -738,22 +908,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
             }
           : undefined;
       const devices = await adapter.searchDevices(adapterSearchOptions);
-      const filteredDevices = params.transportType
-        ? devices.filter(
-            (device) => device.connectionType === params.transportType,
-          )
+      const requestedTransportType = params.transportType;
+      const filteredDevices = requestedTransportType
+        ? normalizeThirdPartySearchDevicesForTransport({
+            devices,
+            transportType: requestedTransportType,
+          })
         : devices;
-      if (filteredDevices.length !== devices.length) {
+      if (requestedTransportType && filteredDevices.length !== devices.length) {
         defaultLogger.hardware.sdkLog.log(
           `[3rdPartyHW] searchDevices.filtered ${stringifyThirdPartySearchDebugValue(
             {
               vendor: params.vendor,
-              transportType: params.transportType,
+              transportType: requestedTransportType,
               rawCount: devices.length,
               filteredCount: filteredDevices.length,
               dropped: devices
                 .filter(
-                  (device) => device.connectionType !== params.transportType,
+                  (device) =>
+                    normalizeThirdPartySearchDevicesForTransport({
+                      devices: [device],
+                      transportType: requestedTransportType,
+                    }).length === 0,
                 )
                 .map(summarizeThirdPartySearchDevice),
               kept: filteredDevices.map(summarizeThirdPartySearchDevice),
@@ -828,6 +1004,62 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async searchDeviceTargets(params: {
+    vendor: EHardwareVendor;
+    resetSession?: boolean;
+    waitForAllTransports?: boolean;
+    transportType?: 'usb' | 'ble' | 'qr';
+  }): Promise<IThirdPartyDeviceSearchTargetsResponse> {
+    try {
+      await this.ensureAdaptersInitialized(params.vendor);
+      const adapter = this.getThirdPartyAdapter(params.vendor);
+      if (!adapter) {
+        throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+      }
+      const targets = await adapter.searchDeviceTargets({
+        resetSession: params.resetSession,
+        waitForAllTransports: params.waitForAllTransports,
+        transportType: params.transportType,
+      });
+      const payload = params.transportType
+        ? targets.filter(
+            (target) => target.connectionType === params.transportType,
+          )
+        : targets;
+      return { success: true, payload };
+    } catch (error) {
+      const err = error as { code?: number | string; message?: string };
+      const rawCode =
+        typeof err.code === 'number' ? err.code : Number(err.code);
+      return {
+        success: false,
+        payload: {
+          code: Number.isFinite(rawCode) ? rawCode : -1,
+          error: err.message ?? String(error),
+        },
+      };
+    }
+  }
+
+  @backgroundMethod()
+  async clearThirdPartyHardwareUiStateIfCurrent({
+    expectedRequestId,
+  }: {
+    expectedRequestId: string;
+  }): Promise<boolean> {
+    let cleared = false;
+    // Evaluate against the authoritative bg state, not a delayed main-runtime copy.
+    // Publication ids also distinguish otherwise identical successive prompts.
+    await thirdPartyHardwareUiStateAtom.set((state) => {
+      if (!expectedRequestId || state?.uiRequestId !== expectedRequestId)
+        return state;
+      cleared = true;
+      return undefined;
+    });
+    return cleared;
+  }
+
+  @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
@@ -839,10 +1071,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async connectDevice(params: {
-    vendor: EHardwareVendor;
-    connectId: string;
-  }): Promise<
+  async connectDevice(params: IThirdPartyConnectDeviceParams): Promise<
     | {
         success: true;
         payload: IThirdPartyConnectedDevicePayload;
@@ -852,12 +1081,237 @@ class ServiceThirdPartyHardware extends ServiceBase {
         payload: unknown;
       }
   > {
+    const { searchTargetId } = params;
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
       throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
-    return adapter.connectDevice(params.connectId);
+    return adapter.connectDevice(searchTargetId);
+  }
+
+  /**
+   * Default-network bundle for Keystone onboarding, built before the wallet
+   * exists. BTC uses the account-level path, other chains the index-0 leaf
+   * path, matching the vendor keyrings.
+   */
+  private async buildThirdPartyDefaultNetworkBundle(): Promise<
+    IThirdPartyAllNetworkAddressParams[]
+  > {
+    const networks = await buildAddAccountsNetworks({
+      backgroundApi: this.backgroundApi,
+      includingNetworkWithGlobalDeriveType: true,
+      btc: true,
+      evm: true,
+      tron: true,
+      sol: true,
+    });
+    const bundle: AllNetworkAddressParams[] = [];
+    for (const { networkId, deriveType } of networks) {
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      if (!getAllNetworkAddressMethod(impl)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const deriveInfo =
+        await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+          networkId,
+          deriveType,
+        });
+      const fullPath = accountUtils.buildPathFromTemplate({
+        template: deriveInfo.template,
+        index: 0,
+      });
+      bundle.push({
+        network: impl as IHwSdkNetwork,
+        path:
+          impl === IMPL_BTC
+            ? accountUtils.removePathLastSegment({
+                path: fullPath,
+                removeCount: 2,
+              })
+            : fullPath,
+        showOnOneKey: false,
+      });
+    }
+    return normalizeThirdPartyAllNetworkBundle(bundle);
+  }
+
+  /**
+   * Keystone onboarding for QR and USB: one all-network call returns the
+   * wallet identity and the default accounts, and both wallet and accounts
+   * are created from that single response. USB passes the interaction
+   * opened by connectDevice; the returned identity must match it.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async createKeystoneWalletWithDefaultAccounts(params: {
+    usb?: {
+      interactionId: string;
+      device: Omit<SearchDevice, 'commType'>;
+    };
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+    isOverrideWallet: boolean | undefined;
+  }> {
+    const vendor = EHardwareVendor.keystone;
+    const adapter = await this.getAdapterForVendor(vendor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(vendor);
+    }
+    const vendorName = getVendorProfile(vendor).defaultDeviceName || vendor;
+    const hw = adapter.hw as unknown as IThirdPartyAllNetworkGetAddressHw;
+    const { usb } = params;
+
+    const bundle = await this.buildThirdPartyDefaultNetworkBundle();
+    const response = await hw.allNetworkGetAddress(
+      usb?.interactionId ?? '',
+      usb?.device.deviceId ?? '',
+      {
+        ...thirdPartyCommonCallParamsForCreateScene({
+          isAutoCreateMultiNetwork: true,
+        }),
+        ...(usb ? { interactionId: usb.interactionId } : {}),
+        bundle,
+      },
+    );
+    if (!response.success) {
+      throw convertThirdPartyDeviceError(response.payload, {
+        vendor: vendorName,
+      });
+    }
+    const items = normalizeAllNetworkInstallCancelErrors(response.payload);
+    const failedItem = items.find((item) => !item.success);
+    if (failedItem) {
+      throw convertThirdPartyDeviceError(
+        {
+          code: Number(failedItem.payload?.code),
+          error: failedItem.payload?.error ?? 'Keystone account export failed',
+          params: failedItem.payload?.params,
+        },
+        { vendor: vendorName },
+      );
+    }
+    const walletIds = new Set(
+      items.map((item) =>
+        item.payload?.deviceIdentity?.type === 'walletId'
+          ? item.payload.deviceIdentity.value
+          : undefined,
+      ),
+    );
+    const [walletId] = walletIds;
+    if (walletIds.size !== 1 || !walletId) {
+      throw new OneKeyLocalError({
+        message: 'Keystone did not return a single stable wallet identity',
+      });
+    }
+    if (usb && usb.device.deviceId !== walletId) {
+      throw new OneKeyLocalError({
+        message: 'Keystone wallet identity changed between connect and export',
+      });
+    }
+
+    let device: Omit<SearchDevice, 'commType'>;
+    if (usb) {
+      device = usb.device;
+    } else {
+      const infoResult = await adapter.hw.getDeviceInfo(walletId, '');
+      const info = infoResult.success ? infoResult.payload : undefined;
+      device = {
+        connectId: walletId,
+        deviceId: walletId,
+        name: info?.modelName || info?.model || 'Keystone',
+        deviceType: 'unknown',
+        uuid: '',
+        vendorModel: info?.model,
+        vendorModelName: info?.modelName,
+        raw: {
+          vendor,
+          connectId: walletId,
+          deviceId: walletId,
+          model: info?.model,
+          modelName: info?.modelName,
+          connectionType: 'qr',
+          firmwareVersion: info?.firmwareVersion,
+          capabilities: info?.capabilities,
+          vendorRaw: info?.raw,
+        },
+      } as Omit<SearchDevice, 'commType'>;
+    }
+    const hardwareOperationContext = usb
+      ? { interactionId: usb.interactionId }
+      : undefined;
+    const created = await this.backgroundApi.serviceAccount.createHWWallet({
+      device,
+      features: {
+        device_id: walletId,
+        vendor,
+      } as unknown as IOneKeyDeviceFeatures,
+      vendor,
+      isFirmwareVerified: true,
+      defaultIsTemp: true,
+      hideCheckingDeviceLoading: true,
+      skipDeviceCancel: true,
+      hardwareOperationContext,
+    });
+
+    const prepared = new HardwareAllNetworkGetAddressResponse();
+    prepared.bundleLength = bundle.length;
+    prepared.onSdkResponse({ items, completed: true });
+    const index = created.indexedAccount
+      ? accountUtils.parseIndexedAccountId({
+          indexedAccountId: created.indexedAccount.id,
+        }).index
+      : 0;
+    try {
+      await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+        {
+          walletId: created.wallet.id,
+          fromIndex: index,
+          toIndex: index,
+          excludedIndexes: {},
+          saveToDb: true,
+          customNetworks: [],
+          isCreateWallet: true,
+          isAutoCreateMultiNetwork: true,
+          autoHandleExitError: true,
+          skipDeviceCancel: true,
+          hideCheckingDeviceLoading: true,
+          hardwareOperationContext,
+          hwAllNetworkPrepareAccountsResponse: prepared,
+        },
+      );
+    } finally {
+      prepared.destroy();
+    }
+    return {
+      wallet: created.wallet,
+      indexedAccount: created.indexedAccount,
+      isOverrideWallet: created.isOverrideWallet,
+    };
+  }
+
+  @backgroundMethod()
+  async releaseInteraction(params: {
+    vendor: EHardwareVendor;
+    interactionId: string;
+  }): Promise<void> {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) return;
+    await adapter.releaseInteraction(params.interactionId);
+  }
+
+  @backgroundMethod()
+  async getConnectedHardwareDeviceIdentityKeys(): Promise<string[]> {
+    return [
+      ...new Set(
+        [...this.thirdPartyConnectionStateByInteraction.values()].flatMap(
+          ({ identityKeys }) => [...identityKeys],
+        ),
+      ),
+    ];
   }
 
   @backgroundMethod()
@@ -867,8 +1321,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
-    if (!adapter) return;
-    adapter.cancel(params.connectId);
+    adapter?.cancel(params.connectId);
   }
 
   // ---------------------------------------------------------------------------
