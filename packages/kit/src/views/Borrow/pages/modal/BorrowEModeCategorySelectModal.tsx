@@ -139,7 +139,7 @@ export default function BorrowEModeCategorySelectModal() {
   const observedCurrentEModeId = eModeStatus?.eModeId ?? null;
   const handleSelect = useCallback(
     (eModeId: number) => {
-      onSelect?.(eModeId, observedCurrentEModeId);
+      onSelect(eModeId, observedCurrentEModeId);
       navigation.pop();
     },
     [navigation, observedCurrentEModeId, onSelect],

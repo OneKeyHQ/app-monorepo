@@ -32,7 +32,10 @@ describe('buildCategoryRowActivationProps', () => {
       expect(props.focusVisibleStyle).toMatchObject({ outlineOffset: -2 });
     });
 
-    it.each(['Enter', ' '])('activates on %s', (key) => {
+    it.each([
+      ['Enter', 'Enter'],
+      ['Space', ' '],
+    ])('activates on %s', (_label, key) => {
       const onActivate = jest.fn();
       const preventDefault = jest.fn();
       const props = buildCategoryRowActivationProps({
