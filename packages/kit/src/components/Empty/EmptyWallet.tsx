@@ -16,6 +16,7 @@ function EmptyWallet() {
         id: ETranslations.global_no_wallet_desc,
       })}
       buttonProps={{
+        testID: 'empty-wallet-create-button',
         children: intl.formatMessage({
           id: ETranslations.global_create_wallet,
         }),

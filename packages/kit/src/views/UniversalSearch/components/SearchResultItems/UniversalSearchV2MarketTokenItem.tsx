@@ -46,6 +46,7 @@ import type {
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 import {
@@ -310,6 +311,7 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
+            stockId={resolveMarketStockId({ stock, symbol, name })}
             chainId={network}
             contractAddress={address}
             from={EWatchlistFrom.Search}

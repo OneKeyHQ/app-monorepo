@@ -17,8 +17,8 @@ import Animated, {
   FadeOut,
   cancelAnimation,
   interpolate,
+  makeMutable,
   runOnJS,
-  useAnimatedKeyboard,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -36,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
@@ -735,8 +736,10 @@ export interface IMorphOverlayProps<T> {
   modal?: boolean;
   /**
    * The dark scrim over the blocked app (implies `modal`), fading with
-   * the shell's presence. The design's overlay layer — optional, and
-   * off for the hardware flows, which block without dimming.
+   * the shell's presence, and cross-fading when flipped while the shell
+   * is up. The design's overlay layer — off for the hardware asks and
+   * waits, which block without dimming; on for their terminal failure
+   * cards (OK-62072).
    */
   scrim?: boolean;
   /**
@@ -804,7 +807,15 @@ export function MorphOverlay<T>({
     onPillLayout,
   } = morph;
   const { width: screenWidth } = useWindowDimensions();
-  const keyboard = useAnimatedKeyboard();
+  // The keyboard ride reads the app's keyboard-controller feed — the one
+  // PageFooter and the keyboard-aware pages already ride — so the shell
+  // and the app's own inputs move on the same frames (OK-62107).
+  // Reanimated's useAnimatedKeyboard is deprecated upstream: iOS 26 hands
+  // it end values only, and its interactive-dismiss tracking could leave a
+  // stale height standing after the keyboard was gone, which rested the
+  // capsule a keyboard's worth above the edge with nothing on screen to
+  // clear. The feed's height is negative on native; web pins it at 0.
+  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const themeName = useThemeName();
   // The shell's edge definition — the native ring's hairline border, the
   // web outline — is the dark theme's neutral3 whatever the app's theme:
@@ -829,7 +840,7 @@ export function MorphOverlay<T>({
   // home-indicator zone already. The wide posture hangs from the top,
   // where no bottom inset applies.
   //
-  // The keyboard ADDS to it on purpose, no max: reanimated's Android
+  // The keyboard ADDS to it on purpose, no max: the feed's Android
   // keyboard height is the IME inset minus the system bar (it treats the
   // bar as opaque unless told otherwise), so inset + keyboard is exactly
   // the keyboard's top edge measured from the screen bottom; a max would
@@ -850,6 +861,16 @@ export function MorphOverlay<T>({
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
+  const dragEnabled = dismissible && pose === 'card';
+  // Each enabled period owns its grant. Reopening must never re-arm the
+  // shared value retained by a recognizer from before the stage hid.
+  const dragAllowed = useMemo(() => makeMutable(dragEnabled), [dragEnabled]);
+  useLayoutEffect(() => {
+    dragAllowed.value = dragEnabled;
+    return () => {
+      dragAllowed.value = false;
+    };
+  }, [dragAllowed, dragEnabled]);
   const blocking = modal || scrim;
   // The capsule's close button rides outside the measured row, so the
   // box simply widens by the button when the grant arrives — no
@@ -1002,16 +1023,20 @@ export function MorphOverlay<T>({
   const dismiss = useCallback(() => {
     onDismissRef.current?.();
   }, []);
+  const dismissFromDrag = useCallback(() => {
+    // The stage may have hidden and reopened while runOnJS was queued.
+    if (dragAllowed.value) dismiss();
+  }, [dismiss, dragAllowed]);
   // The drag rides presence — see DRAG_*. Armed only for a dismissible
   // card: the capsule has no drag (its close button is its one exit),
   // and an unarmed stage cannot be pulled at all.
-  const dragEnabled = dismissible && pose === 'card';
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .enabled(dragEnabled)
         .activeOffsetY([-DRAG_ACTIVATION_PT, DRAG_ACTIVATION_PT])
         .onUpdate((event) => {
+          if (!dragAllowed.value) return;
           // The dismissing direction is the anchored edge's own: down on
           // the bottom, up off the top. Normalized here, the rest of the
           // math never knows which way the shell hangs.
@@ -1023,6 +1048,7 @@ export function MorphOverlay<T>({
           presence.value = 1 - pull / travel;
         })
         .onEnd((event) => {
+          if (!dragAllowed.value) return;
           const drag = phonePosture ? event.translationY : -event.translationY;
           const dragVelocity = phonePosture
             ? event.velocityY
@@ -1034,20 +1060,21 @@ export function MorphOverlay<T>({
           const projected = drag + dragVelocity * DRAG_PROJECTION_S;
           if (projected > height.value * DRAG_DISMISS_FRACTION) {
             presence.value = withSpring(0, { ...MORPH_SPRING, velocity });
-            runOnJS(dismiss)();
+            runOnJS(dismissFromDrag)();
             return;
           }
           presence.value = withSpring(1, { ...MORPH_SPRING, velocity });
         })
         .onFinalize((_event, success) => {
           // A drag taken over by another recognizer ends nowhere: rest.
-          if (!success) {
+          if (!success && dragAllowed.value) {
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
     [
       bottomClearance,
-      dismiss,
+      dismissFromDrag,
+      dragAllowed,
       dragEnabled,
       height,
       lift,
@@ -1084,25 +1111,45 @@ export function MorphOverlay<T>({
       (1 - presence.value) *
       (height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT);
     return {
+      // The hard gate on the hidden rest (OK-62485): fully departed, the
+      // shell paints nothing at all. The slide itself stays opaque to the
+      // last frame, so no exit looks different — but the parked shell can
+      // no longer be caught on screen when the anchor and this transform
+      // land in different frames (a rotation flips the posture, and with
+      // it the anchor's edge and this door's direction).
+      opacity: presence.value > 0 ? 1 : 0,
       transform: [
         {
           translateY: phonePosture
             ? travel -
               lift.value -
               bottomClearance.value -
-              keyboard.height.value
+              Math.abs(keyboardHeight.value)
             : lift.value - travel,
         },
       ],
     };
-  }, [bottomClearance, height, keyboard, lift, phonePosture, presence]);
+  }, [bottomClearance, height, keyboardHeight, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
-  // the exit and the drag alike.
+  // the exit and the drag alike. Its level rides a clock of its own, so a
+  // flip while the shell is up (a wait turning into a failure card,
+  // OK-62072) fades the tint in on the swap-in beat instead of popping;
+  // at level 0 the tinted wall IS the bare transparent wall, so one style
+  // serves both grants.
+  const scrimLevel = useSharedValue(scrim ? 1 : 0);
+  useEffect(() => {
+    const target = scrim ? 1 : 0;
+    scrimLevel.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: SWAP_IN_MS });
+  }, [reducedMotion, scrim, scrimLevel]);
   const scrimFadeStyle = useAnimatedStyle(
     () => ({
-      opacity: interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP),
+      opacity:
+        interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP) *
+        scrimLevel.value,
     }),
-    [presence],
+    [presence, scrimLevel],
   );
   // The face clips, so it re-rounds in step with the shell — and the
   // native ring wears the same style to hug the same corner.
@@ -1163,22 +1210,20 @@ export function MorphOverlay<T>({
     [progress],
   );
 
-  // The wall over the app: painted and faded only as the scrim, a bare
-  // transparent wall otherwise.
+  // The wall over the app: the scrim's tint under its animated level —
+  // fully clear without the grant, so the bare blocking wall is this same
+  // view at level 0.
   const backdropStyle = useMemo(
-    () =>
-      scrim
-        ? [
-            styles.backdrop,
-            {
-              backgroundColor: `rgba(0,0,0,${
-                themeName === 'dark' ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
-              })`,
-            },
-            scrimFadeStyle,
-          ]
-        : styles.backdrop,
-    [scrim, scrimFadeStyle, themeName],
+    () => [
+      styles.backdrop,
+      {
+        backgroundColor: `rgba(0,0,0,${
+          themeName === 'dark' ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
+        })`,
+      },
+      scrimFadeStyle,
+    ],
+    [scrimFadeStyle, themeName],
   );
   const shellStyle = useMemo(
     () =>
