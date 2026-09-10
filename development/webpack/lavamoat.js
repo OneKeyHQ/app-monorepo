@@ -7,6 +7,9 @@ const path = require('path');
 const { LavaMoatError } = require('../lavamoat/error.cjs');
 
 const { getLavaMoatStaticShimPath } = require('./build-lavamoat-shims');
+const {
+  createTronWebProtobufRule,
+} = require('./lavamoat-tronweb-protobuf-loader.cjs');
 const { getLavaMoatWasmPaths } = require('./lavamoat-wasm-loader.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -171,6 +174,7 @@ function createLavaMoatWebpackRules() {
   const wasmPaths = getLavaMoatWasmPaths();
 
   return [
+    createTronWebProtobufRule(),
     {
       // These dependencies load the emitted URL at runtime. An explicit raw
       // loader admits only their reviewed binaries; keep hashed asset/resource

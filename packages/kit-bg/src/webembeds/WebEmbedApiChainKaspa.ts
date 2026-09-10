@@ -2,6 +2,16 @@ import kaspaWebSdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk/kaspaWebSd
 import type { IKaspaSdkApi } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types/sdk';
 
 class WebEmbedApiChainKaspa implements IKaspaSdkApi {
+  /**
+   * Warm the lazy Kaspa WebAssembly module before the page advertises that
+   * the Web Embed API is ready. Native WebViews may recycle their host while
+   * a large dynamic chunk is still loading; keeping readiness behind this
+   * promise prevents the first background call from losing that load.
+   */
+  async preload(): Promise<void> {
+    await kaspaWebSdk.getKaspaApi();
+  }
+
   async createKRC20RevealTxJSON(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore

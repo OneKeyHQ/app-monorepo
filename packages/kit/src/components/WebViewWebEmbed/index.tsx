@@ -421,11 +421,14 @@ export function WebViewWebEmbed({
   const debugViewSize = useMemo(() => {
     if (config?.debug) {
       if (minimized) {
-        return { width: '$8', height: '$6', borderWidth: 4 };
+        return { width: '$8', height: '$6', borderWidth: 4, opacity: 1 };
       }
-      return { width: '90%', height: '$60', borderWidth: 4 };
+      return { width: '90%', height: '$60', borderWidth: 4, opacity: 1 };
     }
-    return { width: 0, height: 0, borderWidth: 0 };
+    // Fabric recycles a zero-sized host view during startup layout passes.
+    // Keep a tiny transparent surface so the WebView's JS runtime survives
+    // those passes while remaining invisible in production.
+    return { width: 1, height: 1, borderWidth: 0, opacity: 0 };
   }, [config?.debug, minimized]);
 
   if (!isSingleton) {
@@ -436,7 +439,11 @@ export function WebViewWebEmbed({
     <View
       width={debugViewSize.width}
       height={debugViewSize.height}
+      minWidth={1}
+      minHeight={1}
       borderWidth={debugViewSize.borderWidth}
+      opacity={debugViewSize.opacity}
+      collapsable={false}
       overflow="hidden"
       top={top}
       left="5%"
