@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Alinhe os números no dispositivo",
   "device_stage_pin_set_to_app__desc": "Vale a partir da próxima vez. Desta vez, digite no dispositivo.",
   "device_stage_pin_set_to_app__title": "Entrada do PIN definida para o app",
+  "device_stage_pin_too_short__msg": "Pelo menos 4 dígitos.",
   "device_stage_prefer_pin_in_app__action": "Prefere digitar o PIN no app?",
   "device_stage_processing__title": "Processando…",
   "device_stage_reconnect__action": "Reconectar",

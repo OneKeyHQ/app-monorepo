@@ -10,8 +10,8 @@ import {
   Toast,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -21,54 +21,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { downloadAsFile } from '../../../utils/downloadAsFile';
 import { OnboardingTestIDs } from '../testIDs';
 
-export function KeylessWalletBackupInfo({
+function KeylessWalletBackupDetails({
   backupRecordId,
 }: {
   backupRecordId?: string;
 }) {
   const intl = useIntl();
-  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
-  const isCloudBackupSupportedPlatform =
-    platformEnv.isNativeIOS ||
-    platformEnv.isNativeAndroid ||
-    platformEnv.isDesktopMac;
-
-  const handleShowDetails = useCallback(() => {
-    const provider = platformEnv.isNativeAndroid ? 'Google Drive' : 'iCloud';
-
-    Dialog.show({
-      testID: OnboardingTestIDs.iCloudBackupKeylessWalletDialog,
-      showHeader: false,
-      showFooter: false,
-      renderContent: (
-        <YStack alignItems="center" px="$3" pt="$8" pb="$8">
-          <Icon name="CloudOutline" size="$16" color="$iconSubdued" />
-          <SizableText
-            maxWidth="$80"
-            mt="$8"
-            size="$headingXl"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.backup_keyless_no_cloud_title,
-            })}
-          </SizableText>
-          <SizableText
-            maxWidth="$80"
-            mt="$4"
-            size="$bodyLg"
-            color="$textSubdued"
-            textAlign="center"
-          >
-            {intl.formatMessage(
-              { id: ETranslations.backup_keyless_no_cloud_google_desc },
-              { provider },
-            )}
-          </SizableText>
-        </YStack>
-      ),
-    });
-  }, [intl]);
+  const provider = platformEnv.isNativeAndroid ? 'Google Drive' : 'iCloud';
+  const dialog = useDialogInstance();
 
   const handleDownload = useCallback(async () => {
     if (!backupRecordId) {
@@ -93,8 +53,12 @@ export function KeylessWalletBackupInfo({
     if (isDownloading) return;
     setIsDownloading(true);
     try {
+      await dialog.close();
       await handleDownload();
-      Toast.success({ title: 'Backup data downloaded' });
+      // Native sharing resolves on dismissal, including cancellation.
+      if (!platformEnv.isNative) {
+        Toast.success({ title: 'Backup data downloaded' });
+      }
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       Toast.error({
@@ -103,16 +67,80 @@ export function KeylessWalletBackupInfo({
     } finally {
       setIsDownloading(false);
     }
-  }, [handleDownload, isDownloading]);
+  }, [dialog, handleDownload, isDownloading]);
 
-  if (!isCloudBackupSupportedPlatform || !isKeylessWalletExistsLocal) {
+  return (
+    <YStack alignItems="center" px="$3" pt="$8" pb="$8">
+      <Icon name="CloudOutline" size="$16" color="$iconSubdued" />
+      <MultipleClickStack
+        devSettingsOnly
+        mt="$8"
+        alignItems="center"
+        testID={OnboardingTestIDs.iCloudBackupKeylessWalletDialogTitle}
+        debugComponent={
+          backupRecordId ? (
+            <Button
+              mt="$4"
+              testID={OnboardingTestIDs.iCloudBackupDevDownloadDataBtn}
+              loading={isDownloading}
+              onPress={handleDownloadPress}
+            >
+              Download Backup Data
+            </Button>
+          ) : null
+        }
+      >
+        <SizableText maxWidth="$80" size="$headingXl" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.backup_keyless_no_cloud_title,
+          })}
+        </SizableText>
+      </MultipleClickStack>
+      <SizableText
+        maxWidth="$80"
+        mt="$4"
+        size="$bodyLg"
+        color="$textSubdued"
+        textAlign="center"
+      >
+        {intl.formatMessage(
+          { id: ETranslations.backup_keyless_no_cloud_google_desc },
+          { provider },
+        )}
+      </SizableText>
+    </YStack>
+  );
+}
+
+export function KeylessWalletBackupInfo({
+  backupRecordId,
+}: {
+  backupRecordId?: string;
+}) {
+  const intl = useIntl();
+  const isCloudBackupSupportedPlatform =
+    platformEnv.isNativeIOS ||
+    platformEnv.isNativeAndroid ||
+    platformEnv.isDesktopMac;
+
+  const handleShowDetails = useCallback(() => {
+    Dialog.show({
+      testID: OnboardingTestIDs.iCloudBackupKeylessWalletDialog,
+      showHeader: false,
+      showFooter: false,
+      renderContent: (
+        <KeylessWalletBackupDetails backupRecordId={backupRecordId} />
+      ),
+    });
+  }, [backupRecordId]);
+
+  if (!isCloudBackupSupportedPlatform) {
     return null;
   }
 
   return (
-    <MultipleClickStack
-      devSettingsOnly
-      onSinglePress={handleShowDetails}
+    <YStack
+      onPress={handleShowDetails}
       testID={OnboardingTestIDs.iCloudBackupKeylessWalletHint}
       accessibilityRole="button"
       bg="$bgSubdued"
@@ -122,17 +150,6 @@ export function KeylessWalletBackupInfo({
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      debugComponent={
-        platformEnv.isDev && backupRecordId ? (
-          <Button
-            testID={OnboardingTestIDs.iCloudBackupDevDownloadDataBtn}
-            loading={isDownloading}
-            onPress={handleDownloadPress}
-          >
-            Download Backup Data
-          </Button>
-        ) : null
-      }
     >
       <XStack userSelect="none" gap="$3" alignItems="flex-start">
         <Icon name="LockOutline" size="$5" color="$iconSubdued" mt="$0.5" />
@@ -148,6 +165,6 @@ export function KeylessWalletBackupInfo({
           mt="$0.5"
         />
       </XStack>
-    </MultipleClickStack>
+    </YStack>
   );
 }

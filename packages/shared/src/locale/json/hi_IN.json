@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "डिवाइस पर अंकों की स्थिति के अनुसार दर्ज करें",
   "device_stage_pin_set_to_app__desc": "अगली बार से लागू होगा। इस बार उपकरण पर दर्ज करें।",
   "device_stage_pin_set_to_app__title": "पिन इनपुट ऐप पर सेट किया गया",
+  "device_stage_pin_too_short__msg": "कम से कम 4 अंक।",
   "device_stage_prefer_pin_in_app__action": "ऐप में पिन दर्ज करना चाहते हैं?",
   "device_stage_processing__title": "प्रोसेस हो रहा है…",
   "device_stage_reconnect__action": "फिर से कनेक्ट करें",
