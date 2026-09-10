@@ -3,6 +3,7 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+const mockAssetDetail = jest.fn();
 let mockListingCache: Record<string, INotificationWatchlistToken> = {};
 const mockNotificationSettings = {
   getMarketListingTokens: jest.fn(async () => mockListingCache),
@@ -37,6 +38,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     const service = new ServiceMarketV2({
       backgroundApi: {
         simpleDb: { notificationSettings: mockNotificationSettings },
+        serviceMarket: { fetchMarketAssetDetail: mockAssetDetail },
       },
     });
     service.getClient = jest.fn(async () => ({ get: mockGet })) as never;
@@ -197,6 +199,102 @@ describe('ServiceMarketV2 public stock APIs', () => {
       service.buildWatchlistTokensForNotification(),
     ).resolves.toEqual([mockListingCache['stock:AAPL']]);
   });
+
+  it.each(['asset', 'stock'] as const)(
+    'preserves a cached %s subscription when resolution succeeds but batch metadata is missing',
+    async (kind) => {
+      const cachedToken: INotificationWatchlistToken = {
+        networkId: 'evm--1',
+        tokenAddress: '0xcached',
+        isNative: false,
+        symbol: 'AAPL',
+        logoURI: 'cached-logo',
+      };
+      const cacheKey = `${kind}:AAPL`;
+      mockListingCache = { [cacheKey]: cachedToken };
+      const service = createService();
+      jest.spyOn(service, 'getMarketWatchListV2').mockResolvedValue({
+        data: [
+          { chainId: 'evm--1', contractAddress: '0xhealthy' },
+          {
+            ...(kind === 'asset' ? { assetId: 'AAPL' } : { stockId: 'AAPL' }),
+            chainId: '',
+            contractAddress: '',
+          },
+        ],
+      });
+      mockAssetDetail.mockResolvedValue({
+        selectedVariant: {
+          networkId: 'evm--1',
+          tokenAddress: '0xnew',
+          isNative: false,
+        },
+      });
+      jest.spyOn(service, 'fetchMarketStockTokenVariants').mockResolvedValue({
+        stockId: 'AAPL',
+        defaultTokenId: 'new',
+        items: [
+          {
+            tokenId: 'new',
+            issuer: 'new',
+            networkId: 'evm--1',
+            contractAddress: '0xnew',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      });
+      const batch = jest
+        .spyOn(service, 'fetchMarketTokenListBatch')
+        .mockResolvedValue({
+          list: [
+            {
+              symbol: 'OK',
+              name: 'Healthy',
+              address: '0xhealthy',
+              decimals: 18,
+            },
+          ],
+        });
+      expect(await service.buildWatchlistTokensForNotification()).toEqual([
+        {
+          networkId: 'evm--1',
+          tokenAddress: '0xhealthy',
+          isNative: false,
+          symbol: 'OK',
+          logoURI: '',
+        },
+        cachedToken,
+      ]);
+      expect(mockListingCache[cacheKey]).toEqual(cachedToken);
+      batch.mockResolvedValue({
+        list: [
+          { symbol: 'OK', name: 'Healthy', address: '0xhealthy', decimals: 18 },
+          {
+            symbol: 'NEW',
+            name: 'New variant',
+            address: '0xnew',
+            decimals: 18,
+            logoUrl: 'new-logo',
+          },
+        ],
+      });
+      expect(
+        await service.buildWatchlistTokensForNotification(),
+      ).toContainEqual({
+        networkId: 'evm--1',
+        tokenAddress: '0xnew',
+        isNative: false,
+        symbol: 'NEW',
+        logoURI: 'new-logo',
+      });
+      expect(mockListingCache[cacheKey]).toMatchObject({
+        tokenAddress: '0xnew',
+        symbol: 'NEW',
+      });
+    },
+  );
 
   it('loads the aggregated stock list without token identity fields', async () => {
     const service = createService();

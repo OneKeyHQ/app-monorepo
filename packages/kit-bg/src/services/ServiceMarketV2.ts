@@ -879,6 +879,7 @@ class ServiceMarketV2 extends ServiceBase {
                 contractAddress: selectedVariant.tokenAddress,
                 isNative: selectedVariant.isNative,
                 cacheKey,
+                cachedToken,
               };
             }
             const { items, defaultTokenId } =
@@ -892,6 +893,7 @@ class ServiceMarketV2 extends ServiceBase {
                 contractAddress: variant.contractAddress,
                 isNative: false,
                 cacheKey,
+                cachedToken,
               };
             }
           } catch {
@@ -937,13 +939,16 @@ class ServiceMarketV2 extends ServiceBase {
     const tokens: INotificationWatchlistToken[] = spotItems.map(
       (item, index) => {
         const detail = tokenDetails.list[index];
+        // Keep the complete last known subscription until fresh metadata is available.
+        // A newly selected variant must not inherit another token's metadata.
+        if (!detail?.symbol && item.cachedToken) return item.cachedToken;
 
         return {
           networkId: item.chainId,
           tokenAddress: item.contractAddress,
           isNative: item.isNative ?? false,
-          symbol: detail?.symbol || item.cachedToken?.symbol || '',
-          logoURI: detail?.logoUrl || item.cachedToken?.logoURI || '',
+          symbol: detail?.symbol || '',
+          logoURI: detail?.logoUrl || '',
         };
       },
     );

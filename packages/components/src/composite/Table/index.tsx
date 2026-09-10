@@ -515,7 +515,7 @@ function BasicTable<T>({
       );
       // A tab-integrated list spans its entire data set rather than the
       // viewport, so FlatList alone cannot avoid mounting offscreen cells.
-      return platformEnv.isWeb &&
+      return platformEnv.isRuntimeBrowser &&
         deferOffscreenRows &&
         !showSkeleton &&
         index >= 10 ? (
