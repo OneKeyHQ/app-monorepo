@@ -2223,14 +2223,8 @@ async function waitForNativeAppStartup({
         elapsed += 1000
       ) {
         await wait(1000);
-        runForOutputCommand('xcrun', [
-          'simctl',
-          'spawn',
-          deviceId,
-          '/bin/kill',
-          '-0',
-          String(launch.processId),
-        ]);
+        // Simulator app PIDs belong to the host; newer runtimes omit /bin/kill.
+        runForOutputCommand('/bin/kill', ['-0', String(launch.processId)]);
       }
     }
   } catch (error) {

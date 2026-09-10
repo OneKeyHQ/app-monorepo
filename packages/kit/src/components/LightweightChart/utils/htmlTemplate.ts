@@ -499,8 +499,18 @@ function getChartInitScript(): string {
           nextConfig.secondaryLineData.length > 0;
         if (!hasSecondaryData) {
           if (window.secondarySeries) {
-            chart.removeSeries(window.secondarySeries);
-            window.secondarySeries = null;
+            window.secondarySeries.setData([]);
+            window.secondarySeries.applyOptions({ visible: false });
+            // Taking a series' points away (emptying it, and removing it
+            // alike) can leave the time scale with no visible range once the
+            // line has been shown before: the whole chart goes blank, axes
+            // included, and fitContent / autoscale do not bring it back
+            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
+            // primary data is the one call that rebuilds the range — it is
+            // what a date-range switch does, which is why that "repaired" it.
+            if (window.series) {
+              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+            }
           }
           return;
         }
@@ -510,7 +520,9 @@ function getChartInitScript(): string {
             getSecondarySeriesOptions(nextConfig)
           );
         } else {
-          window.secondarySeries.applyOptions(getSecondarySeriesOptions(nextConfig));
+          window.secondarySeries.applyOptions(
+            Object.assign({ visible: true }, getSecondarySeriesOptions(nextConfig))
+          );
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
