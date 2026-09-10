@@ -107,17 +107,21 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
 
 jest.mock('../../Staking/components/ProtocolDetails/EarnText', () => ({
   __esModule: true,
+  // Faithful to the real one: it spreads the caller's props first and the
+  // server's IEarnText second, so anything the server stamped wins. A mock
+  // that only read the caller's props would pass whether or not the component
+  // strips them.
   EarnText: ({
     text,
     size,
     color,
   }: {
-    text?: { text: string };
+    text?: { text: string; size?: string; color?: string };
     size?: string;
     color?: string;
   }) =>
     text ? (
-      <span data-size={size} data-color={color}>
+      <span data-size={text.size ?? size} data-color={text.color ?? color}>
         {text.text}
       </span>
     ) : null,
@@ -235,16 +239,25 @@ describe('BorrowPositionCard amount hierarchy', () => {
     expect(unit.getAttribute('data-color')).toBe('$textSubdued');
   });
 
-  it('lets the server override the amount treatment', () => {
+  // The server stamps its own size and color on both fields and EarnText
+  // spreads the remote props last, so without stripping them the card renders
+  // the server's hierarchy — amount large, fiat value small and disabled-grey —
+  // which is the inverse of this one, and puts the title under its subtitle in
+  // weight.
+  it('ignores the typography the server stamps on the amounts', () => {
     const { container } = renderCard({
-      tokenAmount: { text: '20', size: '$bodySm', color: '$textCaution' },
+      tokenAmount: { text: '20', size: '$bodyMdMedium', color: '$textText' },
+      fiatValue: { text: '$20', size: '$bodySm', color: '$textDisabled' },
     });
-    const amount = Array.from(container.querySelectorAll('[data-size]')).find(
-      (n) => n.textContent === '20',
-    );
+    const at = (content: string) =>
+      Array.from(container.querySelectorAll('[data-size]')).find(
+        (n) => n.textContent === content,
+      );
 
-    expect(amount?.getAttribute('data-size')).toBe('$bodySm');
-    expect(amount?.getAttribute('data-color')).toBe('$textCaution');
+    expect(at('$20')?.getAttribute('data-size')).toBe('$bodyLgMedium');
+    expect(at('$20')?.getAttribute('data-color')).toBe('$text');
+    expect(at('20')?.getAttribute('data-size')).toBe('$bodyMd');
+    expect(at('20')?.getAttribute('data-color')).toBe('$textSubdued');
   });
 });
 
