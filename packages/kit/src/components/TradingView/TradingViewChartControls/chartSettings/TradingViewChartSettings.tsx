@@ -164,6 +164,14 @@ function formatTestID(value: string) {
     .replace(/[^a-z0-9]+/g, '-');
 }
 
+// Settings rows keep a label and its controls on one line while both fit.
+// Otherwise the row wraps and the controls start the next line, left-aligned
+// under the label text, rather than squeezing the label: react-native-web gives
+// flex children `min-width: 0`, so a squeezed label breaks into one glyph per
+// line. Checkbox rows indent that line past the 20px box and the label's 8px
+// leading padding so it lines up with the first letter of the label.
+const SETTINGS_ROW_CHECKBOX_LABEL_INDENT = 28;
+
 function SettingsGroup({
   title,
   children,
@@ -212,7 +220,9 @@ function SettingsRow({
       mx="$2.5"
       px="$2.5"
       py="$1.5"
-      gap="$3"
+      columnGap="$3"
+      rowGap="$1.5"
+      flexWrap="wrap"
       alignItems="center"
       justifyContent="space-between"
       borderRadius="$3"
@@ -222,7 +232,7 @@ function SettingsRow({
       pressStyle={interactive ? { bg: '$bgActive' } : undefined}
       onPress={onPress}
     >
-      <SizableText size="$bodyMdMedium" flex={1}>
+      <SizableText size="$bodyMdMedium" flexShrink={1}>
         {label}
       </SizableText>
       {children}
@@ -251,7 +261,9 @@ function SettingsCheckboxRow({
       mx="$2.5"
       px="$2.5"
       py="$1.5"
-      gap="$3"
+      columnGap="$3"
+      rowGap="$1.5"
+      flexWrap="wrap"
       alignItems="center"
       justifyContent="space-between"
     >
@@ -264,10 +276,21 @@ function SettingsCheckboxRow({
         disabled={disabled}
         labelProps={{ variant: '$bodyMdMedium' }}
         containerProps={{ alignItems: 'center' }}
-        labelContainerProps={{ py: '$0', my: '$0', justifyContent: 'center' }}
+        // Drop the default web `flex: 1` so the label is sized by its text and
+        // the row can tell when the controls no longer fit beside it.
+        labelContainerProps={{
+          py: '$0',
+          my: '$0',
+          justifyContent: 'center',
+          flex: undefined,
+        }}
         onChange={(checked) => onChange(Boolean(checked))}
       />
-      {children}
+      {children ? (
+        <XStack ml={SETTINGS_ROW_CHECKBOX_LABEL_INDENT} flexShrink={1}>
+          {children}
+        </XStack>
+      ) : null}
     </XStack>
   );
 }
@@ -374,6 +397,8 @@ function SettingsColorPair({
       <XStack
         gap="$4"
         alignItems="center"
+        flexWrap="wrap"
+        flexShrink={1}
         opacity={item.enabled ? 1 : 0.5}
         pointerEvents={item.enabled && !disabled ? 'auto' : 'none'}
       >
@@ -998,8 +1023,8 @@ export function TradingViewChartSettings({
               <XStack
                 gap="$3"
                 alignItems="center"
-                justifyContent="flex-end"
                 flexWrap="wrap"
+                flexShrink={1}
                 opacity={settingsValue.options.latestPrice ? 1 : 0.5}
               >
                 <SettingsSelect
@@ -1254,6 +1279,8 @@ export function TradingViewChartSettings({
             <XStack
               gap="$3"
               alignItems="center"
+              flexWrap="wrap"
+              flexShrink={1}
               opacity={settingsValue.options.crossLine ? 1 : 0.5}
             >
               <SettingsSelect
