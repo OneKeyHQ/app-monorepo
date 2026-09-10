@@ -295,9 +295,14 @@ describe('MarketDesktopChartContainer', () => {
     ).toBe('504');
   });
 
-  it.each([false, true])(
-    'releases an adopted failed repair (origin unmounted: %s)',
-    async (unmounted) => {
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ])(
+    'releases an adopted failed repair (origin unmounted: %s, previously accepted: %s)',
+    async (unmounted, accepted) => {
       mockDelayWrites = true;
       const chart = (id: string) => (
         <MarketDesktopChartContainer testID={id} isFullscreen={false}>
@@ -319,7 +324,11 @@ describe('MarketDesktopChartContainer', () => {
       await act(async () => {});
       if (unmounted) second.unmount();
       await act(async () => {
-        mockWriteResults[1].reject();
+        if (accepted) {
+          mockWriteResults[1].resolve();
+        } else {
+          mockWriteResults[1].reject();
+        }
       });
       await act(async () => {
         mockSavedLayout = mockPendingWrites[0];
@@ -481,14 +490,15 @@ describe('MarketDesktopChartContainer', () => {
       jest.useFakeTimers();
       try {
         mockDelayWrites = true;
-        render(
+        const chart = () => (
           <MarketDesktopChartContainer
             testID="market-chart"
             isFullscreen={false}
           >
             <div>chart</div>
-          </MarketDesktopChartContainer>,
+          </MarketDesktopChartContainer>
         );
+        const { rerender } = render(chart());
         const handle = screen.getByTestId('market-chart-resize-handle');
         fireEvent.keyDown(handle, { key: 'ArrowDown' });
         await act(async () => {});
@@ -512,6 +522,14 @@ describe('MarketDesktopChartContainer', () => {
         });
         expect(mockPendingWrites).toHaveLength(2);
         expect(handle.getAttribute('aria-valuenow')).toBe('480');
+        if (retryFails) {
+          mockSavedLayout = {
+            chartHeight: 600,
+            chartHeightUpdateId: 'external-save',
+          };
+          rerender(chart());
+          expect(handle.getAttribute('aria-valuenow')).toBe('600');
+        }
       } finally {
         jest.useRealTimers();
       }

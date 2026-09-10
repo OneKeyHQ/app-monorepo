@@ -32,7 +32,9 @@ interface IChartHeightSave {
 // Shared by chart instances in this UI runtime, including after navigation.
 let latestChartHeightSave: IChartHeightSave | undefined;
 const repairListeners = new Set<(request: IChartHeightSave) => void>();
-const releaseListeners = new Set<(id: string) => void>();
+const releaseListeners = new Set<
+  (id: string, acceptedHeight?: number) => void
+>();
 
 async function persistChartHeight(request: IChartHeightSave): Promise<void> {
   let current = request;
@@ -96,9 +98,19 @@ export function MarketDesktopChartContainer({
   const saveQueueRef = useRef(Promise.resolve());
   const isMountedRef = useRef(true);
   const savedHeight = layoutState.chartHeight;
+  const layoutStateRef = useRef(layoutState);
+  layoutStateRef.current = layoutState;
+  const pendingMirrorRef = useRef(layoutState);
+  const [releasedSave, setReleasedSave] = useState<{
+    height: number;
+    mirror: typeof layoutState;
+  }>();
   const chartHeight = clampChartHeight(
     dragHeight ??
       pendingSave?.height ??
+      (releasedSave?.mirror === layoutState
+        ? releasedSave.height
+        : undefined) ??
       (typeof savedHeight === 'number' && Number.isFinite(savedHeight)
         ? savedHeight
         : MARKET_DESKTOP_CHART_MIN_HEIGHT),
@@ -155,15 +167,29 @@ export function MarketDesktopChartContainer({
   useEffect(() => {
     isMountedRef.current = true;
     const onRepair = (request: IChartHeightSave) => {
+      pendingMirrorRef.current = layoutStateRef.current;
       pendingSaveRef.current = request;
       setPendingSave(request);
       startAcknowledgementWatchdog(request);
     };
+    const onRelease = (id: string, acceptedHeight?: number) => {
+      if (pendingSaveRef.current?.id !== id) {
+        return;
+      }
+      // Preserve a previously accepted height only while this exact mirror is
+      // stale. Any subsequent atom update takes precedence over the fallback.
+      setReleasedSave(
+        acceptedHeight === undefined
+          ? undefined
+          : { height: acceptedHeight, mirror: pendingMirrorRef.current },
+      );
+      clearPendingSave(id);
+    };
     repairListeners.add(onRepair);
-    releaseListeners.add(clearPendingSave);
+    releaseListeners.add(onRelease);
     return () => {
       repairListeners.delete(onRepair);
-      releaseListeners.delete(clearPendingSave);
+      releaseListeners.delete(onRelease);
       isMountedRef.current = false;
       clearTimeout(acknowledgementTimerRef.current);
     };
@@ -204,14 +230,19 @@ export function MarketDesktopChartContainer({
             );
             request.accepted = true;
           } catch (error) {
-            if (!request.accepted) {
-              releaseListeners.forEach((listener) => listener(request.id));
-            }
+            releaseListeners.forEach((listener) =>
+              listener(
+                request.id,
+                request.accepted ? request.height : undefined,
+              ),
+            );
             throw error;
           }
         },
       };
       latestChartHeightSave = request;
+      setReleasedSave(undefined);
+      pendingMirrorRef.current = layoutStateRef.current;
       pendingSaveRef.current = request;
       clearTimeout(acknowledgementTimerRef.current);
       setPendingSave(request);
