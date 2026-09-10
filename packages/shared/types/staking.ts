@@ -582,6 +582,13 @@ export interface IEarnToken {
   logoURI: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
@@ -1779,6 +1786,13 @@ export enum EBorrowActionsEnum {
 export type IStakeProtocolListItem = {
   // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
   symbol?: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
@@ -1879,6 +1893,12 @@ export interface IEarnAccountToken {
   networkId: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   aprWithoutFee: string;
   profit: string;
@@ -1926,6 +1946,12 @@ export type IAvailableAsset = IEarnAvailableAsset & {
 export type IRecommendAsset = {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   protocols: Array<{
     networkId: string;

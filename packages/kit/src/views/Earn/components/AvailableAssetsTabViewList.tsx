@@ -30,6 +30,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -143,7 +144,7 @@ export function AvailableAssetsTabViewList({
     const query = searchText.toLowerCase();
     return source.filter(
       (a) =>
-        a.symbol.toLowerCase().includes(query) ||
+        earnUtils.matchesSymbolKeyword(a, query) ||
         a.name.toLowerCase().includes(query),
     );
   }, [
@@ -272,7 +273,9 @@ export function AvailableAssetsTabViewList({
               tokenImageUri={asset.logoURI}
               borderRadius="$full"
             />
-            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+              {earnUtils.getDisplaySymbol(asset)}
+            </SizableText>
             <XStack gap="$1">
               {asset.badges?.map((badge) => (
                 <Badge
@@ -373,7 +376,13 @@ export function AvailableAssetsTabViewList({
             flex={1}
             primary={
               <XStack gap="$2" ai="center">
-                <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {earnUtils.getDisplaySymbol(asset)}
+                </SizableText>
                 <XStack gap="$1">
                   {asset.badges?.map((badge) => (
                     <Badge
