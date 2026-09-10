@@ -1179,6 +1179,16 @@ async function updateUnsignedTxAndSendTx({
     signOnly: false as const,
     tronResourceRentalInfo,
     useDefaultRpc,
+    // The direct pipeline never passes through the confirm page's fee
+    // footer, so hand the resolved fee to the device stage card here.
+    stageFeeInfo: {
+      feeInfo,
+      total,
+      totalNative,
+      totalFiat,
+      totalNativeForDisplay,
+      totalFiatForDisplay,
+    },
   };
   const signedTx = await sendDirectSwapWithGasAccountAnalytics({
     context: gasAccountAnalyticsContext,

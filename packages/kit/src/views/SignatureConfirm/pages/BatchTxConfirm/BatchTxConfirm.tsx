@@ -53,7 +53,10 @@ import {
   shouldHideDAppSiteRiskStyle,
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
-import { SecurityCheckCard } from '../../components/SecurityCheckCard';
+import {
+  SecurityCheckCard,
+  buildSecurityCheckModel,
+} from '../../components/SecurityCheckCard';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import { BatchSigningProgress, SummaryRow, TransactionRow } from './components';
@@ -111,6 +114,17 @@ function BatchTxConfirm() {
     showContinueOperate,
     continueOperate,
   });
+  const securityCheckModel = useMemo(
+    () =>
+      buildSecurityCheckModel({
+        kind: 'transaction',
+        origin: sourceInfo?.origin,
+        urlSecurityInfo,
+        isTransactionSecurityApplicable: false,
+        intl,
+      }),
+    [intl, sourceInfo?.origin, urlSecurityInfo],
+  );
   // Execution-time recheck for every signing exit: portal Dialogs (the
   // Sign-all confirmation) capture their onConfirm closure at open time and
   // outlive this page's re-renders, so the disabled state of the buttons
@@ -847,12 +861,7 @@ function BatchTxConfirm() {
               origin's risk finding (critical for High, warning for Medium) —
               the same split TxConfirm uses. */}
           {sourceInfo?.origin ? (
-            <SecurityCheckCard
-              kind="transaction"
-              requestKey={batchId}
-              origin={sourceInfo.origin}
-              urlSecurityInfo={urlSecurityInfo}
-            />
+            <SecurityCheckCard model={securityCheckModel} />
           ) : null}
 
           <YStack bg="$bgSubdued" borderRadius="$3" overflow="hidden">

@@ -295,10 +295,7 @@ function DeriveContextHashModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               loading: isLoading,
-              disabled:
-                payloadLoading ||
-                !payload ||
-                (showContinueOperate ? !continueOperate : false),
+              disabled: payloadLoading || !payload || !continueOperate,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

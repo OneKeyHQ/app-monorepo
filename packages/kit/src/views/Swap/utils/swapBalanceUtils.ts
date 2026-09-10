@@ -64,7 +64,7 @@ export function getSwapSafeInputBalanceAmount({
   return toFiniteNonNegativeBigNumber(fallbackBalance);
 }
 
-async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
+export async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
   if (!token.isNative || token.contractAddress) {
     return token.contractAddress ?? '';
   }

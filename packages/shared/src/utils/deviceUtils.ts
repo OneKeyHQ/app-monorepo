@@ -142,6 +142,41 @@ function getDeviceSerialNoFromFeatures(
   );
 }
 
+function isSamePhysicalDevice(
+  device: Partial<IDBDevice> | undefined,
+  other: Partial<IDBDevice> | undefined,
+): boolean {
+  if (!device || !other) {
+    return false;
+  }
+  if (device.id && device.id === other.id) {
+    return true;
+  }
+  const serialNo =
+    device.uuid ||
+    device.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(device.featuresInfo);
+  const otherSerialNo =
+    other.uuid ||
+    other.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(other.featuresInfo);
+  // A reset changes the wallet identity and may also clear transport aliases.
+  if (serialNo && otherSerialNo) {
+    return serialNo === otherSerialNo;
+  }
+  if (device.deviceId && device.deviceId === other.deviceId) {
+    return true;
+  }
+  const connectIds = new Set(
+    [device.connectId, device.usbConnectId, device.bleConnectId]
+      .filter(Boolean)
+      .map((value) => value?.toLowerCase()),
+  );
+  return [other.connectId, other.usbConnectId, other.bleConnectId].some(
+    (value) => Boolean(value && connectIds.has(value.toLowerCase())),
+  );
+}
+
 function getDeviceBleNameFromFeatures(
   features: IOneKeyDeviceFeatures | undefined,
 ) {
@@ -475,6 +510,25 @@ function buildDeviceBleName({
     return undefined;
   }
   return getDeviceBleNameFromFeatures(features);
+}
+
+/**
+ * The name the DeviceStage wears on its badge and capsule second line: the
+ * device's Bluetooth name in the same canonical form every other surface
+ * shows it (the onboarding scan list, the device list, About) — where
+ * `IDBDevice.name` is a display name the user-settable label wins (see
+ * getDeviceDisplayName). Devices that advertise no Bluetooth name —
+ * third-party vendors above all — keep the display name they already
+ * showed.
+ */
+function buildDeviceStageName({
+  features,
+  fallbackName,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+  fallbackName?: string;
+}): string | undefined {
+  return buildDeviceBleName({ features }) || fallbackName || undefined;
 }
 
 async function getFirmwareType({
@@ -1033,6 +1087,7 @@ function supportSettings({
 }
 
 export default {
+  isSamePhysicalDevice,
   getDeviceDisplayName,
   getDeviceVersionsFromState,
   dbDeviceToSearchDevice,
@@ -1053,6 +1108,7 @@ export default {
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,
+  buildDeviceStageName,
   getDefaultDeviceLabel,
   getDeviceVerifyVersionsFromFeatures,
   getDeviceVerifyVersionsFromRawOnekeyFeatures,

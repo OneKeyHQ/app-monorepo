@@ -1,3 +1,4 @@
+/* cspell:words podspec podspecs */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -15,7 +16,9 @@ const {
   getIosDevShellInfoPlistEntries,
   getNativeBuildEnvironment,
   injectIosDevShellInfoPlist,
+  packageIosSimulatorApp,
   parseArgs,
+  refreshStaleIosPodspecs,
 } = require('../build-mobile-dev-shell');
 
 describe('build-mobile-dev-shell', () => {
@@ -24,6 +27,125 @@ describe('build-mobile-dev-shell', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     spawnSync.mockReturnValue({ status: 0, stdout: '' });
+  });
+
+  it.each([false, true])(
+    'packages only the final signed simulator app (verification fails: %s)',
+    (verificationFails) => {
+      const directory = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'onekey-signed-package-test-'),
+      );
+      const appDirectory = path.join(directory, 'OneKeyWallet.app');
+      const artifactPath = path.join(directory, 'shell.zip');
+      fs.mkdirSync(appDirectory);
+      fs.writeFileSync(
+        path.join(appDirectory, 'Info.plist'),
+        '<?xml version="1.0"?><plist/>',
+      );
+      let plistFinalized = false;
+      spawnSync.mockImplementation((command, args) => {
+        if (command === '/usr/bin/plutil' && args[0] === '-lint')
+          plistFinalized = true;
+        if (command === 'lipo') return { status: 0, stdout: 'arm64' };
+        if (command === 'xcrun') {
+          return {
+            status: 0,
+            stdout: 'sectname __entitlements\n  segname __TEXT\n',
+          };
+        }
+        if (command === 'codesign') {
+          expect(plistFinalized).toBe(true);
+          expect(args).not.toContain('--entitlements');
+          if (args.includes('--verify') && verificationFails)
+            return { status: 1 };
+        }
+        return { status: 0 };
+      });
+      try {
+        const pack = () =>
+          packageIosSimulatorApp({
+            appDirectory,
+            artifactPath,
+            nativeContractKey: 'a'.repeat(64),
+          });
+        if (verificationFails) {
+          expect(pack).toThrow('Command failed: codesign');
+          expect(
+            spawnSync.mock.calls.some(([command]) => command === 'ditto'),
+          ).toBe(false);
+        } else {
+          pack();
+          expect(spawnSync.mock.calls.at(-1)).toEqual([
+            'ditto',
+            [
+              '-c',
+              '-k',
+              '--sequesterRsrc',
+              '--keepParent',
+              appDirectory,
+              artifactPath,
+            ],
+            expect.any(Object),
+          ]);
+          expect(spawnSync).toHaveBeenCalledWith(
+            'codesign',
+            ['--verify', '--deep', '--strict', appDirectory],
+            expect.any(Object),
+          );
+        }
+      } finally {
+        fs.rmSync(directory, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('refreshes obsolete external podspec caches without changing dependency locks', () => {
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-podspec-test-'),
+    );
+    const specs = path.join(directory, 'Pods/Local Podspecs');
+    fs.mkdirSync(specs, { recursive: true });
+    const lock = `EXTERNAL SOURCES:
+  hermes-engine:
+    :podspec: ../../../node_modules/hermes-engine.podspec
+  ReactNativeDependencies:
+    :podspec: ../../../node_modules/ReactNativeDependencies.podspec
+  LocalModule:
+    :path: ../../../node_modules/local-module
+SPEC CHECKSUMS:
+  hermes-engine: current-hermes
+  ReactNativeDependencies: current-dependencies
+  LocalModule: current-local
+`;
+    fs.writeFileSync(path.join(directory, 'Podfile.lock'), lock);
+    fs.writeFileSync(
+      path.join(directory, 'Pods/Manifest.lock'),
+      lock.replace('current-hermes', 'old-hermes'),
+    );
+    for (const name of [
+      'hermes-engine',
+      'ReactNativeDependencies',
+      'LocalModule',
+    ]) {
+      fs.writeFileSync(path.join(specs, `${name}.podspec.json`), '{}');
+    }
+    try {
+      refreshStaleIosPodspecs(directory);
+      expect(
+        fs.existsSync(path.join(specs, 'hermes-engine.podspec.json')),
+      ).toBe(false);
+      expect(
+        fs.existsSync(path.join(specs, 'ReactNativeDependencies.podspec.json')),
+      ).toBe(true);
+      expect(fs.existsSync(path.join(specs, 'LocalModule.podspec.json'))).toBe(
+        true,
+      );
+      expect(
+        fs.readFileSync(path.join(directory, 'Podfile.lock'), 'utf8'),
+      ).toBe(lock);
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it('parses one platform build without combining native targets', () => {
@@ -132,6 +254,8 @@ describe('build-mobile-dev-shell', () => {
       expect(serviceExtensionInfo).toContain('<key>NSExtension</key>');
       expect(getIosBuildSettings()).toEqual([
         'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG ONEKEY_DEV_SHELL',
+        'CODE_SIGNING_ALLOWED=YES',
+        'CODE_SIGN_IDENTITY=-',
       ]);
       expect(getIosDevShellInfoPlistEntries('a'.repeat(64))).toEqual([
         ['ONEKEY_DEV_BG_HMR', 'bool', 'false'],
@@ -170,7 +294,7 @@ describe('build-mobile-dev-shell', () => {
     }
   });
 
-  it('serializes x-only platform publishing with exact and compatible locators', () => {
+  it('serializes x-only publishing with branch dispatch builds', () => {
     for (const [platform, workflow] of [
       ['android', 'mobile-dev-shell-android.yml'],
       ['ios-simulator', 'mobile-dev-shell-ios-simulator.yml'],
@@ -182,7 +306,22 @@ describe('build-mobile-dev-shell', () => {
       expect(source).toContain(
         `group: mobile-dev-shell-${platform}-${'$'}{{ github.ref }}`,
       );
+      expect(source).toContain('push:\n    branches:\n      - x\n    paths:');
+      expect(source).toContain("- 'apps/mobile/package.json'");
+      expect(source).toContain("- 'apps/mobile/dev-vendor.config.js'");
+      expect(source).toContain("- 'patches/**'");
+      expect(source).toContain("- 'yarn.lock'");
+      expect(source).not.toContain('workflow_run:');
+      expect(source).toContain(
+        platform === 'android'
+          ? "- 'apps/mobile/android/**'"
+          : "- 'apps/mobile/ios/**'",
+      );
       expect(source).toContain("github.ref != 'refs/heads/x'");
+      expect(source).toContain("github.event_name != 'workflow_dispatch'");
+      expect(source).toContain(
+        `- name: Publish ${platform === 'android' ? 'Android' : 'iOS Simulator'} dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
+      );
       expect(source).toContain(
         `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,
       );

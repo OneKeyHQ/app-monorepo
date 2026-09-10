@@ -63,7 +63,11 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: ['expo-image-loader', 'expo-navigation-bar'],
+  android: [
+    '@onekeyfe/react-native-text',
+    'expo-image-loader',
+    'expo-navigation-bar',
+  ],
   ios: [
     'burnt',
     'expo-apple-authentication',
@@ -84,8 +88,10 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-check-biometric-auth-changed',
     '@onekeyfe/react-native-cloud-kit-module',
     '@onekeyfe/react-native-device-utils',
+    '@onekeyfe/react-native-image',
     '@onekeyfe/react-native-keychain-module',
     '@onekeyfe/react-native-lite-card',
+    '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
@@ -107,6 +113,7 @@ const nativeContractDependencies = {
     '@react-native-community/slider',
     '@react-native-documents/picker',
     '@react-native-google-signin/google-signin',
+    '@react-native-masked-view/masked-view',
     '@sentry/react-native',
     '@shopify/react-native-skia',
     '@walletconnect/react-native-compat',
@@ -122,7 +129,6 @@ const nativeContractDependencies = {
     'expo-file-system',
     'expo-font',
     'expo-haptics',
-    'expo-image',
     'expo-image-manipulator',
     'expo-image-picker',
     'expo-keep-awake',
@@ -189,17 +195,15 @@ const nativeContractFiles = {
     'apps/mobile/ios/Podfile.lock',
     'apps/mobile/ios/Podfile.properties.json',
   ],
-  shared: ['apps/mobile/package.json', 'yarn.lock'],
+  shared: [],
 };
 
 const nativeContractDirectories = {
   android: [
-    'apps/mobile/android/app-update-noop/src/main',
-    'apps/mobile/android/app/src/debug',
     'apps/mobile/android/app/src/main',
-    'apps/mobile/android/app/src/prod',
+    'apps/mobile/android/app-update-noop/src/main',
   ],
-  ios: ['apps/mobile/ios/OneKeyWallet', 'apps/mobile/ios/ServiceExtension'],
+  ios: ['apps/mobile/ios/OneKeyWallet'],
   shared: [],
 };
 
@@ -269,6 +273,7 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
     'apps/mobile/package.json',

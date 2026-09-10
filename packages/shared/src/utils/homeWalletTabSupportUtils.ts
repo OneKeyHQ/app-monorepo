@@ -28,6 +28,25 @@ export const HOME_WALLET_TAB_SUPPORT_INIT: IHomeWalletTabSupportState = {
   isPerpsSupported: false,
 };
 
+// Persistent scope identity for a tab-support result. Deliberately excludes
+// transient re-fetch counters so a snapshot written in one session still
+// matches the scope on the next cold start.
+export function buildHomeWalletTabSupportScopeKey({
+  networkId,
+  isAllNetworks,
+  perpDisabled,
+}: {
+  networkId?: string;
+  isAllNetworks: boolean;
+  perpDisabled: boolean;
+}) {
+  return [
+    networkId ?? '',
+    isAllNetworks ? 'all' : 'single',
+    perpDisabled ? 'perp-disabled' : 'perp-enabled',
+  ].join(':');
+}
+
 export function resolveHomeWalletTabSupport({
   result,
   scopeKey,

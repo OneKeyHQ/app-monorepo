@@ -67,8 +67,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
@@ -414,7 +416,13 @@ function FinalizeWalletSetupPage({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    // The stage hold is opened inside the hardware branch below, and only
+    // there: a software wallet (new mnemonic, import, keyless restore) has
+    // no device, and a hold taken here regardless painted the connecting
+    // replica over its password prompt 120ms later. endBurst() in the
+    // finally is a no-op for a run that never held.
     try {
       let hdWalletCreatedResult:
         | {
@@ -521,6 +529,16 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // The wallet-creation run is one conversation with the device
+        // across several hardware calls (wallet, passphrase, accounts) with
+        // app work between them. Legacy showed a checking dialog per call,
+        // which is what flickered through the onboarding animation; one
+        // hold spans it.
+        await ensureBurst({
+          connectId: deviceData.device?.connectId ?? undefined,
+          deviceType: deviceData.device?.deviceType ?? undefined,
+          deviceName: deviceData.device?.name ?? undefined,
+        });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -753,6 +771,12 @@ function FinalizeWalletSetupPage({
             isFirmwareVerified,
           });
         }
+        // The device conversation is over: release the hold and let the
+        // stage leave before the page turns to its ready state, so the
+        // processing capsule never overlaps the Enter-wallet button
+        // (OK-62092). The finally's endBurst is a no-op after this.
+        await endBurst();
+        await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -786,8 +810,12 @@ function FinalizeWalletSetupPage({
             : ETranslations.global_unknown_error,
         ) as ETranslations,
       });
+    } finally {
+      await endBurst();
     }
   }, [
+    ensureBurst,
+    endBurst,
     mnemonic,
     deviceData,
     isFirmwareVerified,
@@ -1134,7 +1162,12 @@ function FinalizeWalletSetupPage({
         {setupError ? (
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
-              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              {/* The size variant's 24pt line box clipped the 48pt emoji to
+                  a band on iOS (OK-62173); the line height must grow with
+                  the glyph. */}
+              <SizableText fontSize={48} lineHeight={60}>
+                💆‍♀️
+              </SizableText>
               <SizableText size="$heading4xl" fontWeight={600}>
                 {intl.formatMessage({
                   id: ETranslations.failed_to_create_wallet,

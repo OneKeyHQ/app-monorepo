@@ -1,5 +1,5 @@
-name: Restore web-embed prebundle
-description: Restore the verified web-embed OCI artifact and sync it into native assets.
+name: Prepare web-embed
+description: Restore the public web-embed OCI artifact or build it locally, then sync native assets.
 
 runs:
   using: composite
@@ -9,9 +9,25 @@ runs:
       with:
         version: 1.3.1
 
-    - name: Restore verified web-embed prebundle
+    - name: Restore or build web-embed
       shell: bash
-      run: yarn workspace @onekeyhq/web-embed prebundle:restore
+      run: |
+        set -euo pipefail
+        tag="$(node apps/web-embed/scripts/web-embed-prebundle.js tag)"
+        reference="ghcr.io/onekeyhq/web-embed-prebundle:$tag"
+        descriptor_error="$RUNNER_TEMP/web-embed-prebundle-descriptor-error.txt"
+        if oras manifest fetch --descriptor "$reference" >/dev/null 2>"$descriptor_error"; then
+          yarn workspace @onekeyhq/web-embed prebundle:restore
+        elif grep -Eiq 'manifest unknown|not found|denied: requested access to the resource is denied' "$descriptor_error"; then
+          echo "::warning::Public web-embed prebundle is unavailable; building web-embed locally."
+          yarn workspace @onekeyhq/web-embed prebundle:build
+          cp \
+            apps/web-embed/out-dir-bundle/web-embed-prebundle-build.json \
+            apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json
+        else
+          cat "$descriptor_error" >&2
+          exit 1
+        fi
 
     - name: Sync web-embed into native assets
       shell: bash

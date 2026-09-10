@@ -7,6 +7,7 @@ import { fireEvent, render } from '@testing-library/react';
 import { PerpSettingsButton } from './PerpSettingsButton';
 
 const mockShowPerpSettingsDialog = jest.fn();
+const mockPerpSettingsPopover = jest.fn();
 const mockSettingsTourVisited = jest.fn();
 let mockMedia = { gtMd: false, gtXl: false };
 let mockSettingsIsFirstVisit = true;
@@ -47,7 +48,10 @@ jest.mock('./PerpsActivityCenterAction', () => ({
 }));
 
 jest.mock('./PerpSettingsDialog', () => ({
-  PerpSettingsPopover: () => null,
+  PerpSettingsPopover: (props: { renderTrigger: ReactNode }) => {
+    mockPerpSettingsPopover(props);
+    return props.renderTrigger;
+  },
   showPerpSettingsDialog: (options: unknown) => {
     mockShowPerpSettingsDialog(options);
   },
@@ -56,6 +60,7 @@ jest.mock('./PerpSettingsDialog', () => ({
 describe('PerpSettingsButton', () => {
   beforeEach(() => {
     mockShowPerpSettingsDialog.mockReset();
+    mockPerpSettingsPopover.mockReset();
     mockSettingsTourVisited.mockReset();
     mockSettingsIsFirstVisit = true;
     mockMedia = { gtMd: false, gtXl: false };
@@ -83,27 +88,25 @@ describe('PerpSettingsButton', () => {
     expect(mockSettingsTourVisited).not.toHaveBeenCalled();
   });
 
-  it('hides layout settings in the medium desktop menu', () => {
+  it('uses a popover and hides layout settings in the medium desktop menu', () => {
     mockMedia = { gtMd: true, gtXl: false };
     const view = render(<PerpSettingsButton />);
 
-    fireEvent.click(view.getByRole('button', { name: 'settings' }));
-
-    expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
+    expect(mockPerpSettingsPopover).toHaveBeenCalledWith(
       expect.objectContaining({ showChartPositionSetting: false }),
     );
+    expect(mockShowPerpSettingsDialog).not.toHaveBeenCalled();
     expect(view.queryByTestId('perp-mobile-settings-feature-dot')).toBeNull();
     expect(mockSettingsTourVisited).not.toHaveBeenCalled();
   });
 
   it('keeps an explicitly requested layout setting visible', () => {
     mockMedia = { gtMd: true, gtXl: false };
-    const view = render(<PerpSettingsButton showChartPositionSetting />);
+    render(<PerpSettingsButton showChartPositionSetting />);
 
-    fireEvent.click(view.getByRole('button', { name: 'settings' }));
-
-    expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
+    expect(mockPerpSettingsPopover).toHaveBeenCalledWith(
       expect.objectContaining({ showChartPositionSetting: true }),
     );
+    expect(mockShowPerpSettingsDialog).not.toHaveBeenCalled();
   });
 });

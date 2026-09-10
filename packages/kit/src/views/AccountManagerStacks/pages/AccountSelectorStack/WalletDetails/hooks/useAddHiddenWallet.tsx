@@ -19,14 +19,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { watchForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 function AddHiddenWalletDialogContent() {
   const [settings, setSettings] = useSettingsPersistAtom();
@@ -182,8 +186,74 @@ export function useAddHiddenWallet() {
 
   const createHwHiddenWallet = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
+      let stageError: unknown;
+      let stageToken: number | undefined;
       try {
         setIsLoading(true);
+        // Teach BEFORE the hardware is touched (v6.5.2's order): the
+        // stage opens straight onto the teach card — no connecting beat,
+        // no device contact — and only the card's Continue starts the
+        // hardware flow.
+        //
+        // The hold is FUNCTION-scoped: the menu item that starts this
+        // flow unmounts the moment it is tapped, and a component-held
+        // burst dies with it — the teach card left the stage 600ms after
+        // arriving. This async run is the flow's real lifetime, so it
+        // holds the burst in its own try/finally. It holds by TOKEN, not
+        // by the depth join: the release in `finally` must end this hold
+        // and nothing else — not a layer some other call opened after
+        // the person dismissed the teach card, and nothing at all when
+        // the device lookup threw before a hold ever existed. A stale or
+        // absent token is a no-op on the background side.
+        const device =
+          await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
+            walletId: wallet?.id || '',
+          });
+        const stageDeviceName = deviceUtils.buildDeviceStageName({
+          features: device?.featuresInfo,
+          fallbackName: device?.name,
+        });
+        stageToken =
+          await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
+            connectId: device?.connectId,
+            deviceType: device?.deviceType,
+            deviceName: stageDeviceName,
+          });
+        // Listening starts before the card is asked for: the paint is an
+        // RPC, and an exit the background announces while it is in flight
+        // would otherwise reach a main runtime that is not listening yet.
+        const introWatch = watchForDeviceStageAnswer(
+          EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+          () => 'continue' as const,
+        );
+        let introShown = false;
+        try {
+          introShown =
+            await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
+              {
+                connectId: device?.connectId,
+                deviceType: device?.deviceType,
+                deviceName: stageDeviceName,
+              },
+            );
+        } finally {
+          // Released on anything but a card that landed: a silenced stage
+          // answering false, and a bridge call that threw — the listeners
+          // outlive the abandoned run either way.
+          if (!introShown) {
+            introWatch.cancel();
+          }
+        }
+        // The person dismissing the stage ends the run just as well — and
+        // a card a silenced stage declined to paint has no Continue to
+        // wait for, so the run ends here rather than hanging on it.
+        const intro = await introWatch.answer;
+        if (intro.closed) {
+          // Dismissed at the teaching: nothing was started, nothing to
+          // land — the stage's own close already dropped the hold and
+          // retired its token, so the release below is a no-op.
+          return;
+        }
         await actions.current.createHWHiddenWallet(
           {
             walletId: wallet?.id || '',
@@ -198,7 +268,20 @@ export function useAddHiddenWallet() {
             id: ETranslations.global_success,
           }),
         });
+      } catch (error) {
+        stageError = error;
+        throw error;
       } finally {
+        // One release for one hold, addressed by its token. This hold is
+        // the outer burst layer, so the wrapper's own end could not land
+        // a failure — the error rides out with the release so the stage
+        // speaks it, disconnect probe included.
+        if (stageToken !== undefined) {
+          await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
+            token: stageToken,
+            error: stageError ? toPlainErrorObject(stageError) : undefined,
+          });
+        }
         setIsLoading(false);
         const device =
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
@@ -283,6 +366,16 @@ export function useAddHiddenWallet() {
 
   const createHiddenWalletWithDialogConfirm = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
+      // Hardware wallets are taught on the stage: createHwHiddenWallet
+      // primes the teach card BEFORE the device is touched — education
+      // and the wallet-list shortcut switch in the unified stage UI,
+      // v6.5.2's teach-then-connect order. This legacy dialog stays only
+      // for QR wallets — they never open a stage — until it is retired
+      // with the rest of the legacy surfaces.
+      if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+        await createHiddenWallet({ wallet });
+        return;
+      }
       return new Promise<void>((resolve, reject) => {
         Dialog.show({
           showExitButton: false,

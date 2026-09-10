@@ -27,6 +27,7 @@ import {
   isStockTokenVariantTradable,
   useStockDetail,
 } from '../../hooks/StockDetailContext';
+import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
 
 // Figma 25497:17813 (Select): the panel is 384 wide and its header/rows share a
 // four-slot layout - a 32 avatar slot followed by three equal-width columns
@@ -46,6 +47,14 @@ const VALUE_FALLBACK = '--';
 const StockTokenVariantPortfolioContext = createContext<
   IMarketAccountPortfolioDisplayItem[] | undefined
 >(undefined);
+
+// Variants whose balance this payload actually established. Anything outside
+// it is unknown — no account, the first fetch still in flight, a request that
+// failed with nothing cached, or a variant the standing result never covered
+// because the page has since switched stocks.
+const StockTokenVariantResolvedContext = createContext<Set<string>>(
+  new Set<string>(),
+);
 
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
@@ -68,10 +77,12 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
 }
 
 function findVariantBalance({
+  isBalanceResolved,
   portfolioData,
   variant,
   isPortfolioScope,
 }: {
+  isBalanceResolved: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   variant: IMarketStockTokenVariant;
   isPortfolioScope: boolean;
@@ -91,7 +102,14 @@ function findVariantBalance({
       equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
     );
   });
-  const balance = new BigNumber(position?.amount ?? '');
+  // Once the lookup is known to have run, no position means the account holds
+  // none of it, which is a zero balance rather than missing information. An
+  // amount that fails to parse still falls back — that is corrupt data, and
+  // reading it as zero would state something the payload never said.
+  if (!position) {
+    return isBalanceResolved ? '0' : undefined;
+  }
+  const balance = new BigNumber(position.amount ?? '');
   return balance.isFinite() ? balance.toFixed() : undefined;
 }
 
@@ -110,7 +128,11 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
+  const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
+    isBalanceResolved: resolvedVariantKeys.has(
+      getStockPortfolioVariantKey(variant),
+    ),
     portfolioData,
     variant,
     isPortfolioScope,
@@ -143,6 +165,7 @@ function StockTokenVariantRow({
         tokenImageUri={variant.logoUrl}
         networkImageUri={variant.networkLogoUrl}
         showNetworkIcon
+        placeholder={<Stack width="100%" height="100%" />}
       />
 
       <YStack flex={1} flexBasis={0} minWidth={0} gap="$0.5">
@@ -301,8 +324,10 @@ function StockTokenVariantSelectorContent({
 
 export function StockTokenVariantSelector({
   portfolioData,
+  resolvedVariantKeys,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  resolvedVariantKeys?: string[];
 }) {
   const intl = useIntl();
   const {
@@ -317,6 +342,12 @@ export function StockTokenVariantSelector({
   const selectedIndex = useMemo(
     () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
     [selectedTokenId, tokenVariants],
+  );
+  // Empty when the caller supplies nothing: that is no evidence the balances
+  // were read, so the rows fall back rather than claim a zero.
+  const resolvedKeySet = useMemo(
+    () => new Set(resolvedVariantKeys ?? []),
+    [resolvedVariantKeys],
   );
 
   if (!selectedTokenVariant) {
@@ -375,6 +406,7 @@ export function StockTokenVariantSelector({
             tokenImageUri={selectedTokenVariant.logoUrl}
             networkImageUri={selectedTokenVariant.networkLogoUrl}
             showNetworkIcon
+            placeholder={<Stack width="100%" height="100%" />}
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
@@ -390,7 +422,10 @@ export function StockTokenVariantSelector({
                 color="$textSubdued"
                 numberOfLines={1}
               >
-                {`Issued by ${getIssuerLabel(selectedTokenVariant.issuer)}`}
+                {intl.formatMessage(
+                  { id: ETranslations.market_issued_by },
+                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                )}
               </SizableText>
             </YStack>
             <Icon
@@ -407,7 +442,9 @@ export function StockTokenVariantSelector({
 
   return (
     <StockTokenVariantPortfolioContext.Provider value={portfolioData}>
-      {popover}
+      <StockTokenVariantResolvedContext.Provider value={resolvedKeySet}>
+        {popover}
+      </StockTokenVariantResolvedContext.Provider>
     </StockTokenVariantPortfolioContext.Provider>
   );
 }

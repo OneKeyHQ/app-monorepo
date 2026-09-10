@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import type { ITableColumn } from '@onekeyhq/components';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -123,23 +124,30 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
   });
 
-  it('uses the Market Stocks columns and selects stocks by stockId', () => {
+  it('uses the Market Stocks columns and preserves the selected stock preview', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
     expect(mockUseMarketStockColumns).toHaveBeenCalledWith({
       compact: true,
       showSparkline: false,
+      showWatchlist: true,
+      watchlistFrom: EWatchlistFrom.Search,
     });
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,
       dataSource: [mockStock],
       estimatedItemSize: 56,
-      headerRowProps: { height: 40 },
-      rowProps: { width: '100%', height: 56, minHeight: 56 },
+      headerRowProps: { height: 40, minHeight: 40 },
+      rowProps: {
+        width: '100%',
+        height: 56,
+        minHeight: 56,
+        borderRadius: '$0',
+      },
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));
-    expect(mockOnItemPress).toHaveBeenCalledWith('AAPL');
+    expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 });

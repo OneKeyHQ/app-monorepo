@@ -1,19 +1,23 @@
 import { getMarketDetailTradingViewNativeSource } from './getMarketDetailTradingViewNativeSource';
 
 describe('Market detail TradingViewNative source', () => {
-  it('uses the Asset API identity for Top Coins', () => {
+  it('uses the token identity for a native Top Coin', () => {
     expect(
       getMarketDetailTradingViewNativeSource({
         hyperliquidCoin: '',
-        marketAssetId: 'doge',
+        isNative: true,
         marketDataSource: 'polling',
         networkId: 'doge--0',
         symbol: 'DOGE',
         tokenAddress: '',
       }),
     ).toEqual({
-      kind: 'asset',
-      assetId: 'doge',
+      kind: 'market',
+      isNative: true,
+      networkId: 'doge--0',
+      tokenAddress: '',
+      symbol: 'DOGE',
+      realtime: 'disabled',
     });
   });
 

@@ -4,7 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
@@ -15,12 +18,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isLegacyHardwareUiActive,
+  shouldCancelDeviceOnStageClose,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -33,29 +41,45 @@ import type {
   IDeviceSharedCallParams,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceStageAuthChecklistItem,
+  IDeviceStageAuthFailureReasonValue,
+  IDeviceStageConfirmContent,
+  IDeviceStageErrorReasonValue,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
+  deviceStageAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
+  thirdPartyBatchInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import {
+  DeviceStageBurstScope,
+  createLatestStateFeed,
+} from './DeviceStageBurst';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
 } from './HardwareProcessingManager';
 import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
+import type { IDeviceStageBurstBeginParams } from './DeviceStageBurst';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
+  IDeviceStageState,
   IHardwareUiPayload,
   IHardwareUiResponseCorrelation,
+  IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
-import type { UiResponseEvent } from '@onekeyfe/hd-core';
+import type { IDeviceType, UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
   allowDuringFirmwareUpdate?: boolean;
@@ -71,9 +95,15 @@ export type IWithHardwareProcessingOptions = {
   debugMethodName?: string;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
+  onCancel?: () => void;
+  /** DeviceStage confirm channel (OK-59934): what the confirm card shows
+   * when this operation asks for a device confirmation. */
+  stageConfirmContent?: IDeviceStageConfirmContent;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+  deviceStageBurstId?: number;
   skipDeviceCancel?: boolean;
   immediateDeviceCancel?: boolean;
   delay?: number;
@@ -106,12 +136,25 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleForceCleanRunPromise,
   HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
 ];
+
+/** How long after the stage's off write its exit is still on screen —
+ * the bridge hop, the React commit and the shell's sink, read generously.
+ * deviceStageWaitForOff reports an off younger than this as a wait. */
+const DEVICE_STAGE_RECENT_OFF_MS = 1000;
+
+/** Stands in for the confirm payload in logs: its rows carry signature
+ * plaintext (personal-sign text, typed-data JSON, transfer amounts), which
+ * must never reach a log line — only whether a payload was registered. */
+const DEVICE_STAGE_CONFIRM_CONTENT_REDACTED: IDeviceStageConfirmContent = {
+  description: '[stageConfirmContent redacted]',
+};
 
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
@@ -132,9 +175,38 @@ class ServiceHardwareUI extends ServiceBase {
       EAppEventBusNames.HardwareFeaturesUpdate,
       this.onThirdPartyHardwareFeaturesUpdate,
     );
+    // OK-59934: one choke point feeds the third-party rail into the
+    // DeviceStage burst scope — the adapters' many atom write sites stay
+    // untouched. The combined read keeps install state and ui state from
+    // racing each other, and the feed runs one read at a time (latest
+    // state wins) so the three subscriptions below cannot interleave a
+    // stale prompt over the clear that followed it.
+    const feedThirdPartyStage = createLatestStateFeed(async () => {
+      const [ui, install, batch] = await Promise.all([
+        thirdPartyHardwareUiStateAtom.get(),
+        thirdPartyAppInstallAtom.get(),
+        thirdPartyBatchInstallAtom.get(),
+      ]);
+      await this.deviceStageBurst.onThirdPartyState({ ui, install, batch });
+    });
+    thirdPartyHardwareUiStateAtom.sub(feedThirdPartyStage);
+    thirdPartyAppInstallAtom.sub(feedThirdPartyStage);
+    thirdPartyBatchInstallAtom.sub(feedThirdPartyStage);
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
+
+  /** OK-59934: the DeviceStage burst scope — owns every deviceStageAtom
+   * write. See DeviceStageBurst.ts. */
+  deviceStageBurst = new DeviceStageBurstScope({
+    // Backs end()'s disconnect fallback: tracker verdict plus a WebUSB
+    // re-enumeration, so a cleared tracker (SDK reset) is not mistaken
+    // for an unplug.
+    isDeviceStillConnected: (connectId) =>
+      this.backgroundApi.serviceHardware.isHardwareDeviceConnected({
+        connectId,
+      }),
+  });
 
   private onHardwareDeviceStateUpdate = async ({
     connectId,
@@ -228,6 +300,19 @@ class ServiceHardwareUI extends ServiceBase {
       if (!device) {
         return;
       }
+      // The stage opens on these beats before anything has named the
+      // device — this lookup is where the model and name first exist, so
+      // the replica and its label arrive with it. Fed ahead of the guard
+      // below, which is about the legacy atom's own staleness, not the
+      // stage's (OK-59934).
+      void this.deviceStageBurst.mergeDeviceIdentity({
+        connectId,
+        deviceType: device.deviceType,
+        deviceName: deviceUtils.buildDeviceStageName({
+          features: device.featuresInfo,
+          fallbackName: device.name,
+        }),
+      });
       const currentState = await hardwareUiStateAtom.get();
       if (
         currentState?.action !== action ||
@@ -256,7 +341,19 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
+  async showCheckingDeviceDialog({
+    connectId,
+    deviceType,
+    deviceName,
+  }: {
+    connectId: string;
+    /** What the caller already knows about the device. A scan result
+     * carries both, and this beat is the stage's opening one — without
+     * them the capsule would stand there nameless until something else
+     * named the device (OK-59934). */
+    deviceType?: IDeviceType;
+    deviceName?: string;
+  }) {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
       connectId,
@@ -267,6 +364,42 @@ class ServiceHardwareUI extends ServiceBase {
         action: EHardwareUiStateAction.DeviceChecking,
         connectId,
       });
+    }
+    void this.deviceStageBurst.noteStep('connecting', {
+      connectId,
+      deviceType: await this.resolveDeviceTypeForStage({
+        deviceType,
+        deviceName,
+      }),
+      deviceName,
+    });
+  }
+
+  /**
+   * The model behind a beat that only knows a name. A OneKey advertises
+   * its model in its Bluetooth name ("Pro2 8650"), which is the only
+   * identity available while onboarding a device the database has never
+   * seen — the case where waiting for a lookup means no replica at all.
+   */
+  private async resolveDeviceTypeForStage({
+    deviceType,
+    deviceName,
+  }: {
+    deviceType?: IDeviceType;
+    deviceName?: string;
+  }): Promise<IDeviceType | undefined> {
+    if (deviceType && deviceType !== EDeviceType.Unknown) {
+      return deviceType;
+    }
+    if (!deviceName) {
+      return deviceType;
+    }
+    try {
+      const { getDeviceTypeByBleName } = await CoreSDKLoader();
+      const derived = getDeviceTypeByBleName(deviceName);
+      return derived && derived !== EDeviceType.Unknown ? derived : deviceType;
+    } catch {
+      return deviceType;
     }
   }
 
@@ -283,6 +416,7 @@ class ServiceHardwareUI extends ServiceBase {
         connectId,
       });
     }
+    void this.deviceStageBurst.noteStep('processing', { connectId });
     // wait animation done
     await timerUtils.wait(150);
   }
@@ -411,6 +545,7 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload,
     });
+    void this.deviceStageBurst.noteStep('enterPin', { connectId, payload });
   }
 
   @backgroundMethod()
@@ -459,30 +594,626 @@ class ServiceHardwareUI extends ServiceBase {
     }
   }
 
+  // ----- DeviceStage (OK-59934) driver APIs ------------------------------
+
+  /** The firmware workflow is starting: whatever the previous flow left
+   * on stage leaves (see DeviceStageBurst.silence) and so does any air-gap
+   * scan it was hosting — the stage was that scan's only surface, and a
+   * pending scan left behind would wait invisibly for its 30-minute expiry
+   * while the update page ran. Rejected the way a user close rejects it;
+   * a no-op without a session. The device's own asks during the update
+   * then play on the stage again (OK-62087). */
+  async silenceDeviceStageForFirmwareWorkflow() {
+    const stepAtSilence = (await deviceStageAtom.get())?.step;
+    await this.deviceStageBurst.silence();
+    await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
+      scanning: stepAtSilence === 'scanQr',
+    });
+  }
+
+  /** The stage's half of a connect abandoned before any burst began (a
+   * bootloader hand-off, a failed connect): see DeviceStageBurst.dismissUnowned. */
+  @backgroundMethod()
+  async deviceStageDismissUnowned() {
+    await this.deviceStageBurst.dismissUnowned();
+  }
+
+  /** A dialog is about to take the screen over a live stage (the
+   * bootloader hand-off during onboarding, OK-62105): the stage leaves
+   * first, whether or not a flow holds a burst — a stage standing behind
+   * its own touch wall would otherwise cover the dialog until that hold
+   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence). */
+  @backgroundMethod()
+  async deviceStageYieldToDialog() {
+    await this.deviceStageBurst.silence();
+  }
+
+  /**
+   * Resolves once the stage is off — at once when it already is, otherwise
+   * on its next exit, or after `timeoutMs`. Returns whether it had to wait.
+   * The surface that raised the stage (a rename dialog, the setup page's
+   * ready state) sequences its own change after the stage's exit, so the
+   * exit reads first (OK-62228, OK-62172, OK-62092).
+   */
+  @backgroundMethod()
+  async deviceStageWaitForOff({
+    timeoutMs,
+  }: {
+    timeoutMs: number;
+  }): Promise<boolean> {
+    // Listen first, read second: an exit landing between the two is a
+    // one-shot event, and a listener installed after it would wait the
+    // whole timeout for an exit that already happened.
+    let settleExit = () => {};
+    const exited = new Promise<void>((resolve) => {
+      settleExit = resolve;
+    });
+    const onOff = () => settleExit();
+    appEventBus.on(EAppEventBusNames.DeviceStageOff, onOff);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const current = await deviceStageAtom.get();
+      if (!current || current.step === 'off') {
+        // Already off — but an exit that landed a moment ago is still
+        // playing out on the UI (the atom crosses a bridge on
+        // split-runtime targets, then React commits, then the shell
+        // sinks), so that one still counts as a wait for the caller's
+        // beat; an old off, or a stage never raised, does not.
+        return (
+          Date.now() - this.deviceStageBurst.getLastOffAt() <
+          DEVICE_STAGE_RECENT_OFF_MS
+        );
+      }
+      await Promise.race([
+        exited,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+        }),
+      ]);
+      return true;
+    } finally {
+      clearTimeout(timer);
+      appEventBus.off(EAppEventBusNames.DeviceStageOff, onOff);
+    }
+  }
+
+  @backgroundMethod()
+  async deviceStageNoteInputSubmitted(
+    params: { hostPassphraseEntered?: boolean } = {},
+  ) {
+    await this.deviceStageBurst.noteInputSubmitted(params);
+  }
+
+  /**
+   * Lands an error outcome on the stage from a UI-side runner (the
+   * authenticity check above all) — for failures that are not the run's
+   * own verdict, like a wrong PIN at the unlock that precedes it.
+   */
+  @backgroundMethod()
+  async deviceStageNoteError({
+    connectId,
+    errorReason,
+  }: {
+    connectId?: string;
+    errorReason?: IDeviceStageErrorReasonValue;
+  }) {
+    await this.deviceStageBurst.noteStep('error', { connectId, errorReason });
+  }
+
+  /** The hidden-wallet teach card was read: on to the entry. The card's
+   * shortcut preference is written by the driver, which owns that atom. */
+  @backgroundMethod()
+  async deviceStagePassphraseIntroContinue() {
+    await this.deviceStageBurst.notePassphraseIntroDone();
+  }
+
+  /**
+   * Puts the passphrase teach card on stage BEFORE the device flow
+   * starts (v6.5.2's order: teach, then touch the hardware). The caller
+   * holds a UI burst around it, waits for the card's Continue, and only
+   * then begins the hardware call — the account selector's deliberate
+   * Add-hidden-wallet is the one place that teaches.
+   *
+   * Returns whether the card landed, so a caller never waits on a card a
+   * silenced stage (the firmware workflow) declined to paint.
+   */
+  @backgroundMethod()
+  async deviceStageShowPassphraseIntro(params: {
+    connectId?: string;
+    deviceType?: IDeviceStageState['deviceType'];
+    deviceName?: string;
+  }) {
+    return this.deviceStageBurst.noteStep('passphraseIntro', {
+      connectId: params.connectId,
+      deviceType: params.deviceType,
+      deviceName: params.deviceName,
+      passphraseMode: 'create',
+    });
+  }
+
+  /**
+   * Puts the wallet-creation fork on stage: the Select-wallet-type dialog
+   * in stage vocabulary, asked by onboarding once the device is known to
+   * run with passphrase enabled. App-authored, not an SDK event: the flow
+   * holds its burst, waits for the answer to ride back through the driver
+   * (DeviceStageWalletTypeSelected), then creates the wallet it was told
+   * to. Returns whether the card landed; while the stage is silenced (the
+   * firmware workflow) the caller falls back to its legacy dialog rather
+   * than wait on a card nobody painted.
+   */
+  @backgroundMethod()
+  async deviceStageShowSelectWalletType(params: { connectId?: string } = {}) {
+    // The paint itself reports: asking isEnabled() here as well would
+    // answer for a moment that has passed by the time the card is
+    // written — the firmware workflow raising its flag in between left
+    // the caller waiting on an answer to a card nobody painted.
+    return this.deviceStageBurst.noteStep('selectWalletType', {
+      connectId: params.connectId,
+    });
+  }
+
+  /** The fork was answered on the stage: back to the wait while the flow
+   * that asked creates the chosen wallet. */
+  @backgroundMethod()
+  async deviceStageSelectWalletType() {
+    await this.deviceStageBurst.noteWalletTypeSelected();
+  }
+
+  /**
+   * The authenticity flow's beats, fed by whoever runs the check (the
+   * verification sequence lives UI-side, where its result contract is
+   * consumed). The checklist rides along and survives the whole run.
+   */
+  @backgroundMethod()
+  async deviceStageNoteAuthStep(params: {
+    step: 'genuineCheck' | 'authVerifying' | 'authSuccess' | 'authFailure';
+    connectId?: string;
+    checklist?: IDeviceStageAuthChecklistItem[];
+    failureReason?: IDeviceStageAuthFailureReasonValue;
+    /** Fallback detail (v6.5.0 dialog parity): display-ready message
+     * shown in place of the generic title, code as a title suffix. */
+    failureMessage?: string;
+    failureCode?: string;
+  }) {
+    await this.deviceStageBurst.noteStep(params.step, {
+      connectId: params.connectId,
+      authChecklist: params.checklist,
+      authFailureReason: params.failureReason,
+      authFailureMessage: params.failureMessage,
+      authFailureCode: params.failureCode,
+    });
+  }
+
+  /**
+   * Opens a UI-held burst for a whole flow (onboarding above all): every
+   * wrapper that runs inside it joins by depth, so the stage stays put
+   * across the seams instead of closing and reopening. The returned token
+   * closes it — see deviceStageEndBurst.
+   */
+  @backgroundMethod()
+  async deviceStageBeginBurst(
+    params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
+  ) {
+    return this.deviceStageBurst.beginExplicit(params);
+  }
+
+  @backgroundMethod()
+  async deviceStageEndBurst(params: { token: number; error?: unknown }) {
+    await this.deviceStageBurst.endExplicit(params);
+  }
+
+  /**
+   * Depth-stacked hold for a UI runner that brackets one async narrative
+   * in try/finally (the authenticity check above all). Unlike the token
+   * API it joins an outer holder's burst instead of superseding it, so a
+   * flow-held burst around the runner keeps its own close.
+   */
+  @backgroundMethod()
+  async deviceStageJoinBurst(params: IDeviceStageBurstBeginParams = {}) {
+    await this.deviceStageBurst.begin(params);
+  }
+
+  @backgroundMethod()
+  async deviceStageLeaveBurst(params: { error?: unknown } = {}) {
+    await this.deviceStageBurst.end(params);
+  }
+
+  /** The authenticity failure card's "Continue anyway" — the verdict is
+   * taken, the narrative retires, the stage falls back to the flow. */
+  @backgroundMethod()
+  async deviceStageNoteAuthResolved() {
+    await this.deviceStageBurst.noteAuthNarrativeResolved();
+  }
+
+  /** The showQr card's Next: the person watched the device show its
+   * answer code — on to the in-card camera (doc §4.6). */
+  @backgroundMethod()
+  async deviceStageQrProceedToScan() {
+    await this.deviceStageBurst.qrProceedToScan();
+  }
+
+  /** The scanQr card's way back: re-present the code (never a reject —
+   * the legacy skipReject crossing, in stage form). */
+  @backgroundMethod()
+  async deviceStageQrBackToShow() {
+    await this.deviceStageBurst.qrBackToShow();
+  }
+
+  /** Confirm channel: UI-side registration for callers that know the
+   * confirm payload before (or while) the hardware call runs. */
+  @backgroundMethod()
+  async deviceStageRegisterConfirmContent({
+    content,
+  }: {
+    content: IDeviceStageConfirmContent | undefined;
+  }) {
+    await this.deviceStageBurst.registerConfirmContent(content);
+  }
+
+  @backgroundMethod()
+  async deviceStageUserClose({
+    connectId,
+    skipDeviceCancel,
+  }: {
+    connectId?: string;
+    skipDeviceCancel?: boolean;
+  }) {
+    const lease =
+      this.hardwareProcessingManager.getActiveOneKeyOperationLease();
+    // Read before the close settles the atom at off: which cancel a
+    // dismissed step maps to depends on where the person was.
+    const stateAtClose = await deviceStageAtom.get();
+    const stepAtClose = stateAtClose?.step;
+    const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
+    // The lease is the whole operation's — during the firmware update
+    // that is the workflow itself, which owns its own recovery (a failed
+    // task lands Retry on the page). Closing an ask there cancels the
+    // device call only, as the legacy dialog's close did; aborting the
+    // lease would fail the workflow outright (OK-62087).
+    const firmwareWorkflow = await firmwareUpdateWorkflowRunningAtom.get();
+    const cancelsDevice =
+      skipDeviceCancel === undefined
+        ? shouldCancelDeviceOnStageClose({
+            step: stepAtClose ?? 'off',
+            vendor: stateAtClose?.vendor,
+          })
+        : !skipDeviceCancel;
+    let deviceCancelStarted = false;
+    if (
+      lease !== this.hardwareProcessingManager.getActiveOneKeyOperationLease()
+    )
+      return;
+    if (lease && cancelsDevice && !firmwareWorkflow)
+      this.hardwareProcessingManager.cancelOneKeyOperation(lease);
+    if (lease && connectId && !qrStepAtClose && cancelsDevice) {
+      this.hardwareProcessingManager.cancelOperation(connectId);
+      deviceCancelStarted = true;
+      void this.backgroundApi.serviceHardware.cancel({
+        connectId,
+        oneKeyOperationLease: lease,
+        immediate: true,
+      });
+    }
+    await this.deviceStageBurst.userClose();
+    // Unconditional, keyed to session existence (a no-op without one):
+    // a pending air-gap scan must reject on ANY stage close, even where
+    // something repainted the QR pair before the person closed — keying
+    // on the painted step alone would strand the bg promise until the
+    // 30-minute expiry, holding the flow (and, for wrapped flows, the
+    // global hardware semaphore) the whole time. The step only picks
+    // which legacy cancel the reject speaks.
+    await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
+      scanning: stepAtClose === 'scanQr',
+    });
+    // Same announcement the legacy dialog made on a user close: pages
+    // holding state for the interaction (address verify, a running
+    // authenticity check) stand down with it.
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
+    // Cancel semantics: same path the legacy dialog's user-close takes.
+    // An air-gap step forces the device half off: there is no device
+    // call to cancel, and a connectId-less sdk.cancel is a GLOBAL one —
+    // it would cold-boot the SDK and interrupt every queued call on
+    // every connected device (the legacy toast close touched nothing).
+    // The same goes for a stage that never learned its device — a UI hold
+    // closed before the search resolved, the opening beat of a scan: with
+    // no connectId there is nothing to cancel BY, so the device half is
+    // skipped rather than let the missing id fall through to that global
+    // cancel. Left unsaid by the caller, the step decides (an outcome, a
+    // decision or the teach card leaves nothing to cancel; a third-party
+    // burst cancels through its adapter).
+    await this.closeHardwareUiStateDialogFn({
+      connectId,
+      oneKeyOperationLease: lease,
+      skipDeviceCancel:
+        deviceCancelStarted || qrStepAtClose || !connectId
+          ? true
+          : !cancelsDevice,
+      immediateDeviceCancel: true,
+      reason: 'DeviceStage userClose',
+    });
+  }
+
+  /**
+   * Demo driver (Gallery): plays realistic burst scripts against the real
+   * burst scope, so the stage, the container, and the one-entrance-one-exit
+   * rule can be verified without hardware. Interactive steps wait for the
+   * real user input on the stage (PIN submit → processing).
+   */
+  @backgroundMethod()
+  async demoDeviceStageBurst({
+    scenario,
+  }: {
+    scenario:
+      | 'sign'
+      | 'signOnDevice'
+      | 'reject'
+      | 'disconnect'
+      | 'trezorSign'
+      | 'ledgerInstall';
+  }) {
+    const scope = this.deviceStageBurst;
+    const connectId = 'demo-device-stage';
+    const isOnDevice = scenario === 'signOnDevice';
+    const isTrezor = scenario === 'trezorSign';
+    const isLedger = scenario === 'ledgerInstall';
+    const demoVendor = (() => {
+      if (isTrezor) return EHardwareVendor.trezor;
+      if (isLedger) return EHardwareVendor.ledger;
+      return undefined;
+    })();
+    const deviceType = isOnDevice ? EDeviceType.Pro2 : EDeviceType.Classic;
+    const makePayload = (uiRequestType: string): IHardwareUiPayload => ({
+      uiRequestType,
+      eventType: '',
+      deviceType,
+      deviceId: 'demo-device-id',
+      connectId,
+      deviceMode: EOneKeyDeviceMode.normal,
+      rawPayload: {},
+    });
+    const feed = (action: EHardwareUiStateAction) =>
+      scope.onHardwareUiEvent({
+        action,
+        connectId,
+        payload: makePayload(action),
+      });
+    const feedCallEnd = () =>
+      scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+        connectId,
+        shouldClearUiState: true,
+      });
+    const feedThirdParty = (
+      action: EThirdPartyHardwareUiAction,
+      payload?: IThirdPartyHardwareUiState['payload'],
+    ) =>
+      scope.onThirdPartyState({
+        ui: demoVendor
+          ? { action, vendor: demoVendor, ...(payload ? { payload } : {}) }
+          : undefined,
+        install: undefined,
+        batch: undefined,
+      });
+    const feedThirdPartyInstall = (progress?: number) =>
+      scope.onThirdPartyState({
+        ui: undefined,
+        install: demoVendor
+          ? {
+              vendor: demoVendor,
+              appName: 'Ethereum',
+              ...(progress === undefined ? {} : { progress }),
+            }
+          : undefined,
+        batch: undefined,
+      });
+    const feedThirdPartyClear = () =>
+      scope.onThirdPartyState({
+        ui: undefined,
+        install: undefined,
+        batch: undefined,
+      });
+    const waitForStep = async (
+      step: string,
+      { timeoutMs = 60_000 }: { timeoutMs?: number } = {},
+    ) => {
+      const startedAt = Date.now();
+      for (;;) {
+        const state = await deviceStageAtom.get();
+        if (state?.step === step) {
+          return true;
+        }
+        if (state?.step === 'off' || Date.now() - startedAt > timeoutMs) {
+          return false;
+        }
+        await timerUtils.wait(200);
+      }
+    };
+    const demoConfirmDetails = [
+      {
+        label: 'Address',
+        value: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
+        highlightEnds: true,
+      },
+      { label: 'Amount', value: '0.05 ETH' },
+      { label: 'Fee', value: '0.00042 ETH' },
+    ];
+
+    const demoDeviceName = (() => {
+      if (isTrezor) return 'Trezor Safe 7';
+      if (isLedger) return 'Ledger Nano X';
+      return isOnDevice ? 'Pro2 6136' : 'OneKey Classic (demo)';
+    })();
+    const demoVendorModel = (() => {
+      if (isTrezor) return 'T3W1';
+      if (isLedger) return 'nanoX';
+      return undefined;
+    })();
+    const demoVendorModelName = (() => {
+      if (isTrezor) return 'Safe 7';
+      if (isLedger) return 'Nano X';
+      return undefined;
+    })();
+    await scope.begin({
+      connectId,
+      deviceType: demoVendor ? undefined : deviceType,
+      deviceName: demoDeviceName,
+      vendor: demoVendor,
+      vendorModel: demoVendorModel,
+      vendorModelName: demoVendorModelName,
+      // The confirm channel: content registered up front; REQUEST_BUTTON
+      // consumes it — the demo exercises the real registration path.
+      confirmContent:
+        scenario === 'sign' ? { details: demoConfirmDetails } : undefined,
+    });
+    let scriptError: unknown;
+    try {
+      await timerUtils.wait(1500);
+      switch (scenario) {
+        case 'sign': {
+          await feed(EHardwareUiStateAction.REQUEST_PIN);
+          // The person types the PIN on the stage; submit lands processing.
+          if (await waitForStep('processing')) {
+            await timerUtils.wait(1000);
+            // The registered rows ride in through the plain event feed.
+            await feed(EHardwareUiStateAction.REQUEST_BUTTON);
+            await timerUtils.wait(3500);
+            // Call #1 ends: the SDK's close morphs to processing, not off.
+            await feedCallEnd();
+            await timerUtils.wait(1200);
+            // Call #2 of the same burst re-registers, then asks again.
+            await scope.registerConfirmContent({
+              description: 'Verify the receive address shown on the device.',
+            });
+            await feed(EHardwareUiStateAction.REQUEST_BUTTON);
+            await timerUtils.wait(3000);
+            await feedCallEnd();
+            await timerUtils.wait(800);
+          }
+          break;
+        }
+        case 'signOnDevice': {
+          await feed(EHardwareUiStateAction.EnterPinOnDevice);
+          await timerUtils.wait(3000);
+          await feed(EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW);
+          await timerUtils.wait(1000);
+          await scope.noteStep('confirm', {
+            connectId,
+            confirmDetails: demoConfirmDetails,
+            payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+          });
+          await timerUtils.wait(3500);
+          await feedCallEnd();
+          await timerUtils.wait(800);
+          break;
+        }
+        case 'reject': {
+          await scope.noteStep('confirm', {
+            connectId,
+            confirmDetails: demoConfirmDetails,
+            payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+          });
+          await timerUtils.wait(2500);
+          scriptError = {
+            $isHardwareError: true,
+            code: HardwareErrorCode.ActionCancelled,
+          };
+          break;
+        }
+        case 'disconnect': {
+          await feed(EHardwareUiStateAction.ProcessLoading);
+          await timerUtils.wait(2500);
+          scriptError = {
+            $isHardwareError: true,
+            code: HardwareErrorCode.DeviceNotFound,
+          };
+          break;
+        }
+        case 'trezorSign': {
+          await feedThirdParty(EThirdPartyHardwareUiAction.unlockDevice);
+          await timerUtils.wait(2200);
+          // Trezor matrix PIN — the person taps positions on the stage.
+          await feedThirdParty(EThirdPartyHardwareUiAction.requestTrezorPin);
+          if (await waitForStep('processing')) {
+            await timerUtils.wait(800);
+            await feedThirdParty(EThirdPartyHardwareUiAction.confirmOnDevice);
+            await timerUtils.wait(3000);
+            // Call boundary on the third-party rail: atoms cleared.
+            await feedThirdPartyClear();
+            await timerUtils.wait(400);
+          }
+          break;
+        }
+        case 'ledgerInstall': {
+          // Install confirm card, then real-progress installing bar.
+          await feedThirdPartyInstall();
+          await timerUtils.wait(3000);
+          for (let p = 0; p <= 10; p += 1) {
+            await feedThirdPartyInstall(p / 10);
+            await timerUtils.wait(300);
+          }
+          await feedThirdPartyClear();
+          await timerUtils.wait(300);
+          break;
+        }
+        default:
+          break;
+      }
+    } finally {
+      await scope.end({ error: scriptError });
+    }
+  }
+
   closeHardwareUiStateDialogTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
   async closeHardwareUiStateDialog(params: ICloseHardwareUiStateDialogParams) {
+    if (
+      params.deviceStageBurstId !== undefined &&
+      params.deviceStageBurstId !== (await deviceStageAtom.get())?.burstId
+    ) {
+      return;
+    }
     clearTimeout(this.closeHardwareUiStateDialogTimer);
+    const ownedParams = {
+      ...params,
+      oneKeyOperationLease:
+        params.oneKeyOperationLease ??
+        this.hardwareProcessingManager.getActiveOneKeyOperationLease(),
+    };
 
     if (!params.skipDelayClose) {
-      this.closeHardwareUiStateDialogTimer = setTimeout(
-        () =>
-          this.closeHardwareUiStateDialogFn({
-            ...params,
-            skipDeviceCancel: true,
-          }),
-        600,
-      );
+      this.closeHardwareUiStateDialogTimer = setTimeout(() => {
+        if (
+          ownedParams.oneKeyOperationLease !==
+          this.hardwareProcessingManager.getActiveOneKeyOperationLease()
+        )
+          return;
+        void this.closeHardwareUiStateDialogFn({
+          ...ownedParams,
+          skipDeviceCancel: true,
+        });
+      }, 600);
     }
 
-    await this.closeHardwareUiStateDialogFn(params);
+    await this.closeHardwareUiStateDialogFn(ownedParams);
   }
 
   @backgroundMethod()
   async closeHardwareUiStateDialogFn(
     params: ICloseHardwareUiStateDialogParams,
   ) {
+    const lease =
+      params.oneKeyOperationLease ??
+      this.hardwareProcessingManager.getActiveOneKeyOperationLease();
+    const isCurrent = () =>
+      lease === this.hardwareProcessingManager.getActiveOneKeyOperationLease();
+    if (!isCurrent()) return;
+    if (lease && !params.skipDeviceCancel && params.immediateDeviceCancel) {
+      this.hardwareProcessingManager.cancelOneKeyOperation(lease);
+    }
     /* eslint-disable prefer-const */
     let {
       skipDeviceCancel = true,
@@ -509,9 +1240,10 @@ class ServiceHardwareUI extends ServiceBase {
       if (delay) {
         await timerUtils.wait(delay);
       }
+      if (!isCurrent()) return;
       await this.cleanHardwareUiState({ hardClose });
 
-      if (!skipDeviceCancel) {
+      if (!skipDeviceCancel && isCurrent()) {
         if (connectId) {
           this.hardwareProcessingManager.cancelOperation(connectId);
         }
@@ -519,6 +1251,7 @@ class ServiceHardwareUI extends ServiceBase {
         // do not wait cancel, may cause caller stuck
         void this.backgroundApi.serviceHardware.cancel({
           connectId,
+          oneKeyOperationLease: lease,
           forceDeviceResetToHome: deviceResetToHome,
           immediate: immediateDeviceCancel,
           deviceType,
@@ -625,7 +1358,7 @@ class ServiceHardwareUI extends ServiceBase {
               }
               return fn(lease);
             },
-            params,
+            { ...params, oneKeyOperationLease: lease },
           );
           if (platformEnv.isDesktop && device?.id) {
             successfulTransportType = await this.backgroundApi.serviceHardware
@@ -719,11 +1452,26 @@ class ServiceHardwareUI extends ServiceBase {
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
+    const signal = params.oneKeyOperationLease?.signal;
+    const assertActive = () => {
+      if (signal?.aborted) throw new UserCancelFromOutside();
+    };
+    assertActive();
     clearTimeout(this.closeHardwareUiStateDialogTimer);
-    clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
+    this.backgroundApi.serviceHardware.invalidatePendingCancel();
+    // Every log sink below prints this copy instead of params: the real
+    // stageConfirmContent stays untouched because it is the only channel
+    // feeding deviceStageBurst.begin({ confirmContent }).
+    const paramsForLog: IWithHardwareProcessingOptions = {
+      ...params,
+      oneKeyOperationLease: undefined,
+      stageConfirmContent: params.stageConfirmContent
+        ? DEVICE_STAGE_CONFIRM_CONTENT_REDACTED
+        : undefined,
+    };
     console.log(
       `withHardwareProcessing START: processingNestedNum=${this.processingNestedNum}`,
-      params,
+      paramsForLog,
     );
     const {
       deviceParams,
@@ -736,7 +1484,9 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let stageBurstOpened = false;
     let skipDeviceCancelAfterError = false;
+    let stageBurstError: unknown;
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
@@ -745,6 +1495,8 @@ class ServiceHardwareUI extends ServiceBase {
     ).isThirdParty;
     let deviceResetToHome = true;
     let isBusy = false;
+    if (params.onCancel)
+      signal?.addEventListener('abort', params.onCancel, { once: true });
     try {
       if (this.processingNestedNum <= 0) {
         this.processingNestedNum = 0;
@@ -755,7 +1507,7 @@ class ServiceHardwareUI extends ServiceBase {
 
       defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
       defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
-        params,
+        paramsForLog,
       );
 
       if (connectId) {
@@ -773,7 +1525,34 @@ class ServiceHardwareUI extends ServiceBase {
         // }
 
         await this.cleanHardwareUiState();
+        assertActive();
+      }
+
+      // Non-hardware callers share this wrapper; QR flows own their stage.
+      if (device) {
+        stageBurstOpened = await this.deviceStageBurst.begin({
+          connectId,
+          deviceType: device.deviceType,
+          deviceName: deviceUtils.buildDeviceStageName({
+            features: device.featuresInfo,
+            fallbackName: device.name,
+          }),
+          vendor: isThirdPartyVendor
+            ? (device.vendor ?? device.settings?.vendor)
+            : undefined,
+          vendorModel: isThirdPartyVendor
+            ? device.settings?.vendorModel
+            : undefined,
+          vendorModelName: isThirdPartyVendor
+            ? device.settings?.vendorModelName
+            : undefined,
+          confirmContent: params.stageConfirmContent,
+        });
+      }
+
+      if (this.isOuterProcessing()) {
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+          assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
           // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
@@ -781,6 +1560,7 @@ class ServiceHardwareUI extends ServiceBase {
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+          assertActive();
           await this.showCheckingDeviceDialog({
             connectId,
           });
@@ -848,13 +1628,16 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFn();
+      assertActive();
       const r = await fn();
+      assertActive();
       defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFnDone();
 
       deviceResetToHome = false;
       console.log('withHardwareProcessing done: ', r);
       return r;
     } catch (error) {
+      stageBurstError = error;
       console.error('withHardwareProcessing ERROR: ', error);
       console.error(
         'withHardwareProcessing ERROR stack: ',
@@ -865,10 +1648,35 @@ class ServiceHardwareUI extends ServiceBase {
       // can then target the failing device instead of resolving one.
       if (connectId && isHardwareError({ error: error as IOneKeyError })) {
         const hardwareError = error as IOneKeyError;
+        const hadConnectId = Boolean(hardwareError.payload?.connectId);
         hardwareError.payload = {
           ...hardwareError.payload,
-          connectId: hardwareError.payload?.connectId ?? connectId,
+          connectId: hardwareError.payload?.connectId || connectId,
         };
+        // The error constructor only notifies recovery when it already has
+        // a connectId. Notify here when this catch supplied the missing ID.
+        if (
+          !hadConnectId &&
+          isHardwareErrorByCode({
+            error: hardwareError,
+            code: HardwareErrorCode.NotAllowInBootloaderMode,
+          })
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+            { connectId },
+          );
+        }
+      }
+      // OK-59934 hard rule #2 (失败不外溢): the stage lands hardware
+      // failures as its error outcome, so the same failure must not also
+      // toast. Cleared here in bg, before the error crosses the bridge —
+      // toastIfError respects an explicit boolean and will not re-arm it.
+      if (
+        !isLegacyHardwareUiActive() &&
+        isHardwareError({ error: error as IOneKeyError })
+      ) {
+        (error as IOneKeyError).autoToast = false;
       }
       if (
         isHardwareErrorByCode({
@@ -909,12 +1717,15 @@ class ServiceHardwareUI extends ServiceBase {
         })
       ) {
         deviceResetToHome = false;
+        skipDeviceCancelAfterError = true;
       } else if (!isHardwareError({ error: error as any })) {
         // not hardware error, reset to home
         deviceResetToHome = false;
       }
       throw error;
     } finally {
+      if (params.onCancel)
+        signal?.removeEventListener('abort', params.onCancel);
       console.log('withHardwareProcessing FINALLY:', {
         processingNestedNum: this.processingNestedNum,
         skipCloseHardwareUiStateDialog,
@@ -939,6 +1750,7 @@ class ServiceHardwareUI extends ServiceBase {
             }
             await this.closeHardwareUiStateDialog({
               connectId,
+              oneKeyOperationLease: params.oneKeyOperationLease,
               skipDeviceCancel: closeDialogParams.skipDeviceCancel,
               deviceResetToHome: closeDialogParams.deviceResetToHome,
               deviceType: device?.deviceType,
@@ -954,6 +1766,9 @@ class ServiceHardwareUI extends ServiceBase {
             { connectId },
           );
         }
+      }
+      if (stageBurstOpened) {
+        await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;
       onFinally?.();

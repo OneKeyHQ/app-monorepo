@@ -131,6 +131,31 @@ describe('hardware UI event state machine', () => {
     expect(result.connectId).toBe('CLASSIC_USB');
   });
 
+  it('marks a PIN completion as such, since it renders as plain progress', () => {
+    // The reduction is indistinguishable from a progress tick by action
+    // alone, and a tick may not write over an ask — so a consumer with no
+    // flag to read leaves the answered PIN card standing (OK-59934).
+    let state = createHardwareUiEventState();
+    state = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.REQUEST_PIN,
+      renderAction: EHardwareUiStateAction.EnterPinOnDevice,
+      connectId: 'PRO_BLE',
+    }).state;
+
+    const completion = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
+      renderAction: EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
+    });
+    expect(completion.askCompleted).toBe(true);
+
+    const tick = reduceHardwareUiEventState(completion.state, {
+      type: EHardwareUiStateAction.DEVICE_PROGRESS,
+      renderAction: EHardwareUiStateAction.DEVICE_PROGRESS,
+      connectId: 'PRO_BLE',
+    });
+    expect(tick.askCompleted).toBeFalsy();
+  });
+
   test.each([
     [
       EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,

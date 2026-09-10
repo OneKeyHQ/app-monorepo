@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { Text as OneKeyText } from '@onekeyfe/react-native-text';
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -48,6 +49,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
+import { openTravelModeSettingsWithAdmission } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useAppUpdatePersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -106,6 +108,22 @@ export interface ICustomElementProps {
   analyticsSource?: ISettingsEntrySurface;
 }
 
+function SettingsValueText({ children, ...textProps }: ISizableTextProps) {
+  if (!platformEnv.isNativeAndroid) {
+    return (
+      <SizableText textAlign="right" size="$bodyLgMedium" {...textProps}>
+        {children}
+      </SizableText>
+    );
+  }
+
+  return (
+    <SizableText textAlign="right" size="$bodyLgMedium" {...textProps} asChild>
+      <OneKeyText>{children}</OneKeyText>
+    </SizableText>
+  );
+}
+
 function useLogSearchResultOnSelectOpen({
   analyticsSource,
   logItemClick,
@@ -144,8 +162,11 @@ export function CurrencyListItem({
       testID={SettingTestIDs.currencyItem}
     >
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text.toUpperCase()}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text.toUpperCase()}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
@@ -193,8 +214,13 @@ export function LanguageListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -273,8 +299,13 @@ export function ThemeListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -558,8 +589,11 @@ export function AutoLockListItem({
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
@@ -726,7 +760,7 @@ function useAppVersionDetails() {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': version,
+      versionNum: version,
     },
   );
   const handleCopyVersion = useCallback(() => {
@@ -1151,6 +1185,41 @@ export function ResetPinListItem({
       setIsLoading(false);
     }
   }, [goToOneKeyIDLoginPageForKeylessWallet, logItemClick]);
+
+  return (
+    <TabSettingsListItem
+      {...props}
+      minHeight="$12"
+      onPress={onPress}
+      isLoading={isLoading}
+      drillIn
+    />
+  );
+}
+
+export function TravelModeListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const onPress = useCallback(async () => {
+    logItemClick?.();
+    setIsLoading(true);
+    try {
+      await openTravelModeSettingsWithAdmission({
+        openTravelModeSettings: ({ admissionId }) => {
+          navigation.push(EModalSettingRoutes.SettingTravelModeModal, {
+            admissionId,
+          });
+        },
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [logItemClick, navigation]);
 
   return (
     <TabSettingsListItem

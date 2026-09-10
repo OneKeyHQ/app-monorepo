@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -18,6 +19,7 @@ import {
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -44,7 +46,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -93,6 +95,36 @@ export function buildMarketAssetTokenDetail({
   };
 }
 
+// The asset detail response has no perps field, so the Hyperliquid counterpart
+// is resolved separately. Kept off the detail render path: the banner appearing
+// a beat late is better than delaying price and chart data behind it.
+async function applyMarketAssetPerpsInfo({
+  set,
+  symbol,
+  isCurrentIdentity,
+}: {
+  set: IJotaiSetter;
+  symbol: string;
+  isCurrentIdentity: () => boolean;
+}) {
+  try {
+    const perpsInfo =
+      await backgroundApiProxy.serviceHyperliquid.resolveMarketPerpsInfoBySymbol(
+        { symbol },
+      );
+    // Only write a hit. A miss must not clear the atom: changeActiveToken may
+    // have supplied API-derived perps info for this same token, and switching
+    // tokens already clears it.
+    if (perpsInfo && isCurrentIdentity()) {
+      set(perpsInfoAtom(), perpsInfo);
+    }
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to resolve market perps info: ${String(error)}`,
+    );
+  }
+}
+
 interface IMarketAssetTokenDetailPayload {
   assetId: string;
   variantId?: string;
@@ -106,8 +138,11 @@ async function fetchMarketAssetTokenDetail(
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
   const { assetId, variantId, tokenAddress, networkId } = payload;
+  const requestId = get(tokenDetailRequestIdAtom()) + 1;
+  set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
   const isCurrentIdentity = () =>
+    get(tokenDetailRequestIdAtom()) === requestId &&
     get(tokenAddressAtom()) === tokenAddress &&
     get(networkIdAtom()) === networkId;
 
@@ -123,7 +158,7 @@ async function fetchMarketAssetTokenDetail(
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const { selectedVariant } = assetDetail;
@@ -173,21 +208,28 @@ async function fetchMarketAssetTokenDetail(
       : currentDecimals;
 
     if (!isValidTokenDecimals(decimals)) {
-      try {
-        const tokenInfo =
-          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-          });
-        decimals = tokenInfo?.info?.decimals;
-      } catch {
-        decimals = undefined;
+      if (selectedVariant.isNative) {
+        decimals = networkUtils.getLocalNetworkInfo(
+          selectedVariant.networkId,
+        )?.decimals;
+      }
+      if (!isValidTokenDecimals(decimals)) {
+        try {
+          const tokenInfo =
+            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+              networkId: selectedVariant.networkId,
+              tokenAddress: selectedVariant.tokenAddress,
+            });
+          decimals = tokenInfo?.info?.decimals;
+        } catch {
+          decimals = undefined;
+        }
       }
     }
 
     if (!isCurrentIdentity()) {
       isStale = true;
-      return assetDetail;
+      throw new OneKeyLocalError('Stale market asset detail request');
     }
 
     const lastUpdated = Date.now();
@@ -218,21 +260,22 @@ async function fetchMarketAssetTokenDetail(
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
-    set(perpsInfoAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);
+    void applyMarketAssetPerpsInfo({
+      set,
+      symbol: finalTokenData.symbol,
+      isCurrentIdentity,
+    });
 
     return assetDetail;
   } catch (error) {
-    defaultLogger.app.error.log(
-      `Failed to fetch market asset detail: ${String(error)}`,
-    );
-    if (isCurrentIdentity()) {
-      set(tokenDetailAtom(), undefined);
-      set(tokenDetailPreviewAtom(), undefined);
-      set(tokenDetailWebsocketAtom(), undefined);
-      set(perpsInfoAtom(), undefined);
-    } else {
+    if (!isCurrentIdentity()) {
       isStale = true;
+    }
+    if (!isStale) {
+      defaultLogger.app.error.log(
+        `Failed to fetch market asset detail: ${String(error)}`,
+      );
     }
     throw error;
   } finally {

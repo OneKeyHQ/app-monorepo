@@ -53,6 +53,11 @@ const DOWNLOAD_EXTENSIONS = [
   '.bin',
 ];
 
+const APP_CLIP_CAMPAIGN_HOSTS = new Set([
+  'app.onekey.so',
+  'app.onekeytest.com',
+]);
+
 function isLikelyDownloadPath(pathname: string): boolean {
   // URL.pathname keeps percent-encoded sequences verbatim, so a raw suffix
   // match misses paths that percent-encode the dot or the extension. Decode
@@ -184,4 +189,33 @@ export function isAllowedWebViewUrl(url: string | undefined | null): boolean {
   if (containsPunycode(url)) return false;
 
   return true;
+}
+
+function parseAllowedAppClipCampaignUrl(
+  url: string | undefined | null,
+): URL | undefined {
+  if (!isAllowedWebViewUrl(url) || !url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return APP_CLIP_CAMPAIGN_HOSTS.has(parsed.hostname.toLowerCase())
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function isAllowedAppClipCampaignEntryUrl(
+  url: string | undefined | null,
+): boolean {
+  const parsed = parseAllowedAppClipCampaignUrl(url);
+  if (!parsed) return false;
+  const path = parsed.pathname.replace(/\/+$/gu, '').toLowerCase();
+  return path === '/campaign' || path.startsWith('/campaign/');
+}
+
+export function isAllowedAppClipCampaignNavigationUrl(
+  url: string | undefined | null,
+): boolean {
+  return Boolean(parseAllowedAppClipCampaignUrl(url));
 }

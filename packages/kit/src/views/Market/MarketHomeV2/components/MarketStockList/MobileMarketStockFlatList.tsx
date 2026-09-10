@@ -26,6 +26,7 @@ import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
+import { MarketStockStar } from './MarketStockStar';
 import { parseMarketStockNumber } from './utils';
 
 import type { FlatListProps } from 'react-native';
@@ -76,11 +77,12 @@ function MobileMarketStockFlatListImpl({
             pressStyle={{ bg: '$bgActive' }}
             onPress={() => {
               if (!shouldSuppressItemPress?.()) {
-                void toMarketStockDetailPage(item.stockId);
+                void toMarketStockDetailPage(item);
               }
             }}
           >
             <XStack flex={1} minWidth={0} alignItems="center" gap="$3.5">
+              <MarketStockStar stock={item} />
               <Token
                 size="lg"
                 borderRadius="$full"
@@ -101,9 +103,14 @@ function MobileMarketStockFlatListImpl({
                 </SizableText>
               </YStack>
             </XStack>
-            <YStack alignItems="flex-end" gap="$1">
+            <XStack alignItems="center" gap="$2">
               {price === undefined ? (
-                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={1}
+                >
                   --
                 </SizableText>
               ) : (
@@ -111,12 +118,14 @@ function MobileMarketStockFlatListImpl({
                   size="$bodyLgMedium"
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
+                  flexShrink={1}
+                  numberOfLines={1}
                 >
                   {price}
                 </NumberSizeableText>
               )}
               <PriceChangeBadge change={priceChange ?? '--'} />
-            </YStack>
+            </XStack>
           </XStack>
         );
       },

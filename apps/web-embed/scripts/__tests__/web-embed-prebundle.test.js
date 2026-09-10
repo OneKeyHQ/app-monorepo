@@ -64,6 +64,36 @@ describe('web-embed-prebundle', () => {
     expect(getReleaseTag()).toBe(`web-embed-prebundle-v1-${inputKey}`);
   });
 
+  it('filters x pushes to possible dependency graph inputs', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+
+    expect(workflow).toContain('push:\n    branches:\n      - x\n    paths:');
+    for (const triggerPath of [
+      'apps/web-embed/**',
+      'development/**',
+      'packages/components/**',
+      'packages/core/**',
+      'packages/kit/**',
+      'packages/kit-bg/**',
+      'packages/shared/**',
+      'patches/**',
+      'yarn.lock',
+    ]) {
+      expect(workflow).toContain(`- '${triggerPath}'`);
+    }
+    expect(workflow).toContain("cron: '30 18 * * 0'");
+    expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain(
+      "(github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')",
+    );
+    expect(workflow).toContain(
+      "github.ref == 'refs/heads/x' &&\n      needs.build.result == 'success'",
+    );
+  });
+
   it('fails closed when the publish tag lookup has a registry error', () => {
     const workflow = fs.readFileSync(
       path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
@@ -95,6 +125,61 @@ describe('web-embed-prebundle', () => {
     );
   });
 
+  it('publishes for anonymous access and lets native shells build when absent', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+    const action = fs.readFileSync(
+      path.join(repoRoot, '.github/actions/restore-web-embed/action.yml'),
+      'utf8',
+    );
+    const nativeShellWorkflows = [
+      'mobile-dev-shell-android.yml',
+      'mobile-dev-shell-ios-simulator.yml',
+    ].map((fileName) =>
+      fs.readFileSync(
+        path.join(repoRoot, '.github/workflows', fileName),
+        'utf8',
+      ),
+    );
+    const bootstrapLoginIndex = workflow.indexOf(
+      '- name: Log in to GHCR for bootstrap lookup',
+    );
+    const resolveIndex = workflow.indexOf(
+      '- name: Resolve immutable OCI tag',
+      bootstrapLoginIndex,
+    );
+    const anonymousVerifyIndex = workflow.indexOf(
+      '- name: Verify public anonymous access',
+    );
+    const restoreIndex = action.indexOf('prebundle:restore');
+    const unavailableIndex = action.indexOf(
+      `manifest unknown|not found|denied: requested access to the resource is denied`,
+    );
+    const localBuildIndex = action.indexOf('prebundle:build', unavailableIndex);
+
+    expect(bootstrapLoginIndex).toBeGreaterThan(-1);
+    expect(resolveIndex).toBeGreaterThan(bootstrapLoginIndex);
+    expect(workflow.slice(resolveIndex)).toContain(
+      'oras logout "$OCI_REGISTRY"',
+    );
+    expect(anonymousVerifyIndex).toBeGreaterThan(resolveIndex);
+    expect(workflow.slice(anonymousVerifyIndex)).toContain(
+      'not publicly readable',
+    );
+    expect(action).not.toContain('oras login');
+    expect(restoreIndex).toBeGreaterThan(-1);
+    expect(unavailableIndex).toBeGreaterThan(restoreIndex);
+    expect(localBuildIndex).toBeGreaterThan(unavailableIndex);
+    expect(action).toContain('web-embed-prebundle-build.json');
+    for (const nativeShellWorkflow of nativeShellWorkflows) {
+      expect(nativeShellWorkflow).toContain(
+        'uses: ./.github/actions/restore-web-embed',
+      );
+    }
+  });
+
   it('ignores dynamic .env.expo values but hashes real build inputs', () => {
     const buildInputPath = path.join(temporaryDirectory, 'build-input.txt');
     const dynamicEnvPath = path.join(temporaryDirectory, '.env.expo');
@@ -106,7 +191,7 @@ describe('web-embed-prebundle', () => {
     fs.writeFileSync(dynamicEnvPath, 'GITHUB_SHA=first\nSENTRY_TOKEN=first\n');
 
     expect(INPUT_PATHS).not.toContain('.env.expo');
-    expect(INPUT_PATHS).toContain('.github/workflows/web-embed-prebundle.yml');
+    expect(INPUT_PATHS).not.toContain('apps/web-embed/package.json');
     const inputKey = getInputKey(options);
 
     fs.writeFileSync(
@@ -116,6 +201,59 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).toBe(inputKey);
 
     fs.writeFileSync(buildInputPath, 'changed build input');
+    expect(getInputKey(options)).not.toBe(inputKey);
+  });
+
+  it('ignores generated postinstall inputs', () => {
+    const sourcePath = path.join(
+      temporaryDirectory,
+      'packages/kit/src/source.ts',
+    );
+    const generatedPath = path.join(
+      temporaryDirectory,
+      'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
+    );
+    const options = {
+      inputPaths: ['packages/kit'],
+      root: temporaryDirectory,
+    };
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
+    fs.writeFileSync(sourcePath, 'stable source');
+    const inputKey = getInputKey(options);
+
+    fs.writeFileSync(generatedPath, 'first generated output');
+    expect(getInputKey(options)).toBe(inputKey);
+    fs.writeFileSync(generatedPath, 'second generated output');
+    expect(getInputKey(options)).toBe(inputKey);
+
+    fs.writeFileSync(sourcePath, 'changed source');
+    expect(getInputKey(options)).not.toBe(inputKey);
+  });
+
+  it('hashes browser fallbacks that replace imported Node built-ins', () => {
+    const inputPath = path.join(temporaryDirectory, 'input.js');
+    const fallbackPath = path.join(temporaryDirectory, 'crypto-fallback.js');
+    fs.writeFileSync(inputPath, "require('crypto');\n");
+    fs.writeFileSync(fallbackPath, 'module.exports = "first";\n');
+    fs.writeFileSync(path.join(temporaryDirectory, 'yarn.lock'), '');
+    const options = {
+      inputPaths: ['input.js'],
+      resolveOptions: {
+        alias: {},
+        aliasFields: ['browser', 'module', 'main'],
+        extensions: ['.js'],
+        fallback: { crypto: fallbackPath },
+        fullySpecified: false,
+        mainFields: ['browser', 'module', 'main'],
+        symlinks: true,
+      },
+      root: temporaryDirectory,
+      traceDependencies: true,
+    };
+    const inputKey = getInputKey(options);
+
+    fs.writeFileSync(fallbackPath, 'module.exports = "second";\n');
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 
@@ -308,53 +446,101 @@ describe('web-embed-prebundle', () => {
       '{}\n',
     );
 
-    const ociDigest = `sha256:${'b'.repeat(64)}`;
+    const layerBytes = new Map(
+      [ARCHIVE_NAME, ATTESTATION_BUNDLE_NAME, RELEASE_MANIFEST_NAME].map(
+        (fileName) => [
+          fileName,
+          fs.readFileSync(path.join(releaseDirectory, fileName)),
+        ],
+      ),
+    );
+    const blobs = new Map();
+    const layers = [...layerBytes].map(([fileName, bytes]) => {
+      const digest = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+      blobs.set(digest, bytes);
+      return {
+        annotations: { 'org.opencontainers.image.title': fileName },
+        digest,
+        mediaType: 'application/octet-stream',
+        size: bytes.length,
+      };
+    });
+    const ociManifest = Buffer.from(
+      JSON.stringify({
+        annotations: {
+          'org.opencontainers.image.source':
+            'https://github.com/OneKeyHQ/app-monorepo',
+        },
+        artifactType: OCI_ARTIFACT_TYPE,
+        config: {
+          digest: `sha256:${'c'.repeat(64)}`,
+          mediaType: 'application/vnd.oci.empty.v1+json',
+          size: 2,
+        },
+        layers,
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        schemaVersion: 2,
+      }),
+    );
+    const ociDigest = `sha256:${crypto
+      .createHash('sha256')
+      .update(ociManifest)
+      .digest('hex')}`;
     const immutableReference = `${OCI_REGISTRY}/${OCI_REPOSITORY}@${ociDigest}`;
-    execFile.mockImplementation((command, args, _options, callback) => {
-      if (command === 'oras' && args[0] === 'pull') {
-        const pullDirectory = args[args.indexOf('--output') + 1];
-        for (const fileName of [
-          ARCHIVE_NAME,
-          ATTESTATION_BUNDLE_NAME,
-          RELEASE_MANIFEST_NAME,
-        ]) {
-          fs.copyFileSync(
-            path.join(releaseDirectory, fileName),
-            path.join(pullDirectory, fileName),
-          );
-        }
-        callback(null, '', '');
-        return;
+    const archiveDigest = layers.find(
+      (layer) =>
+        layer.annotations['org.opencontainers.image.title'] === ARCHIVE_NAME,
+    ).digest;
+    const attestationDigest = layers.find(
+      (layer) =>
+        layer.annotations['org.opencontainers.image.title'] ===
+        ATTESTATION_BUNDLE_NAME,
+    ).digest;
+    const blobAttempts = new Map();
+    const fetchImpl = jest.fn(async (input, options) => {
+      const url = new URL(input);
+      if (url.pathname === '/token') {
+        return new Response(JSON.stringify({ token: 'test-token' }), {
+          status: 200,
+        });
       }
-      if (command === 'oras' && args.includes('--descriptor')) {
-        callback(null, JSON.stringify({ digest: ociDigest }), '');
-        return;
-      }
-      if (command === 'oras' && args[0] === 'manifest') {
-        callback(
-          null,
-          JSON.stringify({
-            annotations: {
-              'org.opencontainers.image.source':
-                'https://github.com/OneKeyHQ/app-monorepo',
+      if (url.pathname.includes('/manifests/')) {
+        if (options?.headers?.Authorization !== 'Bearer test-token') {
+          return new Response('authentication required', {
+            headers: {
+              'www-authenticate':
+                'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:onekeyhq/web-embed-prebundle:pull"',
             },
-            artifactType: OCI_ARTIFACT_TYPE,
-            layers: [
-              ARCHIVE_NAME,
-              ATTESTATION_BUNDLE_NAME,
-              RELEASE_MANIFEST_NAME,
-            ].map((fileName) => ({
-              annotations: {
-                'org.opencontainers.image.title': fileName,
-              },
-              size: fs.statSync(path.join(releaseDirectory, fileName)).size,
-            })),
-            schemaVersion: 2,
-          }),
-          '',
-        );
-        return;
+            status: 401,
+          });
+        }
+        return new Response(ociManifest, {
+          headers: {
+            'content-type': 'application/vnd.oci.image.manifest.v1+json',
+            'docker-content-digest': ociDigest,
+          },
+          status: 200,
+        });
       }
+      const digest = url.pathname.split('/').at(-1);
+      const attempt = (blobAttempts.get(digest) || 0) + 1;
+      blobAttempts.set(digest, attempt);
+      if (digest === archiveDigest && attempt === 1) {
+        throw Object.assign(new TypeError('terminated'), {
+          cause: Object.assign(new Error('connection reset'), {
+            code: 'ECONNRESET',
+          }),
+        });
+      }
+      if (digest === attestationDigest && attempt === 1) {
+        return new Response('service unavailable', { status: 503 });
+      }
+      const bytes = blobs.get(digest);
+      return bytes
+        ? new Response(bytes, { status: 200 })
+        : new Response('missing', { status: 404 });
+    });
+    execFile.mockImplementation((command, args, _options, callback) => {
       if (command === 'gh') {
         callback(null, '', '');
         return;
@@ -365,17 +551,23 @@ describe('web-embed-prebundle', () => {
     expect(fs.existsSync(outputDirectory)).toBe(false);
     expect(fs.existsSync(receiptPath)).toBe(false);
 
-    await restoreRelease({ outputDirectory, receiptPath });
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      await restoreRelease({ fetchImpl, outputDirectory, receiptPath });
+      expect(consoleError).toHaveBeenCalledTimes(2);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('after a transient download failure'),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
 
-    expect(execFile).toHaveBeenCalledWith(
+    expect(fetchImpl).toHaveBeenCalledTimes(8);
+    expect(execFile).not.toHaveBeenCalledWith(
       'oras',
-      ['manifest', 'fetch', immutableReference],
-      expect.any(Object),
-      expect.any(Function),
-    );
-    expect(execFile).toHaveBeenCalledWith(
-      'oras',
-      ['pull', '--output', expect.any(String), immutableReference],
+      expect.any(Array),
       expect.any(Object),
       expect.any(Function),
     );

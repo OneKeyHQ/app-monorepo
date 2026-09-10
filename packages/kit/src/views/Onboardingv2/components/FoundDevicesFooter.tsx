@@ -145,8 +145,16 @@ export function FoundDevicesFooter({
                 <ListItem
                   key={key}
                   userSelect="none"
-                  disabled={isConnecting}
+                  // Not `disabled` while connecting: on native, ListItem
+                  // drops its Pressable wrapper when disabled, which
+                  // remounts every row at once and reads as the list
+                  // flickering (OK-62078). The rows stay as they are — the
+                  // legacy list never greyed its siblings either — and the
+                  // pick is simply ignored while a connect is in flight.
                   onPress={() => {
+                    if (connectingRef.current) {
+                      return;
+                    }
                     // Every press is an explicit choice, including one on
                     // the row that is already selected by default.
                     isExplicitPickRef.current = true;
@@ -184,7 +192,11 @@ export function FoundDevicesFooter({
               loading={isConnecting}
               onPress={handleConnect}
             >
-              {intl.formatMessage({ id: ETranslations.global_connect })}
+              {intl.formatMessage({
+                id: isConnecting
+                  ? ETranslations.device_stage_connecting__title
+                  : ETranslations.global_connect,
+              })}
             </Button>
           </YStack>
         ) : null}
