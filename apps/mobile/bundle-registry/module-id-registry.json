@@ -23286,6 +23286,7 @@
     "packages/kit/src/views/Swap/utils/swapNetworkCacheUtils.ts": 9996,
     "packages/kit/src/views/Swap/utils/swapNoWalletWarningGuard.ts": 6532,
     "packages/kit/src/views/Swap/utils/swapOrderProgress.ts": 14173,
+    "packages/kit/src/views/Swap/utils/swapPositionPrefetchUtils.ts": 12765,
     "packages/kit/src/views/Swap/utils/swapProAccountUtils.ts": 16993,
     "packages/kit/src/views/Swap/utils/swapProAmountSliderUtils.ts": 13719,
     "packages/kit/src/views/Swap/utils/swapProLimitPriceUtils.ts": 15591,

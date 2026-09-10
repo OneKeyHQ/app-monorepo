@@ -147,6 +147,7 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { buildSwapPositionPrefetchScopes } from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import {
@@ -1324,45 +1325,19 @@ const SwapMainLoad = ({
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const positionPrefetchScopes = useMemo(() => {
-    const scopes = [
-      {
-        key: 'swap',
-        networkList: positionSupportNetworkLists.swap,
-        ready: !fetchLoading,
-        stockOnly: false,
-      },
-      {
-        key: 'stock',
-        networkList: positionSupportNetworkLists.stock,
-        ready: !fetchLoading,
-        stockOnly: true,
-      },
-      {
-        key: 'pro',
-        networkList: SwapProSupportNetworksList,
-        ready: swapProSupportNetworksReady,
-        stockOnly: false,
-      },
-    ].filter((scope) => scope.ready && scope.networkList.length > 0);
-    let activeKey = 'swap';
-    if (focusSwapPro) {
-      activeKey = 'pro';
-    } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-      activeKey = 'stock';
-    }
-    return scopes.toSorted((left, right) => {
-      if (left.key === activeKey) return -1;
-      if (right.key === activeKey) return 1;
-      return 0;
+    return buildSwapPositionPrefetchScopes({
+      swapNetworksReady: !fetchLoading,
+      proNetworksReady: swapProSupportNetworksReady,
+      swapNetworkList: positionSupportNetworkLists.swap,
+      stockNetworkList: positionSupportNetworkLists.stock,
+      proNetworkList: SwapProSupportNetworksList,
     });
   }, [
     SwapProSupportNetworksList,
     fetchLoading,
-    focusSwapPro,
     positionSupportNetworkLists.stock,
     positionSupportNetworkLists.swap,
     swapProSupportNetworksReady,
-    swapTypeSwitch,
   ]);
   useEffect(() => {
     const [primaryScope, ...additionalScopes] = positionPrefetchScopes;
@@ -1376,7 +1351,14 @@ const SwapMainLoad = ({
         stockOnly: scope.stockOnly,
       })),
     });
-  }, [positionPrefetchScopes, swapProLoadSupportNetworksTokenListRun]);
+    // Activation still checks freshness; the loader owns in-flight and TTL
+    // deduplication independently of the stable prefetch scope order.
+  }, [
+    focusSwapPro,
+    positionPrefetchScopes,
+    swapProLoadSupportNetworksTokenListRun,
+    swapTypeSwitch,
+  ]);
 
   useSwapProErrorAlert({
     isSwapProActive: Boolean(focusSwapPro),
