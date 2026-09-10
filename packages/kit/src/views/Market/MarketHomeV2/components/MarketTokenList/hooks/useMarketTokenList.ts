@@ -274,6 +274,10 @@ export function useMarketTokenList({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
+  const [errorQueryKey, setErrorQueryKey] = useState<string>();
+  const forceRemoteFirstPageRef = useRef(false);
+  const firstPageRequestSequenceRef = useRef(0);
+  const loadMoreRequestRef = useRef<object | undefined>(undefined);
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const maxPages = 5;
 
@@ -436,6 +440,12 @@ export function useMarketTokenList({
         return undefined;
       }
       const requestQueryKey = currentQueryKey;
+      firstPageRequestSequenceRef.current += 1;
+      const requestSequence = firstPageRequestSequenceRef.current;
+      if (platformEnv.isNative) {
+        loadMoreRequestRef.current = undefined;
+        setIsLoadingMore(false);
+      }
       const shouldAllowColdCacheFallback =
         remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
       pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
@@ -444,6 +454,9 @@ export function useMarketTokenList({
         (bypassWebSeedOnceRef.current ||
           hasTrustedMarketTokenListCacheRef.current);
       bypassWebSeedOnceRef.current = false;
+      const forceRemote =
+        shouldBypassWebSeed || forceRemoteFirstPageRef.current;
+      forceRemoteFirstPageRef.current = false;
       let response: IMarketTokenListResponseWithSource;
       try {
         response = await fetchMarketTokenListForPlatform(
@@ -458,9 +471,17 @@ export function useMarketTokenList({
             category,
             timeFrame,
           },
-          shouldBypassWebSeed ? { forceRemote: true } : undefined,
+          forceRemote ? { forceRemote: true } : undefined,
         );
       } catch (error) {
+        if (
+          platformEnv.isNative &&
+          currentQueryKeyRef.current === requestQueryKey &&
+          firstPageRequestSequenceRef.current === requestSequence
+        ) {
+          setErrorQueryKey(requestQueryKey);
+          setIsNetworkSwitching(false);
+        }
         const latestAuthoritativeResult =
           latestAuthoritativeFirstPageResultRef.current;
         if (
@@ -482,11 +503,22 @@ export function useMarketTokenList({
             __fromColdCacheFallback: true,
           };
         }
-        throw error;
+        if (!platformEnv.isNative) throw error;
+        return undefined;
       }
       const responseWithSource = response;
-      if (currentQueryKeyRef.current !== requestQueryKey) {
+      if (
+        currentQueryKeyRef.current !== requestQueryKey ||
+        (platformEnv.isNative &&
+          firstPageRequestSequenceRef.current !== requestSequence)
+      ) {
         return undefined;
+      }
+      if (
+        platformEnv.isNative &&
+        firstPageRequestSequenceRef.current === requestSequence
+      ) {
+        setErrorQueryKey(undefined);
       }
       const nextResult = {
         list: response.list,
@@ -525,7 +557,9 @@ export function useMarketTokenList({
     ],
     {
       checkIsFocused: !platformEnv.isWeb,
-      watchLoading: hasNetworkId,
+      // Native pages can mount before the default network is initialized.
+      // usePromiseResult captures watchLoading when its runner is created.
+      watchLoading: platformEnv.isNative || hasNetworkId,
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -737,6 +771,7 @@ export function useMarketTokenList({
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
+    if (platformEnv.isNative) loadMoreRequestRef.current = undefined;
     setCurrentPage(1);
     setIsLoadingMore(false);
     setHasReachedEnd(false);
@@ -777,6 +812,7 @@ export function useMarketTokenList({
     if (
       isProvisionalFirstPageResult ||
       isLoadingMore ||
+      (platformEnv.isNative && loadMoreRequestRef.current !== undefined) ||
       loadedPageCount >= maxPages ||
       loadedPageCount >= totalPages ||
       (totalCount > 0 && transformedData.length >= totalCount) ||
@@ -789,6 +825,9 @@ export function useMarketTokenList({
 
     const nextPage = loadedPageCount + 1;
     const requestQueryKey = currentQueryKeyRef.current;
+    const request = {};
+    const firstPageRequestSequence = firstPageRequestSequenceRef.current;
+    if (platformEnv.isNative) loadMoreRequestRef.current = request;
 
     setIsLoadingMore(true);
 
@@ -808,7 +847,10 @@ export function useMarketTokenList({
 
       if (
         currentQueryKeyRef.current !== requestQueryKey ||
-        isProvisionalFirstPageResultRef.current
+        isProvisionalFirstPageResultRef.current ||
+        (platformEnv.isNative &&
+          (loadMoreRequestRef.current !== request ||
+            firstPageRequestSequenceRef.current !== firstPageRequestSequence))
       ) {
         return;
       }
@@ -847,7 +889,10 @@ export function useMarketTokenList({
     } catch (error) {
       console.error('Failed to load more market tokens:', error);
     } finally {
-      setIsLoadingMore(false);
+      if (!platformEnv.isNative || loadMoreRequestRef.current === request) {
+        loadMoreRequestRef.current = undefined;
+        setIsLoadingMore(false);
+      }
     }
   }, [
     isProvisionalFirstPageResult,
@@ -880,9 +925,16 @@ export function useMarketTokenList({
     !isLoadingMore &&
     !hasReachedEnd;
 
+  const refetch = useCallback(() => {
+    // A user refresh or Retry must reach the server even if a cached request failed.
+    forceRemoteFirstPageRef.current = Boolean(platformEnv.isNative);
+    return fetchMarketTokenList();
+  }, [fetchMarketTokenList]);
+
   return {
     data: transformedData,
     isLoading: effectiveIsLoading,
+    isError: errorQueryKey === currentQueryKey,
     isLoadingMore,
     isNetworkSwitching: isNetworkSwitching && transformedData.length === 0,
     isProvisionalFirstPageResult,
@@ -895,7 +947,7 @@ export function useMarketTokenList({
     canLoadMore,
     loadMore,
     refresh,
-    refetch: fetchMarketTokenList,
+    refetch,
     sortBy,
     sortType,
     setSortBy,

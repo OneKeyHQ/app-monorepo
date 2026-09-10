@@ -35,6 +35,9 @@ export type IMarketNativeListPresentation = Readonly<{
   neutralBackground: string;
   infoBackground: string;
   infoText: string;
+  tokenBackground: string;
+  tokenBorderColor?: string;
+  androidPixelRatio?: number;
 }>;
 
 const TOKEN_ROW_STYLE: MarketRowStyle = {
@@ -43,6 +46,7 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
   leadingGap: 14,
   lineGap: 4,
   titleBadgeGap: 4,
+  titleBadgeLayout: 'inline',
   trailingGap: 8,
   image: {
     width: 32,
@@ -100,6 +104,14 @@ const PERP_ROW_STYLE: MarketRowStyle = {
   ...TOKEN_ROW_STYLE,
   horizontalPadding: 16,
   leadingGap: 8,
+  lineGap: 0,
+  contentTrailingGap: 12,
+  subtitleTrailingPadding: 12,
+  subtitle: {
+    ...TOKEN_ROW_STYLE.subtitle,
+    fontSize: 12,
+    lineHeight: 16,
+  },
 };
 
 function toTextSegments(rendered: ReturnType<typeof numberFormatAsRenderText>):
@@ -142,19 +154,17 @@ function formatNumber(
   return toTextSegments(rendered) ?? ({ text: '--' } as const);
 }
 
-function formatSubtitle(
-  label: string | undefined,
+function formatVolume(
   volume: string | number | undefined,
+  includeZero = false,
 ) {
   const numericVolume = Number(volume);
-  const volumeText =
-    Number.isFinite(numericVolume) && numericVolume !== 0
-      ? numberFormat(String(volume), {
-          formatter: 'marketCap',
-          formatterOptions: { currency: '$' },
-        })
-      : undefined;
-  return [label, volumeText].filter(Boolean).join(' ') || undefined;
+  return Number.isFinite(numericVolume) && (includeZero || numericVolume !== 0)
+    ? numberFormat(String(volume), {
+        formatter: 'marketCap',
+        formatterOptions: { currency: '$' },
+      })
+    : undefined;
 }
 
 function marketImage(
@@ -183,22 +193,24 @@ function tokenBadges(
   presentation: IMarketNativeListPresentation,
 ): readonly MarketBadgeModel[] {
   const badges: MarketBadgeModel[] = [];
-  if (item.communityRecognized) {
-    badges.push({
-      key: `${marketTokenKey(item)}:community`,
-      iconName: 'verified',
-      tone: 'success',
-      actionKey: 'token-tags',
-      accessibilityLabel: `${item.symbol}, ${presentation.communityRecognizedAccessibilityLabel}`,
-    });
-  }
   if (item.stock?.sourceLogoUri) {
     badges.push({
       key: `${marketTokenKey(item)}:stock-source`,
       icon: marketImage(item.stock.sourceLogoUri, 14),
+      style: { height: 14 },
       tone: 'neutral',
       actionKey: 'token-tags',
       accessibilityLabel: item.stock.title || item.stock.subtitle,
+    });
+  }
+  if (item.communityRecognized) {
+    badges.push({
+      key: `${marketTokenKey(item)}:community`,
+      iconName: 'verified',
+      style: { height: 16 },
+      tone: 'success',
+      actionKey: 'token-tags',
+      accessibilityLabel: `${item.symbol}, ${presentation.communityRecognizedAccessibilityLabel}`,
     });
   }
   return badges;
@@ -209,16 +221,26 @@ function perpsBadges({
   maxLeverage,
   dexLabel,
   presentation,
+  compact = false,
 }: {
   key: string;
   maxLeverage?: number;
   dexLabel?: string;
   presentation: IMarketNativeListPresentation;
+  compact?: boolean;
 }): readonly MarketBadgeModel[] {
   const badges: MarketBadgeModel[] = [];
+  const style: MarketBadgeModel['style'] = {
+    fontSize: 10,
+    fontWeight: 'regular',
+    lineHeight: 16,
+    height: 16,
+    horizontalPadding: compact ? 4 : 6,
+  };
   if (maxLeverage) {
     badges.push({
       key: `${key}:leverage`,
+      style,
       text: `${maxLeverage}x`,
       tone: 'info',
       textColor: presentation.infoText,
@@ -234,6 +256,7 @@ function perpsBadges({
   ) {
     badges.push({
       key: `${key}:dex`,
+      style,
       text: normalizedDexLabel,
       tone: 'info',
       textColor: presentation.infoText,
@@ -270,7 +293,7 @@ function buildChange(
   return {
     ...formatted,
     tone,
-    textColor: presentation.theme.inverseText,
+    textColor: '#ffffff',
     backgroundColor,
   };
 }
@@ -311,7 +334,7 @@ export function buildTokenMarketRow({
   const dexLabel = item.perpsCoin
     ? parseDexCoin(item.perpsCoin).dexLabel
     : undefined;
-  const style = isPerp ? PERP_ROW_STYLE : TOKEN_ROW_STYLE;
+  const subtitlePrefix = item.stock?.subtitle ?? item.perpsSubtitle;
   return {
     key,
     type: 'market',
@@ -325,13 +348,19 @@ export function buildTokenMarketRow({
       networkImage: isPerp ? undefined : marketImage(item.networkLogoUri, 16),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
-      backgroundColor: presentation.theme.strongBackground,
+      backgroundColor: presentation.tokenBackground,
+      borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: formatSubtitle(
-      item.stock?.subtitle ?? item.perpsSubtitle,
-      item.turnover,
-    ),
+    subtitle: formatVolume(item.turnover),
+    subtitlePrefix: subtitlePrefix
+      ? {
+          text: subtitlePrefix,
+          gap: 6,
+          maxWidth: 66,
+          style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+        }
+      : undefined,
     price: price.text,
     priceSegments: price.textSegments,
     change,
@@ -346,7 +375,7 @@ export function buildTokenMarketRow({
     pressActionKey: 'open-detail',
     pressInActionKey: isPerp ? undefined : 'prewarm-detail',
     longPressActionKey: watchlist ? 'watchlist-menu' : undefined,
-    style: rowStyleForChange(style, Number(rawChange)),
+    style: rowStyleForChange(TOKEN_ROW_STYLE, Number(rawChange)),
   };
 }
 
@@ -373,7 +402,8 @@ export function buildStockMarketRow({
       image: marketImage(item.logoUrl, 40),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
-      backgroundColor: presentation.theme.strongBackground,
+      backgroundColor: presentation.tokenBackground,
+      borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
     subtitle: item.name,
@@ -399,7 +429,7 @@ export function buildPerpsMarketRow({
     key: item.name,
     type: 'market',
     variant: 'perp',
-    height: 72,
+    height: 64,
     testID: `market-perps-row-${item.name}`,
     accessibilityLabel: `${item.displayName}, ${price.text}, ${change.text}`,
     leading: {
@@ -407,10 +437,18 @@ export function buildPerpsMarketRow({
       image: marketImage(item.tokenImageUrl, 32),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
-      backgroundColor: presentation.theme.strongBackground,
+      backgroundColor: presentation.tokenBackground,
+      borderColor: presentation.tokenBorderColor,
     },
     title: item.displayName,
-    subtitle: formatSubtitle(item.subtitle, item.volume24h),
+    subtitle: formatVolume(item.volume24h ?? '0', true),
+    subtitlePrefix: item.subtitle
+      ? {
+          text: item.subtitle,
+          gap: 4,
+          style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+        }
+      : undefined,
     price: price.text,
     priceSegments: price.textSegments,
     change,
@@ -419,6 +457,7 @@ export function buildPerpsMarketRow({
       maxLeverage: item.maxLeverage,
       dexLabel: item.dexLabel,
       presentation,
+      compact: true,
     }),
     pressActionKey: 'open-detail',
     style: rowStyleForChange(PERP_ROW_STYLE, item.change24hPercent),
@@ -447,10 +486,11 @@ export function buildTopCoinMarketRow({
       image: marketImage(item.logoUrl, 32),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
-      backgroundColor: presentation.theme.strongBackground,
+      backgroundColor: presentation.tokenBackground,
+      borderColor: presentation.tokenBorderColor,
     },
     title: symbol,
-    subtitle: formatSubtitle(undefined, item.volume24h),
+    subtitle: formatVolume(item.volume24h),
     price: price.text,
     priceSegments: price.textSegments,
     change,
@@ -477,6 +517,8 @@ export function buildMarketNativeSnapshot({
   canRefresh,
   showEnd = true,
   contentPaddingBottom,
+  emptyContentHeight,
+  emptyContentTopSpacing,
 }: {
   rows: readonly MarketRow[];
   generation: number;
@@ -492,8 +534,37 @@ export function buildMarketNativeSnapshot({
   canRefresh?: boolean;
   showEnd?: boolean;
   contentPaddingBottom: number;
+  emptyContentHeight?: number;
+  emptyContentTopSpacing?: number;
 }): NativeListSnapshot {
   let rows: RowModel[] = [...marketRows];
+  const pixelRatio = presentation.androidPixelRatio;
+  if (pixelRatio && pixelRatio > 0) {
+    let bottom = 0;
+    rows = marketRows.map((row) => {
+      const style = row.style;
+      const titleHeight = style?.title?.lineHeight ?? 24;
+      const subtitleHeight = style?.subtitle?.lineHeight ?? 20;
+      // Android text measures whole pixels before Yoga adds fractional gaps/padding.
+      const textHeight =
+        Math.ceil(titleHeight * pixelRatio) / pixelRatio +
+        (row.subtitle || row.subtitlePrefix
+          ? Math.ceil(subtitleHeight * pixelRatio) / pixelRatio +
+            (style?.lineGap ?? 0)
+          : 0) +
+        (style?.verticalPadding ?? 12) * 2;
+      const height = Math.fround(Math.max(row.height ?? 0, textHeight));
+      const top = bottom;
+      // Round cumulative edges once; rounding each addition introduces drift.
+      bottom += height;
+      const snappedHeight =
+        (Math.round(bottom * pixelRatio) - Math.round(top * pixelRatio)) /
+        pixelRatio;
+      return snappedHeight === row.height
+        ? row
+        : { ...row, height: snappedHeight };
+    });
+  }
   if (loading && rows.length === 0) {
     rows = Array.from({ length: 10 }, (_, index) => ({
       key: `market-loading-${index}`,
@@ -507,11 +578,13 @@ export function buildMarketNativeSnapshot({
     rows = [
       {
         key: 'market-retry',
+        height: Math.max(120, emptyContentHeight ?? 0),
         type: 'system',
         variant: 'retry',
         presentation: 'market',
         message: errorMessage,
         actionKey: 'retry',
+        actionText: retryMessage,
       },
     ];
   } else if (loadingMore) {
@@ -526,11 +599,13 @@ export function buildMarketNativeSnapshot({
   } else if (loadMoreError) {
     rows.push({
       key: 'market-load-more-retry',
+      height: 52,
       type: 'system',
       variant: 'retry',
       presentation: 'market',
-      message: retryMessage,
+      message: '',
       actionKey: 'load-more-retry',
+      actionText: retryMessage,
     });
   } else if (showEnd && !canLoadMore && rows.length > 0) {
     rows.push({
@@ -540,6 +615,26 @@ export function buildMarketNativeSnapshot({
       variant: 'end',
       presentation: 'market',
     });
+  }
+
+  const emptyState: NativeListSnapshot['emptyState'] = {
+    key: 'market-empty',
+    height: Math.max(88, emptyContentHeight ?? 0),
+    type: 'system',
+    variant: 'noMatch',
+    presentation: 'market',
+    message: noDataMessage,
+  };
+  if (rows.length === 0 && emptyContentTopSpacing) {
+    rows = [
+      {
+        key: 'market-empty-spacing',
+        height: emptyContentTopSpacing,
+        type: 'system',
+        variant: 'spacer',
+      },
+      emptyState,
+    ];
   }
 
   return {
@@ -561,14 +656,7 @@ export function buildMarketNativeSnapshot({
       loadMore: Boolean(canLoadMore),
       endReachedThreshold: 0.2,
     },
-    emptyState: {
-      key: 'market-empty',
-      height: 88,
-      type: 'system',
-      variant: 'noMatch',
-      presentation: 'market',
-      message: noDataMessage,
-    },
+    emptyState,
   };
 }
 
@@ -613,6 +701,26 @@ export function buildMarketNativeRowPatches(
       const changes: Record<string, unknown> = {};
       for (const field of fields) {
         if (!isEqual(row[field], previousRow[field])) {
+          if (field === 'style') {
+            const quoteStyleFields = new Set([
+              'price',
+              'change',
+              'changeWidth',
+              'changeHeight',
+              'changeCornerRadius',
+            ]);
+            const layoutStyle = (style: MarketRowStyle | undefined) =>
+              Object.fromEntries(
+                Object.entries(style ?? {}).filter(
+                  ([key]) => !quoteStyleFields.has(key),
+                ),
+              );
+            if (
+              !isEqual(layoutStyle(row.style), layoutStyle(previousRow.style))
+            ) {
+              return undefined;
+            }
+          }
           if (!MARKET_PATCH_FIELDS.has(field) || row[field] === undefined) {
             return undefined;
           }

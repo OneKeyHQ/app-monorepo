@@ -15,12 +15,19 @@ import { StyleSheet } from 'react-native';
 import { CollapsiblePagerView } from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  Tabs,
+  XStack,
+  YStack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import {
   MarketBannerList,
@@ -37,7 +44,10 @@ import {
 } from '../components/MarketNativeList/MobileMarketNativeLists';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
-import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  type IMarketWatchlistDataCache,
+  useIsWatchlistTokenCacheReady,
+} from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
   type IWatchlistFilterType,
@@ -54,6 +64,7 @@ import {
   getMarketMobileSecondaryHeaderHeight,
 } from './mobileLayoutUtils';
 
+import type { IMarketPerpsDataCache } from '../components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type {
   ILiquidityFilter,
   IMarketCategoryItem,
@@ -312,8 +323,20 @@ function MobileLayoutComponent({
     ],
     [perpsTabName, showPerpsTab, spotTabItems, watchlistTabName],
   );
-  const initialIndex = Math.max(0, tabNames.indexOf(selectedTabName));
+  const initialIndex = useRef(
+    Math.max(0, tabNames.indexOf(selectedTabName)),
+  ).current;
   const pagerRef = useRef<CollapsiblePagerView>(null);
+  // Keep successful data when the pager unmounts a distant page.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
+  );
+  const topCoinsDataCacheRef = useRef<IMarketAssetListItem[] | undefined>(
+    undefined,
+  );
+  const perpsDataCacheRef = useRef<IMarketPerpsDataCache | undefined>(
+    undefined,
+  );
   const internalTabsRef = useRef<ITabContainerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const activeIndexRef = useRef(initialIndex);
@@ -510,14 +533,24 @@ function MobileLayoutComponent({
     );
   }, []);
 
+  const [pagerHeight, setPagerHeight] = useState(0);
+  const scrollContentTabBarOffset = useScrollContentTabBarOffset();
+  const contentPaddingBottom = platformEnv.isNativeIOS
+    ? (scrollContentTabBarOffset ?? 0)
+    : tabBarHeight + 40;
+
   const listContainerProps = useMemo(
     () => ({
       emptyContentPaddingTop:
         16 +
         (platformEnv.isNativeAndroid ? headerHeight + stickyHeaderHeight : 0),
-      paddingBottom: platformEnv.isNativeIOS ? 125 : tabBarHeight + 40,
+      paddingBottom: contentPaddingBottom,
+      emptyContentHeight: Math.max(
+        0,
+        pagerHeight - stickyHeaderHeight - contentPaddingBottom,
+      ),
     }),
-    [headerHeight, stickyHeaderHeight, tabBarHeight],
+    [contentPaddingBottom, headerHeight, pagerHeight, stickyHeaderHeight],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -565,6 +598,10 @@ function MobileLayoutComponent({
       <CollapsiblePagerView
         ref={pagerRef}
         style={STYLES.pager}
+        onLayout={(event) => {
+          const height = event.nativeEvent.layout.height;
+          if (height > 0) setPagerHeight(height);
+        }}
         initialPage={initialIndex}
         headerHeight={headerHeight}
         stickyHeaderHeight={stickyHeaderHeight}
@@ -602,6 +639,7 @@ function MobileLayoutComponent({
       >
         <YStack key={watchlistTabName} flex={1} bg="$bgApp">
           <MobileMarketNativeWatchlist
+            dataCacheRef={watchlistDataCacheRef}
             selectedFilter={watchlistFilter}
             listContainerProps={listContainerProps}
             shouldSuppressItemPress={shouldSuppressItemPress}
@@ -616,6 +654,7 @@ function MobileLayoutComponent({
           if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
             content = (
               <MobileMarketNativeTopCoinsList
+                dataCacheRef={topCoinsDataCacheRef}
                 listContainerProps={listContainerProps}
                 shouldSuppressItemPress={shouldSuppressItemPress}
               />
@@ -649,6 +688,7 @@ function MobileLayoutComponent({
         {showPerpsTab ? (
           <YStack key={perpsTabName} flex={1} bg="$bgApp">
             <MobileMarketNativePerpsList
+              dataCacheRef={perpsDataCacheRef}
               selectedCategoryId={selectedCategoryId}
               listContainerProps={listContainerProps}
               shouldSuppressItemPress={shouldSuppressItemPress}

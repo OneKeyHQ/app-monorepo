@@ -1,7 +1,9 @@
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -10,6 +12,7 @@ import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -51,6 +54,27 @@ export interface IUseMarketWatchlistTokenListParams {
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
   pollingInterval?: number;
+  dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
+}
+
+export interface IMarketWatchlistDataCache {
+  spot?: Awaited<
+    ReturnType<
+      typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
+    >
+  >;
+  perps?: {
+    tokenListData: Awaited<
+      ReturnType<
+        typeof backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList
+      >
+    >;
+    tokenSearchAliases: Awaited<
+      ReturnType<
+        typeof backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases
+      >
+    >;
+  };
 }
 
 export function useMarketWatchlistTokenList({
@@ -59,6 +83,7 @@ export function useMarketWatchlistTokenList({
   initialSortType,
   pageSize = 100,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 30 }),
+  dataCacheRef,
 }: IUseMarketWatchlistTokenListParams) {
   const { networkList } = useMarketBasicConfig();
   const networkLogoUriMap = useMemo(
@@ -89,7 +114,7 @@ export function useMarketWatchlistTokenList({
 
   // ── Spot data fetching (existing logic) ──
   const {
-    result: apiResult,
+    result: spotResult,
     isLoading: apiLoading,
     run: refetchData,
   } = usePromiseResult(
@@ -98,21 +123,26 @@ export function useMarketWatchlistTokenList({
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
-        return { list: [] } as const;
+        return { list: [], failed: false } as const;
       }
       if (spotItems.length === 0) {
-        return { list: [] } as const;
+        return { list: [], failed: false } as const;
       }
       const tokenAddressList = spotItems.map((item) => ({
         chainId: item.chainId,
         contractAddress: item.contractAddress,
         isNative: item.isNative ?? false,
       }));
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList,
-        });
-      return response;
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+            tokenAddressList,
+          });
+        return { ...response, failed: false };
+      } catch (error) {
+        if (!platformEnv.isNative) throw error;
+        return { list: undefined, failed: true };
+      }
     },
     [watchlist, spotItems, isInitialLoad],
     {
@@ -126,25 +156,100 @@ export function useMarketWatchlistTokenList({
   );
 
   // ── Perps data: backend API (category=all — watchlist needs all tokens) ──
-  const { result: perpsApiResult } = usePromiseResult(
+  const {
+    result: perpsResult,
+    isLoading: perpsLoading,
+    run: refetchPerpsData,
+  } = usePromiseResult(
     async () => {
       if (perpsItems.length === 0) return null;
-      const [tokenListData, tokenSearchAliases] = await Promise.all([
-        backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-          category: 'all',
-        }),
-        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
-      ]);
-      return { tokenListData, tokenSearchAliases };
+      try {
+        const [tokenListData, tokenSearchAliases] = await Promise.all([
+          backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+            category: 'all',
+          }),
+          backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+        ]);
+        return { tokenListData, tokenSearchAliases, failed: false };
+      } catch (error) {
+        if (!platformEnv.isNative) throw error;
+        return {
+          tokenListData: undefined,
+          tokenSearchAliases: undefined,
+          failed: true,
+        };
+      }
     },
     [perpsItems.length],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      watchLoading: platformEnv.isNative,
+      revalidateOnReconnect: platformEnv.isNative,
     },
   );
 
+  const lastSpotResultRef = useRef<typeof spotResult>(
+    dataCacheRef?.current?.spot
+      ? { ...dataCacheRef.current.spot, failed: false }
+      : undefined,
+  );
+  const lastPerpsResultRef = useRef<typeof perpsResult>(
+    dataCacheRef?.current?.perps
+      ? { ...dataCacheRef.current.perps, failed: false }
+      : undefined,
+  );
+  useEffect(() => {
+    if (spotResult && !spotResult.failed) {
+      lastSpotResultRef.current = spotResult;
+      if (dataCacheRef && spotResult.list)
+        dataCacheRef.current = {
+          ...dataCacheRef.current,
+          spot: { list: [...spotResult.list] },
+        };
+    }
+  }, [dataCacheRef, spotResult]);
+  useEffect(() => {
+    if (perpsResult && !perpsResult.failed) {
+      lastPerpsResultRef.current = perpsResult;
+      if (
+        dataCacheRef &&
+        perpsResult.tokenListData &&
+        perpsResult.tokenSearchAliases
+      )
+        dataCacheRef.current = {
+          ...dataCacheRef.current,
+          perps: {
+            tokenListData: perpsResult.tokenListData,
+            tokenSearchAliases: perpsResult.tokenSearchAliases,
+          },
+        };
+    }
+  }, [dataCacheRef, perpsResult]);
+  // The native page owner survives distant-page unmounts. Merge cached data
+  // against the current watchlist below so removed favorites cannot reappear.
+  const apiResult =
+    spotResult?.failed || (!spotResult && dataCacheRef)
+      ? lastSpotResultRef.current
+      : spotResult;
+  const perpsApiResult =
+    perpsResult?.failed || (!perpsResult && dataCacheRef)
+      ? lastPerpsResultRef.current
+      : perpsResult;
+
   // Combined loading state
-  const isLoading = isInitialLoad || apiLoading;
+  const isLoading =
+    isInitialLoad ||
+    apiLoading ||
+    (platformEnv.isNative &&
+      ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
+        (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
+  const isError = Boolean(
+    (spotItems.length > 0 && spotResult?.failed) ||
+    (perpsItems.length > 0 && perpsResult?.failed),
+  );
+  const refetch = useCallback(async () => {
+    await Promise.all([refetchData(), refetchPerpsData()]);
+  }, [refetchData, refetchPerpsData]);
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
@@ -333,6 +438,7 @@ export function useMarketWatchlistTokenList({
   return {
     data: paginatedData,
     isLoading,
+    isError,
     isLoadingMore,
     isNetworkSwitching: false,
     canLoadMore: hasMore,
@@ -342,7 +448,7 @@ export function useMarketWatchlistTokenList({
     setCurrentPage,
     loadMore,
     refresh,
-    refetch: refetchData,
+    refetch: platformEnv.isNative ? refetch : refetchData,
     sortBy,
     sortType,
     setSortBy,

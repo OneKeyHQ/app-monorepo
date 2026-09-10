@@ -1,6 +1,13 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+let mockPauseMemoizationTasks = false;
+
+jest.mock('next-tick', () => (callback: () => void) => {
+  if (!mockPauseMemoizationTasks) queueMicrotask(callback);
+});
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -30,6 +37,39 @@ describe('ServiceMarketV2 public stock APIs', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mockPauseMemoizationTasks = false;
+    jest.restoreAllMocks();
+  });
+
+  it('does not reuse an Android offline failure after an explicit token retry', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    const query = { networkId: 'evm--1', type: 'trending' };
+    const response = { list: [{ symbol: 'ETH' }], total: 1 };
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    mockGet.mockResolvedValue({ data: { data: response } });
+    await expect(
+      service.fetchMarketTokenList(query, { forceRemote: true }),
+    ).resolves.toEqual(response);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
   });
 
   it('loads the aggregated stock list without token identity fields', async () => {

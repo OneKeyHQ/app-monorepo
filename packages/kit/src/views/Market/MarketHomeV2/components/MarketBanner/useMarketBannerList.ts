@@ -31,9 +31,11 @@ export function useMarketBannerList(): {
         return await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
-      } finally {
+      } catch (error) {
+        // Successful data must commit before the native layout fixes its header height.
         if (currentScopeRef.current === requestScope)
           setSettledScope(requestScope);
+        throw error;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
