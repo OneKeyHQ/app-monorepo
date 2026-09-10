@@ -154,6 +154,9 @@ const tokenSelectorScrollBehaviorProps: Record<string, unknown> =
 const IOS_INITIAL_ROWS_SNAPSHOT_COUNT = 9;
 const IOS_LIVE_LIST_WINDOW_SIZE = 1;
 const TOKEN_SELECTOR_SNAPSHOT_ROW_HEIGHT = 60;
+const tokenSelectorScrollEdgeEffects = platformEnv.isNativeIOS26Plus
+  ? { top: 'hidden' as const }
+  : undefined;
 type IInitialRowsSnapshotData = {
   mockedToken: ITokenSelectorListItem;
   assetCtx?: IPerpsFormattedAssetCtx;
@@ -1306,6 +1309,7 @@ function MobileTokenSelectorModal({
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_search_asset })}
+        scrollEdgeEffects={tokenSelectorScrollEdgeEffects}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({
             id: ETranslations.global_search,

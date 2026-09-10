@@ -4,6 +4,7 @@ import type {
   IModalFlowNavigatorConfig,
   ITabSubNavigatorConfig,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -141,6 +142,13 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.PerpTradersHistoryList,
     component: PerpTradersHistoryList,
+    options: platformEnv.isNativeIOS26Plus
+      ? {
+          scrollEdgeEffects: {
+            top: 'hidden',
+          },
+        }
+      : undefined,
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,
