@@ -360,17 +360,3 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
 **Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
 **Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path
-
-## Case: Prime web redeem chip only showed a masked email
-**Date**: 2026-09-10 | **Platforms**: Web (`/prime/redeem`)
-**Symptom**: The redeem landing reused the web OneKey ID session but the account chip only showed a masked/plain email, so Google and Apple accounts that share an email looked identical.
-**Root Cause**: The chip always rendered `PeopleOutline` + `displayEmail` and ignored nickname and bound OAuth identities on `user.onekeyAccount`.
-**Fix**: Show bound Google/Apple brand icons, prefer nickname when set, and keep the same identity on the success row (masked email stays as a secondary line under a nickname).
-**Catchable by**: Section 8: Manual Verification — logged-in redeem landing account chip; Section 6: regression tests for Google-only, Apple-only, both-bound, nickname, and email-only chips
-
-## Case: Prime web redeem chip icon swap and success Done removed
-**Date**: 2026-09-10 | **Platforms**: Web (`/prime/redeem`)
-**Symptom**: Same-email Google/Apple accounts were hard to tell apart on the redeem chip; after redeem, “Done” sent users to the web home where Prime cannot be used.
-**Root Cause**: The chip used a fixed people icon; the success screen included a home navigation that is not useful on web.
-**Fix**: Replace the people icon with bound Google/Apple brand icons and keep the email text. Remove the success Done button; keep Download Wallet.
-**Catchable by**: Section 6: chip icon tests; success screen has no Done copy and still shows Download Wallet

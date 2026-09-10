@@ -45,10 +45,7 @@ import {
   getOneKeyIdOAuthProviderName,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  EOneKeyIdOAuthProvider,
-  IOneKeyIdAccount,
-} from '@onekeyhq/shared/types/prime/primeTypes';
+import type { IOneKeyIdAccount } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import {
@@ -255,29 +252,6 @@ function RedeemLandingLayout({
   );
 }
 
-function RedeemLandingAccountIcons({
-  oauthProviders,
-}: {
-  oauthProviders: EOneKeyIdOAuthProvider[];
-}) {
-  if (oauthProviders.length === 0) {
-    return <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />;
-  }
-
-  return (
-    <>
-      {oauthProviders.map((provider) => (
-        <Icon
-          key={provider}
-          name={getOneKeyIdOAuthProviderIcon(provider)}
-          size="$4"
-          color="$icon"
-        />
-      ))}
-    </>
-  );
-}
-
 function RedeemLandingEmailChip({
   disabled,
   displayEmail,
@@ -342,7 +316,18 @@ function RedeemLandingEmailChip({
               : displayEmailLabel
           }
         >
-          <RedeemLandingAccountIcons oauthProviders={oauthProviders} />
+          {oauthProviders.length === 0 ? (
+            <Icon name="PeopleOutline" size="$4" color="$iconSubdued" />
+          ) : (
+            oauthProviders.map((provider) => (
+              <Icon
+                key={provider}
+                name={getOneKeyIdOAuthProviderIcon(provider)}
+                size="$4"
+                color="$icon"
+              />
+            ))
+          )}
           <SizableText
             size="$bodySmMedium"
             color="$text"
