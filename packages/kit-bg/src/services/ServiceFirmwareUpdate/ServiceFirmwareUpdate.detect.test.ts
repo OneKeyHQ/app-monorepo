@@ -1790,6 +1790,63 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     expect(waitSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const setForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const resolveHardwareTransport = jest.fn().mockResolvedValue({
+      connectId: 'CLASSIC_USB_ID',
+      transportType: EHardwareTransportType.WEBUSB,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<void>) => callback(),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          resolveHardwareTransport,
+          setForceTransportType,
+          clearForceTransportType,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockRejectedValue(new Error('stop after transport lock'));
+    const releaseResult = {
+      originalConnectId: 'CLASSIC_BLE_ID',
+      updatingConnectId: 'CLASSIC_BLE_ID',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+
+    await expect(
+      service.startUpdateWorkflow({
+        backuped: true,
+        usbConnected: true,
+        releaseResult,
+      }),
+    ).rejects.toThrow('stop after transport lock');
+
+    expect(resolveHardwareTransport).toHaveBeenCalledWith({
+      connectId: 'CLASSIC_BLE_ID',
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    expect(setForceTransportType).toHaveBeenCalledWith({
+      forceTransportType: EHardwareTransportType.WEBUSB,
+    });
+    expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(service.updateWorkflowTracking?.transportType).toBe(
+      EHardwareTransportType.WEBUSB,
+    );
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+  });
+
   it('updates persisted version info after the device restarts', async () => {
     jest.clearAllMocks();
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
@@ -1816,6 +1873,10 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
           getCurrentTransportType: jest
             .fn()
             .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          resolveHardwareTransport: jest.fn().mockResolvedValue({
+            connectId: 'CLASSIC_USB',
+            transportType: EHardwareTransportType.WEBUSB,
+          }),
           setForceTransportType: jest.fn().mockResolvedValue(undefined),
           clearForceTransportType: jest.fn().mockResolvedValue(undefined),
           updateDeviceVersionAfterFirmwareUpdate,

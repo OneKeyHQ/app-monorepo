@@ -71,7 +71,8 @@ function PageFirmwareUpdateChangeLog() {
         const resolvedTransport =
           await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);

@@ -2320,7 +2320,32 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // Lock transport type during firmware update to prevent auto-switching
             // This prevents the system from switching to BLE when USB device is temporarily
             // unavailable during device reboot
-            const currentTransportType = await this.getActiveTransportType();
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              // Release information may have been read over BLE before USB was connected.
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             this.recordUpdateWorkflowTransportType(
               workflowId,
               currentTransportType,
