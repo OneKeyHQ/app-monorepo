@@ -75,6 +75,12 @@ export interface IEModeRow {
   isOff: boolean;
 }
 
+// Two screens call this: the switch page, and the category picker it pushes.
+// They derive separately on purpose — the picker reads the status from the hook
+// than taking the caller's snapshot, so passing rows down would freeze it again
+// (see the BorrowEModeCategorySelect route params). Anything that should shape
+// the list for both — filtering, ordering, a new row — belongs in here, not at
+// a call site.
 export function buildEModeRows(
   status: IBorrowEModeStatus | null | undefined,
   offLabel: string,

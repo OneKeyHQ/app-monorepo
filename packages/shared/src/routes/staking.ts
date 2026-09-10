@@ -5,7 +5,6 @@ import type {
 import type {
   EManagePositionType,
   IBorrowAsset,
-  IBorrowEModeStatus,
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -127,13 +126,18 @@ export type IModalStakingParamList = {
     provider: string;
     marketAddress: string;
   };
-  // Presentation only: the switch page owns the fetch, so handing the resolved
-  // status down keeps this screen from re-requesting and flashing a skeleton
-  // over data the caller already has.
+  // Scope, not a snapshot. Route params are captured once at push time and
+  // never refresh, so handing this screen a resolved IBorrowEModeStatus froze
+  // it against a page that actively polls: a setEMode confirming while the
+  // picker is open left it comparing against a stale current id. It reads the status
+  // through the same cache key instead, so there is still no skeleton flash.
   [EModalStakingRoutes.BorrowEModeCategorySelect]: {
-    eModeStatus: IBorrowEModeStatus;
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
     selectedEModeId: number | null;
-    onSelect: (eModeId: number) => void;
+    onSelect?: (eModeId: number) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;

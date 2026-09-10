@@ -6,20 +6,27 @@ import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
+import { buildCategoryRowActivationProps } from './categoryRowActivation';
 import { type IEModeRow, buildEModeSelectDescription } from './emodeUtils';
 
 export function EModeCategorySelect({
   rows,
-  eModeStatus,
+  scope,
   currentEModeId,
   value,
   disabled,
   onChange,
 }: {
   rows: IEModeRow[];
-  eModeStatus: IBorrowEModeStatus;
+  // The picker reads the status from the hook, not from a snapshot, so
+  // it needs the scope that identifies it. See the route params for why.
+  scope: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+  };
   currentEModeId: number;
   value: number | null;
   disabled?: boolean;
@@ -54,16 +61,15 @@ export function EModeCategorySelect({
       return;
     }
     navigation.push(EModalStakingRoutes.BorrowEModeCategorySelect, {
-      eModeStatus,
+      ...scope,
       selectedEModeId: value,
       onSelect: onChange,
     });
-  }, [disabled, eModeStatus, navigation, onChange, value]);
+  }, [disabled, navigation, onChange, scope, value]);
 
   return (
     <XStack
       testID="borrow-e-mode-category-select"
-      role="button"
       minHeight="$12"
       px="$3.5"
       py="$2.5"
@@ -73,14 +79,11 @@ export function EModeCategorySelect({
       borderCurve="continuous"
       ai="center"
       opacity={disabled ? 0.5 : 1}
-      {...(disabled
-        ? {}
-        : {
-            onPress: openCategoryPicker,
-            cursor: 'pointer',
-            hoverStyle: { bg: '$bgHover' },
-            pressStyle: { bg: '$bgActive' },
-          })}
+      {...buildCategoryRowActivationProps({
+        disabled,
+        onActivate: openCategoryPicker,
+        outlineOffset: 1,
+      })}
     >
       <YStack flex={1} minWidth={0}>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>

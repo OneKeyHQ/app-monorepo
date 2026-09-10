@@ -13,12 +13,14 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { useBorrowEModeStatus } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { buildCategoryRowActivationProps } from '../BorrowEModeSwitch/categoryRowActivation';
 import {
   type IEModeRow,
   buildEModeRowSubtitle,
@@ -56,14 +58,12 @@ function EModeCategoryRow({
       px="$5"
       py="$3"
       opacity={row.disabled ? 0.5 : 1}
-      {...(row.disabled
-        ? {}
-        : {
-            onPress: () => onPress(row.eModeId),
-            cursor: 'pointer',
-            hoverStyle: { bg: '$bgHover' },
-            pressStyle: { bg: '$bgActive' },
-          })}
+      {...buildCategoryRowActivationProps({
+        disabled: row.disabled,
+        onActivate: () => onPress(row.eModeId),
+        selected: isSelected,
+        outlineOffset: -2,
+      })}
     >
       <YStack flex={1} minWidth={0}>
         <XStack ai="center" gap="$2">
@@ -101,20 +101,39 @@ export default function BorrowEModeCategorySelectModal() {
     IModalStakingParamList,
     EModalStakingRoutes.BorrowEModeCategorySelect
   >();
-  const { eModeStatus, selectedEModeId, onSelect } = route.params;
+  const {
+    networkId,
+    provider,
+    marketAddress,
+    accountId,
+    selectedEModeId,
+    onSelect,
+  } = route.params;
+
+  // Same scope key as the switch page that pushed this screen, so this reads
+  // straight out of the cache and then keeps following it.
+  const { eModeStatus } = useBorrowEModeStatus({
+    networkId,
+    provider,
+    marketAddress,
+    accountId,
+    enabled: !!accountId,
+  });
 
   const rows = useMemo(
     () =>
-      buildEModeRows(
-        eModeStatus,
-        intl.formatMessage({ id: ETranslations.defi_emode_off }),
-      ),
+      eModeStatus
+        ? buildEModeRows(
+            eModeStatus,
+            intl.formatMessage({ id: ETranslations.defi_emode_off }),
+          )
+        : [],
     [eModeStatus, intl],
   );
 
   const handleSelect = useCallback(
     (eModeId: number) => {
-      onSelect(eModeId);
+      onSelect?.(eModeId);
       navigation.pop();
     },
     [navigation, onSelect],
@@ -133,7 +152,7 @@ export default function BorrowEModeCategorySelectModal() {
             <EModeCategoryRow
               key={row.eModeId}
               row={row}
-              currentEModeId={eModeStatus.eModeId ?? 0}
+              currentEModeId={eModeStatus?.eModeId ?? 0}
               isSelected={row.eModeId === selectedEModeId}
               onPress={handleSelect}
             />

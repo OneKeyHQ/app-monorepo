@@ -200,8 +200,14 @@ function BorrowEModeSwitchView() {
     }
   }, [currentEModeId, requiresRevalidation, runCheck, selection.userSelection]);
 
-  const onSelectCategory = useCallback(
-    (eModeId: number) => {
+  // The category picker is a pushed route, and route params are captured once:
+  // whatever function reference it receives is the one it keeps. Keep this
+  // reference stable and route the call through a ref, so a pick made after a
+  // pending setEMode confirms still compares against the current category
+  // instead of the one that was current when the picker opened.
+  const selectCategoryRef = useRef<(eModeId: number) => void>(() => {});
+  useEffect(() => {
+    selectCategoryRef.current = (eModeId: number) => {
       if (eModeId === eModeStatus?.eModeId) {
         setUserSelection(null);
         resetTarget();
@@ -209,8 +215,16 @@ function BorrowEModeSwitchView() {
       }
       setUserSelection(eModeId);
       void runCheck(eModeId);
-    },
-    [eModeStatus?.eModeId, resetTarget, runCheck],
+    };
+  }, [eModeStatus?.eModeId, resetTarget, runCheck]);
+
+  const onSelectCategory = useCallback((eModeId: number) => {
+    selectCategoryRef.current(eModeId);
+  }, []);
+
+  const categorySelectScope = useMemo(
+    () => ({ networkId, provider, marketAddress, accountId }),
+    [accountId, marketAddress, networkId, provider],
   );
 
   const openNeedAction = useCallback(
@@ -353,7 +367,7 @@ function BorrowEModeSwitchView() {
             <YStack gap="$2">
               <EModeCategorySelect
                 rows={rows}
-                eModeStatus={eModeStatus}
+                scope={categorySelectScope}
                 currentEModeId={currentEModeId ?? 0}
                 value={effectiveSelection}
                 disabled={isSubmitting || pendingGuardActive}
