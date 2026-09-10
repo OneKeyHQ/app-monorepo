@@ -244,6 +244,8 @@ export function useTrendingColumnsDesktop({
             justifyContent="center"
           >
             <MarketStarV2
+              assetId={record.assetId}
+              stockId={record.stockId}
               chainId={record.chainId || networkId || ''}
               contractAddress={record.address}
               from={EWatchlistFrom.Homepage}
@@ -323,10 +325,15 @@ export function useTrendingColumnsDesktop({
         title: (
           <MarketSplitSortHeader
             segments={[
-              { field: 'marketCap', label: 'MCap' },
+              {
+                field: 'marketCap',
+                label: intl.formatMessage({ id: ETranslations.market_mcap }),
+              },
               {
                 field: 'price',
-                label: `/${intl.formatMessage({
+                // The slash is the separator between the two sort controls, so
+                // it needs air on the label side rather than sitting flush.
+                label: `/ ${intl.formatMessage({
                   id: ETranslations.global_price,
                 })}`,
               },
@@ -346,7 +353,7 @@ export function useTrendingColumnsDesktop({
               formatter={record.price > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
-              {record.price}
+              {Number.isFinite(record.price) ? record.price : '--'}
             </NumberSizeableText>
           </YStack>
         ),
@@ -375,7 +382,7 @@ export function useTrendingColumnsDesktop({
             <NumberSizeableText
               size="$bodyLgMedium"
               color={changeColor}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
             >
               {value}

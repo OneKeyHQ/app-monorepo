@@ -4511,6 +4511,8 @@ class ServiceHardware extends ServiceBase {
       return;
     }
 
+    // The dialog requested right before each throw is the one notice for
+    // that cause; the error itself stays quiet (no toast) — OK-62113.
     const hasBlePermission = !!(await checkBLEPermissions());
     if (!hasBlePermission) {
       appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
@@ -4518,6 +4520,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothPermissions({
         payload: { connectId },
+        autoToast: false,
       });
     }
 
@@ -4528,6 +4531,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothTurnedOn({
         payload: { connectId },
+        autoToast: false,
       });
     }
   }
