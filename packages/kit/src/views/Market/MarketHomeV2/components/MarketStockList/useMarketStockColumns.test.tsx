@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 
 import { renderHook } from '@testing-library/react';
 
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketStockColumns } from './useMarketStockColumns';
@@ -38,7 +39,9 @@ jest.mock('./StockSparkline', () => ({
 }));
 
 jest.mock('./MarketStockStar', () => ({
-  MarketStockStar: () => null,
+  MarketStockStar: ({ from }: { from: string }) => (
+    <span data-testid="stock-favorite" data-from={from} />
+  ),
 }));
 
 const mockStock: IMarketStockPublicItem = {
@@ -57,6 +60,31 @@ const mockStock: IMarketStockPublicItem = {
 };
 
 describe('useMarketStockColumns', () => {
+  it.each([EWatchlistFrom.Homepage, EWatchlistFrom.Search])(
+    'passes the %s source to the interactive stock favorite',
+    (from) => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ showWatchlist: true, watchlistFrom: from }),
+      );
+      const cell = result.current[0].render?.(
+        undefined,
+        mockStock,
+        0,
+      ) as ReactElement<{
+        children: ReactElement<{
+          children: ReactElement<{
+            from: EWatchlistFrom;
+            stock: IMarketStockPublicItem;
+          }>;
+        }>[];
+      }>;
+      expect(cell.props.children[0].props.children.props).toMatchObject({
+        from,
+        stock: mockStock,
+      });
+    },
+  );
+
   it('uses the stock selector layout and Perps tooltip pattern', () => {
     const { result } = renderHook(() =>
       useMarketStockColumns({
