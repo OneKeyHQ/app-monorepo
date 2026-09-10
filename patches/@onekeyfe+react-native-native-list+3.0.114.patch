@@ -204,6 +204,21 @@ diff --git a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.
 index 81836fa..3c827f0 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
 +++ b/node_modules/@onekeyfe/react-native-native-list/ios/NativeListCell.swift
+@@ -1662,7 +1662,13 @@ final class NativeListCell: UICollectionViewCell {
+         let label = UILabel()
+         label.font = nativeListFont(ofSize: 14)
+         label.lineBreakMode = .byTruncatingTail
+-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
++        // Match V1: the balance may shrink, but keep the shortened address intact.
++        label.setContentCompressionResistancePriority(
++          item.data.string("presentation") == "accountSelector" && segment.bool("separatorBefore")
++            ? .defaultHigh
++            : .defaultLow,
++          for: .horizontal
++        )
+         label.textColor = dataTextColor(segment.string("tone", default: "secondary"), theme: theme)
+         setLineHeight(label, text: segment.string("text"), lineHeight: 20)
+         let runs = segment.dictionaries("textSegments")
 @@ -2055,13 +2055,15 @@ final class NativeListCell: UICollectionViewCell {
      subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
      if let networkImage = item.data.dictionary("networkImage") {
