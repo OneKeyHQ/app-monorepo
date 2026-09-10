@@ -4107,7 +4107,6 @@
         "COMPILED": true,
         "console.log": true,
         "console.warn": true,
-        "proto": true,
         "setTimeout": true,
         "TronWebProto": true,
         "URLSearchParams": true

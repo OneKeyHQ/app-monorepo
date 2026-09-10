@@ -94,11 +94,13 @@ const requiredToolFiles = [
   'development/lavamoat/webpack-runtime-chunks.test.cjs',
   'development/lavamoat/webpack-resource-identifiers.test.cjs',
   'development/lavamoat/webpack-host-globals.test.cjs',
+  'development/lavamoat/webpack-tronweb-protobuf.test.cjs',
   'development/webpack/lavamoat.js',
   'development/webpack/lavamoat-ext-locales-loader.cjs',
   'development/webpack/lavamoat-ext-worker-loader.cjs',
   'development/webpack/lavamoat-web-ses-loader.cjs',
   'development/webpack/lavamoat-ext-kaspa-loader.cjs',
+  'development/webpack/lavamoat-tronweb-protobuf-loader.cjs',
   'development/webpack/lavamoat-kaspa-compatibility.cjs',
   'development/webpack/lavamoat-wasm-loader.cjs',
 ];
