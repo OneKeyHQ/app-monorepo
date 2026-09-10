@@ -48,6 +48,8 @@ export const OnboardingTestIDs = {
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
   iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialogTitle:
+    'onboarding-icloud-backup-keyless-wallet-dialog-title',
   iCloudBackupKeylessWalletDialog:
     'onboarding-icloud-backup-keyless-wallet-dialog',
   iCloudBackupDevDownloadDataBtn:
