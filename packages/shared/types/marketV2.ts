@@ -187,6 +187,7 @@ export interface IMarketStockTradingActivity {
 }
 
 export interface IMarketStockInfo {
+  stockId?: string;
   title?: string;
   subtitle: string;
   source?: string;
@@ -197,6 +198,10 @@ export interface IMarketStockInfo {
   // Whether trading in the underlying stock is temporarily halted (per-stock signal)
   isPaused?: boolean;
   pausedUpdatedAt?: string;
+  // When the underlying market next opens. The timestamp is authoritative;
+  // the minute count is a snapshot that ages with the response.
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -306,6 +311,7 @@ export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields 
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stockId?: string;
   stock?: IMarketStockInfo;
 }
 
@@ -739,6 +745,18 @@ export interface IMarketBannerTokenListResponse {
 
 export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
 
+/**
+ * The tokens issued against a stock, as the list endpoint returns them — a
+ * summary, unlike the detail endpoint's richer `IMarketStockTokenVariant`.
+ */
+export interface IMarketStockListVariant {
+  tokenId: string;
+  issuer: string;
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+}
+
 export interface IMarketStockPublicItem {
   stockId: string;
   symbol: string;
@@ -754,7 +772,13 @@ export interface IMarketStockPublicItem {
   quoteUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
+  variants?: IMarketStockListVariant[];
 }
+
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
 
 export type IMarketStockPublicListSortBy =
   | 'default'

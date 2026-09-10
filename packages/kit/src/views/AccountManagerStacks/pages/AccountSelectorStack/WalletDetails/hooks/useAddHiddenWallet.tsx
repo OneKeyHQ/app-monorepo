@@ -19,15 +19,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { watchForDeviceStageAnswer } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageAnswer';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -220,45 +219,36 @@ export function useAddHiddenWallet() {
             deviceType: device?.deviceType,
             deviceName: stageDeviceName,
           });
-        await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
-          {
-            connectId: device?.connectId,
-            deviceType: device?.deviceType,
-            deviceName: stageDeviceName,
-          },
+        // Listening starts before the card is asked for: the paint is an
+        // RPC, and an exit the background announces while it is in flight
+        // would otherwise reach a main runtime that is not listening yet.
+        const introWatch = watchForDeviceStageAnswer(
+          EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+          () => 'continue' as const,
         );
-        const intro = await new Promise<'continue' | 'closed'>((resolve) => {
-          // Reassigned once both handlers exist — each exit releases BOTH.
-          let cleanup = () => {};
-          const onContinue = () => {
-            cleanup();
-            resolve('continue');
-          };
-          // The person dismissing the stage ends the run just as well.
-          const onStageClosed = () => {
-            cleanup();
-            resolve('closed');
-          };
-          cleanup = () => {
-            appEventBus.off(
-              EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-              onContinue,
+        let introShown = false;
+        try {
+          introShown =
+            await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
+              {
+                connectId: device?.connectId,
+                deviceType: device?.deviceType,
+                deviceName: stageDeviceName,
+              },
             );
-            appEventBus.off(
-              EAppEventBusNames.CloseHardwareUiStateDialogManually,
-              onStageClosed,
-            );
-          };
-          appEventBus.on(
-            EAppEventBusNames.DeviceStagePassphraseIntroContinue,
-            onContinue,
-          );
-          appEventBus.on(
-            EAppEventBusNames.CloseHardwareUiStateDialogManually,
-            onStageClosed,
-          );
-        });
-        if (intro === 'closed') {
+        } finally {
+          // Released on anything but a card that landed: a silenced stage
+          // answering false, and a bridge call that threw — the listeners
+          // outlive the abandoned run either way.
+          if (!introShown) {
+            introWatch.cancel();
+          }
+        }
+        // The person dismissing the stage ends the run just as well — and
+        // a card a silenced stage declined to paint has no Continue to
+        // wait for, so the run ends here rather than hanging on it.
+        const intro = await introWatch.answer;
+        if (intro.closed) {
           // Dismissed at the teaching: nothing was started, nothing to
           // land — the stage's own close already dropped the hold and
           // retired its token, so the release below is a no-op.
@@ -289,7 +279,7 @@ export function useAddHiddenWallet() {
         if (stageToken !== undefined) {
           await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
             token: stageToken,
-            error: stageError,
+            error: stageError ? toPlainErrorObject(stageError) : undefined,
           });
         }
         setIsLoading(false);

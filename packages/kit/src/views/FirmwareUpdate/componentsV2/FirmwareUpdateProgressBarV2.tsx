@@ -24,6 +24,7 @@ import {
 import {
   EFirmwareUpdateSteps,
   useDevSettingsPersistAtom,
+  useFirmwareUpdateDevSettingsPersistAtom,
   useFirmwareUpdateResultVerifyAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
@@ -295,6 +296,11 @@ export function FirmwareUpdateProgressBarV2({
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [firmwareDevSettings] = useFirmwareUpdateDevSettingsPersistAtom();
+  const hideDebugInfo =
+    devSettings.enabled &&
+    result?.deviceType === 'pro2' &&
+    firmwareDevSettings.hidePro2FirmwareDebugInfo === true;
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
@@ -334,13 +340,14 @@ export function FirmwareUpdateProgressBarV2({
     }
     const displayMetrics = getFirmwareTransferDisplayMetrics(
       firmwareTransferMetrics,
+      intl,
     );
     if (!displayMetrics) {
       return undefined;
     }
     return intl.formatMessage(
       { id: ETranslations.firmware_update_estimated_time__desc },
-      { time: displayMetrics.estimatedRemainingText ?? '- s' },
+      { time: displayMetrics.estimatedRemainingText ?? '-' },
     );
   }, [firmwareProgressType, firmwareTransferMetrics, intl]);
 
@@ -578,7 +585,7 @@ export function FirmwareUpdateProgressBarV2({
     const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
       result,
       {
-        includeComponents: devSettings.enabled,
+        includeComponents: devSettings.enabled && !hideDebugInfo,
       },
     );
     if (protocolV2VersionItems.length > 0) {
@@ -590,6 +597,10 @@ export function FirmwareUpdateProgressBarV2({
           verifyVersion = resultVerifyVersions?.finalBootloaderVersion;
         } else if (item.target === 'coprocessor') {
           verifyVersion = resultVerifyVersions?.finalBleVersion;
+        } else if (isDoneInternal && !item.releaseIdentifierOnly) {
+          // The SDK verifies P1/P2 and SE targets before reporting success,
+          // but its legacy result only exposes firmware, bootloader and BLE.
+          verifyVersion = item.targetVersion ?? undefined;
         }
         const title = getProtocolV2FirmwareVersionTitle({
           target: item.target,
@@ -658,7 +669,14 @@ export function FirmwareUpdateProgressBarV2({
     }
 
     return versions;
-  }, [devSettings.enabled, result, intl, resultVerifyVersions]);
+  }, [
+    devSettings.enabled,
+    hideDebugInfo,
+    isDoneInternal,
+    result,
+    intl,
+    resultVerifyVersions,
+  ]);
 
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {
@@ -723,7 +741,7 @@ export function FirmwareUpdateProgressBarV2({
 
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const debugInfo = useMemo(() => {
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'production' && !hideDebugInfo) {
       return (
         <Stack my="$6">
           <Button
@@ -752,7 +770,13 @@ export function FirmwareUpdateProgressBarV2({
         </Stack>
       );
     }
-  }, [firmwareProgress, lastFirmwareTipMessage, progress, showDebugInfo]);
+  }, [
+    firmwareProgress,
+    hideDebugInfo,
+    lastFirmwareTipMessage,
+    progress,
+    showDebugInfo,
+  ]);
 
   return (
     <Stack>

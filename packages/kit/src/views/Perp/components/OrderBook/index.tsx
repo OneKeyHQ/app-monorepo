@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 24,
     fontWeight: '600',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.8,
     width: '100%',
   },
@@ -292,6 +292,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
+  },
+  nativeMobileHorizontalTabularText: {
+    fontFamily: 'Roobert-Regular',
+    fontWeight: '400',
   },
   interactiveRow: {
     height: rowHeight,
@@ -1153,6 +1157,10 @@ export function OrderBook({
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
   const isInteractive = Boolean(onSelectLevel);
+  const mobileHorizontalTabularTextStyle =
+    platformEnv.isNative && variant === 'mobileHorizontal'
+      ? styles.nativeMobileHorizontalTabularText
+      : undefined;
 
   const hoverSummary = useMemo(() => {
     if (
@@ -1421,6 +1429,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.textSubdued },
                             ]}
                           >
@@ -1429,6 +1438,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.green },
                             ]}
                           >
@@ -1455,6 +1465,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.red },
                             ]}
                           >
@@ -1463,6 +1474,7 @@ export function OrderBook({
                           <PerpBookText
                             style={[
                               styles.tabularText,
+                              mobileHorizontalTabularTextStyle,
                               { color: textColor.textSubdued },
                             ]}
                           >

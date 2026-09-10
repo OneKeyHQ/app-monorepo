@@ -36,6 +36,11 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+// Shared across hook instances: the selector stays open ~1.5 s after "Add
+// account" with no loading state, so a second press in that window must not
+// start another indexed-account creation flow (OK-62413).
+let isAddAccountInFlight = false;
+
 function resetAddressCreationState() {
   void indexedAccountAddressCreationStateAtom.set(undefined);
 }
@@ -98,6 +103,10 @@ export function useAddAccount({
       if (!focusedWalletInfo) {
         return;
       }
+      if (isAddAccountInFlight) {
+        return;
+      }
+      isAddAccountInFlight = true;
 
       let isNavigationPopped = false;
       const popNavigation = () => {
@@ -168,6 +177,7 @@ export function useAddAccount({
           }
         }
       } finally {
+        isAddAccountInFlight = false;
         resetAddressCreationState();
         if (focusedWalletInfo.device?.connectId) {
           await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(

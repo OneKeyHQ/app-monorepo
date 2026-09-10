@@ -74,7 +74,7 @@ export function useResetApp(
       title: intl.formatMessage({ id: ETranslations.global_reset }),
       icon: 'ErrorOutline',
       tone: 'destructive',
-      isOverTopAllViews: true,
+      isOverTopAllViews: platformEnv.isNative,
       portalContainer: inAppStateLock
         ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
         : undefined,

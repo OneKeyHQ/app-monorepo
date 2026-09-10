@@ -1,6 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { globalAtomComputed } from '../utils';
 
 import { passwordPersistAtom } from './passwordLock';
@@ -44,6 +45,13 @@ export const {
     isEnable: boolean;
   }>
 >(async (get) => {
+  if (runtimePersistenceAdapter.isUnavailable()) {
+    return {
+      authType: [],
+      isSupport: false,
+      isEnable: false,
+    };
+  }
   const { biologyAuthUtils } =
     await import('../../../services/ServicePassword/biologyAuthUtils');
   const authType = await biologyAuthUtils.getBiologyAuthType();

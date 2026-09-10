@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type {
+  IDeviceStageConnectionTypeValue,
+  IDeviceStageErrorI18n,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
@@ -49,8 +53,7 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * `authChecklist`) is verified, then a landing. The three staged steps
  * keep the replica on stage as the confirm miniature, screens per the
  * scene map; `authFailure` fronts an icon instead of the replica, worded
- * by `authFailureReason`, and its recoverable shapes gate "Continue
- * anyway" behind an in-card NOTE beat with its own Back.
+ * by `authFailureReason`, with retry/support and a developer override.
  *
  * The rest of the vocabulary is the third-party track — Trezor and
  * Ledger flows, worn by the same stage with `vendor` set. Those devices
@@ -105,7 +108,7 @@ export type IDeviceStageVendor = 'ledger' | 'trezor';
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
  * driver's knowledge, never looked up here. */
-export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+export type IDeviceStageConnectionType = IDeviceStageConnectionTypeValue;
 
 /** The wallet-creation fork's two answers — the live dialog's own pair:
  * a standard wallet (no passphrase) or a hidden one (passphrase or
@@ -126,9 +129,9 @@ export type IDeviceStageErrorReason =
 /**
  * What ended the authenticity check, in stage vocabulary. The first
  * three are terminal — the device (or its firmware) is the problem, and
- * Support is the only exit. The last three are recoverable — Retry plus
- * the Continue-anyway gate. Mapping concrete SDK/server errors onto
- * these is the integration layer's.
+ * Support is the only exit. The last three offer Retry and Support.
+ * Mapping concrete SDK/server errors onto these is the integration
+ * layer's.
  */
 export type IAuthFailureReason =
   | 'unofficialDevice'
@@ -234,13 +237,21 @@ export interface IDeviceStageProps {
    */
   connectionType?: IDeviceStageConnectionType;
   /**
+   * The current machine wait has stalled (the driver's stall clock,
+   * design hard rule #3). Only the connecting capsule wears it: its
+   * second line trades the device name for a hint — wake the device and
+   * keep it near, or check the cable — chosen by `connectionType`. The
+   * same clock grants the close, so hint and way out arrive together.
+   */
+  waitStalled?: boolean;
+  /**
    * The person's way out of the stage. Given, the surface wears its close
    * button and follows a downward drag; absent, it cannot be dismissed at
-   * all. When to grant it is the driver's policy — the live hardware flows
-   * arm it on a timer (a few seconds into an ask, longer into a wait) and
-   * keep it armed for the rest of the burst; the authenticity flow arms it
-   * from the start. The driver answers a dismissal by moving `step` to
-   * `off` — the exit is already under way when this fires.
+   * all. When to grant it is the driver's policy (design hard rule #3):
+   * an ask opens once the stage has settled after appearing, a wait on
+   * the machine only once it has stalled, an outcome or a decision at
+   * once. The driver answers a dismissal by moving `step` to `off` — the
+   * exit is already under way when this fires.
    */
   onClose?: () => void;
   /**
@@ -329,6 +340,8 @@ export interface IDeviceStageProps {
    * `sub` and action are unaffected.
    */
   errorMessage?: string;
+  /** Translate in the UI runtime, whose locale messages are loaded. */
+  errorI18n?: IDeviceStageErrorI18n;
   /**
    * The authenticity checklist, shown under the words on `authVerifying`,
    * on `authSuccess` when the checklist flow is what succeeded, and
@@ -338,24 +351,18 @@ export interface IDeviceStageProps {
   authChecklist?: IAuthChecklistItem[];
   /** Words and furniture the authFailure step wears. Defaults to 'unknown'. */
   authFailureReason?: IAuthFailureReason;
-  /**
-   * The fallback failure's real words (the v6.5.0 dialog's shape): shown
-   * in place of the generic unknown title. Display-ready — the driver
-   * resolves translation ids before handing it over.
-   */
+  /** @deprecated Raw authentication failures are never displayed. */
   authFailureMessage?: string;
-  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
+  /** @deprecated Authentication error codes are never displayed. */
   authFailureCode?: string;
   /** The terminal failures' single exit — Support (the live flow raises
    * Intercom). Omitted, those cards render no button. */
   onAuthSupport?: () => void;
   /** The recoverable failures' first action — run the check again. */
   onAuthRetry?: () => void;
-  /**
-   * Continuing unverified, confirmed through the NOTE beat ("I
-   * understand") — the recoverable failures' gated second exit. The
-   * card's own Back returns to the failure without leaving the step.
-   */
+  /** Allow manual continuation after any failed check in developer mode. */
+  allowAuthDevSkip?: boolean;
+  /** Continue unverified through the developer or legacy hidden override. */
   onAuthContinueAnyway?: () => void;
   /**
    * The error step's single recovery action — retry, reconnect — on its

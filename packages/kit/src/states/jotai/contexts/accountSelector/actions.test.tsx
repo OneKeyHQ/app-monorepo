@@ -2,16 +2,26 @@
 
 import type { ReactNode } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type {
   IDBAccount,
+  IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -27,6 +37,8 @@ import {
 import {
   AccountSelectorJotaiProvider,
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorAvailableNetworksAtom,
+  accountSelectorContextDataAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
@@ -207,6 +219,14 @@ const mockCreateQrWalletService = jest.fn<
   }>,
   [IDBCreateQRWalletParams]
 >();
+const mockCreateHWWalletService = jest.fn();
+const mockCreateHWHiddenWalletService = jest.fn();
+const mockRestoreTempCreatedWallet = jest.fn();
+const mockGetWalletDevice = jest.fn();
+const mockGetAllHwQrWalletWithDevice = jest.fn();
+const mockUpdateWalletsDeprecatedState = jest.fn();
+const mockShowQrHiddenCreateGuideDialogIfErrorMatched = jest.fn();
+const mockIsSoftwareWalletOnlyUser = jest.fn();
 const mockAddDefaultNetworkAccountsService = jest.fn<
   Promise<{
     addedAccounts: { networkId: string; deriveType: IAccountDeriveTypes }[];
@@ -293,7 +313,11 @@ jest.mock(
   '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog',
   () => ({
     __esModule: true,
-    default: jest.fn(),
+    default: {
+      showDialogIfErrorMatched: (...args: unknown[]) => {
+        mockShowQrHiddenCreateGuideDialogIfErrorMatched(...args);
+      },
+    },
   }),
 );
 
@@ -306,6 +330,18 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       ) => mockAddTonImportedAccountByMnemonic(...args),
       createQrWallet: (...args: Parameters<typeof mockCreateQrWalletService>) =>
         mockCreateQrWalletService(...args),
+      createHWWallet: (...args: unknown[]): Promise<unknown> =>
+        mockCreateHWWalletService(...args) as Promise<unknown>,
+      createHWHiddenWallet: (...args: unknown[]): Promise<unknown> =>
+        mockCreateHWHiddenWalletService(...args) as Promise<unknown>,
+      restoreTempCreatedWallet: (...args: unknown[]): Promise<unknown> =>
+        mockRestoreTempCreatedWallet(...args) as Promise<unknown>,
+      getWalletDevice: (...args: unknown[]): Promise<unknown> =>
+        mockGetWalletDevice(...args) as Promise<unknown>,
+      getAllHwQrWalletWithDevice: (...args: unknown[]) =>
+        mockGetAllHwQrWalletWithDevice(...args) as Promise<unknown>,
+      updateWalletsDeprecatedState: (...args: unknown[]) =>
+        mockUpdateWalletsDeprecatedState(...args) as Promise<unknown>,
       clearAccountCache: () => mockClearAccountCache(),
       getAllHdHwQrWallets: () => mockGetAllHdHwQrWallets(),
       getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
@@ -344,6 +380,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       shouldSyncWithHomeSource: (params: IGetSelectedAccountParams) =>
         mockShouldSyncWithHomeSource(params),
       shouldUseGlobalDeriveType: () => mockShouldUseGlobalDeriveType(),
+    },
+    serviceAccountProfile: {
+      isSoftwareWalletOnlyUser: (): Promise<boolean> =>
+        mockIsSoftwareWalletOnlyUser() as Promise<boolean>,
     },
     serviceAllNetwork: {
       getAllNetworksFallbackNetworkId: (
@@ -460,6 +500,11 @@ describe('useAccountSelectorActions', () => {
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockClearAccountCache.mockResolvedValue(undefined);
     mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
+    mockGetAllHwQrWalletWithDevice.mockResolvedValue({});
+    mockGetWalletDevice.mockResolvedValue(undefined);
+    mockUpdateWalletsDeprecatedState.mockResolvedValue(true);
+    mockRestoreTempCreatedWallet.mockResolvedValue(undefined);
+    mockIsSoftwareWalletOnlyUser.mockResolvedValue(false);
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
     mockGetDBAccount.mockResolvedValue(undefined);
     mockGetIndexedAccountsOfWallet.mockResolvedValue({
@@ -626,6 +671,34 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('does not generate accounts for a mocked standard hardware wallet', async () => {
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.addDefaultNetworkAccounts({
+          wallet: {
+            id: 'hw-standard-mocked',
+            isMocked: true,
+          } as IWallet,
+          indexedAccount: {
+            id: 'hw-standard-mocked--0',
+            walletId: 'hw-standard-mocked',
+          } as IIndexedAccount,
+          isCreateWallet: true,
+        }),
+      ).resolves.toEqual({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+    });
+
+    expect(mockAddDefaultNetworkAccountsService).not.toHaveBeenCalled();
+  });
+
   describe('createQrWallet onboarding network selection', () => {
     const qrWallet = { id: 'qr-1' } as IWallet;
     const qrIndexedAccount = {
@@ -748,6 +821,378 @@ describe('useAccountSelectorActions', () => {
         deriveType: 'default',
       });
     });
+  });
+
+  describe('hidden hardware wallet reset finalization', () => {
+    const currentDevice = {
+      id: 'db-device-current',
+      connectId: 'pro2-usb',
+      deviceId: 'device-id-current',
+    };
+    const standardWallet = {
+      id: 'hw-current',
+      associatedDevice: currentDevice.id,
+      deprecated: false,
+      isMocked: true,
+    } as IWallet;
+    const standardIndexedAccount = {
+      id: 'hw-current--0',
+      walletId: standardWallet.id,
+    } as IIndexedAccount;
+    const hiddenWallet = {
+      id: 'hw-current-hidden',
+      associatedDevice: currentDevice.id,
+      deprecated: false,
+      passphraseState: 'hidden-state',
+    } as IWallet;
+    const hiddenIndexedAccount = {
+      id: 'hw-current-hidden--0',
+      walletId: hiddenWallet.id,
+    } as IIndexedAccount;
+    const createParams = {
+      device: currentDevice,
+      features: {
+        passphrase_protection: true,
+      },
+      hideCheckingDeviceLoading: true,
+    } as unknown as IDBCreateHwWalletParamsBase;
+
+    beforeEach(() => {
+      mockCreateHWWalletService.mockResolvedValue({
+        wallet: standardWallet,
+        device: currentDevice,
+        indexedAccount: standardIndexedAccount,
+        isOverrideWallet: false,
+      });
+      mockCreateHWHiddenWalletService.mockResolvedValue({
+        wallet: hiddenWallet,
+        indexedAccount: hiddenIndexedAccount,
+        isOverrideWallet: false,
+        isAttachPinMode: false,
+      });
+      mockAddDefaultNetworkAccountsService.mockResolvedValue({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+      mockGetWalletDevice.mockResolvedValue(currentDevice);
+    });
+
+    it('selects the new hidden wallet before committing reset isolation', async () => {
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        oldHidden: {
+          wallet: {
+            id: 'hw-old-hidden',
+            deprecated: false,
+          },
+          device: {
+            connectId: currentDevice.connectId,
+            deviceId: 'device-id-before-reset',
+          },
+        },
+        currentStandard: {
+          wallet: standardWallet,
+          device: currentDevice,
+        },
+        currentHidden: {
+          wallet: hiddenWallet,
+          device: currentDevice,
+        },
+      });
+
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithHidden(createParams);
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: hiddenWallet.id,
+        focusedWallet: hiddenWallet.id,
+        indexedAccountId: hiddenIndexedAccount.id,
+      });
+      expect(mockAddDefaultNetworkAccountsService).toHaveBeenCalledWith(
+        expect.objectContaining({ walletId: hiddenWallet.id }),
+      );
+      expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+        willUpdateDeprecateMap: {
+          'hw-old-hidden': true,
+        },
+      });
+    });
+
+    it.each(['SDK error', 'empty state'])(
+      'preserves one recovery event for a hidden wallet with a serialized %s',
+      async (source) => {
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        const passphraseError = toPlainErrorObject(
+          source === 'SDK error'
+            ? convertDeviceError({
+                code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+                connectId: currentDevice.connectId,
+                deviceId: currentDevice.deviceId,
+              })
+            : new DeviceNotOpenedPassphrase({
+                payload: { params: { walletId: standardWallet.id } },
+              }),
+        );
+        mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
+        const hiddenParams = {
+          ...createParams,
+          deviceState: {
+            status: {
+              passphraseProtection: false,
+            },
+          },
+        } as unknown as IDBCreateHwWalletParamsBase;
+
+        const { Wrapper } = createWrapper();
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          {
+            wrapper: Wrapper,
+          },
+        );
+
+        await act(async () => {
+          await expect(
+            result.current.createHWWalletWithHidden(hiddenParams),
+          ).rejects.toBe(passphraseError);
+        });
+
+        expect(mockCreateHWWalletService).toHaveBeenCalledWith(
+          expect.objectContaining({ isMockedStandardHwWallet: true }),
+        );
+        expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
+        expect(
+          mockShowQrHiddenCreateGuideDialogIfErrorMatched,
+        ).toHaveBeenCalledWith(passphraseError);
+        expect(
+          emitSpy.mock.calls.filter(
+            ([name]) => name === EAppEventBusNames.ShowHardwareErrorDialog,
+          ),
+        ).toEqual([
+          [
+            EAppEventBusNames.ShowHardwareErrorDialog,
+            {
+              errorType:
+                HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+              payload: { params: { walletId: standardWallet.id } },
+            },
+          ],
+        ]);
+      },
+    );
+
+    it('does not request passphrase recovery for unrelated creation errors', async () => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      const error = new Error('device disconnected');
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(error);
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.createHWHiddenWallet({ walletId: standardWallet.id }),
+        ).rejects.toBe(error);
+      });
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
+      );
+    });
+
+    it('creates the hidden wallet for Attach PIN mode without a passphrase flag', async () => {
+      const attachPinParams = {
+        ...createParams,
+        features: {},
+        deviceState: {
+          status: {
+            passphraseProtection: null,
+            unlockedAttachPin: true,
+          },
+        },
+        isAttachPinMode: true,
+      } as unknown as IDBCreateHwWalletParamsBase;
+
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithHidden(attachPinParams);
+      });
+
+      expect(mockCreateHWWalletService).toHaveBeenCalledWith(
+        expect.objectContaining({ isMockedStandardHwWallet: true }),
+      );
+      expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks the stale wallet deprecated after standard wallet creation', async () => {
+      const resetCurrentDevice = {
+        id: 'db-device-after-reset',
+        connectId: 'runtime-connect-id',
+        usbConnectId: 'PRO2-USB',
+        deviceId: 'device-id-after-reset',
+      };
+      const newStandardWallet = {
+        ...standardWallet,
+        id: 'hw-after-reset',
+        associatedDevice: resetCurrentDevice.id,
+        isMocked: false,
+      } as IWallet;
+      mockCreateHWWalletService.mockResolvedValueOnce({
+        wallet: newStandardWallet,
+        device: resetCurrentDevice,
+        indexedAccount: {
+          ...standardIndexedAccount,
+          id: 'hw-after-reset--0',
+          walletId: newStandardWallet.id,
+        },
+        isOverrideWallet: false,
+      });
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        oldStandard: {
+          wallet: {
+            id: 'hw-before-reset',
+            deprecated: false,
+          },
+          device: {
+            connectId: 'legacy-primary-id',
+            usbConnectId: 'pro2-usb',
+            deviceId: 'device-id-before-reset',
+          },
+        },
+        currentStandard: {
+          wallet: newStandardWallet,
+          device: resetCurrentDevice,
+        },
+      });
+
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+        willUpdateDeprecateMap: {
+          'hw-before-reset': true,
+        },
+      });
+    });
+
+    it('does not broadcast a redundant wallet state update', async () => {
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        oldHidden: {
+          wallet: {
+            id: 'hw-old-hidden',
+            deprecated: true,
+          },
+          device: {
+            connectId: currentDevice.connectId,
+            deviceId: 'device-id-before-reset',
+          },
+        },
+        currentHidden: {
+          wallet: hiddenWallet,
+          device: currentDevice,
+        },
+      });
+
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.updateHwWalletsDeprecatedStatus({
+          connectId: currentDevice.connectId,
+          deviceId: currentDevice.deviceId,
+        });
+      });
+
+      expect(mockUpdateWalletsDeprecatedState).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['standard', 'old-seed'],
+      ['hidden', 'old-seed'],
+      ['standard', ''],
+      ['hidden', ''],
+    ])(
+      'reconciles reset wallets by serial after %s creation with old deviceId %s',
+      async (mode, oldDeviceId) => {
+        const resetDevice = {
+          ...currentDevice,
+          connectId: 'new-android-ble',
+          bleConnectId: 'new-android-ble',
+          uuid: 'SERIAL',
+        };
+        mockCreateHWWalletService.mockResolvedValue({
+          wallet: standardWallet,
+          device: resetDevice,
+          indexedAccount: standardIndexedAccount,
+          isOverrideWallet: false,
+        });
+        const oldDevice = {
+          connectId: '',
+          deviceId: oldDeviceId,
+          uuid: 'SERIAL',
+        };
+        mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+          old: { wallet: { id: 'hw-old' }, device: oldDevice },
+          oldHidden: {
+            wallet: { id: 'hw-old-hidden', passphraseState: 'hidden' },
+            device: oldDevice,
+          },
+          current: {
+            wallet: { ...standardWallet, deprecated: true },
+            device: resetDevice,
+          },
+          other: {
+            wallet: { id: 'hw-other' },
+            device: {
+              ...resetDevice,
+              id: 'db-other',
+              uuid: 'OTHER',
+              deviceId: 'other-seed',
+            },
+          },
+        });
+        const { Wrapper } = createWrapper();
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          {
+            wrapper: Wrapper,
+          },
+        );
+        await act(async () => {
+          if (mode === 'standard') {
+            await result.current.createHWWalletWithoutHidden(createParams);
+          } else {
+            await result.current.createHWWalletWithHidden(createParams);
+          }
+        });
+        expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+          willUpdateDeprecateMap: {
+            'hw-old': true,
+            'hw-old-hidden': true,
+            [standardWallet.id]: false,
+          },
+        });
+      },
+    );
   });
 
   describe('confirmAccountSelect All Networks fallback', () => {
@@ -1677,6 +2122,109 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('keeps a network switch made after a recent wallet pick across a restart (OK-62330)', async () => {
+    const recentCacheKey =
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection;
+    const ethSelection = {
+      ...createHdSelectedAccount('hd-1--0'),
+      networkId: 'evm--1',
+    };
+    mockGetSelectedAccountsMap.mockResolvedValue({ 0: ethSelection });
+    // confirmAccountSelect wrote this moments ago: wallet picked while on ETH.
+    mockColdStartCacheStorageData.set(recentCacheKey, {
+      [EAccountSelectorSceneName.home]: {
+        version: 2,
+        updatedAt: Date.now(),
+        selectedAccountsMap: { 0: ethSelection },
+        updateMeta: {
+          0: { eventEmitDisabled: false, updatedAt: Date.now() },
+        },
+      },
+    });
+
+    const first = createWrapper();
+    // AccountSelectorEffects publishes the scene into this atom at runtime.
+    first.store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: first.Wrapper,
+    });
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+    expect(first.store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'evm--1',
+    );
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'sol--101',
+      });
+    });
+    expect(first.store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'sol--101',
+    );
+    const recentCache = mockColdStartCacheStorageData.get(recentCacheKey) as
+      | Record<
+          string,
+          {
+            selectedAccountsMap: Record<number, { networkId?: string }>;
+          }
+        >
+      | undefined;
+    expect(
+      recentCache?.[EAccountSelectorSceneName.home]?.selectedAccountsMap[0]
+        ?.networkId,
+    ).toBe('sol--101');
+
+    // Restart within the 5-minute window: simpleDb already holds SOL.
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: { ...ethSelection, networkId: 'sol--101' },
+    });
+    const restarted = createWrapper();
+    const { result: restartedResult } = renderHook(
+      () => useAccountSelectorActions().current,
+      { wrapper: restarted.Wrapper },
+    );
+    await act(async () => {
+      await restartedResult.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+    expect(restarted.store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'sol--101',
+    );
+  });
+
+  it('does not create a recent selection cache from a network switch alone', async () => {
+    const recentCacheKey =
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection;
+    const { store, Wrapper } = createWrapper();
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: { ...createHdSelectedAccount('hd-1--0'), networkId: 'evm--1' },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'sol--101',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe('sol--101');
+    expect(mockColdStartCacheStorageData.get(recentCacheKey)).toBeUndefined();
+  });
+
   it('keeps a locked temp hidden wallet selection during storage init', async () => {
     const lockedHiddenWalletSelection = {
       ...defaultSelectedAccount(),
@@ -2541,6 +3089,116 @@ describe('useAccountSelectorActions', () => {
       expect(store.get(selectedAccountsAtom())[0]).toEqual(
         homeRecentSelectedAccount,
       );
+    });
+  });
+  describe('missing network on an account selection (OK-62137)', () => {
+    const createdWallet = { id: 'hw-1', isMocked: false } as IWallet;
+    const createdIndexedAccount = {
+      id: 'hw-1--0',
+      walletId: 'hw-1',
+    } as IIndexedAccount;
+    const createParams = {
+      device: { connectId: 'hw-1-usb', deviceId: 'hw-1-device' },
+      features: {},
+      hideCheckingDeviceLoading: true,
+    } as unknown as IDBCreateHwWalletParamsBase;
+
+    beforeEach(() => {
+      mockCreateHWWalletService.mockResolvedValue({
+        wallet: createdWallet,
+        device: undefined,
+        indexedAccount: createdIndexedAccount,
+        isOverrideWallet: false,
+      });
+      mockAddDefaultNetworkAccountsService.mockResolvedValue({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+    });
+
+    it('gives a newly created wallet selection All Networks when the store has no network yet', async () => {
+      const { Wrapper, store } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        focusedWallet: 'hw-1',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('prefers the scene default network when filling a missing network', async () => {
+      const { Wrapper, store } = createWrapper();
+      store.set(accountSelectorAvailableNetworksAtom(), {
+        0: {
+          networkIds: ['evm--1', 'evm--56'],
+          defaultNetworkId: 'evm--56',
+        },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe('evm--56');
+    });
+
+    it('fills a missing network on the confirmAccountSelect fast path', async () => {
+      mockGetWalletSafe.mockResolvedValue(createdWallet);
+      const { Wrapper, store } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: createdIndexedAccount,
+          othersWalletAccount: undefined,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+    });
+
+    it('does not persist an account selection that has no network', async () => {
+      const selectedAccount: ISelectedAccount = {
+        ...defaultSelectedAccount(),
+        walletId: 'hw-1',
+        indexedAccountId: 'hw-1--0',
+        focusedWallet: 'hw-1',
+      };
+      const { Wrapper, store } = createWrapper();
+      store.set(selectedAccountsAtom(), { 0: selectedAccount });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.saveToStorage({
+          selectedAccount,
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccountUpdatedAt: Date.now(),
+        });
+      });
+
+      expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+      expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
     });
   });
 });

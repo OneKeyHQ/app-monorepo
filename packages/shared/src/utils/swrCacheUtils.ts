@@ -3,6 +3,8 @@ import { defaultLogger } from '../logger/logger';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import {
+  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_KEY_CHARS,
@@ -159,8 +161,32 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
 
   const retained: ISerializedSWRCacheEntry<T>[] = [];
   let totalSerializedChars = 2;
-  for (const candidate of candidates) {
+  let accountSelectorEntries = 0;
+  let accountSelectorSerializedChars = 2;
+  const accountSelectorDrops: ISWRCacheCapacityDrop[] = [];
+  candidates.forEach((candidate) => {
     const separatorChars = retained.length > 0 ? 1 : 0;
+    const isAccountSelector = isAccountSelectorCacheKey(candidate.key);
+    const accountSeparatorChars = accountSelectorEntries > 0 ? 1 : 0;
+    if (
+      isAccountSelector &&
+      (accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES ||
+        accountSelectorSerializedChars +
+          accountSeparatorChars +
+          candidate.serializedChars >
+          SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS)
+    ) {
+      removedKeys.push(candidate.key);
+      accountSelectorDrops.push({
+        entrySerializedChars: candidate.entrySerializedChars,
+        key: candidate.key,
+        reason:
+          accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+            ? 'entryCountLimit'
+            : 'totalSizeLimit',
+      });
+      return;
+    }
     let reason: ISWRCacheCapacityLimitReason | undefined;
     if (retained.length >= maxEntries) {
       reason = 'entryCountLimit';
@@ -180,8 +206,13 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     } else {
       retained.push(candidate);
       totalSerializedChars += separatorChars + candidate.serializedChars;
+      if (isAccountSelector) {
+        accountSelectorEntries += 1;
+        accountSelectorSerializedChars +=
+          accountSeparatorChars + candidate.serializedChars;
+      }
     }
-  }
+  });
   retained.sort((left, right) => left.index - right.index);
 
   const retainedStore = {} as Record<string, T>;
@@ -200,6 +231,13 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     maxSerializedChars,
     retainedEntryCount: retained.length,
     retainedSerializedChars: totalSerializedChars,
+  });
+  reportSWRCacheCapacityDrops(accountSelectorDrops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: accountSelectorEntries,
+    retainedSerializedChars: accountSelectorSerializedChars,
   });
 
   return {
@@ -423,6 +461,52 @@ function evictOldestOverBudget(store: ISWRStore, removedAt: number) {
   });
 }
 
+function evictOldestAccountSelectorEntries(
+  store: ISWRStore,
+  removedAt: number,
+) {
+  const keys = Object.keys(store)
+    .filter(isAccountSelectorCacheKey)
+    .toSorted((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+  let count = keys.length;
+  let serializedChars =
+    2 +
+    Math.max(0, count - 1) +
+    keys.reduce(
+      (sum, key) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
+      0,
+    );
+  const drops: ISWRCacheCapacityDrop[] = [];
+  for (const key of keys) {
+    if (
+      count <= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES &&
+      serializedChars <= SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS
+    ) {
+      break;
+    }
+    drops.push({
+      key,
+      reason:
+        count > SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+          ? 'entryCountLimit'
+          : 'totalSizeLimit',
+    });
+    serializedChars -=
+      (_cacheEntrySerializedChars.get(key) ?? 0) + (count > 1 ? 1 : 0);
+    count -= 1;
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+    _removedKeysAt.set(key, removedAt);
+  }
+  reportSWRCacheCapacityDrops(drops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: count,
+    retainedSerializedChars: serializedChars,
+  });
+}
+
 function adoptPrunedStore(store: ISWRStore): ISWRStore {
   const result = pruneSWRCacheStore(store);
   resetCacheSerializedChars(result.store);
@@ -585,6 +669,9 @@ function set<T>(key: string, data: T): void {
   setCachedEntry(store, serializedEntry);
   _updatedKeys.add(key);
   _dirty = true;
+  if (isAccountSelectorCacheKey(key)) {
+    evictOldestAccountSelectorEntries(store, now);
+  }
   evictOldestOverBudget(store, now);
   scheduleFlush();
 }
@@ -672,6 +759,9 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  marketHomeBanners: 'marketHomeBanners',
+  marketHomeConfig: 'marketHomeConfig',
+  marketHomeStocks: 'marketHomeStocks',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
@@ -688,15 +778,21 @@ const NS = {
   earnAccount: 'earnAccount',
   earnProtocolDetail: 'earnProtocolDetail',
   fiatCryptoTokenList: 'fiatCryptoTokenList',
+  fiatCryptoNetworkSupport: 'fiatCryptoNetSupport',
   bulkSendAddressesInputSeed: 'bulkSendSeed',
   bulkCopyAddressesWallets: 'bulkCopyWallets',
   bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
   bulkCopyAddressesAccounts: 'bulkCopyAccounts',
   chainSelectorInputNetworks: 'chainSelNets',
+  homeWalletTabSupport: 'homeWalletTabs',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
 export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+function isAccountSelectorCacheKey(key: string) {
+  return key.startsWith(`${NS.accountSelectorList}:`);
+}
 
 const SWR_CACHE_SAFE_LOG_NAMESPACES = Object.values(NS);
 
@@ -938,6 +1034,11 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  // Home wallet tab support (Perps / DeFi tab visibility). Seeds the first
+  // frame so the tab row does not reflow once the background gating resolves
+  // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
+  homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
+    [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
@@ -1011,6 +1112,12 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeBanners: (locale: string, mock: boolean) =>
+    [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
+  marketHomeConfig: (locale: string) =>
+    [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeStocks: (queryKey: string) =>
+    [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,
@@ -1171,6 +1278,7 @@ export const swrKeys = {
     vault,
     locale,
     currencyId,
+    accountScopeKey,
   }: {
     networkId: string;
     symbol: string;
@@ -1178,6 +1286,11 @@ export const swrKeys = {
     vault?: string;
     locale: string;
     currencyId: string;
+    // Set only when the request carries an account address. The response then
+    // contains that account's balances and rewards, so it must never share a
+    // cache entry with the account-less protocol response or with another
+    // account.
+    accountScopeKey?: string;
   }) =>
     [
       NS.earnProtocolDetail,
@@ -1188,6 +1301,11 @@ export const swrKeys = {
       vault ?? '',
       locale.toLowerCase(),
       currencyId.toLowerCase(),
+      // Appended only when present. An unconditional '' would add a trailing
+      // colon to the account-less key, changing a shape that is already
+      // persisted on desktop/web — every existing entry would miss after an
+      // upgrade, for no gain in behavior.
+      ...(accountScopeKey ? [accountScopeKey] : []),
     ].join(':'),
   // Buy Crypto token list (tokens + networksMap + merge-derive flags). Cached
   // so re-opening the modal paints the previous list synchronously instead of
@@ -1204,6 +1322,17 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
+  // "Does this network have any buy/sell fiat token" flag behind the home
+  // Buy/Sell entry. The entry is fail-closed on it, so without a snapshot
+  // every cold start paints it disabled until fiat-pay/list returns
+  // (OK-61505). Network + type only: the bg check takes no account input.
+  fiatCryptoNetworkSupport: ({
+    networkId,
+    type,
+  }: {
+    networkId: string;
+    type: string;
+  }) => [NS.fiatCryptoNetworkSupport, 'v1', networkId, type].join(':'),
   bulkSendAddressesInputSeed: ({
     networkId,
     accountId,

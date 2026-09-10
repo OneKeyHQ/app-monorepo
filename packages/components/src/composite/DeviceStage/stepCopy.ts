@@ -2,9 +2,11 @@ import type { ComponentProps } from 'react';
 
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
+  IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
 } from './type';
@@ -20,6 +22,47 @@ import type { IntlShape } from 'react-intl';
  * app's locale. Pure data and pure functions; how the stage plays them
  * is the engine's own business (see ./index).
  */
+
+export function resolveErrorMessage(
+  intl: IntlShape,
+  message?: string,
+  errorI18n?: IDeviceStageErrorI18n,
+): string | undefined {
+  const key = errorI18n?.key;
+  if (key && intl.messages[key]) {
+    return intl.formatMessage(
+      { id: key, defaultMessage: message },
+      errorI18n.info,
+    );
+  }
+  return message;
+}
+
+/** The notice capsule's word budget: about two lines of $headingMd
+ * inside the capsule's text width (188pt) — ~21 Latin or ~11 CJK glyphs
+ * a line, so CJK counts double. Reason-claimed titles are short by
+ * construction; this only ever weighs a failure's own raw words. */
+const ERROR_NOTICE_MAX_UNITS = 44;
+const WIDE_GLYPH = /[ᄀ-ᅟ⺀-꓏가-힯豈-﫿︰-﹏＀-｠￠-￦]/;
+
+/**
+ * Whether a failure's own words still read on the notice capsule. Past
+ * the budget the stage plays the error as the card instead (OK-62077):
+ * a raw SDK message five lines deep in a pill was unreadable.
+ */
+export function errorNoticeFits(words: string | undefined): boolean {
+  if (!words) {
+    return true;
+  }
+  let units = 0;
+  for (const glyph of words) {
+    units += WIDE_GLYPH.test(glyph) ? 2 : 1;
+    if (units > ERROR_NOTICE_MAX_UNITS) {
+      return false;
+    }
+  }
+  return true;
+}
 
 // `off` has no words of its own: searching is part of connecting, so the
 // copy is in place from the first frame and holds still while the screen
@@ -68,8 +111,8 @@ export const ERROR_TEXT: Record<
 /**
  * The authenticity flow's failure copy, the live dialog's own keys (the
  * design drops the old error-code suffixes). `action` picks the card's
- * exits: 'support' is terminal — one Support button; 'retry' is
- * recoverable — Retry plus the Continue-anyway gate (see AUTH_NOTE_TEXT).
+ * exits: 'support' is terminal; 'retry' offers Retry and Support but never
+ * bypasses authenticity verification.
  * The icon fronts the card where the staged steps front the replica.
  */
 export const AUTH_FAILURE_TEXT: Record<
@@ -106,7 +149,7 @@ export const AUTH_FAILURE_TEXT: Record<
     action: 'retry',
   },
   unknown: {
-    title: ETranslations.global_unknown_error,
+    title: ETranslations.send_verification_failure,
     sub: ETranslations.global_unknown_error_retry_message,
     icon: 'ErrorSolid',
     action: 'retry',
@@ -117,18 +160,6 @@ export const AUTH_FAILURE_TEXT: Record<
     icon: 'ServerSolid',
     action: 'retry',
   },
-};
-
-/**
- * The Continue-anyway gate, one card shared by every recoverable
- * failure: the content swaps to this NOTE in place, I-understand is the
- * real exit, Back returns to the failure.
- */
-export const AUTH_NOTE_TEXT = {
-  title: ETranslations.device_stage_auth_note__title,
-  sub: ETranslations.device_auth_continue_anyway_warning_message,
-  confirm: ETranslations.global_i_understand,
-  back: ETranslations.global_back,
 };
 
 /**
@@ -520,7 +551,10 @@ export function resolvePassphrasePanelText(
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. Only
  * capsule-pose steps reach here — including the actionless error, the
- * notice, which speaks its reason's title alone on either track. */
+ * notice, which speaks its reason's title alone on either track. A
+ * connecting wait that has stalled (`stalledOn`, the transport it rides)
+ * trades the device's name for the hint that matches the transport:
+ * wake the device and keep it near, or check the cable. */
 export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
@@ -528,6 +562,7 @@ export function resolveCapsuleText(
   vendor?: 'ledger' | 'trezor',
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
+  stalledOn?: IDeviceStageConnectionType,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
@@ -552,6 +587,17 @@ export function resolveCapsuleText(
             : STEP_TEXT[step].title,
       }),
       sub: '',
+    };
+  }
+  if (step === 'connecting' && stalledOn) {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+      sub: intl.formatMessage({
+        id:
+          stalledOn === 'bluetooth'
+            ? ETranslations.device_stage_connecting_stalled_bluetooth__desc
+            : ETranslations.device_stage_connecting_stalled_usb__desc,
+      }),
     };
   }
   return {

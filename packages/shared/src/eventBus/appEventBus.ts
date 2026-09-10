@@ -16,7 +16,10 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
-import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyErrorI18nInfo,
+  IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -35,6 +38,7 @@ import type {
   IProtocolSummary,
 } from '../../types/defi';
 import type { EHardwareVendor } from '../../types/device';
+import type { IDeviceStageWalletTypeValue } from '../../types/deviceStage';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
@@ -67,6 +71,7 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
+  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -105,6 +110,7 @@ export type IEventBusPayloadShowToast = {
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
 };
@@ -295,6 +301,16 @@ export interface IAppEventBusPayload {
   // back to the flow that primed the card before its hardware call
   // (the account selector's Add-hidden-wallet, OK-59934).
   [EAppEventBusNames.DeviceStagePassphraseIntroContinue]: undefined;
+  // The wallet-creation fork's answer, from the DeviceStage driver back to
+  // the flow that put the selectWalletType card on stage (onboarding's
+  // hardware wallet creation, OK-59934).
+  [EAppEventBusNames.DeviceStageWalletTypeSelected]: {
+    walletType: IDeviceStageWalletTypeValue;
+  };
+  // The stage left — by any route, the person's close included. A flow
+  // awaiting a card's answer ends its wait on this: a card that is gone
+  // can never be answered (OK-59934).
+  [EAppEventBusNames.DeviceStageOff]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
@@ -333,6 +349,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -649,14 +666,21 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
   [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
+  [EAppEventBusNames.DevLargeWalletDataCreationProgress]: {
+    isRunning: boolean;
+    walletIndex: number;
+    walletsCreated: number;
+    walletsTotal: number;
+    accountsCreatedInWallet: number;
+    accountsPerWallet: number;
+    accountsCreated: number;
+    accountsTotal: number;
+  };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;
     retry?: number;
     message?: string;
-  };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:

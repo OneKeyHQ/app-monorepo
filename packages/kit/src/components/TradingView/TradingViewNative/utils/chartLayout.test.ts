@@ -736,28 +736,58 @@ describe('TradingViewNative chart layout', () => {
     ).toBe(0);
   });
 
-  it('sizes the watermark to 15% up to 320px and places it at the bottom-left', () => {
+  it('centers the watermark on small screens and uses bottom-left on large screens', () => {
     const regularLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 640,
       mainChartBottom: 300,
     });
-    expect(regularLayout).toMatchObject({ width: 96, x: 8 });
+    expect(regularLayout).toMatchObject({ width: 96, x: 272 });
     expect(regularLayout?.height).toBeCloseTo(29.2683);
-    expect(regularLayout?.y).toBeCloseTo(262.7317);
+    expect(regularLayout?.y).toBeCloseTo(135.3659);
 
     const smallLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 100,
       mainChartBottom: 50,
     });
-    expect(smallLayout).toMatchObject({ width: 15, x: 8 });
+    expect(smallLayout).toMatchObject({ width: 15, x: 42.5 });
     expect(smallLayout?.height).toBeCloseTo(4.5732);
-    expect(smallLayout?.y).toBeCloseTo(37.4268);
+    expect(smallLayout?.y).toBeCloseTo(22.7134);
 
     const wideLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 3840,
       mainChartBottom: 2160,
     });
     expect(wideLayout).toMatchObject({ width: 320, x: 8 });
+
+    const mobileLayout = getTradingViewNativeWatermarkLayout({
+      canvasWidth: 320,
+      isMobileLayout: true,
+      mainChartBottom: 284,
+    });
+    expect(mobileLayout).toMatchObject({ width: 70.4, x: 124.8 });
+    expect(mobileLayout?.height).toBeCloseTo(21.4634);
+    expect(mobileLayout?.y).toBeCloseTo(131.2683);
+
+    const mobileLandscapeLayout = getTradingViewNativeWatermarkLayout({
+      canvasWidth: 1000,
+      isMobileLayout: true,
+      mainChartBottom: 500,
+    });
+    expect(mobileLandscapeLayout).toMatchObject({ width: 220, x: 390 });
+    expect(mobileLandscapeLayout?.y).toBeCloseTo(216.4634);
+
+    expect(
+      getTradingViewNativeWatermarkLayout({
+        canvasWidth: 767,
+        mainChartBottom: 300,
+      })?.x,
+    ).toBeCloseTo((767 - 767 * 0.15) / 2);
+    expect(
+      getTradingViewNativeWatermarkLayout({
+        canvasWidth: 768,
+        mainChartBottom: 300,
+      })?.x,
+    ).toBe(8);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 100,

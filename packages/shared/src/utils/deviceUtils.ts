@@ -142,6 +142,41 @@ function getDeviceSerialNoFromFeatures(
   );
 }
 
+function isSamePhysicalDevice(
+  device: Partial<IDBDevice> | undefined,
+  other: Partial<IDBDevice> | undefined,
+): boolean {
+  if (!device || !other) {
+    return false;
+  }
+  if (device.id && device.id === other.id) {
+    return true;
+  }
+  const serialNo =
+    device.uuid ||
+    device.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(device.featuresInfo);
+  const otherSerialNo =
+    other.uuid ||
+    other.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(other.featuresInfo);
+  // A reset changes the wallet identity and may also clear transport aliases.
+  if (serialNo && otherSerialNo) {
+    return serialNo === otherSerialNo;
+  }
+  if (device.deviceId && device.deviceId === other.deviceId) {
+    return true;
+  }
+  const connectIds = new Set(
+    [device.connectId, device.usbConnectId, device.bleConnectId]
+      .filter(Boolean)
+      .map((value) => value?.toLowerCase()),
+  );
+  return [other.connectId, other.usbConnectId, other.bleConnectId].some(
+    (value) => Boolean(value && connectIds.has(value.toLowerCase())),
+  );
+}
+
 function getDeviceBleNameFromFeatures(
   features: IOneKeyDeviceFeatures | undefined,
 ) {
@@ -1052,6 +1087,7 @@ function supportSettings({
 }
 
 export default {
+  isSamePhysicalDevice,
   getDeviceDisplayName,
   getDeviceVersionsFromState,
   dbDeviceToSearchDevice,

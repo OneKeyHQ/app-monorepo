@@ -80,6 +80,7 @@ describe('firmwareUpdateErrorUtils', () => {
     [HardwareErrorCode.BleDeviceBondError, 'device_disconnected'],
     [HardwareErrorCode.BleDeviceDisconnected, 'device_disconnected'],
     [HardwareErrorCode.BlePeerRemovedPairingInformation, 'device_disconnected'],
+    [HardwareErrorCode.BleBondInvalid, 'device_disconnected'],
   ] as const)('classifies firmware error code %s as %s', (code, expected) => {
     expect(classifyFirmwareUpdateFailure({ code })).toBe(expected);
   });
@@ -150,6 +151,7 @@ describe('firmwareUpdateErrorUtils', () => {
     ['ARTIFACT_PROTOCOL_INVALID: invalid response', 'download'],
     ['ARTIFACT_CANCELLED', 'cancelled'],
     ['ARTIFACT_LEASE_CREATE_TIMEOUT', 'timeout'],
+    ['Protocol V2 firmware install timed out', 'timeout'],
   ] as const)('classifies %s as %s', (message, expected) => {
     expect(classifyFirmwareUpdateFailure({ message })).toBe(expected);
   });

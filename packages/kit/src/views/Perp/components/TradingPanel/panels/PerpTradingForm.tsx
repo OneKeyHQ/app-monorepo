@@ -15,7 +15,6 @@ import {
   Select,
   SizableText,
   Skeleton,
-  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -2217,6 +2216,9 @@ function PerpTradingForm({
                     id: ETranslations.Perps_BBO_button_desc,
                   })}
                   placement="top-end"
+                  // Tamagui 2 stops click propagation on the tooltip trigger, so
+                  // clicks on the label never reach the Badge onPress.
+                  onPress={isSubmitting ? undefined : handleBBOToggle}
                 />
               )}
             </Badge>
@@ -2540,7 +2542,7 @@ function PerpTradingForm({
         {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
-        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        size={isMobile ? '$bodySm' : '$bodyMd'}
         color="$text"
         dashColor="$textDisabled"
         dashThickness={0.5}
@@ -2586,28 +2588,22 @@ function PerpTradingForm({
                 height={checkboxSizeVal}
                 {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
-              <Tooltip
-                placement="top"
-                triggerAsChild="except-style"
-                renderContent={intl.formatMessage({
+              <DashText
+                size={isMobile ? '$bodySm' : '$bodyMd'}
+                color="$text"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
-                renderTrigger={
-                  <Stack display="inline-flex" alignSelf="flex-start">
-                    <DashText
-                      size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                      color="$text"
-                      dashColor="$textDisabled"
-                      dashThickness={0.5}
-                      cursor="help"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_twap_randomize__title,
-                      })}
-                    </DashText>
-                  </Stack>
-                }
-              />
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              </DashText>
             </XStack>
             {twapEstimatedSliceNotionalDisplay ? (
               <XStack

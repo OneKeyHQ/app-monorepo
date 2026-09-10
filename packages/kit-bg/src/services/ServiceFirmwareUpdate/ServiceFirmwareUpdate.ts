@@ -432,6 +432,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             : {}),
         },
         silentMode: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         hardwareTransportType,
       });
       features = projectLegacyDeviceFeaturesFromState(state);
@@ -2493,10 +2494,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
-    // The stage leaves with the legacy state: the update page is the only
-    // surface from here, and a burst still in flight takes nothing down
-    // until its own end. An air-gap scan the stage was hosting leaves with
-    // it, rejected, rather than waiting invisibly for its expiry.
+    // The stage leaves with the legacy state: the update page narrates
+    // the update from here, and a burst still in flight takes nothing
+    // down until its own end. The device's asks during the update (PIN,
+    // the install confirm) still play on the stage (OK-62087). An air-gap
+    // scan the stage was hosting leaves with it, rejected, rather than
+    // waiting invisibly for its expiry.
     await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,

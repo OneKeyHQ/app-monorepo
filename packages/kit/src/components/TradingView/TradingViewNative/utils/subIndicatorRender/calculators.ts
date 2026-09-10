@@ -399,9 +399,9 @@ function calculateRawSubIndicator(
           histogram: createMacdPaletteIndexes(result.histogram),
         },
         plots: {
-          histogram: result.histogram,
           macd: result.macd,
           signal: result.signal,
+          histogram: result.histogram,
         },
       };
     }

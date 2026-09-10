@@ -17,6 +17,7 @@ import type {
   IDeviceStageAuthFailureReasonValue,
   IDeviceStageConfirmContent,
   IDeviceStageConfirmDetail,
+  IDeviceStageErrorI18n,
   IDeviceStageErrorReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
@@ -196,6 +197,9 @@ export const {
 export type IDeviceStageState = {
   /** Monotonic id; a new burst resets the container's close-grant policy. */
   burstId: number;
+  /** Bumped on every beat, hardware call and SDK event: the container's
+   * idle clock reads it to tell a stalled wait from a busy one. */
+  activitySeq?: number;
   step: IDeviceStageStepValue;
   connectId?: string;
   deviceType?: IDeviceType;
@@ -228,10 +232,11 @@ export type IDeviceStageState = {
    * The failure's own words, for the outcomes no reason claims. The
    * legacy toast spoke them and the stage suppresses that toast, so
    * without this the specific message is lost and the card falls back
-   * to "Something went wrong". Display-ready: the error layer has
-   * already localized it.
+   * to "Something went wrong". Used as a fallback when no translation
+   * is available in the UI runtime.
    */
   errorMessage?: string;
+  errorI18n?: IDeviceStageErrorI18n;
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;
   passphraseMode?: 'create' | 'verify';
