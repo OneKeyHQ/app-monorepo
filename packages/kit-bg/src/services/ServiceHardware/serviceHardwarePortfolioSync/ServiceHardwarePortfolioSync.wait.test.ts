@@ -1297,6 +1297,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       expect.any(Function),
       expect.objectContaining({
         debugMethodName: 'portfolio.syncPortfolio',
+        skipDeviceCancel: true,
         deviceParams: {
           dbDevice: expect.objectContaining({ id: 'db-device-1' }),
         },
