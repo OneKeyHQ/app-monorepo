@@ -59,9 +59,7 @@ describe('hardware wallet connect status utils', () => {
       serialNumber: 'keystone-usb-serial',
     });
     expect(isSupportedHardwareWebUsbDevice(keystoneUsbDevice)).toBe(true);
-    expect(getWebUsbConnectedDeviceKey(keystoneUsbDevice)).toBe(
-      'keystone-usb:keystone-usb-serial',
-    );
+    expect(getWebUsbConnectedDeviceKey(keystoneUsbDevice)).toBeUndefined();
   });
 
   it('matches Trezor wallets by transport connect ids', () => {

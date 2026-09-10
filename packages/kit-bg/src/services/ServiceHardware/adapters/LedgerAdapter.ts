@@ -1,10 +1,18 @@
-import { EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
+import {
+  DEVICE,
+  EConnectorInteraction,
+  HardwareErrorCode,
+  failure,
+  resolveSearchTargetReusePolicy,
+} from '@onekeyfe/hwk-adapter-core';
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
+import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
+import { matchesVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
+import type { IVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyAppInstallAtom,
-  thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -15,6 +23,7 @@ import { BaseAdapter } from './BaseAdapter';
 
 import type {
   DeviceInfo,
+  IHardwareConnectionContext,
   IHardwareWallet,
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
@@ -54,9 +63,63 @@ export class LedgerAdapter
 
   private activeInteractionId: string | undefined;
 
+  private readonly verifiedBleBindingWrites = new Map<string, Promise<void>>();
+
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
+
+    this.hw.on(DEVICE.LEDGER_CONNECTION_VERIFIED, (event) => {
+      const { connectId, chain, fingerprint, extra, selectionRequestId } =
+        event.payload;
+      // Multiple wallet/device records may share a physical Ledger. Bind only
+      // the originating record, never all records with this locator or fingerprint.
+      const dbDeviceId = extra?.dbDeviceId;
+      if (!dbDeviceId || !selectionRequestId || !connectId) return;
+      // Normalize the current SDK event at the adapter boundary. Persistence
+      // accepts identity proofs, not Ledger-specific chain/fingerprint fields.
+      const verifiedDeviceIdentity: IVerifiedDeviceIdentity = {
+        vendor: this.vendor,
+        identity: { type: 'chainFingerprint', chain, value: fingerprint },
+      };
+      const previous =
+        this.verifiedBleBindingWrites.get(dbDeviceId) ?? Promise.resolve();
+      const write = previous
+        .then(async () => {
+          const device = await localDb.getDevice(dbDeviceId);
+          if (
+            !device ||
+            device.id !== dbDeviceId ||
+            !matchesVerifiedDeviceIdentity(
+              {
+                vendor: device.vendor,
+                deviceId: device.deviceId,
+                connectId: device.connectId,
+                chainFingerprints: device.settings?.chainFingerprints,
+              },
+              verifiedDeviceIdentity,
+            )
+          )
+            return;
+          await localDb.updateDeviceConnectId({
+            dbDeviceId: device.id,
+            connectId,
+            bleConnectId: connectId,
+            verifiedDeviceIdentity,
+          });
+        })
+        .catch(() => {
+          defaultLogger.hardware.sdkLog.log(
+            '[3rdPartyHW][Ledger] verified BLE binding persistence failed',
+          );
+        });
+      this.verifiedBleBindingWrites.set(dbDeviceId, write);
+      void write.finally(() => {
+        if (this.verifiedBleBindingWrites.get(dbDeviceId) === write) {
+          this.verifiedBleBindingWrites.delete(dbDeviceId);
+        }
+      });
+    });
 
     this.hw.on('ui-event', (event) => {
       const eventType = (event as { type?: string }).type ?? 'unknown';
@@ -66,31 +129,43 @@ export class LedgerAdapter
       );
       switch (event.type) {
         case EConnectorInteraction.Searching:
-          void thirdPartyHardwareUiStateAtom.set({
-            action: EThirdPartyHardwareUiAction.searching,
-            vendor: EHardwareVendor.ledger,
-          });
+          void this.publishUiState(
+            {
+              action: EThirdPartyHardwareUiAction.searching,
+              vendor: EHardwareVendor.ledger,
+            },
+            event.payload?.sessionId,
+          );
           break;
         case EConnectorInteraction.ConfirmOpenApp:
-          void thirdPartyHardwareUiStateAtom.set({
-            action: EThirdPartyHardwareUiAction.openApp,
-            vendor: EHardwareVendor.ledger,
-          });
+          void this.publishUiState(
+            {
+              action: EThirdPartyHardwareUiAction.openApp,
+              vendor: EHardwareVendor.ledger,
+            },
+            event.payload?.sessionId,
+          );
           break;
         case EConnectorInteraction.UnlockDevice:
-          void thirdPartyHardwareUiStateAtom.set({
-            action: EThirdPartyHardwareUiAction.unlockDevice,
-            vendor: EHardwareVendor.ledger,
-          });
+          void this.publishUiState(
+            {
+              action: EThirdPartyHardwareUiAction.unlockDevice,
+              vendor: EHardwareVendor.ledger,
+            },
+            event.payload?.sessionId,
+          );
           break;
         case EConnectorInteraction.ConfirmOnDevice:
-          void thirdPartyHardwareUiStateAtom.set({
-            action: EThirdPartyHardwareUiAction.confirmOnDevice,
-            vendor: EHardwareVendor.ledger,
-          });
+          void this.publishUiState(
+            {
+              action: EThirdPartyHardwareUiAction.confirmOnDevice,
+              vendor: EHardwareVendor.ledger,
+            },
+            event.payload?.sessionId,
+          );
           break;
         case EConnectorInteraction.InteractionComplete:
-          void thirdPartyHardwareUiStateAtom.set(undefined);
+          void this.clearUiState(event.payload?.sessionId);
           break;
         case EConnectorInteraction.AppInstallProgress: {
           // Ledger DMK install progress (0..1); throttled log avoids flooding.
@@ -149,6 +224,7 @@ export class LedgerAdapter
     this.hw.on(UI_REQUEST.REQUEST_SELECT_DEVICE, (event) => {
       const deviceSearchTargets = event.payload.devices.map((device) => ({
         searchTargetId: device.connectId,
+        searchTargetReusePolicy: resolveSearchTargetReusePolicy(device),
         vendor: EHardwareVendor.ledger,
         connectionType: device.connectionType,
         kind: 'physical' as const,
@@ -163,6 +239,11 @@ export class LedgerAdapter
         payload: {
           vendor: EHardwareVendor.ledger,
           deviceSearchTargets,
+          deviceSelection: {
+            requestId: event.payload.requestId,
+            context: event.payload.context,
+            extra: event.payload.extra,
+          },
         },
       });
     });
@@ -197,21 +278,18 @@ export class LedgerAdapter
 
     this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
-      void thirdPartyHardwareUiStateAtom.set(undefined);
+      void this.clearUiState();
       void thirdPartyAppInstallAtom.set(undefined);
     });
 
     this.hw.on('interaction-ended', (event) => {
       const interactionId = (event as { payload?: { interactionId?: string } })
         .payload?.interactionId;
-      if (!interactionId || this.activeInteractionId !== interactionId) return;
+      if (!interactionId) return;
+      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+      if (this.activeInteractionId !== interactionId) return;
       void Promise.all([
-        thirdPartyHardwareUiStateAtom.set((state) =>
-          this.activeInteractionId === interactionId &&
-          state?.vendor === EHardwareVendor.ledger
-            ? undefined
-            : state,
-        ),
+        this.clearUiState(),
         thirdPartyAppInstallAtom.set((state) =>
           this.activeInteractionId === interactionId &&
           state?.vendor === EHardwareVendor.ledger
@@ -227,9 +305,15 @@ export class LedgerAdapter
 
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
-        const { reason, message, path, accountIndex, deviceSearchTargets } =
-          event.payload ?? {};
-        void thirdPartyHardwareUiStateAtom.set({
+        const {
+          reason,
+          message,
+          path,
+          accountIndex,
+          deviceSearchTargets,
+          deviceSelection,
+        } = event.payload ?? {};
+        void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.ledger,
           payload: {
@@ -238,6 +322,7 @@ export class LedgerAdapter
             path,
             accountIndex,
             deviceSearchTargets,
+            deviceSelection,
           },
         });
       }
@@ -296,30 +381,34 @@ export class LedgerAdapter
   async searchDeviceTargets(
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<IThirdPartyHardwareSearchTarget[]> {
-    const devices = await this.searchDevices(options);
-    return devices.map((device) => ({
-      searchTargetId: device.connectId,
+    const targets = await this.hw.searchDeviceTargets(options);
+    return targets.map((target) => ({
+      ...target,
       vendor: EHardwareVendor.ledger,
-      connectionType: device.connectionType,
-      kind: 'physical',
-      label: device.label,
-      model: device.model,
-      modelName: device.modelName,
-      serialNumber: device.serialNumber,
     }));
   }
 
   async connectDevice(
     searchTargetId: string,
+    operationContext?: IHardwareConnectionContext,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     this.activeInteractionId = undefined;
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Ledger] connectDevice searchTargetId=${searchTargetId}`,
     );
     try {
-      const result = await (
-        this.hw as IInteractionHardwareWallet
-      ).connectDevice(searchTargetId);
+      if (operationContext && !this.hw.acquireInteraction) {
+        return failure(
+          HardwareErrorCode.MethodNotSupported,
+          'Ledger operation-scoped acquire is unavailable',
+        );
+      }
+      const result =
+        operationContext && this.hw.acquireInteraction
+          ? await this.hw.acquireInteraction(searchTargetId, operationContext)
+          : await (this.hw as IInteractionHardwareWallet).connectDevice(
+              searchTargetId,
+            );
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Ledger] connectDevice result success=${String(
           result.success,
@@ -332,21 +421,27 @@ export class LedgerAdapter
         defaultLogger.hardware.sdkLog.log(
           `[3rdPartyHW][Ledger] getDeviceInfo success=${String(info.success)}`,
         );
-        void thirdPartyHardwareUiStateAtom.set(undefined);
+        void this.clearUiState();
         if (info.success) {
+          const payload: IThirdPartyConnectedDevicePayload = {
+            interactionId,
+            connectId: info.payload.connectId,
+            deviceId: info.payload.deviceId,
+            model: info.payload.model,
+            modelName: info.payload.modelName,
+            label: info.payload.label,
+            firmwareVersion: info.payload.firmwareVersion,
+            connectionType: info.payload.connectionType,
+            capabilities: info.payload.capabilities,
+            raw: info.payload.raw,
+          };
+          this.emitConnectionStateChange({
+            type: 'connected',
+            device: payload,
+          });
           return {
             success: true,
-            payload: {
-              interactionId,
-              connectId: info.payload.connectId,
-              deviceId: info.payload.deviceId,
-              model: info.payload.model,
-              modelName: info.payload.modelName,
-              label: info.payload.label,
-              firmwareVersion: info.payload.firmwareVersion,
-              connectionType: info.payload.connectionType,
-              raw: info.payload.raw,
-            },
+            payload,
           };
         }
         await (this.hw as IInteractionHardwareWallet)
@@ -354,7 +449,7 @@ export class LedgerAdapter
           .catch(() => undefined);
         return { success: false, payload: info.payload };
       }
-      void thirdPartyHardwareUiStateAtom.set(undefined);
+      void this.clearUiState();
       return { success: false, payload: result.payload };
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
@@ -362,7 +457,7 @@ export class LedgerAdapter
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      void thirdPartyHardwareUiStateAtom.set(undefined);
+      void this.clearUiState();
       throw error;
     }
   }
@@ -374,12 +469,17 @@ export class LedgerAdapter
     await (this.hw as IInteractionHardwareWallet).releaseInteraction(
       interactionId,
     );
+    this.emitConnectionStateChange({ type: 'disconnected', interactionId });
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] reset()');
+    const interactionId = this.activeInteractionId;
     this.activeInteractionId = undefined;
-    void thirdPartyHardwareUiStateAtom.set(undefined);
-    void this.hw.dispose();
+    if (interactionId) {
+      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    }
+    void this.clearUiState();
+    await this.hw.dispose();
   }
 }

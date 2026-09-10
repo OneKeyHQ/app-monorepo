@@ -98,6 +98,7 @@ describe('KeyringHardwareTrezor.prepareAccounts', () => {
       'USB_CONNECT_ID',
       'FEATURES_DEVICE_ID',
       {
+        knownConnections: [{ transport: 'usb', connectId: 'USB_CONNECT_ID' }],
         passphraseState: '02'.padEnd(66, '1'),
       },
     );

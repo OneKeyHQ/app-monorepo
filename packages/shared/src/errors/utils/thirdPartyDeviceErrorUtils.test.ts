@@ -65,6 +65,24 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.payload?.recovery).toEqual({ scope: 'interaction' });
   });
 
+  it('preserves an ambiguous side-effect marker across the runtime boundary', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.TransportError,
+      error: 'Signing response was lost',
+      params: {
+        operationMayHaveCompleted: true,
+        method: 'evmSignTransaction',
+      },
+      recovery: { scope: 'unknown' },
+    });
+
+    expect(error.payload?.params).toEqual({
+      operationMayHaveCompleted: true,
+      method: 'evmSignTransaction',
+    });
+    expect(error.payload?.recovery).toEqual({ scope: 'unknown' });
+  });
+
   it('drops unknown recovery scopes received across a runtime boundary', () => {
     expect(
       normalizeThirdPartyHardwareRecoveryHint({ scope: 'future-invalid' }),

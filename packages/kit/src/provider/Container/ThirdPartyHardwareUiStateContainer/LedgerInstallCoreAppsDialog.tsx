@@ -21,7 +21,7 @@ import {
   type ILedgerCoreAppName,
   LEDGER_CORE_APPS,
   hasAnyRequiredLedgerAppInstalled,
-} from '@onekeyhq/shared/src/hardware/ledgerApps';
+} from '@onekeyhq/shared/src/hardware/config/ledger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 

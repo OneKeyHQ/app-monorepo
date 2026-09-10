@@ -5,7 +5,6 @@ import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Button,
   EVideoResizeMode,
   HeightTransition,
@@ -253,9 +252,6 @@ export default function LedgerConnectionFlow() {
     [devicesData],
   );
 
-  // USB has no persistent connectId — block multi-device selection (BLE is fine).
-  const isMultiUsbBlocked = !isBle && sortedDevicesData.length > 1;
-
   // --- Device select ---
   const handleDeviceSelect = useCallback(
     async (data: IConnectYourDeviceItem) => {
@@ -393,17 +389,7 @@ export default function LedgerConnectionFlow() {
               </YStack>
             ) : null}
             <HeightTransition initialHeight={0}>
-              {isMultiUsbBlocked ? (
-                <YStack px="$5">
-                  <Alert
-                    type="warning"
-                    title={intl.formatMessage({
-                      id: ETranslations.hardware_third_party_usb_single_device_only_desc,
-                    })}
-                  />
-                </YStack>
-              ) : null}
-              {sortedDevicesData.length > 0 && !isMultiUsbBlocked ? (
+              {sortedDevicesData.length > 0 ? (
                 <>
                   {sortedDevicesData.map((data, index) => (
                     <ListItem

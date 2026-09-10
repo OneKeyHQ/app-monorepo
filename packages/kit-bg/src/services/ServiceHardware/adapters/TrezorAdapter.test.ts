@@ -10,10 +10,13 @@ import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EThirdPartyHardwareUiAction,
+  type IThirdPartyHardwareUiState,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { TrezorAdapter } from './TrezorAdapter';
+
+import type { IHardwareWallet } from './types';
 
 jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDb', () => ({
   __esModule: true,
@@ -23,6 +26,7 @@ jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDb', () => ({
     getDeviceByQuery: jest.fn(),
     updateThirdPartyDeviceFeatures: jest.fn(),
     updateDeviceThpCredentials: jest.fn(),
+    updateDeviceBleConnectIdAndCleanStaleAliases: jest.fn(),
   },
 }));
 
@@ -30,13 +34,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   // The real enum: its members are dashed wire strings
   // ('ui-event-ledger-searching'), and a hand-written stub keyed by member
   // name asserted values production never emits.
-  const actual = jest.requireActual('@onekeyhq/kit-bg/src/states/jotai/atoms');
-  return {
-    EThirdPartyHardwareUiAction: actual.EThirdPartyHardwareUiAction,
-    thirdPartyHardwareUiStateAtom: {
-      set: jest.fn(),
-    },
-  };
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms')
+  >('@onekeyhq/kit-bg/src/states/jotai/atoms');
+  jest
+    .spyOn(actual.thirdPartyHardwareUiStateAtom, 'set')
+    .mockResolvedValue(undefined);
+  return actual;
 });
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -54,12 +58,130 @@ const mockedLocalDb = jest.mocked(localDb);
 const mockedThirdPartyHardwareUiStateAtom = jest.mocked(
   thirdPartyHardwareUiStateAtom,
 );
+let currentUiState: IThirdPartyHardwareUiState | undefined;
 
 describe('TrezorAdapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    currentUiState = undefined;
+    mockedThirdPartyHardwareUiStateAtom.set.mockImplementation(
+      async (value) => {
+        currentUiState =
+          typeof value === 'function' ? value(currentUiState) : value;
+      },
+    );
     mockedLocalDb.getAllDevices.mockResolvedValue({ devices: [] });
     mockedLocalDb.getDevice.mockRejectedValue(new Error('not found'));
+  });
+
+  it('renders SDK-selected BLE candidates without running an App-side binding probe', () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((name: string, listener: (event: unknown) => void) =>
+        listeners.set(name, listener),
+      ),
+    } as unknown as IHardwareWallet;
+    const adapter = new TrezorAdapter(hw);
+    const uiEvent = jest.fn();
+    adapter.onUiEvent(uiEvent);
+    listeners.get(UI_REQUEST.REQUEST_SELECT_DEVICE)?.({
+      payload: {
+        devices: [
+          { connectId: 'ble-candidate', connectionType: 'ble', model: 'T3W1' },
+        ],
+      },
+    });
+    expect(uiEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: EThirdPartyHardwareUiAction.requestDeviceSelection,
+        payload: expect.objectContaining({
+          vendor: 'trezor',
+          deviceSearchTargets: [
+            expect.objectContaining({ searchTargetId: 'ble-candidate' }),
+          ],
+        }),
+      }),
+    );
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+  });
+
+  it('persists a BLE binding only from the SDK identity-verified event', async () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((name: string, listener: (event: unknown) => void) =>
+        listeners.set(name, listener),
+      ),
+    } as unknown as IHardwareWallet;
+    const adapter = new TrezorAdapter(hw);
+    jest.spyOn(adapter, 'flushThpCredentials').mockResolvedValue(undefined);
+    mockedLocalDb.getDevice.mockResolvedValue({
+      id: 'db-device',
+      deviceId: 'expected-device',
+      vendor: 'trezor',
+    } as IDBDevice);
+    listeners.get(DEVICE.TREZOR_CONNECTION_VERIFIED)?.({
+      payload: {
+        deviceId: 'expected-device',
+        connectId: 'verified-ble',
+        connectionType: 'ble',
+        extra: { dbDeviceId: 'db-device' },
+        selectionRequestId: 'selection-request',
+      },
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
+      [
+        {
+          dbDeviceId: 'db-device',
+          bleConnectId: 'verified-ble',
+          verifiedDeviceId: 'expected-device',
+        },
+      ],
+    ]);
+  });
+
+  it.each([
+    'missing-extra',
+    'missing-request',
+    'wrong-record',
+    'wrong-identity',
+    'wrong-vendor',
+  ])('does not persist an unqualified binding (%s)', async (scenario) => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const adapter = new TrezorAdapter({
+      on: jest.fn((name: string, listener: (event: unknown) => void) =>
+        listeners.set(name, listener),
+      ),
+    } as unknown as IHardwareWallet);
+    jest.spyOn(adapter, 'flushThpCredentials').mockResolvedValue(undefined);
+    mockedLocalDb.getDevice.mockResolvedValue({
+      id: scenario === 'wrong-record' ? 'another-record' : 'db-device',
+      vendor: scenario === 'wrong-vendor' ? 'ledger' : 'trezor',
+      deviceId:
+        scenario === 'wrong-identity' ? 'another-device' : 'expected-device',
+    } as IDBDevice);
+    listeners.get(DEVICE.TREZOR_CONNECTION_VERIFIED)?.({
+      payload: {
+        deviceId: 'expected-device',
+        connectId: 'new-ble',
+        connectionType: 'ble',
+        extra:
+          scenario === 'missing-extra'
+            ? undefined
+            : { dbDeviceId: 'db-device' },
+        selectionRequestId:
+          scenario === 'missing-request' ? undefined : 'request-1',
+      },
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toHaveLength(0);
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+    if (scenario === 'missing-extra' || scenario === 'missing-request')
+      expect(mockedLocalDb.getDevice.mock.calls).toHaveLength(0);
   });
 
   it('only clears Trezor UI for the interaction that currently owns it', () => {
@@ -148,7 +270,7 @@ describe('TrezorAdapter', () => {
     );
   });
 
-  it('cleans up registry-owned SDK event subscription on reset', () => {
+  it('cleans up registry-owned SDK event subscription on reset', async () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const disposeSdkEvents = jest.fn();
     const hw = {
@@ -160,7 +282,7 @@ describe('TrezorAdapter', () => {
     };
 
     const adapter = new TrezorAdapter(hw as never, disposeSdkEvents);
-    adapter.reset();
+    await adapter.reset();
 
     expect(disposeSdkEvents).toHaveBeenCalledTimes(1);
     expect(hw.dispose).toHaveBeenCalledTimes(1);
@@ -254,6 +376,7 @@ describe('TrezorAdapter', () => {
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
       action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
       payload: {
         connectId: 'TREZOR-USB',
@@ -285,6 +408,7 @@ describe('TrezorAdapter', () => {
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
       action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
       payload: {
         connectId: 'TREZOR-USB',
@@ -312,6 +436,7 @@ describe('TrezorAdapter', () => {
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
       action: EThirdPartyHardwareUiAction.confirmOnDevice,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
     });
   });
@@ -677,17 +802,13 @@ describe('TrezorAdapter', () => {
   it('returns search targets through the filtered Trezor discovery path', async () => {
     const hw = {
       on: jest.fn(),
-      searchDevices: jest.fn().mockResolvedValue([
+      searchDeviceTargets: jest.fn().mockResolvedValue([
         {
-          connectId: 'USB-1',
-          deviceId: 'USB-1',
-          connectionType: 'usb',
-          model: 'T3W1',
-        },
-        {
-          connectId: 'BLE-1',
-          deviceId: 'BLE-1',
+          searchTargetId: 'BLE-1',
+          searchTargetReusePolicy: 'current-discovery',
+          vendor: 'trezor',
           connectionType: 'ble',
+          kind: 'physical',
           model: 'T3W1',
         },
       ]),
@@ -699,12 +820,15 @@ describe('TrezorAdapter', () => {
     ).resolves.toEqual([
       expect.objectContaining({
         searchTargetId: 'BLE-1',
+        searchTargetReusePolicy: 'current-discovery',
         vendor: 'trezor',
         connectionType: 'ble',
         kind: 'physical',
       }),
     ]);
-    expect(hw.searchDevices).toHaveBeenCalledWith({ transportType: 'ble' });
+    expect(hw.searchDeviceTargets).toHaveBeenCalledWith({
+      transportType: 'ble',
+    });
   });
 
   it('connects through the Trezor path and returns an interaction id', async () => {
@@ -763,6 +887,7 @@ describe('TrezorAdapter', () => {
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
       action: EThirdPartyHardwareUiAction.connecting,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
     });
 
@@ -772,9 +897,7 @@ describe('TrezorAdapter', () => {
     });
     await promise;
 
-    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
-      undefined,
-    );
+    expect(currentUiState).toBeUndefined();
   });
 
   it('shows processing UI while direct Trezor SDK calls are pending', async () => {
@@ -796,6 +919,7 @@ describe('TrezorAdapter', () => {
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
       action: EThirdPartyHardwareUiAction.processing,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
     });
 
@@ -807,9 +931,7 @@ describe('TrezorAdapter', () => {
     });
     await promise;
 
-    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
-      undefined,
-    );
+    expect(currentUiState).toBeUndefined();
   });
 
   it('restores processing after a Trezor confirm-on-device interaction completes while the SDK call is still pending', async () => {
@@ -837,14 +959,18 @@ describe('TrezorAdapter', () => {
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
       action: EThirdPartyHardwareUiAction.confirmOnDevice,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
     });
 
+    const confirmationRequestId = currentUiState?.uiRequestId;
     listeners.get('ui-event')?.({
       type: EConnectorInteraction.InteractionComplete,
     });
-    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
+    expect(currentUiState?.uiRequestId).not.toBe(confirmationRequestId);
+    expect(currentUiState).toEqual({
       action: EThirdPartyHardwareUiAction.processing,
+      uiRequestId: expect.any(String),
       vendor: 'trezor',
     });
 
@@ -856,9 +982,7 @@ describe('TrezorAdapter', () => {
     });
     await promise;
 
-    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
-      undefined,
-    );
+    expect(currentUiState).toBeUndefined();
   });
 
   it.each([
@@ -898,6 +1022,7 @@ describe('TrezorAdapter', () => {
 
       expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
         action: EThirdPartyHardwareUiAction.processing,
+        uiRequestId: expect.any(String),
         vendor: 'trezor',
       });
 
@@ -907,9 +1032,7 @@ describe('TrezorAdapter', () => {
       });
       await promise;
 
-      expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
-        undefined,
-      );
+      expect(currentUiState).toBeUndefined();
     },
   );
 });

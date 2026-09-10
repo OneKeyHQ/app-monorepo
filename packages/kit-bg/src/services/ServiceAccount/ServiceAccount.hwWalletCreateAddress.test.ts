@@ -1,8 +1,15 @@
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
 import ServiceAccount from './ServiceAccount';
+
+jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
+  hardwareForceTransportAtom: {
+    get: jest.fn().mockResolvedValue({ forceTransportType: undefined }),
+  },
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -37,6 +44,7 @@ jest.mock('../../dbs/local/localDb', () => ({
 }));
 
 type IHwWalletCreateAddressService = {
+  createHWWallet(params: unknown): Promise<unknown>;
   createHWWalletBase(params: unknown): Promise<{ wallet: { name: string } }>;
   setWalletNameAndAvatar(params: unknown): Promise<{ name: string }>;
   getWallet(params: unknown): Promise<{ name: string }>;
@@ -66,6 +74,43 @@ describe('ServiceAccount hardware wallet creation address', () => {
   beforeEach(() => {
     createHwWalletMock.mockReset();
   });
+
+  it.each([
+    EHardwareVendor.keystone,
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+  ])(
+    'passes fresh %s vendor metadata to the processing wrapper',
+    async (vendor) => {
+      const withHardwareProcessing = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+          serviceHardwareUI: { withHardwareProcessing },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      await service.createHWWallet({
+        device: { connectId: 'fresh-target', deviceId: '' },
+        features: {},
+        vendor,
+      });
+      expect(withHardwareProcessing).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          deviceParams: expect.objectContaining({
+            dbDevice: expect.objectContaining({
+              vendor,
+              connectId: 'fresh-target',
+            }),
+          }),
+        }),
+      );
+    },
+  );
 
   it('persists the current Pro2 label after reading the stored wallet name', async () => {
     createHwWalletMock.mockResolvedValue({
@@ -142,6 +187,52 @@ describe('ServiceAccount hardware wallet creation address', () => {
     expect(getWalletMock).toHaveBeenCalledWith({
       walletId: 'hw-wallet-1',
     });
+  });
+
+  it('keeps a serialless Trezor USB locator inside the pinned interaction', async () => {
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-trezor-1', name: 'Trezor' },
+    } as never);
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('wrong-device');
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.setWalletNameAndAvatar = jest.fn().mockResolvedValue({
+      id: 'hw-trezor-1',
+      name: 'Trezor',
+    });
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-trezor-1',
+      name: 'Trezor',
+    });
+
+    await service.createHWWalletBase({
+      device: {
+        connectId: '0',
+        deviceId: 'stable-trezor-device-id',
+        name: 'Trezor',
+        raw: {
+          connectionType: 'usb',
+          capabilities: { persistentDeviceIdentity: false },
+        },
+      },
+      features: { device_id: 'stable-trezor-device-id' },
+      isMockedStandardHwWallet: true,
+      transportType: EHardwareTransportType.WEBUSB,
+      vendor: EHardwareVendor.trezor,
+      hardwareOperationContext: { interactionId: 'interaction-id' },
+    });
+
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: expect.objectContaining({ connectId: '0' }),
+      }),
+    );
   });
 
   it('创建 Pro1 隐藏钱包时复用已持久化状态，避免打断刚建立的 passphrase 会话', async () => {

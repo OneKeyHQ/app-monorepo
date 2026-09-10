@@ -33,7 +33,7 @@ import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appCon
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

@@ -1,4 +1,4 @@
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 

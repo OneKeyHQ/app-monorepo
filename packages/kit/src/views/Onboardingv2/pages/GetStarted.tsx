@@ -520,6 +520,7 @@ function GetStarted() {
                 key={action.labelId}
                 testID={action.testID}
                 onPress={action.onPress}
+                testID={action.testID}
                 borderRadius="$6"
                 borderCurve="continuous"
                 $platform-web={{

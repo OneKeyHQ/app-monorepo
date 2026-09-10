@@ -36,7 +36,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -86,6 +86,7 @@ import {
   buildReceiveTitleLogo,
   resolveReceiveTitleIconURI,
 } from '../utils/receiveTitleUtils';
+import { getManualAddressVerificationPath } from '../utils/manualVerificationPathUtils';
 
 import type {
   IReceiveShareData,
@@ -303,9 +304,13 @@ function ReceiveToken() {
   // was started with, which the page may have left by then.
   const shownAddressRef = useRef({ networkId, address: displayAddress });
   shownAddressRef.current = { networkId, address: displayAddress };
+  const manualVerificationPath = getManualAddressVerificationPath({
+    receiveAddressPath: verificationPath,
+    accountPath: currentAccount?.path,
+    isBtcNetwork: networkUtils.isBTCNetwork(networkId),
+  });
   const hardwareVendor = wallet?.associatedDeviceInfo?.vendor;
-  const supportsOnDeviceAddressVerification =
-    getVendorProfile(hardwareVendor).supportsOnDeviceAddressVerification;
+  const { addressVerification } = getVendorProfile(hardwareVendor);
 
   const { bottom } = useSafeAreaInsets();
 
@@ -360,9 +365,11 @@ function ReceiveToken() {
 
     if (
       addressState === EAddressState.Verifying &&
-      (hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
-        thirdPartyHardwareUiState?.action ===
-          EThirdPartyHardwareUiAction.confirmOnDevice)
+      ((addressVerification.confirmationEvent === 'buttonRequest' &&
+        hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON) ||
+        (addressVerification.confirmationEvent === 'confirmOnDevice' &&
+          thirdPartyHardwareUiState?.action ===
+            EThirdPartyHardwareUiAction.confirmOnDevice))
     ) {
       return true;
     }
@@ -370,6 +377,7 @@ function ReceiveToken() {
     return false;
   }, [
     addressState,
+    addressVerification.confirmationEvent,
     hardwareUiState?.action,
     thirdPartyHardwareUiState,
     isHardwareWallet,
@@ -501,18 +509,8 @@ function ReceiveToken() {
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
-    if (!supportsOnDeviceAddressVerification) {
+    if (addressVerification.mode === 'manual') {
       setShowManualVerificationPath(true);
-      Toast.message({
-        title: intl.formatMessage({
-          id: ETranslations.verify_on_device_confirm_address__desc,
-        }),
-        message: verificationPath
-          ? `${intl.formatMessage({
-              id: ETranslations.global_derivation_path,
-            })}: ${verificationPath}`
-          : undefined,
-      });
       setAddressState(EAddressState.ForceShow);
       return;
     }
@@ -605,7 +603,7 @@ function ReceiveToken() {
     displayAddress,
     intl,
     networkId,
-    supportsOnDeviceAddressVerification,
+    addressVerification.mode,
     verificationPath,
     wallet?.type,
     walletId,
@@ -851,7 +849,14 @@ function ReceiveToken() {
                 fontFamily="$monoRegular"
               />
             </XStack>
-            {showManualVerificationPath && verificationPath ? (
+            {showManualVerificationPath ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.verify_on_device_confirm_address__desc,
+                })}
+              </SizableText>
+            ) : null}
+            {showManualVerificationPath && manualVerificationPath ? (
               <YStack testID={ReceiveTestIDs.DerivationPath} gap="$0.5">
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({
@@ -863,7 +868,7 @@ function ReceiveToken() {
                   color="$text"
                   fontFamily="$monoRegular"
                 >
-                  {verificationPath}
+                  {manualVerificationPath}
                 </SizableText>
               </YStack>
             ) : null}
@@ -885,7 +890,7 @@ function ReceiveToken() {
     handleCopyAddress,
     intl,
     showManualVerificationPath,
-    verificationPath,
+    manualVerificationPath,
   ]);
 
   const arrivalTimeText = useMemo(() => {
