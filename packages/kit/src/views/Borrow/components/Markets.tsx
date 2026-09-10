@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,11 +22,6 @@ import {
   useBorrowMarketRequestContext,
 } from '../BorrowProvider';
 import { BorrowTestIDs } from '../testIDs';
-
-import {
-  isBorrowMarketChangeCancelled,
-  isBorrowMarketChangeSettled,
-} from './Markets.utils';
 
 /**
  * The one market there is to look at: the page's subject line rather than a
@@ -118,81 +113,13 @@ function MarketBarTrigger({
 export const Markets = () => {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { market, markets, rememberMarket, reserves, borrowDataStatus } =
-    useBorrowContext();
+  const { market, markets, rememberMarket } = useBorrowContext();
   const { requestedMarket, setRequestedMarket } =
     useBorrowMarketRequestContext();
-  const pendingMarketChangeRef = useRef<{
-    marketKey: string;
-    market: IBorrowMarketItem;
-    resolve: () => void;
-  } | null>(null);
   const selectedMarket = market ?? markets[0] ?? null;
   const selectedMarketKey = selectedMarket
     ? buildBorrowMarketKey(selectedMarket)
     : undefined;
-  const requestedMarketKey = requestedMarket
-    ? buildBorrowMarketKey(requestedMarket)
-    : undefined;
-
-  useEffect(() => {
-    const pendingMarketChange = pendingMarketChangeRef.current;
-    if (
-      !pendingMarketChange ||
-      !isBorrowMarketChangeSettled({
-        targetMarketKey: pendingMarketChange.marketKey,
-        currentMarketKey: selectedMarketKey,
-        reservesOwnerMarketKey: reserves.ownerMarketKey,
-        dataStatus: borrowDataStatus,
-      })
-    ) {
-      return;
-    }
-    pendingMarketChangeRef.current = null;
-    pendingMarketChange.resolve();
-  }, [
-    borrowDataStatus,
-    rememberMarket,
-    reserves.ownerMarketKey,
-    selectedMarketKey,
-  ]);
-
-  useEffect(() => {
-    const pendingMarketChange = pendingMarketChangeRef.current;
-    if (
-      !pendingMarketChange ||
-      !isBorrowMarketChangeCancelled({
-        targetMarketKey: pendingMarketChange.marketKey,
-        requestedMarketKey,
-        currentMarketKey: selectedMarketKey,
-      })
-    ) {
-      return;
-    }
-    pendingMarketChangeRef.current = null;
-    pendingMarketChange.resolve();
-  }, [requestedMarketKey, selectedMarketKey]);
-
-  useEffect(
-    () => () => {
-      pendingMarketChangeRef.current?.resolve();
-      pendingMarketChangeRef.current = null;
-    },
-    [],
-  );
-
-  const handleMarketSelectOpenChange = useCallback(
-    (isOpen: boolean) => {
-      const pendingMarketChange = pendingMarketChangeRef.current;
-      if (isOpen || !pendingMarketChange) {
-        return;
-      }
-      pendingMarketChange.resolve();
-      pendingMarketChangeRef.current = null;
-      setRequestedMarket(null);
-    },
-    [setRequestedMarket],
-  );
 
   const marketItems = useMemo(
     () =>
@@ -211,31 +138,56 @@ export const Markets = () => {
     [markets],
   );
 
+  const selectionRef = useRef({
+    markets,
+    rememberMarket,
+    requestedMarket,
+    selectedMarketKey,
+    setRequestedMarket,
+  });
+  useLayoutEffect(() => {
+    selectionRef.current = {
+      markets,
+      rememberMarket,
+      requestedMarket,
+      selectedMarketKey,
+      setRequestedMarket,
+    };
+  }, [
+    markets,
+    rememberMarket,
+    requestedMarket,
+    selectedMarketKey,
+    setRequestedMarket,
+  ]);
+
+  // Select retains its content callback while open and defers selection until
+  // after closing. A pending market can finish publishing in either interval.
   const handleMarketChange = useCallback(
     (value: string | number | boolean | undefined) => {
+      const current = selectionRef.current;
       if (typeof value !== 'string') {
         return;
       }
-      const nextMarket = markets.find(
+      const nextMarket = current.markets.find(
         (item) => buildBorrowMarketKey(item) === value,
       );
-      if (!nextMarket || value === selectedMarketKey) {
+      if (!nextMarket) {
         return;
       }
 
-      pendingMarketChangeRef.current?.resolve();
-      const settled = new Promise<void>((resolve) => {
-        pendingMarketChangeRef.current = {
-          marketKey: value,
-          market: nextMarket,
-          resolve,
-        };
-      });
-      rememberMarket(nextMarket);
-      setRequestedMarket(nextMarket);
-      return settled;
+      if (value === current.selectedMarketKey) {
+        if (current.requestedMarket) {
+          current.rememberMarket(nextMarket);
+          current.setRequestedMarket(null);
+        }
+        return;
+      }
+
+      current.rememberMarket(nextMarket);
+      current.setRequestedMarket(nextMarket);
     },
-    [markets, rememberMarket, selectedMarketKey, setRequestedMarket],
+    [],
   );
 
   const label = selectedMarket ? getBorrowMarketLabel(selectedMarket) : '';
@@ -255,8 +207,6 @@ export const Markets = () => {
         items={marketItems}
         value={selectedMarketKey}
         onChange={handleMarketChange}
-        onOpenChange={handleMarketSelectOpenChange}
-        waitForChangeBeforeClose
         renderTrigger={({ onPress }) => (
           <MarketBarTrigger
             market={selectedMarket}
