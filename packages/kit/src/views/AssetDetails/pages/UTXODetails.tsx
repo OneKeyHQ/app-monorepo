@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,6 +12,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -19,12 +21,38 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
+import { getOnChainHistoryTransferDisplayAddress } from '@onekeyhq/shared/src/utils/historyUtils';
+import { getPrivacyChainPublicDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  EOnChainHistoryTransferType,
+  type IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type IUtxoListItem = {
+  address: string;
+  balance: string;
+  isShielded?: boolean;
+};
+
+function buildHistoryUtxoListItem({
+  transfer,
+  endpoint,
+}: {
+  transfer: IOnChainHistoryTxTransfer;
+  endpoint: 'from' | 'to';
+}): IUtxoListItem {
+  return {
+    address: getOnChainHistoryTransferDisplayAddress({ transfer, endpoint }),
+    balance: transfer.amount,
+    isShielded: transfer.type === EOnChainHistoryTransferType.Shielded,
+  };
+}
 
 function UTXODetails() {
   const route =
@@ -37,13 +65,66 @@ function UTXODetails() {
   const intl = useIntl();
 
   const { inputs, outputs, networkId, accountId, txId } = route.params;
-
-  const { account, network } = useAccountData({ accountId, networkId });
+  const { account, network, vaultSettings } = useAccountData({
+    accountId,
+    networkId,
+  });
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  // Local-wallet rows may carry pool labels in the address slot; those are
+  // shown via the shielded marker only when they are public addresses.
+  const showUtxoEndpoint = useCallback(
+    (utxo: IUtxoListItem) =>
+      !isLocalWalletHistory ||
+      !!getPrivacyChainPublicDisplayAddress({
+        networkId,
+        address: utxo.address,
+      }),
+    [isLocalWalletHistory, networkId],
+  );
+  const renderUtxoEndpoint = useCallback(
+    (utxo: IUtxoListItem) => {
+      if (!showUtxoEndpoint(utxo)) {
+        return null;
+      }
+      if (utxo.isShielded) {
+        return (
+          <XStack
+            testID="utxo-shielded-endpoint"
+            alignItems="center"
+            gap="$1.5"
+          >
+            <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
+            <SizableText size="$bodyMdMedium" $gtMd={{ size: '$bodySmMedium' }}>
+              {utxo.address}
+            </SizableText>
+          </XStack>
+        );
+      }
+      return (
+        <SizableText
+          size="$bodyMd"
+          $gtMd={{
+            size: '$bodySm',
+          }}
+        >
+          {utxo.address}
+        </SizableText>
+      );
+    },
+    [showUtxoEndpoint],
+  );
 
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (inputs && outputs) {
-        return Promise.resolve({ inputs, outputs });
+        return Promise.resolve({
+          inputs: inputs.map(({ address, balance }) => ({ address, balance })),
+          outputs: outputs.map(({ address, balance }) => ({
+            address,
+            balance,
+          })),
+          memo: undefined,
+        });
       }
 
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
@@ -55,20 +136,26 @@ function UTXODetails() {
 
       if (r) {
         return {
-          inputs: r.data.sends?.map((send) => ({
-            address: send.from,
-            balance: send.amount,
-          })),
-          outputs: r.data.receives?.map((receive) => ({
-            address: receive.to,
-            balance: receive.amount,
-          })),
+          inputs:
+            r.data.sends?.map((send) =>
+              buildHistoryUtxoListItem({ transfer: send, endpoint: 'from' }),
+            ) ?? [],
+          outputs:
+            r.data.receives?.map((receive) =>
+              buildHistoryUtxoListItem({
+                transfer: receive,
+                endpoint: 'to',
+              }),
+            ) ?? [],
+          // Shielded chains (zcash) attach decrypted note memos here.
+          memo: r.data.memo,
         };
       }
 
       return {
         inputs: [],
         outputs: [],
+        memo: undefined,
       };
     },
     [inputs, networkId, accountId, outputs, txId],
@@ -117,10 +204,7 @@ function UTXODetails() {
   );
 
   const renderUTXOList = useCallback(
-    (
-      utxos: { address: string; balance: string }[],
-      options?: { showChangeBadge?: boolean },
-    ) => (
+    (utxos: IUtxoListItem[], options?: { showChangeBadge?: boolean }) => (
       <Stack>
         {utxos.map((utxo, index) => (
           // <XStack key={index} gap="$2">
@@ -135,14 +219,7 @@ function UTXODetails() {
               mt: '$2.5',
             })}
           >
-            <SizableText
-              size="$bodyMd"
-              $gtMd={{
-                size: '$bodySm',
-              }}
-            >
-              {utxo.address}
-            </SizableText>
+            {renderUtxoEndpoint(utxo)}
             {options?.showChangeBadge && changeAddressSet.has(utxo.address) ? (
               <Badge
                 badgeType="success"
@@ -165,13 +242,21 @@ function UTXODetails() {
               }}
               mt="$1.5"
             >
-              {`${utxo.balance} ${network?.symbol ?? ''}`}
+              {isLocalWalletHistory && !new BigNumber(utxo.balance).isFinite()
+                ? intl.formatMessage({ id: ETranslations.global_not_available })
+                : `${utxo.balance} ${network?.symbol ?? ''}`}
             </SizableText>
           </YStack>
         ))}
       </Stack>
     ),
-    [changeAddressSet, intl, network?.symbol],
+    [
+      changeAddressSet,
+      intl,
+      isLocalWalletHistory,
+      network?.symbol,
+      renderUtxoEndpoint,
+    ],
   );
 
   const renderUTXODetails = useCallback(() => {
@@ -250,6 +335,32 @@ function UTXODetails() {
     );
   }, [intl, isLoading, renderUTXOList, result?.inputs, result?.outputs]);
 
+  // Decrypted shielded-note memo (zcash); only rendered when present.
+  const renderMemo = useCallback(() => {
+    if (isLoading || !result?.memo) return null;
+    return (
+      <Stack px="$5" pt="$5">
+        <Heading
+          mb="$2.5"
+          size="$headingSm"
+          $gtMd={{
+            size: '$headingXs',
+          }}
+        >
+          Memo
+        </Heading>
+        <SizableText
+          size="$bodyMd"
+          $gtMd={{
+            size: '$bodySm',
+          }}
+        >
+          {result.memo}
+        </SizableText>
+      </Stack>
+    );
+  }, [isLoading, result?.memo]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -261,6 +372,7 @@ function UTXODetails() {
       />
       <Page.Body testID="history-details-inputs-and-outputs">
         {renderUTXODetails()}
+        {renderMemo()}
       </Page.Body>
     </Page>
   );

@@ -170,6 +170,22 @@ const dash: IBtcForkNetwork = {
   wif: 0xcc,
 };
 
+// zcash (transparent). pubKeyHash/scriptHash are single-byte intermediates the
+// shared pipeline emits; the real 2-byte t-address prefixes (t1=0x1cb8,
+// t3=0x1cbd) are applied in chains/zcash/sdkZcash encode/decodeAddress.
+const zcash: IBtcForkNetwork = {
+  messagePrefix: '\x18Zcash Signed Message:\n',
+  bech32: '',
+  bip32: {
+    public: 0x04_88_b2_1e,
+    private: 0x04_88_ad_e4,
+  },
+  pubKeyHash: 0x00,
+  scriptHash: 0x05,
+  wif: 0x80,
+  maximumFeeRate: 10_000, // zcash
+};
+
 // neurai
 const xna: IBtcForkNetwork = {
   messagePrefix: '\x19Neurai Signed Message:\n',
@@ -192,6 +208,8 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   ltc,
   bch,
   doge,
+  zec: zcash,
+  zcash, // Legacy alias for pre-zec preset callers.
   xna, // neurai
   btg,
   dgb,

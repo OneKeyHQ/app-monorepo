@@ -2,6 +2,7 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -44,6 +45,7 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     isAllNetworks?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSendRoutes.SendAmountInput]: {
     networkId: string;
@@ -60,6 +62,7 @@ export type IModalSendParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

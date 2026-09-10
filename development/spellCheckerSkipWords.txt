@@ -1,8 +1,11 @@
 # Custom words for cspell spell checker
 # Migrated from spellCheckerSkipWords.js
 rescan
+rescans
 fixpoint
 mmap
+opfs
+sahpool
 segs
 unixTime
 nodata
@@ -1590,6 +1593,28 @@ lookback
 
 # @rehookify/datepicker package name
 rehookify
+zcash
+zcash's
+lightwalletd
+pczt
+ufvk
+webzjs
+zatoshi
+zatoshis
+sighashes
+cashaddr
+coep
+coop
+credentialless
+subresources
+bytezhang
+goldens
+diversifier
+rederive
+treestate
+serde
+rebuildable
+unmined
 
 # bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
 # plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)

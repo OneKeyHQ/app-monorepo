@@ -87,10 +87,12 @@ export function collectDecodedTxInvolvedAddresses({
     const transfer = action.assetTransfer;
     if (transfer) {
       transfer.sends.forEach((send) => {
+        if (send.isShielded) return;
         add(send.from);
         add(send.to);
       });
       transfer.receives.forEach((receive) => {
+        if (receive.isShielded) return;
         add(receive.from);
         add(receive.to);
       });

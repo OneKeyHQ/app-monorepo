@@ -185,6 +185,13 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
+  // Fires once a new HD wallet is persisted. isFreshlyGeneratedMnemonic is
+  // true only for a mnemonic generateMnemonic() just handed out -- the one
+  // case provably free of prior on-chain history.
+  [EAppEventBusNames.WalletAdded]: {
+    walletId: string;
+    isFreshlyGeneratedMnemonic: boolean;
+  };
   [EAppEventBusNames.AccountUpdate]: undefined;
   [EAppEventBusNames.AccountRemove]: undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
@@ -743,6 +750,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.BackgroundThreadReady]: { bootId: string };
   [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {

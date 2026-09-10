@@ -107,6 +107,8 @@ export type IBackgroundThreadResponseErrorPayload = {
   info?: unknown;
   payload?: unknown;
   reconnect?: boolean;
+  params?: Record<string, unknown>;
+  detail?: string;
 };
 
 export type IBackgroundThreadResponsePayload = {
@@ -275,6 +277,73 @@ export function serializeBackgroundThreadResponse(
   payload: IBackgroundThreadResponsePayload,
 ) {
   return JSON.stringify(payload);
+}
+
+export function buildBackgroundThreadErrorResponse(
+  error: unknown,
+): IBackgroundThreadResponsePayload {
+  const runtimeError = error as Error & {
+    autoToast?: unknown;
+    className?: unknown;
+    $isHardwareError?: unknown;
+    code?: unknown;
+    key?: unknown;
+    requestId?: unknown;
+    httpStatusCode?: unknown;
+    data?: unknown;
+    payload?: unknown;
+    params?: unknown;
+    detail?: unknown;
+  };
+  const errorPayload: IBackgroundThreadResponseErrorPayload = {
+    name: runtimeError?.name || 'BackgroundThreadError',
+    message: runtimeError?.message || 'Unknown background thread error',
+  };
+  if (typeof runtimeError?.stack === 'string') {
+    errorPayload.stack = runtimeError.stack;
+  }
+  if (typeof runtimeError?.autoToast === 'boolean') {
+    errorPayload.autoToast = runtimeError.autoToast;
+  }
+  if (typeof runtimeError?.className === 'string') {
+    errorPayload.className = runtimeError.className;
+  }
+  if (runtimeError?.$isHardwareError === true) {
+    errorPayload.$isHardwareError = true;
+  }
+  if (
+    typeof runtimeError?.code === 'string' ||
+    typeof runtimeError?.code === 'number'
+  ) {
+    errorPayload.code = runtimeError.code;
+  }
+  if (typeof runtimeError?.key === 'string') {
+    errorPayload.key = runtimeError.key;
+  }
+  if (typeof runtimeError?.requestId === 'string') {
+    errorPayload.requestId = runtimeError.requestId;
+  }
+  if (typeof runtimeError?.httpStatusCode === 'number') {
+    errorPayload.httpStatusCode = runtimeError.httpStatusCode;
+  }
+  const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
+  if (safeData) {
+    errorPayload.data = safeData;
+  }
+  if (runtimeError?.payload !== undefined) {
+    errorPayload.payload = runtimeError.payload;
+  }
+  if (
+    runtimeError?.params &&
+    typeof runtimeError.params === 'object' &&
+    !Array.isArray(runtimeError.params)
+  ) {
+    errorPayload.params = runtimeError.params as Record<string, unknown>;
+  }
+  if (typeof runtimeError?.detail === 'string') {
+    errorPayload.detail = runtimeError.detail;
+  }
+  return { ok: false, error: errorPayload };
 }
 
 export function buildSafeBackgroundThreadErrorData(data: unknown) {

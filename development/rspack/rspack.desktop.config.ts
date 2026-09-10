@@ -162,6 +162,11 @@ export function createDesktopConfig({
         createProductionConfig({ platform, basePath }),
         commonDesktopConfig,
         {
+          optimization: {
+            // The wasm glue and its emitted .wasm URL reference each other,
+            // and RealContentHashPlugin cannot order that cycle.
+            realContentHash: false,
+          },
           output: {
             crossOriginLoading: 'anonymous',
           },

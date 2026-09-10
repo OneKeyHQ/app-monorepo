@@ -142,6 +142,25 @@ describe('main thread background runner', () => {
     ).__onekeyNativeBackgroundThreadTransport;
   });
 
+  it('falls back to a serializable WebEmbed error response', async () => {
+    const { serializeWebEmbedBridgeError } =
+      await import('./setupMainThreadBackgroundRunner');
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+    const error = Object.assign(new Error('runtime failed'), {
+      params: { amount: 1n },
+      payload: circular,
+    });
+
+    expect(JSON.parse(serializeWebEmbedBridgeError(error))).toEqual({
+      ok: false,
+      error: {
+        name: 'WebEmbedBridgeResponseError',
+        message: 'WebEmbed bridge response could not be serialized',
+      },
+    });
+  });
+
   it('rejects a remote call when a legacy error contains constructorName', async () => {
     await import('./setupMainThreadBackgroundRunner');
 

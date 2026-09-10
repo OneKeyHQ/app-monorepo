@@ -22,6 +22,7 @@ import { InputAccessoryView } from 'react-native';
 import {
   Accordion,
   Alert,
+  Badge,
   Button,
   DashText,
   Dialog,
@@ -35,6 +36,7 @@ import {
   NumberSizeableText,
   Page,
   ScrollView,
+  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -165,8 +167,10 @@ import {
   calcPrivateSendNativeTokenMaxAmount,
   getMaxSendStateAfterModeChange,
 } from './privateSendMaxAmountUtils';
+import { useLocalWalletSendPool } from './useLocalWalletSendPool';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { GestureResponderEvent } from 'react-native';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
@@ -854,6 +858,7 @@ function SendAmountInputContainer() {
     amount: prefillAmount,
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
+    localWalletSourcePool,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -1238,11 +1243,31 @@ function SendAmountInputContainer() {
     [tokenDetails],
   );
 
+  const {
+    pools: sendPools,
+    selectedPool: selectedSendPool,
+    selectPool: selectSendPool,
+    isReady: isSendPoolReady,
+  } = useLocalWalletSendPool({
+    enabled: !isNFT && (vaultSettings?.localWallet?.pools.length ?? 0) > 1,
+    accountId: currentAccountId,
+    networkId,
+    recipientAddress,
+    initialPool:
+      currentAccountId === accountId ? localWalletSourcePool : undefined,
+  });
+  const sourcePoolSpendableParsed = isSendPoolReady
+    ? selectedSendPool?.spendableParsed
+    : '0';
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
     // account balance.
-    const balance = selectedUtxoTotalAmount ?? tokenDetails.balanceParsed;
+    const balance =
+      selectedUtxoTotalAmount ??
+      sourcePoolSpendableParsed ??
+      tokenDetails.balanceParsed;
 
     // Lightning balanceParsed is already in sats (decimals=0)
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
@@ -1260,6 +1285,7 @@ function SendAmountInputContainer() {
     );
   }, [
     selectedUtxoTotalAmount,
+    sourcePoolSpendableParsed,
     isLightningNetwork,
     lnUnit,
     tokenDetails,
@@ -1270,17 +1296,19 @@ function SendAmountInputContainer() {
     if (!tokenDetails) return '0';
     // Backend may report "--" for an unknown price, which parses to NaN. Guard
     // the multiplication the same way the linkedAmount conversion does so the
-    // UTXO-selected fiat balance never renders as "NaN".
+    // Selected spendable fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
+    const spendable = selectedUtxoTotalAmount ?? sourcePoolSpendableParsed;
     if (
-      selectedUtxoTotalAmount !== undefined &&
+      spendable !== undefined &&
       priceBN.isFinite() &&
       priceBN.isGreaterThan(0)
     ) {
-      return new BigNumber(selectedUtxoTotalAmount).times(priceBN).toFixed();
+      return new BigNumber(spendable).times(priceBN).toFixed();
     }
+    if (sourcePoolSpendableParsed !== undefined) return '0';
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, selectedUtxoTotalAmount]);
+  }, [tokenDetails, selectedUtxoTotalAmount, sourcePoolSpendableParsed]);
 
   const privateSendMaxTokenAmount = useMemo(() => {
     if (!isPrivateSendNativeToken || !isPrivateSendNativeTokenConfigReady) {
@@ -2928,7 +2956,7 @@ function SendAmountInputContainer() {
       errorToastUtils.withErrorAutoToast(async () => {
         setIsSubmitting(true);
         try {
-          if (!account) return;
+          if (!account || !isSendPoolReady) return;
 
           let realAmount = amount;
 
@@ -3375,6 +3403,7 @@ function SendAmountInputContainer() {
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
               selectedUtxoKeys: currentSelectedUtxoKeys,
               utxoSelectionStrategy: currentUtxoSelectionStrategy,
+              localWalletSourcePool: selectedSendPool?.key,
             },
           ];
 
@@ -3426,6 +3455,8 @@ function SendAmountInputContainer() {
       currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
+      selectedSendPool?.key,
+      isSendPoolReady,
       selectedUtxoTotalAmount,
       displayTxMessageForm,
       form,
@@ -3470,7 +3501,7 @@ function SendAmountInputContainer() {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isSubmitting) return true;
+    if (isSubmitting || !isSendPoolReady) return true;
     if (!form.formState.isValid) return true;
     if (!recipientAddress) return true;
     if (isInsufficientBalance) return true;
@@ -3498,6 +3529,7 @@ function SendAmountInputContainer() {
     return false;
   }, [
     isSubmitting,
+    isSendPoolReady,
     form.formState.isValid,
     recipientAddress,
     isInsufficientBalance,
@@ -3807,6 +3839,57 @@ function SendAmountInputContainer() {
       );
     }
 
+    if (selectedSendPool && sendPools && sendPools.length > 1) {
+      addons.push(
+        <Select
+          key="send-pool-picker"
+          testID="send-pool-picker"
+          disabled={isSubmitting || !isSendPoolReady}
+          title={intl.formatMessage({ id: ETranslations.global_from })}
+          placement="top-end"
+          value={selectedSendPool.key}
+          items={sendPools.map((pool) => ({
+            label: pool.label,
+            value: pool.key,
+            description: `${pool.spendableParsed} ${tokenSymbol}`.trim(),
+          }))}
+          onChange={(value) => {
+            if (
+              !isSubmitting &&
+              isSendPoolReady &&
+              value !== selectedSendPool.key
+            ) {
+              selectSendPool(value);
+              setIsMaxSend(false);
+            }
+          }}
+          renderTrigger={({ onPress }) => (
+            <Badge
+              testID="send-pool-picker-trigger"
+              role="button"
+              userSelect="none"
+              pr="$1"
+              gap="$0.5"
+              hoverStyle={{ bg: '$bgStrongHover' }}
+              onPress={async (event: GestureResponderEvent) => {
+                if (isSubmitting || !isSendPoolReady) return;
+                event.persist();
+                await dismissAmountInputKeyboardBeforeOverlayOpen();
+                onPress?.(event);
+              }}
+            >
+              <Badge.Text>{selectedSendPool.label}</Badge.Text>
+              <Icon
+                size="$4"
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+              />
+            </Badge>
+          )}
+        />,
+      );
+    }
+
     if (displayCoinControlButton) {
       addons.push(
         <CoinControlBadge
@@ -3842,6 +3925,13 @@ function SendAmountInputContainer() {
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
+    intl,
+    selectedSendPool,
+    isSubmitting,
+    isSendPoolReady,
+    sendPools,
+    selectSendPool,
+    tokenSymbol,
   ]);
 
   const renderAutoSwitchAlert = useMemo(() => {
@@ -4147,7 +4237,8 @@ function SendAmountInputContainer() {
     // currentAccountId`, so they never re-trigger the skeleton.
     if (
       (isLoadingAssets && !tokenDetails && !nftDetails) ||
-      balanceAccountId !== currentAccountId
+      balanceAccountId !== currentAccountId ||
+      !isSendPoolReady
     ) {
       return (
         <>
@@ -4240,12 +4331,15 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           disabled={
-            isPrivateSendNativeToken && privateSendMaxInputAmount === undefined
+            isPrivateSendNativeToken
+              ? privateSendMaxInputAmount === undefined
+              : null
           }
           loading={
-            isPrivateSendNativeToken &&
-            (isPrivateSendNativeTokenConfigLoading ||
-              !isPrivateSendNativeTokenConfigReady)
+            isPrivateSendNativeToken
+              ? isPrivateSendNativeTokenConfigLoading ||
+                !isPrivateSendNativeTokenConfigReady
+              : null
           }
           onPress={() => {
             let maxInputAmount: string | undefined = isUseFiat
@@ -4274,6 +4368,7 @@ function SendAmountInputContainer() {
     form,
     intl,
     isLoadingAssets,
+    isSendPoolReady,
     isPrivateSendNativeToken,
     isPrivateSendNativeTokenConfigLoading,
     isPrivateSendNativeTokenConfigReady,

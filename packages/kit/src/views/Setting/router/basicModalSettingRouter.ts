@@ -58,6 +58,16 @@ const FloatingIconModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
 );
 
+const PrivacySettings = LazyLoadPage(() => import('../pages/Privacy'));
+const PrivacyNetworkSettings = LazyLoadPage(
+  () => import('../pages/PrivacyNetwork'),
+);
+
+const DevZcashRuntime = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
+);
+
 const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
@@ -358,6 +368,18 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacy,
+    component: PrivacySettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacyNetwork,
+    component: PrivacyNetworkSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevZcashRuntimeModal,
+    component: DevZcashRuntime,
   },
   // OneKey ID sub-pages
   {

@@ -54,6 +54,7 @@ import {
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
+  buildBackgroundThreadErrorResponse,
   buildBackgroundThreadRequestKey,
   buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
@@ -64,6 +65,7 @@ import {
   parseBackgroundThreadResponse,
   serializeBackgroundThreadMainCapabilitiesPayload,
   serializeBackgroundThreadRequest,
+  serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 import {
   BACKGROUND_THREAD_READY_KEY,
@@ -137,6 +139,11 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
+// Superseded the branch's dev-only READY_TIMEOUT_MS: a slow cold Metro build
+// no longer kills the background runtime at all, it only warns. Same problem
+// (in dev the background bundle compiles on demand and can take minutes, and
+// every background service lives there, so declaring it dead brings the app
+// up with no networks), solved without a deadline to tune.
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
@@ -290,6 +297,9 @@ const backgroundThreadErrorMetadataValidators: {
   info: (value) => value !== undefined,
   payload: (value) => value !== undefined,
   reconnect: (value) => typeof value === 'boolean',
+  params: (value) =>
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+  detail: (value) => typeof value === 'string',
 };
 
 function rehydrateTransportError({
@@ -1110,6 +1120,9 @@ function handleRuntimeSignal() {
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
       setBackgroundThreadReadyPayload(runtimePayload);
+      appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+        bootId: runtimePayload.bootId,
+      });
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -1138,6 +1151,9 @@ function handleRuntimeSignal() {
   );
   clearReadyObservationTimer();
   setBackgroundThreadReadyPayload(runtimePayload);
+  appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+    bootId: runtimePayload.bootId,
+  });
   dispatchQueuedCallsToRemote();
   resolveReadyWaiters();
   notifyNativeSyncStorageTransportReady();
@@ -1356,6 +1372,22 @@ function handleBackgroundThreadBridgeSend(value: string | number | boolean) {
   });
 }
 
+export function serializeWebEmbedBridgeError(error: unknown): string {
+  try {
+    return serializeBackgroundThreadResponse(
+      buildBackgroundThreadErrorResponse(error),
+    );
+  } catch {
+    return JSON.stringify({
+      ok: false,
+      error: {
+        name: 'WebEmbedBridgeResponseError',
+        message: 'WebEmbed bridge response could not be serialized',
+      },
+    });
+  }
+}
+
 async function handleWebEmbedBridgeRequest(
   sharedRPC: ISharedRPC,
   key: string,
@@ -1382,13 +1414,7 @@ async function handleWebEmbedBridgeRequest(
     const result = await bridge.request({ scope: '$private', data });
     sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
   } catch (error) {
-    sharedRPC.write(
-      responseKey,
-      JSON.stringify({
-        ok: false,
-        error: { message: String((error as Error)?.message || error) },
-      }),
-    );
+    sharedRPC.write(responseKey, serializeWebEmbedBridgeError(error));
   }
 }
 

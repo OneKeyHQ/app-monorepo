@@ -33,6 +33,7 @@ import {
   IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
+  IMPL_ZCASH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -55,6 +56,7 @@ const settingsLoader: Record<
   [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
   [IMPL_DOGE]: () => import('./impls/doge/settings'),
   [IMPL_BCH]: () => import('./impls/bch/settings'),
+  [IMPL_ZCASH]: () => import('./impls/zcash/settings'),
   [IMPL_LTC]: () => import('./impls/ltc/settings'),
   [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
   [IMPL_ALGO]: () => import('./impls/algo/settings'),

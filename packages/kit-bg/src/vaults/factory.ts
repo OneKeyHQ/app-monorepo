@@ -40,6 +40,7 @@ import {
   IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
+  IMPL_ZCASH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyInternalError,
@@ -182,6 +183,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_TBTC]: () => import('./impls/tbtc/Vault') as any,
     [IMPL_DOGE]: () => import('./impls/doge/Vault') as any,
     [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
+    [IMPL_ZCASH]: () => import('./impls/zcash/Vault') as any,
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_NEURAI]: () => import('./impls/neurai/Vault') as any,
     [IMPL_SOL]: () => import('./impls/sol/Vault') as any,

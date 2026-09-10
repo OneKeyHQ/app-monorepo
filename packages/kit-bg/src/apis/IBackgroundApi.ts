@@ -78,6 +78,7 @@ import type { ServicePendingInstallTask } from '../services/servicePendingInstal
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
+import type ServicePrivacyChain from '../services/ServicePrivacyChain';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -103,6 +104,7 @@ import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
+import type ServiceZcash from '../services/ServiceZcash';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -238,6 +240,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceExplorer: ServiceExplorer;
   serviceCustomToken: ServiceCustomToken;
   serviceCustomRpc: ServiceCustomRpc;
+  servicePrivacyChain: ServicePrivacyChain;
+  serviceZcash: ServiceZcash;
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
   serviceWalletBanner: ServiceWalletBanner;
