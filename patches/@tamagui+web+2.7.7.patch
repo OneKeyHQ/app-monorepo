@@ -40,3 +40,42 @@ index 08cc802..8f8c675 100644
  
    // Other web-only props
    htmlFor: 1,
+diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/getCSSStylesAtomic.cjs b/node_modules/@tamagui/web/dist/cjs/helpers/getCSSStylesAtomic.cjs
+index 2143962c26..53ed23ca80 100644
+--- a/node_modules/@tamagui/web/dist/cjs/helpers/getCSSStylesAtomic.cjs
++++ b/node_modules/@tamagui/web/dist/cjs/helpers/getCSSStylesAtomic.cjs
+@@ -168,7 +168,7 @@ function createAtomicRules(identifier, property, value, pseudo) {
+   const cls = property in import_helpers.cssShorthandLonghands ? `.${identifier}.${identifier}` : `.${identifier}`;
+   let selector = pseudo ? pseudoSelector ? `${pseudoSelector} ${cls}` : `${selectorPriority[pseudo.name]} ${cls}${pseudoIdPostfix}` : `:root ${cls}`;
+   if (pseudoSelector === import_pseudoDescriptors.pseudoDescriptors.enterStyle.selector) {
+-    selector = `${selector}, .${identifier}${pseudoSelector}`;
++    selector = `._dsp_contents${pseudoSelector} ${cls}, .${identifier}${pseudoSelector}`;
+   }
+   const important = !!pseudo;
+   let rules = [];
+diff --git a/node_modules/@tamagui/web/dist/esm/helpers/getCSSStylesAtomic.mjs b/node_modules/@tamagui/web/dist/esm/helpers/getCSSStylesAtomic.mjs
+index 5b1d59b201..8070355c6d 100644
+--- a/node_modules/@tamagui/web/dist/esm/helpers/getCSSStylesAtomic.mjs
++++ b/node_modules/@tamagui/web/dist/esm/helpers/getCSSStylesAtomic.mjs
+@@ -139,7 +139,7 @@ function createAtomicRules(identifier, property, value, pseudo) {
+   const cls = property in cssShorthandLonghands ? `.${identifier}.${identifier}` : `.${identifier}`;
+   let selector = pseudo ? pseudoSelector ? `${pseudoSelector} ${cls}` : `${selectorPriority[pseudo.name]} ${cls}${pseudoIdPostfix}` : `:root ${cls}`;
+   if (pseudoSelector === pseudoDescriptors.enterStyle.selector) {
+-    selector = `${selector}, .${identifier}${pseudoSelector}`;
++    selector = `._dsp_contents${pseudoSelector} ${cls}, .${identifier}${pseudoSelector}`;
+   }
+   const important = !!pseudo;
+   let rules = [];
+diff --git a/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts b/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
+index eb1ff9921f..2609799120 100644
+--- a/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
++++ b/node_modules/@tamagui/web/src/helpers/getCSSStylesAtomic.ts
+@@ -190,6 +190,4 @@ function createAtomicRules(
+-  // enter style on css driver needs both:
+-  //   .t_unmounted .selector
+-  //   .selector.t_unmounted
++  // Root mount state applies to descendants; component mount state applies only to itself.
+   if (pseudoSelector === pseudoDescriptors.enterStyle.selector) {
+-    selector = `${selector}, .${identifier}${pseudoSelector}`
++    selector = `._dsp_contents${pseudoSelector} ${cls}, .${identifier}${pseudoSelector}`
+   }
