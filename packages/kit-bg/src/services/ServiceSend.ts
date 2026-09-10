@@ -1564,11 +1564,18 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (
-      isNonceRequired &&
-      new BigNumber(newUnsignedTx.nonce ?? 0).isZero() &&
-      !withoutNonce
-    ) {
+    // Refetch nonce when it's missing, zero, or any non-finite value (NaN /
+    // malformed string like "0x"). The previous `nonce ?? 0` check missed
+    // NaN — `BigNumber(NaN).isZero()` is false, so an NaN-corrupted nonce
+    // would bypass refetch and be signed as 0 by the signing library
+    // downstream. (OK-45750)
+    const nonceBN = new BigNumber(newUnsignedTx.nonce ?? NaN);
+    const nonceNeedsRefetch =
+      isNil(newUnsignedTx.nonce) ||
+      !nonceBN.isFinite() ||
+      nonceBN.isZero() ||
+      nonceBN.isNegative();
+    if (isNonceRequired && nonceNeedsRefetch && !withoutNonce) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
