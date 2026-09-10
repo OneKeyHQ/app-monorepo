@@ -11,7 +11,6 @@ export const PrimeTestIDs = {
   redemptionAccountChip: 'prime-redemption-account-chip',
   redemptionLoginBtn: 'prime-redemption-login-btn',
   redemptionSubmitBtn: 'prime-redemption-submit-btn',
-  redemptionDoneBtn: 'prime-redemption-done-btn',
   redemptionBenefitsToggle: 'prime-redemption-benefits-toggle',
   redemptionDownloadBtn: 'prime-redemption-download-btn',
 
