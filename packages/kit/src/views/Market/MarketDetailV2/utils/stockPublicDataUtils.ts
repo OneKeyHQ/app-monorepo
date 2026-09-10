@@ -31,6 +31,8 @@ export function buildStockInfoFromPublicDetail(
     // `session` is a raw backend enum (e.g. PRE_MARKET); the badge resolves the
     // session itself, so only the localized reason belongs in the tooltip.
     description: detail.marketStatus?.reason ?? undefined,
+    nextOpenTime: detail.marketStatus?.nextOpenTime,
+    nextOpenMinutes: detail.marketStatus?.nextOpenMinutes,
     assetAnalysis: {
       volume24h: detail.volume24h,
       volumeShares: detail.volumeShares,
