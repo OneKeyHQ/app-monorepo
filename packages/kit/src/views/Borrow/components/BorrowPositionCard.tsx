@@ -27,10 +27,6 @@ import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
 
 const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
 
-function stripServerTypography(text?: IEarnText): IEarnText | undefined {
-  return text ? { text: text.text } : undefined;
-}
-
 export type IBorrowPositionCardAction = {
   key: string;
   label: string;
@@ -80,15 +76,8 @@ export function BorrowPositionCard({
   // through: the title is $bodyLgMedium on $text, the subtitle $bodyMd on
   // $textSubdued. The fiat value is the title here and the token amount the
   // subtitle under it.
-  //
-  // Both arrive carrying the server's own typography, and EarnText spreads the
-  // remote props last, so a caller's size and color are advisory everywhere
-  // else in the app. Here they are not: the server stamps the amount as the
-  // larger line and the fiat value as the smaller one, which is the opposite
-  // hierarchy, so leaving it in place renders the title beneath its own
-  // subtitle in weight. Keep the string, drop the styling.
-  const amountText = stripServerTypography(tokenAmount);
-  const fiatText = stripServerTypography(fiatValue);
+  const amountSize = tokenAmount?.size ?? '$bodyMd';
+  const amountColor = tokenAmount?.color ?? '$textSubdued';
 
   // The whole card is the pointer target, but it can't carry the button role:
   // the collateral Switch is a focusable role="switch" and ARIA forbids
@@ -209,23 +198,23 @@ export function BorrowPositionCard({
           </YStack>
           <XStack ai="center" gap="$2" flexShrink={0}>
             <YStack ai="flex-end">
-              {fiatText ? (
+              {fiatValue ? (
                 <EarnText
-                  text={fiatText}
+                  text={fiatValue}
                   size="$bodyLgMedium"
                   color="$text"
                   numberOfLines={1}
                 />
               ) : null}
-              {amountText ? (
+              {tokenAmount ? (
                 <XStack ai="center" gap="$1">
                   <EarnText
-                    text={amountText}
-                    size="$bodyMd"
-                    color="$textSubdued"
+                    text={tokenAmount}
+                    size={amountSize}
+                    color={amountColor}
                     numberOfLines={1}
                   />
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                  <SizableText size={amountSize} color={amountColor}>
                     {token.symbol}
                   </SizableText>
                 </XStack>
