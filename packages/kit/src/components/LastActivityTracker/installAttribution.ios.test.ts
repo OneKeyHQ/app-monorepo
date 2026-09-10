@@ -358,6 +358,25 @@ describe('reportInstallAttribution', () => {
     expect(mockClearPending).not.toHaveBeenCalled();
   });
 
+  it('keeps the pending record when report completion cannot persist', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        data: {
+          found: true,
+        },
+      },
+    });
+    mockSavePending.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await expect(reportInstallAttribution()).rejects.toThrow(
+      'Failed to persist App Clip attribution report completion.',
+    );
+
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+    expect(mockSavePending).toHaveBeenCalledTimes(2);
+    expect(mockClearPending).not.toHaveBeenCalled();
+  });
+
   it('deduplicates concurrent attribution consumption', async () => {
     let resolvePending: ((value: unknown) => void) | undefined;
     mockReadPending.mockImplementation(

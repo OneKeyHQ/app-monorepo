@@ -177,10 +177,15 @@ async function reportPendingInstallAttribution(): Promise<void> {
     );
   }
   await defaultLogger.app.install.reportAppClipInstallAttribution(attribution);
-  await nativeModule.savePending({
+  const didSaveReportCompletion = await nativeModule.savePending({
     ...attribution,
     reportCompleted: true,
   });
+  if (!didSaveReportCompletion) {
+    throw new OneKeyLocalError(
+      'Failed to persist App Clip attribution report completion.',
+    );
+  }
   await nativeModule.clearPending();
 }
 
