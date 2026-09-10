@@ -143,7 +143,7 @@ export type IModalStakingParamList = {
     // pusher's copy can be the older of the two — deciding "did they pick the
     // category they are already in" against it would answer for a screen the
     // user was not looking at.
-    onSelect?: (eModeId: number, observedCurrentEModeId: number | null) => void;
+    onSelect: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;
