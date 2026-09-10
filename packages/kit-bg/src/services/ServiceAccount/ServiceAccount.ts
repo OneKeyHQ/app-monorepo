@@ -147,6 +147,7 @@ import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IBotWalletMetadata } from '@onekeyhq/shared/types/botWallet';
 import type {
   IDeviceSharedCallParams,
+  IHardwareOperationContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -203,6 +204,7 @@ import {
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
+import { withHardwareOperationContext } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -269,6 +271,7 @@ export type IAddHDOrHWAccountsParams = {
   hdCredentialCacheScopeId?: string;
   // auto multi-network fill scene flag (business derived from it, not passed in)
   isAutoCreateMultiNetwork?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 
   // purpose?: number;
@@ -325,7 +328,8 @@ class ServiceAccount extends ServiceBase {
         : undefined;
     const featureVendor =
       rawFeatureVendor === EHardwareVendor.ledger ||
-      rawFeatureVendor === EHardwareVendor.trezor
+      rawFeatureVendor === EHardwareVendor.trezor ||
+      rawFeatureVendor === EHardwareVendor.keystone
         ? rawFeatureVendor
         : undefined;
     const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
@@ -752,6 +756,12 @@ class ServiceAccount extends ServiceBase {
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
       allDevices = (await this.getAllDevices()).devices;
+      // Keep newer-version records in storage while hiding hardware vendors
+      // that this app cannot safely refill or operate.
+      wallets = localDb.filterWalletsByHardwareVendorSupport({
+        wallets,
+        allDevices,
+      });
       const refilledWalletsCache: {
         [walletId: string]: IDBWallet;
       } = {};
@@ -1188,6 +1198,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    hardwareOperationContext,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -1201,6 +1212,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath?: string;
     hdCredentialCacheScopeId?: string;
     isAutoCreateMultiNetwork?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -1259,11 +1271,15 @@ class ServiceAccount extends ServiceBase {
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
     if (isHardware) {
+      const checkedDeviceParams = checkIsDefined(deviceParams);
       const hwParams: IPrepareHardwareAccountsParams = {
-        deviceParams: {
-          ...checkIsDefined(deviceParams),
-          confirmOnDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            ...checkedDeviceParams,
+            confirmOnDevice,
+          },
+          hardwareOperationContext,
+        ),
 
         indexes: usedIndexes,
         names,
@@ -3650,32 +3666,49 @@ class ServiceAccount extends ServiceBase {
       dbDevice.vendor ?? EHardwareVendor.onekey,
     );
     if (dbDevice.vendor && vendorProfile.isThirdParty) {
-      const connected =
-        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
-          vendor: dbDevice.vendor,
-          connectId: compatibleConnectId,
-          deviceId: dbDevice.deviceId,
-        });
-      if (dbDevice.vendor === EHardwareVendor.trezor) {
-        if (!connected.success) {
-          throw convertDeviceError(
-            connected.payload as IOneKeyHardwareErrorPayload,
-            { vendor: dbDevice.vendor },
-          );
-        }
-        // Reject reset devices before creating wallet records.
-        if (
-          !connected.payload.deviceId ||
-          connected.payload.deviceId !== dbDevice.deviceId
-        ) {
-          throw new ThirdPartyDeviceMismatch({
+      let interactionId: string | undefined;
+      try {
+        const connected =
+          await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
             vendor: dbDevice.vendor,
-            payload: {},
+            searchTargetId: compatibleConnectId,
+            deviceId: dbDevice.deviceId,
           });
+        // Claim the interaction before any rejection below, so a mismatch
+        // throw cannot leave it held.
+        if (connected.success) {
+          interactionId = connected.payload.interactionId;
         }
-      }
-      if (connected.success) {
-        features = connected.payload.features as IOneKeyDeviceFeatures;
+        if (dbDevice.vendor === EHardwareVendor.trezor) {
+          if (!connected.success) {
+            throw convertDeviceError(
+              connected.payload as IOneKeyHardwareErrorPayload,
+              { vendor: dbDevice.vendor },
+            );
+          }
+          // Reject reset devices before creating wallet records.
+          if (
+            !connected.payload.deviceId ||
+            connected.payload.deviceId !== dbDevice.deviceId
+          ) {
+            throw new ThirdPartyDeviceMismatch({
+              vendor: dbDevice.vendor,
+              payload: {},
+            });
+          }
+        }
+        if (connected.success) {
+          features = connected.payload.features as IOneKeyDeviceFeatures;
+        }
+      } finally {
+        if (interactionId) {
+          await this.backgroundApi.serviceThirdPartyHardware
+            .releaseInteraction({
+              vendor: dbDevice.vendor,
+              interactionId,
+            })
+            .catch(() => undefined);
+        }
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
@@ -4006,9 +4039,16 @@ class ServiceAccount extends ServiceBase {
           transportType,
         }),
       {
-        deviceParams: {
-          dbDevice: params.device as IDBDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            dbDevice: params.device as IDBDevice,
+            deviceCommonParams: {
+              passphraseState: undefined,
+              useEmptyPassphrase: true,
+            },
+          },
+          params.hardwareOperationContext,
+        ),
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
         debugMethodName: 'createHWWalletBase',
@@ -4067,6 +4107,8 @@ class ServiceAccount extends ServiceBase {
             vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+    const hardwareCallConnectId =
+      params.hardwareOperationContext?.interactionId || compatibleConnectId;
 
     let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
@@ -4146,7 +4188,7 @@ class ServiceAccount extends ServiceBase {
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
+        connectId: hardwareCallConnectId,
         deviceId,
         passphraseState,
         throwError: true,
@@ -4168,15 +4210,19 @@ class ServiceAccount extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error',
         ),
     });
+    const {
+      hardwareOperationContext: _hardwareOperationContext,
+      ...localDbCreateParams
+    } = params;
     const result = await localDb.createHwWallet({
-      ...params,
+      ...localDbCreateParams,
       deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
         return this.getFirstEvmAddressForHwWalletCreate({
-          compatibleConnectId,
+          compatibleConnectId: hardwareCallConnectId,
           deviceId,
           passphraseState,
           vendor,
@@ -4191,7 +4237,7 @@ class ServiceAccount extends ServiceBase {
             verifyLedgerSeedMatch(
               this.backgroundApi,
               matchedDevice,
-              compatibleConnectId,
+              hardwareCallConnectId,
             )
         : undefined,
       transportType,

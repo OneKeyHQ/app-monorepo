@@ -1,24 +1,50 @@
-import { thirdPartyPassphraseParamsFromDeviceParams } from './thirdPartyHardwareCommonParams';
+import {
+  EHardwareVendor,
+  type IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 
-describe('thirdPartyPassphraseParamsFromDeviceParams', () => {
-  it('returns passphraseState and useEmptyPassphrase from wallet-bound device params', () => {
+import { withHardwareOperationContext } from './thirdPartyHardwareCommonParams';
+
+describe('withHardwareOperationContext', () => {
+  it('adds operation context without replacing existing device parameters', () => {
+    const deviceParams = {
+      dbDevice: {
+        id: 'device-1',
+        connectId: 'connect-1',
+        deviceId: 'device-id-1',
+        vendor: EHardwareVendor.trezor,
+      },
+      deviceCommonParams: {
+        passphraseState: 'passphrase-state',
+        useEmptyPassphrase: false,
+      },
+    } as IDeviceSharedCallParams;
+
     expect(
-      thirdPartyPassphraseParamsFromDeviceParams({
-        dbDevice: {} as never,
-        deviceCommonParams: {
-          passphraseState: 'aabbccdd',
-          useEmptyPassphrase: true,
-        },
+      withHardwareOperationContext(deviceParams, {
+        interactionId: 'hwk-trezor-interaction',
       }),
     ).toEqual({
-      passphraseState: 'aabbccdd',
-      useEmptyPassphrase: true,
+      ...deviceParams,
+      deviceCommonParams: {
+        ...deviceParams.deviceCommonParams,
+        interactionId: 'hwk-trezor-interaction',
+      },
     });
+    expect(deviceParams.deviceCommonParams).not.toHaveProperty('interactionId');
+  });
 
-    expect(
-      thirdPartyPassphraseParamsFromDeviceParams({
-        dbDevice: {} as never,
-      }),
-    ).toEqual({});
+  it('returns the original parameters when no operation context is provided', () => {
+    const deviceParams = {
+      dbDevice: {
+        id: 'device-1',
+        connectId: 'connect-1',
+        deviceId: 'device-id-1',
+      },
+    } as IDeviceSharedCallParams;
+
+    expect(withHardwareOperationContext(deviceParams, undefined)).toBe(
+      deviceParams,
+    );
   });
 });

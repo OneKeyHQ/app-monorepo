@@ -40,7 +40,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import { getThirdPartySearchTarget, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
@@ -143,12 +143,10 @@ export default function LedgerConnectionFlow() {
       return;
     }
 
-    const forceTransportType = await getForceTransportType(tabValue);
-    if (forceTransportType) {
-      await backgroundApiProxy.serviceHardware.setForceTransportType({
-        forceTransportType,
-      });
-    }
+    // No setForceTransportType() here: Ledger's connector is platform-fixed
+    // and SDK-routed (vendorProfile.appManagesTransportSwitching = false).
+    // The atom only steers OneKey/Trezor calls, and this page never cleared
+    // it, so the write pinned OTHER vendors' later sessions to a stale channel.
 
     const MAX_TRY_COUNT = 60;
     let pollsCompleted = 0;
@@ -205,9 +203,12 @@ export default function LedgerConnectionFlow() {
       1500, // pollInterval — 1.5s between polls
       MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
-      { resetSession: true },
+      {
+        resetSession: true,
+        discoveryMethod: 'searchDeviceTargets',
+      },
     );
-  }, [deviceScanner, vendor, tabValue, intl]);
+  }, [deviceScanner, vendor, intl]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
@@ -235,6 +236,7 @@ export default function LedgerConnectionFlow() {
           title: item.name,
           src: ThirdPartyWalletAvatarImages.ledger,
           device: item,
+          searchTarget: getThirdPartySearchTarget(item),
           avatarImg: getThirdPartyDeviceAvatarImage({
             vendor: EHardwareVendor.ledger,
             vendorModel: vendorFields.vendorModel,
@@ -403,9 +405,14 @@ export default function LedgerConnectionFlow() {
               ) : null}
               {sortedDevicesData.length > 0 && !isMultiUsbBlocked ? (
                 <>
-                  {sortedDevicesData.map((data) => (
+                  {sortedDevicesData.map((data, index) => (
                     <ListItem
-                      key={data.device?.deviceId}
+                      key={
+                        data.searchTarget?.searchTargetId ||
+                        data.device?.deviceId ||
+                        data.device?.connectId ||
+                        `ledger-usb-${index}`
+                      }
                       drillIn
                       onPress={async () => {
                         await handleDeviceSelect(data);

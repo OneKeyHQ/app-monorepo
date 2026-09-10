@@ -24,6 +24,7 @@ interface ISecureQRToastBaseProps {
   message?: string;
   value?: string;
   valueUr?: IQRCodeProps['valueUr'];
+  drawType?: IQRCodeProps['drawType'];
   showQRCode?: boolean;
   onConfirm?: () => void;
   onConfirmText?: string;
@@ -36,6 +37,7 @@ const SecureQRToastBase = ({
   message,
   value,
   valueUr,
+  drawType,
   showQRCode,
   onConfirm,
   onConfirmText,
@@ -102,7 +104,12 @@ const SecureQRToastBase = ({
               }}
               pb="$5"
             >
-              <QRCode value={value} valueUr={valueUr} size={256} />
+              <QRCode
+                value={value}
+                valueUr={valueUr}
+                drawType={drawType}
+                size={256}
+              />
             </Stack>
           </Stack>
         ) : null}
@@ -121,31 +128,7 @@ const SecureQRToastBase = ({
               1
             </SizableText>
           </Stack>
-          <SizableText
-            flex={1}
-            size="$bodyMd"
-            onPress={() => {
-              console.log('SecureQRToastContent', value, valueUr);
-              if (valueUr) {
-                void (async () => {
-                  const { airGapUrUtils: lazyAirGapUrUtils } =
-                    await import('@onekeyhq/qr-wallet-sdk');
-                  const qrcodeDetails = lazyAirGapUrUtils.urToQrcode(valueUr);
-                  console.log(qrcodeDetails);
-                  if (
-                    qrcodeDetails.single?.startsWith(
-                      'ur:onekey-app-call-device/',
-                    )
-                  ) {
-                    const { OneKeyRequestDeviceQR: LazyOneKeyRequestDeviceQR } =
-                      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
-                    const data = LazyOneKeyRequestDeviceQR.fromUR(valueUr);
-                    console.log(data);
-                  }
-                })();
-              }
-            }}
-          >
+          <SizableText flex={1} size="$bodyMd">
             {message ||
               intl.formatMessage({
                 id: ETranslations.scan_qr_code_to_verify_details,
@@ -165,21 +148,7 @@ const SecureQRToastBase = ({
               2
             </SizableText>
           </Stack>
-          <SizableText
-            flex={1}
-            size="$bodyMd"
-            onPress={() => {
-              console.log('SecureQRToastContent', value, valueUr);
-              if (valueUr) {
-                void (async () => {
-                  const { airGapUrUtils: lazyAirGapUrUtils2 } =
-                    await import('@onekeyhq/qr-wallet-sdk');
-                  const qrcodeDetails = lazyAirGapUrUtils2.urToQrcode(valueUr);
-                  console.log(qrcodeDetails);
-                })();
-              }
-            }}
-          >
+          <SizableText flex={1} size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.secure_qr_toast_scan_qr_code_on_device_text,
             })}
@@ -219,6 +188,7 @@ export const SecureQRToast = {
     message,
     value,
     valueUr,
+    drawType,
     showQRCode = true,
     onConfirm,
     onCancel,
@@ -233,6 +203,7 @@ export const SecureQRToast = {
           message={message}
           value={value}
           valueUr={valueUr}
+          drawType={drawType}
           showQRCode={showQRCode}
           onConfirm={onConfirm}
           onConfirmText={onConfirmText}

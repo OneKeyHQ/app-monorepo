@@ -183,6 +183,8 @@
     "@onekeyfe/hd-transport-electron": "1.2.2-alpha.122",
     "@onekeyfe/hd-web-sdk": "1.2.2-alpha.122",
     "@onekeyfe/hwk-adapter-core": "1.2.2-alpha.122",
+    "@onekeyfe/hwk-keystone-adapter": "1.2.2-alpha.122",
+    "@onekeyfe/hwk-keystone-connector-usb": "1.2.2-alpha.122",
     "@onekeyfe/hwk-ledger-adapter": "1.2.2-alpha.122",
     "@onekeyfe/hwk-ledger-connector-ble": "1.2.2-alpha.122",
     "@onekeyfe/hwk-ledger-connector-webhid": "1.2.2-alpha.122",

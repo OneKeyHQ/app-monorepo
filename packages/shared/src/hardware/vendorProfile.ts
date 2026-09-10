@@ -22,6 +22,12 @@ export interface IHardwareVendorProfile {
   hasPersistentConnectId(transport: 'usb' | 'ble'): boolean;
   /** Whether the deviceId persists across sessions for the given transport */
   hasPersistentDeviceId(transport: 'usb' | 'ble'): boolean;
+  /** Whether the app arbitrates USB/BLE for this vendor via the global
+   *  force-transport atom (`setForceTransportType`). Vendors whose SDK routes
+   *  transports itself, or whose connector is fixed per platform, must never
+   *  write that atom — it only steers OneKey/Trezor calls, so a stray write
+   *  pins OTHER vendors' sessions to the wrong channel. */
+  appManagesTransportSwitching: boolean;
   /** Whether this vendor's wallets support cloud sync */
   supportsCloudSync: boolean;
   /** Whether Device Manager can open the detail page */
@@ -32,6 +38,8 @@ export interface IHardwareVendorProfile {
   supportsFirmwareVersionDisplay: boolean;
   /** Whether OneKey firmware authenticity verification is supported */
   supportsFirmwareVerify: boolean;
+  /** Whether the app can ask the device to display and verify an address */
+  supportsOnDeviceAddressVerification: boolean;
   /** Whether OneKey firmware update checking is supported */
   supportsFirmwareUpdate: boolean;
   /** Whether OneKey device settings sections are supported */
@@ -65,11 +73,13 @@ const onekeyProfile: IHardwareVendorProfile = {
   requiresAppOpen: false,
   hasPersistentConnectId: () => true,
   hasPersistentDeviceId: () => true,
+  appManagesTransportSwitching: true,
   supportsCloudSync: true,
   supportsDeviceManagementDetails: true,
   supportsDeviceAbout: true,
   supportsFirmwareVersionDisplay: true,
   supportsFirmwareVerify: true,
+  supportsOnDeviceAddressVerification: true,
   supportsFirmwareUpdate: true,
   supportsOneKeyDeviceSettings: true,
   supportsDeviceSettings: true,
@@ -91,11 +101,15 @@ const ledgerProfile: IHardwareVendorProfile = {
   requiresAppOpen: true,
   hasPersistentConnectId: (transport) => transport === 'ble',
   hasPersistentDeviceId: () => false,
+  // Connector is fixed per platform (webhid on desktop/web, ble on native)
+  // and DMK routes sessions internally — nothing for the app to switch.
+  appManagesTransportSwitching: false,
   supportsCloudSync: false,
   supportsDeviceManagementDetails: true,
   supportsDeviceAbout: false,
   supportsFirmwareVersionDisplay: false,
   supportsFirmwareVerify: false,
+  supportsOnDeviceAddressVerification: true,
   supportsFirmwareUpdate: false,
   supportsOneKeyDeviceSettings: false,
   supportsDeviceSettings: false,
@@ -130,11 +144,15 @@ const trezorProfile: IHardwareVendorProfile = {
   // `device_id` from Features is a stable 24-char hex, persists across
   // reconnects, only changes on full device wipe.
   hasPersistentDeviceId: () => true,
+  // Desktop runs USB and BLE side by side; the app-side fallback ladder
+  // (callTrezorWithBleFallback + force-transport atom) arbitrates.
+  appManagesTransportSwitching: true,
   supportsCloudSync: false,
   supportsDeviceManagementDetails: true,
   supportsDeviceAbout: false,
   supportsFirmwareVersionDisplay: true,
   supportsFirmwareVerify: false,
+  supportsOnDeviceAddressVerification: true,
   supportsFirmwareUpdate: false,
   supportsOneKeyDeviceSettings: false,
   supportsDeviceSettings: true,
@@ -146,11 +164,59 @@ const trezorProfile: IHardwareVendorProfile = {
   requiresSeedVerifyOnConnectIdMatch: false,
 };
 
+// Keystone identifies a *wallet* (seed), not a physical unit: `deviceId` is
+// a SHA-256 wallet id derived from one fixed account-level public key. It is
+// identical across QR and USB, while the 32-bit BIP32 master fingerprint is
+// kept only as protocol metadata. A different mnemonic or passphrase becomes
+// a different logical device. No PIN matrix, no Ledger-style "app",
+// no host-side passphrase toggle — the device handles all of that on its own
+// screen. `supportsFirmwareVersionDisplay`/`supportsDeviceSettings` are left
+// `false` for now: the SDK surfaces a `deviceVersion` string, but no App UI
+// consumes it yet — flip these once that lands, not preemptively.
+const keystoneProfile: IHardwareVendorProfile = {
+  vendor: EHardwareVendor.keystone,
+  isThirdParty: true,
+  defaultDeviceName: 'Keystone',
+  avatarKey: 'keystone',
+  supportsSoftwarePin: false,
+  requiresAppOpen: false,
+  hasPersistentConnectId: () => true,
+  hasPersistentDeviceId: () => true,
+  // QR/USB routing happens per call inside the SDK adapter (`_resolveUr`).
+  appManagesTransportSwitching: false,
+  supportsCloudSync: false,
+  supportsDeviceManagementDetails: true,
+  supportsDeviceAbout: false,
+  supportsFirmwareVersionDisplay: false,
+  supportsFirmwareVerify: false,
+  supportsOnDeviceAddressVerification: false,
+  supportsFirmwareUpdate: false,
+  supportsOneKeyDeviceSettings: false,
+  supportsDeviceSettings: false,
+  supportsPassphraseSetting: false,
+  supportsHiddenWalletCreation: false,
+  addAccountDefaultNetworkMode: 'onekeyDefault',
+  // The wallet-id-derived connectId is stable across QR and USB, unlike
+  // Ledger's ephemeral session handles.
+  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
+  requiresSeedVerifyOnConnectIdMatch: false,
+};
+
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {
   [EHardwareVendor.onekey]: onekeyProfile,
   [EHardwareVendor.ledger]: ledgerProfile,
   [EHardwareVendor.trezor]: trezorProfile,
+  [EHardwareVendor.keystone]: keystoneProfile,
 };
+
+export function isHardwareVendorSupported(vendor: unknown): boolean {
+  // Missing vendor values belong to legacy OneKey device rows.
+  if (!vendor) return true;
+  return (
+    typeof vendor === 'string' &&
+    Object.prototype.hasOwnProperty.call(vendorProfiles, vendor)
+  );
+}
 
 export function getVendorProfile(
   vendor: EHardwareVendor | undefined | null,
@@ -159,11 +225,10 @@ export function getVendorProfile(
   // third-party). Explicit `EHardwareVendor.onekey` also lands here via the
   // lookup below. Any other value must have its profile registered.
   if (!vendor) return onekeyProfile;
-  const profile = vendorProfiles[vendor];
-  if (!profile) {
+  if (!isHardwareVendorSupported(vendor)) {
     throw new OneKeyInternalError(
       `Unknown hardware vendor: "${vendor}". Register its profile in packages/shared/src/hardware/vendorProfile.ts`,
     );
   }
-  return profile;
+  return vendorProfiles[vendor];
 }

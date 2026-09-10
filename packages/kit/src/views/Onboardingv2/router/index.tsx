@@ -90,6 +90,12 @@ const ConnectQRCode = LazyLoadPage(
   false,
   pageFallback,
 );
+const ConnectKeystoneDevice = LazyLoadPage(
+  () => import('../pages/ConnectKeystoneDevice'),
+  undefined,
+  false,
+  pageFallback,
+);
 const CheckAndUpdate = LazyLoadPage(
   () => import('../pages/CheckAndUpdate'),
   undefined,
@@ -240,6 +246,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ConnectQRCode,
     component: ConnectQRCode,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectKeystoneDevice,
+    component: ConnectKeystoneDevice,
     options: hiddenHeaderOptions,
   },
   {
