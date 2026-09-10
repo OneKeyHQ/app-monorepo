@@ -67,6 +67,28 @@ describe('market token list sorting', () => {
 });
 
 describe('stock metadata values', () => {
+  test('preserves the stock ID from token list responses', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'NVIDIA Tokenized Stock',
+        symbol: 'NVDAon',
+        decimals: 18,
+        stockId: 'NVDA',
+        stock: {
+          subtitle: 'NVIDIA Corporation',
+          sourceLogoUri: '',
+        },
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+      },
+    );
+
+    expect(token.stockId).toBe('NVDA');
+  });
+
   test('normalizes numeric metadata values', () => {
     expect(normalizeStockMetadataValue(' 123.45 ')).toBe('123.45');
     expect(normalizeStockMetadataValue(0)).toBe('0');
@@ -524,4 +546,23 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
       ),
     ).toBe(false);
   });
+});
+
+test.each([
+  { stockId: ' aapl ', underlyingAssetTicker: 'OTHER' },
+  { underlyingAssetTicker: 'aapl' },
+])('preserves one stock identity across chain variants: %j', (stock) => {
+  const tokens = ['evm--1', 'evm--42161'].map((chainId) =>
+    transformApiItemToToken(
+      {
+        address: `0x${chainId}`,
+        name: 'Apple',
+        symbol: 'AAPLon',
+        decimals: 18,
+        stock: { subtitle: 'Apple', sourceLogoUri: '', ...stock },
+      },
+      { chainId, networkLogoUri: '' },
+    ),
+  );
+  expect(tokens.map((token) => token.stockId)).toEqual(['AAPL', 'AAPL']);
 });
