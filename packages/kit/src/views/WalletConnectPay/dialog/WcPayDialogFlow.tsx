@@ -524,6 +524,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       return;
     }
     payInFlightRef.current = true;
+    // Raise the entry guard synchronously: the effect below only re-syncs it
+    // after the paying render commits, and a deep link / QR link landing in
+    // that gap would remount the flow over an attempt that already started.
+    setWcPayDialogGuarded(true);
     setIsPaying(true);
     // a new attempt supersedes whatever the previous one left on screen
     setInlineFailure(undefined);
@@ -895,11 +899,14 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   });
 
   // Entry-guard sync: while this view is non-dismissible, a new pay link
-  // must not remount the flow (see wcPayDialogStore.openWcPayDialog). The
-  // unmount cleanup releases the guard so a closed flow never blocks entry.
+  // must not remount the flow (see wcPayDialogStore.openWcPayDialog).
+  // `isPaying` is a dependency so the guard handlePay raises synchronously
+  // is reconciled with the derived view once the attempt ends, even when
+  // `dismissible` itself never changed across it. The unmount cleanup
+  // releases the guard so a closed flow never blocks entry.
   useEffect(() => {
     setWcPayDialogGuarded(!view.dismissible);
-  }, [view.dismissible]);
+  }, [view.dismissible, isPaying]);
   useEffect(
     () => () => {
       setWcPayDialogGuarded(false);
