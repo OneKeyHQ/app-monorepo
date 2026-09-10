@@ -31,12 +31,20 @@ export const useWatchListV2Action = () => {
   });
 
   const removeFromWatchListV2 = useCallback(
-    async (chainId: string, contractAddress: string) => {
+    async (
+      chainId: string,
+      contractAddress: string,
+      listing?: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+    ) => {
       if (!isMounted) {
         return false;
       }
       try {
-        await actions.current.removeFromWatchListV2(chainId, contractAddress);
+        await actions.current.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          listing,
+        );
         return true;
       } catch (_error) {
         Toast.error({
@@ -56,6 +64,8 @@ export const useWatchListV2Action = () => {
         chainId: string;
         contractAddress: string;
         isNative?: boolean;
+        assetId?: string;
+        stockId?: string;
       }>,
     ) => {
       if (!isMounted) {
@@ -69,6 +79,7 @@ export const useWatchListV2Action = () => {
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({
+          ...item,
           chainId: item.chainId,
           contractAddress: item.contractAddress,
           sortIndex: firstSortIndex - (index + 1),
