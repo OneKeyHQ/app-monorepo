@@ -127,6 +127,7 @@ import type { ReactElement } from 'react';
 import { act, render } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IBorrowReserveItem,
@@ -279,12 +280,80 @@ describe('CollateralSwitchCell settlement guard', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllTimers();
     jest.useRealTimers();
   });
 
   const getSwitch = (view: ReturnType<typeof render>) =>
     view.UNSAFE_root.findByProps({ testID: switchTestId });
+
+  it('uses the press-based switch on iOS without changing its compact size', () => {
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+    const view = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true)}
+        eModeId={1}
+        size="extraSmall"
+      />,
+    );
+    expect(getSwitch(view).props.size).toBe('extraSmall');
+    expect(getSwitch(view).props.native).toBe(false);
+    expect(getSwitch(view).props.accessibilityRole).toBe('switch');
+    expect(getSwitch(view).props.accessibilityState).toEqual({
+      checked: true,
+      disabled: false,
+    });
+    expect(getSwitch(view).props.accessibilityLabel).toContain('USDC');
+  });
+
+  it('preserves the compact switch size outside iOS', () => {
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+    const view = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true)}
+        eModeId={1}
+        size="extraSmall"
+      />,
+    );
+    expect(getSwitch(view).props.size).toBe('extraSmall');
+    expect(getSwitch(view).props.native).toBe(true);
+  });
+
+  it('stops the desktop table-row press without cancelling the switch action', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    const switchWrapper = view.UNSAFE_root.find(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    const onPress = switchWrapper.props.onPress as (event: {
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => void;
+    const preventDefault = jest.fn();
+    const stopPropagation = jest.fn();
+
+    act(() => {
+      onPress({ preventDefault, stopPropagation });
+    });
+
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('does not add a competing press responder around the native switch', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+  });
 
   async function submitToggle(view: ReturnType<typeof render>) {
     await act(async () => {
@@ -372,6 +441,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   });
 
   it('keeps an unsupported Aave native position visible but disables collateral changes', () => {
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
     borrowContext.market = {
       ...borrowContext.market,
       networkId: 'evm--42161',
@@ -382,6 +452,15 @@ describe('CollateralSwitchCell settlement guard', () => {
     );
 
     expect(getSwitch(view).props.disabled).toBe(true);
+    expect(getSwitch(view).props.accessibilityState.disabled).toBe(true);
+    const { onAccessibilityTap } = getSwitch(view).props as {
+      onAccessibilityTap: () => void;
+    };
+    act(() => {
+      onAccessibilityTap();
+    });
+    expect(componentsMock.dialogShow).not.toHaveBeenCalled();
+    expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
   });
 
   it('disables only the reserve matched by a scoped pending transaction', () => {
