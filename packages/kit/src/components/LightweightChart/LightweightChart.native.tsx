@@ -15,9 +15,17 @@ import type {
 } from './types';
 import type { WebViewMessageEvent } from 'react-native-webview';
 
-function buildStaticWebViewSource(config: ILightweightChartConfig) {
+function buildStaticWebViewSource(
+  config: ILightweightChartConfig,
+  reloadCount = 0,
+) {
   return {
-    html: generateChartHTML(config),
+    // react-native-webview skips the load when the new source dictionary
+    // equals the current one, and a rebuild from an unchanged config produces
+    // byte-identical HTML. The marker makes every recovery a distinct source.
+    html: `${generateChartHTML(config)}${
+      reloadCount ? `<!-- reload ${reloadCount} -->` : ''
+    }`,
   };
 }
 
@@ -107,9 +115,26 @@ export function LightweightChart({
     }),
     [chartConfig, hideCrosshairPriceLabel, showLastValue],
   );
-  const [webViewSource] = useState(() =>
+  const [webViewSource, setWebViewSource] = useState(() =>
     buildStaticWebViewSource(nativeConfig),
   );
+  const latestConfigRef = useRef(nativeConfig);
+  latestConfigRef.current = nativeConfig;
+  const reloadCountRef = useRef(0);
+
+  // The OS can kill the WebView's content process while the page sits idle
+  // (memory pressure on the phone), and react-native-webview does nothing
+  // about it: the chart area just goes blank until something injects script
+  // again, which is why switching the date range "repaired" it (OK-62409).
+  // Rebuild the source from the latest config so the reload paints the
+  // current data straight away; the ready handshake then resumes updates.
+  const handleContentProcessGone = useCallback(() => {
+    reloadCountRef.current += 1;
+    setWebViewReady(false);
+    setWebViewSource(
+      buildStaticWebViewSource(latestConfigRef.current, reloadCountRef.current),
+    );
+  }, []);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -166,6 +191,8 @@ export function LightweightChart({
           onLoadStart={() => {
             setWebViewReady(false);
           }}
+          onContentProcessDidTerminate={handleContentProcessGone}
+          onRenderProcessGone={handleContentProcessGone}
           onMessage={handleMessage}
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}
