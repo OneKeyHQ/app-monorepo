@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 
-import {
-  usePerpsCustomSettingsAtom,
-  useSpotAssetCtxsMapAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotAssetCtxsMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   type ISpotHoldingRawBalance,
@@ -20,7 +17,6 @@ export function useVisibleSpotHoldingsCount({
   balances: ISpotHoldingRawBalance[];
   hasPerpsUsdc: boolean;
 }) {
-  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const { spotUniverses } = useSpotMetaMaps();
   const tokenPriceLookup = useMemo(
@@ -33,14 +29,10 @@ export function useVisibleSpotHoldingsCount({
       getVisibleSpotHoldingsCount({
         balances,
         tokenPriceLookup,
-        hideBelowThreshold: perpsCustomSettings.hideSmallSpotHoldings ?? false,
+        // The tab counts all holdings, independently of the list filter.
+        hideBelowThreshold: false,
         hasPerpsUsdc,
       }),
-    [
-      balances,
-      hasPerpsUsdc,
-      perpsCustomSettings.hideSmallSpotHoldings,
-      tokenPriceLookup,
-    ],
+    [balances, hasPerpsUsdc, tokenPriceLookup],
   );
 }
