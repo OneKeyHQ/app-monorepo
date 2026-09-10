@@ -833,8 +833,8 @@ export function MobileLayout({
                     <MobileMarketTradingView
                       key={marketTradingViewKey}
                       tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
-                      networkId={marketTradingViewParams?.networkId ?? ''}
-                      tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                      networkId={marketAssetId ? '' : (marketTradingViewParams?.networkId ?? '')}
+                      tokenSymbol={marketAssetId ? marketAssetId : marketTradingViewParams?.tokenSymbol}
                       decimal={marketTradingViewParams?.decimal}
                       dataSource={proKLineDataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
@@ -853,7 +853,7 @@ export function MobileLayout({
                         handleInteractionOverlayOpenChange
                       }
                       kLineDataFallback={assetKLineDataFallback}
-                      primaryKLineDataUnavailable={Boolean(marketAssetId)}
+                      primaryKLineDataUnavailable={false}
                     />
                   );
                 }
@@ -861,14 +861,14 @@ export function MobileLayout({
                   <LazyMobileMarketTradingView
                     key={marketTradingViewKey}
                     tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
-                    networkId={marketTradingViewParams?.networkId ?? ''}
-                    tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                    networkId={marketAssetId ? '' : (marketTradingViewParams?.networkId ?? '')}
+                    tokenSymbol={marketAssetId ? marketAssetId : marketTradingViewParams?.tokenSymbol}
                     decimal={marketTradingViewParams?.decimal}
                     dataSource={proKLineDataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
                     kLineDataFallback={assetKLineDataFallback}
-                    primaryKLineDataUnavailable={Boolean(marketAssetId)}
+                    primaryKLineDataUnavailable={false}
                   />
                 );
               })()}
