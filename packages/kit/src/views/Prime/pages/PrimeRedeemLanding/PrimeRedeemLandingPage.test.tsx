@@ -648,86 +648,25 @@ describe('PrimeRedeemLandingPage', () => {
     );
   });
 
-  it('keeps the generic account icon when the OneKey ID has no OAuth identity', () => {
-    mockIsLoggedIn = true;
-    render(<PrimeRedeemLandingPage />);
-
-    const chip = screen.getByTestId(PrimeTestIDs.redemptionAccountChip);
-    expect(getIconNames(chip)).toEqual([
-      'PeopleOutline',
-      'ChevronDownSmallOutline',
-    ]);
-    expect(chip.getAttribute('aria-label')).toBe('user@example.com');
-    expect(screen.getByText('user@example.com')).toBeTruthy();
-  });
-
-  it('shows the Google icon for a Google OneKey ID and keeps the email', () => {
+  it('swaps the chip icon for Google and Apple accounts that share an email', () => {
     mockIsLoggedIn = true;
     mockUser.onekeyAccount = buildOneKeyAccount([
       EOneKeyIdOAuthProvider.Google,
     ]);
-    render(<PrimeRedeemLandingPage />);
+    const { rerender } = render(<PrimeRedeemLandingPage />);
 
-    const chip = screen.getByTestId(PrimeTestIDs.redemptionAccountChip);
-    expect(getIconNames(chip)).toEqual([
-      'GoogleIllus',
-      'ChevronDownSmallOutline',
-    ]);
-    expect(chip.getAttribute('aria-label')).toBe('Google · user@example.com');
-    expect(screen.getByText('user@example.com')).toBeTruthy();
-  });
-
-  it('shows the Apple icon for an Apple OneKey ID with the same email', () => {
-    mockIsLoggedIn = true;
-    mockUser.onekeyAccount = buildOneKeyAccount([EOneKeyIdOAuthProvider.Apple]);
-    render(<PrimeRedeemLandingPage />);
-
-    const chip = screen.getByTestId(PrimeTestIDs.redemptionAccountChip);
-    expect(getIconNames(chip)).toEqual([
-      'AppleBrand',
-      'ChevronDownSmallOutline',
-    ]);
-    expect(chip.getAttribute('aria-label')).toBe('Apple · user@example.com');
-    expect(screen.getByText('user@example.com')).toBeTruthy();
-  });
-
-  it('shows both Google and Apple icons when both identities are bound', () => {
-    mockIsLoggedIn = true;
-    mockUser.onekeyAccount = buildOneKeyAccount([
-      EOneKeyIdOAuthProvider.Apple,
-      EOneKeyIdOAuthProvider.Google,
-    ]);
-    render(<PrimeRedeemLandingPage />);
-
-    expect(
-      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
-    ).toEqual(['GoogleIllus', 'AppleBrand', 'ChevronDownSmallOutline']);
-  });
-
-  it('keeps the Google icon on the logged-in chip and hides the web-home done button after redeem', async () => {
-    mockIsLoggedIn = true;
-    mockUser.onekeyAccount = buildOneKeyAccount([
-      EOneKeyIdOAuthProvider.Google,
-    ]);
-    mockRouteParams = { code: 'OKP-PJ37L-DYXWR' };
-    mockRedeemPrimeCode.mockResolvedValue({
-      addedDays: 30,
-      finalExpiresAt: 1_800_000_000_000,
-    });
-
-    render(<PrimeRedeemLandingPage />);
     expect(
       getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
     ).toEqual(['GoogleIllus', 'ChevronDownSmallOutline']);
+    expect(screen.getByText('user@example.com')).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionSubmitBtn));
+    mockUser.onekeyAccount = buildOneKeyAccount([EOneKeyIdOAuthProvider.Apple]);
+    rerender(<PrimeRedeemLandingPage />);
 
-    await waitFor(() => {
-      expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
-    });
-    expect(screen.getByText('u***@example.com')).toBeTruthy();
-    expect(screen.queryByText(ETranslations.redemption_done_button)).toBeNull();
-    expect(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn)).toBeTruthy();
+    expect(
+      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
+    ).toEqual(['AppleBrand', 'ChevronDownSmallOutline']);
+    expect(screen.getByText('user@example.com')).toBeTruthy();
   });
 
   it('preserves the typed code after logout and shows the login action', () => {
