@@ -3243,6 +3243,7 @@
   "perp_funding_rate_history__title": "История ставки финансирования",
   "perp_funding_rate_history_empty__desc": "История ставок финансирования для этого рынка недоступна.",
   "perp_funding_rate_short__title": "Ставка",
+  "perp_funding_settlement_currency__title": "Валюта расчёта",
   "perp_funding_side__label": "Сторона",
   "perp_guide_title": "Руководство по торговле",
   "perp_holdings_empty_message": "Нет спотовых активов",

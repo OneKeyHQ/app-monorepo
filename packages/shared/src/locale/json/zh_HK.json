@@ -3243,6 +3243,7 @@
   "perp_funding_rate_history__title": "歷史資金費率",
   "perp_funding_rate_history_empty__desc": "此市場暫無歷史資金費率資料。",
   "perp_funding_rate_short__title": "資金費率",
+  "perp_funding_settlement_currency__title": "結算幣種",
   "perp_funding_side__label": "方向",
   "perp_guide_title": "交易指南",
   "perp_holdings_empty_message": "沒有現貨資產",

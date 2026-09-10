@@ -90,7 +90,22 @@ function FundingHistoryExportAction({
           accountAddress,
           force: true,
         });
+      const filteredRecords = filterFundingHistoryRecords({
+        records,
+        sideFilter,
+        marketFilter,
+      });
+      const paymentTokens = filteredRecords.length
+        ? await backgroundApiProxy.serviceHyperliquid.getFundingHistoryPaymentTokens(
+            {
+              coins: [
+                ...new Set(filteredRecords.map((record) => record.delta.coin)),
+              ],
+            },
+          )
+        : {};
       const exportRecords = buildFundingHistoryExportRecords({
+        paymentTokens,
         records,
         sideFilter,
         marketFilter,
@@ -129,6 +144,9 @@ function FundingHistoryExportAction({
         [sizeLabel]: record.size,
         [sideLabel]: record.side,
         [paymentLabel]: record.payment,
+        [intl.formatMessage({
+          id: ETranslations.perp_funding_settlement_currency__title,
+        })]: record.paymentToken,
         [rateLabel]: record.rate,
       }));
       const filename = `perp_funding_history_${formatTime(new Date(), {

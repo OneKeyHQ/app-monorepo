@@ -1836,6 +1836,35 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._getUserFundingHistoryMemo(user);
   }
 
+  @backgroundMethod()
+  async getFundingHistoryPaymentTokens({ coins }: { coins: string[] }) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexNames = [
+      ...new Set(coins.map((coin) => parseDexCoin(coin).dexLabel ?? '')),
+    ];
+    const [spotMeta, dexMetas] = await Promise.all([
+      infoClient.spotMeta(),
+      Promise.all(dexNames.map((dex) => infoClient.meta({ dex }))),
+    ]);
+    const tokensByDex = new Map<string, string>();
+    dexMetas.forEach((meta, index) => {
+      const token = spotMeta.tokens.find(
+        (item) => item.index === meta.collateralToken,
+      );
+      if (!token?.name) {
+        throw new OneKeyLocalError(
+          'Funding payment token metadata is unavailable',
+        );
+      }
+      tokensByDex.set(dexNames[index], token.name);
+    });
+    const paymentTokens: Partial<Record<string, string>> = {};
+    coins.forEach((coin) => {
+      paymentTokens[coin] = tokensByDex.get(parseDexCoin(coin).dexLabel ?? '');
+    });
+    return paymentTokens;
+  }
+
   private _fundingHistoryRequestsInFlight = new Set<IHex>();
 
   private _getUserFundingHistoryMemo = cacheUtils.memoizee(

@@ -3243,6 +3243,7 @@
   "perp_funding_rate_history__title": "Lịch sử tỷ lệ tài trợ",
   "perp_funding_rate_history_empty__desc": "Không có lịch sử tỷ lệ tài trợ cho thị trường này.",
   "perp_funding_rate_short__title": "Tỷ lệ",
+  "perp_funding_settlement_currency__title": "Đồng tiền thanh toán",
   "perp_funding_side__label": "Hướng",
   "perp_guide_title": "Hướng dẫn giao dịch",
   "perp_holdings_empty_message": "Không có tài sản spot",

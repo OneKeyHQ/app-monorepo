@@ -3243,6 +3243,7 @@
   "perp_funding_rate_history__title": "Historial de la tasa de financiación",
   "perp_funding_rate_history_empty__desc": "El historial de tasas de financiación no está disponible para este mercado.",
   "perp_funding_rate_short__title": "Tasa",
+  "perp_funding_settlement_currency__title": "Moneda de liquidación",
   "perp_funding_side__label": "Lado",
   "perp_guide_title": "Guía de trading",
   "perp_holdings_empty_message": "No hay activos spot",
