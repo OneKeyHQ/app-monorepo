@@ -112,6 +112,7 @@ describe('TradingViewNative shared chart scene', () => {
     const priceAxisTextX = scene.commands.flatMap((command) =>
       command.kind === 'text' &&
       command.font === 'priceAxis' &&
+      command.paint === 'axisText' &&
       command.x >= priceAxisX
         ? [command.x]
         : [],
@@ -1029,6 +1030,51 @@ describe('TradingViewNative shared chart scene', () => {
     );
   });
 
+  it.each([80, 120])(
+    'fits floating price labels to text within a %s-wide axis',
+    (priceAxisWidth) => {
+      const width = 320;
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: width - priceAxisWidth - 10, y: 80 },
+        hasVolume: false,
+        height: 360,
+        measureTextWidth: (text) => text.length * 6,
+        points: POINTS,
+        priceAxisWidth,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width,
+      });
+      expect(scene.priceAxisWidth).toBe(priceAxisWidth);
+
+      for (const paint of ['currentPriceLabelText', 'crosshairLabelText']) {
+        const labelIndex = scene.commands.findIndex(
+          (command) =>
+            command.kind === 'text' &&
+            command.font === 'priceAxis' &&
+            command.paint === paint,
+        );
+        const label = scene.commands[labelIndex];
+        const background = scene.commands[labelIndex - 1];
+        expect(label?.kind).toBe('text');
+        expect(background?.kind).toBe('rect');
+        if (label?.kind !== 'text' || background?.kind !== 'rect') {
+          return;
+        }
+        const leftPadding = label.x - background.x;
+        const rightPadding =
+          background.x + background.width - (label.x + label.text.length * 6);
+        expect(background.x).toBe(width - priceAxisWidth);
+        expect(background.width).toBeLessThan(priceAxisWidth);
+        expect(leftPadding).toBe(8);
+        expect(rightPadding).toBe(8);
+      }
+    },
+  );
+
   it.each(['volume', 'inherit'] as const)(
     'fits long %s crosshair values without widening the indicator axis',
     (type) => {
@@ -1086,12 +1132,16 @@ describe('TradingViewNative shared chart scene', () => {
         expect(label.x + options.measureTextWidth(label.text)).toBeLessThan(
           background.x + background.width,
         );
-        expect(background.x + background.width).toBe(options.width);
+        expect(background.x + background.width).toBeLessThanOrEqual(
+          options.width,
+        );
         const axisLeft = options.width - scene.priceAxisWidth;
         if (y === 310) {
           expect(background.x).toBeLessThan(axisLeft);
+          expect(background.x + background.width).toBe(options.width);
         } else {
           expect(background.x).toBe(axisLeft);
+          expect(background.width).toBeLessThan(scene.priceAxisWidth);
         }
       }
     },
