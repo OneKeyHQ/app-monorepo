@@ -17,6 +17,7 @@ import {
   Image as ReactNativeImage,
   StyleSheet,
   View,
+  type ViewProps,
 } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
@@ -310,6 +311,16 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     },
     [onError, scheduleRetry],
   );
+
+  // Fabric clears removed props with null, which Nitro's optional string
+  // converter rejects. Unmount the iOS image before clearing its source URI.
+  if (Platform.OS === 'ios' && !activeSource?.uri?.trim()) {
+    return (
+      <View {...(viewProps as ViewProps)} style={style}>
+        {fallbackOverlay}
+      </View>
+    );
+  }
 
   return (
     <OneKeyImage
