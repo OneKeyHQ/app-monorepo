@@ -20472,6 +20472,7 @@
     "packages/kit/src/utils/deferHeavyWork.ts": 5846,
     "packages/kit/src/utils/defiCategoryConfig.ts": 13768,
     "packages/kit/src/utils/defiPositionUtils.ts": 20242,
+    "packages/kit/src/utils/downloadAsFile.native.ts": 10585,
     "packages/kit/src/utils/explorerUtils.ts": 14468,
     "packages/kit/src/utils/fiatConvert.ts": 21275,
     "packages/kit/src/utils/getNFTDetailsComponents.ts": 2526,
