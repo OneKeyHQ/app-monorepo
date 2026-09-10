@@ -26,16 +26,50 @@ describe('classifyAuthFailureError', () => {
     },
   );
 
-  it('reads a server-side failure as unavailable, ahead of the transient family', () => {
-    const apiError = new OneKeyError({
-      message: 'server',
-      className: EOneKeyErrorClassNames.OneKeyServerApiError,
-    });
-    expect(classifyAuthFailureError(apiError)).toBe('unavailable');
+  it('reads a server outage as unavailable, ahead of the transient family', () => {
+    const outage = Object.assign(
+      new OneKeyError({
+        message: 'server',
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+      }),
+      { httpStatusCode: 503 },
+    );
+    expect(classifyAuthFailureError(outage)).toBe('unavailable');
     const fiveHundred = Object.assign(new Error('502'), {
       httpStatusCode: 502,
     });
     expect(classifyAuthFailureError(fiveHundred as never)).toBe('unavailable');
+  });
+
+  it('keeps a server rejection on the strict side — the class alone opens nothing', () => {
+    // A 403 or a business error on a 200 is a verdict against the
+    // request, not an outage: no Continue anyway.
+    const forbidden = Object.assign(
+      new OneKeyError({
+        message: 'forbidden',
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+      }),
+      { httpStatusCode: 403 },
+    );
+    expect(classifyAuthFailureError(forbidden)).toBe('unknown');
+    const businessError = new OneKeyError({
+      message: 'rejected',
+      code: 10_001,
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+    });
+    expect(classifyAuthFailureError(businessError)).toBe('unknown');
+  });
+
+  it.each([
+    HardwareErrorCode.BridgeNetworkError,
+    HardwareErrorCode.NetworkError,
+  ])('keeps the SDK transport failure %s on the strict side', (code) => {
+    // Raised by the device transport during the certificate read, before
+    // any server call: a device gone silent mid-cert must not read as
+    // "our network failed".
+    expect(classifyAuthFailureError(convertDeviceError({ code }))).toBe(
+      'unknown',
+    );
   });
 
   it.each([

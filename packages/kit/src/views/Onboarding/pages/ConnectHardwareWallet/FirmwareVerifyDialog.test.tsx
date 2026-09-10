@@ -510,10 +510,33 @@ describe('DeviceStage certificate error classification', () => {
       error: {
         className: EOneKeyErrorClassNames.OneKeyServerApiError,
         code: 503,
+        httpStatusCode: 503,
         message: 'Service Unavailable',
       },
       reason: 'unavailable',
       allowsContinue: true,
+    },
+    {
+      name: 'server rejection',
+      // The server answered and refused: a verdict, never an outage.
+      error: {
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: 403,
+        httpStatusCode: 403,
+        message: 'Forbidden',
+      },
+      reason: 'unknown',
+      allowsContinue: false,
+    },
+    {
+      name: 'bridge transport failure during the certificate read',
+      error: {
+        $isHardwareError: true,
+        code: HardwareErrorCode.BridgeNetworkError,
+        message: 'Bridge network error',
+      },
+      reason: 'unknown',
+      allowsContinue: false,
     },
     {
       name: 'request timeout',

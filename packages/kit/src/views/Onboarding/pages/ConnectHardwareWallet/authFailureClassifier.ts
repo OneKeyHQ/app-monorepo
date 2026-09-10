@@ -18,6 +18,17 @@ const DEVICE_GONE_CODES = [
   ...DEVICE_STAGE_DISCONNECTED_CODES,
 ];
 
+/** The HTTP statuses that read as "the server could not serve this
+ * request right now" — the only server-side failures that open the
+ * bypass. A server that answered and refused (403, a business code on a
+ * 200) reached a verdict against the request; that stays strict. */
+function isTransientHttpStatus(status: unknown): boolean {
+  return (
+    typeof status === 'number' &&
+    ((status >= 500 && status < 600) || status === 408 || status === 429)
+  );
+}
+
 /**
  * Sorts a thrown authenticity-check error by whose fault the check did
  * not stand (OK-62484), the one rule behind the card's exits:
@@ -26,31 +37,30 @@ const DEVICE_GONE_CODES = [
  *   known-defective batch → terminal, Support only.
  * - The device vanished → `disconnected`, Retry only.
  * - The device did its part and our side could not finish (the server
- *   unreachable or down) → `unavailable` / `network`, Retry or Continue
- *   anyway behind the NOTE.
+ *   down or unreachable from the request layer) → `unavailable` /
+ *   `network`, Retry or Continue anyway behind the NOTE.
  * - Anything else — the device stayed on the line yet the check failed,
  *   an in-call timeout included — → `unknown`, Retry and Support, never
  *   a bypass (OK-61777): a connected device that will not prove itself
  *   is exactly what a counterfeit would do.
  *
- * Server-side failures are tested before the transient-network family:
- * that helper also matches 5xx, which reads as "unavailable" here.
+ * Only the request layer speaks for "our side": a transient HTTP status
+ * or the axios transport family. A server API error is judged by its
+ * status alone — the class covers rejections too, and a rejection is a
+ * verdict, not an outage. The SDK's own NetworkError / BridgeNetworkError
+ * rise from the device transport during the certificate read, before any
+ * server call, so they land with the other in-call failures.
  */
 export function classifyAuthFailureError(
   error: IOneKeyError | undefined,
 ): IDeviceStageAuthFailureReasonValue {
-  if (error?.className === EOneKeyErrorClassNames.OneKeyServerApiError) {
-    return 'unavailable';
-  }
   const httpStatusCode = (error as { httpStatusCode?: number } | undefined)
     ?.httpStatusCode;
-  if (
-    typeof httpStatusCode === 'number' &&
-    ((httpStatusCode >= 500 && httpStatusCode < 600) ||
-      httpStatusCode === 408 ||
-      httpStatusCode === 429)
-  ) {
+  if (isTransientHttpStatus(httpStatusCode)) {
     return 'unavailable';
+  }
+  if (error?.className === EOneKeyErrorClassNames.OneKeyServerApiError) {
+    return 'unknown';
   }
   if (error?.code === HardwareErrorCode.DefectiveFirmware) {
     return 'defective';
@@ -61,11 +71,7 @@ export function classifyAuthFailureError(
   if (isHardwareErrorByCode({ error, code: DEVICE_GONE_CODES })) {
     return 'disconnected';
   }
-  if (
-    error?.code === HardwareErrorCode.NetworkError ||
-    error?.code === HardwareErrorCode.BridgeNetworkError ||
-    isTransientNetworkLikeError(error)
-  ) {
+  if (isTransientNetworkLikeError(error)) {
     return 'network';
   }
   return 'unknown';
