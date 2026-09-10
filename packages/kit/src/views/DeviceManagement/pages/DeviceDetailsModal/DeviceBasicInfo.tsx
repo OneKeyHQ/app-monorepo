@@ -11,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
   getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
@@ -23,28 +24,21 @@ import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { DeviceFlickerAvatar } from '../../components/DeviceFlickerAvatar';
-import { useDeviceFlickerTrace } from '../../debugDeviceFlicker';
-
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 function DeviceWalletAvatar({
   badge,
   firmwareTypeBadge,
   size,
-  parentInstance,
 }: {
   badge: number | string | undefined;
   firmwareTypeBadge: EFirmwareType | undefined;
   size: number;
-  parentInstance: string;
 }) {
   const [walletWithDevice] = useWalletWithDeviceAtom();
   const { wallet } = walletWithDevice ?? {};
   return (
-    <DeviceFlickerAvatar
-      traceName="details-avatar"
-      parentInstance={parentInstance}
+    <WalletAvatar
       size={size}
       wallet={wallet}
       status="default"
@@ -105,13 +99,6 @@ function DeviceBasicInfo({
 
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
 
-  const { instance } = useDeviceFlickerTrace('details-header', {
-    isQrWallet,
-    ready: deviceMetaState.isReady,
-    refreshSettled,
-    skeleton: !isQrWallet && !deviceMetaState.isReady && !refreshSettled,
-  });
-
   const avatarSize = gtMd ? 100 : 88;
   const titleTextSize: '$headingXl' | '$heading2xl' = gtMd
     ? '$heading2xl'
@@ -161,7 +148,6 @@ function DeviceBasicInfo({
       <XStack pt={10} h={100} gap="$4" ai="center">
         <XStack w={80} ai="center" jc="center">
           <DeviceWalletAvatar
-            parentInstance={instance}
             badge={undefined}
             firmwareTypeBadge={deviceMetaStatic.firmwareType}
             size={avatarSize}

@@ -30,9 +30,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { useDeviceFlickerTrace } from '../../debugDeviceFlicker';
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
-import { useDeviceFlickerNavigation } from '../../hooks/useDeviceFlickerNavigation';
 import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalStyle';
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 
@@ -78,7 +76,6 @@ function DeviceDetailsModalV2Cmp({
   walletId: string;
   initialDeviceVendor?: EHardwareVendor;
 }) {
-  useDeviceFlickerNavigation('details-navigation');
   const intl = useIntl();
   const localActions = useDeviceDetailsActions();
   const { applyDeviceStateEvent, refresh } = localActions;
@@ -110,24 +107,15 @@ function DeviceDetailsModalV2Cmp({
     hasLoadedDevice,
   });
 
-  const { trace } = useDeviceFlickerTrace('details', {
-    hasLoadedDevice,
-    ready: deviceMetaState.isReady,
-    showInteractiveSections,
-    showDeviceSettings,
-  });
-
   const refreshCurrentDevice = useCallback(async () => {
     if (!walletId) return;
     // 设备详情页打开时优先展示已持久化的设备状态，避免页面聚焦就主动
     // 建立连接，尤其是在没有已绑定 BLE connectId 时触发后台搜索/配对。
-    trace('refresh-start', { skipSnapshot: true });
     const data = await refresh(walletId, { skipDeviceStateSnapshot: true });
-    trace('refresh-end', { hasData: Boolean(data) });
     if (!data) {
       void handleBackPress?.();
     }
-  }, [refresh, walletId, handleBackPress, trace]);
+  }, [refresh, walletId, handleBackPress]);
 
   const refreshConfirmedState = useCallback(
     async (
