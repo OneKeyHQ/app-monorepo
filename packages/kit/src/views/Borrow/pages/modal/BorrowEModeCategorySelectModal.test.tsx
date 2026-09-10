@@ -31,6 +31,9 @@ jest.mock('@onekeyhq/components', () => {
       children,
       testID,
       onPress,
+      onKeyDown,
+      role,
+      tabIndex,
       name,
       ...rest
     }: IMockProps) {
@@ -40,6 +43,10 @@ jest.mock('@onekeyhq/components', () => {
           'data-testid': testID,
           'data-icon': name,
           'data-opacity': rest.opacity,
+          'aria-disabled': rest['aria-disabled'],
+          role,
+          tabIndex,
+          onKeyDown,
           onClick: onPress,
         },
         children,
@@ -87,6 +94,16 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
   useAppRoute: () => ({
     params: (globalThis as Record<string, any>).__eModeRouteParams,
   }),
+}));
+
+// jest.mock is hoisted, so the factory runs before this const initializes; the
+// `mock` prefix clears the out-of-scope guard and the wrapper defers the read
+// until the hook is actually called.
+const mockUseBorrowEModeStatus = jest.fn();
+jest.mock('@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus', () => ({
+  __esModule: true,
+  useBorrowEModeStatus: (params: unknown) =>
+    mockUseBorrowEModeStatus(params) as unknown,
 }));
 
 import { fireEvent, render } from '@testing-library/react';
@@ -142,16 +159,29 @@ const eModeStatus: IBorrowEModeStatus = {
   ],
 } as IBorrowEModeStatus;
 
+const scope = {
+  networkId: 'evm--8453',
+  provider: 'aave_v3',
+  marketAddress: '0xmarket',
+  accountId: 'acc-1',
+};
+
 function renderModal({
   selectedEModeId = 1,
   onSelect = jest.fn(),
-}: { selectedEModeId?: number | null; onSelect?: jest.Mock } = {}) {
+  status = eModeStatus,
+}: {
+  selectedEModeId?: number | null;
+  onSelect?: jest.Mock;
+  status?: IBorrowEModeStatus | null;
+} = {}) {
   (globalThis as Record<string, any>).__eModeRouteParams = {
-    eModeStatus,
+    ...scope,
     selectedEModeId,
     onSelect,
   };
   (globalThis as Record<string, any>).__eModePop = pop;
+  mockUseBorrowEModeStatus.mockReturnValue({ eModeStatus: status });
   return { onSelect, ...render(<BorrowEModeCategorySelectModal />) };
 }
 
@@ -163,6 +193,7 @@ const rowOf = (container: HTMLElement, eModeId: number) =>
 describe('BorrowEModeCategorySelectModal', () => {
   beforeEach(() => {
     pop.mockClear();
+    mockUseBorrowEModeStatus.mockClear();
   });
 
   it('lists the synthetic Off row ahead of every backend category', () => {
@@ -209,7 +240,8 @@ describe('BorrowEModeCategorySelectModal', () => {
 
     expect(container.textContent).not.toContain('defi_collateral');
     expect(container.textContent).not.toContain('defi_borrowable');
-    expect(container.querySelector('[data-tokens]')).toBeNull();
+    expect(container.textContent).not.toContain('USDC');
+    expect(container.textContent).not.toContain('WETH');
   });
 
   it('reports the pick and closes itself', () => {
@@ -228,5 +260,70 @@ describe('BorrowEModeCategorySelectModal', () => {
 
     expect(onSelect).not.toHaveBeenCalled();
     expect(pop).not.toHaveBeenCalled();
+  });
+
+  // This screen replaced a Select, which was a real listbox. An XStack with an
+  // onPress carries no keyboard path of its own, so the rows have to state it.
+  it('picks a category from the keyboard', () => {
+    const { container, onSelect } = renderModal();
+    const row = rowOf(container, 0);
+
+    expect(row.getAttribute('role')).toBe('button');
+    expect(row.getAttribute('tabindex')).toBe('0');
+
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(onSelect).toHaveBeenCalledWith(0);
+
+    fireEvent.keyDown(row, { key: ' ' });
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores keys that are not Enter or Space', () => {
+    const { container, onSelect } = renderModal();
+
+    fireEvent.keyDown(rowOf(container, 0), { key: 'a' });
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('keeps a disabled category off the tab order and marks it for a11y', () => {
+    const { container } = renderModal();
+    const row = rowOf(container, 2);
+
+    expect(row.getAttribute('tabindex')).toBeNull();
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.keyDown(row, { key: 'Enter' });
+  });
+
+  // Route params are captured once at push time. Reading the status through
+  // the hook is what keeps a pick correct after a pending setEMode confirms
+  // while this screen is open.
+  it('reads the status from the hook, scoped to the pushed params', () => {
+    renderModal();
+
+    expect(mockUseBorrowEModeStatus).toHaveBeenCalledWith({
+      ...scope,
+      enabled: true,
+    });
+  });
+
+  it('follows the hook when the current category changes underneath it', () => {
+    const { container } = renderModal({
+      status: { ...eModeStatus, eModeId: 2 } as IBorrowEModeStatus,
+    });
+
+    expect(rowOf(container, 2).textContent).toContain('global_current');
+    expect(rowOf(container, 1).textContent).not.toContain('global_current');
+  });
+
+  it('renders nothing to pick while the status is still resolving', () => {
+    const { container } = renderModal({ status: null });
+
+    expect(
+      container.querySelectorAll(
+        '[data-testid^="borrow-e-mode-category-row-"]',
+      ),
+    ).toHaveLength(0);
   });
 });
