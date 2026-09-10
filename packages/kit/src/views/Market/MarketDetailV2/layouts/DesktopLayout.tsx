@@ -346,6 +346,18 @@ export function DesktopLayout({
     : undefined;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
+      // Market sources without an address include the symbol in their identity. Wait
+      // for metadata instead of mounting an empty-symbol chart and replacing it.
+      if (
+        tradingViewNativeSource.kind === 'market' &&
+        (!tradingViewNativeSource.networkId ||
+          (!tradingViewNativeSource.tokenAddress.trim() &&
+            !tradingViewNativeSource.symbol.trim()))
+      ) {
+        return (
+          <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
+        );
+      }
       return networkId || tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}

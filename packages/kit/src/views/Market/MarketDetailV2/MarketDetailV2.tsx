@@ -253,6 +253,7 @@ function MarketDetail({
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
+            isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
               isTokenVariantPending || isInitialTokenDetailPending

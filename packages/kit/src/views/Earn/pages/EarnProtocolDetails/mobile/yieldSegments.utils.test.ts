@@ -135,13 +135,42 @@ describe('buildHeadlineApyParts', () => {
       buildHeadlineApyParts([
         { kind: 'base', rate: '5.10', color: '$textSuccess' },
         { kind: 'campaign', rate: '2.12', color: '$textCaution' },
-        { kind: 'fee', rate: '-1.00' },
       ] as any),
     ).toEqual({
       base: '5.10%',
       bonus: '+2.12%',
       bonusColor: '$textCaution',
     });
+  });
+
+  it('folds the performance fee into the base half so the halves add up to the total', () => {
+    // Spark USDT as the server sent it: 3.25 base, 20 campaign, -0.16 fee,
+    // total "23.09% APY". Showing 3.25 left the fee out of the headline while
+    // the sheet below said 23.09 (OK-62389).
+    expect(
+      buildHeadlineApyParts(
+        [
+          { kind: 'base', rate: '3.25', color: '$textSuccess' },
+          { kind: 'campaign', rate: '20.00', color: '$textCaution' },
+          { kind: 'fee', rate: '-0.16' },
+        ] as any,
+        '23.09% APY',
+      ),
+    ).toEqual({
+      base: '3.09%',
+      bonus: '+20.00%',
+      bonusColor: '$textCaution',
+      unit: 'APY',
+    });
+  });
+
+  it('takes the unit from the total text and omits it when there is none', () => {
+    const items = [{ kind: 'base', rate: '1.15' }] as any;
+    expect(buildHeadlineApyParts(items, '1.04% APR')).toMatchObject({
+      unit: 'APR',
+    });
+    expect(buildHeadlineApyParts(items, '1.04%')).not.toHaveProperty('unit');
+    expect(buildHeadlineApyParts(items)).not.toHaveProperty('unit');
   });
 
   it('sums several bonus rows into one figure', () => {
@@ -174,12 +203,13 @@ describe('buildHeadlineApyParts', () => {
   });
 
   it('drops the bonus half when there is none', () => {
+    // The fee still folds into base: 4.00 - 0.50.
     expect(
       buildHeadlineApyParts([
         { kind: 'base', rate: '4.00', color: '$textSuccess' },
         { kind: 'fee', rate: '-0.5' },
       ] as any),
-    ).toEqual({ base: '4.00%' });
+    ).toEqual({ base: '3.50%' });
   });
 
   it('gives up when the breakdown has no base row', () => {
