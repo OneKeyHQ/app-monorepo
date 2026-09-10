@@ -53,7 +53,7 @@ const actionListMocks = (globalThis as Record<string, unknown>)
 
 type ITriggerProps = {
   children: string;
-  iconAfter: string;
+  iconAfter?: string;
   onPress: () => void;
   testID: string;
   variant: string;
@@ -92,7 +92,8 @@ describe('EModeGetFundsAction', () => {
     expect(props).toEqual(
       expect.objectContaining({
         items,
-        placement: 'bottom-end',
+        // The trigger sits on the bottom edge of the page.
+        placement: 'top',
         renderTrigger: expect.anything(),
         // The sheet keeps the symbol; only the button drops it.
         title: 'defi_emode_get_symbol__action:USDT',
@@ -101,18 +102,21 @@ describe('EModeGetFundsAction', () => {
     expect(props.renderTrigger.props.testID).toBe(
       BorrowTestIDs.eModeNeedActionGetFundsBtn,
     );
-    expect(props.renderTrigger.props.variant).toBe('secondary');
+    // It is the live action on a screen whose confirm is disabled.
+    expect(props.renderTrigger.props.variant).toBe('primary');
     expect(actionListMocks.showActionList).not.toHaveBeenCalled();
 
     props.renderTrigger.props.onPress();
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('labels the button without the token symbol, and marks it expandable', () => {
+  it('labels the button without the token symbol or a trailing chevron', () => {
     const { props } = renderAction(jest.fn());
 
     expect(props.renderTrigger.props.children).toBe('global.top_up');
     expect(props.renderTrigger.props.children).not.toContain('USDT');
-    expect(props.renderTrigger.props.iconAfter).toBe('ChevronDownSmallOutline');
+    // At half the footer width the glyph costs room the label needs once it is
+    // German or Russian.
+    expect(props.renderTrigger.props.iconAfter).toBeUndefined();
   });
 });
