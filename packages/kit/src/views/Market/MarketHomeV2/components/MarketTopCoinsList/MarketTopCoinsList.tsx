@@ -15,9 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
@@ -35,6 +33,7 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
+import { MarketTopCoinStar } from './MarketTopCoinStar';
 
 type IMarketTopCoinsListProps = {
   tabIntegrated?: boolean;
@@ -142,11 +141,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
             alignItems="center"
             justifyContent="center"
           >
-            <MarketListingStar
-              kind="asset"
-              listingId={record.assetId}
-              from={EWatchlistFrom.Homepage}
-            />
+            <MarketTopCoinStar token={record} />
           </Stack>
         ),
         renderSkeleton: () => (
