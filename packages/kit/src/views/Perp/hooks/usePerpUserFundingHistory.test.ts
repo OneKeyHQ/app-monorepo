@@ -245,6 +245,7 @@ describe('funding history refresh lifecycle', () => {
     expect(mockGetUserFundingHistory).toHaveBeenCalledTimes(4);
     expect(mockGetUserFundingHistory).toHaveBeenLastCalledWith({
       accountAddress: '0xDef',
+      force: false,
     });
   });
 });
