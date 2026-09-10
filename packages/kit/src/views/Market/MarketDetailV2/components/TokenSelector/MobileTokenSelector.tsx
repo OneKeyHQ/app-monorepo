@@ -121,18 +121,10 @@ function MobileTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
-        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [
-      tokenDetailActions,
-      navigation,
-      navigateToPerps,
-      searchValueDebounce,
-      showFavoriteButton,
-      startListSelect,
-    ],
+    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
   );
 
   const handleTokenSelect = useCallback(

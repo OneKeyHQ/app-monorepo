@@ -294,7 +294,6 @@ function BaseMarketTokenSelectorContent({
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
-        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
           startListSelect || searchValueDebounce ? undefined : selectedCategory,
@@ -352,7 +351,6 @@ function BaseMarketTokenSelectorContent({
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
-            testID="market-token-selector-search"
             containerProps={{
               borderRadius: '$2',
               mx: '$2',
