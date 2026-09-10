@@ -148,6 +148,7 @@ export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
 
 export interface IMarketDesktopLayout {
   chartHeight?: number;
+  chartHeightUpdateId?: string;
 }
 
 export const {

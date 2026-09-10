@@ -12,6 +12,7 @@ import { Stack, useTheme } from '@onekeyhq/components';
 import { useMarketDesktopLayoutAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { MARKET_DESKTOP_CHART_MIN_HEIGHT } from '../../../marketDesktopLayoutConstants';
 
@@ -47,14 +48,20 @@ export function MarketDesktopChartContainer({
   );
   const [layoutState, setLayoutState] = useMarketDesktopLayoutAtom();
   const [dragHeight, setDragHeight] = useState<number>();
-  const [pendingHeight, setPendingHeight] = useState<number>();
+  const [pendingSave, setPendingSave] = useState<{
+    id: string;
+    height: number;
+  }>();
+  const pendingSaveRef = useRef(pendingSave);
+  const latestSaveRef = useRef(pendingSave);
+  const acknowledgementTimerRef =
+    useRef<ReturnType<typeof setTimeout>>(undefined);
   const saveQueueRef = useRef(Promise.resolve());
-  const saveRequestRef = useRef(0);
   const isMountedRef = useRef(true);
   const savedHeight = layoutState.chartHeight;
   const chartHeight = clampChartHeight(
     dragHeight ??
-      pendingHeight ??
+      pendingSave?.height ??
       (typeof savedHeight === 'number' && Number.isFinite(savedHeight)
         ? savedHeight
         : MARKET_DESKTOP_CHART_MIN_HEIGHT),
@@ -71,46 +78,98 @@ export function MarketDesktopChartContainer({
     | undefined
   >(undefined);
 
+  const clearPendingSave = useCallback((id: string) => {
+    if (pendingSaveRef.current?.id !== id) {
+      return;
+    }
+    clearTimeout(acknowledgementTimerRef.current);
+    pendingSaveRef.current = undefined;
+    if (isMountedRef.current) {
+      setPendingSave(undefined);
+    }
+  }, []);
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      clearTimeout(acknowledgementTimerRef.current);
     };
   }, []);
 
+  useEffect(() => {
+    // A matching height alone can be the stale mirror of a return-to-start save.
+    if (
+      pendingSave &&
+      layoutState.chartHeightUpdateId === pendingSave.id &&
+      savedHeight === pendingSave.height
+    ) {
+      clearPendingSave(pendingSave.id);
+    }
+  }, [
+    clearPendingSave,
+    layoutState.chartHeightUpdateId,
+    pendingSave,
+    savedHeight,
+  ]);
+
   const saveHeight = useCallback(
-    (height: number) => {
-      saveRequestRef.current += 1;
-      const request = saveRequestRef.current;
-      setPendingHeight(height);
-      const finish = () => {
-        if (isMountedRef.current && saveRequestRef.current === request) {
-          setPendingHeight(undefined);
+    function enqueueSave(height: number) {
+      const request = { id: generateUUID(), height };
+      latestSaveRef.current = request;
+      pendingSaveRef.current = request;
+      clearTimeout(acknowledgementTimerRef.current);
+      if (isMountedRef.current) {
+        setPendingSave(request);
+      }
+      // Coalesce queued inputs, but keep a bound on an unresponsive bridge.
+      saveQueueRef.current = saveQueueRef.current.then(() => {
+        if (latestSaveRef.current !== request) {
+          return undefined;
         }
-      };
-      // Keep only the latest queued preference. Bound each bridge round trip
-      // so a missing response releases both the queue and the local override.
-      saveQueueRef.current = saveQueueRef.current
-        .then(() => {
-          if (saveRequestRef.current !== request) {
-            return undefined;
-          }
-          return makeTimeoutPromise({
-            asyncFunc: async () => {
-              // Always send a new object, even if the UI mirror still matches.
-              await Promise.resolve(
-                setLayoutState((prev) => ({ ...prev, chartHeight: height })),
+        let timedOut = false;
+        return makeTimeoutPromise({
+          asyncFunc: async () => {
+            await Promise.resolve(
+              setLayoutState((prev) => ({
+                ...prev,
+                chartHeight: height,
+                chartHeightUpdateId: request.id,
+              })),
+            );
+            // A timeout releases the queue, not the original write. Repair a
+            // late write even after unmount so the latest preference wins.
+            const latest = latestSaveRef.current;
+            if (timedOut && latest && latest !== request) {
+              enqueueSave(latest.height);
+            }
+          },
+          timeout: MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
+          onTimeout: () => {
+            timedOut = true;
+          },
+          timeoutRejectError: new OneKeyLocalError(
+            'Chart height save timed out',
+          ),
+        })(undefined).then(
+          () => {
+            // RPC completion can precede the UI broadcast. Keep the overlay
+            // until that acknowledgement, with a bound for a lost broadcast.
+            if (
+              isMountedRef.current &&
+              pendingSaveRef.current?.id === request.id
+            ) {
+              acknowledgementTimerRef.current = setTimeout(
+                () => clearPendingSave(request.id),
+                MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
               );
-            },
-            timeout: MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
-            timeoutRejectError: new OneKeyLocalError(
-              'Chart height save timed out',
-            ),
-          })(undefined);
-        })
-        .then(finish, finish);
+            }
+          },
+          () => clearPendingSave(request.id),
+        );
+      });
     },
-    [setLayoutState],
+    [clearPendingSave, setLayoutState],
   );
 
   const handlePointerDown = useCallback(
