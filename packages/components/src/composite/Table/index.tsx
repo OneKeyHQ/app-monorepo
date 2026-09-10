@@ -689,6 +689,7 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
+          keyExtractor={showSkeleton ? undefined : keyExtractor}
           ListHeaderComponent={listHeaderComponent}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
@@ -714,6 +715,7 @@ function BasicTable<T>({
       handleDragBegin,
       onDragEnd,
       keyExtractor,
+      showSkeleton,
       TableFooterComponent,
       TableEmptyComponent,
       extraData,
