@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -127,6 +128,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
@@ -144,6 +146,7 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import { resolveOffTabTokenListRefreshOnMount } from './offTabRefresh';
 import { PortfolioSyncButton } from './PortfolioSyncButton';
 import {
   countFundedHardwarePortfolioTokens,
@@ -3245,6 +3248,29 @@ function TokenListBlock({
     refreshSingleNetworkTokenListByTarget,
     showLpTokensOnly,
   ]);
+
+  // The fetch above is gated on this tab being focused, and an account switch
+  // remounts the whole home tab container. When that happens while another
+  // home tab is active, nothing fetches the new owner until the user returns,
+  // leaving the always-visible header worth on a skeleton. The off-tab
+  // network-switch path (RefreshTokenList with refreshByProvidedAccounts,
+  // emitted by HomePageView) cannot cover this: it fires before the remounted
+  // list has subscribed. Refresh the mounted owner explicitly instead.
+  const activeHomeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
+  useEffect(() => {
+    const target = resolveOffTabTokenListRefreshOnMount({
+      accountId: account?.id,
+      networkId: network?.id,
+      indexedAccountId: indexedAccount?.id,
+      activeTabId: activeHomeTabId,
+    });
+    if (target) {
+      void refreshSingleNetworkTokenListByTarget(target);
+    }
+    // Owner-keyed on purpose: re-running on tab changes would refetch on
+    // every tab switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account?.id, network?.id]);
 
   useEffect(() => {
     if (isEmptyAccount) {
