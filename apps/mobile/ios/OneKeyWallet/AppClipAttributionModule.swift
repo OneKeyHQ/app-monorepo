@@ -49,6 +49,7 @@ final class AppClipAttributionModule: NSObject {
       AppClipAttributionFallbackStore.clear(matchingClickId: clickId)
       resolve(nil)
     } catch {
+      AppClipAttributionFallbackStore.markCleared(clickId: clickId)
       reject(
         "APP_CLIP_ATTRIBUTION_CLEAR_FAILED",
         error.localizedDescription,
@@ -61,9 +62,19 @@ final class AppClipAttributionModule: NSObject {
 private enum AppClipAttributionFallbackStore {
   private static let recordKey = "app_clip_attribution_pending_fallback_v1"
   private static let updatedAtKey = "app_clip_attribution_pending_fallback_updated_at_v1"
+  private static let clearedClickIdKey = "app_clip_attribution_cleared_click_id_v1"
   private static let defaults = UserDefaults.standard
 
   static func load(sharedRecord: AppClipAttributionRecord?) -> [String: Any]? {
+    if let clearedClickId = defaults.string(forKey: clearedClickIdKey) {
+      guard let sharedRecord else {
+        return nil
+      }
+      if sharedRecord.clickId == clearedClickId {
+        return nil
+      }
+      defaults.removeObject(forKey: clearedClickIdKey)
+    }
     guard
       let data = defaults.data(forKey: recordKey),
       let fallbackRecord = try? PropertyListSerialization.propertyList(
@@ -116,6 +127,11 @@ private enum AppClipAttributionFallbackStore {
       return
     }
     clear()
+  }
+
+  static func markCleared(clickId: String) {
+    clear()
+    defaults.set(clickId, forKey: clearedClickIdKey)
   }
 
   private static func clear() {
