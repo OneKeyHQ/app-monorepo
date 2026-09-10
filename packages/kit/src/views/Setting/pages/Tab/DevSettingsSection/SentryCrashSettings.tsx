@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { exportLogs } from '../exportLogs';
+
 import { SectionPressItem } from './SectionPressItem';
 
 export function SentryCrashSettings() {
@@ -31,8 +33,18 @@ export function SentryCrashSettings() {
   if (platformEnv.isNative) {
     sections.push(
       <SectionPressItem
+        icon="DownloadOutline"
+        key="SentryCrashDiagnosticsExport"
+        testID="sentry-native-crash-export"
+        title="Export Logs With Native Crash Diagnostics"
+        onPress={() => {
+          void exportLogs(`OneKeyNativeCrashDiagnostics-${Date.now()}`);
+        }}
+      />,
+      <SectionPressItem
         icon="SendOutline"
         key="SentryCrashTest3"
+        testID="sentry-native-crash"
         title="Sentry Native Crash"
         onPress={() => {
           nativeCrash();

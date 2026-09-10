@@ -3,6 +3,7 @@ type INativeSentryOptions = Parameters<
 >[0];
 
 const initMock = jest.fn<void, [INativeSentryOptions]>();
+const nativeInitializeMock = jest.fn(() => true);
 
 function passthrough<T>(value: T): T {
   return value;
@@ -17,11 +18,21 @@ jest.mock('@sentry/react-native', () => ({
   wrap: jest.fn(passthrough),
 }));
 
+jest.mock('react-native', () => ({
+  NativeModules: {
+    OneKeySentryCrashDiagnostics: {
+      initialize: nativeInitializeMock,
+    },
+  },
+}));
+
 describe('initSentry', () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     initMock.mockClear();
+    nativeInitializeMock.mockReset();
+    nativeInitializeMock.mockReturnValue(true);
     jest.resetModules();
     process.env.NODE_ENV = 'production';
   });
@@ -45,6 +56,25 @@ describe('initSentry', () => {
     expect(initMock).toHaveBeenCalledTimes(1);
     expect(initMock.mock.calls[0][0].tracesSampleRate).toBeUndefined();
     expect(initMock.mock.calls[0][0].profilesSampleRate).toBeUndefined();
+    expect(nativeInitializeMock).toHaveBeenCalledTimes(1);
+    expect(initMock.mock.calls[0][0].autoInitializeNativeSdk).toBe(false);
+  });
+
+  test('keeps automatic native initialization as a fallback', () => {
+    nativeInitializeMock.mockReturnValue(false);
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+      const {
+        initSentry,
+      }: {
+        initSentry: () => void;
+      } = require('./index.native');
+
+      initSentry();
+    });
+
+    expect(initMock).toHaveBeenCalledTimes(1);
+    expect(initMock.mock.calls[0][0].autoInitializeNativeSdk).toBeUndefined();
   });
 
   test('sanitizes sensitive data with the React Native v10 event callback', () => {

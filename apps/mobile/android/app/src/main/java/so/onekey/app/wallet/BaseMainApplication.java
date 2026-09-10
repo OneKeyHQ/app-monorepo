@@ -44,6 +44,8 @@ import java.util.List;
 
 import org.json.JSONObject;
 
+import so.onekey.app.wallet.sentry.OneKeySentryCrashDiagnosticsModule;
+import so.onekey.app.wallet.sentry.OneKeySentryCrashDiagnosticsPackage;
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
@@ -108,6 +110,7 @@ public class BaseMainApplication extends Application implements ReactApplication
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
+        packages.add(new OneKeySentryCrashDiagnosticsPackage());
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
         return packages;
       }
@@ -182,6 +185,7 @@ public class BaseMainApplication extends Application implements ReactApplication
         if (mReactHost == null) {
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
+          mainPackages.add(new OneKeySentryCrashDiagnosticsPackage());
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
@@ -451,6 +455,8 @@ public class BaseMainApplication extends Application implements ReactApplication
     if (!isDefaultMainProcess) {
       return;
     }
+
+    OneKeySentryCrashDiagnosticsModule.persistPendingNativeCrashEnvelopes(this);
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
     OneKeyLog.info(

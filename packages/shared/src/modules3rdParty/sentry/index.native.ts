@@ -7,6 +7,7 @@ import {
   withProfiler,
   wrap,
 } from '@sentry/react-native';
+import { NativeModules } from 'react-native';
 
 import appGlobals from '../../appGlobals';
 
@@ -19,6 +20,23 @@ import type { FallbackRender } from '@sentry/react';
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
+
+type IOneKeySentryCrashDiagnosticsModule = {
+  initialize: (options: {
+    appHangTimeoutInterval: number;
+    attachScreenshot: boolean;
+    attachViewHierarchy: boolean;
+    dsn: string;
+    enableAppHangTracking: boolean;
+    enableNativeCrashHandling: boolean;
+    enableNdk: boolean;
+    enableWatchdogTerminationTracking: boolean;
+    enabled: boolean;
+    maxBreadcrumbs: number;
+    maxCacheItems: number;
+    sendDefaultPii: boolean;
+  }) => boolean;
+};
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -55,13 +73,38 @@ export const initSentry = () => {
     maxBreadcrumbs: basicOptions.maxBreadcrumbs,
     beforeSend: nativeBeforeSend,
   };
-
-  init({
+  const nativeInitializationOptions = {
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...nativeBasicOptions,
+    enabled: nativeBasicOptions.enabled,
+    maxBreadcrumbs: nativeBasicOptions.maxBreadcrumbs,
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
+    enableNativeCrashHandling: true,
+    enableNdk: true,
+    enableWatchdogTerminationTracking: false,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
+    sendDefaultPii: false,
+  };
+  const crashDiagnosticsModule = NativeModules.OneKeySentryCrashDiagnostics as
+    | IOneKeySentryCrashDiagnosticsModule
+    | undefined;
+  let didInitializeNativeSdk = false;
+  try {
+    didInitializeNativeSdk =
+      crashDiagnosticsModule?.initialize(nativeInitializationOptions) === true;
+  } catch (error) {
+    console.error(
+      'Failed to initialize native Sentry crash diagnostics',
+      error,
+    );
+  }
+
+  init({
+    ...nativeInitializationOptions,
+    ...nativeBasicOptions,
+    ...(didInitializeNativeSdk ? { autoInitializeNativeSdk: false } : {}),
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
@@ -74,11 +117,6 @@ export const initSentry = () => {
     // enableNativeCrashHandling and enableNdk are kept enabled because they only
     // collect stack traces and thread stack memory (not Hermes JS
     // heap), which is safe for privacy and essential for diagnosing native crashes.
-    enableNativeCrashHandling: true,
-    enableNdk: true,
-    enableWatchdogTerminationTracking: false,
-    attachScreenshot: false,
-    attachViewHierarchy: false,
   });
 };
 
