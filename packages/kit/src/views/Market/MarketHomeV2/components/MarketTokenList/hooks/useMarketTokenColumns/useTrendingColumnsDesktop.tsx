@@ -325,10 +325,15 @@ export function useTrendingColumnsDesktop({
         title: (
           <MarketSplitSortHeader
             segments={[
-              { field: 'marketCap', label: 'MCap' },
+              {
+                field: 'marketCap',
+                label: intl.formatMessage({ id: ETranslations.market_mcap }),
+              },
               {
                 field: 'price',
-                label: `/${intl.formatMessage({
+                // The slash is the separator between the two sort controls, so
+                // it needs air on the label side rather than sitting flush.
+                label: `/ ${intl.formatMessage({
                   id: ETranslations.global_price,
                 })}`,
               },
@@ -377,7 +382,7 @@ export function useTrendingColumnsDesktop({
             <NumberSizeableText
               size="$bodyLgMedium"
               color={changeColor}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
             >
               {value}

@@ -164,7 +164,7 @@ const MarketTokenSelectorRow = memo(
           ) : (
             <NumberSizeableText
               size={METRIC_TEXT_SIZE}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
               color={changeColor}
             >

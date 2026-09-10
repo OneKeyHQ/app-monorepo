@@ -13,7 +13,7 @@ import { useMarketStockColumns } from './useMarketStockColumns';
 const MOCK_MESSAGES: Record<string, string> = {
   'global.price': 'Price',
   'market.stock_price_underlying_tooltip':
-    'The displayed price is the underlying stock price.',
+    'This is the price of the underlying security this token tracks, not the on-chain token price. While the market is closed, it shows the last close.',
 };
 
 jest.mock('react-intl', () => ({
@@ -91,23 +91,11 @@ describe('useMarketStockColumns', () => {
       expect(value.props.size).toBe('$bodyMdMedium');
     });
 
-    const priceTitle = columns[1]?.title as ReactElement<{
-      placement?: string;
-      renderTrigger?: ReactElement<{
-        children?: string;
-        dashSpacing?: number;
-        dashThickness?: number;
-      }>;
-      renderContent?: ReactElement<{ children?: string }>;
-    }>;
-    expect(priceTitle.props.placement).toBe('top');
-    expect(priceTitle.props.renderTrigger?.props).toMatchObject({
-      children: 'Price',
-      dashSpacing: 0,
-      dashThickness: 0.5,
-    });
-    expect(priceTitle.props.renderContent?.props.children).toBe(
-      'The displayed price is the underlying stock price.',
+    // The header sorts, so the tooltip belongs to the table's own header
+    // rather than to a trigger nested in the title.
+    expect(columns[1]?.title).toBe('Price');
+    expect(columns[1]?.titleTooltip).toBe(
+      MOCK_MESSAGES['market.stock_price_underlying_tooltip'],
     );
   });
 
@@ -123,9 +111,10 @@ describe('useMarketStockColumns', () => {
     ) as ReactElement<{ size?: string }>;
 
     expect(priceColumn?.title).toBe('Price');
-    expect(priceColumn?.titleProps).toEqual({
-      textDecorationLine: 'underline',
-    });
+    expect(priceColumn?.titleTooltip).toBe(
+      MOCK_MESSAGES['market.stock_price_underlying_tooltip'],
+    );
+    expect(priceColumn?.titleProps).toBeUndefined();
     expect(priceValue.props.size).toBe('$bodyLgMedium');
   });
 });
