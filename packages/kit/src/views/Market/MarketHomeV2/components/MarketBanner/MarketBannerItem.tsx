@@ -233,7 +233,7 @@ function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
       <NumberSizeableText
         size="$bodyMdMedium"
         formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns: true }}
+        formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
         color={changeColor}
         numberOfLines={1}
         width="$20"
