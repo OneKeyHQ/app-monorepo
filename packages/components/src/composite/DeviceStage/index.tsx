@@ -1560,13 +1560,17 @@ export function DeviceStage({
           {/* A vendor pinOnApp is the Trezor matrix by definition (Ledger
               never asks the app for a PIN): nine positions, and no
               on-device switch — the button devices that reach this step
-              cannot take the PIN themselves, whatever the driver wires. */}
+              cannot take the PIN themselves, whatever the driver wires.
+              The four-digit floor is OneKey's own rule (OK-62090): the
+              matrix takes a PIN from one position up, as its dedicated
+              pad always did. */}
           <PinPad
             onSubmit={onPinSubmit}
             onSwitchToDevice={vendor ? undefined : onSwitchToDevice}
             error={inputError}
             resetSignal={pinEpoch}
             noZeroKey={Boolean(vendor)}
+            minLength={vendor ? 1 : undefined}
           />
         </View>
       </YStack>

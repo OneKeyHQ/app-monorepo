@@ -156,6 +156,10 @@ export interface IPinPadProps {
   /** The Trezor matrix shape: nine positions, no 0 key — the slot
    * between delete and confirm renders empty. */
   noZeroKey?: boolean;
+  /** The shortest PIN Confirm accepts. OneKey's own floor is four digits
+   * (OK-62090); a vendor pad passes its own — a Trezor PIN may be a
+   * single position. */
+  minLength?: number;
 }
 
 export function PinPad({
@@ -164,6 +168,7 @@ export function PinPad({
   error,
   resetSignal,
   noZeroKey,
+  minLength = MIN_PIN_LENGTH,
 }: IPinPadProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -218,7 +223,7 @@ export function PinPad({
         // prompt plus shake. The ratified call: better usability than a
         // disabled key.
         const entered = valueRef.current.length;
-        if (entered < MIN_PIN_LENGTH) {
+        if (entered < minLength) {
           setRefusal(entered ? 'short' : 'empty');
           shake();
           return;
@@ -236,7 +241,7 @@ export function PinPad({
       }
       setValue((v) => (v.length >= MAX_PIN_LENGTH ? v : v + key));
     },
-    [onSubmit, shake],
+    [minLength, onSubmit, shake],
   );
 
   const dots = useMemo(
