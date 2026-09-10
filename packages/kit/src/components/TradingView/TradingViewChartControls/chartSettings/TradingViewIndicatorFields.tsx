@@ -529,6 +529,9 @@ export function TradingViewIndicatorOpacitySlider({
             min={0}
             max={100}
             segments={TRADING_VIEW_INDICATOR_OPACITY_SEGMENTS}
+            // Web snaps taps on a mark by itself; native needs the opt-in to
+            // match it. Drags stay free on both.
+            snapTapToSegment
             sliderHeight={2}
             showBubble={false}
             value={value}

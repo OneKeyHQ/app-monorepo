@@ -1,3 +1,5 @@
+import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicDetail } from '@onekeyhq/shared/types/marketV2';
 
 /**
@@ -39,4 +41,57 @@ export function getMarketStockTokenPreviousClose({
   return Number.isFinite(ratio) && ratio > 0
     ? sharePreviousClose * ratio
     : sharePreviousClose;
+}
+
+/**
+ * Previous close for a stock detail chart in its price mode. The token price
+ * uses the selected variant's shares per token and only borrows the token
+ * detail's ratio when that detail describes the same token, so an unusable
+ * variant ratio never picks up another variant's scale.
+ */
+export function getMarketStockChartPreviousClose({
+  priceSource,
+  stockDetail,
+  selectedTokenVariant,
+  tokenDetail,
+  tokenDetailNetworkId,
+}: {
+  priceSource: 'share' | 'token';
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+  selectedTokenVariant?: {
+    networkId: string;
+    contractAddress: string;
+    tokenToAssetRatio?: string;
+  };
+  tokenDetail?: {
+    address?: string;
+    stock?: { tokenToAssetRatio?: string } | null;
+  };
+  tokenDetailNetworkId?: string;
+}): number | undefined {
+  if (priceSource === 'share') {
+    return getMarketStockPreviousClose(stockDetail);
+  }
+  const selectedVariantMatchesTokenDetail = Boolean(
+    selectedTokenVariant &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: selectedTokenVariant.networkId,
+        contractAddress: selectedTokenVariant.contractAddress,
+      },
+      token2: {
+        networkId: tokenDetailNetworkId,
+        contractAddress: tokenDetail?.address,
+      },
+    }),
+  );
+  return getMarketStockTokenPreviousClose({
+    stockDetail,
+    tokenToAssetRatio: resolveStockTokenToAssetRatio({
+      selectedVariantRatio: selectedTokenVariant?.tokenToAssetRatio,
+      tokenDetailRatio: tokenDetail?.stock?.tokenToAssetRatio,
+      hasSelectedVariant: Boolean(selectedTokenVariant),
+      selectedVariantMatchesTokenDetail,
+    }),
+  });
 }

@@ -485,6 +485,54 @@ describe('LightweightChart', () => {
     ]);
   });
 
+  it('applies the last-value label options to histogram series', async () => {
+    const series = {
+      applyOptions: jest.fn(),
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn(),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn(),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+
+    render(
+      <LightweightChart
+        data={[
+          [1, 2],
+          [2, -3],
+        ]}
+        height={240}
+        seriesType="histogram"
+        showLastValue
+        showLastValuePriceLine={false}
+        lastValueLabelColor="#123456"
+      />,
+    );
+
+    await waitFor(() => expect(chart.addCustomSeries).toHaveBeenCalledTimes(1));
+    expect(chart.addCustomSeries).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        lastValueVisible: true,
+        priceLineVisible: false,
+        priceLineColor: '#123456',
+      }),
+    );
+  });
+
   it('draws narrow histogram columns and leaves exact-zero buckets empty', () => {
     const paneView = createHistogramSeriesPaneView();
     const fillStyles: string[] = [];

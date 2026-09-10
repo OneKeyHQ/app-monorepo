@@ -24,7 +24,10 @@ export function MarketAboutDescription({
   toggleTestID?: string;
 }) {
   const intl = useIntl();
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Remember which text was expanded rather than a bare flag, so switching to
+  // another asset's description starts collapsed without an effect.
+  const [expandedDescription, setExpandedDescription] = useState<string>();
+  const isExpanded = expandedDescription === description;
   const canExpand =
     description.length > MARKET_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
@@ -48,7 +51,9 @@ export function MarketAboutDescription({
           size="small"
           variant="tertiary"
           alignSelf="flex-start"
-          onPress={() => setIsExpanded((value) => !value)}
+          onPress={() =>
+            setExpandedDescription(isExpanded ? undefined : description)
+          }
         >
           {intl.formatMessage({
             id: isExpanded

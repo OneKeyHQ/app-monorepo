@@ -293,15 +293,15 @@ export function LightweightChart({
             },
           });
         } else if (isHistogram) {
-          series = chart.addCustomSeries(
-            createHistogramSeriesPaneView(),
-            createHistogramSeriesOptions({
+          series = chart.addCustomSeries(createHistogramSeriesPaneView(), {
+            ...createHistogramSeriesOptions({
               theme: currentChartConfig.theme,
               histogramOptions: currentChartConfig.histogramOptions,
               showLastValue,
               priceFormatter: currentChartConfig.priceFormatter,
             }),
-          );
+            ...lastValueSeriesOptions,
+          });
           series.applyOptions({
             priceScaleId: currentChartConfig.priceScalePosition,
           });

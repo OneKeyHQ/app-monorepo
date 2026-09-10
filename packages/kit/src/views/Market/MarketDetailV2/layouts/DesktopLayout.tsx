@@ -35,10 +35,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
-import {
-  getMarketStockPreviousClose,
-  getMarketStockTokenPreviousClose,
-} from '../utils/marketStockPreviousClose';
+import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -179,20 +176,16 @@ export function DesktopLayout({
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
-  // Stock detail charts offer Prev close in both price modes. The share price
-  // uses the quote's previous close as is; the token price rescales it by the
-  // selected variant's shares per token.
-  let stockPreviousClose: number | undefined;
-  if (isStockSharePrice) {
-    stockPreviousClose = getMarketStockPreviousClose(stockDetail);
-  } else if (shouldUseStockDesktopLayout) {
-    stockPreviousClose = getMarketStockTokenPreviousClose({
-      stockDetail,
-      tokenToAssetRatio:
-        selectedTokenVariant?.tokenToAssetRatio ??
-        tokenDetail?.stock?.tokenToAssetRatio,
-    });
-  }
+  // Stock detail charts offer Prev close in both price modes.
+  const stockPreviousClose = shouldUseStockDesktopLayout
+    ? getMarketStockChartPreviousClose({
+        priceSource: isStockSharePrice ? 'share' : 'token',
+        stockDetail,
+        selectedTokenVariant,
+        tokenDetail,
+        tokenDetailNetworkId: storeNetworkId,
+      })
+    : undefined;
   const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
   const stockTokenAddress =
     selectedTokenVariant?.contractAddress || routeTokenAddress;

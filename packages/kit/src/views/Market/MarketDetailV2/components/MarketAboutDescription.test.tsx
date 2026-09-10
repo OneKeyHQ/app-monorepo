@@ -94,4 +94,30 @@ describe('MarketAboutDescription', () => {
     ).toBe('none');
     expect(screen.queryByTestId('about-toggle')).toBeNull();
   });
+
+  it('starts collapsed again when the description changes', () => {
+    const { rerender } = render(
+      <MarketAboutDescription
+        description={LONG_DESCRIPTION}
+        testID="about"
+        toggleTestID="about-toggle"
+      />,
+    );
+    fireEvent.click(screen.getByTestId('about-toggle'));
+    expect(
+      screen.getByTestId('about').getAttribute('data-number-of-lines'),
+    ).toBe('none');
+
+    rerender(
+      <MarketAboutDescription
+        description={`${LONG_DESCRIPTION}Another asset.`}
+        testID="about"
+        toggleTestID="about-toggle"
+      />,
+    );
+
+    expect(
+      screen.getByTestId('about').getAttribute('data-number-of-lines'),
+    ).toBe('2');
+  });
 });

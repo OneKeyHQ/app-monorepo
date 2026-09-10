@@ -61,13 +61,16 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: View,
     SegmentSlider: ({
       onChange,
+      snapTapToSegment,
       value,
     }: {
       onChange?: (value: number) => void;
+      snapTapToSegment?: boolean;
       value?: number;
     }) => (
       <input
         aria-label="opacity"
+        data-snap-tap-to-segment={snapTapToSegment ? 'true' : 'false'}
         type="range"
         value={value}
         onChange={(event) => onChange?.(Number(event.target.value))}
@@ -192,5 +195,24 @@ describe('TradingViewIndicatorOpacitySlider', () => {
     expect(
       screen.getByTestId('trading-view-indicator-opacity-value').textContent,
     ).toBe('40%');
+  });
+
+  it('snaps taps to the segment marks on every platform', () => {
+    render(
+      <TradingViewIndicatorOpacitySlider
+        value={40}
+        label="Transparency"
+        upColor="#00ff00"
+        downColor="#ff0000"
+        onChange={jest.fn()}
+        onColorChange={jest.fn()}
+      />,
+    );
+
+    expect(
+      within(screen.getByTestId('trading-view-indicator-opacity-slider'))
+        .getByRole('slider')
+        .getAttribute('data-snap-tap-to-segment'),
+    ).toBe('true');
   });
 });
