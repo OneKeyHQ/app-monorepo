@@ -1361,6 +1361,12 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (gtMd) {
       return null;
     }
+    // The phone footer mirrors the server's actions, so until the response is
+    // in there is nothing to mirror: a default Deposit rendered over the
+    // loading skeleton and then swapped for the real pair once the page loaded.
+    if (isMobileLayout && !detailInfo) {
+      return null;
+    }
 
     const isManageOnly = isCustomProtocol;
     const buttonText = isManageOnly
@@ -1417,7 +1423,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
-    detailInfo?.actions,
+    detailInfo,
   ]);
 
   return (
