@@ -11,7 +11,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
-  NATIVE_HIT_SLOP,
   SizableText,
   Spinner,
   Stack,
@@ -660,13 +659,12 @@ export function CollateralSwitchCell({
       position="relative"
       ai="center"
       jc="center"
-      // The small track is 32x20 — under the 24x24 floor of WCAG 2.5.8 and far
-      // under 44pt, on a control that moves collateral on-chain. Pad the press
-      // target out and pull the same amount back off the layout so the row
-      // keeps its height; native adds hitSlop on top of that.
-      p="$2"
-      m="$-2"
-      hitSlop={NATIVE_HIT_SLOP}
+      // No padded halo here. ESwitchSize.small is a 38x24 track, which already
+      // clears the 24x24 floor of WCAG 2.5.8, and growing the press target with
+      // padding plus a negative margin put the halo outside this view's parent:
+      // Android's ViewGroup never hit-tests there (hitSlop is ignored past the
+      // same edge), while on web it swallowed the desktop table's row press and
+      // overhung the next column.
       onPress={(e) => {
         e.preventDefault();
         e.stopPropagation();

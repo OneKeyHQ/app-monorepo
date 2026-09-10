@@ -304,6 +304,45 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
+  // The cell sits inside a pressable card on phones and a pressable table row
+  // on desktop; both navigate. The wrapper is what keeps a collateral toggle
+  // from also firing that, so the swallow is load-bearing, not decoration.
+  it('swallows the press so the surrounding card or row never fires', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+    const preventDefault = jest.fn();
+    const stopPropagation = jest.fn();
+
+    (
+      wrapper.props as {
+        onPress: (e: {
+          preventDefault: () => void;
+          stopPropagation: () => void;
+        }) => void;
+      }
+    ).onPress({ preventDefault, stopPropagation });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+  });
+
+  // A padded halo pulled back with a negative margin lands outside this view's
+  // parent, where Android never hit-tests and hitSlop is ignored, while on web
+  // it swallowed the desktop row press and overhung the next column. The small
+  // track is 38x24 and already clears WCAG 2.5.8, so there is nothing to buy.
+  it('keeps the press target on the track instead of a padded halo', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+
+    expect(wrapper.props.m).toBeUndefined();
+    expect(wrapper.props.p).toBeUndefined();
+    expect(wrapper.props.hitSlop).toBeUndefined();
+  });
+
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
     borrowContext.earnAccount.data.accountId = 'top-level-account';
     const view = render(
