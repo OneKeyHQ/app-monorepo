@@ -10,6 +10,7 @@ jest.mock('react-native', () => ({
   NativeModules: {
     AppClipAttribution: {
       clearPending: mockClearPending,
+      clearPendingHandoff: mockClearPending,
       readPending: mockReadPending,
       savePending: mockSavePending,
     },
@@ -57,6 +58,7 @@ const pendingRecord = {
   clickId: '0123456789ABCDEFGHIJKL',
   experience: 'market',
   lastAction: 'install_cta',
+  openedAt: 1_757_318_400,
   route: '/clip/market',
   schemaVersion: 1,
   selectedAddress: '',
@@ -102,7 +104,10 @@ describe('reportInstallAttribution', () => {
     expect(mockSavePending.mock.invocationCallOrder[0]).toBeLessThan(
       mockReportAttribution.mock.invocationCallOrder[0],
     );
-    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
+    expect(mockClearPending).toHaveBeenCalledWith(
+      pendingRecord.clickId,
+      pendingRecord.openedAt,
+    );
   });
 
   it('reports the pending record for a repeated claim before clearing it', async () => {
@@ -123,7 +128,10 @@ describe('reportInstallAttribution', () => {
         lastAction: pendingRecord.lastAction,
       }),
     );
-    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
+    expect(mockClearPending).toHaveBeenCalledWith(
+      pendingRecord.clickId,
+      pendingRecord.openedAt,
+    );
   });
 
   it('clears a terminal missing claim', async () => {
@@ -138,7 +146,10 @@ describe('reportInstallAttribution', () => {
     await reportInstallAttribution();
 
     expect(mockReportAttribution).not.toHaveBeenCalled();
-    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
+    expect(mockClearPending).toHaveBeenCalledWith(
+      pendingRecord.clickId,
+      pendingRecord.openedAt,
+    );
   });
 
   it('waits for analytics initialization before claiming', async () => {
@@ -377,21 +388,137 @@ describe('reportInstallAttribution', () => {
     expect(mockClearPending).not.toHaveBeenCalled();
   });
 
-  it('deduplicates concurrent attribution consumption', async () => {
-    let resolvePending: ((value: unknown) => void) | undefined;
-    mockReadPending.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolvePending = resolve;
-        }),
+  it('processes a new handoff queued while another report is in flight', async () => {
+    const nextPendingRecord = {
+      ...pendingRecord,
+      clickId: 'ABCDEFGHIJKL0123456789',
+      openedAt: pendingRecord.openedAt + 60,
+    };
+    let resolveFirstClaim: ((value: unknown) => void) | undefined;
+    let markFirstClaimStarted: (() => void) | undefined;
+    const firstClaimStarted = new Promise<void>((resolve) => {
+      markFirstClaimStarted = resolve;
+    });
+    mockReadPending
+      .mockResolvedValueOnce(pendingRecord)
+      .mockResolvedValueOnce(nextPendingRecord);
+    mockPost
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstClaim = resolve;
+            markFirstClaimStarted?.();
+          }),
+      )
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            found: true,
+          },
+        },
+      });
+
+    const first = reportInstallAttribution();
+    await firstClaimStarted;
+    const second = reportInstallAttribution();
+    expect(first).toBe(second);
+
+    resolveFirstClaim?.({
+      data: {
+        data: {
+          found: true,
+        },
+      },
+    });
+    await Promise.all([first, second]);
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockReportAttribution).toHaveBeenCalledTimes(2);
+    expect(mockClearPending).toHaveBeenNthCalledWith(
+      1,
+      pendingRecord.clickId,
+      pendingRecord.openedAt,
     );
+    expect(mockClearPending).toHaveBeenNthCalledWith(
+      2,
+      nextPendingRecord.clickId,
+      nextPendingRecord.openedAt,
+    );
+  });
+
+  it('does not overwrite a newer handoff sharing the same click ID', async () => {
+    const nextPendingRecord = {
+      ...pendingRecord,
+      lastAction: 'market_select',
+      openedAt: pendingRecord.openedAt + 60,
+      selectedSymbol: 'ETH',
+    };
+    let resolveFirstClaim: ((value: unknown) => void) | undefined;
+    let markFirstClaimStarted: (() => void) | undefined;
+    const firstClaimStarted = new Promise<void>((resolve) => {
+      markFirstClaimStarted = resolve;
+    });
+    mockReadPending
+      .mockResolvedValueOnce(pendingRecord)
+      .mockResolvedValueOnce(nextPendingRecord)
+      .mockResolvedValueOnce(nextPendingRecord);
+    mockPost
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstClaim = resolve;
+            markFirstClaimStarted?.();
+          }),
+      )
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            found: true,
+          },
+        },
+      });
+    mockSavePending.mockImplementation(
+      async (record) =>
+        (record as { openedAt?: number })?.openedAt ===
+        nextPendingRecord.openedAt,
+    );
+
+    const first = reportInstallAttribution();
+    await firstClaimStarted;
+    const second = reportInstallAttribution();
+
+    resolveFirstClaim?.({
+      data: {
+        data: {
+          found: true,
+        },
+      },
+    });
+    await Promise.all([first, second]);
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+    expect(mockReportAttribution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clickId: nextPendingRecord.clickId,
+        selectedSymbol: nextPendingRecord.selectedSymbol,
+      }),
+    );
+    expect(mockClearPending).toHaveBeenCalledTimes(1);
+    expect(mockClearPending).toHaveBeenCalledWith(
+      nextPendingRecord.clickId,
+      nextPendingRecord.openedAt,
+    );
+  });
+
+  it('deduplicates concurrent attribution consumption', async () => {
+    mockReadPending.mockResolvedValue(null);
 
     const first = reportInstallAttribution();
     const second = reportInstallAttribution();
     expect(first).toBe(second);
-    expect(mockReadPending).toHaveBeenCalledTimes(1);
 
-    resolvePending?.(null);
     await Promise.all([first, second]);
+    expect(mockReadPending).toHaveBeenCalledTimes(2);
   });
 });

@@ -26,10 +26,14 @@ final class AppClipAttributionModule: NSObject {
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
+    let openedAt = (record["openedAt"] as? NSNumber)?.doubleValue
     let savedToAppGroup = AppClipAttributionStore.saveReportingSnapshot(record)
     guard
       let clickId = record["clickId"] as? String,
-      AppClipAttributionStore.load()?.clickId == clickId
+      AppClipAttributionStore.isCurrentHandoff(
+        clickId: clickId,
+        openedAt: openedAt
+      )
     else {
       resolve(savedToAppGroup)
       return
@@ -44,12 +48,50 @@ final class AppClipAttributionModule: NSObject {
     resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
+    clearPendingHandoff(
+      clickId,
+      openedAt: nil,
+      resolver: resolve,
+      rejecter: reject
+    )
+  }
+
+  @objc(clearPendingHandoff:openedAt:resolver:rejecter:)
+  func clearPendingHandoff(
+    _ clickId: String,
+    openedAt: NSNumber,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    clearPendingHandoff(
+      clickId,
+      openedAt: openedAt.doubleValue,
+      resolver: resolve,
+      rejecter: reject
+    )
+  }
+
+  private func clearPendingHandoff(
+    _ clickId: String,
+    openedAt: TimeInterval?,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
     do {
-      try AppClipAttributionStore.clear(matchingClickId: clickId)
-      AppClipAttributionFallbackStore.clear(matchingClickId: clickId)
+      try AppClipAttributionStore.clear(
+        matchingClickId: clickId,
+        openedAt: openedAt
+      )
+      AppClipAttributionFallbackStore.clear(
+        matchingClickId: clickId,
+        openedAt: openedAt
+      )
       resolve(nil)
     } catch {
-      AppClipAttributionFallbackStore.markCleared(clickId: clickId)
+      AppClipAttributionFallbackStore.markCleared(
+        clickId: clickId,
+        openedAt: openedAt
+      )
       reject(
         "APP_CLIP_ATTRIBUTION_CLEAR_FAILED",
         error.localizedDescription,
@@ -63,6 +105,7 @@ private enum AppClipAttributionFallbackStore {
   private static let recordKey = "app_clip_attribution_pending_fallback_v1"
   private static let updatedAtKey = "app_clip_attribution_pending_fallback_updated_at_v1"
   private static let clearedClickIdKey = "app_clip_attribution_cleared_click_id_v1"
+  private static let clearedOpenedAtKey = "app_clip_attribution_cleared_opened_at_v1"
   private static let clearedAtKey = "app_clip_attribution_cleared_at_v1"
   private static let defaults = UserDefaults.standard
 
@@ -72,10 +115,19 @@ private enum AppClipAttributionFallbackStore {
         return nil
       }
       let clearedAt = defaults.double(forKey: clearedAtKey)
-      if
-        sharedRecord.clickId == clearedClickId,
-        sharedRecord.updatedAt.timeIntervalSince1970 <= clearedAt
-      {
+      let clearedOpenedAt = defaults.object(forKey: clearedOpenedAtKey) == nil
+        ? nil
+        : defaults.double(forKey: clearedOpenedAtKey)
+      let matchesClearedHandoff = matches(
+        clickId: sharedRecord.clickId,
+        openedAt: sharedRecord.openedAt.timeIntervalSince1970,
+        expectedClickId: clearedClickId,
+        expectedOpenedAt: clearedOpenedAt
+      )
+      if matchesClearedHandoff && (
+        clearedOpenedAt != nil ||
+          sharedRecord.updatedAt.timeIntervalSince1970 <= clearedAt
+      ) {
         return nil
       }
       clearTombstone()
@@ -93,7 +145,22 @@ private enum AppClipAttributionFallbackStore {
     guard let sharedRecord else {
       return fallbackRecord
     }
-    guard fallbackRecord["clickId"] as? String == sharedRecord.clickId else {
+    guard
+      let fallbackClickId = fallbackRecord["clickId"] as? String,
+      fallbackClickId == sharedRecord.clickId
+    else {
+      clear()
+      return sharedRecord.bridgeDictionary
+    }
+    if
+      let fallbackOpenedAt = (fallbackRecord["openedAt"] as? NSNumber)?.doubleValue,
+      !matches(
+        clickId: sharedRecord.clickId,
+        openedAt: sharedRecord.openedAt.timeIntervalSince1970,
+        expectedClickId: fallbackClickId,
+        expectedOpenedAt: fallbackOpenedAt
+      )
+    {
       clear()
       return sharedRecord.bridgeDictionary
     }
@@ -119,8 +186,11 @@ private enum AppClipAttributionFallbackStore {
     return defaults.data(forKey: recordKey) == data
   }
 
-  static func clear(matchingClickId clickId: String) {
-    clearTombstone()
+  static func clear(
+    matchingClickId clickId: String,
+    openedAt: TimeInterval?
+  ) {
+    clearTombstone(matchingClickId: clickId, openedAt: openedAt)
     guard
       let data = defaults.data(forKey: recordKey),
       let record = try? PropertyListSerialization.propertyList(
@@ -128,16 +198,26 @@ private enum AppClipAttributionFallbackStore {
         options: [],
         format: nil
       ) as? [String: Any],
-      record["clickId"] as? String == clickId
+      matches(
+        clickId: record["clickId"] as? String,
+        openedAt: (record["openedAt"] as? NSNumber)?.doubleValue,
+        expectedClickId: clickId,
+        expectedOpenedAt: openedAt
+      )
     else {
       return
     }
     clear()
   }
 
-  static func markCleared(clickId: String) {
-    clear()
+  static func markCleared(clickId: String, openedAt: TimeInterval?) {
+    clear(matchingClickId: clickId, openedAt: openedAt)
     defaults.set(clickId, forKey: clearedClickIdKey)
+    if let openedAt {
+      defaults.set(openedAt, forKey: clearedOpenedAtKey)
+    } else {
+      defaults.removeObject(forKey: clearedOpenedAtKey)
+    }
     defaults.set(Date().timeIntervalSince1970, forKey: clearedAtKey)
   }
 
@@ -146,8 +226,44 @@ private enum AppClipAttributionFallbackStore {
     defaults.removeObject(forKey: updatedAtKey)
   }
 
-  private static func clearTombstone() {
+  private static func clearTombstone(
+    matchingClickId clickId: String? = nil,
+    openedAt: TimeInterval? = nil
+  ) {
+    if
+      let clickId,
+      let clearedClickId = defaults.string(forKey: clearedClickIdKey),
+      !matches(
+        clickId: clearedClickId,
+        openedAt: defaults.object(forKey: clearedOpenedAtKey) == nil
+          ? nil
+          : defaults.double(forKey: clearedOpenedAtKey),
+        expectedClickId: clickId,
+        expectedOpenedAt: openedAt
+      )
+    {
+      return
+    }
     defaults.removeObject(forKey: clearedClickIdKey)
+    defaults.removeObject(forKey: clearedOpenedAtKey)
     defaults.removeObject(forKey: clearedAtKey)
+  }
+
+  private static func matches(
+    clickId: String?,
+    openedAt: TimeInterval?,
+    expectedClickId: String,
+    expectedOpenedAt: TimeInterval?
+  ) -> Bool {
+    guard clickId == expectedClickId else {
+      return false
+    }
+    guard let expectedOpenedAt, expectedOpenedAt > 0 else {
+      return true
+    }
+    guard let openedAt else {
+      return false
+    }
+    return abs(openedAt - expectedOpenedAt) < 0.000_001
   }
 }

@@ -13,4 +13,9 @@ RCT_EXTERN_METHOD(clearPending:(NSString *)clickId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(clearPendingHandoff:(NSString *)clickId
+                  openedAt:(NSNumber *)openedAt
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

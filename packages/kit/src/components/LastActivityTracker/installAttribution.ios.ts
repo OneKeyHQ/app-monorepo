@@ -13,12 +13,14 @@ import {
 } from '@onekeyhq/shared/types/endpoint';
 
 type IAppClipAttributionRecord = IAppClipInstallAttributionParams & {
+  openedAt?: number;
   reportCompleted?: boolean;
   schemaVersion: number;
 };
 
 type IAppClipAttributionNativeModule = {
   clearPending: (clickId: string) => Promise<void>;
+  clearPendingHandoff?: (clickId: string, openedAt: number) => Promise<void>;
   readPending: () => Promise<unknown>;
   savePending: (record: IAppClipAttributionRecord) => Promise<boolean>;
 };
@@ -49,6 +51,7 @@ const nativeModule = NativeModules.AppClipAttribution as
   | IAppClipAttributionNativeModule
   | undefined;
 let reportInstallAttributionTask: Promise<void> | undefined;
+let reportInstallAttributionRequested = false;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -66,6 +69,13 @@ function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
     clickId: record.clickId,
     schemaVersion: 1,
   };
+  if (
+    typeof record.openedAt === 'number' &&
+    Number.isFinite(record.openedAt) &&
+    record.openedAt > 0
+  ) {
+    result.openedAt = record.openedAt;
+  }
   const stringFields = [
     'campaignId',
     'experience',
@@ -112,6 +122,29 @@ function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   return result;
 }
 
+function isSamePendingHandoff(
+  current: IAppClipAttributionRecord | null,
+  expected: IAppClipAttributionRecord,
+): boolean {
+  if (!current || current.clickId !== expected.clickId) {
+    return false;
+  }
+  if (current.openedAt !== undefined || expected.openedAt !== undefined) {
+    return current.openedAt === expected.openedAt;
+  }
+  return true;
+}
+
+function clearPendingHandoff(
+  clickId: string,
+  openedAt?: number,
+): Promise<void> {
+  if (openedAt && nativeModule?.clearPendingHandoff) {
+    return nativeModule.clearPendingHandoff(clickId, openedAt);
+  }
+  return nativeModule?.clearPending(clickId) ?? Promise.resolve();
+}
+
 function mergeClaimWithPending(
   claim: IAppClipClaimResponse,
   pending: IAppClipAttributionRecord,
@@ -150,7 +183,7 @@ async function reportPendingInstallAttribution(): Promise<void> {
     return;
   }
   if (pending.reportCompleted) {
-    await nativeModule.clearPending(pending.clickId);
+    await clearPendingHandoff(pending.clickId, pending.openedAt);
     return;
   }
   await analytics.whenInitialized();
@@ -166,31 +199,50 @@ async function reportPendingInstallAttribution(): Promise<void> {
   );
   const claim = response.data.data;
   if (!claim.found) {
-    await nativeModule.clearPending(pending.clickId);
+    await clearPendingHandoff(pending.clickId, pending.openedAt);
     return;
   }
   const attribution = mergeClaimWithPending(claim, pending);
   const didSaveAttribution = await nativeModule.savePending(attribution);
   if (!didSaveAttribution) {
+    const current = getPendingRecord(await nativeModule.readPending());
+    if (!isSamePendingHandoff(current, pending)) {
+      return;
+    }
     throw new OneKeyLocalError(
       'Failed to persist App Clip attribution snapshot.',
     );
   }
-  await defaultLogger.app.install.reportAppClipInstallAttribution(attribution);
+  const { openedAt: _openedAt, ...reportAttribution } = attribution;
+  await defaultLogger.app.install.reportAppClipInstallAttribution(
+    reportAttribution,
+  );
   const didSaveReportCompletion = await nativeModule.savePending({
     ...attribution,
     reportCompleted: true,
   });
   if (!didSaveReportCompletion) {
+    const current = getPendingRecord(await nativeModule.readPending());
+    if (!isSamePendingHandoff(current, pending)) {
+      return;
+    }
     throw new OneKeyLocalError(
       'Failed to persist App Clip attribution report completion.',
     );
   }
-  await nativeModule.clearPending(pending.clickId);
+  await clearPendingHandoff(pending.clickId, pending.openedAt);
+}
+
+async function drainPendingInstallAttribution(): Promise<void> {
+  do {
+    reportInstallAttributionRequested = false;
+    await reportPendingInstallAttribution();
+  } while (reportInstallAttributionRequested);
 }
 
 export function reportInstallAttribution(): Promise<void> {
-  reportInstallAttributionTask ??= reportPendingInstallAttribution().finally(
+  reportInstallAttributionRequested = true;
+  reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(
     () => {
       reportInstallAttributionTask = undefined;
     },

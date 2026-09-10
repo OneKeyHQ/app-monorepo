@@ -104,7 +104,11 @@ enum AppClipAttributionStore {
     guard
       var record = load(),
       let clickId = snapshot["clickId"] as? String,
-      clickId == record.clickId
+      matches(
+        record,
+        clickId: clickId,
+        openedAt: (snapshot["openedAt"] as? NSNumber)?.doubleValue
+      )
     else {
       return false
     }
@@ -130,11 +134,27 @@ enum AppClipAttributionStore {
     return save(record)
   }
 
-  static func clear(matchingClickId clickId: String) throws {
+  static func isCurrentHandoff(
+    clickId: String,
+    openedAt: TimeInterval?
+  ) -> Bool {
+    guard let record = load() else {
+      return false
+    }
+    return matches(record, clickId: clickId, openedAt: openedAt)
+  }
+
+  static func clear(
+    matchingClickId clickId: String,
+    openedAt: TimeInterval?
+  ) throws {
     guard let pendingRecordURL else {
       throw AppClipAttributionStoreError.appGroupContainerUnavailable
     }
-    guard let record = load(), record.clickId == clickId else {
+    guard
+      let record = load(),
+      matches(record, clickId: clickId, openedAt: openedAt)
+    else {
       return
     }
     do {
@@ -142,6 +162,20 @@ enum AppClipAttributionStore {
     } catch let error as CocoaError where error.code == .fileNoSuchFile {
       return
     }
+  }
+
+  private static func matches(
+    _ record: AppClipAttributionRecord,
+    clickId: String,
+    openedAt: TimeInterval?
+  ) -> Bool {
+    guard record.clickId == clickId else {
+      return false
+    }
+    guard let openedAt, openedAt > 0 else {
+      return true
+    }
+    return abs(record.openedAt.timeIntervalSince1970 - openedAt) < 0.000_001
   }
 
   private static var pendingRecordURL: URL? {
