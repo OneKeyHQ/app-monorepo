@@ -15,17 +15,9 @@ import type {
 } from './types';
 import type { WebViewMessageEvent } from 'react-native-webview';
 
-function buildStaticWebViewSource(
-  config: ILightweightChartConfig,
-  reloadCount = 0,
-) {
+function buildStaticWebViewSource(config: ILightweightChartConfig) {
   return {
-    // react-native-webview skips the load when the new source dictionary
-    // equals the current one, and a rebuild from an unchanged config produces
-    // byte-identical HTML. The marker makes every recovery a distinct source.
-    html: `${generateChartHTML(config)}${
-      reloadCount ? `<!-- reload ${reloadCount} -->` : ''
-    }`,
+    html: generateChartHTML(config),
   };
 }
 
@@ -120,7 +112,11 @@ export function LightweightChart({
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
-  const reloadCountRef = useRef(0);
+  // Bumped on every recovery: it keys the WebView, so recovery is a remount.
+  // Android does not let a WebView whose renderer is gone be reused, so a new
+  // source on the old instance can stay blank; a fresh instance is the only
+  // reliable path there, and it serves iOS just as well.
+  const [webViewGeneration, setWebViewGeneration] = useState(0);
 
   // The OS can kill the WebView's content process while the page sits idle
   // (memory pressure on the phone), and react-native-webview does nothing
@@ -129,11 +125,9 @@ export function LightweightChart({
   // Rebuild the source from the latest config so the reload paints the
   // current data straight away; the ready handshake then resumes updates.
   const handleContentProcessGone = useCallback(() => {
-    reloadCountRef.current += 1;
     setWebViewReady(false);
-    setWebViewSource(
-      buildStaticWebViewSource(latestConfigRef.current, reloadCountRef.current),
-    );
+    setWebViewSource(buildStaticWebViewSource(latestConfigRef.current));
+    setWebViewGeneration((generation) => generation + 1);
   }, []);
 
   const handleMessage = useCallback(
@@ -186,6 +180,7 @@ export function LightweightChart({
     <Stack position="relative" height={height} width="100%">
       <View style={{ flex: 1 }}>
         <WebView
+          key={webViewGeneration}
           ref={webViewRef}
           source={webViewSource}
           onLoadStart={() => {

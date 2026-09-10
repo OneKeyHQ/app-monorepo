@@ -91,12 +91,14 @@ function TabBarItem({
  */
 function TabPage({
   index,
+  isActive,
   progress,
   pageWidth,
   onContentLayout,
   children,
 }: {
   index: number;
+  isActive: boolean;
   progress: SharedValue<number>;
   pageWidth: number;
   onContentLayout: (height: number) => void;
@@ -109,7 +111,14 @@ function TabPage({
     [index, pageWidth],
   );
   return (
+    // Every page stays mounted so it can slide in, but only the active one is
+    // a page as far as touches and screen readers are concerned: the others
+    // sit clipped off-screen, where VoiceOver / TalkBack would otherwise still
+    // walk and activate their controls.
     <Animated.View
+      pointerEvents={isActive ? 'auto' : 'none'}
+      accessibilityElementsHidden={!isActive}
+      importantForAccessibility={isActive ? 'auto' : 'no-hide-descendants'}
       style={[
         { position: 'absolute', top: 0, left: 0, width: pageWidth },
         style,
@@ -172,6 +181,11 @@ export function MobileDetailTabs({
   // this one value, so the pages, the underline and the height never disagree.
   const progress = useSharedValue(visibleKeys.indexOf(activeKey));
   const dragStartProgress = useSharedValue(0);
+  // Set for the duration of a tab-bar tap's spring. The halfway commit below
+  // is right for a finger drag, but a tap from Portfolio to Protocol sweeps
+  // through Info, and committing it there would flash the wrong label and
+  // leave selectedKey pointing at the in-between tab mid-flight.
+  const tapTarget = useSharedValue<number | null>(null);
   // Measured by key rather than index: when the Portfolio tab appears, Info
   // moves from slot 0 to slot 1 and its measurements have to move with it.
   // The refs are the source of truth on the JS side; the shared values only
@@ -219,9 +233,16 @@ export function MobileDetailTabs({
         return;
       }
       setSelectedKey(key);
-      progress.value = withSpring(index, SETTLE_SPRING);
+      tapTarget.value = index;
+      progress.value = withSpring(index, SETTLE_SPRING, (finished) => {
+        'worklet';
+
+        if (finished) {
+          tapTarget.value = null;
+        }
+      });
     },
-    [visibleKeys, progress],
+    [visibleKeys, progress, tapTarget],
   );
 
   // Mid-swipe the label switches at the halfway point, the way the underline
@@ -229,6 +250,9 @@ export function MobileDetailTabs({
   useAnimatedReaction(
     () => Math.round(progress.value),
     (rounded, previous) => {
+      if (tapTarget.value !== null) {
+        return;
+      }
       if (previous !== null && rounded !== previous) {
         runOnJS(commitIndex)(rounded);
       }
@@ -246,7 +270,9 @@ export function MobileDetailTabs({
         .onStart(() => {
           'worklet';
 
+          // A finger taking over mid-tap resumes the halfway commits.
           cancelAnimation(progress);
+          tapTarget.value = null;
           dragStartProgress.value = progress.value;
         })
         .onUpdate((event) => {
@@ -275,7 +301,7 @@ export function MobileDetailTabs({
           progress.value = withSpring(target, SETTLE_SPRING);
           runOnJS(commitIndex)(target);
         }),
-    [pageCount, pageWidth, progress, dragStartProgress, commitIndex],
+    [pageCount, pageWidth, progress, dragStartProgress, tapTarget, commitIndex],
   );
 
   const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
@@ -380,6 +406,7 @@ export function MobileDetailTabs({
                 <TabPage
                   key={key}
                   index={index}
+                  isActive={key === activeKey}
                   progress={progress}
                   pageWidth={pageWidth}
                   onContentLayout={(height) => handlePageLayout(key, height)}
