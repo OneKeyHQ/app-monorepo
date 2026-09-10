@@ -22,11 +22,30 @@ jest.mock('@onekeyhq/components', () => {
     MockStack.displayName = `MockStack(${tag})`;
     return MockStack;
   };
+  // The collateral slot puts its words in an accessibility label, so this one
+  // has to survive the mock.
+  function MockAccessibleStack({
+    children,
+    testID,
+    accessibilityLabel,
+  }: {
+    children?: React.ReactNode;
+    testID?: string;
+    accessibilityLabel?: string;
+  }) {
+    return React.createElement(
+      'div',
+      { 'data-testid': testID, 'aria-label': accessibilityLabel },
+      children,
+    );
+  }
+  MockAccessibleStack.displayName = 'MockAccessibleStack';
   return {
     __esModule: true,
     ESwitchSize: { extraSmall: 'extraSmall', small: 'small', large: 'large' },
     SizableText: passthrough('span'),
     Skeleton: passthrough('div'),
+    Stack: MockAccessibleStack,
     XStack: passthrough('div'),
     YStack: passthrough('div'),
   };
@@ -107,6 +126,13 @@ jest.mock('./CollateralSwitchCell', () => ({
   CollateralSwitchCell: () => <span data-testid="collateral-switch" />,
 }));
 
+jest.mock('./BorrowTableList/CollateralBadge', () => ({
+  __esModule: true,
+  CollateralBadge: ({ canBeCollateral }: { canBeCollateral?: boolean }) => (
+    <span data-testid="collateral-badge" data-can={String(canBeCollateral)} />
+  ),
+}));
+
 jest.mock('../hooks/useBorrowPositionEntries', () => {
   const entries: unknown[] = [];
   (globalThis as Record<string, unknown>).__mobilePositionEntries = entries;
@@ -124,18 +150,23 @@ jest.mock('./BorrowPositionCard', () => ({
     testID,
     isExpanded,
     onToggleExpand,
+    collateral,
   }: {
     testID?: string;
     isExpanded?: boolean;
     onToggleExpand?: () => void;
+    collateral?: React.ReactNode;
   }) => (
-    <button
-      type="button"
-      aria-label={testID}
-      data-testid={testID}
-      data-expanded={isExpanded ? 'true' : 'false'}
-      onClick={onToggleExpand}
-    />
+    <div>
+      <button
+        type="button"
+        aria-label={testID}
+        data-testid={testID}
+        data-expanded={isExpanded ? 'true' : 'false'}
+        onClick={onToggleExpand}
+      />
+      <div data-testid={`${testID ?? ''}-collateral`}>{collateral}</div>
+    </div>
   ),
 }));
 
@@ -151,7 +182,11 @@ const scope = (globalThis as Record<string, unknown>).__mobilePositionScope as {
   accountId: string;
 };
 
-function buildEntry(kind: 'supplied' | 'borrowed', reserveAddress: string) {
+function buildEntry(
+  kind: 'supplied' | 'borrowed',
+  reserveAddress: string,
+  assetOverrides: Record<string, unknown> = {},
+) {
   const amount = { title: { text: '20' }, description: { text: '$20' } };
   return {
     kind,
@@ -172,9 +207,11 @@ function buildEntry(kind: 'supplied' | 'borrowed', reserveAddress: string) {
         ? {
             suppliedAmount: amount,
             usageAsCollateral: true,
+            canBeCollateral: true,
             withdrawButton: {},
           }
         : { borrowedAmount: amount, repayButton: {} }),
+      ...assetOverrides,
     },
   };
 }
@@ -302,5 +339,84 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     expect(
       getByTestId(cardId('supplied', '0xAAA')).getAttribute('data-expanded'),
     ).toBe('true');
+  });
+});
+
+describe('BorrowMobilePositions collateral state', () => {
+  const collateralSlot = (reserveAddress: string) =>
+    `${cardId('supplied', reserveAddress)}-collateral`;
+
+  function renderSupplied(assetOverrides: Record<string, unknown>) {
+    entries.length = 0;
+    entries.push(buildEntry('supplied', '0xAaa', assetOverrides));
+    return render(<BorrowMobilePositions />);
+  }
+
+  it('keeps the switch for a position that is already collateral', () => {
+    const { queryByTestId } = renderSupplied({
+      usageAsCollateral: true,
+      canBeCollateral: true,
+    });
+
+    expect(queryByTestId('collateral-switch')).not.toBeNull();
+    expect(queryByTestId('collateral-badge')).toBeNull();
+  });
+
+  it('keeps the switch for a position that is off but still eligible', () => {
+    const { queryByTestId } = renderSupplied({
+      usageAsCollateral: false,
+      canBeCollateral: true,
+    });
+
+    expect(queryByTestId('collateral-switch')).not.toBeNull();
+  });
+
+  // A switch that can never move is a false affordance.
+  it('replaces the switch with the kit dash mark when the market never accepts the asset', () => {
+    const { getByTestId, queryByTestId } = renderSupplied({
+      usageAsCollateral: false,
+      canBeCollateral: false,
+    });
+
+    expect(queryByTestId('collateral-switch')).toBeNull();
+    expect(getByTestId('collateral-badge').getAttribute('data-can')).toBe(
+      'false',
+    );
+  });
+
+  // The mark is silent on screen, so the state has to survive in the
+  // accessibility tree.
+  it('spells the state out for screen readers instead of on screen', () => {
+    const { getByTestId } = renderSupplied({
+      usageAsCollateral: false,
+      canBeCollateral: false,
+    });
+    const slot = getByTestId(
+      'borrow-position-card-collateral-unavailable-0xaaa',
+    );
+
+    expect(slot.getAttribute('aria-label')).toBe(
+      'USDC, defi_collateral, global_not_available',
+    );
+    expect(slot.textContent).toBe('');
+  });
+
+  it('keeps the switch when the eligibility flag is missing', () => {
+    const { queryByTestId } = renderSupplied({
+      usageAsCollateral: false,
+      canBeCollateral: undefined,
+    });
+
+    expect(queryByTestId('collateral-switch')).not.toBeNull();
+    expect(queryByTestId('collateral-badge')).toBeNull();
+  });
+
+  it('renders no collateral slot when the provider has no such control', () => {
+    const { getByTestId } = renderSupplied({
+      usageAsCollateral: undefined,
+      canBeCollateral: undefined,
+    });
+
+    expect(getByTestId(collateralSlot('0xAaa')).textContent).toBe('');
   });
 });
