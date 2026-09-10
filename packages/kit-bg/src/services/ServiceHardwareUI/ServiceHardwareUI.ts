@@ -678,8 +678,10 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async deviceStageNoteInputSubmitted() {
-    await this.deviceStageBurst.noteInputSubmitted();
+  async deviceStageNoteInputSubmitted(
+    params: { hostPassphraseEntered?: boolean } = {},
+  ) {
+    await this.deviceStageBurst.noteInputSubmitted(params);
   }
 
   /**

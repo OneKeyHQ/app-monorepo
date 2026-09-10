@@ -258,6 +258,32 @@ export function resolveDeviceNotFoundLanding({
   return 'deviceNotFound';
 }
 
+/**
+ * The devices that confirm a passphrase typed on the app on their own
+ * screen with no ButtonRequest to announce it — so no `ui-button` ever
+ * reaches the stage, and the submit has to paint the confirm itself.
+ *
+ * Each asks "use this passphrase?" for every non-empty host passphrase:
+ * - Pro: since firmware 4.13.0 the screen is a bare wait (firmware-pro
+ *   09b371804e dropped the ProtectCall `interact`); older builds still
+ *   send the request, which only repaints the same step.
+ * - Pro 2 / Neo: the V2 session's confirm page (firmware-pro2
+ *   `wallet_session_show_passphrase_confirm`) reports to the device
+ *   alone, and the SDK closes no phase until the call returns.
+ * Touch still sends the request; Classic and Mini show no confirm at all.
+ */
+const HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES: ReadonlySet<
+  IHardwareUiPayload['deviceType']
+> = new Set([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]);
+
+export function confirmsHostPassphraseOnScreen(
+  payload: IHardwareUiPayload | undefined,
+): boolean {
+  return Boolean(
+    payload && HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES.has(payload.deviceType),
+  );
+}
+
 /** The steps that ask something of the person. Only an ask outranks an
  * outcome already on stage — the device is waiting on them, so the notice
  * has had its say. Waits and call-end closes carry no such news: the call
@@ -1468,8 +1494,14 @@ export class DeviceStageBurstScope {
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
-   * instead of the legacy close-then-reopen. */
-  async noteInputSubmitted() {
+   * instead of the legacy close-then-reopen — or, for a passphrase typed
+   * on the app, as the confirm the device goes on to show without asking
+   * (see confirmsHostPassphraseOnScreen). */
+  async noteInputSubmitted({
+    hostPassphraseEntered = false,
+  }: {
+    hostPassphraseEntered?: boolean;
+  } = {}) {
     // Not gated on the firmware workflow: the card this answers was the
     // device's own ask, which plays there too (OK-62087) — and no authored
     // narrative can be standing behind an update.
@@ -1478,8 +1510,14 @@ export class DeviceStageBurstScope {
     if (!prev || prev.step === 'off') {
       return;
     }
+    const narrative = firmwareWorkflow ? undefined : this.authoredAuthStep;
+    const confirmsOnScreen =
+      hostPassphraseEntered &&
+      prev.step === 'passphraseOnApp' &&
+      !prev.vendor &&
+      confirmsHostPassphraseOnScreen(prev.payload);
     await this.setStep(
-      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      narrative ?? (confirmsOnScreen ? 'confirm' : 'processing'),
       {},
     );
   }
