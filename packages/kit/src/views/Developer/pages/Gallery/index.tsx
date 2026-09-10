@@ -70,6 +70,10 @@ const JotaiContextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery'),
 );
+const ZcashWasmGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
+);
 const JotaiGlobalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery'),
@@ -572,6 +576,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentZcashWasm,
+    component: ZcashWasmGallery,
   },
   {
     name: EGalleryRoutes.ComponentPlayground,

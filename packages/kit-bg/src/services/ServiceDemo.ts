@@ -2,6 +2,12 @@ import { verifyMessage } from '@ethersproject/wallet';
 import { random, range } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import type {
+  IZcashRuntimeSelfTestResult,
+  IZcashRuntimeSelfTestStage,
+  IZcashStorageBenchmarkCase,
+  IZcashStorageBenchmarkPreset,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
   generateMnemonic,
@@ -55,6 +61,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBExternalAccount } from '../dbs/local/types';
+import type VaultZcash from '../vaults/impls/zcash/Vault';
 import type { ITransferInfo } from '../vaults/types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
@@ -67,6 +74,79 @@ class ServiceDemo extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  // ---------------------------------------------- zcash runtime smoke (dev)
+
+  // Runs the WebZjs smoke test from the BACKGROUND runtime, so the sdk shim
+  // resolves per-platform the same way Kaspa does: ext -> offscreen document
+  // (crossOriginIsolated), desktop/web -> bg runtime, native -> web-embed.
+  // Calling from the gallery UI directly would resolve to index.web and load
+  // the wasm in the UI page (no offscreen, no COI).
+  @backgroundMethodForDev()
+  async zcashWebzjsSmokeTest(params: {
+    $$devOnlyPassword: string;
+    lightwalletdUrl: string;
+    mnemonic: string;
+    birthdayOffset?: number;
+  }) {
+    const zcashSdk = (
+      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
+    ).default;
+    const api = await zcashSdk.getZcashApi();
+    return api.smokeTest(params);
+  }
+
+  @backgroundMethodForDev()
+  async zcashRuntimeSelfTest(params: {
+    $$devOnlyPassword: string;
+    stage: 'bridge' | IZcashRuntimeSelfTestStage;
+  }): Promise<IZcashRuntimeSelfTestResult | { stage: 'bridge' }> {
+    if (params.stage === 'bridge') {
+      return { stage: 'bridge' };
+    }
+    const zcashSdk = (
+      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
+    ).default;
+    const api = await zcashSdk.getZcashApi();
+    return api.runRuntimeSelfTest({ stage: params.stage });
+  }
+
+  @backgroundMethodForDev()
+  async zcashWalletDatabaseDiagnostics(params: {
+    $$devOnlyPassword: string;
+    networkId: string;
+    accountId?: string;
+  }) {
+    if (params.networkId !== getNetworkIdsMap().zec) {
+      throw new OneKeyLocalError('Zcash database diagnostics: invalid network');
+    }
+    const zcashSdk = (
+      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
+    ).default;
+    const api = await zcashSdk.getZcashApi();
+    const accountId = params.accountId?.trim();
+    const account = accountId
+      ? await (
+          (await vaultFactory.getChainOnlyVault({
+            networkId: params.networkId,
+          })) as VaultZcash
+        ).zcashGetWalletAccount({ accountId })
+      : undefined;
+    return api.diagnoseWalletDatabase({ network: 'main', account });
+  }
+
+  @backgroundMethodForDev()
+  async zcashStorageBenchmark(params: {
+    $$devOnlyPassword: string;
+    testCase: IZcashStorageBenchmarkCase;
+    preset: IZcashStorageBenchmarkPreset;
+  }) {
+    const zcashSdk = (
+      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
+    ).default;
+    const api = await zcashSdk.getZcashApi();
+    return api.runStorageBenchmark(params);
   }
 
   // ---------------------------------------------- demo

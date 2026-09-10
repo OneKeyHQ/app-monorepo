@@ -53,6 +53,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import { getPrivacyChainPublicDisplayFlow } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   collectDecodedTxInvolvedAddresses,
@@ -396,7 +397,6 @@ function HistoryDetails() {
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
-
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
   const privateSendSwapDetailOpened = useRef(false);
@@ -409,6 +409,7 @@ function HistoryDetails() {
     accountId,
   });
 
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
   const isInitialPrivateSendHistory = historyTxParam
@@ -801,6 +802,7 @@ function HistoryDetails() {
     // indexer cannot parse return an empty label, and overwriting with it
     // wiped out the title derived above.
     if (
+      !isLocalWalletHistory &&
       label &&
       (!historyTx.isLocalCreated ||
         decodedTx.status !== EDecodedTxStatus.Pending)
@@ -834,7 +836,7 @@ function HistoryDetails() {
     }
 
     return title;
-  }, [historyTx, intl, isSendToSelf]);
+  }, [historyTx, intl, isSendToSelf, isLocalWalletHistory]);
 
   const transfersToRender = useMemo(() => {
     if (!historyTx) {
@@ -1119,8 +1121,54 @@ function HistoryDetails() {
     canReplaceTx,
   ]);
 
+  const localWalletHistoryFlow = useMemo(
+    () =>
+      isLocalWalletHistory
+        ? getPrivacyChainPublicDisplayFlow({
+            networkId,
+            transfer: historyTx?.decodedTx.actions[0]?.assetTransfer,
+          })
+        : undefined,
+    [historyTx?.decodedTx.actions, isLocalWalletHistory, networkId],
+  );
+  const showUTXOs =
+    !localWalletHistoryFlow ||
+    localWalletHistoryFlow.from.length > 0 ||
+    localWalletHistoryFlow.to.length > 0;
+
   const renderTxFlow = useCallback(() => {
     const action = historyTx?.decodedTx.actions[0];
+
+    if (localWalletHistoryFlow) {
+      return (
+        <>
+          {(['from', 'to'] as const).flatMap((direction) =>
+            localWalletHistoryFlow[direction].map((address) => (
+              <InfoItem
+                key={`${direction}-${address}`}
+                label={intl.formatMessage({
+                  id:
+                    direction === 'from'
+                      ? ETranslations.global_from
+                      : ETranslations.global_to,
+                })}
+                renderContent={address}
+                showCopy
+                description={
+                  <AddressInfo
+                    address={address}
+                    networkId={networkId}
+                    accountId={accountId}
+                    allowClickAccountNameSwitch={allowClickAccountNameSwitch}
+                    addressMap={addressMap}
+                  />
+                }
+              />
+            )),
+          )}
+        </>
+      );
+    }
 
     if (action?.assetTransfer?.isInternalSwap) {
       const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
@@ -1255,6 +1303,7 @@ function HistoryDetails() {
     accountId,
     allowClickAccountNameSwitch,
     addressMap,
+    localWalletHistoryFlow,
   ]);
 
   const renderTxApproveFor = useCallback(() => {
@@ -1543,7 +1592,8 @@ function HistoryDetails() {
               />
             ) : null}
 
-            {vaultSettings?.isUtxo &&
+            {showUTXOs &&
+            vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
@@ -1589,6 +1639,7 @@ function HistoryDetails() {
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
+    showUTXOs,
     renderFeeInfo,
     network?.name,
     network?.id,

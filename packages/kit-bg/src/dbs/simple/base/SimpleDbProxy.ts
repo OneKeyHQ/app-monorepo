@@ -52,6 +52,7 @@ import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntit
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityPrivacyChain } from '../entity/SimpleDbEntityPrivacyChain';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -67,6 +68,7 @@ import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniv
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
+import type { SimpleDbEntityZcash } from '../entity/SimpleDbEntityZcash';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -165,6 +167,12 @@ export class SimpleDbProxy
   ) as SimpleDbEntityNotificationSettings;
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
+
+  privacyChain = this._createProxyService(
+    'privacyChain',
+  ) as SimpleDbEntityPrivacyChain;
+
+  zcash = this._createProxyService('zcash') as SimpleDbEntityZcash;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
 

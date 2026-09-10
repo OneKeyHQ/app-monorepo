@@ -170,6 +170,7 @@ function SendDataInputContainer() {
     onFail,
     onCancel,
     isAllNetworks,
+    localWalletSourcePool,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -780,6 +781,11 @@ function SendDataInputContainer() {
         isInvoiceAmountLocked,
         isAllNetworks,
         hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
+        localWalletSourcePool:
+          currentAccount.accountId === accountId &&
+          currentAccount.networkId === networkId
+            ? localWalletSourcePool
+            : undefined,
         onSuccess,
         onFail,
         onCancel,
@@ -803,6 +809,9 @@ function SendDataInputContainer() {
     tokenInfo,
     nfts,
     isAllNetworks,
+    accountId,
+    networkId,
+    localWalletSourcePool,
     onSuccess,
     onFail,
     onCancel,
@@ -1279,6 +1288,11 @@ function SendDataInputContainer() {
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
+          localWalletSourcePool:
+            currentAccount.accountId === accountId &&
+            currentAccount.networkId === networkId
+              ? localWalletSourcePool
+              : undefined,
           onSuccess,
           onFail,
           onCancel,
@@ -1305,6 +1319,9 @@ function SendDataInputContainer() {
       form,
       enableAllowListValidation,
       isAllNetworks,
+      accountId,
+      networkId,
+      localWalletSourcePool,
       isNFT,
       badgeQueryTokenAddress,
       nfts,

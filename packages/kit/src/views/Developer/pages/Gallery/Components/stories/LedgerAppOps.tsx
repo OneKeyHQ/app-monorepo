@@ -239,6 +239,29 @@ const LedgerAppOpsTester = () => {
     }
   };
 
+  const handleZcashProbe = async (showOnDevice: boolean) => {
+    setBusy(true);
+    try {
+      const res =
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareZcashProbe(
+          {
+            vendor: EHardwareVendor.ledger,
+            connectId,
+            path: "m/44'/133'/0'/0/0",
+            showOnDevice,
+          },
+        );
+      appendLog(`zcash UFVK → ${JSON.stringify(res.viewingKey)}`);
+      appendLog(
+        `zcash shielded address → ${JSON.stringify(res.shieldedAddress)}`,
+      );
+    } catch (err) {
+      appendLog(`zcash probe threw → ${(err as Error)?.message ?? err}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleCancel = async () => {
     if (!connectId) return;
     await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
@@ -278,6 +301,12 @@ const LedgerAppOpsTester = () => {
         </Button>
         <Button onPress={handleGetDeviceInfo} disabled={busy}>
           Device Info
+        </Button>
+        <Button onPress={() => handleZcashProbe(false)} disabled={busy}>
+          Zcash UFVK + UA
+        </Button>
+        <Button onPress={() => handleZcashProbe(true)} disabled={busy}>
+          Zcash UA (verify on device)
         </Button>
         <Button onPress={handleCancel} variant="destructive" disabled={!busy}>
           Cancel

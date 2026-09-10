@@ -325,6 +325,10 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
       await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
+      // Invalidate mounted history views even when there is no privacy-chain
+      // account, or when the optional scanner cleanup below fails.
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+      await this.backgroundApi.servicePrivacyChain.clearTransactionHistoryCache();
     }
     if (values.swapHistory) {
       // clear swap history

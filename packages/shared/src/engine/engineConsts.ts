@@ -57,6 +57,10 @@ const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
 export const COINNAME_BCH = 'BCH';
 
+const IMPL_ZCASH = 'zec';
+const COINTYPE_ZCASH = '133';
+export const COINNAME_ZCASH = 'ZCASH';
+
 const IMPL_XRP = 'xrp';
 const COINTYPE_XRP = '144';
 
@@ -155,6 +159,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_ALPH,
   IMPL_NEO,
   IMPL_STELLAR,
+  IMPL_ZCASH,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -265,6 +270,7 @@ export {
   COINTYPE_BFC,
   COINTYPE_NEO,
   COINTYPE_STELLAR,
+  COINTYPE_ZCASH,
   COINTYPE_AGGREGATE,
   IMPL_ADA,
   IMPL_ALGO,
@@ -301,6 +307,7 @@ export {
   IMPL_BFC,
   IMPL_NEO,
   IMPL_STELLAR,
+  IMPL_ZCASH,
   IMPL_AGGREGATE,
   INDEX_PLACEHOLDER,
   SEPERATOR,

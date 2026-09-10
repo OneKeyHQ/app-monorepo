@@ -73,6 +73,7 @@ export type IModalSignatureConfirmParamList = {
     isAllNetworks?: boolean;
     disableAddressTypeSelector?: boolean;
     showAddressTypeSelectorWhenDisabled?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
     networkId: string;
@@ -89,6 +90,7 @@ export type IModalSignatureConfirmParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

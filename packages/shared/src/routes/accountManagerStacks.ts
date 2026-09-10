@@ -16,6 +16,8 @@ export enum EAccountManagerStacksRoutes {
   HardwareHomeScreenModal = 'HardwareHomeScreenModal',
   PageResolveSameWallets = 'PageResolveSameWallets',
   BotWalletManager = 'BotWalletManager',
+  PrivacyNetworks = 'PrivacyNetworks',
+  PrivacyNetworkAccount = 'PrivacyNetworkAccount',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -61,5 +63,13 @@ export type IAccountManagerStacksParamList = {
   };
   [EAccountManagerStacksRoutes.BotWalletManager]: {
     parentKeylessWalletId: string;
+  };
+  [EAccountManagerStacksRoutes.PrivacyNetworks]: {
+    walletId: string;
+  };
+  [EAccountManagerStacksRoutes.PrivacyNetworkAccount]: {
+    accountId: string;
+    accountName: string;
+    networkId: string;
   };
 };

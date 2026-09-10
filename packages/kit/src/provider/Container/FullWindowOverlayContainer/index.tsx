@@ -16,6 +16,7 @@ import { TradingViewNativeFullscreenHost } from '../../../components/TradingView
 import { useSplitViewDetailOffset } from '../TableSplitViewContainer/SplitViewDetailOffsetContext';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
+import { PrivacyChainSyncLight } from './PrivacyChainSyncLight';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
@@ -113,6 +114,7 @@ export function FullWindowOverlayContainer() {
         {platformEnv.isE2E ? <></> : <Toaster />}
       </ToastOverlayContainer>
       <DevOverlayWindowContainer />
+      <PrivacyChainSyncLight />
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />
     </OverlayContainer>

@@ -22,6 +22,7 @@ export enum EHistoryTxDetailsBlock {
 export enum EOnChainHistoryTransferType {
   Transfer,
   Approve,
+  Shielded = 'shielded',
 }
 
 export enum EOnChainHistoryTxStatus {
@@ -47,6 +48,7 @@ export type IOnChainHistoryTxApprove = {
 
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
+  address?: string;
   from: string;
   to: string;
   token: string;
@@ -169,6 +171,8 @@ export type IOnChainHistoryTx = {
   slicedData?: string;
 };
 
+export type IPrivacyChainHistorySide = 'public' | 'private' | 'mixed';
+
 export type IAccountHistoryTx = {
   id: string; // historyId
 
@@ -186,6 +190,15 @@ export type IAccountHistoryTx = {
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;
+
+  // Optional so cached rows created by older app versions remain readable.
+  // `mixed` appears in both public and private asset tabs.
+  privacyChainHistorySide?: IPrivacyChainHistorySide;
+  // Exact chain-defined pool identifiers. The side above is only a current UI
+  // grouping; preserving this list allows future pools to be shown separately.
+  privacyChainHistoryPoolIds?: number[];
+  // Signed display-unit balance delta for each exact pool ID.
+  privacyChainHistoryPoolDeltas?: Record<string, string>;
 
   originalId?: string; // for ton
 };
