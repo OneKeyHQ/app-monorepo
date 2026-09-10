@@ -92,7 +92,10 @@ export function BorrowPositionCard({
         accessibilityRole: 'button',
         accessibilityState: { expanded: isExpanded },
         onAccessibilityTap: onToggleExpand,
-        focusStyle: {
+        // focusVisibleStyle, not focusStyle: the row takes DOM focus on every
+        // pointer press, so a plain :focus ring boxes the asset row the moment
+        // the card is tapped.
+        focusVisibleStyle: {
           outlineColor: '$focusRing',
           outlineWidth: 2,
           outlineStyle: 'solid',
