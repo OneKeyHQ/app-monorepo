@@ -107,17 +107,21 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
 
 jest.mock('../../Staking/components/ProtocolDetails/EarnText', () => ({
   __esModule: true,
+  // Faithful to the real one: it spreads the caller's props first and the
+  // server's IEarnText second, so whatever the server stamped wins. A mock
+  // that only read the caller's props would report this card's intent rather
+  // than what it actually renders.
   EarnText: ({
     text,
     size,
     color,
   }: {
-    text?: { text: string };
+    text?: { text: string; size?: string; color?: string };
     size?: string;
     color?: string;
   }) =>
     text ? (
-      <span data-size={size} data-color={color}>
+      <span data-size={text.size ?? size} data-color={text.color ?? color}>
         {text.text}
       </span>
     ) : null,
@@ -233,6 +237,27 @@ describe('BorrowPositionCard amount hierarchy', () => {
     expect(name.getAttribute('data-size')).toBe('$bodyLgMedium');
     expect(unit.getAttribute('data-size')).toBe('$bodyMd');
     expect(unit.getAttribute('data-color')).toBe('$textSubdued');
+  });
+
+  // The card states ListItem's pairing, but every IEarnText arrives carrying
+  // the server's own size and color and EarnText spreads the remote props
+  // last, so what ships is the server's. Today it sends the inverse hierarchy
+  // — the amount larger than the fiat value above it — and this pins that,
+  // so the day the server stops sending typography the card's own spec takes
+  // over and this test is what says so.
+  it("renders the typography the server sends, not the card's own", () => {
+    const { container } = renderCard({
+      tokenAmount: { text: '20', size: '$bodyMdMedium', color: '$textText' },
+      fiatValue: { text: '$20', size: '$bodySm', color: '$textDisabled' },
+    });
+    const at = (content: string) =>
+      Array.from(container.querySelectorAll('[data-size]')).find(
+        (n) => n.textContent === content,
+      );
+
+    expect(at('$20')?.getAttribute('data-size')).toBe('$bodySm');
+    expect(at('$20')?.getAttribute('data-color')).toBe('$textDisabled');
+    expect(at('20')?.getAttribute('data-size')).toBe('$bodyMdMedium');
   });
 
   it('lets the server override the amount treatment', () => {
