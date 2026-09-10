@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "ফান্ডিং রেটের ইতিহাস",
   "perp_funding_rate_history_empty__desc": "এই মার্কেটের ফান্ডিং রেটের ইতিহাস পাওয়া যাচ্ছে না।",
   "perp_funding_rate_short__title": "হার",
+  "perp_funding_settlement_currency__title": "নিষ্পত্তির মুদ্রা",
   "perp_funding_side__label": "দিক",
   "perp_guide_title": "ট্রেডিং গাইড",
   "perp_holdings_empty_message": "কোনো স্পট অ্যাসেট নেই",

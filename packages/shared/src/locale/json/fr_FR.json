@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Historique du taux de financement",
   "perp_funding_rate_history_empty__desc": "Aucun historique des taux de financement n’est disponible pour ce marché.",
   "perp_funding_rate_short__title": "Taux",
+  "perp_funding_settlement_currency__title": "Devise de règlement",
   "perp_funding_side__label": "Direction",
   "perp_guide_title": "Guide de trading",
   "perp_holdings_empty_message": "Aucun actif spot",

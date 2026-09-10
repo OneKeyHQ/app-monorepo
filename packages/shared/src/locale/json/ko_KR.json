@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "자금조달비율 내역",
   "perp_funding_rate_history_empty__desc": "이 시장의 자금조달비율 내역을 사용할 수 없습니다.",
   "perp_funding_rate_short__title": "비율",
+  "perp_funding_settlement_currency__title": "결제 통화",
   "perp_funding_side__label": "방향",
   "perp_guide_title": "트레이딩 가이드",
   "perp_holdings_empty_message": "현물 자산 없음",

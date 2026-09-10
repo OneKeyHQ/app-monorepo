@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "資金調達率の履歴",
   "perp_funding_rate_history_empty__desc": "この市場の資金調達率履歴は利用できません。",
   "perp_funding_rate_short__title": "料率",
+  "perp_funding_settlement_currency__title": "決済通貨",
   "perp_funding_side__label": "方向",
   "perp_guide_title": "取引ガイド",
   "perp_holdings_empty_message": "現物資産がありません",

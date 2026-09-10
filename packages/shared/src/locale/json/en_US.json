@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Funding Rate History",
   "perp_funding_rate_history_empty__desc": "No funding rate history is available for this market.",
   "perp_funding_rate_short__title": "Funding rate",
+  "perp_funding_settlement_currency__title": "Settlement currency",
   "perp_funding_side__label": "Side",
   "perp_guide_title": "Trading Guide",
   "perp_holdings_empty_message": "No spot assets",

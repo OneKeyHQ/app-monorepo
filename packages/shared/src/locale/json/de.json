@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Verlauf der Finanzierungsrate",
   "perp_funding_rate_history_empty__desc": "Für diesen Markt ist kein Verlauf der Finanzierungsrate verfügbar.",
   "perp_funding_rate_short__title": "Rate",
+  "perp_funding_settlement_currency__title": "Abrechnungswährung",
   "perp_funding_side__label": "Richtung",
   "perp_guide_title": "Handelsleitfaden",
   "perp_holdings_empty_message": "Keine Spot-Assets",
