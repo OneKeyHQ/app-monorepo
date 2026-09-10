@@ -25,5 +25,10 @@ export type IModalMarketParamList = {
         showFavoriteButton?: boolean;
       }
     | undefined;
-  [EModalMarketRoutes.MarketChartSettings]: undefined;
+  [EModalMarketRoutes.MarketChartSettings]:
+    | {
+        // Only stock detail charts can offer Prev close.
+        showPreviousClose?: boolean;
+      }
+    | undefined;
 };

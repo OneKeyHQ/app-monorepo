@@ -35,7 +35,10 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
-import { getMarketStockPreviousClose } from '../utils/marketStockPreviousClose';
+import {
+  getMarketStockPreviousClose,
+  getMarketStockTokenPreviousClose,
+} from '../utils/marketStockPreviousClose';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -176,11 +179,20 @@ export function DesktopLayout({
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
-  // Only the share quote reports a previous session close. Token-price and
-  // on-chain charts keep the widget's own first-price fallback.
-  const stockPreviousClose = isStockSharePrice
-    ? getMarketStockPreviousClose(stockDetail)
-    : undefined;
+  // Stock detail charts offer Prev close in both price modes. The share price
+  // uses the quote's previous close as is; the token price rescales it by the
+  // selected variant's shares per token.
+  let stockPreviousClose: number | undefined;
+  if (isStockSharePrice) {
+    stockPreviousClose = getMarketStockPreviousClose(stockDetail);
+  } else if (shouldUseStockDesktopLayout) {
+    stockPreviousClose = getMarketStockTokenPreviousClose({
+      stockDetail,
+      tokenToAssetRatio:
+        selectedTokenVariant?.tokenToAssetRatio ??
+        tokenDetail?.stock?.tokenToAssetRatio,
+    });
+  }
   const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
   const stockTokenAddress =
     selectedTokenVariant?.contractAddress || routeTokenAddress;
@@ -370,6 +382,7 @@ export function DesktopLayout({
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          enablePreviousClose={shouldUseStockDesktopLayout}
           previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={

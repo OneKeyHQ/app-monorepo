@@ -18,3 +18,25 @@ export function getMarketStockPreviousClose(
   const value = Number(rawValue);
   return Number.isFinite(value) && value > 0 ? value : undefined;
 }
+
+/**
+ * The share's previous close on a stock token's price scale. A token trades at
+ * roughly the share price times its shares per token (`tokenToAssetRatio`);
+ * variants that do not report a ratio are treated as one share per token.
+ */
+export function getMarketStockTokenPreviousClose({
+  stockDetail,
+  tokenToAssetRatio,
+}: {
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+  tokenToAssetRatio?: string;
+}): number | undefined {
+  const sharePreviousClose = getMarketStockPreviousClose(stockDetail);
+  if (sharePreviousClose === undefined) {
+    return undefined;
+  }
+  const ratio = Number(tokenToAssetRatio?.trim());
+  return Number.isFinite(ratio) && ratio > 0
+    ? sharePreviousClose * ratio
+    : sharePreviousClose;
+}
