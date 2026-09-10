@@ -122,6 +122,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import type { IMarketPerpsInfo } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -163,6 +164,7 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
@@ -1675,6 +1677,46 @@ export default class ServiceHyperliquid extends ServiceBase {
     const map = await this.getSymbolsMetaMap({ coins: [coin] });
     const meta = map[coin];
     return meta;
+  }
+
+  // Top Coins detail data comes from the self-maintained asset API, which
+  // carries no perps field. Resolve the Hyperliquid counterpart from the
+  // main-DEX universe so the market page can still offer a perps entry.
+  @backgroundMethod()
+  async resolveMarketPerpsInfoBySymbol({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<IMarketPerpsInfo | undefined> {
+    const coin = symbol?.trim().toUpperCase();
+    if (!coin) {
+      return undefined;
+    }
+    const findMainDexAsset = (universesByDex: IPerpsUniverse[][]) =>
+      universesByDex[0]?.find((item) => !item.isDelisted && item.name === coin);
+
+    const cached = await this.getTradingUniverse();
+    let { universesByDex } = cached;
+    if (
+      shouldRefreshMarketPerpsUniverse({
+        universesByDex,
+        updatedAt: cached.updatedAt,
+      })
+    ) {
+      try {
+        await this.refreshTradingMeta();
+        ({ universesByDex } = await this.getTradingUniverse());
+      } catch (error) {
+        // A stale universe still answers most symbols, and the caller reads a
+        // miss as "no perps entry" — losing that to a network blip would be
+        // worse than the staleness this was guarding against.
+        defaultLogger.app.error.log(
+          `Failed to refresh perps trading meta for market: ${String(error)}`,
+        );
+      }
+    }
+    const asset = findMainDexAsset(universesByDex);
+    return asset ? { hlTicker: asset.name } : undefined;
   }
 
   @backgroundMethod()
