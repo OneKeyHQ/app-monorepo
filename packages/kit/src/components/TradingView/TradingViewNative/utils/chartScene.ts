@@ -1386,13 +1386,23 @@ export function buildTradingViewNativeChartScene({
         Math.max(crosshairY - CROSSHAIR_LABEL_HEIGHT / 2, 0),
         timeAxisY - CROSSHAIR_LABEL_HEIGHT,
       );
+      // Rare long indicator values expand the tooltip without widening the axis.
+      const labelWidth = Math.max(
+        width - priceAxisX,
+        crosshairPrice === null && crosshairVolume === null
+          ? measureTextWidth(crosshairValueText, 'priceAxis') +
+              PRICE_AXIS_LABEL_LEFT_PADDING +
+              CROSSHAIR_LABEL_HORIZONTAL_PADDING
+          : 0,
+      );
+      const labelLeft = width - labelWidth;
       commands.push(
         {
           height: CROSSHAIR_LABEL_HEIGHT,
           kind: 'rect',
           paint: 'crosshairLabelBackground',
-          width: width - priceAxisX,
-          x: priceAxisX,
+          width: labelWidth,
+          x: labelLeft,
           y: labelTop,
         },
         {
@@ -1400,7 +1410,7 @@ export function buildTradingViewNativeChartScene({
           kind: 'text',
           paint: 'crosshairLabelText',
           text: crosshairValueText,
-          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          x: labelLeft + PRICE_AXIS_LABEL_LEFT_PADDING,
           y:
             labelTop +
             CROSSHAIR_LABEL_HEIGHT / 2 +

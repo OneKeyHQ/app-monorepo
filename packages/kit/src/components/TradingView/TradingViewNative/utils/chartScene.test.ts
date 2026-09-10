@@ -13,7 +13,10 @@ import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
-import { createTradingViewNativeSubIndicatorRenderSnapshots } from './subIndicatorRender';
+import {
+  createTradingViewNativeSubIndicatorRenderSnapshot,
+  createTradingViewNativeSubIndicatorRenderSnapshots,
+} from './subIndicatorRender';
 
 const POINTS: IMarketTokenKLineDataPoint[] = [
   { c: 101, h: 103, l: 98, o: 100, t: 1_700_000_000, v: 10 },
@@ -1025,6 +1028,74 @@ describe('TradingViewNative shared chart scene', () => {
       shortScene.commands.length + 10,
     );
   });
+
+  it.each(['volume', 'inherit'] as const)(
+    'fits long %s crosshair values without widening the indicator axis',
+    (type) => {
+      const { pane } = createTradingViewNativeSubIndicatorRenderSnapshot({
+        config: { id: 'obv', indicator: 'OBV' },
+        points: POINTS,
+      });
+      pane.format = { type };
+      pane.scale = { kind: 'fixed', maxValue: 1e-9, minValue: -1e-9 };
+      const options = {
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick' as const,
+        hasVolume: false,
+        height: 360,
+        measureTextWidth: (text: string) => text.length * 6,
+        points: POINTS,
+        subIndicatorPanes: [pane],
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 320,
+      };
+      const baseline = buildTradingViewNativeChartScene({
+        ...options,
+        crosshair: { visible: false, x: 260, y: 310 },
+      });
+
+      for (const y of [308, 310]) {
+        const scene = buildTradingViewNativeChartScene({
+          ...options,
+          crosshair: {
+            visible: true,
+            x: options.width - baseline.priceAxisWidth - 10,
+            y,
+          },
+        });
+        const label = scene.commands.find(
+          (command) =>
+            command.kind === 'text' &&
+            command.font === 'priceAxis' &&
+            command.paint === 'crosshairLabelText',
+        );
+        const background = scene.commands.find(
+          (command) =>
+            command.kind === 'rect' &&
+            command.paint === 'crosshairLabelBackground',
+        );
+        expect(label).toBeDefined();
+        expect(background).toBeDefined();
+        if (label?.kind !== 'text' || background?.kind !== 'rect') {
+          return;
+        }
+        expect(scene.priceAxisWidth).toBe(baseline.priceAxisWidth);
+        expect(label.x).toBeGreaterThan(background.x);
+        expect(label.x + options.measureTextWidth(label.text)).toBeLessThan(
+          background.x + background.width,
+        );
+        expect(background.x + background.width).toBe(options.width);
+        const axisLeft = options.width - scene.priceAxisWidth;
+        if (y === 310) {
+          expect(background.x).toBeLessThan(axisLeft);
+        } else {
+          expect(background.x).toBe(axisLeft);
+        }
+      }
+    },
+  );
 
   it('renders selected volume in its own pane without main-chart volume', () => {
     const points = buildLinearPoints(80).map((point, index) => ({
