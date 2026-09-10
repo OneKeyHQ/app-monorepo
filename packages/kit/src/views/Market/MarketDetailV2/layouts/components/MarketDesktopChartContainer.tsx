@@ -20,6 +20,34 @@ const MARKET_DESKTOP_CHART_VIEWPORT_GUTTER = 160;
 const MARKET_DESKTOP_CHART_KEYBOARD_STEP = 24;
 const MARKET_DESKTOP_CHART_SAVE_TIMEOUT = 5000;
 
+interface IChartHeightSave {
+  id: string;
+  height: number;
+  started: boolean;
+  accepted: boolean;
+  write: () => Promise<void>;
+}
+
+// Shared by chart instances in this UI runtime, including after navigation.
+let latestChartHeightSave: IChartHeightSave | undefined;
+const repairListeners = new Set<(request: IChartHeightSave) => void>();
+
+async function persistChartHeight(request: IChartHeightSave): Promise<void> {
+  let current = request;
+  for (;;) {
+    current.started = true;
+    await current.write();
+    const latest = latestChartHeightSave;
+    if (!latest || latest === current) {
+      return;
+    }
+    // Repair even a previously acknowledged write. Reuse the user request so
+    // slow repairs cannot create new generations and sustain a write loop.
+    repairListeners.forEach((listener) => listener(latest));
+    current = latest;
+  }
+}
+
 function clampChartHeight(height: number, maxHeight: number) {
   return Math.min(
     Math.max(Math.round(height), MARKET_DESKTOP_CHART_MIN_HEIGHT),
@@ -53,7 +81,6 @@ export function MarketDesktopChartContainer({
     height: number;
   }>();
   const pendingSaveRef = useRef(pendingSave);
-  const latestSaveRef = useRef(pendingSave);
   const acknowledgementTimerRef =
     useRef<ReturnType<typeof setTimeout>>(undefined);
   const saveQueueRef = useRef(Promise.resolve());
@@ -91,7 +118,13 @@ export function MarketDesktopChartContainer({
 
   useEffect(() => {
     isMountedRef.current = true;
+    const onRepair = (request: IChartHeightSave) => {
+      pendingSaveRef.current = request;
+      setPendingSave(request);
+    };
+    repairListeners.add(onRepair);
     return () => {
+      repairListeners.delete(onRepair);
       isMountedRef.current = false;
       clearTimeout(acknowledgementTimerRef.current);
     };
@@ -101,8 +134,8 @@ export function MarketDesktopChartContainer({
     // A matching height alone can be the stale mirror of a return-to-start save.
     if (
       pendingSave &&
-      layoutState.chartHeightUpdateId === pendingSave.id &&
-      savedHeight === pendingSave.height
+      layoutState.chartHeightUpdateId === latestChartHeightSave?.id &&
+      savedHeight === latestChartHeightSave?.height
     ) {
       clearPendingSave(pendingSave.id);
     }
@@ -114,22 +147,14 @@ export function MarketDesktopChartContainer({
   ]);
 
   const saveHeight = useCallback(
-    function enqueueSave(height: number) {
-      const request = { id: generateUUID(), height };
-      latestSaveRef.current = request;
-      pendingSaveRef.current = request;
-      clearTimeout(acknowledgementTimerRef.current);
-      if (isMountedRef.current) {
-        setPendingSave(request);
-      }
-      // Coalesce queued inputs, but keep a bound on an unresponsive bridge.
-      saveQueueRef.current = saveQueueRef.current.then(() => {
-        if (latestSaveRef.current !== request) {
-          return undefined;
-        }
-        let timedOut = false;
-        return makeTimeoutPromise({
-          asyncFunc: async () => {
+    (height: number) => {
+      const request: IChartHeightSave = {
+        id: generateUUID(),
+        height,
+        started: false,
+        accepted: false,
+        write: async () => {
+          try {
             await Promise.resolve(
               setLayoutState((prev) => ({
                 ...prev,
@@ -137,13 +162,49 @@ export function MarketDesktopChartContainer({
                 chartHeightUpdateId: request.id,
               })),
             );
-            // A timeout releases the queue, not the original write. Repair a
-            // late write even after unmount so the latest preference wins.
-            const latest = latestSaveRef.current;
-            if (timedOut && latest && latest !== request) {
-              enqueueSave(latest.height);
+            request.accepted = true;
+          } catch (error) {
+            if (!request.accepted) {
+              clearPendingSave(request.id);
             }
-          },
+            throw error;
+          }
+        },
+      };
+      latestChartHeightSave = request;
+      pendingSaveRef.current = request;
+      clearTimeout(acknowledgementTimerRef.current);
+      setPendingSave(request);
+      const startAcknowledgementWatchdog = () => {
+        if (
+          isMountedRef.current &&
+          pendingSaveRef.current?.id === request.id &&
+          latestChartHeightSave === request
+        ) {
+          acknowledgementTimerRef.current = setTimeout(() => {
+            if (
+              latestChartHeightSave === request &&
+              pendingSaveRef.current?.id === request.id
+            ) {
+              // Retry a missing broadcast once, without changing the request
+              // identity or dropping the user's height back to a stale mirror.
+              void persistChartHeight(request).catch(() => undefined);
+            }
+          }, MARKET_DESKTOP_CHART_SAVE_TIMEOUT);
+        }
+      };
+      // Coalesce queued inputs, but keep a bound on an unresponsive bridge.
+      saveQueueRef.current = saveQueueRef.current.then(() => {
+        if (latestChartHeightSave !== request) {
+          return undefined;
+        }
+        if (request.started) {
+          startAcknowledgementWatchdog();
+          return undefined;
+        }
+        let timedOut = false;
+        return makeTimeoutPromise({
+          asyncFunc: () => persistChartHeight(request),
           timeout: MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
           onTimeout: () => {
             timedOut = true;
@@ -151,22 +212,11 @@ export function MarketDesktopChartContainer({
           timeoutRejectError: new OneKeyLocalError(
             'Chart height save timed out',
           ),
-        })(undefined).then(
-          () => {
-            // RPC completion can precede the UI broadcast. Keep the overlay
-            // until that acknowledgement, with a bound for a lost broadcast.
-            if (
-              isMountedRef.current &&
-              pendingSaveRef.current?.id === request.id
-            ) {
-              acknowledgementTimerRef.current = setTimeout(
-                () => clearPendingSave(request.id),
-                MARKET_DESKTOP_CHART_SAVE_TIMEOUT,
-              );
-            }
-          },
-          () => clearPendingSave(request.id),
-        );
+        })(undefined).then(startAcknowledgementWatchdog, () => {
+          if (timedOut) {
+            startAcknowledgementWatchdog();
+          }
+        });
       });
     },
     [clearPendingSave, setLayoutState],
