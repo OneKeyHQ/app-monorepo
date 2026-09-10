@@ -427,7 +427,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           skipWebDevicePrompt: true,
           allowEmptyConnectId,
           forceProtocolDetection,
-          ...(forceProtocolDetection
+          ...(forceProtocolDetection ||
+          hardwareTransportType === EHardwareTransportType.DesktopWebBle
             ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
             : {}),
         },
@@ -824,7 +825,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -882,8 +884,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        forceProtocolDetection:
-          currentTransportType === EHardwareTransportType.DesktopWebBle,
         hardwareTransportType: currentTransportType,
       });
     let features: IOneKeyDeviceFeatures =
@@ -896,8 +896,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
-            forceProtocolDetection:
-              currentTransportType === EHardwareTransportType.DesktopWebBle,
             ...(currentTransportType === EHardwareTransportType.DesktopWebBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
