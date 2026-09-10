@@ -18,7 +18,6 @@ import Animated, {
   cancelAnimation,
   interpolate,
   runOnJS,
-  useAnimatedKeyboard,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -36,6 +35,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
@@ -806,7 +806,15 @@ export function MorphOverlay<T>({
     onPillLayout,
   } = morph;
   const { width: screenWidth } = useWindowDimensions();
-  const keyboard = useAnimatedKeyboard();
+  // The keyboard ride reads the app's keyboard-controller feed — the one
+  // PageFooter and the keyboard-aware pages already ride — so the shell
+  // and the app's own inputs move on the same frames (OK-62107).
+  // Reanimated's useAnimatedKeyboard is deprecated upstream: iOS 26 hands
+  // it end values only, and its interactive-dismiss tracking could leave a
+  // stale height standing after the keyboard was gone, which rested the
+  // capsule a keyboard's worth above the edge with nothing on screen to
+  // clear. The feed's height is negative on native; web pins it at 0.
+  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const themeName = useThemeName();
   // The shell's edge definition — the native ring's hairline border, the
   // web outline — is the dark theme's neutral3 whatever the app's theme:
@@ -831,7 +839,7 @@ export function MorphOverlay<T>({
   // home-indicator zone already. The wide posture hangs from the top,
   // where no bottom inset applies.
   //
-  // The keyboard ADDS to it on purpose, no max: reanimated's Android
+  // The keyboard ADDS to it on purpose, no max: the feed's Android
   // keyboard height is the IME inset minus the system bar (it treats the
   // bar as opaque unless told otherwise), so inset + keyboard is exactly
   // the keyboard's top edge measured from the screen bottom; a max would
@@ -1099,12 +1107,12 @@ export function MorphOverlay<T>({
             ? travel -
               lift.value -
               bottomClearance.value -
-              keyboard.height.value
+              Math.abs(keyboardHeight.value)
             : lift.value - travel,
         },
       ],
     };
-  }, [bottomClearance, height, keyboard, lift, phonePosture, presence]);
+  }, [bottomClearance, height, keyboardHeight, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike. Its level rides a clock of its own, so a
   // flip while the shell is up (a wait turning into a failure card,
