@@ -29,6 +29,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { ListItem } from '../../../components/ListItem';
@@ -202,7 +203,7 @@ const RecommendedItem = memo(
         <XStack gap="$3" ai="center" width="100%">
           <Token tokenImageUri={token.logoURI} size="md" />
           <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
-            {token.symbol}
+            {earnUtils.getDisplaySymbol(token)}
           </SizableText>
           <RecommendedBadges token={token} />
         </XStack>
@@ -260,7 +261,7 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
         primary={
           <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
             <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-              {token.symbol}
+              {earnUtils.getDisplaySymbol(token)}
             </SizableText>
             <RecommendedBadges
               token={token}

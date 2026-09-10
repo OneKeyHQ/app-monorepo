@@ -848,7 +848,12 @@ function TokenDetailsView() {
     <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
-      <TokenDetailsFooter networkId={networkId} />
+      <TokenDetailsFooter
+        networkId={networkId}
+        tokenAddress={tokenInfo.address}
+        isNative={tokenInfo.isNative}
+        isAggregateToken={tokenInfo.isAggregateToken}
+      />
     </Page>
   );
 }

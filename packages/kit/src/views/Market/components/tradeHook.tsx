@@ -23,6 +23,7 @@ import {
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
@@ -37,24 +38,24 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
 
-export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, platforms = {} } = token || {};
-  const network = useMemo(() => {
-    if (detailPlatforms) {
-      const values = Object.values(detailPlatforms);
-      const nativePlatform = values.find((i) => i.isNative);
-      if (nativePlatform) {
-        return nativePlatform;
-      }
+import { resolveMarketTradeNetwork } from './tradeHook.utils';
 
-      const tokenAddress = Object.values(platforms)[0];
-      const tokenAddressPlatform = values.find(
-        (i) => i.tokenAddress === tokenAddress,
-      );
-      return tokenAddressPlatform ?? values[0];
-    }
-  }, [detailPlatforms, platforms]);
-  return network;
+export const useMarketTradeNetwork = (
+  token: IMarketTokenDetail | null,
+  // Asset the caller already knows the user came from; see
+  // resolveMarketTradeNetwork for why it takes precedence over market data.
+  preferredToken?: IMarketPreferredToken,
+) => {
+  const { detailPlatforms, platforms } = token || {};
+  return useMemo(
+    () =>
+      resolveMarketTradeNetwork({
+        detailPlatforms,
+        platforms,
+        preferredToken,
+      }),
+    [detailPlatforms, platforms, preferredToken],
+  );
 };
 
 export const useMarketTradeNetworkId = (
@@ -66,10 +67,13 @@ export const useMarketTradeNetworkId = (
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
 
-export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+export const useMarketTradeActions = (
+  token: IMarketTokenDetail | null,
+  preferredToken?: IMarketPreferredToken,
+) => {
   const { symbol = '', name, image } = token || {};
   const intl = useIntl();
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredToken);
   const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =

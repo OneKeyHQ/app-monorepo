@@ -2366,7 +2366,7 @@ export function UniversalStake({
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
                 selectedTokenImageLoading: tokenImageLoading,
-                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                selectedTokenSymbol: tokenSymbol,
                 selectedNetworkImageUri: network?.logoURI,
                 ...tokenSelectorTriggerProps,
               }}
