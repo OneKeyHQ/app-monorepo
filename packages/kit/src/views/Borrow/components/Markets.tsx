@@ -148,7 +148,6 @@ export const Markets = () => {
     ) {
       return;
     }
-    rememberMarket(pendingMarketChange.market);
     pendingMarketChangeRef.current = null;
     pendingMarketChange.resolve();
   }, [
@@ -232,10 +231,11 @@ export const Markets = () => {
           resolve,
         };
       });
+      rememberMarket(nextMarket);
       setRequestedMarket(nextMarket);
       return settled;
     },
-    [markets, selectedMarketKey, setRequestedMarket],
+    [markets, rememberMarket, selectedMarketKey, setRequestedMarket],
   );
 
   const label = selectedMarket ? getBorrowMarketLabel(selectedMarket) : '';
