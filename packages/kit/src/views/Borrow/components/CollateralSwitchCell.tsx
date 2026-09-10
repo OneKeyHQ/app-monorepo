@@ -27,6 +27,7 @@ import {
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -654,27 +655,51 @@ export function CollateralSwitchCell({
 
   if (!render || !market || !accountId) return null;
 
+  const isSwitchDisabled =
+    previewLoading ||
+    isNativeActionUnsupported ||
+    disabled ||
+    (!value && requiresEModeId && eModeId === undefined);
+
   return (
     <Stack
       position="relative"
       ai="center"
       jc="center"
-      onPress={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
+      onPress={
+        platformEnv.isNative
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+            }
+      }
     >
       <Stack opacity={previewLoading ? 0 : 1}>
+        {/* Use the shared press-based switch for reliable iOS row taps. */}
         <Switch
           testID={BorrowTestIDs.suppliedCollateralSwitch}
           value={value}
           size={size}
-          disabled={
-            previewLoading ||
-            isNativeActionUnsupported ||
-            disabled ||
-            (!value && requiresEModeId && eModeId === undefined)
-          }
+          native={!platformEnv.isNativeIOS}
+          disabled={isSwitchDisabled}
+          {...(platformEnv.isNativeIOS
+            ? {
+                accessible: true,
+                accessibilityRole: 'switch' as const,
+                accessibilityLabel: `${item.token.symbol} ${intl.formatMessage({
+                  id: ETranslations.defi_collateral,
+                })}`,
+                accessibilityState: {
+                  checked: value,
+                  disabled: isSwitchDisabled,
+                },
+                onAccessibilityTap: () => {
+                  if (!isSwitchDisabled) handleToggle();
+                },
+                hitSlop: { top: 12, bottom: 12, left: 6, right: 6 },
+                bg: value ? '$bgAccent' : '$neutral5',
+              }
+            : undefined)}
           onChange={handleToggle}
         />
       </Stack>
