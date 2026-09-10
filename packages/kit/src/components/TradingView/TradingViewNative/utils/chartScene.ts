@@ -822,7 +822,7 @@ export function buildTradingViewNativeChartScene({
           },
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
-    canvasWidth: width,
+    canvasWidth: chartWidth,
     isMobileLayout,
     mainChartBottom: subIndicatorPaneStackLayout.top,
   });
