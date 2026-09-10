@@ -1,6 +1,9 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { isSupportedHardwareWebUsbDevice } from './webDeviceFilters';
+import {
+  isKeystoneWebUsbDevice,
+  isSupportedHardwareWebUsbDevice,
+} from './webDeviceFilters';
 
 export { isSupportedHardwareWebUsbDevice };
 
@@ -27,7 +30,12 @@ export function getWebUsbConnectedDeviceKey(
   if (!isSupportedHardwareWebUsbDevice(device)) {
     return undefined;
   }
-  return device.serialNumber || undefined;
+  if (!device.serialNumber) {
+    return undefined;
+  }
+  return isKeystoneWebUsbDevice(device)
+    ? `keystone-usb:${device.serialNumber}`
+    : device.serialNumber;
 }
 
 export function buildHardwareConnectedDeviceKeys({

@@ -1,7 +1,83 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import type { IThirdPartyHardwareSearchTarget } from '@onekeyhq/shared/types/device';
 
 import type { DeviceInfo } from './adapters/types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+type IThirdPartySearchTransport = 'usb' | 'ble' | 'qr';
+
+export function mapThirdPartySearchTargetToSearchDevice({
+  target,
+  defaultDeviceName,
+}: {
+  target: IThirdPartyHardwareSearchTarget;
+  defaultDeviceName?: string;
+}): SearchDevice {
+  const hasPersistentConnectId =
+    target.connectionType === 'qr' ||
+    getVendorProfile(target.vendor).hasPersistentConnectId(
+      target.connectionType,
+    );
+  return {
+    connectId:
+      hasPersistentConnectId && target.searchTargetId
+        ? target.searchTargetId
+        : null,
+    deviceId: null,
+    name:
+      target.label ||
+      target.modelName ||
+      target.model ||
+      defaultDeviceName ||
+      '',
+    deviceType: 'unknown',
+    uuid: '',
+    commType: 'bridge',
+    vendorModel: target.model,
+    vendorModelName: target.modelName,
+    raw: {
+      vendor: target.vendor,
+      connectId: target.searchTargetId,
+      deviceId: '',
+      label: target.label,
+      model: target.model,
+      modelName: target.modelName,
+      connectionType: target.connectionType,
+      serialNumber: target.serialNumber,
+      searchTarget: target,
+    },
+  } as SearchDevice;
+}
+
+export function normalizeThirdPartySearchDevicesForTransport({
+  devices,
+  transportType,
+}: {
+  devices: DeviceInfo[];
+  transportType: IThirdPartySearchTransport;
+}): DeviceInfo[] {
+  return devices.flatMap((device) => {
+    const availableChannels = (
+      device as DeviceInfo & {
+        raw?: { availableChannels?: unknown };
+      }
+    ).raw?.availableChannels;
+    const supportsRequestedTransport =
+      device.connectionType === transportType ||
+      (Array.isArray(availableChannels) &&
+        availableChannels.includes(transportType));
+
+    if (!supportsRequestedTransport) {
+      return [];
+    }
+
+    // A multi-channel Keystone record reports USB while a live USB session is
+    // attached. Preserve the transport selected for this operation so
+    // analytics and DB transport handles do not misclassify QR as USB.
+    return [{ ...device, connectionType: transportType }];
+  });
+}
 
 export function mapThirdPartyDeviceToSearchDevice({
   device,

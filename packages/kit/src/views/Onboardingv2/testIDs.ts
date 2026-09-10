@@ -141,6 +141,8 @@ export const OnboardingTestIDs = {
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
+  connectionFlowKeystoneUsbBtn: 'onboarding-connection-flow-keystone-usb-btn',
+  connectionFlowKeystoneQrBtn: 'onboarding-connection-flow-keystone-qr-btn',
 
   // Import phrase / private key
   importPhraseConfirmBtn: 'onboarding-import-phrase-confirm-btn',

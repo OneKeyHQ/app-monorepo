@@ -357,7 +357,7 @@ describe('ServiceAccountSelector', () => {
     const service = new ServiceAccountSelector({
       backgroundApi: {
         serviceAccount: {
-          getWallet: jest.fn(
+          getWalletSafe: jest.fn(
             async ({ walletId }: { walletId: string }) =>
               ({ id: walletId, name: 'Private Key' }) as IDBWallet,
           ),
@@ -393,5 +393,67 @@ describe('ServiceAccountSelector', () => {
       networkId: allNetworkId,
       othersWalletAccountId: EVM_ACCOUNT_ID,
     });
+  });
+
+  it('does not query accounts for a selected wallet hidden by compatibility filtering', async () => {
+    const getDbAccountIdFromIndexedAccountId = jest.fn();
+    const getDBAccount = jest.fn();
+    const service = new ServiceAccountSelector({
+      backgroundApi: {
+        serviceAccount: {
+          getWalletSafe: jest.fn(async () => undefined),
+          getDbAccountIdFromIndexedAccountId,
+          getDBAccount,
+        },
+        serviceNetwork: {
+          getNetwork: jest.fn(async ({ networkId }: { networkId: string }) => ({
+            id: networkId,
+          })),
+          getDeriveInfoOfNetwork: jest.fn(async () => undefined),
+          getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+        },
+      },
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount: {
+        walletId: 'hw-future-device',
+        focusedWallet: 'hw-future-device',
+        networkId: 'evm--1',
+        indexedAccountId: 'future-indexed-account',
+        deriveType: 'default',
+        othersWalletAccountId: undefined,
+      },
+    });
+
+    expect(result.activeAccount.wallet).toBeUndefined();
+    expect(result.selectedAccount.walletId).toBeUndefined();
+    expect(getDbAccountIdFromIndexedAccountId).not.toHaveBeenCalled();
+    expect(getDBAccount).not.toHaveBeenCalled();
+  });
+
+  it('returns empty selector data for a focused wallet hidden by compatibility filtering', async () => {
+    const getIndexedAccountsOfWallet = jest.fn();
+    const service = new ServiceAccountSelector({
+      backgroundApi: {
+        serviceAccount: {
+          getWalletSafe: jest.fn(async () => undefined),
+          getIndexedAccountsOfWallet,
+        },
+      },
+    });
+
+    await expect(
+      service.getAccountSelectorAccountsListSectionData({
+        focusedWallet: 'hw-future-device',
+        deriveType: 'default',
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      service.getFocusedWalletInfo({
+        focusedWallet: 'hw-future-device',
+      }),
+    ).resolves.toBeUndefined();
+    expect(getIndexedAccountsOfWallet).not.toHaveBeenCalled();
   });
 });

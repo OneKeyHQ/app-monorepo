@@ -25,6 +25,9 @@ export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
 // Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
 export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
+// Literals until the SDK bump lands: HardwareErrorCode.InteractionNotFound/InteractionEnded.
+export const THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE = 10_112;
+export const THIRD_PARTY_HW_INTERACTION_ENDED_CODE = 10_113;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -287,6 +290,36 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceDisconnected;
+}
+
+/** The runtime interaction cannot be resolved by the current adapter instance. */
+export class ThirdPartyInteractionNotFound extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE;
+}
+
+/** The runtime interaction ended and the operation must start a new connection. */
+export class ThirdPartyInteractionEnded extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_INTERACTION_ENDED_CODE;
 }
 
 /** Chain app wedged (e.g. Ledger BTC 0x6901). User must exit app on device. */

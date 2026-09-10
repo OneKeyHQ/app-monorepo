@@ -59,6 +59,9 @@ export const ThirdPartyWalletAvatarImages = {
   // presents as a particular physical model.
   ledger: require('../assets/wallet/avatar/Ledger.png'),
   trezor: require('../assets/wallet/avatar/Trezor.png'),
+  // Neutral fallback until a licensed Keystone-specific avatar is available.
+  // It must not reuse another hardware vendor's product image.
+  keystone: require('../assets/wallet/avatar/others-external.png'),
   TrezorModelOne: require('../assets/wallet/avatar/TrezorModelOne.png'),
   TrezorModelT: require('../assets/wallet/avatar/TrezorModelT.png'),
   TrezorSafe3: require('../assets/wallet/avatar/TrezorSafe3.png'),

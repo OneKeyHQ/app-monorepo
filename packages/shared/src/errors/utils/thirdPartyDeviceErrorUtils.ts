@@ -4,6 +4,7 @@ import { EHardwareVendor } from '../../../types/device';
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
 
 import type {
+  IHardwareErrorRecoveryHint,
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
@@ -39,6 +40,26 @@ export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
   );
 }
 
+const HWK_RECOVERY_SCOPES = new Set<IHardwareErrorRecoveryHint['scope']>([
+  'operation',
+  'interaction',
+  'search-target',
+  'transport',
+  'not-recoverable',
+  'unknown',
+]);
+
+export function normalizeThirdPartyHardwareRecoveryHint(
+  value: unknown,
+): IHardwareErrorRecoveryHint | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const scope = (value as { scope?: unknown }).scope;
+  return typeof scope === 'string' &&
+    HWK_RECOVERY_SCOPES.has(scope as IHardwareErrorRecoveryHint['scope'])
+    ? { scope: scope as IHardwareErrorRecoveryHint['scope'] }
+    : undefined;
+}
+
 /**
  * Convert a third-party hardware SDK failure payload into a structured
  * OneKeyHardwareError with i18n key and autoToast/dialog behavior.
@@ -57,6 +78,7 @@ export function convertThirdPartyDeviceError(
     appName?: string;
     params?: IOneKeyHardwareErrorPayload['params'];
     _tag?: string;
+    recovery?: unknown;
   },
   context?: IThirdPartyErrorContext,
 ) {
@@ -65,6 +87,7 @@ export function convertThirdPartyDeviceError(
     code: normalizedCode,
     message: payload.error,
     params: payload.params,
+    recovery: normalizeThirdPartyHardwareRecoveryHint(payload.recovery),
   };
   const props = {
     payload: hwPayload,
@@ -155,6 +178,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.DeviceDisconnected:
       return new ThirdPartyErrors.ThirdPartyDeviceDisconnected(props);
+
+    case ThirdPartyErrors.THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE:
+      return new ThirdPartyErrors.ThirdPartyInteractionNotFound(props);
+
+    case ThirdPartyErrors.THIRD_PARTY_HW_INTERACTION_ENDED_CODE:
+      return new ThirdPartyErrors.ThirdPartyInteractionEnded(props);
 
     case ThirdPartyHwErrorCode.DeviceMismatch:
       return new ThirdPartyErrors.ThirdPartyDeviceMismatch(props);

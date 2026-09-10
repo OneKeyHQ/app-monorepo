@@ -91,12 +91,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               this.backgroundApi,
               dbDevice,
               'evm',
-              (deviceId) =>
-                adapter.hw.evmGetAddress(dbDevice.connectId, deviceId, {
+              (deviceId, connectId) =>
+                adapter.hw.evmGetAddress(connectId, deviceId, {
                   path,
                   showOnDevice: params.isVerifyAddressAction ?? false,
                   ...ledgerCommonCallParamsForCreateScene(params),
                 }),
+              {
+                interactionId:
+                  params.deviceParams.deviceCommonParams?.interactionId,
+              },
             );
             if (result.success) {
               address = result.payload.address;
@@ -115,7 +119,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             address =
               await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
                 {
-                  connectId: dbDevice.connectId,
+                  connectId:
+                    params.deviceParams.deviceCommonParams?.interactionId ||
+                    dbDevice.connectId,
                   deviceId: effectiveDeviceId,
                   path,
                   vendor: EHardwareVendor.ledger,
@@ -145,7 +151,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
 
     const adapter =
       await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
@@ -165,11 +172,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.evmSignTransaction(connectId, deviceId, {
           path,
           serializedTx,
         }),
+      {
+        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -225,14 +236,26 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     }
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
-      return this._signPersonalMessage(adapter, dbDevice, path, message);
+      return this._signPersonalMessage(
+        adapter,
+        dbDevice,
+        path,
+        message,
+        deviceParams.deviceCommonParams?.interactionId,
+      );
     }
 
     if (
       message.type === EMessageTypesEth.TYPED_DATA_V3 ||
       message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
-      return this._signTypedData(adapter, dbDevice, path, message);
+      return this._signTypedData(
+        adapter,
+        dbDevice,
+        path,
+        message,
+        deviceParams.deviceCommonParams?.interactionId,
+      );
     }
 
     throw web3Errors.rpc.methodNotFound(
@@ -246,6 +269,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
+    interactionId?: string,
   ): Promise<string> {
     // Convert message to hex (same logic as OneKey KeyringHardware)
     let messageHex = message.message;
@@ -257,11 +281,12 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignMessage(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.evmSignMessage(connectId, deviceId, {
           path,
           message: messageHex,
         }),
+      { interactionId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {
@@ -278,6 +303,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
+    interactionId?: string,
   ): Promise<string> {
     const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
@@ -286,12 +312,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignTypedData(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.evmSignTypedData(connectId, deviceId, {
           path,
           data,
           metamaskV4Compat: !!useV4,
         }),
+      { interactionId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {

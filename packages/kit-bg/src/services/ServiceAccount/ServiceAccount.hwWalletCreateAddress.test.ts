@@ -358,4 +358,58 @@ describe('ServiceAccount hardware wallet creation address', () => {
       useEmptyPassphrase: true,
     });
   });
+
+  it('uses the runtime interaction for identity reads without persisting it', async () => {
+    const getEvmAddressByWalletState = jest
+      .fn()
+      .mockResolvedValue('0xinteraction');
+    createHwWalletMock.mockImplementation(async (params) => {
+      const createParams = params as {
+        getFirstEvmAddressFn: () => Promise<string | null>;
+      };
+      await expect(createParams.getFirstEvmAddressFn()).resolves.toBe(
+        '0xinteraction',
+      );
+      return {
+        wallet: { id: 'hw-ledger-wallet', name: 'Ledger' },
+      } as never;
+    });
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getEvmAddressByWalletState,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-ledger-wallet',
+      name: 'Ledger',
+    });
+
+    await service.createHWWalletBase({
+      device: {
+        connectId: 'LEDGER_USB_TARGET',
+        deviceId: '',
+        vendor: EHardwareVendor.ledger,
+      },
+      features: { deviceId: '' },
+      vendor: EHardwareVendor.ledger,
+      hardwareOperationContext: {
+        interactionId: 'hwk-ledger-interaction',
+      },
+      fillingXfpByCallingSdk: false,
+    });
+
+    expect(getEvmAddressByWalletState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: 'hwk-ledger-interaction',
+        vendor: EHardwareVendor.ledger,
+      }),
+    );
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        hardwareOperationContext: expect.anything(),
+      }),
+    );
+  });
 });

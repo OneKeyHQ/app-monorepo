@@ -2656,6 +2656,83 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('keeps legacy third-party discovery as the default', async () => {
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const searchDeviceTargets = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceThirdPartyHardware: {
+          searchDevices,
+          searchDeviceTargets,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.searchDevices({ vendor: EHardwareVendor.ledger }),
+    ).resolves.toEqual({ success: true, payload: [] });
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      resetSession: undefined,
+      waitForAllTransports: undefined,
+      transportType: undefined,
+    });
+    expect(searchDeviceTargets).not.toHaveBeenCalled();
+  });
+
+  it('projects device search targets only for the opt-in discovery method', async () => {
+    const searchDevices = jest.fn();
+    const target = {
+      searchTargetId: 'ledger-usb-ephemeral',
+      vendor: EHardwareVendor.ledger,
+      connectionType: 'usb' as const,
+      kind: 'physical' as const,
+      model: 'nanoX',
+    };
+    const searchDeviceTargets = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [target],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceThirdPartyHardware: {
+          searchDevices,
+          searchDeviceTargets,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.searchDevices({
+      vendor: EHardwareVendor.ledger,
+      discoveryMethod: 'searchDeviceTargets',
+      resetSession: true,
+      transportType: 'usb',
+    });
+
+    expect(searchDeviceTargets).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      resetSession: true,
+      waitForAllTransports: undefined,
+      transportType: 'usb',
+    });
+    expect(searchDevices).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      payload: [
+        expect.objectContaining({
+          connectId: null,
+          deviceId: null,
+          name: 'nanoX',
+          raw: expect.objectContaining({ searchTarget: target }),
+        }),
+      ],
+    });
+  });
+
   it('marks the hardware channel busy while device discovery is running', async () => {
     let resolveSearch:
       | ((result: { success: true; payload: SearchDevice[] }) => void)

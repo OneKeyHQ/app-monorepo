@@ -11,6 +11,7 @@ import type {
   IDeviceFirmwareType,
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
+  IThirdPartyHardwareSearchTarget,
 } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageAuthChecklistItem,
@@ -267,6 +268,8 @@ export enum EThirdPartyHardwareUiAction {
   // Blocking requests — UI waits for user response.
   // SDK found no device; ask the user to make it available and retry.
   requestDeviceNotFound = 'request-ledger-device-not-found',
+  // Operation-first flow found multiple candidates; the SDK waits for one.
+  requestDeviceSelection = 'request-third-party-device-selection',
   // Ledger BTC requires explicit user approval before using index >= 100.
   requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
   // Trezor THP: device showed a pairing code, host needs to input it.
@@ -283,6 +286,12 @@ export enum EThirdPartyHardwareUiAction {
   // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
   // device_id, then resolves the waiting hardware call.
   requestTrezorBleBinding = 'request-trezor-ble-binding',
+  // Keystone QR: the adapter needs the app to show an animated UR QR code for
+  // the device to scan (import / signing round trip).
+  requestKeystoneQrDisplay = 'request-keystone-qr-display',
+  // Keystone QR: the device is already showing its own export/response QR —
+  // no display step, the app just scans.
+  requestKeystoneQrScan = 'request-keystone-qr-scan',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -348,6 +357,14 @@ export type IThirdPartyHardwareUiState = {
     promiseId?: number;
     /** Trezor BLE binding mode. */
     trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
+    /** SDK operation-first selection candidates from the current discovery. */
+    deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
+    /** Keystone QR: BC-UR type of the payload to display (requestKeystoneQrDisplay only). */
+    urType?: string;
+    /** Keystone QR: hex-encoded CBOR of the payload to display (requestKeystoneQrDisplay only). */
+    urData?: string;
+    /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
+    animated?: boolean;
   };
 };
 

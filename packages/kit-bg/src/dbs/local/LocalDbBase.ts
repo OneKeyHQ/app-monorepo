@@ -98,7 +98,10 @@ import {
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  getVendorProfile,
+  isHardwareVendorSupported,
+} from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -3611,6 +3614,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
+  filterWalletsByHardwareVendorSupport({
+    wallets,
+    allDevices,
+  }: {
+    wallets: IDBWallet[];
+    allDevices: IDBDevice[];
+  }): IDBWallet[] {
+    const unsupportedDeviceIds = new Set(
+      allDevices
+        .filter((device) => !isHardwareVendorSupported(device.vendor))
+        .map((device) => device.id),
+    );
+    return wallets.filter(
+      (wallet) =>
+        !wallet.associatedDevice ||
+        !unsupportedDeviceIds.has(wallet.associatedDevice),
+    );
+  }
+
   // oxlint-disable-next-line @cspell/spellchecker
   /**
    * Get wallets
@@ -3656,9 +3678,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // get all wallets for account selector
     const allWallets =
       option?.allWallets || (await this.getAllWallets()).wallets;
-    let wallets = allWallets;
     const allDevices =
       option?.allDevices || (await this.getAllDevices()).devices;
+    let wallets = this.filterWalletsByHardwareVendorSupport({
+      wallets: allWallets,
+      allDevices,
+    });
     const hiddenWalletsMap: Partial<{
       [dbDeviceId: string]: IDBWallet[];
     }> = {};
@@ -7013,6 +7038,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let addedHdAccountIndex = -1;
     const now = await this.timeNow();
 
+    // Resolved BEFORE the transaction on purpose: getDeviceVersionStr awaits
+    // CoreSDKLoader(), i.e. a dynamic `import('@onekeyfe/hd-core')`. On the
+    // first such call in a session that chunk load spans a macrotask, which
+    // lets IndexedDB auto-commit the surrounding transaction — every later
+    // write in it then dies with "TransactionInactiveError: The transaction
+    // has finished". Vendors whose onboarding already warmed hd-core (OneKey /
+    // Ledger / Trezor scan flows) happened to survive it; ones that never
+    // touch hd-core before this point (Keystone) did not. Keep this out of
+    // the transaction — nothing here needs `tx`.
+    const verifiedAtVersion = isFirmwareVerified
+      ? await deviceUtils.getDeviceVersionStr({ device, features })
+      : undefined;
+
     // Set appropriate connectId fields based on transport type
     let usbConnectId: string | undefined;
     let bleConnectId: string | undefined;
@@ -7063,6 +7101,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         default:
           break;
       }
+    }
+
+    // Vendors whose USB transport handle is not their identity connectId pass
+    // it explicitly (Keystone: identity is the public-key-derived wallet id,
+    // while the USB handle carries the device serial from enumeration). Mirrors the
+    // existing explicit-BLE path above. Never set by OneKey/Trezor/Ledger, so
+    // the switch above stays authoritative for them.
+    const explicitUsbConnectId = (
+      device as typeof device & { usbConnectId?: string }
+    ).usbConnectId;
+    if (explicitUsbConnectId) {
+      usbConnectId = explicitUsbConnectId;
+    }
+
+    // An air-gapped (QR) device has no wire handle at all. The switch above
+    // keys off the *global* transport setting — resolveHwWalletTransportType
+    // only understands 'usb'/'ble' and passes 'qr' through untouched — so
+    // without this it would record the device's own identity as a USB or BLE
+    // connectId. That is a false claim about the device's channels, and
+    // usbConnectId is written once and never corrected (see the
+    // `!item.usbConnectId` guard in the updater below), so a QR-first
+    // onboarding would permanently block the real handle from a later USB
+    // connection.
+    const deviceConnectionType = (
+      device as typeof device & { raw?: { connectionType?: string } }
+    ).raw?.connectionType;
+    if (deviceConnectionType === 'qr') {
+      usbConnectId = undefined;
+      bleConnectId = undefined;
     }
 
     const initialSettings: IDBDeviceSettings = profile.isThirdParty
@@ -7244,12 +7311,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.settingsRaw = JSON.stringify(existingSettings);
 
               if (isFirmwareVerified) {
-                const versionText = await deviceUtils.getDeviceVersionStr({
-                  device,
-                  features,
-                });
-                // official firmware verified
-                item.verifiedAtVersion = versionText;
+                // official firmware verified (computed before the transaction)
+                item.verifiedAtVersion = verifiedAtVersion;
               } else {
                 // skip firmware verify, but keep previous verified version
                 item.verifiedAtVersion = item.verifiedAtVersion || undefined;

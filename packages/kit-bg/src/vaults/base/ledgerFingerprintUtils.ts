@@ -159,8 +159,9 @@ export async function ensureLedgerChainFingerprint(
 
 async function generateAndStoreFingerprint(
   backgroundApi: IBackgroundApi,
-  dbDevice: { id: string; connectId: string },
+  dbDevice: { id: string },
   chain: ChainForFingerprint,
+  connectId: string,
 ): Promise<string> {
   const adapter =
     await backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
@@ -169,11 +170,7 @@ async function generateAndStoreFingerprint(
   if (!adapter) return '';
 
   try {
-    const result = await adapter.hw.getChainFingerprint(
-      dbDevice.connectId,
-      '',
-      chain,
-    );
+    const result = await adapter.hw.getChainFingerprint(connectId, '', chain);
     if (result.success && result.payload) {
       const fingerprint = result.payload;
       await persistLedgerChainFingerprint({
@@ -201,8 +198,8 @@ async function generateAndStoreFingerprint(
  *
  * Flow:
  * 1. Look up fingerprint (cache/DB). If found, pass to fn for verification.
- * 2. If not found, call fn('') — adapter skips verification when deviceId is empty.
- * 3. On success without fingerprint → generate and store now (the correct App is open).
+ * 2. Signing calls fail closed when no fingerprint has been recorded yet.
+ * 3. Address-creation calls may bootstrap after a successful device call.
  *
  * DeviceMismatch is NOT silently recovered here: a mismatch means the live
  * device's seed differs from what we recorded, and silently rewriting the DB
@@ -213,14 +210,26 @@ export async function callLedgerWithFingerprint<T>(
   backgroundApi: IBackgroundApi,
   dbDevice: IDbDeviceForFingerprint,
   chain: ChainForFingerprint,
-  fn: (deviceId: string) => Promise<Response<T>>,
+  fn: (deviceId: string, connectId: string) => Promise<Response<T>>,
+  options?: {
+    interactionId?: string;
+    allowFingerprintBootstrap?: boolean;
+  },
 ): Promise<Response<T>> {
   const deviceId = await ensureLedgerChainFingerprint(
     backgroundApi,
     dbDevice,
     chain,
   );
-  const result = await fn(deviceId);
+  if (!deviceId && options?.allowFingerprintBootstrap === false) {
+    return failure(
+      HardwareErrorCode.DeviceMismatch,
+      `No trusted ${chain} fingerprint is available for signing. Verify an address with this Ledger first.`,
+    );
+  }
+
+  const connectId = options?.interactionId || dbDevice.connectId;
+  const result = await fn(deviceId, connectId);
 
   // Bootstrap path: main call ran without a stored FP. The post-success FP
   // generation MUST succeed and persist before the result is allowed to flow
@@ -231,7 +240,12 @@ export async function callLedgerWithFingerprint<T>(
   if (result.success && !deviceId) {
     let fp = '';
     try {
-      fp = await generateAndStoreFingerprint(backgroundApi, dbDevice, chain);
+      fp = await generateAndStoreFingerprint(
+        backgroundApi,
+        dbDevice,
+        chain,
+        connectId,
+      );
     } catch (e) {
       defaultLogger.hardware.sdkLog.log(
         'ledgerFingerprint.postOpGenerationFailed',

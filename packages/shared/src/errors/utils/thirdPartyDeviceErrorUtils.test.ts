@@ -10,6 +10,8 @@ import {
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
   THIRD_PARTY_HW_NETWORK_ERROR_CODE,
   THIRD_PARTY_HW_PIN_MISMATCH_CODE,
   ThirdPartyNetworkError,
@@ -21,6 +23,7 @@ import {
   convertThirdPartyDeviceError,
   filterThirdPartyHwCreateFailureToasts,
   normalizeThirdPartyDeviceErrorCode,
+  normalizeThirdPartyHardwareRecoveryHint,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from './thirdPartyDeviceErrorUtils';
 
@@ -50,6 +53,22 @@ describe('convertThirdPartyDeviceError', () => {
         code: String(ThirdPartyHwErrorCode.DeviceOutOfMemory),
       }),
     ).toBe(ThirdPartyHwErrorCode.DeviceOutOfMemory);
+  });
+
+  it('preserves valid SDK recovery metadata on the converted error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.DeviceDisconnected,
+      error: 'Device disconnected',
+      recovery: { scope: 'interaction' },
+    });
+
+    expect(error.payload?.recovery).toEqual({ scope: 'interaction' });
+  });
+
+  it('drops unknown recovery scopes received across a runtime boundary', () => {
+    expect(
+      normalizeThirdPartyHardwareRecoveryHint({ scope: 'future-invalid' }),
+    ).toBeUndefined();
   });
 
   it('routes DeviceNotFound to the hardware troubleshooting dialog', () => {
@@ -129,6 +148,20 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.code).toBe(ThirdPartyHwErrorCode.PassphraseStateMismatch);
     expect(error.name).toBe('ThirdPartyHardwareError');
     expect(error.key).toBe('hardware_third_party_device_mismatch');
+  });
+
+  it.each([
+    THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+  ])('preserves interaction lifecycle error code %s', (code) => {
+    const error = convertThirdPartyDeviceError({
+      code,
+      error: 'Hardware interaction is no longer available',
+    });
+
+    expect(error.code).toBe(code);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware_third_party_device_disconnected');
   });
 
   it('maps third-party PIN cancel to a structured PIN cancelled error', () => {

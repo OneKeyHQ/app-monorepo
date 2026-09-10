@@ -23,6 +23,7 @@ export type IDeviceListDialogItem = {
   testID?: string;
   /** Doubles as the pickYourDevice analytics label. */
   logKey: string;
+  routeName?: EOnboardingPagesV2.ConnectKeystoneDevice;
   routeParams: {
     deviceType: EDeviceType[];
     vendor?: EHardwareVendor;
@@ -46,7 +47,8 @@ function DeviceListDialogContent({
         </Dialog.Title>
       </Dialog.Header>
       <YStack pb="$2" mx="$-5">
-        {items.map(({ title, image, testID, logKey, routeParams }) => (
+        {items.map(
+          ({ title, image, testID, logKey, routeName, routeParams }) => (
           <ListItem
             key={logKey}
             testID={testID}
@@ -58,13 +60,18 @@ function DeviceListDialogContent({
             onPress={async () => {
               await dialog.close();
               defaultLogger.onboarding.page.pickYourDevice(logKey);
-              navigation.push(
-                EOnboardingPagesV2.ConnectYourDevice,
-                routeParams,
-              );
+              if (routeName === EOnboardingPagesV2.ConnectKeystoneDevice) {
+                navigation.push(routeName);
+              } else {
+                navigation.push(
+                  EOnboardingPagesV2.ConnectYourDevice,
+                  routeParams,
+                );
+              }
             }}
           />
-        ))}
+          ),
+        )}
       </YStack>
     </YStack>
   );

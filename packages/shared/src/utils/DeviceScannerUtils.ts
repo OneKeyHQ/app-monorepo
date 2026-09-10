@@ -23,6 +23,7 @@ type IDeviceScanOptions = {
   resetSession?: boolean;
   waitForAllTransports?: boolean;
   transportType?: 'usb' | 'ble';
+  discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
   onError?: (error: Error) => void;
 };
 type IDeviceScannerBackgroundApi = {
@@ -32,6 +33,7 @@ type IDeviceScannerBackgroundApi = {
       resetSession?: boolean;
       waitForAllTransports?: boolean;
       transportType?: 'usb' | 'ble';
+      discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
       connectProtocol?: HardwareConnectProtocol;
     }) => Promise<ISearchResponse>;
     stopDeviceScan?: () => Promise<void>;
@@ -79,6 +81,7 @@ export class DeviceScannerUtils {
       vendor,
       waitForAllTransports: options?.waitForAllTransports,
       transportType: options?.transportType,
+      discoveryMethod: options?.discoveryMethod,
     });
     let shouldResetSession = options?.resetSession ?? false;
     const reportError = (error: unknown) => {
@@ -153,19 +156,22 @@ export class DeviceScannerUtils {
             transportType?: 'usb' | 'ble';
             vendor?: EHardwareVendor;
             waitForAllTransports?: boolean;
+            discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
           }
         | undefined;
       if (
         vendor ||
         shouldResetSession ||
         options?.waitForAllTransports !== undefined ||
-        options?.transportType
+        options?.transportType ||
+        options?.discoveryMethod
       ) {
         searchParams = {
           vendor,
           resetSession: shouldResetSession,
           waitForAllTransports: options?.waitForAllTransports,
           transportType: options?.transportType,
+          discoveryMethod: options?.discoveryMethod,
         };
       }
 
