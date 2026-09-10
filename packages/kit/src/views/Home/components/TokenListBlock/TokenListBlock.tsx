@@ -86,6 +86,7 @@ import {
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -3095,22 +3096,19 @@ function TokenListBlock({
 
       let emittedRefreshing = false;
       try {
-        // Multi-derive (merge-derive) HD accounts need the parallel
-        // per-derivation fetch that only `run` performs; the single-account
-        // fast path below would apply partial data, so skip them. Others
-        // accounts (imported/watch-only) are always single-address even on
-        // merge-derive networks, so they can safely use the fast path here.
+        // Multi-derive (merge-derive) HD accounts aggregate every derivation
+        // of the indexed account, mirroring the parallel fetch in `run`.
+        // Others accounts (imported/watch-only) are always single-address
+        // even on merge-derive networks, so they take the single fetch.
         const targetVaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
-        if (
-          targetVaultSettings?.mergeDeriveAssetsEnabled &&
-          !accountUtils.isOthersAccount({ accountId })
-        ) {
-          return;
-        }
         if (!isLatest()) return;
+        const mergeDeriveTarget =
+          !!targetVaultSettings?.mergeDeriveAssetsEnabled &&
+          !accountUtils.isOthersAccount({ accountId }) &&
+          !!indexedAccountId;
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -3129,48 +3127,94 @@ function TokenListBlock({
         });
         if (!isLatest()) return;
 
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId,
-          mergeTokens: true,
-          networkId,
-          flag: 'home-token-list',
-          saveToLocal: true,
-          indexedAccountId,
-          ...walletTokenFilterParams,
-        });
+        const fetchTargetAccountTokens = (targetAccountId: string) =>
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: targetAccountId,
+            mergeTokens: true,
+            networkId,
+            flag: 'home-token-list',
+            saveToLocal: true,
+            indexedAccountId,
+            ...walletTokenFilterParams,
+          });
+
+        let responses: IFetchAccountTokensResp[];
+        if (mergeDeriveTarget) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          if (!isLatest()) return;
+          responses = await Promise.all(
+            networkAccounts.map((networkAccount) =>
+              fetchTargetAccountTokens(networkAccount.account?.id ?? ''),
+            ),
+          );
+        } else {
+          responses = [await fetchTargetAccountTokens(accountId)];
+        }
 
         // A newer switch superseded this fetch; drop the stale body so it
         // can't clobber the latest network's data.
         if (!isLatest()) return;
 
-        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        const accountWorth: Record<string, string> = {};
+        let createAtNetworkWorth = '0';
+        if (mergeDeriveTarget) {
+          responses.forEach((item) => {
+            if (item.accountId && item.networkId) {
+              accountWorth[
+                accountUtils.buildAccountValueKey({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                })
+              ] = sumTokenGroupsFiatValueIgnoringUnavailable(item);
+            }
+          });
+        } else {
+          createAtNetworkWorth = sumTokenGroupsFiatValueIgnoringUnavailable(
+            responses[0],
+          );
+          accountWorth[
+            accountUtils.buildAccountValueKey({ accountId, networkId })
+          ] = createAtNetworkWorth;
+        }
         updateAccountOverviewState({ isRefreshing: false, initialized: true });
         updateAccountWorth({
-          accountId,
+          // Merge-derive worth is keyed by the indexed account, like `run`.
+          accountId: mergeDeriveTarget ? indexedAccountId : accountId,
           initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({ accountId, networkId })]:
-              accountWorth,
-          },
-          createAtNetworkWorth: accountWorth,
+          worth: accountWorth,
+          createAtNetworkWorth,
           merge: false,
         });
 
-        if (r.allTokens) {
-          // Keep the broader local token directory in sync, like `run` does;
-          // `saveToLocal` only persists the per-account token cache.
-          const mergedTokens = r.allTokens.data;
+        // Keep the broader local token directory in sync, like `run` does;
+        // `saveToLocal` only persists the per-account token cache.
+        responses.forEach((item) => {
+          const mergedTokens = item.allTokens?.data;
           if (mergedTokens && mergedTokens.length) {
             void backgroundApiProxy.serviceToken.updateLocalTokens({
               networkId,
               tokens: mergedTokens,
             });
           }
-        }
-        updateTokenListState({ initialized: true, isRefreshing: false });
+        });
+        // This path only refreshes the header worth; the token rows are not
+        // ingested into the owner's cells, so the list must stay uninitialized
+        // (skeleton) until the focused `run` fills it. Marking it initialized
+        // here would surface EmptyToken on return.
       } catch (e) {
-        if (!(e instanceof CanceledError)) {
-          throw e;
+        // Cancel errors that crossed the main <-> bg RPC boundary are rebuilt
+        // as plain Errors, so `instanceof CanceledError` alone misses them.
+        // Callers fire-and-forget this refresh; never let a non-cancel error
+        // escape as an unhandled rejection.
+        if (!isRequestCanceledError(e)) {
+          console.error(e);
         }
       } finally {
         if (emittedRefreshing) {
@@ -3183,12 +3227,7 @@ function TokenListBlock({
         }
       }
     },
-    [
-      walletTokenFilterParams,
-      updateAccountOverviewState,
-      updateAccountWorth,
-      updateTokenListState,
-    ],
+    [walletTokenFilterParams, updateAccountOverviewState, updateAccountWorth],
   );
 
   useEffect(() => {
@@ -3267,6 +3306,13 @@ function TokenListBlock({
     if (target) {
       void refreshSingleNetworkTokenListByTarget(target);
     }
+    // The sequence guard is per instance, and an account switch remounts this
+    // block. Invalidate this owner's in-flight explicit refresh on owner change
+    // or unmount so a late stage of it (vault settings, abort, worth write)
+    // cannot abort or overwrite the successor instance's fetch.
+    return () => {
+      explicitRefreshSeqRef.current += 1;
+    };
     // Owner-keyed on purpose: re-running on tab changes would refetch on
     // every tab switch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
