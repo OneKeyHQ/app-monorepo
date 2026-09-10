@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -37,11 +36,9 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -76,7 +73,7 @@ import {
   getPrimaryLineKind,
   isStepConfirming,
   normalizeApproveSubStatusForConfirmation,
-  shouldShowTopUpFooter,
+  shouldShowFundingFooter,
   splitBalanceShortfallLines,
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
@@ -572,17 +569,8 @@ function BorrowEModeNeedActionView() {
     disarmFunding();
   }, [fundingResolved, refreshFundingBalances, disarmFunding]);
 
-  const handleGetFundsPress = useCallback(() => {
-    // User-initiated divergence, same rule as Manage positions: never let a
-    // focus recheck on return auto-pop a signature sheet.
-    disarm();
-    // Opening or dismissing the menu is not a funding intent. It also cancels
-    // any stale Swap detour before the user chooses the next action.
-    disarmFunding();
-  }, [disarm, disarmFunding]);
-
-  const getFundsActionItems = useCallback(
-    (step: IEModeStep): IActionListItemProps[] | undefined => {
+  const resolveStepSwapToken = useCallback(
+    (step: IEModeStep): ISwapToken | undefined => {
       if (step.kind !== 'repay' || step.reserveAddress === undefined) {
         return undefined;
       }
@@ -597,64 +585,39 @@ function BorrowEModeNeedActionView() {
       if (!token) {
         return undefined;
       }
-
-      return [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_swap }),
-          icon: 'SwitchHorOutline',
-          onPress: () => {
-            armFunding();
-            const importToToken: ISwapToken = {
-              contractAddress: token.address,
-              symbol: token.symbol,
-              networkId,
-              isNative: !!token.isNative,
-              decimals: token.decimals,
-              name: token.name,
-              logoURI: token.logoURI,
-            };
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapMainLand,
-              params: {
-                importNetworkId: networkId,
-                importToToken,
-                swapTabSwitchType: ESwapTabSwitchType.SWAP,
-                swapSource: ESwapSource.EARN,
-                closeModalAfterSwapBroadcast: true,
-                onSwapBroadcast: markFundingBroadcasted,
-              },
-            });
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_receive }),
-          icon: 'ArrowBottomOutline',
-          onPress: () => {
-            navigation.pushModal(EModalRoutes.ReceiveModal, {
-              screen: EModalReceiveRoutes.ReceiveToken,
-              params: {
-                networkId,
-                accountId,
-                walletId: accountUtils.getWalletIdFromAccountId({
-                  accountId,
-                }),
-                token,
-                disableSelector: true,
-              },
-            });
-          },
-        },
-      ];
+      return {
+        contractAddress: token.address,
+        symbol: token.symbol,
+        networkId,
+        isNative: !!token.isNative,
+        decimals: token.decimals,
+        name: token.name,
+        logoURI: token.logoURI,
+      };
     },
-    [
-      accountId,
-      armFunding,
-      displayCheck,
-      intl,
-      markFundingBroadcasted,
-      navigation,
-      networkId,
-    ],
+    [displayCheck, networkId],
+  );
+
+  const handleSwapToFund = useCallback(
+    (importToToken: ISwapToken) => {
+      // User-initiated divergence, same rule as Manage positions: never let a
+      // focus recheck on return auto-pop a signature sheet. Arming here rather
+      // than on a menu open is safe because the press is the funding intent.
+      disarm();
+      armFunding();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: networkId,
+          importToToken,
+          swapTabSwitchType: ESwapTabSwitchType.SWAP,
+          swapSource: ESwapSource.EARN,
+          closeModalAfterSwapBroadcast: true,
+          onSwapBroadcast: markFundingBroadcasted,
+        },
+      });
+    },
+    [armFunding, disarm, markFundingBroadcasted, navigation, networkId],
   );
 
   let activeActionLabel = '';
@@ -697,21 +660,21 @@ function BorrowEModeNeedActionView() {
   const pendingGuardBlocksAction = pendingGuardActive && !canRetryCheck;
 
   // The footer is disabled for exactly as long as the active repay is
-  // underfunded, so leaving Top up inline on the step left the page with no
+  // underfunded, so leaving the remedy inline on the step left the page with no
   // live control at the one moment something has to happen. Hand the footer to
-  // the remedy and keep the blocked step's own label beside it, disabled — the
-  // shape Send uses for an insufficient balance. While a top-up is confirming
-  // there is nothing to press, so the plain footer comes back.
-  const activeGetFundsItems = activeUnderfundedRepay
-    ? getFundsActionItems(activeUnderfundedRepay)
+  // the swap and state the blocker beside it, disabled — the shape Send uses
+  // for an insufficient balance. While a swap is confirming there is nothing to
+  // press, so the plain footer comes back.
+  const activeSwapToken = activeUnderfundedRepay
+    ? resolveStepSwapToken(activeUnderfundedRepay)
     : undefined;
-  const showTopUpFooter = shouldShowTopUpFooter({
+  const showFundingFooter = shouldShowFundingFooter({
     canRetryCheck,
     funding,
     isBusy,
     pendingGuardBlocksAction,
     hasUnderfundedActiveRepay: !!activeUnderfundedRepay,
-    hasGetFundsItems: !!activeGetFundsItems?.length,
+    hasSwapTarget: !!activeSwapToken,
   });
 
   return (
@@ -819,14 +782,16 @@ function BorrowEModeNeedActionView() {
           </YStack>
         ) : null}
       </Page.Body>
-      {showTopUpFooter && activeUnderfundedRepay && activeGetFundsItems ? (
+      {showFundingFooter && activeSwapToken ? (
+        // The blocked step's own label gives way to the blocker itself: the
+        // checklist above already names the step, so repeating it on a dead
+        // button spends the row's other half saying nothing new.
         <Page.Footer
           confirmButton={
             <XStack gap="$2.5" flex={1}>
               <EModeGetFundsAction
-                symbol={activeUnderfundedRepay.symbol ?? ''}
-                items={activeGetFundsItems}
-                onPress={handleGetFundsPress}
+                symbol={activeSwapToken.symbol}
+                onPress={() => handleSwapToFund(activeSwapToken)}
               />
               <Button
                 testID={BorrowTestIDs.eModeNeedActionConfirmBtn}
@@ -840,7 +805,9 @@ function BorrowEModeNeedActionView() {
                   } as any
                 }
               >
-                {confirmText}
+                {intl.formatMessage({
+                  id: ETranslations.insufficient_funds__action,
+                })}
               </Button>
             </XStack>
           }
