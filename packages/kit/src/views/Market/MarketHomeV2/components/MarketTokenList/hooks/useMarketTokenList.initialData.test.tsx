@@ -116,6 +116,20 @@ jest.mock('../utils/tokenListHelpers', () => {
     getMarketTokenNetworkLogoUri,
     getNetworkLogoUri: (networkId: string) =>
       networkId === 'evm--1' ? 'network-logo' : '',
+    marketTokenKey: (item: {
+      assetId?: string;
+      stockId?: string;
+      perpsCoin?: string;
+      networkId: string;
+      address?: string;
+      isNative?: boolean;
+    }) => {
+      if (item.assetId) return `asset:${item.assetId}`;
+      if (item.stockId) return `stock:${item.stockId}`;
+      return item.perpsCoin
+        ? `perps:${item.perpsCoin}`
+        : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+    },
     transformApiItemToToken: jest.fn(
       (item: ITokenItem, options: ITransformOptions) => {
         const tokenNetworkId = item.networkId || options.chainId;

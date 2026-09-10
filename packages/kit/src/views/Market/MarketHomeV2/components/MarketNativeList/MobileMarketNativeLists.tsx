@@ -62,8 +62,10 @@ import {
 } from '../MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../MarketTokenList/hooks/useWatchlistFilteredGroups';
-import { marketTokenKey } from '../MarketTokenList/MarketTokenData';
-import { shouldUseStockMetadataColumnsForTokens } from '../MarketTokenList/utils/tokenListHelpers';
+import {
+  marketTokenKey,
+  shouldUseStockMetadataColumnsForTokens,
+} from '../MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoins } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 
 import {

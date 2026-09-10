@@ -18,11 +18,11 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
-import { marketTokenKey } from '../MarketTokenData';
 import {
   buildMarketNetworkLogoUriMap,
   getMarketTokenNetworkLogoUri,
   getNetworkLogoUri,
+  marketTokenKey,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 

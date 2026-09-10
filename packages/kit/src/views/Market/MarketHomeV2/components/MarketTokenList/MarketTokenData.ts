@@ -34,11 +34,3 @@ export interface IMarketToken {
   // Perps: subtitle (e.g. "Tech", "Pre-IPO")
   perpsSubtitle?: string;
 }
-
-export function marketTokenKey(item: IMarketToken) {
-  if (item.assetId) return `asset:${item.assetId}`;
-  if (item.stockId) return `stock:${item.stockId}`;
-  return item.perpsCoin
-    ? `perps:${item.perpsCoin}`
-    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
-}
