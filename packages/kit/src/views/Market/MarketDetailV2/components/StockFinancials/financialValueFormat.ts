@@ -45,6 +45,20 @@ export function formatFinancialValue(
   }
 
   const limit = Math.max(6, maxCharacters);
+  if (text.length + suffix.length > limit && /^-?\d+\.\d+$/.test(text)) {
+    const numeric = new BigNumber(text);
+    for (
+      let decimals = text.length - text.indexOf('.') - 2;
+      decimals >= 0;
+      decimals -= 1
+    ) {
+      const rounded = numeric.decimalPlaces(decimals, BigNumber.ROUND_HALF_UP);
+      const candidate = rounded.toFixed();
+      if (!rounded.isZero() && candidate.length + suffix.length <= limit) {
+        return `${candidate}${suffix}`;
+      }
+    }
+  }
   return text.length + suffix.length > limit
     ? `${text.slice(0, limit - suffix.length - 3)}...${suffix}`
     : `${text}${suffix}`;

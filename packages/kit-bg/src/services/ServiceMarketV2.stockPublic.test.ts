@@ -398,7 +398,10 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(mockGet).toHaveBeenNthCalledWith(
       2,
       '/utility/v1/stocks/BRK%2FB/tokens',
-      { autoHandleError: false },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+        autoHandleError: false,
+      },
     );
   });
 

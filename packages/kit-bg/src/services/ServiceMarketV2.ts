@@ -1218,7 +1218,10 @@ class ServiceMarketV2 extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
-    } = { autoHandleError: false };
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
     const response = await client.get<{
       code: number;
       message: string;
