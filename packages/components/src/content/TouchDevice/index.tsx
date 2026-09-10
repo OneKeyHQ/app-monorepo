@@ -10,11 +10,16 @@ export type { ITouchDeviceAnimation } from './shell';
 
 /**
  * The Touch runs the Pro's screens — the same scenes, same names — on its
- * own glass; the registry is built for the Touch's panel color (see
- * ../ProDevice/scenes createScenes).
+ * own glass; the registry is built for the Touch's panel color and idles
+ * on the Touch's own wallpaper (see ../ProDevice/scenes createScenes).
+ * The art is authored on the Pro's 288x484 canvas like every scene; the
+ * shell paint-scales it into the Touch's window by height.
  */
 export type ITouchDeviceScene = IProDeviceScene;
-const SCENES = createScenes(TOUCH_FACE);
+// The model suffix keeps the filename unique across the device folders
+// (see ../ProDevice/scenes: dev bundlers emit assets as bare [name].[ext]).
+const WALLPAPER_SOURCE = require('./screen-connecting-touch.png');
+const SCENES = createScenes(TOUCH_FACE, WALLPAPER_SOURCE);
 
 /**
  * Code-drawn OneKey Touch device. Reached through ../HardwareDevice, which

@@ -822,6 +822,7 @@ export enum ETranslations {
   device_stage_pin_keypad__desc = 'device_stage_pin_keypad__desc',
   device_stage_pin_set_to_app__desc = 'device_stage_pin_set_to_app__desc',
   device_stage_pin_set_to_app__title = 'device_stage_pin_set_to_app__title',
+  device_stage_pin_too_short__msg = 'device_stage_pin_too_short__msg',
   device_stage_prefer_pin_in_app__action = 'device_stage_prefer_pin_in_app__action',
   device_stage_processing__title = 'device_stage_processing__title',
   device_stage_reconnect__action = 'device_stage_reconnect__action',

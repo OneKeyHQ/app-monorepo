@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -12,6 +13,7 @@ export type IAccountActivityNotificationSettings = {
 };
 
 export type ISimpleDbNotificationSettings = {
+  marketListingTokens?: Record<string, INotificationWatchlistToken>;
   accountActivity?: IAccountActivityNotificationSettings;
   primeBackupAccountActivity?: IAccountActivityNotificationSettings;
 };
@@ -20,6 +22,19 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
   entityName = 'notificationSettings';
 
   override enableCache = false;
+
+  async getMarketListingTokens() {
+    return (await this.getRawData())?.marketListingTokens ?? {};
+  }
+
+  async saveMarketListingTokens(
+    tokens: Record<string, INotificationWatchlistToken>,
+  ) {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      marketListingTokens: { ...rawData?.marketListingTokens, ...tokens },
+    }));
+  }
 
   async backupPrimeAccountActivityNotificationSettings() {
     await this.setRawData((rawData) => ({
