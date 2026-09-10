@@ -317,6 +317,7 @@ describe('MobileMarketNativeWatchlist action anchor', () => {
       expect(mockActions.current.removeFromWatchListV2).toHaveBeenCalledWith(
         'evm--1',
         '0x1234',
+        { assetId: undefined, stockId: undefined },
       );
       expect(mockSetAnchorState).toHaveBeenLastCalledWith({
         token: 'binding-3',
@@ -326,3 +327,46 @@ describe('MobileMarketNativeWatchlist action anchor', () => {
     },
   );
 });
+
+it.each([{ assetId: 'bitcoin' }, { stockId: 'AAPL' }])(
+  'preserves listing identity through native watchlist menu actions: %j',
+  async (identity) => {
+    jest.clearAllMocks();
+    const original = mockWatchlistData[0];
+    mockWatchlistData[0] = {
+      ...original,
+      address: '',
+      networkId: '',
+      ...identity,
+    };
+    try {
+      render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      const rowKey = identity.assetId
+        ? `asset:${identity.assetId}`
+        : `stock:${identity.stockId}`;
+      await act(async () =>
+        mockRowAction?.({ rowKey, actionKey: 'watchlist-menu' }),
+      );
+      const element = mockPortalRender.mock.calls[0][1] as ReactElement<{
+        onMoveToTop: () => Promise<void>;
+        onToggleWatchlist: () => Promise<void>;
+      }>;
+      await act(async () => element.props.onMoveToTop());
+      expect(mockActions.current.moveToTopV2).toHaveBeenCalledWith(
+        expect.objectContaining(identity),
+      );
+      await act(async () => element.props.onToggleWatchlist());
+      expect(mockActions.current.removeFromWatchListV2).toHaveBeenCalledWith(
+        '',
+        '',
+        expect.objectContaining(identity),
+      );
+    } finally {
+      mockWatchlistData[0] = original;
+    }
+  },
+);

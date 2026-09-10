@@ -23,6 +23,7 @@ import {
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -45,6 +46,7 @@ import type {
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 import {
@@ -174,6 +176,7 @@ export function UniversalSearchV2MarketTokenItem({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
+    resolveMarketAsset: true,
   });
 
   const {
@@ -246,6 +249,7 @@ export function UniversalSearchV2MarketTokenItem({
           symbol,
           isNative,
           stock,
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
         });
 
         defaultLogger.market.token.searchToken({
@@ -277,6 +281,7 @@ export function UniversalSearchV2MarketTokenItem({
     stock,
     universalSearchActions,
     item.type,
+    item.payload,
     toMarketDetailPage,
     appNavigation,
     source,
@@ -306,6 +311,7 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
+            stockId={resolveMarketStockId({ stock, symbol, name })}
             chainId={network}
             contractAddress={address}
             from={EWatchlistFrom.Search}

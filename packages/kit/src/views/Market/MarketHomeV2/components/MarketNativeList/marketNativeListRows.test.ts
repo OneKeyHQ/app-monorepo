@@ -88,6 +88,28 @@ const perp: IMarketPerpsToken = {
 };
 
 describe('market native list rows', () => {
+  it('keeps listing favorites distinct when their chain addresses are empty', () => {
+    const items = [
+      { assetId: 'bitcoin' },
+      { assetId: 'ethereum' },
+      { stockId: 'AAPL' },
+      { stockId: 'MSFT' },
+    ];
+    const rows = items.map((identity) =>
+      buildTokenMarketRow({
+        item: { ...token, address: '', networkId: '', ...identity },
+        presentation,
+        watchlist: true,
+      }),
+    );
+    expect(rows.map((row) => row.key)).toEqual([
+      'asset:bitcoin',
+      'asset:ethereum',
+      'stock:AAPL',
+      'stock:MSFT',
+    ]);
+  });
+
   it.each(['#000000', '#ffffff'])(
     'keeps the legacy white change text when inverse text is %s',
     (inverseText) => {

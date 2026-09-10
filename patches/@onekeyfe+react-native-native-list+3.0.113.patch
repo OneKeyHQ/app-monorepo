@@ -1187,6 +1187,21 @@ index 94c4afa..edb3a35 100644
      source: NativeListActionSource;
      slot?: number;
      generation: number;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/react-native-native-list.podspec b/node_modules/@onekeyfe/react-native-native-list/react-native-native-list.podspec
+index 1e43b18..4c12815 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/react-native-native-list.podspec
++++ b/node_modules/@onekeyfe/react-native-native-list/react-native-native-list.podspec
+@@ -28,7 +28,9 @@ Pod::Spec.new do |s|
+     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20"
+   }
+ 
+-  s.dependency "OneKeyImage", package["peerDependencies"]["@onekeyfe/react-native-image"]
++  # OneKey patch: keep NativeList 3.0.113 compatible with the app image package.
++  # s.dependency "OneKeyImage", package["peerDependencies"]["@onekeyfe/react-native-image"]
++  s.dependency "OneKeyImage", "3.0.114"
+   s.dependency "React-jsi"
+   s.dependency "React-callinvoker"
+ 
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 index 8c1ae3e..66c4a75 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts

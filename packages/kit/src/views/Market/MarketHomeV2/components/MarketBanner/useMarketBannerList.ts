@@ -46,6 +46,8 @@ export function useMarketBannerList(): {
         ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
         : undefined,
       watchLoading: true,
+      // Optional banners must not turn a failed request into a page error.
+      undefinedResultIfError: true,
       revalidateOnReconnect: true,
     },
   );

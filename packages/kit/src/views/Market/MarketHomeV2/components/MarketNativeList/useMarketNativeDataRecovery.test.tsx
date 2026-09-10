@@ -53,6 +53,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       fetchMarketPerpsTokenList: jest.fn(),
       fetchMarketTokenListBatch: jest.fn(),
+      fetchMarketListingWatchlistQuote: jest.fn(),
     },
     serviceHyperliquid: { getTokenSearchAliases: jest.fn(async () => ({})) },
   },
@@ -70,6 +71,10 @@ const fetchPerps = jest.mocked(
 const fetchWatchlist = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
   backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch,
+);
+const fetchListing = jest.mocked(
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote,
 );
 const topCoins: IMarketAssetListData = {
   list: [
@@ -118,6 +123,7 @@ beforeEach(() => {
   fetchTopCoins.mockReset();
   fetchPerps.mockReset();
   fetchWatchlist.mockReset();
+  fetchListing.mockReset();
   mockFocused = true;
   mockReachable = true;
   Object.defineProperty(globalThis, 'requestIdleCallback', {
@@ -407,4 +413,41 @@ it('restores Perps from its page owner without leaking another category or reviv
   );
   await waitFor(() => expect(third.result.current.isError).toBe(true));
   expect(third.result.current.tokens).toEqual([]);
+});
+
+it('waits for listing quotes as well as spot and perps during native Watchlist refresh', async () => {
+  const watchlist = [{ chainId: '', contractAddress: '', stockId: 'AAPL' }];
+  fetchWatchlist.mockResolvedValue({ list: [] });
+  fetchPerps.mockResolvedValue({ updatedAt: 1, tokens: [] });
+  fetchListing.mockResolvedValue({
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: '',
+    price: '100',
+  });
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist }),
+  );
+  await waitFor(() => expect(result.current.data[0]?.price).toBe(100));
+  const request = deferred<Awaited<ReturnType<typeof fetchListing>>>();
+  fetchListing.mockReturnValue(request.promise);
+  let settled = false;
+  let refresh: Promise<void> | undefined;
+  await act(async () => {
+    refresh = result.current.refetch().then(() => {
+      settled = true;
+    });
+  });
+  expect(settled).toBe(false);
+  await act(async () => {
+    request.resolve({
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: '',
+      price: '101',
+    });
+    await refresh;
+  });
+  expect(settled).toBe(true);
+  expect(result.current.data[0]?.price).toBe(101);
 });

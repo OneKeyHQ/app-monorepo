@@ -1,6 +1,7 @@
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 
@@ -511,6 +512,23 @@ describe('native-dev-shell', () => {
     );
   });
 
+  it('prewarms an embedded physical-device runtime without a DevSession ID', () => {
+    const url = getNativeRuntimeBundleUrl({
+      backgroundHMR: true,
+      embedded: true,
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+    });
+
+    expect(url.searchParams.get('resolver.devVendorEmbedded')).toBe('true');
+    expect(url.searchParams.get('resolver.devVendorBackgroundHMR')).toBe(
+      'true',
+    );
+    expect(url.searchParams.has('resolver.devSessionId')).toBe(false);
+  });
+
   it('selects a Java 17 JDK for Android local shell builds', () => {
     const androidSdkRoot = path.join(temporaryDirectory, 'android-sdk');
     fs.mkdirSync(path.join(androidSdkRoot, 'platform-tools'), {
@@ -575,14 +593,7 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
-    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
-      'simctl',
-      'spawn',
-      'SIMULATOR-A',
-      '/bin/kill',
-      '-0',
-      '4321',
-    ]);
+    expect(iosOutput).toHaveBeenCalledWith('/bin/kill', ['-0', '4321']);
     expect(wait).toHaveBeenCalledTimes(15);
     expect(wait).toHaveBeenCalledWith(1000);
   });
@@ -1639,6 +1650,25 @@ describe('native-dev-shell', () => {
     }
   });
 
+  it('does not allocate a port already bound on localhost', async () => {
+    const server = net.createServer();
+    await new Promise((resolve) => {
+      server.listen({ host: '127.0.0.1', port: 0 }, resolve);
+    });
+    try {
+      const address = server.address();
+      await expect(
+        acquireMetroPort({
+          deviceId: 'device-localhost-port',
+          requestedPort: String(address.port),
+          sessionId: 'session-localhost-port',
+        }),
+      ).rejects.toThrow('already in use');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it('serializes shared worktree preparation across device sessions', async () => {
     const consoleError = jest
       .spyOn(console, 'error')
@@ -1898,18 +1928,18 @@ describe('native-dev-shell', () => {
       "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
     );
     expect(nativeDevShell).not.toContain("['app:web-embed:build']");
-    expect(nativeDevShell.indexOf('await stagePrivateSession({')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    expect(nativeDevShell.indexOf('preparationLock.release();')).toBeLessThan(
-      nativeDevShell.indexOf('await prewarmNativeRuntimeBundles({'),
-    );
     const launchSource = nativeDevShell.slice(
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),
+    );
+    expect(launchSource.indexOf('await stagePrivateSession({')).toBeLessThan(
+      launchSource.indexOf('preparationLock.release();'),
+    );
+    expect(launchSource.indexOf('await waitForMetro(')).toBeLessThan(
+      launchSource.indexOf('preparationLock.release();'),
+    );
+    expect(launchSource.indexOf('preparationLock.release();')).toBeLessThan(
+      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
     );
     expect(
       launchSource.indexOf('await prepareWebEmbedForDevSession(report)'),
@@ -2004,6 +2034,28 @@ describe('native-dev-shell', () => {
     expect(iosSource).toContain(
       'private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()',
     );
+    expect(iosProductionSource).toContain(
+      'if devVendorBundleInfo != nil {\n      return bundleURL()',
+    );
+    expect(iosProductionSource).toContain(
+      '#if targetEnvironment(simulator)\n    return false\n#else\n    return true',
+    );
+    expect(iosProductionSource).toContain(
+      'ProcessInfo.processInfo.environment["RCT_METRO_PORT"]',
+    );
+    expect(iosProductionSource).toContain(
+      'Bundle.main.path(forResource: "ip", ofType: "txt")',
+    );
+    expect(iosProductionSource).toContain(
+      'let runtimeMetroURL = runtimeMetroBaseURL()',
+    );
+    expect(iosProductionSource).toContain(
+      'RCTBundleURLProvider.sharedSettings().jsLocation = "\\(host):\\(port)"',
+    );
+    expect(iosProductionSource).toContain(
+      'let packagerURL = runtimeMetroURL ??',
+    );
+    expect(iosProductionSource).toContain('baseComponents.port = port');
     expect(iosSource).toContain('runtimeTarget: "main"');
     expect(iosSource).toContain('runtimeTarget: "background"');
   });

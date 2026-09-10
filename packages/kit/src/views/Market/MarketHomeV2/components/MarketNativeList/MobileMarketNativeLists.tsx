@@ -771,6 +771,8 @@ function MobileMarketNativeWatchlistImpl({
       sortIndex: token.sortIndex,
       isNative: token.isNative,
       perpsCoin: token.perpsCoin,
+      assetId: token.assetId,
+      stockId: token.stockId,
     }),
     [],
   );
@@ -838,6 +840,7 @@ function MobileMarketNativeWatchlistImpl({
                 await actions.current.removeFromWatchListV2(
                   item.networkId,
                   item.address,
+                  { assetId: item.assetId, stockId: item.stockId },
                 );
               }
               Toast.success({

@@ -8,11 +8,14 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import pLimit from 'p-limit';
+
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -104,12 +107,55 @@ export function useMarketWatchlistTokenList({
 
   // Split watchlist into spot and perps items
   const spotItems = useMemo(
-    () => watchlist.filter((item) => !item.perpsCoin && item.chainId),
+    () =>
+      watchlist.filter(
+        (item) =>
+          !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
+      ),
     [watchlist],
   );
   const perpsItems = useMemo(
     () => watchlist.filter((item) => !!item.perpsCoin),
     [watchlist],
+  );
+
+  const listingItems = useMemo(
+    () => watchlist.filter((item) => item.assetId || item.stockId),
+    [watchlist],
+  );
+  const {
+    result: listingQuotes,
+    isLoading: listingLoading,
+    run: refetchListings,
+  } = usePromiseResult(
+    async () => {
+      const limit = pLimit(4);
+      return Promise.all(
+        listingItems.map((item) =>
+          limit(async () => {
+            try {
+              const quote =
+                await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                  item,
+                );
+              return { key: getMarketWatchlistKey(item), quote };
+            } catch {
+              // Keep unavailable listings removable from the watchlist.
+              return { key: getMarketWatchlistKey(item), quote: undefined };
+            }
+          }),
+        ),
+      );
+    },
+    [listingItems],
+    {
+      pollingInterval,
+      watchLoading: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
+      checkIsFocused: true,
+    },
   );
 
   // ── Spot data fetching (existing logic) ──
@@ -240,6 +286,7 @@ export function useMarketWatchlistTokenList({
   const isLoading =
     isInitialLoad ||
     apiLoading ||
+    listingLoading ||
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
         (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
@@ -248,8 +295,8 @@ export function useMarketWatchlistTokenList({
     (perpsItems.length > 0 && perpsResult?.failed),
   );
   const refetch = useCallback(async () => {
-    await Promise.all([refetchData(), refetchPerpsData()]);
-  }, [refetchData, refetchPerpsData]);
+    await Promise.all([refetchData(), refetchPerpsData(), refetchListings()]);
+  }, [refetchData, refetchPerpsData, refetchListings]);
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
@@ -337,6 +384,44 @@ export function useMarketWatchlistTokenList({
     // Build result array in watchlist order to maintain correct sorting
     const merged = watchlist
       .map((watchlistItem) => {
+        if (watchlistItem.assetId || watchlistItem.stockId) {
+          const key = getMarketWatchlistKey(watchlistItem);
+          const quote = listingQuotes?.find(
+            (entry) => entry.key === key,
+          )?.quote;
+          return {
+            id: key,
+            assetId: watchlistItem.assetId,
+            stockId: watchlistItem.stockId,
+            name:
+              quote?.name ??
+              watchlistItem.assetId ??
+              watchlistItem.stockId ??
+              '',
+            symbol:
+              quote?.symbol ??
+              watchlistItem.assetId ??
+              watchlistItem.stockId ??
+              '',
+            address: '',
+            networkId: '',
+            chainId: '',
+            decimals: 0,
+            price: Number(quote?.price ?? NaN),
+            change24h: Number(quote?.priceChange24hPercent ?? NaN),
+            priceChangeRaw: quote?.priceChange24hPercent ?? '-',
+            marketCap: Number(quote?.marketCap ?? NaN),
+            turnover: Number(quote?.volume24h ?? NaN),
+            liquidity: 0,
+            transactions: 0,
+            uniqueTraders: 0,
+            holders: 0,
+            tokenImageUri: quote?.logoUrl ?? '',
+            networkLogoUri: '',
+            sortIndex: watchlistItem.sortIndex ?? 0,
+          } satisfies IMarketToken;
+        }
+
         // Perps item — look up from perpsTokenMap
         if (watchlistItem.perpsCoin) {
           const perpsToken = perpsTokenMap.get(watchlistItem.perpsCoin);
@@ -361,7 +446,8 @@ export function useMarketWatchlistTokenList({
             tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
           );
         });
-        return found;
+        // Keep legacy chain favorites removable under their stored identity.
+        return found ? { ...found, stockId: watchlistItem.stockId } : undefined;
       })
       .filter(Boolean);
 
@@ -372,6 +458,7 @@ export function useMarketWatchlistTokenList({
     }
   }, [
     apiResult,
+    listingQuotes,
     watchlist,
     spotItems,
     perpsTokenMap,
@@ -419,7 +506,8 @@ export function useMarketWatchlistTokenList({
   const refresh = useCallback(() => {
     setCurrentPage(1);
     void refetchData();
-  }, [refetchData]);
+    void refetchListings();
+  }, [refetchData, refetchListings]);
 
   useEffect(() => {
     watchlistTokenCache = paginatedData;
