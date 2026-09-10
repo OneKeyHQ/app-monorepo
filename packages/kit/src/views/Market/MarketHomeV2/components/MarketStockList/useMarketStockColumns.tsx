@@ -19,7 +19,6 @@ import type {
   ITableColumn,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -34,6 +33,7 @@ import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
 import { MARKET_CELL_SUBTITLE_SIZE } from '../MarketListCell';
 import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
 
+import { MarketStockStar } from './MarketStockStar';
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
@@ -148,11 +148,7 @@ export function useMarketStockColumns({
               justifyContent="center"
             >
               {showWatchlist ? (
-                <MarketListingStar
-                  kind="stock"
-                  listingId={record.stockId}
-                  from={watchlistFrom}
-                />
+                <MarketStockStar stock={record} from={watchlistFrom} />
               ) : (
                 <Icon name="StarOutline" size="$4" color="$iconSubdued" />
               )}

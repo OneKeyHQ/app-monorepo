@@ -26,6 +26,7 @@ import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
+import { MarketStockStar } from './MarketStockStar';
 import { parseMarketStockNumber } from './utils';
 
 import type { FlatListProps } from 'react-native';
@@ -81,6 +82,7 @@ function MobileMarketStockFlatListImpl({
             }}
           >
             <XStack flex={1} minWidth={0} alignItems="center" gap="$3.5">
+              <MarketStockStar stock={item} />
               <Token
                 size="lg"
                 borderRadius="$full"
