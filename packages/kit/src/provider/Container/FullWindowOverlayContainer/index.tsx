@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   OverlayContainer,
@@ -36,6 +36,15 @@ export function FullWindowOverlayContainer() {
   }
   stageWasShownRef.current = stageShown;
   const stageRaiseToken = stageRaiseTokenRef.current;
+  // The toast layer follows every stage raise: iOS orders native window
+  // containers by their last re-front, and TOAST_Z_INDEX cannot reach
+  // across them, so toasts hosted beside the stage would slip under it.
+  // Bumped from an effect — a commit of its own, guaranteed to land after
+  // the stage's re-front in the commit before it.
+  const [toastRaiseToken, setToastRaiseToken] = useState(0);
+  useEffect(() => {
+    setToastRaiseToken((token) => token + 1);
+  }, [stageRaiseToken]);
 
   return (
     <OverlayContainer>
@@ -53,8 +62,8 @@ export function FullWindowOverlayContainer() {
           the same spot temporally, by showing later. The mirror case is
           the driver's to sequence: a prompt that must interrupt a LIVE
           stage hides the stage first (password prompts don't — they
-          gate before the device call ever starts). Toasts stay above
-          through the providers below.
+          gate before the device call ever starts). Toasts keep their
+          own overlay right after this one, re-fronted on its heels.
 
           Source order alone only holds on native: on web a Dialog carries
           an explicit z-index (useOverlayZIndex, 99 999 and up) and paints
@@ -88,11 +97,17 @@ export function FullWindowOverlayContainer() {
           <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
         </Stack>
       </OverlayContainer>
-      <ShowToastProvider />
+      {/* The toasts' own overlay: mounted after the stage's and re-fronted
+          right after each stage raise, so a toast during a hardware flow
+          still paints and taps above the stage on iOS. Elsewhere
+          OverlayContainer is a pass-through and z-index keeps the order. */}
+      <OverlayContainer bringToFrontToken={toastRaiseToken}>
+        <ShowToastProvider />
+        {/* E2E mode, enable tap in iOS */}
+        {platformEnv.isE2E ? <></> : <Toaster />}
+      </OverlayContainer>
       <DevOverlayWindowContainer />
       <TradingViewNativeDebugPanelContainer />
-      {/* E2E mode, enable tap in iOS */}
-      {platformEnv.isE2E ? <></> : <Toaster />}
       <ScreenshotBranding />
     </OverlayContainer>
   );
