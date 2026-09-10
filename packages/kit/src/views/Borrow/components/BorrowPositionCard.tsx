@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
@@ -67,6 +68,7 @@ export function BorrowPositionCard({
   testID,
   actionsTestID,
 }: IBorrowPositionCardProps) {
+  const reducedMotion = useReducedMotion();
   const isPressable = Boolean(onToggleExpand);
   const amountSize = tokenAmount?.size ?? '$bodyMd';
   const amountColor = tokenAmount?.color ?? '$textSubdued';
@@ -204,7 +206,7 @@ export function BorrowPositionCard({
               // already carries role="button" and an Icon takes no focus, so
               // this stays a signifier and not a second tap target.
               <Stack
-                transition="quick"
+                transition={reducedMotion ? undefined : 'quick'}
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={isExpanded ? '0deg' : '-90deg'}
               >

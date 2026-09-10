@@ -12,6 +12,12 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isRuntimeBrowser: true },
 }));
 
+jest.mock('react-native-reanimated', () => ({
+  __esModule: true,
+  useReducedMotion: () =>
+    (globalThis as Record<string, unknown>).__reducedMotion === true,
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
 
@@ -34,6 +40,7 @@ jest.mock('@onekeyhq/components', () => {
       variant,
       badgeType,
       rotate,
+      transition,
       ...rest
     }: IMockProps) {
       return React.createElement(
@@ -43,6 +50,7 @@ jest.mock('@onekeyhq/components', () => {
           'data-variant': variant,
           'data-badge-type': badgeType,
           'data-rotate': rotate,
+          'data-transition': transition ?? 'none',
           'aria-expanded': rest['aria-expanded'],
           'aria-label': rest['aria-label'],
           role,
@@ -307,5 +315,39 @@ describe('BorrowPositionCard expand behaviour', () => {
     expect(disclosure.getAttribute('aria-label')).toBeNull();
     expect(disclosure.textContent).toContain('$20');
     expect(disclosure.textContent).toContain('USDC');
+  });
+});
+
+describe('BorrowPositionCard reduced motion', () => {
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).__reducedMotion;
+  });
+
+  it('animates the chevron by default', () => {
+    const { container } = renderCard({ onToggleExpand: jest.fn() });
+
+    expect(
+      container
+        .querySelector('[data-icon="ChevronDownSmallOutline"]')
+        ?.parentElement?.getAttribute('data-transition'),
+    ).toBe('quick');
+  });
+
+  // The rotation still happens; only the tween is dropped, so the collapsed
+  // and expanded states stay distinguishable.
+  it('drops the tween when the system asks for reduced motion', () => {
+    (globalThis as Record<string, unknown>).__reducedMotion = true;
+    const { container } = renderCard({
+      onToggleExpand: jest.fn(),
+      isExpanded: false,
+    });
+    const chevron = container.querySelector(
+      '[data-icon="ChevronDownSmallOutline"]',
+    );
+
+    expect(chevron?.parentElement?.getAttribute('data-transition')).toBe(
+      'none',
+    );
+    expect(chevron?.parentElement?.getAttribute('data-rotate')).toBe('-90deg');
   });
 });
