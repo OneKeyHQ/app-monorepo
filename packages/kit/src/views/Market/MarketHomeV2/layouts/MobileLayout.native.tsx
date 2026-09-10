@@ -62,6 +62,7 @@ import { shouldHandleMarketPagerPageSelected } from './marketTabSelectionGuards'
 import {
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
   getMarketMobileSecondaryHeaderHeight,
+  resolveMarketBannerHeaderDecision,
 } from './mobileLayoutUtils';
 
 import type { IMarketPerpsDataCache } from '../components/MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -347,17 +348,22 @@ function MobileLayoutComponent({
   selectedTabNameRef.current = selectedTabName;
   const [activeTabName, setActiveTabName] = useState(activeTabNameRef.current);
   const focusedTab = useSharedValue(activeTabNameRef.current);
-  const { bannerList, scope: bannerScope } = useMarketBannerState();
+  const {
+    bannerList,
+    isFetched: isBannerFetched,
+    scope: bannerScope,
+  } = useMarketBannerState();
   const bannerDecisionRef = useRef({
     scope: bannerScope,
-    hasBanners: bannerList.length > 0,
+    isDecided: false,
+    hasBanners: false,
   });
-  if (bannerDecisionRef.current.scope !== bannerScope) {
-    bannerDecisionRef.current = {
-      scope: bannerScope,
-      hasBanners: bannerList.length > 0,
-    };
-  }
+  bannerDecisionRef.current = resolveMarketBannerHeaderDecision({
+    current: bannerDecisionRef.current,
+    scope: bannerScope,
+    isFetched: isBannerFetched,
+    bannerCount: bannerList.length,
+  });
   const headerHeight = bannerDecisionRef.current.hasBanners
     ? MARKET_BANNER_HEADER_HEIGHT
     : 1;

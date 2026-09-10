@@ -18,6 +18,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
+import { marketTokenKey } from '../MarketTokenData';
 import {
   buildMarketNetworkLogoUriMap,
   getMarketTokenNetworkLogoUri,
@@ -194,14 +195,26 @@ function transformMarketTokenListResponse({
   networkLogoUri: string;
   timeRange: IMarketTimeRangeValue | undefined;
 }) {
-  return (response?.list ?? []).map((item) =>
-    transformApiItemToToken(item, {
-      chainId: networkId,
-      networkLogoUriMap,
-      networkLogoUri,
-      timeRange,
-    }),
+  return dedupeMarketTokens(
+    (response?.list ?? []).map((item) =>
+      transformApiItemToToken(item, {
+        chainId: networkId,
+        networkLogoUriMap,
+        networkLogoUri,
+        timeRange,
+      }),
+    ),
   );
+}
+
+function dedupeMarketTokens(items: IMarketToken[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = marketTokenKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function refreshMarketTokenNetworkLogos({
@@ -877,8 +890,8 @@ export function useMarketTokenList({
         setTransformedDataState((prev) => ({
           data:
             prev.queryKey === requestQueryKey
-              ? [...prev.data, ...newTransformed]
-              : newTransformed,
+              ? dedupeMarketTokens([...prev.data, ...newTransformed])
+              : dedupeMarketTokens(newTransformed),
           queryKey: requestQueryKey,
         }));
         setCurrentPage(nextPage);

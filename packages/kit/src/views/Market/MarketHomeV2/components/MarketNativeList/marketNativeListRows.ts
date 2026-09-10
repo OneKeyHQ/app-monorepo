@@ -9,6 +9,7 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { parseMarketStockNumber } from '../MarketStockList/utils';
+import { marketTokenKey } from '../MarketTokenList/MarketTokenData';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
@@ -311,14 +312,6 @@ function rowStyleForChange(
   };
 }
 
-export function marketTokenKey(item: IMarketToken) {
-  if (item.assetId) return `asset:${item.assetId}`;
-  if (item.stockId) return `stock:${item.stockId}`;
-  return item.perpsCoin
-    ? `perps:${item.perpsCoin}`
-    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
-}
-
 export function buildTokenMarketRow({
   item,
   presentation,
@@ -384,9 +377,16 @@ export function buildTokenMarketRow({
 export function buildStockMarketRow({
   item,
   presentation,
+  favorite,
 }: {
   item: IMarketStockPublicItem;
   presentation: IMarketNativeListPresentation;
+  favorite?: {
+    checked: boolean;
+    disabled: boolean;
+    accessibilityLabel: string;
+    testID: string;
+  };
 }): MarketRow {
   const priceValue = parseMarketStockNumber(item.price);
   const changeValue = parseMarketStockNumber(item.priceChange24hPercent);
@@ -399,6 +399,19 @@ export function buildStockMarketRow({
     height: 72,
     testID: `market-stock-row-${item.stockId}`,
     accessibilityLabel: `${item.symbol}, ${price.text}, ${change.text}`,
+    leadingAction: favorite
+      ? {
+          kind: 'icon',
+          name: favorite.checked ? 'StarSolid' : 'StarOutline',
+          tintColor: favorite.checked
+            ? presentation.theme.accent
+            : presentation.theme.iconSubdued,
+          disabled: favorite.disabled,
+          actionKey: 'toggle-favorite',
+          accessibilityLabel: favorite.accessibilityLabel,
+          testID: favorite.testID,
+        }
+      : undefined,
     leading: {
       kind: 'token',
       image: marketImage(item.logoUrl, 40),
@@ -469,9 +482,16 @@ export function buildPerpsMarketRow({
 export function buildTopCoinMarketRow({
   item,
   presentation,
+  favorite,
 }: {
   item: IMarketAssetListItem;
   presentation: IMarketNativeListPresentation;
+  favorite?: {
+    checked: boolean;
+    disabled: boolean;
+    accessibilityLabel: string;
+    testID: string;
+  };
 }): MarketRow {
   const price = formatNumber(item.price, 'price', { currency: '$' });
   const change = buildChange(item.priceChange24hPercent, presentation);
@@ -483,6 +503,19 @@ export function buildTopCoinMarketRow({
     height: 72,
     testID: `market-token-item-${symbol}`,
     accessibilityLabel: `${symbol}, ${price.text}, ${change.text}`,
+    leadingAction: favorite
+      ? {
+          kind: 'icon',
+          name: favorite.checked ? 'StarSolid' : 'StarOutline',
+          tintColor: favorite.checked
+            ? presentation.theme.accent
+            : presentation.theme.iconSubdued,
+          disabled: favorite.disabled,
+          actionKey: 'toggle-favorite',
+          accessibilityLabel: favorite.accessibilityLabel,
+          testID: favorite.testID,
+        }
+      : undefined,
     leading: {
       kind: 'token',
       image: marketImage(item.logoUrl, 32),

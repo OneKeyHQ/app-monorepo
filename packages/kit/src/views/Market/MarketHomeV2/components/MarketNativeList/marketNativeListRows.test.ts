@@ -110,6 +110,67 @@ describe('market native list rows', () => {
     ]);
   });
 
+  it('builds interactive favorite actions for stock and top-coin rows', () => {
+    const stock = buildStockMarketRow({
+      item: {
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: 'https://example.com/aapl.png',
+        assetType: 'stock',
+        currency: 'USD',
+        price: '200',
+        priceChange24hPercent: '1',
+      },
+      presentation,
+      favorite: {
+        checked: false,
+        disabled: false,
+        accessibilityLabel: 'Add to favorites',
+        testID: 'stock-star-AAPL',
+      },
+    });
+    const topCoin = buildTopCoinMarketRow({
+      item: {
+        assetId: 'bitcoin',
+        symbol: 'btc',
+        logoUrl: 'https://example.com/btc.png',
+        price: '100',
+        priceChange24hPercent: '1',
+        priceChange7dPercent: '2',
+        marketCap: '1000',
+        volume24h: '100',
+        sparkline24h: [],
+      },
+      presentation,
+      favorite: {
+        checked: true,
+        disabled: true,
+        accessibilityLabel: 'Remove from favorites',
+        testID: 'top-coin-star-bitcoin',
+      },
+    });
+
+    expect(stock.leadingAction).toEqual({
+      kind: 'icon',
+      name: 'StarOutline',
+      tintColor: presentation.theme.iconSubdued,
+      disabled: false,
+      actionKey: 'toggle-favorite',
+      accessibilityLabel: 'Add to favorites',
+      testID: 'stock-star-AAPL',
+    });
+    expect(topCoin.leadingAction).toEqual({
+      kind: 'icon',
+      name: 'StarSolid',
+      tintColor: presentation.theme.accent,
+      disabled: true,
+      actionKey: 'toggle-favorite',
+      accessibilityLabel: 'Remove from favorites',
+      testID: 'top-coin-star-bitcoin',
+    });
+  });
+
   it.each(['#000000', '#ffffff'])(
     'keeps the legacy white change text when inverse text is %s',
     (inverseText) => {

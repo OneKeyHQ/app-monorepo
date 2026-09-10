@@ -483,6 +483,64 @@ describe('useMarketTokenList initial data', () => {
     });
   });
 
+  it('deduplicates overlapping native ranking pages without losing page progress', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) =>
+      page === 1
+        ? {
+            list: [
+              {
+                address: '0xDuplicate',
+                name: 'Page One',
+                symbol: 'ONE',
+                decimals: 18,
+              },
+            ],
+            total: 2,
+          }
+        : {
+            list: [
+              {
+                address: '0xduplicate',
+                name: 'Moved Ranking',
+                symbol: 'ONE',
+                decimals: 18,
+              },
+              {
+                address: '0xunique',
+                name: 'Page Two',
+                symbol: 'TWO',
+                decimals: 18,
+              },
+            ],
+            total: 2,
+          },
+    );
+
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pageSize: 1,
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+    await act(async () => latestResult?.loadMore());
+    await waitFor(() => {
+      expect(latestResult?.data.map((item) => item.id)).toEqual([
+        '0xDuplicate',
+        '0xunique',
+      ]);
+      expect(latestResult?.currentPage).toBe(2);
+    });
+  });
+
   it('refreshes every loaded page without resetting pagination when config resolves later', async () => {
     let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
 

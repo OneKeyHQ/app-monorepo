@@ -5,7 +5,9 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import {
+  MobileMarketNativeStockList,
   MobileMarketNativeTokenList,
+  MobileMarketNativeTopCoinsList,
   MobileMarketNativeWatchlist,
 } from './MobileMarketNativeLists';
 
@@ -27,6 +29,37 @@ const mockActions = {
     removeFromWatchListV2: jest.fn().mockResolvedValue(undefined),
   },
 };
+const mockListingActions = {
+  addIntoWatchListV2: jest.fn().mockResolvedValue(true),
+  removeFromWatchListV2: jest.fn().mockResolvedValue(true),
+};
+const mockStockDetail = jest.fn();
+const mockTopCoinDetail = jest.fn();
+const mockStockItems = [
+  {
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: 'https://example.com/aapl.png',
+    assetType: 'stock',
+    currency: 'USD',
+    price: '200',
+    priceChange24hPercent: '1',
+  },
+];
+const mockTopCoins = [
+  {
+    assetId: 'bitcoin',
+    symbol: 'btc',
+    logoUrl: 'https://example.com/btc.png',
+    price: '100',
+    priceChange24hPercent: '1',
+    priceChange7dPercent: '2',
+    marketCap: '1000',
+    volume24h: '100',
+    sparkline24h: [],
+  },
+];
 const mockWatchlistData: IMarketToken[] = [
   {
     id: 'tiny',
@@ -48,6 +81,7 @@ const mockWatchlistData: IMarketToken[] = [
   },
 ];
 let mockRowAction: ((event: RowActionEvent) => void) | undefined;
+let mockNativeSnapshot: NativeListSnapshot | undefined;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
 let mockPullToRefresh: () => void;
@@ -97,6 +131,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
       }
     >(({ snapshot, onRefresh, onRowAction }, ref) => {
       mockRowAction = onRowAction;
+      mockNativeSnapshot = snapshot;
       const [nativeRefreshing, setNativeRefreshing] = React.useState(false);
       React.useEffect(() => {
         setNativeRefreshing(Boolean(snapshot.capabilities?.refreshing));
@@ -163,6 +198,22 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   ],
   useWatchListV2Actions: () => mockActions,
 }));
+jest.mock('@onekeyhq/kit/src/views/Market/components/watchListHooksV2', () => ({
+  useWatchListV2Action: () => mockListingActions,
+}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexAddToWatchlist: jest.fn(),
+        dexRemoveFromWatchlist: jest.fn(),
+      },
+    },
+  },
+}));
+jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
+  EWatchlistFrom: { Homepage: 'Homepage' },
+}));
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({ recommendedTokens: [] }),
@@ -184,8 +235,21 @@ jest.mock('../../../hooks/usePerpsNavigation', () => ({
 }));
 jest.mock('../MarketPerpsList/hooks/useMarketPerpsTokenList', () => ({}));
 jest.mock('../MarketRecommendList', () => ({}));
-jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({}));
-jest.mock('../MarketStockList/hooks/useToMarketStockDetailPage', () => ({}));
+jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
+  useMarketStockList: () => ({
+    items: mockStockItems,
+    isLoading: false,
+    isLoadingMore: false,
+    isLoadMoreError: false,
+    isError: false,
+    canLoadMore: false,
+    loadMore: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
+jest.mock('../MarketStockList/hooks/useToMarketStockDetailPage', () => ({
+  useToMarketStockDetailPage: () => mockStockDetail,
+}));
 jest.mock('../MarketTokenList/components/InlineActionBar', () => ({
   InlineActionBar: () => null,
 }));
@@ -202,7 +266,15 @@ jest.mock('../MarketTokenList/hooks/useWatchlistFilteredGroups', () => ({
     perps: [],
   }),
 }));
-jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({}));
+jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({
+  useMarketTopCoins: () => ({
+    data: mockTopCoins,
+    handleItemPress: mockTopCoinDetail,
+    isLoading: false,
+    isError: false,
+    refresh: jest.fn(),
+  }),
+}));
 
 describe('MobileMarketNativeTokenList refresh', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -370,3 +442,98 @@ it.each([{ assetId: 'bitcoin' }, { stockId: 'AAPL' }])(
     }
   },
 );
+
+describe('native market listing favorites', () => {
+  it('adds a stock favorite without opening its detail row', async () => {
+    const previous = [...mockWatchlistData];
+    let resolveFavorite: (value: boolean) => void = () => undefined;
+    mockListingActions.addIntoWatchListV2.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveFavorite = resolve;
+        }),
+    );
+    mockWatchlistData.splice(0);
+    try {
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+        key: 'AAPL',
+        leadingAction: {
+          name: 'StarOutline',
+          disabled: false,
+          actionKey: 'toggle-favorite',
+        },
+      });
+
+      act(() => {
+        mockRowAction?.({ rowKey: 'AAPL', actionKey: 'toggle-favorite' });
+      });
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+        leadingAction: { disabled: true },
+      });
+      expect(mockListingActions.addIntoWatchListV2).toHaveBeenCalledWith([
+        {
+          chainId: '',
+          contractAddress: '',
+          stockId: 'AAPL',
+          isNative: false,
+        },
+      ]);
+      expect(mockStockDetail).not.toHaveBeenCalled();
+      await act(async () => resolveFavorite(true));
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+        leadingAction: { disabled: false },
+      });
+    } finally {
+      mockWatchlistData.splice(0, mockWatchlistData.length, ...previous);
+    }
+  });
+
+  it('removes an active top-coin favorite without opening its detail row', async () => {
+    const previous = [...mockWatchlistData];
+    mockWatchlistData.splice(0, mockWatchlistData.length, {
+      ...previous[0],
+      id: 'bitcoin',
+      address: '',
+      networkId: '',
+      assetId: 'bitcoin',
+    });
+    try {
+      render(
+        <MobileMarketNativeTopCoinsList
+          dataCacheRef={{ current: undefined }}
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+        key: 'bitcoin',
+        leadingAction: {
+          name: 'StarSolid',
+          disabled: false,
+          actionKey: 'toggle-favorite',
+        },
+      });
+
+      await act(async () => {
+        mockRowAction?.({ rowKey: 'bitcoin', actionKey: 'toggle-favorite' });
+      });
+      expect(mockListingActions.removeFromWatchListV2).toHaveBeenCalledWith(
+        '',
+        '',
+        {
+          chainId: '',
+          contractAddress: '',
+          assetId: 'bitcoin',
+        },
+      );
+      expect(mockTopCoinDetail).not.toHaveBeenCalled();
+    } finally {
+      mockWatchlistData.splice(0, mockWatchlistData.length, ...previous);
+    }
+  });
+});
