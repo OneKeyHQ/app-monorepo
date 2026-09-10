@@ -10,9 +10,10 @@ import { EImportMethod, useImportAddressForm } from './useImportAddressForm';
 const networkIds = getNetworkIdsMap();
 const mockNetworksResp = {
   networkIds: [networkIds.btc, networkIds.eth],
-  publicKeyExportEnabled: new Set([networkIds.btc]),
+  publicKeyExportEnabled: new Set([networkIds.btc, networkIds.ltc]),
   watchingAccountEnabled: new Set([networkIds.btc, networkIds.eth]),
 };
+const mockAddWatchingAccount = jest.fn(async () => undefined);
 const mockValidatePublicKey = jest.fn(
   async (): Promise<IGeneralInputValidation> => ({ isValid: false }),
 );
@@ -35,6 +36,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       encodeSensitiveText: async ({ text }: { text: string }) => text,
     },
     serviceAccount: {
+      addWatchingAccount: () => mockAddWatchingAccount(),
       ensureAccountNameNotDuplicate: async () => undefined,
       validateGeneralInputOfImporting: () => mockValidatePublicKey(),
     },
@@ -49,10 +51,6 @@ jest.mock(
     }),
   }),
 );
-
-jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
-  useDebounce: <T,>(value: T) => value,
-}));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => ({ result: mockNetworksResp }),
@@ -73,6 +71,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 describe('useImportAddressForm effective import method', () => {
   beforeEach(() => {
+    mockAddWatchingAccount.mockReset();
     mockValidatePublicKey.mockReset();
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
   });
@@ -158,7 +157,7 @@ describe('useImportAddressForm effective import method', () => {
     });
 
     await act(async () => resolvePublicKey({ isValid: true }));
-    expect(result.current.validateResult?.isValid).toBe(true);
+    expect(result.current.validateResult?.isValid).toBe(false);
     expect(result.current.isPublicKeyImport).toBe(false);
     expect(result.current.isEnable).toBe(false);
 
@@ -170,6 +169,79 @@ describe('useImportAddressForm effective import method', () => {
       await result.current.form.trigger();
     });
     expect(result.current.isEnable).toBe(false);
+  });
+
+  it('invalidates a successful key immediately during the debounce window', async () => {
+    mockValidatePublicKey.mockResolvedValue({ isValid: true });
+    const { result } = renderHook(() => useImportAddressForm({}));
+    act(() => {
+      result.current.setMethod(EImportMethod.PublicKey);
+      result.current.form.setValue('publicKeyValue', 'first-key');
+    });
+    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    mockValidatePublicKey.mockResolvedValue({ isValid: false });
+    act(() => result.current.form.setValue('publicKeyValue', 'invalid-key'));
+    expect(result.current.isEnable).toBe(false);
+    expect(result.current.validateResult).toBeUndefined();
+    await waitFor(() =>
+      expect(result.current.validateResult?.isValid).toBe(false),
+    );
+  });
+
+  it('ignores an older successful request after a newer invalid key completes', async () => {
+    let resolveOld!: (value: IGeneralInputValidation) => void;
+    mockValidatePublicKey.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOld = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useImportAddressForm({}));
+    act(() => {
+      result.current.setMethod(EImportMethod.PublicKey);
+      result.current.form.setValue('publicKeyValue', 'first-key');
+    });
+    await waitFor(() => expect(mockValidatePublicKey).toHaveBeenCalledTimes(1));
+    act(() => result.current.form.setValue('publicKeyValue', 'invalid-key'));
+    await waitFor(() =>
+      expect(result.current.validateResult?.isValid).toBe(false),
+    );
+    await act(async () => resolveOld({ isValid: true }));
+    expect(result.current.isEnable).toBe(false);
+    expect(result.current.validateResult?.isValid).toBe(false);
+  });
+
+  it('clears validation and derivation when switching between public-key networks', async () => {
+    mockValidatePublicKey.mockResolvedValue({ isValid: true });
+    const { result } = renderHook(() => useImportAddressForm({}));
+    act(() => {
+      result.current.setMethod(EImportMethod.PublicKey);
+      result.current.form.setValue('publicKeyValue', 'first-key');
+    });
+    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    act(() => result.current.form.setValue('deriveType', 'default'));
+    mockValidatePublicKey.mockResolvedValue({ isValid: false });
+    act(() => result.current.form.setValue('networkId', networkIds.ltc));
+    expect(result.current.isPublicKeyImport).toBe(true);
+    expect(result.current.isEnable).toBe(false);
+    expect(result.current.form.getValues('deriveType')).toBeUndefined();
+    await waitFor(() =>
+      expect(result.current.validateResult?.isValid).toBe(false),
+    );
+  });
+
+  it('rejects submission of a key changed before React commits', async () => {
+    mockValidatePublicKey.mockResolvedValue({ isValid: true });
+    const { result } = renderHook(() => useImportAddressForm({}));
+    act(() => {
+      result.current.setMethod(EImportMethod.PublicKey);
+      result.current.form.setValue('publicKeyValue', 'first-key');
+    });
+    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => {
+      result.current.form.setValue('publicKeyValue', 'unvalidated-key');
+      await result.current.form.submit?.();
+    });
+    expect(mockAddWatchingAccount).not.toHaveBeenCalled();
   });
 
   it('keeps valid public-key imports enabled while still blocking account-name errors', async () => {

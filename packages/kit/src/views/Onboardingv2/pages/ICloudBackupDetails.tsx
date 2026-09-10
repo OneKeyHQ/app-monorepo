@@ -336,7 +336,7 @@ export default function ICloudBackupDetails({
         }
       />
       <YStack {...(!gtMd && { mt: 'auto' })} gap="$3">
-        <KeylessWalletBackupInfo />
+        <KeylessWalletBackupInfo backupRecordId={route.params?.backupId} />
         {actionButtons}
       </YStack>
     </OnboardingPage>

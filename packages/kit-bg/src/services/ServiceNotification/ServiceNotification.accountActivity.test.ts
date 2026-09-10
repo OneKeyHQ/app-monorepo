@@ -158,10 +158,38 @@ describe('ServiceNotification account activity after account removal', () => {
     expect(result).toEqual({
       wallet: buildSettings(['kept'], ['disabled']),
       'disabled-wallet': {
-        ...buildSettings([], ['account']),
+        ...buildSettings(['account']),
         enabled: false,
       },
     });
+  });
+
+  it('preserves disabled wallet selections across rebuilds without reserving quota', () => {
+    const wallets = [
+      buildWallet('disabled-wallet', ['selected', 'unselected', 'new']),
+      buildWallet('active-wallet', ['active']),
+    ];
+    const settings = {
+      'disabled-wallet': {
+        ...buildSettings(['selected', 'removed'], ['unselected']),
+        enabled: false,
+      },
+      'active-wallet': buildSettings(['active']),
+    };
+    const result = rebuild(wallets, settings, 1);
+    expect(result).toEqual({
+      'disabled-wallet': {
+        ...buildSettings(['selected'], ['unselected', 'new']),
+        enabled: false,
+      },
+      'active-wallet': buildSettings(['active']),
+    });
+    expect(rebuild(wallets, result, 1)).toEqual(result);
+    result['disabled-wallet'].enabled = true;
+    expect(rebuild(wallets, result, 2)['disabled-wallet']).toEqual(
+      buildSettings(['selected'], ['unselected', 'new']),
+    );
+    expect(settings['disabled-wallet'].accounts.removed.enabled).toBe(true);
   });
 
   it('cleans hidden wallet accounts and removed wallets from the same quota', () => {

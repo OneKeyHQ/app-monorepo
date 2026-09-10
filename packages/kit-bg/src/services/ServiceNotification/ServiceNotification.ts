@@ -1264,7 +1264,14 @@ export default class ServiceNotification extends ServiceBase {
             oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
               true || isAccountEnabledUndefined;
 
-          if (isWalletEnabled && isAccountEnabled) {
+          if (!isWalletEnabled) {
+            // Keep selections without consuming quota while the wallet is disabled.
+            accountActivity[wallet.id].accounts[account.id] = {
+              enabled:
+                oldAccountActivity[wallet.id]?.accounts?.[account.id]
+                  ?.enabled ?? false,
+            };
+          } else if (isAccountEnabled) {
             if (
               isAccountEnabledUndefined &&
               currentEnabledAccountCount + newlyEnabledAccountCount >=
