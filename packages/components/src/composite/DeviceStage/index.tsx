@@ -29,6 +29,10 @@ import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
+  restoreAndroidSoftInputMode,
+  suspendAndroidSoftInputPan,
+} from '../../hooks/useKeyboardController';
+import {
   Button,
   Haptics,
   Icon,
@@ -130,9 +134,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
  * pose flip ever builds native views mid-animation.
  *
- * The stage is modal without a scrim: while it is there the app behind
- * takes no touch — the person stays with the device — and nothing dims
- * (the design leaves the overlay layer off here). Dismissal is the
+ * The stage is modal, and undimmed for asks and waits: while it is there
+ * the app behind takes no touch — the person stays with the device — and
+ * nothing dims (the design leaves the overlay layer off here). The
+ * terminal failure cards are the exception (OK-62072): a bright app
+ * under an unnoticed error card read as "still tappable", so those
+ * three arrangements wear the scrim. Dismissal is the
  * container's (close button, drag, tap outside) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
@@ -579,6 +586,25 @@ export function DeviceStage({
       fireStepHaptic(step);
     }
   }, [step]);
+  // The system-keyboard steps own their lift: the shell already rides the
+  // keyboard (MorphOverlay), so the Android window must not pan on top of
+  // it. The manifest's adjustPan did exactly that for the passphrase field
+  // — it sits low on the screen, so the OS shoved the whole window up by
+  // the overlap while the shell rose by the keyboard's height, and the card
+  // ended a keyboard's worth above the keys with its title in the status
+  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
+  // back the moment it leaves. No-op off Android.
+  const systemKeyboardStep =
+    step === 'passphraseOnApp' || step === 'pairingCode';
+  useEffect(() => {
+    if (!systemKeyboardStep) {
+      return undefined;
+    }
+    suspendAndroidSoftInputPan();
+    return () => {
+      restoreAndroidSoftInputMode();
+    };
+  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -1534,13 +1560,17 @@ export function DeviceStage({
           {/* A vendor pinOnApp is the Trezor matrix by definition (Ledger
               never asks the app for a PIN): nine positions, and no
               on-device switch — the button devices that reach this step
-              cannot take the PIN themselves, whatever the driver wires. */}
+              cannot take the PIN themselves, whatever the driver wires.
+              The four-digit floor is OneKey's own rule (OK-62090): the
+              matrix takes a PIN from one position up, as its dedicated
+              pad always did. */}
           <PinPad
             onSubmit={onPinSubmit}
             onSwitchToDevice={vendor ? undefined : onSwitchToDevice}
             error={inputError}
             resetSignal={pinEpoch}
             noZeroKey={Boolean(vendor)}
+            minLength={vendor ? 1 : undefined}
           />
         </View>
       </YStack>
@@ -2134,6 +2164,15 @@ export function DeviceStage({
     [intl],
   );
 
+  // The failure cards dim the app behind them (OK-62072); the error
+  // notice keeps the capsule's undimmed grammar — it is a beat, not a
+  // wall, and leaves on its own.
+  const scrim =
+    pose === 'card' &&
+    (activeArrangement === 'error' ||
+      activeArrangement === 'authFailure' ||
+      activeArrangement === 'deviceNotFound');
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2145,6 +2184,7 @@ export function DeviceStage({
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
       modal
+      scrim={scrim}
       capsuleKey={capsuleText.title}
       capsule={capsule}
       stageLayer={stageLayer}

@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Ikuti posisi angka di perangkat",
   "device_stage_pin_set_to_app__desc": "Berlaku mulai berikutnya. Kali ini, masukkan di perangkat.",
   "device_stage_pin_set_to_app__title": "Input PIN diatur ke aplikasi",
+  "device_stage_pin_too_short__msg": "Minimal 4 digit.",
   "device_stage_prefer_pin_in_app__action": "Ingin memasukkan PIN di aplikasi?",
   "device_stage_processing__title": "Memproses…",
   "device_stage_reconnect__action": "Hubungkan ulang",

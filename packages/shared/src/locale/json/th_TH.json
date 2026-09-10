@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "จับคู่ตำแหน่งตัวเลขตามหน้าจออุปกรณ์",
   "device_stage_pin_set_to_app__desc": "มีผลตั้งแต่ครั้งถัดไป ครั้งนี้ให้ใส่บนอุปกรณ์",
   "device_stage_pin_set_to_app__title": "ตั้งค่าการใส่รหัส PIN เป็นแอปแล้ว",
+  "device_stage_pin_too_short__msg": "อย่างน้อย 4 หลัก",
   "device_stage_prefer_pin_in_app__action": "ต้องการใส่รหัส PIN ในแอปหรือไม่",
   "device_stage_processing__title": "กำลังประมวลผล…",
   "device_stage_reconnect__action": "เชื่อมต่อใหม่",

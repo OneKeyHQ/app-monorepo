@@ -1,5 +1,9 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
+import {
+  fillMarketKLineGaps,
+  getMarketApiKLineIntervalSeconds,
+} from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
@@ -77,14 +81,34 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   All: undefined,
 };
 
+// The token K-line endpoint honours whatever interval it is given (unlike the
+// Asset one below), but only returns buckets that actually traded, so the
+// series is sparse wherever the market is thin.
 const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1H': '1m',
-  '1D': '15m',
+  '1D': '5m',
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',
   All: '1W',
 };
+
+// The Asset K-line endpoint derives its own granularity from the requested
+// window and only honours `interval` below a full day: measured against
+// `/utility/v1/market/asset/kline`, a 23h55m window answers `5m` with 300s
+// spacing, while a 86400s window returns 24 hourly points whatever `interval`
+// says. It also never serves finer than 300s, so `1m` was only ever an
+// unfulfilled request. Both entries below say what the endpoint actually
+// serves; drop this map and the clamp once it honours `interval` at a full day.
+const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
+  ...STOCK_TOKEN_CHART_INTERVALS,
+  '1H': '5m',
+  '1D': '5m',
+};
+
+// Five minutes short of a day, to stay on the 5m series. The chart loses its
+// oldest bucket, which reads the same at this scale as a full day.
+const MARKET_ASSET_SUB_DAY_WINDOW_SECONDS = 24 * 60 * 60 - 5 * 60;
 
 const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1H': '1',
@@ -102,7 +126,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1H': '1h',
   '1D': '1d',
   '1W': '1w',
-  '1M': '1y',
+  '1M': '1m',
   '1Y': '1y',
   All: 'all',
 };
@@ -167,7 +191,6 @@ export async function fetchStockSimpleChartPoints(
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
         stockId,
         period: STOCK_SHARE_CHART_PERIODS[range],
-        points: range === '1M' ? 180 : 100,
       });
     const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
@@ -177,17 +200,7 @@ export async function fetchStockSimpleChartPoints(
       )
       .toSorted((a, b) => a[0] - b[0]);
 
-    if (range !== '1M') {
-      return points;
-    }
-
-    const latestTimestamp = points.at(-1)?.[0];
-    if (latestTimestamp === undefined) {
-      return points;
-    }
-
-    const timeFrom = latestTimestamp - STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS;
-    return points.filter(([timestamp]) => timestamp >= timeFrom);
+    return points;
   }
 
   const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
@@ -195,10 +208,16 @@ export async function fetchStockSimpleChartPoints(
   const timeFrom = rangeSeconds ? timeTo - rangeSeconds : undefined;
 
   if (marketAssetId) {
+    const assetTimeFrom =
+      range === '1D' && timeFrom !== undefined
+        ? timeTo - MARKET_ASSET_SUB_DAY_WINDOW_SECONDS
+        : timeFrom;
     const response = await fetchMarketAssetKLineData({
       assetId: marketAssetId,
-      interval: STOCK_TOKEN_CHART_INTERVALS[range],
-      ...(timeFrom !== undefined ? { timeFrom, timeTo } : undefined),
+      interval: MARKET_ASSET_CHART_INTERVALS[range],
+      ...(assetTimeFrom !== undefined
+        ? { timeFrom: assetTimeFrom, timeTo }
+        : undefined),
     });
     return response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
@@ -207,7 +226,7 @@ export async function fetchStockSimpleChartPoints(
           Number.isFinite(timestamp) && Number.isFinite(price);
         return (
           isValidPoint &&
-          (!timeFrom || timestamp >= timeFrom) &&
+          (!assetTimeFrom || timestamp >= assetTimeFrom) &&
           timestamp <= timeTo
         );
       })
@@ -255,9 +274,10 @@ export async function fetchStockSimpleChartPoints(
     return [];
   }
 
+  const tokenInterval = STOCK_TOKEN_CHART_INTERVALS[range];
   const response =
     await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-      interval: STOCK_TOKEN_CHART_INTERVALS[range],
+      interval: tokenInterval,
       networkId,
       tokenAddress,
       timeFrom,
@@ -265,11 +285,20 @@ export async function fetchStockSimpleChartPoints(
       autoHandleError: false,
     });
 
-  return response.points
+  const points = response.points
     .map((point) => [Number(point.t), Number(point.c)] as [number, number])
     .filter(([timestamp, price]) => {
       const isValidPoint = Number.isFinite(timestamp) && Number.isFinite(price);
       return isValidPoint;
     })
     .toSorted((a, b) => a[0] - b[0]);
+
+  // This feed skips buckets that never traded, and the chart spaces points
+  // evenly whatever their timestamps say — so an untouched sparse series draws
+  // a thin market's quiet hours as if they were single steps, squashing the
+  // shape and pulling the time axis out of true.
+  return fillMarketKLineGaps(
+    points,
+    getMarketApiKLineIntervalSeconds(tokenInterval),
+  );
 }

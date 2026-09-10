@@ -60,7 +60,7 @@ export function TradingViewChartModeSelect({
   const intl = useIntl();
   const chartModeItems = [
     {
-      label: 'Original',
+      label: intl.formatMessage({ id: ETranslations.market_chart_original }),
       value: 'native' as const,
     },
     {

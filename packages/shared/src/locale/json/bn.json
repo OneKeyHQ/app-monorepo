@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "ডিভাইসে সংখ্যার অবস্থান অনুযায়ী লিখুন",
   "device_stage_pin_set_to_app__desc": "পরের বার থেকে কার্যকর হবে। এবার যন্ত্রে পিন প্রবেশ করান।",
   "device_stage_pin_set_to_app__title": "পিন ইনপুট অ্যাপে সেট করা হয়েছে",
+  "device_stage_pin_too_short__msg": "কমপক্ষে 4 সংখ্যা।",
   "device_stage_prefer_pin_in_app__action": "অ্যাপে পিন লিখতে চান?",
   "device_stage_processing__title": "প্রক্রিয়া চলছে…",
   "device_stage_reconnect__action": "পুনরায় সংযোগ করুন",
