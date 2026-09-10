@@ -82,13 +82,15 @@ describe('shouldShowFundingFooter', () => {
 
   // A retry owns the footer label, and it never broadcasts.
   it('keeps the plain footer when a recheck is the available action', () => {
-    expect(shouldShowFundingFooter({ ...underfunded, canRetryCheck: true })).toBe(
-      false,
-    );
+    expect(
+      shouldShowFundingFooter({ ...underfunded, canRetryCheck: true }),
+    ).toBe(false);
   });
 
   it('keeps the plain footer mid-signature', () => {
-    expect(shouldShowFundingFooter({ ...underfunded, isBusy: true })).toBe(false);
+    expect(shouldShowFundingFooter({ ...underfunded, isBusy: true })).toBe(
+      false,
+    );
     expect(
       shouldShowFundingFooter({
         ...underfunded,

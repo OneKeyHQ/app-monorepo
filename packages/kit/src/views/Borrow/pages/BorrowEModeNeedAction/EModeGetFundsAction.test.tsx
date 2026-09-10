@@ -62,7 +62,24 @@ describe('EModeGetFundsAction', () => {
     expect(props.variant).toBe('primary');
     expect(props.flexGrow).toBe(1);
     expect(props.flexShrink).toBe(1);
+    // Without flexBasis 0 the pair takes content-proportional widths and the
+    // row comes out lopsided.
+    expect(props.flexBasis).toBe(0);
     expect(props.textEllipsis).toBe(true);
+  });
+
+  // A recheck can land while this is on screen and move the shortfall out from
+  // under it, so the button waits the same way the plain footer does.
+  it('waits out a recheck instead of offering a swap against stale numbers', () => {
+    render(<EModeGetFundsAction symbol="USDT" loading onPress={jest.fn()} />);
+
+    expect(buttonProps[0].loading).toBe(true);
+  });
+
+  it('is live when nothing is in flight', () => {
+    render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
+
+    expect(buttonProps[0].loading).toBeUndefined();
   });
 
   // The flex props above only reach the footer row if the button is its direct

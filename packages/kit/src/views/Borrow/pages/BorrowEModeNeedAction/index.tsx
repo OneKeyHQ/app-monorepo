@@ -35,10 +35,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import {
-  EModalRoutes,
-  EModalSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -559,7 +556,7 @@ function BorrowEModeNeedActionView() {
 
   // A top-up that failed, was cancelled, or landed too small leaves the step
   // underfunded, and the submitted state would otherwise hold forever: the
-  // footer stays disabled on the shortfall and the card hides Get funds, so the
+  // footer would sit on a disabled confirm with the swap already spent, so the
   // page would offer nothing at all. Releasing the intent reopens the retry.
   // The refresh runs first because a top-up that did cover the shortfall clears
   // the whole card, which beats flashing the warning on the way there.
@@ -803,6 +800,7 @@ function BorrowEModeNeedActionView() {
             <XStack gap="$2.5" flex={1}>
               <EModeGetFundsAction
                 symbol={activeSwapToken.symbol}
+                loading={isChecking || checkingActiveBalance}
                 onPress={() => handleSwapToFund(activeSwapToken)}
               />
               <Button
@@ -810,6 +808,7 @@ function BorrowEModeNeedActionView() {
                 disabled
                 flexGrow={1}
                 flexShrink={1}
+                flexBasis={0}
                 textEllipsis
                 $md={
                   {
