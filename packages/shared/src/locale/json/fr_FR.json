@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Alignez les chiffres sur l'appareil",
   "device_stage_pin_set_to_app__desc": "Actif à partir de la prochaine fois. Cette fois, entrez le PIN sur l'appareil.",
   "device_stage_pin_set_to_app__title": "Saisie du PIN définie sur l'application",
+  "device_stage_pin_too_short__msg": "Au moins 4 chiffres.",
   "device_stage_prefer_pin_in_app__action": "Préférez-vous entrer le PIN dans l'application ?",
   "device_stage_processing__title": "Traitement…",
   "device_stage_reconnect__action": "Reconnecter",
