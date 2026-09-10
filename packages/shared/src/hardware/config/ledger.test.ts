@@ -1,11 +1,30 @@
-import { getNetworkIdsMap } from '../config/networkIds';
+import { getNetworkIdsMap } from '../../config/networkIds';
 
 import {
+  LEDGER_CONFIG,
+  LEDGER_CORE_APPS,
+  LEDGER_FINGERPRINT_CHAINS,
   buildRequiredLedgerAppNamesForNetworks,
+  getLedgerNetworkCapability,
   hasAnyRequiredLedgerAppInstalled,
-} from './ledgerApps';
+} from './ledger';
 
 describe('ledgerApps', () => {
+  it('keeps Ledger policy defaults in the same configuration as app mappings', () => {
+    expect(LEDGER_CONFIG).toEqual({
+      autoInstallApp: true,
+      enableCrossChainFingerprintVerification: false,
+    });
+  });
+
+  it('keeps fingerprint chains and supported app mappings aligned', () => {
+    const apps = LEDGER_FINGERPRINT_CHAINS.map((network) => {
+      const capability = getLedgerNetworkCapability({ network });
+      expect(capability?.fingerprintChain).toBe(network);
+      return capability?.appName;
+    });
+    expect(new Set(apps)).toEqual(new Set(LEDGER_CORE_APPS));
+  });
   it('builds required Ledger app names from real networks and ignores all-network entries', () => {
     const networkIdsMap = getNetworkIdsMap();
 

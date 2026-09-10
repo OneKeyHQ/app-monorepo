@@ -99,8 +99,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  getVendorProfile,
+  resolvePersistentConnectIdCapability,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -4021,7 +4024,7 @@ class ServiceAccount extends ServiceBase {
 
     // Persist the endpoint selected from the fused scan. The global setting is
     // only a fallback when the selected device has no transport metadata.
-    const transportType = resolveHwWalletTransportType({
+    const resolvedTransportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
@@ -4031,6 +4034,7 @@ class ServiceAccount extends ServiceBase {
       isNative: !!platformEnv.isNative,
     });
 
+    const transportType = resolvedTransportType;
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.createHWWalletBase({
@@ -4041,7 +4045,10 @@ class ServiceAccount extends ServiceBase {
       {
         deviceParams: withHardwareOperationContext(
           {
-            dbDevice: params.device as IDBDevice,
+            dbDevice: {
+              ...params.device,
+              vendor: params.vendor ?? (params.device as IDBDevice).vendor,
+            } as IDBDevice,
             deviceCommonParams: {
               passphraseState: undefined,
               useEmptyPassphrase: true,
@@ -4096,10 +4103,28 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    // Skip compatibility lookup for vendors without persistent USB connectId.
+    const connectedDeviceRaw = (
+      params.device as typeof params.device & {
+        raw?: {
+          connectionType?: unknown;
+          capabilities?: { persistentDeviceIdentity?: unknown };
+        };
+      }
+    ).raw;
+    const connectedTransport =
+      connectedDeviceRaw?.connectionType === 'ble' ? 'ble' : 'usb';
+    const hasPersistentSelectedConnectId = vendorProfile
+      ? resolvePersistentConnectIdCapability({
+          profile: vendorProfile,
+          transport: connectedTransport,
+          capabilities: connectedDeviceRaw?.capabilities,
+        })
+      : true;
+
+    // Ephemeral locators are valid only inside the current interaction. Never
+    // use one as a cross-session compatibility key.
     const compatibleConnectId =
-      vendorProfile?.isThirdParty &&
-      !vendorProfile.hasPersistentConnectId('usb')
+      vendorProfile?.isThirdParty && !hasPersistentSelectedConnectId
         ? (params.device.connectId ?? '')
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
@@ -6249,11 +6274,9 @@ class ServiceAccount extends ServiceBase {
 
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    // getHWAccountAddresses
-    // Third-party vendors (Ledger) don't use OneKey SDK's hardware UI flow
     const deviceVendor =
       deviceParams?.dbDevice?.vendor ?? EHardwareVendor.onekey;
-    const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
+    const { addressVerification } = getVendorProfile(deviceVendor);
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
@@ -6299,7 +6322,8 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
-        hideCheckingDeviceLoading: isThirdPartyVendor,
+        hideCheckingDeviceLoading:
+          addressVerification.confirmationEvent !== 'buttonRequest',
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
         stageConfirmContent: params.expectedAddress

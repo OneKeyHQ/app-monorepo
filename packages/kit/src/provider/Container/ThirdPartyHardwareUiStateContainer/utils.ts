@@ -47,6 +47,7 @@ export function createTrezorBleBindingDialogCallbacks({
 
 export function createThirdPartyDeviceSelectionDialogCallbacks({
   vendor,
+  requestId,
   dialogInstanceRef,
   settledRef,
   uiResponse,
@@ -54,6 +55,7 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
   clearState,
 }: {
   vendor: EHardwareVendor;
+  requestId?: string;
   dialogInstanceRef: { current: unknown | null };
   settledRef: { current: boolean };
   uiResponse: (params: {
@@ -65,17 +67,29 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
 }) {
   return {
     onSelected: async (searchTargetId: string) => {
+      if (settledRef.current) return;
       settledRef.current = true;
       try {
         await uiResponse({
           vendor,
           response: {
             type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
-            payload: { sdkConnectId: searchTargetId },
+            payload: {
+              sdkConnectId: searchTargetId,
+              ...(requestId ? { requestId } : {}),
+            },
           },
         });
       } catch {
-        await cancel({ vendor });
+        if (requestId) {
+          await uiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId, cancelled: true },
+            },
+          });
+        } else await cancel({ vendor });
       } finally {
         await clearState();
       }
@@ -84,7 +98,16 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
       dialogInstanceRef.current = null;
       try {
         if (!settledRef.current) {
-          await cancel({ vendor });
+          settledRef.current = true;
+          if (requestId) {
+            await uiResponse({
+              vendor,
+              response: {
+                type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+                payload: { requestId, cancelled: true },
+              },
+            });
+          } else await cancel({ vendor });
         }
       } finally {
         await clearState();
@@ -158,22 +181,15 @@ export function buildThirdPartyHardwareUiResponse(
 
 export async function clearThirdPartyHardwareUiStateIfCurrent({
   expectedState,
-  getState,
-  setState,
+  clearInBackground,
 }: {
   expectedState: IThirdPartyHardwareUiState | undefined;
-  getState: () =>
-    | IThirdPartyHardwareUiState
-    | undefined
-    | Promise<IThirdPartyHardwareUiState | undefined>;
-  setState: (state: IThirdPartyHardwareUiState | undefined) => Promise<void>;
+  clearInBackground: (params: {
+    expectedRequestId: string;
+  }) => Promise<boolean>;
 }): Promise<boolean> {
-  const currentState = await getState();
-  if (currentState !== expectedState) {
-    return false;
-  }
-  await setState(undefined);
-  return true;
+  if (!expectedState?.uiRequestId) return false;
+  return clearInBackground({ expectedRequestId: expectedState.uiRequestId });
 }
 
 export async function cancelThirdPartyHardwareUiRequest({

@@ -80,8 +80,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             this.backgroundApi,
             dbDevice,
             'tron',
-            (deviceId, connectId) =>
+            (deviceId, connectId, context) =>
               adapter.hw.tronGetAddress(connectId, deviceId, {
+                ...context,
                 path,
                 showOnDevice: params.isVerifyAddressAction ?? false,
                 ...ledgerCommonCallParamsForCreateScene(params),
@@ -89,6 +90,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             {
               interactionId:
                 params.deviceParams.deviceCommonParams?.interactionId,
+              allowFingerprintBootstrap:
+                params.deviceParams.deviceCommonParams
+                  ?.allowDeviceIdentityBootstrap === true,
             },
           );
 
@@ -148,8 +152,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'tron',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.tronSignTransaction(connectId, deviceId, {
+          ...context,
           path,
           rawTxHex,
         }),
@@ -195,16 +200,19 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       throw new OneKeyLocalError('Ledger adapter not available');
     }
 
-    return Promise.all(
-      messages.map(async (e) => {
-        const result = await callLedgerWithFingerprint(
+    const signatures: ISignedMessagePro = [];
+    for (const message of messages) {
+      const result =
+        // eslint-disable-next-line no-await-in-loop
+        await callLedgerWithFingerprint(
           this.backgroundApi,
           dbDevice,
           'tron',
-          (deviceId, connectId) =>
+          (deviceId, connectId, context) =>
             adapter.hw.tronSignMessage(connectId, deviceId, {
+              ...context,
               path: account.path,
-              messageHex: e.message,
+              messageHex: message.message,
             }),
           {
             interactionId:
@@ -213,16 +221,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           },
         );
 
-        if (!result.success) {
-          throw convertThirdPartyDeviceError(result.payload, {
-            vendor: 'Ledger',
-            chain: 'Tron',
-          });
-        }
+      if (!result.success) {
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: 'Ledger',
+          chain: 'Tron',
+        });
+      }
 
-        return hexUtils.addHexPrefix(result.payload.signature);
-      }),
-    );
+      signatures.push(hexUtils.addHexPrefix(result.payload.signature));
+    }
+    return signatures;
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(

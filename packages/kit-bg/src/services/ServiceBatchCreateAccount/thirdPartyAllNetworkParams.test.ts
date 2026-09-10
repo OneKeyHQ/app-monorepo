@@ -1,11 +1,13 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
-import { LEDGER_BTC_FAMILY_NETWORKS } from '@onekeyhq/shared/src/hardware/ledgerApps';
+import { LEDGER_BTC_FAMILY_NETWORKS } from '@onekeyhq/shared/src/hardware/config/ledger';
+import * as ledgerConfig from '@onekeyhq/shared/src/hardware/config/ledger';
 
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   attachLedgerAllNetworkFingerprints,
+  getMissingLedgerFingerprintChains,
   normalizeThirdPartyAllNetworkBundle,
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
@@ -13,7 +15,42 @@ import {
 import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
+jest.mock('@onekeyhq/shared/src/hardware/config/ledger', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/hardware/config/ledger')
+  >('@onekeyhq/shared/src/hardware/config/ledger');
+  return {
+    ...actual,
+    getLedgerNetworkCapability: jest.fn(actual.getLedgerNetworkCapability),
+  };
+});
+
 describe('normalizeThirdPartyAllNetworkBundle', () => {
+  it('does not consult Ledger app capabilities for shared method dispatch', () => {
+    const spy = jest
+      .mocked(ledgerConfig.getLedgerNetworkCapability)
+      .mockReturnValue(undefined);
+    try {
+      expect(
+        normalizeThirdPartyAllNetworkBundle([
+          {
+            network: 'evm',
+            path: "m/44'/60'/0'/0/0",
+            chainName: '1',
+            showOnOneKey: false,
+          },
+        ])[0],
+      ).toMatchObject({ methodName: 'evmGetAddress', chainId: 1 });
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockImplementation(
+        jest.requireActual<
+          typeof import('@onekeyhq/shared/src/hardware/config/ledger')
+        >('@onekeyhq/shared/src/hardware/config/ledger')
+          .getLedgerNetworkCapability,
+      );
+    }
+  });
   it('normalizes EVM display and chain id params without dropping original fields', () => {
     const [item] = normalizeThirdPartyAllNetworkBundle([
       {
@@ -123,6 +160,14 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
     expect(result).toBe(true);
     expect((bundle[0] as { deviceId?: string }).deviceId).toBe('evm-fp');
     expect((bundle[1] as { deviceId?: string }).deviceId).toBeUndefined();
+    expect(
+      getMissingLedgerFingerprintChains({
+        bundle,
+        settingsRaw: JSON.stringify({
+          chainFingerprints: { evm: 'evm-fp' },
+        }),
+      }),
+    ).toEqual(['sol']);
   });
 
   it('keeps request-level common params out of normalized all-network items', () => {

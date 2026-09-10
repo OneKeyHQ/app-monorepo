@@ -1,4 +1,8 @@
-import { DEVICE, EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
+import {
+  DEVICE,
+  EConnectorInteraction,
+  resolveSearchTargetReusePolicy,
+} from '@onekeyfe/hwk-adapter-core';
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { UI_REQUEST, UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 
@@ -7,10 +11,10 @@ import type {
   IDBDevice,
   ITrezorThpCredential,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { matchesVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
 import {
   EThirdPartyHardwareUiAction,
   type IThirdPartyHardwareUiState,
-  thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
@@ -20,6 +24,7 @@ import { BaseAdapter } from './BaseAdapter';
 
 import type {
   DeviceInfo,
+  IDeviceManagerOperationContext,
   IHardwareWallet,
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
@@ -72,17 +77,21 @@ type ITrezorHardwareWalletExtensions = {
   deviceSettings?: (
     connectId: string,
     params: TrezorDeviceSettingsParams,
+    operationContext?: IDeviceManagerOperationContext,
   ) => Promise<Response<Record<string, unknown>>>;
   setBrightness?: (
     connectId: string,
     params?: TrezorBrightnessParams,
+    operationContext?: IDeviceManagerOperationContext,
   ) => Promise<Response<Record<string, unknown>>>;
   changePin?: (
     connectId: string,
     params?: TrezorChangePinParams,
+    operationContext?: IDeviceManagerOperationContext,
   ) => Promise<Response<Record<string, unknown>>>;
   wipeDevice?: (
     connectId: string,
+    operationContext?: IDeviceManagerOperationContext,
   ) => Promise<Response<Record<string, unknown>>>;
 };
 
@@ -163,11 +172,80 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
+  private readonly _verifiedBleBindingWrites = new Map<string, Promise<void>>();
+
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
     super();
     this.hw = this._createProcessingAwareHw(hw);
     this._disposeSdkEvents = disposeSdkEvents;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] adapter created');
+
+    this.hw.on(UI_REQUEST.REQUEST_SELECT_DEVICE, (event) => {
+      this.emitUiEvent({
+        kind: 'request',
+        type: EThirdPartyHardwareUiAction.requestDeviceSelection,
+        payload: {
+          vendor: EHardwareVendor.trezor,
+          deviceSelection: {
+            requestId: event.payload.requestId,
+            context: event.payload.context,
+            extra: event.payload.extra,
+          },
+          deviceSearchTargets: event.payload.devices.map((device) => ({
+            searchTargetId: device.connectId,
+            searchTargetReusePolicy: resolveSearchTargetReusePolicy(device),
+            vendor: EHardwareVendor.trezor,
+            connectionType: device.connectionType,
+            kind: 'physical' as const,
+            label: device.label,
+            model: device.model,
+            modelName: device.modelName,
+            serialNumber: device.serialNumber,
+          })),
+        },
+      });
+    });
+
+    this.hw.on(DEVICE.TREZOR_CONNECTION_VERIFIED, (event) => {
+      const { deviceId, connectId, connectionType, extra, selectionRequestId } =
+        event.payload;
+      const dbDeviceId = extra?.dbDeviceId;
+      if (connectionType !== 'ble' || !dbDeviceId || !selectionRequestId)
+        return;
+      const previous =
+        this._verifiedBleBindingWrites.get(dbDeviceId) ?? Promise.resolve();
+      const write = previous
+        .then(async () => {
+          const device = await localDb.getDevice(dbDeviceId);
+          if (
+            !device ||
+            device.id !== dbDeviceId ||
+            !matchesVerifiedDeviceIdentity(device, {
+              vendor: this.vendor,
+              identity: { type: 'deviceId', value: deviceId },
+            }) ||
+            device.bleConnectId === connectId
+          )
+            return;
+          await localDb.updateDeviceBleConnectIdAndCleanStaleAliases({
+            dbDeviceId: device.id,
+            bleConnectId: connectId,
+            verifiedDeviceId: deviceId,
+          });
+          await this.flushThpCredentials(deviceId, { connectId });
+        })
+        .catch(() => {
+          defaultLogger.hardware.sdkLog.log(
+            '[3rdPartyHW][Trezor] verified BLE binding persistence failed',
+          );
+        });
+      this._verifiedBleBindingWrites.set(dbDeviceId, write);
+      void write.finally(() => {
+        if (this._verifiedBleBindingWrites.get(dbDeviceId) === write) {
+          this._verifiedBleBindingWrites.delete(dbDeviceId);
+        }
+      });
+    });
 
     // Generic ui-events (searching / confirm-on-device / interaction-complete)
     // mirror Ledger handling — the connector emits the same EConnectorInteraction
@@ -182,17 +260,24 @@ export class TrezorAdapter
       switch (event.type) {
         case EConnectorInteraction.Searching:
           if (this._searchDevicesDepth === 0) {
-            void thirdPartyHardwareUiStateAtom.set({
-              action: EThirdPartyHardwareUiAction.searching,
-              vendor: EHardwareVendor.trezor,
-            });
+            void this.publishUiState(
+              {
+                action: EThirdPartyHardwareUiAction.searching,
+                vendor: EHardwareVendor.trezor,
+              },
+              event.payload?.sessionId,
+            );
           }
           break;
         case EConnectorInteraction.ConfirmOnDevice:
-          this._setUiState(EThirdPartyHardwareUiAction.confirmOnDevice);
+          this._setUiState(
+            EThirdPartyHardwareUiAction.confirmOnDevice,
+            undefined,
+            event.payload?.sessionId,
+          );
           break;
         case EConnectorInteraction.InteractionComplete:
-          this._clearUiState();
+          this._clearUiState(event.payload?.sessionId);
           break;
         default: {
           defaultLogger.hardware.sdkLog.log(
@@ -246,7 +331,7 @@ export class TrezorAdapter
           payload.selectedMethod ?? '-'
         }`,
       );
-      void thirdPartyHardwareUiStateAtom.set({
+      void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorThpPairing,
         vendor: EHardwareVendor.trezor,
         payload: {
@@ -311,7 +396,7 @@ export class TrezorAdapter
         defaultLogger.hardware.sdkLog.log(
           '[3rdPartyHW][Trezor] REQUEST_PASSPHRASE -> host passphrase UI',
         );
-        void thirdPartyHardwareUiStateAtom.set({
+        void this.publishUiState({
           action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
           vendor: EHardwareVendor.trezor,
           payload: {
@@ -324,7 +409,7 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Trezor] REQUEST_PASSPHRASE -> host passphrase UI',
       );
-      void thirdPartyHardwareUiStateAtom.set({
+      void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
         vendor: EHardwareVendor.trezor,
         payload: {},
@@ -338,7 +423,7 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Trezor] REQUEST_PIN -> host PIN matrix',
       );
-      void thirdPartyHardwareUiStateAtom.set({
+      void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorPin,
         vendor: EHardwareVendor.trezor,
         payload: payload.connectId ? { connectId: payload.connectId } : {},
@@ -362,7 +447,7 @@ export class TrezorAdapter
       );
       // PIN entry on device touchscreen — reuse the shared `unlockDevice` action.
       if (code === 'ButtonRequest_PinEntry') {
-        void thirdPartyHardwareUiStateAtom.set({
+        void this.publishUiState({
           action: EThirdPartyHardwareUiAction.unlockDevice,
           vendor: EHardwareVendor.trezor,
         });
@@ -376,7 +461,7 @@ export class TrezorAdapter
       //   the passphrase / recovery flows wired.
       // Everything else (ConfirmOutput / SignTx / Address / FeeOverThreshold /
       // ProtectCall / etc.) is "look at device, tap OK" → confirm-on-device.
-      void thirdPartyHardwareUiStateAtom.set({
+      void this.publishUiState({
         action: EThirdPartyHardwareUiAction.confirmOnDevice,
         vendor: EHardwareVendor.trezor,
       });
@@ -433,14 +518,11 @@ export class TrezorAdapter
     this.hw.on('interaction-ended', (event) => {
       const interactionId = (event as { payload?: { interactionId?: string } })
         .payload?.interactionId;
-      if (!interactionId || this.activeInteractionId !== interactionId) return;
+      if (!interactionId) return;
+      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+      if (this.activeInteractionId !== interactionId) return;
       void (async () => {
-        await thirdPartyHardwareUiStateAtom.set((state) =>
-          this.activeInteractionId === interactionId &&
-          state?.vendor === EHardwareVendor.trezor
-            ? undefined
-            : state,
-        );
+        await this.clearUiState();
         if (this.activeInteractionId === interactionId) {
           this.activeInteractionId = undefined;
         }
@@ -449,7 +531,7 @@ export class TrezorAdapter
 
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
-        void thirdPartyHardwareUiStateAtom.set({
+        void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.trezor,
           payload: event.payload as IThirdPartyHardwareUiState['payload'],
@@ -461,24 +543,31 @@ export class TrezorAdapter
   private _setUiState(
     action: EThirdPartyHardwareUiAction,
     payload?: IThirdPartyHardwareUiState['payload'],
+    sessionId?: string,
   ): void {
-    void thirdPartyHardwareUiStateAtom.set({
-      action,
-      vendor: EHardwareVendor.trezor,
-      ...(payload ? { payload } : {}),
-    });
+    void this.publishUiState(
+      {
+        action,
+        vendor: EHardwareVendor.trezor,
+        ...(payload ? { payload } : {}),
+      },
+      sessionId,
+    );
   }
 
-  private _clearUiState(): void {
+  private _clearUiState(sessionId?: string): void {
     if (this._processingDepth > 0) {
-      this._setUiState(EThirdPartyHardwareUiAction.processing);
+      void this.restoreProcessingUiState(
+        EThirdPartyHardwareUiAction.processing,
+        sessionId,
+      );
       return;
     }
-    this._forceClearUiState();
+    void this.clearUiState(sessionId);
   }
 
   private _forceClearUiState(): void {
-    void thirdPartyHardwareUiStateAtom.set(undefined);
+    void this.clearUiState();
   }
 
   private async _runWithProcessing<T>(operation: () => Promise<T>): Promise<T> {
@@ -489,7 +578,9 @@ export class TrezorAdapter
     } finally {
       this._processingDepth = Math.max(0, this._processingDepth - 1);
       if (this._processingDepth > 0) {
-        this._setUiState(EThirdPartyHardwareUiAction.processing);
+        void this.restoreProcessingUiState(
+          EThirdPartyHardwareUiAction.processing,
+        );
       } else {
         this._forceClearUiState();
       }
@@ -848,16 +939,10 @@ export class TrezorAdapter
   async searchDeviceTargets(
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<IThirdPartyHardwareSearchTarget[]> {
-    const devices = await this.searchDevices(options);
-    return devices.map((device) => ({
-      searchTargetId: device.connectId,
+    const targets = await this.hw.searchDeviceTargets(options);
+    return targets.map((target) => ({
+      ...target,
       vendor: EHardwareVendor.trezor,
-      connectionType: device.connectionType,
-      kind: 'physical',
-      label: device.label,
-      model: device.model,
-      modelName: device.modelName,
-      serialNumber: device.serialNumber,
     }));
   }
 
@@ -891,7 +976,7 @@ export class TrezorAdapter
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Trezor] connectDevice searchTargetId=${searchTargetId}`,
     );
-    void thirdPartyHardwareUiStateAtom.set({
+    void this.publishUiState({
       action: EThirdPartyHardwareUiAction.connecting,
       vendor: EHardwareVendor.trezor,
     });
@@ -959,10 +1044,15 @@ export class TrezorAdapter
             label: info.payload.label,
             firmwareVersion: info.payload.firmwareVersion,
             connectionType: info.payload.connectionType,
+            capabilities: info.payload.capabilities,
             features,
             raw,
           };
           connected = true;
+          this.emitConnectionStateChange({
+            type: 'connected',
+            device: payload,
+          });
           return {
             success: true,
             payload,
@@ -979,7 +1069,7 @@ export class TrezorAdapter
       );
       throw error;
     } finally {
-      void thirdPartyHardwareUiStateAtom.set(undefined);
+      void this.clearUiState();
       // Every non-success exit, including a thrown one and a getDeviceInfo
       // failure after the link came up — otherwise the next attempt reuses a
       // dead link and reports "Malformed protocol format".
@@ -1001,11 +1091,13 @@ export class TrezorAdapter
     await (
       this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions
     ).releaseInteraction(interactionId);
+    this.emitConnectionStateChange({ type: 'disconnected', interactionId });
   }
 
   async deviceSettings(
     connectId: string,
     params: TrezorDeviceSettingsParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>> {
     const hw = this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions;
     const deviceSettings = hw.deviceSettings;
@@ -1018,12 +1110,15 @@ export class TrezorAdapter
         },
       };
     }
-    return this._runWithProcessing(() => deviceSettings(connectId, params));
+    return this._runWithProcessing(() =>
+      deviceSettings(connectId, params, operationContext),
+    );
   }
 
   async setBrightness(
     connectId: string,
     params?: TrezorBrightnessParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>> {
     const hw = this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions;
     const setBrightness = hw.setBrightness;
@@ -1036,12 +1131,15 @@ export class TrezorAdapter
         },
       };
     }
-    return this._runWithProcessing(() => setBrightness(connectId, params));
+    return this._runWithProcessing(() =>
+      setBrightness(connectId, params, operationContext),
+    );
   }
 
   async changePin(
     connectId: string,
     params?: TrezorChangePinParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>> {
     const hw = this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions;
     const changePin = hw.changePin;
@@ -1054,11 +1152,14 @@ export class TrezorAdapter
         },
       };
     }
-    return this._runWithProcessing(() => changePin(connectId, params));
+    return this._runWithProcessing(() =>
+      changePin(connectId, params, operationContext),
+    );
   }
 
   async wipeDevice(
     connectId: string,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>> {
     const hw = this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions;
     const wipeDevice = hw.wipeDevice;
@@ -1071,16 +1172,22 @@ export class TrezorAdapter
         },
       };
     }
-    return this._runWithProcessing(() => wipeDevice(connectId));
+    return this._runWithProcessing(() =>
+      wipeDevice(connectId, operationContext),
+    );
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] reset()');
+    const interactionId = this.activeInteractionId;
     this.activeInteractionId = undefined;
+    if (interactionId) {
+      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    }
     this._processingDepth = 0;
     this._forceClearUiState();
     this._disposeSdkEvents?.();
     this._disposeSdkEvents = undefined;
-    void this.hw.dispose();
+    await this.hw.dispose();
   }
 }

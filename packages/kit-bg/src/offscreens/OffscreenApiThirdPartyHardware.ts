@@ -85,6 +85,11 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
    */
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
+      case 'keystone': {
+        const { createKeystoneWebUsbConnector } =
+          await import('@onekeyfe/hwk-keystone-connector-usb/webusb');
+        return createKeystoneWebUsbConnector();
+      }
       case 'ledger': {
         // Forward the whole SdkEvent union to SW; new variants ride this
         // same channel without a new IPC route.
@@ -167,26 +172,18 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   // IHardwareBridge — SW calls these via offscreenApiProxy.thirdPartyHardware
   // ---------------------------------------------------------------------------
 
-  async searchDevices(params: {
-    vendor: VendorType;
-    options?: { waitForAll?: boolean };
-  }): Promise<ConnectorDevice[]> {
+  async searchDevices(
+    params: Parameters<IHardwareBridge['searchDevices']>[0],
+  ): Promise<ConnectorDevice[]> {
     const connector = await this.getConnector(params.vendor);
-    return (
-      connector as IConnector & {
-        searchDevices(options?: {
-          waitForAll?: boolean;
-        }): Promise<ConnectorDevice[]>;
-      }
-    ).searchDevices(params.options);
+    return connector.searchDevices(params.options);
   }
 
-  async connect(params: {
-    vendor: VendorType;
-    deviceId?: string;
-  }): Promise<ConnectorSession> {
+  async connect(
+    params: Parameters<IHardwareBridge['connect']>[0],
+  ): Promise<ConnectorSession> {
     const connector = await this.getConnector(params.vendor);
-    return connector.connect(params.deviceId);
+    return connector.connect(params.deviceId, params.options);
   }
 
   async disconnect(params: {

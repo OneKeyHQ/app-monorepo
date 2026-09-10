@@ -133,6 +133,7 @@ export default function PickYourDevice() {
         {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
+            testID={`onboarding-device-card-${dialog ?? deviceType.join('-')}`}
             group="card"
             userSelect="none"
             $gtMd={{ flex: 1 }}
