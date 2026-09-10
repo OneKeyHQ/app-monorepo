@@ -96,8 +96,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'evm';
 
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
+  private getBleFallbackOptions(
+    replayPolicy: 'read-only' | 'never' = 'read-only',
+  ) {
+    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
   }
 
   // Best-effort: returns undefined on any failure so signing still proceeds.
@@ -226,7 +228,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
           ...(ethereumDefinitions ? { ethereumDefinitions } : {}),
           ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
         }),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {
@@ -335,7 +337,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       dbDevice,
       (connectId) =>
         adapter.hw.evmSignMessage(connectId, dbDevice.deviceId, sdkParams),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {
@@ -371,7 +373,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       dbDevice,
       (connectId) =>
         adapter.hw.evmSignTypedData(connectId, dbDevice.deviceId, sdkParams),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {

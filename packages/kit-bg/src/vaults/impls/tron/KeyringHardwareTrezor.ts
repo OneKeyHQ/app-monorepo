@@ -184,8 +184,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'tron';
 
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
+  private getBleFallbackOptions(
+    replayPolicy: 'read-only' | 'never' = 'read-only',
+  ) {
+    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
   }
 
   override async prepareAccounts(
@@ -280,7 +282,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
           ...buildTrezorTronSignTransactionParams({ path, encodedTx }),
           ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
         }),
-      this.getBleFallbackOptions(),
+      this.getBleFallbackOptions('never'),
     );
 
     if (!result.success) {

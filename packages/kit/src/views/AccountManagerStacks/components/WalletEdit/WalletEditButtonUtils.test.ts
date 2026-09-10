@@ -1,3 +1,4 @@
+import * as vendorProfiles from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
@@ -34,6 +35,25 @@ describe('resolveWalletPassphraseProtection', () => {
 });
 
 describe('shouldShowAddHiddenWalletButtonForWallet', () => {
+  it('does not require a host-side passphrase settings toggle to create hidden wallets', () => {
+    const profile = vendorProfiles.getVendorProfile(EHardwareVendor.trezor);
+    const setting = jest.replaceProperty(
+      profile,
+      'supportsPassphraseSetting',
+      false,
+    );
+    try {
+      expect(
+        shouldShowAddHiddenWalletButtonForWallet({
+          isHiddenWallet: false,
+          isHwOrQrWallet: true,
+          vendor: EHardwareVendor.trezor,
+        }),
+      ).toBe(true);
+    } finally {
+      setting.restore();
+    }
+  });
   it('allows Trezor hidden wallet creation because Trezor supports passphrase', () => {
     expect(
       shouldShowAddHiddenWalletButtonForWallet({

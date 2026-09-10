@@ -10,7 +10,6 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
-  IUnsignedMessage,
   IUnsignedMessageEth,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -91,8 +90,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               this.backgroundApi,
               dbDevice,
               'evm',
-              (deviceId, connectId) =>
+              (deviceId, connectId, context) =>
                 adapter.hw.evmGetAddress(connectId, deviceId, {
+                  ...context,
                   path,
                   showOnDevice: params.isVerifyAddressAction ?? false,
                   ...ledgerCommonCallParamsForCreateScene(params),
@@ -100,6 +100,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               {
                 interactionId:
                   params.deviceParams.deviceCommonParams?.interactionId,
+                allowFingerprintBootstrap:
+                  params.deviceParams.deviceCommonParams
+                    ?.allowDeviceIdentityBootstrap === true,
               },
             );
             if (result.success) {
@@ -172,8 +175,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.evmSignTransaction(connectId, deviceId, {
+          ...context,
           path,
           serializedTx,
         }),
@@ -199,17 +203,21 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     return { txid, rawTx, encodedTx };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
-    return Promise.all(
-      messages.map(async (message: IUnsignedMessage) =>
-        this._handleSignMessage(
-          message as IUnsignedMessageEth,
-          checkedDeviceParams,
-        ),
-      ),
-    );
+    const signatures: ISignedMessagePro = [];
+    for (const message of messages) {
+      // eslint-disable-next-line no-await-in-loop
+      const signature = await this._handleSignMessage(
+        message as IUnsignedMessageEth,
+        checkedDeviceParams,
+      );
+      signatures.push(signature);
+    }
+    return signatures;
   }
 
   private async _handleSignMessage(
@@ -281,8 +289,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.evmSignMessage(connectId, deviceId, {
+          ...context,
           path,
           message: messageHex,
         }),
@@ -312,8 +321,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId, connectId) =>
+      (deviceId, connectId, context) =>
         adapter.hw.evmSignTypedData(connectId, deviceId, {
+          ...context,
           path,
           data,
           metamaskV4Compat: !!useV4,

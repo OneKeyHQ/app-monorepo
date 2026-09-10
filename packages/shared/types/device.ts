@@ -20,6 +20,10 @@ import type {
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  SearchTargetReusePolicy,
+  WalletIdentity,
+} from '@onekeyfe/hwk-adapter-core';
 import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
@@ -209,6 +213,10 @@ export type IDevicePreInitialize = {
 export type IHardwareOperationContext = {
   /** Runtime-only third-party hardware binding returned by connectDevice. */
   interactionId?: string;
+  /** Expected stable identity for a reconnect-safe hardware operation. */
+  expectedDeviceIdentity?: WalletIdentity;
+  /** New-wallet creation may establish the first trusted device identity. */
+  allowDeviceIdentityBootstrap?: boolean;
 };
 export type IDeviceCommonParams = IDevicePassphraseParams &
   IDeviceWebUSBParams &
@@ -352,6 +360,8 @@ export enum EHardwareVendor {
  */
 export type IThirdPartyHardwareSearchTarget = {
   searchTargetId: string;
+  /** SDK-owned lifetime of this discovery handle; unrelated to wallet identity. */
+  searchTargetReusePolicy?: SearchTargetReusePolicy;
   vendor: EHardwareVendor;
   connectionType: 'usb' | 'ble' | 'qr';
   kind: 'physical' | 'interactive';
