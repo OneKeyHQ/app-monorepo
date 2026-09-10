@@ -40,6 +40,7 @@ import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
@@ -1087,20 +1088,11 @@ function StockAnalystRatings() {
   );
 }
 
-// react-native-web does not fire `onTextLayout` reliably, so the toggle is
-// gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
-// approximation, so the clamp is only applied when the toggle is offered —
-// short-but-wide text renders unclamped rather than being cut with no way to
-// expand it.
-const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
-
 function StockAbout() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const stock = tokenDetail?.stock;
   const ticker =
     stockDetail?.symbol ||
@@ -1117,8 +1109,6 @@ function StockAbout() {
     about?.description ??
     stockDetail?.introduction ??
     intl.formatMessage({ id: ETranslations.market_stock_about_unavailable });
-  const canExpandDescription =
-    description.length > STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
   return (
     <YStack
@@ -1173,33 +1163,11 @@ function StockAbout() {
             </SizableText>
           </YStack>
         </XStack>
-        <YStack gap="$2" alignItems="flex-start">
-          <SizableText
-            testID="stock-about-description"
-            size="$bodyMd"
-            color="$textSubdued"
-            numberOfLines={
-              canExpandDescription && !isDescriptionExpanded ? 2 : undefined
-            }
-          >
-            {description}
-          </SizableText>
-          {canExpandDescription ? (
-            <Button
-              testID="stock-about-description-toggle"
-              size="small"
-              variant="tertiary"
-              alignSelf="flex-start"
-              onPress={() => setIsDescriptionExpanded((value) => !value)}
-            >
-              {intl.formatMessage({
-                id: isDescriptionExpanded
-                  ? ETranslations.global_show_less
-                  : ETranslations.global_show_more,
-              })}
-            </Button>
-          ) : null}
-        </YStack>
+        <MarketAboutDescription
+          description={description}
+          testID="stock-about-description"
+          toggleTestID="stock-about-description-toggle"
+        />
       </YStack>
     </YStack>
   );
