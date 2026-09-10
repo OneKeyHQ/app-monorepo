@@ -105,12 +105,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               this.backgroundApi,
               dbDevice,
               'btc',
-              (deviceId) =>
-                adapter.hw.btcGetPublicKey(dbDevice.connectId, deviceId, {
+              (deviceId, connectId) =>
+                adapter.hw.btcGetPublicKey(connectId, deviceId, {
                   path: accountPath,
                   showOnDevice: params.isVerifyAddressAction ?? false,
                   ...ledgerCommonCallParamsForCreateScene(params),
                 }),
+              {
+                interactionId:
+                  params.deviceParams.deviceCommonParams?.interactionId,
+              },
             ));
 
           if (!pubKeyResult.success) {
@@ -215,7 +219,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly: _signOnly, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
     let { psbtHex } = encodedTx;
 
@@ -280,8 +285,12 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         this.backgroundApi,
         dbDevice,
         'btc',
-        (deviceId) =>
-          adapter.hw.btcGetMasterFingerprint(dbDevice.connectId, deviceId),
+        (deviceId, connectId) =>
+          adapter.hw.btcGetMasterFingerprint(connectId, deviceId),
+        {
+          interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+          allowFingerprintBootstrap: false,
+        },
       );
       if (!fpResult.success) {
         throw convertThirdPartyDeviceError(fpResult.payload, {
@@ -445,8 +454,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       this.backgroundApi,
       dbDevice,
       'btc',
-      (deviceId) =>
-        adapter.hw.btcSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.btcSignTransaction(connectId, deviceId, {
           psbt: psbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
           path: dbAccount.path,
@@ -457,6 +466,10 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             amount: '0',
           })),
         }),
+      {
+        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -485,7 +498,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const { psbtHex } = unsignedTx.encodedTx as IEncodedTxBtc;
 
     if (!psbtHex) {
@@ -515,8 +529,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           this.backgroundApi,
           dbDevice,
           'btc',
-          (deviceId) =>
-            adapter.hw.btcGetMasterFingerprint(dbDevice.connectId, deviceId),
+          (deviceId, connectId) =>
+            adapter.hw.btcGetMasterFingerprint(connectId, deviceId),
+          {
+            interactionId:
+              checkedDeviceParams.deviceCommonParams?.interactionId,
+            allowFingerprintBootstrap: false,
+          },
         );
         if (fpResult.success) {
           const fp = Buffer.from(fpResult.payload.masterFingerprint, 'hex');
@@ -557,12 +576,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       this.backgroundApi,
       dbDevice,
       'btc',
-      (deviceId) =>
-        adapter.hw.btcSignPsbt(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.btcSignPsbt(connectId, deviceId, {
           psbt: enrichedPsbtHex,
           coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
           path: dbAccount.path,
         }),
+      {
+        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -610,7 +633,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     const { deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const dbAccount = await this.vault.getAccount();
 
     const adapter =
@@ -637,12 +661,17 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             this.backgroundApi,
             dbDevice,
             'btc',
-            (deviceId) =>
-              adapter.hw.btcSignMessage(dbDevice.connectId, deviceId, {
+            (deviceId, connectId) =>
+              adapter.hw.btcSignMessage(connectId, deviceId, {
                 path: fullPath,
                 message: messageHex,
                 coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
               }),
+            {
+              interactionId:
+                checkedDeviceParams.deviceCommonParams?.interactionId,
+              allowFingerprintBootstrap: false,
+            },
           );
 
           if (!res.success) {
@@ -706,13 +735,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         this.backgroundApi,
         dbDevice,
         'btc',
-        (deviceId) =>
-          adapter.hw.btcGetAddress(dbDevice.connectId, deviceId, {
+        (deviceId, connectId) =>
+          adapter.hw.btcGetAddress(connectId, deviceId, {
             path: accountPath,
             showOnDevice,
             addressIndex,
             change,
           }),
+        {
+          interactionId: deviceParams.deviceCommonParams?.interactionId,
+        },
       );
 
       if (!result.success) {

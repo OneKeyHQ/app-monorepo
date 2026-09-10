@@ -24,6 +24,7 @@ import type {
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
   IThirdPartyHardwareSearchOptions,
+  IThirdPartyHardwareSearchTarget,
   Response,
   TrezorBrightnessParams,
   TrezorChangePinParams,
@@ -36,13 +37,14 @@ const TREZOR_PROCESSING_UI_EXCLUDED_HW_METHODS = new Set([
   'cancel',
   'connectDevice',
   'deviceSettings',
-  'disconnectDevice',
+  'releaseInteraction',
   'dispose',
   'getDeviceInfo',
   'off',
   'on',
   'resetState',
   'searchDevices',
+  'searchDeviceTargets',
   'setBrightness',
   'uiResponse',
   'changePin',
@@ -65,6 +67,8 @@ type ITrezorSupportFeaturesEvent = {
 };
 
 type ITrezorHardwareWalletExtensions = {
+  connectDevice(searchTargetId: string): Promise<Response<string>>;
+  releaseInteraction(interactionId: string): Promise<void>;
   deviceSettings?: (
     connectId: string,
     params: TrezorDeviceSettingsParams,
@@ -139,6 +143,8 @@ export class TrezorAdapter
 
   readonly hw: IHardwareWallet;
 
+  private activeInteractionId: string | undefined;
+
   private _disposeSdkEvents?: () => void;
 
   private _processingDepth = 0;
@@ -156,17 +162,6 @@ export class TrezorAdapter
   >();
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
-
-  // Probe lifecycle marker; bookkeeping only, nothing reads it.
-  private _bindingProbeConnectId?: string;
-
-  beginBindingProbe(connectId: string): void {
-    this._bindingProbeConnectId = connectId;
-  }
-
-  endBindingProbe(): void {
-    this._bindingProbeConnectId = undefined;
-  }
 
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
     super();
@@ -244,9 +239,8 @@ export class TrezorAdapter
         selectedMethod?: number;
         nfcData?: string;
       };
-      // Never suppress this during a binding probe: an expired THP credential
-      // makes our own device ask to pair too. Identity = device_id after the
-      // handshake, which needs this dialog to complete.
+      // An expired credential makes the expected device ask to pair just like
+      // an unknown device. Identity is checked from device_id after handshake.
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_TREZOR_THP_PAIRING method=${
           payload.selectedMethod ?? '-'
@@ -434,6 +428,23 @@ export class TrezorAdapter
     this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] CLOSE_UI_WINDOW');
       this._clearUiState();
+    });
+
+    this.hw.on('interaction-ended', (event) => {
+      const interactionId = (event as { payload?: { interactionId?: string } })
+        .payload?.interactionId;
+      if (!interactionId || this.activeInteractionId !== interactionId) return;
+      void (async () => {
+        await thirdPartyHardwareUiStateAtom.set((state) =>
+          this.activeInteractionId === interactionId &&
+          state?.vendor === EHardwareVendor.trezor
+            ? undefined
+            : state,
+        );
+        if (this.activeInteractionId === interactionId) {
+          this.activeInteractionId = undefined;
+        }
+      })();
     });
 
     this.onUiEvent((event) => {
@@ -834,6 +845,22 @@ export class TrezorAdapter
     }
   }
 
+  async searchDeviceTargets(
+    options?: IThirdPartyHardwareSearchOptions,
+  ): Promise<IThirdPartyHardwareSearchTarget[]> {
+    const devices = await this.searchDevices(options);
+    return devices.map((device) => ({
+      searchTargetId: device.connectId,
+      vendor: EHardwareVendor.trezor,
+      connectionType: device.connectionType,
+      kind: 'physical',
+      label: device.label,
+      model: device.model,
+      modelName: device.modelName,
+      serialNumber: device.serialNumber,
+    }));
+  }
+
   // A failed connect can leave a zombie link the next attempt would reuse,
   // talking into a dead pipe ("Malformed protocol format"). Best-effort.
   private async _teardownBleLinkAfterFailure(connectId: string): Promise<void> {
@@ -858,18 +885,22 @@ export class TrezorAdapter
   }
 
   async connectDevice(
-    connectId: string,
+    searchTargetId: string,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
+    this.activeInteractionId = undefined;
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Trezor] connectDevice connectId=${connectId}`,
+      `[3rdPartyHW][Trezor] connectDevice searchTargetId=${searchTargetId}`,
     );
     void thirdPartyHardwareUiStateAtom.set({
       action: EThirdPartyHardwareUiAction.connecting,
       vendor: EHardwareVendor.trezor,
     });
     let connected = false;
+    let interactionId: string | undefined;
     try {
-      const result = await this.hw.connectDevice(connectId);
+      const result = await (
+        this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions
+      ).connectDevice(searchTargetId);
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] connectDevice result success=${String(result.success)}`,
       );
@@ -885,7 +916,9 @@ export class TrezorAdapter
         );
       }
       if (result.success) {
-        const info = await this.hw.getDeviceInfo(connectId, result.payload);
+        interactionId = result.payload;
+        this.activeInteractionId = interactionId;
+        const info = await this.hw.getDeviceInfo(interactionId, '');
         if (info.success) {
           const raw =
             (info.payload as DeviceInfo & { raw?: Record<string, unknown> })
@@ -897,10 +930,10 @@ export class TrezorAdapter
               ? features.device_id
               : undefined;
           this._rememberConnectIdDeviceIdMapping({
-            connectId,
+            connectId: searchTargetId,
             featuresDeviceId,
           });
-          if (info.payload.connectId !== connectId) {
+          if (info.payload.connectId !== searchTargetId) {
             this._rememberConnectIdDeviceIdMapping({
               connectId: info.payload.connectId,
               featuresDeviceId,
@@ -918,12 +951,14 @@ export class TrezorAdapter
             info.payload as DeviceInfo & { modelName?: string }
           ).modelName;
           const payload = {
-            connectId: info.payload.connectId || connectId,
+            interactionId,
+            connectId: info.payload.connectId || searchTargetId,
             deviceId: featuresDeviceId || '',
             model: featuresModel || info.payload.model,
             modelName: modelName || featuresModelName,
             label: info.payload.label,
             firmwareVersion: info.payload.firmwareVersion,
+            connectionType: info.payload.connectionType,
             features,
             raw,
           };
@@ -949,16 +984,23 @@ export class TrezorAdapter
       // failure after the link came up — otherwise the next attempt reuses a
       // dead link and reports "Malformed protocol format".
       if (!connected) {
-        await this._teardownBleLinkAfterFailure(connectId);
+        if (interactionId) {
+          await (this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions)
+            .releaseInteraction(interactionId)
+            .catch(() => undefined);
+        }
+        await this._teardownBleLinkAfterFailure(searchTargetId);
       }
     }
   }
 
-  async disconnect(connectId: string): Promise<void> {
+  async releaseInteraction(interactionId: string): Promise<void> {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Trezor] disconnect connectId=${connectId}`,
+      `[3rdPartyHW][Trezor] releaseInteraction interactionId=${interactionId}`,
     );
-    await this.hw.disconnectDevice(connectId);
+    await (
+      this.hw as IHardwareWallet & ITrezorHardwareWalletExtensions
+    ).releaseInteraction(interactionId);
   }
 
   async deviceSettings(
@@ -1034,6 +1076,7 @@ export class TrezorAdapter
 
   reset(): void {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] reset()');
+    this.activeInteractionId = undefined;
     this._processingDepth = 0;
     this._forceClearUiState();
     this._disposeSdkEvents?.();

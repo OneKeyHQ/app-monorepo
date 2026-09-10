@@ -11,6 +11,7 @@ import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
   clearThirdPartyHardwareUiStateIfCurrent,
+  createThirdPartyDeviceSelectionDialogCallbacks,
   createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
@@ -99,6 +100,36 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
         EThirdPartyHardwareUiAction.requestTrezorPin,
         false,
         { pin: '7913' },
+      ),
+    ).toBeNull();
+  });
+
+  it('builds a Keystone QR response with the scanned UR payload', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+        true,
+        {
+          qrResponse: {
+            urType: 'crypto-response',
+            urData: 'a1b2',
+          },
+        },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: {
+        urType: 'crypto-response',
+        urData: 'a1b2',
+      },
+    });
+  });
+
+  it('returns null when a Keystone QR request is cancelled', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrDisplay,
+        false,
       ),
     ).toBeNull();
   });
@@ -221,6 +252,62 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     expect(resolveCallback).toHaveBeenCalledWith({
       id: 123,
       data: null,
+    });
+    expect(clearState).toHaveBeenCalledTimes(1);
+    expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('returns an SDK target once for operation-first device selection', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const dialogInstanceRef = { current: {} };
+    const settledRef = { current: false };
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
+      dialogInstanceRef,
+      settledRef,
+      uiResponse,
+      cancel,
+      clearState,
+    });
+
+    await callbacks.onSelected('ledger-target-b');
+    await callbacks.onClose();
+
+    expect(uiResponse).toHaveBeenCalledTimes(1);
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      response: {
+        type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+        payload: { sdkConnectId: 'ledger-target-b' },
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(clearState).toHaveBeenCalledTimes(2);
+    expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('cancels the SDK wait when operation-first selection closes', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const dialogInstanceRef = { current: {} };
+    const settledRef = { current: false };
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
+      dialogInstanceRef,
+      settledRef,
+      uiResponse,
+      cancel,
+      clearState,
+    });
+
+    await callbacks.onClose();
+
+    expect(uiResponse).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
     });
     expect(clearState).toHaveBeenCalledTimes(1);
     expect(dialogInstanceRef.current).toBeNull();

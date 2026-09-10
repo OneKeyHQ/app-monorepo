@@ -62,6 +62,31 @@ describe('TrezorAdapter', () => {
     mockedLocalDb.getDevice.mockRejectedValue(new Error('not found'));
   });
 
+  it('only clears Trezor UI for the interaction that currently owns it', () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
+        listeners.set(eventName, listener);
+      }),
+    };
+    const adapter = new TrezorAdapter(hw as never) as unknown as {
+      activeInteractionId?: string;
+    };
+    adapter.activeInteractionId = 'hwk-trezor-current';
+
+    listeners.get('interaction-ended')?.({
+      payload: { interactionId: 'hwk-trezor-stale' },
+    });
+    expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalled();
+
+    listeners.get('interaction-ended')?.({
+      payload: { interactionId: 'hwk-trezor-current' },
+    });
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
+      expect.any(Function),
+    );
+  });
+
   it('shows a reconnect request when Trezor asks for device connection', () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const hw = {
@@ -95,7 +120,7 @@ describe('TrezorAdapter', () => {
     expect(hw.uiResponse).not.toHaveBeenCalled();
   });
 
-  it('still surfaces the THP pairing dialog when a candidate asks to pair during a binding probe', () => {
+  it('surfaces the THP pairing dialog while identifying a BLE candidate', () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const hw = {
       on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
@@ -106,7 +131,7 @@ describe('TrezorAdapter', () => {
     };
 
     const adapter = new TrezorAdapter(hw as never);
-    adapter.beginBindingProbe('BLE_X');
+    expect(adapter.vendor).toBe('trezor');
     listeners.get(UI_REQUEST.REQUEST_TREZOR_THP_PAIRING)?.({
       payload: { connectId: 'BLE_X' },
     });
@@ -649,6 +674,80 @@ describe('TrezorAdapter', () => {
     expect(devices).toEqual([{ connectId: 'ble-1', connectionType: 'ble' }]);
   });
 
+  it('returns search targets through the filtered Trezor discovery path', async () => {
+    const hw = {
+      on: jest.fn(),
+      searchDevices: jest.fn().mockResolvedValue([
+        {
+          connectId: 'USB-1',
+          deviceId: 'USB-1',
+          connectionType: 'usb',
+          model: 'T3W1',
+        },
+        {
+          connectId: 'BLE-1',
+          deviceId: 'BLE-1',
+          connectionType: 'ble',
+          model: 'T3W1',
+        },
+      ]),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await expect(
+      adapter.searchDeviceTargets({ transportType: 'ble' }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        searchTargetId: 'BLE-1',
+        vendor: 'trezor',
+        connectionType: 'ble',
+        kind: 'physical',
+      }),
+    ]);
+    expect(hw.searchDevices).toHaveBeenCalledWith({ transportType: 'ble' });
+  });
+
+  it('connects through the Trezor path and returns an interaction id', async () => {
+    const features = { device_id: 'TREZOR-DEVICE-ID' };
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest.fn().mockResolvedValue({
+        success: true,
+        payload: 'hwk-trezor-interaction',
+      }),
+      getDeviceInfo: jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          connectId: 'USB-1',
+          deviceId: 'USB-1',
+          connectionType: 'usb',
+          model: 'T3W1',
+          firmwareVersion: '2.8.0',
+          raw: { features },
+        },
+      }),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await expect(adapter.connectDevice('USB-1')).resolves.toEqual({
+      success: true,
+      payload: {
+        interactionId: 'hwk-trezor-interaction',
+        connectId: 'USB-1',
+        deviceId: 'TREZOR-DEVICE-ID',
+        connectionType: 'usb',
+        model: 'T3W1',
+        modelName: undefined,
+        label: undefined,
+        firmwareVersion: '2.8.0',
+        features,
+        raw: { features },
+      },
+    });
+    expect(hw.connectDevice).toHaveBeenCalledWith('USB-1');
+    expect(hw.getDeviceInfo).toHaveBeenCalledWith('hwk-trezor-interaction', '');
+  });
+
   it('shows connecting UI while Trezor connectDevice is pending', async () => {
     let resolveConnect: (result: unknown) => void = () => undefined;
     const connectPromise = new Promise<unknown>((resolve) => {
@@ -863,17 +962,22 @@ describe('TrezorAdapter connectDevice zombie-link teardown', () => {
   it('releases the link when getDeviceInfo fails after the link came up', async () => {
     const hw = {
       on: jest.fn(),
-      connectDevice: jest
-        .fn()
-        .mockResolvedValue({ success: true, payload: { sessionId: 's' } }),
+      connectDevice: jest.fn().mockResolvedValue({
+        success: true,
+        payload: 'hwk-trezor-interaction',
+      }),
       getDeviceInfo: jest
         .fn()
         .mockResolvedValue({ success: false, payload: { code: 10_000 } }),
+      releaseInteraction: jest.fn().mockResolvedValue(undefined),
     };
     const adapter = new TrezorAdapter(hw as never);
 
     await adapter.connectDevice('BLE-3');
 
+    expect(hw.releaseInteraction).toHaveBeenCalledWith(
+      'hwk-trezor-interaction',
+    );
     expect(bleBridge.disconnect).toHaveBeenCalledWith('BLE-3');
   });
 

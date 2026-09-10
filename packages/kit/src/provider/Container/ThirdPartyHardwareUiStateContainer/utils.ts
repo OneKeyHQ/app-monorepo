@@ -45,6 +45,54 @@ export function createTrezorBleBindingDialogCallbacks({
   };
 }
 
+export function createThirdPartyDeviceSelectionDialogCallbacks({
+  vendor,
+  dialogInstanceRef,
+  settledRef,
+  uiResponse,
+  cancel,
+  clearState,
+}: {
+  vendor: EHardwareVendor;
+  dialogInstanceRef: { current: unknown | null };
+  settledRef: { current: boolean };
+  uiResponse: (params: {
+    vendor: EHardwareVendor;
+    response: IAdapterUiResponse;
+  }) => Promise<void>;
+  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  clearState: () => Promise<void>;
+}) {
+  return {
+    onSelected: async (searchTargetId: string) => {
+      settledRef.current = true;
+      try {
+        await uiResponse({
+          vendor,
+          response: {
+            type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+            payload: { sdkConnectId: searchTargetId },
+          },
+        });
+      } catch {
+        await cancel({ vendor });
+      } finally {
+        await clearState();
+      }
+    },
+    onClose: async () => {
+      dialogInstanceRef.current = null;
+      try {
+        if (!settledRef.current) {
+          await cancel({ vendor });
+        }
+      } finally {
+        await clearState();
+      }
+    },
+  };
+}
+
 export function buildThirdPartyHardwareUiResponse(
   action: EThirdPartyHardwareUiAction | undefined,
   confirmed: boolean,
@@ -54,6 +102,7 @@ export function buildThirdPartyHardwareUiResponse(
     passphraseOnDevice?: boolean;
     save?: boolean;
     pin?: string;
+    qrResponse?: { urType: string; urData: string };
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -92,6 +141,15 @@ export function buildThirdPartyHardwareUiResponse(
       return {
         type: UI_RESPONSE.RECEIVE_PIN,
         payload: extras?.pin ?? '',
+      };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrDisplay:
+    case EThirdPartyHardwareUiAction.requestKeystoneQrScan:
+      // No confirm/deny — the response IS the UR the app scanned off the
+      // device's screen. `confirmed=false` (camera/user cancel) drops it.
+      if (!confirmed || !extras?.qrResponse) return null;
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+        payload: extras.qrResponse,
       };
     default:
       return null;

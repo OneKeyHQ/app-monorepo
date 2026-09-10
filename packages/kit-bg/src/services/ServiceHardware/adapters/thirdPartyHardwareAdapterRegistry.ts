@@ -274,6 +274,41 @@ export const thirdPartyHardwareAdapterRegistry = {
     );
     return new LedgerAdapter(hw);
   },
+  [EHardwareVendor.keystone]: async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] keystone factory start',
+    );
+    const { KeystoneAdapter } = await import('./KeystoneAdapter');
+    const { KeystoneAdapter: HwkKeystoneAdapter } =
+      await import('@onekeyfe/hwk-keystone-adapter');
+    // WebUSB only for now (see connector-loader/keystone.ts) — NodeUSB and
+    // extension-offscreen bridging aren't wired yet. A picker permission
+    // failure here must not block QR-only usage, so fall back to undefined
+    // (matches the adapter's own "undefined usbConnector = QR-only" contract).
+    let usbConnector:
+      | Awaited<
+          ReturnType<
+            typeof import('@onekeyhq/shared/src/hardware/connector-loader/keystone').createKeystoneUsbConnector
+          >
+        >
+      | undefined = undefined;
+    try {
+      const { createKeystoneUsbConnector } =
+        await import('@onekeyhq/shared/src/hardware/connector-loader/keystone');
+      usbConnector = await createKeystoneUsbConnector();
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] keystone USB connector unavailable, QR-only: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    const hw = new HwkKeystoneAdapter({ origin: 'OneKey', usbConnector });
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] keystone adapter ready',
+    );
+    return new KeystoneAdapter(hw);
+  },
 } satisfies Partial<Record<EHardwareVendor, IThirdPartyHardwareAdapterFactory>>;
 
 /**

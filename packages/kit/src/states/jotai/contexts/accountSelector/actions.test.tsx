@@ -9,10 +9,12 @@ import { createStore } from 'jotai';
 
 import { Toast } from '@onekeyhq/components';
 import { prepareSwapSelectedAccountSyncedFromHome } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
+  IDBDevice,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -34,6 +36,7 @@ import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   getAccountSelectorActions,
@@ -126,6 +129,8 @@ type IWallet = NonNullable<
 >;
 type IWriteContextAtomColdStartCacheValues =
   typeof import('@onekeyhq/kit-bg/src/states/jotai/utils').writeContextAtomColdStartCacheValues;
+type IEnsureLedgerCoreAppsReady =
+  typeof import('@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog').ensureLedgerCoreAppsReady;
 
 function createDeferred<T>(): IDeferred<T> {
   let resolve: ((value: T) => void) | undefined;
@@ -336,6 +341,17 @@ const mockAddDefaultNetworkAccountsService = jest.fn<
   }>,
   [unknown]
 >();
+const mockBuildRequiredLedgerAppsForDefaultNetworkAccounts: jest.MockedFunction<
+  IBackgroundApi['serviceBatchCreateAccount']['buildRequiredLedgerAppsForDefaultNetworkAccounts']
+> = jest.fn();
+const mockEnsureLedgerCoreAppsReady: jest.MockedFunction<IEnsureLedgerCoreAppsReady> =
+  jest.fn();
+const mockGetWalletDevice: jest.MockedFunction<
+  IBackgroundApi['serviceAccount']['getWalletDevice']
+> = jest.fn();
+const mockIsThirdPartyHwByWalletId: jest.MockedFunction<
+  IBackgroundApi['serviceAccount']['isThirdPartyHwByWalletId']
+> = jest.fn();
 const mockGetEnabledNetworksCompatibleWithWalletId = jest.fn<
   Promise<IServerNetwork[]>,
   [{ walletId: string }]
@@ -381,7 +397,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog',
   () => ({
-    ensureLedgerCoreAppsReady: jest.fn(),
+    ensureLedgerCoreAppsReady: (
+      ...args: Parameters<IEnsureLedgerCoreAppsReady>
+    ) => mockEnsureLedgerCoreAppsReady(...args),
   }),
 );
 
@@ -475,6 +493,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetDBAccountSafe({ accountId }),
       getWalletSafe: ({ walletId }: { walletId: string }) =>
         mockGetWalletSafe({ walletId }),
+      getWalletDevice: (...args: Parameters<typeof mockGetWalletDevice>) =>
+        mockGetWalletDevice(...args),
+      isThirdPartyHwByWalletId: (
+        ...args: Parameters<typeof mockIsThirdPartyHwByWalletId>
+      ) => mockIsThirdPartyHwByWalletId(...args),
       isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
         mockIsWalletHasIndexedAccounts({ walletId }),
       isTempWalletRemoved: ({ wallet }: { wallet: IWallet }) =>
@@ -517,6 +540,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       addDefaultNetworkAccounts: (
         ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
       ) => mockAddDefaultNetworkAccountsService(...args),
+      buildRequiredLedgerAppsForDefaultNetworkAccounts: (
+        ...args: Parameters<
+          typeof mockBuildRequiredLedgerAppsForDefaultNetworkAccounts
+        >
+      ) => mockBuildRequiredLedgerAppsForDefaultNetworkAccounts(...args),
     },
     serviceDApp: {
       recordConnectionSelectionIntent: (params: {
@@ -3394,6 +3422,59 @@ describe('useAccountSelectorActions', () => {
     });
 
     expect(mockAddDefaultNetworkAccountsService).not.toHaveBeenCalled();
+  });
+
+  it('propagates a post-batch Ledger probe failure while an interaction is active', async () => {
+    const interactionError = Object.assign(new Error('interaction ended'), {
+      code: 10_113,
+    });
+    mockGetWalletDevice.mockResolvedValue({
+      vendor: EHardwareVendor.ledger,
+    } as IDBDevice);
+    mockBuildRequiredLedgerAppsForDefaultNetworkAccounts.mockResolvedValue([]);
+    mockIsThirdPartyHwByWalletId.mockResolvedValue(true);
+    mockAddDefaultNetworkAccountsService.mockResolvedValue({
+      addedAccounts: [],
+      failedAccounts: [
+        {
+          networkId: 'evm--1',
+          deriveType: 'default',
+          error: {
+            code: ThirdPartyHardwareErrorCode.AppNotInstalled,
+            message: 'Ledger app is not installed',
+          },
+        },
+      ],
+    });
+    mockEnsureLedgerCoreAppsReady.mockResolvedValue({
+      ok: false,
+      reason: 'probeFailed',
+      error: interactionError,
+    });
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await expect(
+      result.current.addDefaultNetworkAccounts({
+        wallet: { id: 'hw-ledger' } as IWallet,
+        indexedAccount: {
+          id: 'hw-ledger--0',
+          walletId: 'hw-ledger',
+        } as IIndexedAccount,
+        isCreateWallet: true,
+        hardwareOperationContext: {
+          interactionId: 'hwk-ledger-interaction',
+        },
+      }),
+    ).rejects.toBe(interactionError);
+    expect(mockEnsureLedgerCoreAppsReady).toHaveBeenCalledWith({
+      walletId: 'hw-ledger',
+      connectId: 'hwk-ledger-interaction',
+      requiredApps: undefined,
+    });
   });
 
   describe('createQrWallet onboarding network selection', () => {

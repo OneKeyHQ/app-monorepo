@@ -80,12 +80,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             this.backgroundApi,
             dbDevice,
             'tron',
-            (deviceId) =>
-              adapter.hw.tronGetAddress(dbDevice.connectId, deviceId, {
+            (deviceId, connectId) =>
+              adapter.hw.tronGetAddress(connectId, deviceId, {
                 path,
                 showOnDevice: params.isVerifyAddressAction ?? false,
                 ...ledgerCommonCallParamsForCreateScene(params),
               }),
+            {
+              interactionId:
+                params.deviceParams.deviceCommonParams?.interactionId,
+            },
           );
 
           if (!result.success) {
@@ -118,7 +122,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const adapter =
@@ -143,11 +148,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'tron',
-      (deviceId) =>
-        adapter.hw.tronSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId) =>
+        adapter.hw.tronSignTransaction(connectId, deviceId, {
           path,
           rawTxHex,
         }),
+      {
+        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -174,7 +183,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
 
     const adapter =
@@ -191,11 +201,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           this.backgroundApi,
           dbDevice,
           'tron',
-          (deviceId) =>
-            adapter.hw.tronSignMessage(dbDevice.connectId, deviceId, {
+          (deviceId, connectId) =>
+            adapter.hw.tronSignMessage(connectId, deviceId, {
               path: account.path,
               messageHex: e.message,
             }),
+          {
+            interactionId:
+              checkedDeviceParams.deviceCommonParams?.interactionId,
+            allowFingerprintBootstrap: false,
+          },
         );
 
         if (!result.success) {

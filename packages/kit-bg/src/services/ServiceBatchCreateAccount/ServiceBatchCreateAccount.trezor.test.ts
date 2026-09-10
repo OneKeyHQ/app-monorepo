@@ -1,5 +1,9 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import {
+  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -57,6 +61,23 @@ describe('ServiceBatchCreateAccount Trezor all-network', () => {
     (
       platformEnv as { isSupportDesktopBle: boolean | undefined }
     ).isSupportDesktopBle = originalIsSupportDesktopBle;
+  });
+
+  it.each([
+    THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+  ])('aborts a hardware batch when interaction %s is lost', (code) => {
+    const service = new ServiceBatchCreateAccount({ backgroundApi: {} });
+    const error = Object.assign(new Error('interaction lost'), { code });
+
+    expect(() =>
+      service.forceExitFlowWhenErrorMatched({
+        walletId: 'hw-test-wallet',
+        error,
+        saveToDb: true,
+        autoHandleExitError: true,
+      }),
+    ).toThrow(error);
   });
 
   it('reads Ledger chain fingerprint from deviceIdentity before legacy fields', () => {
@@ -210,5 +231,58 @@ describe('ServiceBatchCreateAccount Trezor all-network', () => {
     expect(requestTrezorBleConnectIdForDevice).toHaveBeenCalledWith({
       device: dbDevice,
     });
+  });
+
+  it('uses an interaction id directly and never enters transport fallback', async () => {
+    const dbDevice = {
+      id: 'db-device-1',
+      connectId: 'USB_CONNECT_ID',
+      deviceId: 'FEATURES_DEVICE_ID',
+      vendor: EHardwareVendor.trezor,
+    } as IDBDevice;
+    const allNetworkGetAddress = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const requestTrezorBleConnectIdForDevice = jest.fn();
+    const service = new ServiceBatchCreateAccount({
+      backgroundApi: {
+        serviceThirdPartyHardware: {
+          requestTrezorBleConnectIdForDevice,
+        },
+      },
+    });
+
+    await (
+      service as unknown as {
+        callThirdPartyAllNetworkGetAddress: (
+          params: unknown,
+        ) => Promise<unknown>;
+      }
+    ).callThirdPartyAllNetworkGetAddress({
+      allNetworkGetAddress,
+      connectId: dbDevice.connectId,
+      deviceId: dbDevice.deviceId,
+      dbDevice,
+      vendor: EHardwareVendor.trezor,
+      commonParams: {
+        passphraseState: undefined,
+        useEmptyPassphrase: true,
+        interactionId: 'hwk-trezor-interaction',
+      },
+      createSceneParams: {},
+      bundleParams: [],
+      vendorName: 'Trezor',
+    });
+
+    expect(allNetworkGetAddress).toHaveBeenCalledTimes(1);
+    expect(allNetworkGetAddress).toHaveBeenCalledWith(
+      'hwk-trezor-interaction',
+      'FEATURES_DEVICE_ID',
+      expect.objectContaining({
+        interactionId: 'hwk-trezor-interaction',
+      }),
+    );
+    expect(requestTrezorBleConnectIdForDevice).not.toHaveBeenCalled();
   });
 });

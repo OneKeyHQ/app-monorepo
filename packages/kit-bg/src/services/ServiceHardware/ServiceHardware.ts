@@ -115,6 +115,7 @@ import {
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+import { mapThirdPartySearchTargetToSearchDevice } from './thirdPartyDeviceMapping';
 
 import type {
   IAdapterUiResponse,
@@ -2314,6 +2315,7 @@ class ServiceHardware extends ServiceBase {
     resetSession?: boolean;
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
+    discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
   }) {
     this.deviceSearchInProgressCount += 1;
     try {
@@ -2321,7 +2323,28 @@ class ServiceHardware extends ServiceBase {
         ? getVendorProfile(params.vendor)
         : undefined;
       if (params?.vendor && vendorProfile?.isThirdParty) {
-        // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+        if (params.discoveryMethod === 'searchDeviceTargets') {
+          const targets =
+            await this.backgroundApi.serviceThirdPartyHardware.searchDeviceTargets(
+              {
+                vendor: params.vendor,
+                resetSession: params.resetSession,
+                waitForAllTransports: params.waitForAllTransports,
+                transportType: params.transportType,
+              },
+            );
+          if (!targets.success) return targets;
+          return {
+            success: true as const,
+            payload: targets.payload.map((target) =>
+              mapThirdPartySearchTargetToSearchDevice({
+                target,
+                defaultDeviceName: vendorProfile.defaultDeviceName,
+              }),
+            ),
+          };
+        }
+        // Existing third-party consumers keep the legacy discovery contract.
         return await this.backgroundApi.serviceThirdPartyHardware.searchDevices(
           {
             vendor: params.vendor,

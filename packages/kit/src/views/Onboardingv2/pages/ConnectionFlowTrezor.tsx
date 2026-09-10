@@ -39,7 +39,11 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import {
   TREZOR_SCAN_MAX_TRY_COUNT,
@@ -263,7 +267,12 @@ export default function TrezorConnectionFlow() {
       TREZOR_SCAN_MAX_TRY_COUNT,
       vendor,
       // waitForAllTransports: don't drop BLE when a USB device is also present.
-      { resetSession: true, transportType, waitForAllTransports: true },
+      {
+        resetSession: true,
+        transportType,
+        waitForAllTransports: true,
+        discoveryMethod: 'searchDeviceTargets',
+      },
     );
   }, [deviceScanner, vendor, intl]);
 
@@ -293,6 +302,7 @@ export default function TrezorConnectionFlow() {
           title: item.name,
           src: ThirdPartyWalletAvatarImages.trezor,
           device: item,
+          searchTarget: getThirdPartySearchTarget(item),
           avatarImg: getThirdPartyDeviceAvatarImage({
             vendor: EHardwareVendor.trezor,
             vendorModel: vendorFields.vendorModel,
@@ -366,7 +376,7 @@ export default function TrezorConnectionFlow() {
   }, [scanDevice]);
 
   // --- Start connection ---
-  // WebUSB only lists previously authorized devices, so desktop/extension need
+  // WebUSB only lists previously authorized devices, so web/extension need
   // a click-bound picker before scan. Desktop keeps scanning after a picker
   // cancel so BLE-only users are not blocked by USB permission.
   const onStartConnection = useCallback(async () => {
@@ -374,6 +384,7 @@ export default function TrezorConnectionFlow() {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: !!platformEnv.isDesktop,
         isExtension: !!platformEnv.isExtension,
+        isWeb: !!platformEnv.isWeb,
       })
     ) {
       setIsChecking(true);
@@ -525,7 +536,10 @@ export default function TrezorConnectionFlow() {
                   {visibleDevicesData.map((data) => (
                     <ListItem
                       key={
-                        data.device?.deviceId ?? data.device?.connectId ?? ''
+                        data.searchTarget?.searchTargetId ||
+                        data.device?.deviceId ||
+                        data.device?.connectId ||
+                        'trezor-device'
                       }
                       drillIn
                       onPress={async () => {

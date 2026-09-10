@@ -10,6 +10,7 @@ import {
   isSupportedHardwareWebUsbDevice,
   isWalletConnectedByHardwareStatus,
 } from './useHardwareWalletConnectStatusUtils';
+import { KEYSTONE_WEBUSB_FILTERS } from './webDeviceFilters';
 
 const usbDevice = ({
   vendorId,
@@ -50,6 +51,16 @@ describe('hardware wallet connect status utils', () => {
     expect(isSupportedHardwareWebUsbDevice(trezorUsbDevice)).toBe(true);
     expect(getWebUsbConnectedDeviceKey(trezorUsbDevice)).toBe(
       'trezor-usb-serial',
+    );
+
+    const keystoneUsbDevice = usbDevice({
+      vendorId: KEYSTONE_WEBUSB_FILTERS[0].vendorId ?? 0,
+      productId: KEYSTONE_WEBUSB_FILTERS[0].productId ?? 0,
+      serialNumber: 'keystone-usb-serial',
+    });
+    expect(isSupportedHardwareWebUsbDevice(keystoneUsbDevice)).toBe(true);
+    expect(getWebUsbConnectedDeviceKey(keystoneUsbDevice)).toBe(
+      'keystone-usb:keystone-usb-serial',
     );
   });
 
