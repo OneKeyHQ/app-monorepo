@@ -1,5 +1,5 @@
-import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import {
   GradientMask,
@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
+import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 
 import { ShareButton } from './ShareButton';
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
@@ -43,6 +44,7 @@ export function TokenDetailHeader({
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
+  const listingIdentity = useMarketDetailWatchlistIdentity();
   const {
     tokenDetail,
     networkId,
@@ -93,6 +95,7 @@ export function TokenDetailHeader({
       {...containerProps}
     >
       <TokenDetailHeaderLeft
+        {...listingIdentity}
         tokenDetail={tokenDetail}
         networkId={networkId}
         networkLogoUri={networkData?.logoURI}
