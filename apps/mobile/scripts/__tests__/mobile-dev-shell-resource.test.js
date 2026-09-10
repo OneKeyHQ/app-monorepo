@@ -161,54 +161,43 @@ describe('mobile-dev-shell-resource', () => {
     expect(() => assertDeviceId('bad\ndevice')).toThrow('explicit device ID');
   });
 
-  it.each([false, true])(
-    'verifies simulator shell signatures before installation (verification fails: %s)',
-    async (verificationFails) => {
-      let appDirectory;
-      let frameworkDirectory;
-      const spawnCommand = jest.fn((command, args) => {
-        if (command === 'ditto') {
-          appDirectory = path.join(args[3], 'OneKeyWallet.app');
-          frameworkDirectory = path.join(
-            appDirectory,
-            'Frameworks/GPChannelSDKCore.framework',
-          );
-          fs.mkdirSync(frameworkDirectory, { recursive: true });
-        }
-        if (command === 'codesign' && args.includes('--verify')) {
-          return { status: verificationFails ? 1 : 0 };
-        }
-        return { status: 0 };
-      });
-      const installation = installMobileDevShell({
-        artifactPath: '/tmp/dev-shell.zip',
-        deviceId: 'SIMULATOR-A',
-        platform: 'ios',
-        spawnCommand,
-      });
-      if (verificationFails) {
-        await expect(installation).rejects.toThrow();
-      } else {
-        await installation;
+  it('cleans extracted simulator shells when installation fails', async () => {
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-install-test-'),
+    );
+    const artifactPath = path.join(directory, 'shell.zip');
+    fs.writeFileSync(artifactPath, 'archive');
+    let appDirectory;
+    const spawnCommand = jest.fn((command, args) => {
+      if (command === 'ditto') {
+        appDirectory = path.join(args[3], 'OneKeyWallet.app');
+        fs.mkdirSync(appDirectory);
       }
-      expect(spawnCommand.mock.calls.map(([command]) => command)).toEqual(
-        verificationFails
-          ? ['ditto', 'codesign', 'codesign']
-          : ['ditto', 'codesign', 'codesign', 'codesign', 'codesign', 'xcrun'],
-      );
-      expect(spawnCommand).toHaveBeenCalledWith(
-        'codesign',
-        ['--force', '--deep', '--sign', '-', frameworkDirectory],
-        { stdio: 'inherit' },
-      );
-      expect(spawnCommand).toHaveBeenCalledWith(
-        'codesign',
-        ['--verify', '--deep', '--strict', frameworkDirectory],
-        { stdio: 'inherit' },
-      );
+      if (command === 'xcrun' && args[0] === 'otool') {
+        return {
+          status: 0,
+          stdout: 'sectname __entitlements\n  segname __TEXT\n',
+        };
+      }
+      if (command === 'xcrun' && args[0] === 'simctl') return { status: 1 };
+      return { status: 0 };
+    });
+    try {
+      await expect(
+        installMobileDevShell({
+          artifactPath,
+          deviceId: 'SIMULATOR-A',
+          platform: 'ios',
+          signingCacheRoot: path.join(directory, 'cache'),
+          spawnCommand,
+        }),
+      ).rejects.toThrow('Command failed: xcrun');
       expect(fs.existsSync(appDirectory)).toBe(false);
-    },
-  );
+      expect(fs.readFileSync(artifactPath, 'utf8')).toBe('archive');
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
+  });
 
   it('allows an Android shell downgrade during replacement', async () => {
     const spawnCommand = jest.fn(() => ({ status: 0 }));
@@ -894,6 +883,34 @@ describe('mobile-dev-shell-resource', () => {
       expect(remote.fetchImpl).not.toHaveBeenCalled();
     } finally {
       await releaseCacheLease?.();
+      fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects an older ABI-compatible shell when the launcher requires matching native inputs', async () => {
+    const cacheRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-shell-native-input-test-'),
+    );
+    const remote = createRemoteShell({
+      compatibility,
+      exactMissing: true,
+      inputKey: 'a'.repeat(64),
+    });
+    try {
+      await expect(
+        restoreMobileDevShell({
+          attestationVerifier: jest.fn().mockResolvedValue(undefined),
+          cacheRoot,
+          compatibility: { ...compatibility, requireExactInput: true },
+          fetchImpl: remote.fetchImpl,
+        }),
+      ).rejects.toMatchObject({ code: 'SHELL_LOCATOR_NOT_FOUND' });
+      expect(
+        remote.fetchImpl.mock.calls.some(([url]) =>
+          String(url).includes(compatibility.compatibilityTag),
+        ),
+      ).toBe(false);
+    } finally {
       fs.rmSync(cacheRoot, { force: true, recursive: true });
     }
   });

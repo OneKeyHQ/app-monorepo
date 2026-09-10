@@ -759,6 +759,9 @@ const NS = {
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
   historyTxDetail: 'historyTxDetail',
+  marketHomeBanners: 'marketHomeBanners',
+  marketHomeConfig: 'marketHomeConfig',
+  marketHomeStocks: 'marketHomeStocks',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
@@ -775,6 +778,7 @@ const NS = {
   earnAccount: 'earnAccount',
   earnProtocolDetail: 'earnProtocolDetail',
   fiatCryptoTokenList: 'fiatCryptoTokenList',
+  fiatCryptoNetworkSupport: 'fiatCryptoNetSupport',
   bulkSendAddressesInputSeed: 'bulkSendSeed',
   bulkCopyAddressesWallets: 'bulkCopyWallets',
   bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
@@ -1108,6 +1112,12 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeBanners: (locale: string, mock: boolean) =>
+    [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
+  marketHomeConfig: (locale: string) =>
+    [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeStocks: (queryKey: string) =>
+    [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,
@@ -1312,6 +1322,17 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
+  // "Does this network have any buy/sell fiat token" flag behind the home
+  // Buy/Sell entry. The entry is fail-closed on it, so without a snapshot
+  // every cold start paints it disabled until fiat-pay/list returns
+  // (OK-61505). Network + type only: the bg check takes no account input.
+  fiatCryptoNetworkSupport: ({
+    networkId,
+    type,
+  }: {
+    networkId: string;
+    type: string;
+  }) => [NS.fiatCryptoNetworkSupport, 'v1', networkId, type].join(':'),
   bulkSendAddressesInputSeed: ({
     networkId,
     accountId,

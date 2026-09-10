@@ -1922,7 +1922,9 @@ app.on('before-quit', (event) => {
       trezorBleSupports.clear();
       logger.info('[BLE] Process dispose completed; resuming app quit');
       bleQuitReady = true;
-      app.quit();
+      // Let the native before-quit callback return before retrying. An immediately
+      // resolved cleanup can otherwise re-enter app.quit() and lose its quit state.
+      setImmediate(() => app.quit());
     });
     return;
   }

@@ -1,26 +1,60 @@
-export const TRAVEL_MODE_COPY = {
-  title: 'Travel Mode',
-  disabledSwitchDescription: 'Your wallet is ready to use',
-  enabledSwitchDescription: 'Your wallet information is hidden',
-  explanationTitle: 'What is Travel Mode?',
-  description:
-    'Hide your wallet information while you travel. Everything returns when you turn Travel Mode off.',
-  details: [
-    'Wallets, assets, and history stay hidden.',
-    'New wallet activity is not saved.',
-    'App connections, backups, and alerts stay paused.',
-    'Your Passcode protection stays on.',
-  ],
-  enabledMessage: 'Travel Mode is on',
-  enabledDescription:
-    'Your wallets and activity will stay hidden until you turn it off.',
-  enableConfirmationTitle: 'Turn on Travel Mode?',
-  enableConfirmationDescription:
-    'Your wallet will appear empty while Travel Mode is on. Don’t worry—nothing will be deleted. Everything will return after you turn it off.',
-  enableConfirmationDetails:
-    'Your wallets, balances, and transaction history will be hidden. Changes you make won’t be saved. Connections, backups, and wallet alerts will be paused.',
-  enableConfirmationCancel: 'Not now',
-  enableConfirmationConfirm: 'Turn on Travel Mode',
-  restartingTitle: 'Restarting OneKey…',
-  restartingDescription: 'Applying the new protection mode.',
-} as const;
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import type { IntlShape } from 'react-intl';
+
+export function getTravelModeCopy(intl: Pick<IntlShape, 'formatMessage'>) {
+  return {
+    title: intl.formatMessage({ id: ETranslations.travel_mode__title }),
+    disabledSwitchDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__wallet_ready_to_use__desc,
+    }),
+    enabledSwitchDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__wallet_information_hidden__desc,
+    }),
+    explanationTitle: intl.formatMessage({
+      id: ETranslations.travel_mode__about__title,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.travel_mode__overview__desc,
+    }),
+    details: [
+      intl.formatMessage({ id: ETranslations.travel_mode__hidden_data__desc }),
+      intl.formatMessage({
+        id: ETranslations.travel_mode__unsaved_activity__desc,
+      }),
+      intl.formatMessage({
+        id: ETranslations.travel_mode__paused_services__desc,
+      }),
+      intl.formatMessage({
+        id: ETranslations.travel_mode__passcode_protection__desc,
+      }),
+    ],
+    enabledMessage: intl.formatMessage({
+      id: ETranslations.travel_mode__enabled__msg,
+    }),
+    enabledDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__enabled__desc,
+    }),
+    enableConfirmationTitle: intl.formatMessage({
+      id: ETranslations.travel_mode__enable__title,
+    }),
+    enableConfirmationDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__empty_wallet__desc,
+    }),
+    enableConfirmationDetails: intl.formatMessage({
+      id: ETranslations.travel_mode__confirmation_details__desc,
+    }),
+    enableConfirmationCancel: intl.formatMessage({
+      id: ETranslations.global_not_now,
+    }),
+    enableConfirmationConfirm: intl.formatMessage({
+      id: ETranslations.travel_mode__enable__action,
+    }),
+    restartingTitle: intl.formatMessage({
+      id: ETranslations.travel_mode__restarting_onekey__title,
+    }),
+    restartingDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__applying_protection_mode__desc,
+    }),
+  };
+}

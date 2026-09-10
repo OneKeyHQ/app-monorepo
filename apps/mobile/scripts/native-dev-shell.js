@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable onekey/no-raw-error */
-/* cspell:words POSTBUILD SIMCTL */
+/* cspell:words devicectl POSTBUILD SIMCTL */
 
 const { spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
@@ -8,6 +8,7 @@ const fs = require('fs');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const readline = require('readline');
 
 const devVendorConfig = require('../dev-vendor.config');
 const {
@@ -20,6 +21,12 @@ const {
 } = require('../plugins/devVendor');
 
 const {
+  cacheLocalShellBuild,
+  getBuildDigest,
+  readLocalShellCache,
+} = require('./local-dev-shell-cache');
+const {
+  IosSimulatorEntitlementsError,
   installMobileDevShell,
   resolveExactMobileDevShell,
   restoreMobileDevShell,
@@ -35,7 +42,9 @@ const SESSION_RENEW_RETRY_INTERVAL_MS = 30_000;
 const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
 const ANDROID_APP_STARTUP_TIMEOUT_MS = 10_000;
 const ANDROID_APP_STARTUP_POLL_INTERVAL_MS = 500;
+const IOS_PHYSICAL_APP_STARTUP_POLL_INTERVAL_MS = 1000;
 const NATIVE_APP_STARTUP_GRACE_MS = 1500;
+const IOS_APP_STARTUP_GRACE_MS = 15_000;
 const NATIVE_RUNTIME_PREWARM_TIMEOUT_MS = 10 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
@@ -101,6 +110,8 @@ function parseMetroBaseUrl(value) {
 }
 
 function getNativeRuntimeBundleUrl({
+  backgroundHMR = false,
+  embedded = false,
   fingerprint,
   metroPort,
   platform,
@@ -119,6 +130,11 @@ function getNativeRuntimeBundleUrl({
       ? `http://127.0.0.1:${String(metroPort)}/background.bundle`
       : `http://127.0.0.1:${String(metroPort)}/.expo/.virtual-metro-entry.bundle`,
   );
+  if (embedded && sessionId) {
+    throw new Error(
+      '[nativeDevShell] Embedded runtime prewarm cannot use a DevSession ID.',
+    );
+  }
   const values = {
     platform: targetPlatform,
     dev: 'true',
@@ -130,10 +146,14 @@ function getNativeRuntimeBundleUrl({
     'resolver.devVendor': 'true',
     'resolver.devVendorNative': 'true',
     'resolver.devVendorFingerprint': fingerprint,
-    'resolver.devSessionId': sessionId,
     'resolver.runtimeTarget': runtimeTarget,
     unstable_transformProfile: 'hermes-stable',
   };
+  if (sessionId) values['resolver.devSessionId'] = sessionId;
+  if (embedded) values['resolver.devVendorEmbedded'] = 'true';
+  if (backgroundHMR && runtimeTarget === 'background') {
+    values['resolver.devVendorBackgroundHMR'] = 'true';
+  }
   for (const [name, value] of Object.entries(values)) {
     url.searchParams.set(name, value);
   }
@@ -141,6 +161,8 @@ function getNativeRuntimeBundleUrl({
 }
 
 async function prewarmNativeRuntimeBundles({
+  backgroundHMR,
+  embedded,
   fetchImpl = globalThis.fetch,
   fingerprint,
   metroPort,
@@ -150,6 +172,8 @@ async function prewarmNativeRuntimeBundles({
 }) {
   for (const runtimeTarget of ['main', 'background']) {
     const url = getNativeRuntimeBundleUrl({
+      backgroundHMR,
+      embedded,
       fingerprint,
       metroPort,
       platform,
@@ -583,15 +607,20 @@ function hashValues(namespace, values) {
   return hash.digest('hex');
 }
 
-function getShellCompatibility({ nativeContractKey, platform }) {
+function getShellCompatibility({
+  nativeContractKey,
+  platform,
+  repoRoot = REPO_ROOT,
+}) {
   const targetPlatform = assertPlatform(platform);
   const resolvedNativeContractKey =
-    nativeContractKey ?? computeNativeContractKey(targetPlatform);
+    nativeContractKey ?? computeNativeContractKey(targetPlatform, repoRoot);
   if (!/^[0-9a-f]{64}$/.test(resolvedNativeContractKey)) {
     throw new Error('[nativeDevShell] Invalid native contract key.');
   }
   const platformArtifact = getPlatformArtifact(targetPlatform);
   const keyInputs = {
+    nativeBuildDigest: getBuildDigest(targetPlatform, { repoRoot }),
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
   };
@@ -603,6 +632,8 @@ function getShellCompatibility({ nativeContractKey, platform }) {
     exactTag: `mobile-dev-shell-input-v${SHELL_RELEASE_TAG_VERSION}-${platformArtifact.resourcePlatform}-${platformArtifact.architecture}-${shellInputKey}`,
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
+    // ABI compatibility alone cannot prove that a shell contains this checkout's native implementation.
+    requireExactInput: true,
     shellCompatibilityKey,
     shellInputKey,
   };
@@ -1025,12 +1056,44 @@ function parseIosSimulators(output) {
       cause: error,
     });
   }
-  return Object.values(parsed.devices || {})
-    .flat()
-    .filter(
-      (device) => device.isAvailable !== false && device.state === 'Booted',
+  return Object.entries(parsed.devices || {})
+    .filter(([runtime]) =>
+      runtime.startsWith('com.apple.CoreSimulator.SimRuntime.iOS-'),
     )
-    .map((device) => ({ id: device.udid, name: device.name }));
+    .flatMap(([runtime, devices]) =>
+      devices
+        .filter((device) => device.isAvailable !== false)
+        .map((device) => ({
+          id: device.udid,
+          name: device.name,
+          runtime: runtime
+            .replace('com.apple.CoreSimulator.SimRuntime.iOS-', 'iOS ')
+            .replace(/-/gu, '.'),
+          state: device.state,
+        })),
+    );
+}
+
+function isAvailableIosPhysicalDevice(
+  deviceId,
+  { runForOutputCommand = runForOutput } = {},
+) {
+  try {
+    runForOutputCommand('xcrun', [
+      'devicectl',
+      'device',
+      'info',
+      'details',
+      '--device',
+      deviceId,
+      '--timeout',
+      '5',
+      '--quiet',
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function selectTargetDevice({ candidates, platform, requestedDevice }) {
@@ -1043,26 +1106,77 @@ function selectTargetDevice({ candidates, platform, requestedDevice }) {
     }
     return selected;
   }
-  if (candidates.length !== 1) {
+  if (candidates.length === 0) {
     throw new Error(
-      `[nativeDevShell] --device is required when ${candidates.length === 0 ? 'no' : 'multiple'} ${platform} devices are available. Available devices:\n${formatDeviceList(candidates)}`,
+      platform === 'ios'
+        ? '[nativeDevShell] No available iOS simulators. Create an iOS simulator in Xcode, then run yarn app:ios again.'
+        : '[nativeDevShell] No connected Android devices. Start an emulator or connect a device, then run yarn app:android again.',
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `[nativeDevShell] --device is required when multiple ${platform} devices are available without interactive selection. Run yarn app:${platform} --device <${platform === 'ios' ? 'UDID' : 'serial'}>. Available devices:\n${formatDeviceList(candidates)}`,
     );
   }
   return candidates[0];
 }
 
-function formatDeviceList(candidates) {
+function formatDeviceList(candidates, numbered = false) {
   return candidates.length
-    ? candidates.map(({ id, name }) => `- ${id} (${name})`).join('\n')
+    ? candidates
+        .map(
+          ({ id, name, runtime, state }, index) =>
+            `${numbered ? `${String(index + 1)}.` : '-'} ${id} (${[name, runtime, state].filter(Boolean).join(', ')})`,
+        )
+        .join('\n')
     : '- none';
 }
 
-function resolveTargetDevice({ platform, requestedDevice }) {
+async function promptIosSimulator(
+  candidates,
+  { input = process.stdin, output = process.stdout } = {},
+) {
+  const prompt = readline.createInterface({ input, output });
+  prompt.on('SIGINT', () => prompt.close());
+  try {
+    output.write(
+      `[nativeDevShell] Available iOS simulators:\n${formatDeviceList(candidates, true)}\n`,
+    );
+    prompt.setPrompt('Select a simulator number (Ctrl+C to cancel): ');
+    prompt.prompt();
+    for await (const answer of prompt) {
+      const value = answer.trim();
+      const index = /^\d+$/u.test(value) ? Number(value) - 1 : -1;
+      if (
+        Number.isSafeInteger(index) &&
+        index >= 0 &&
+        index < candidates.length
+      ) {
+        return candidates[index];
+      }
+      output.write(`Enter a number from 1 to ${String(candidates.length)}.\n`);
+      prompt.prompt();
+    }
+  } finally {
+    prompt.close();
+  }
+  throw new Error('[nativeDevShell] iOS simulator selection cancelled.');
+}
+
+async function resolveTargetDevice({
+  platform,
+  requestedDevice,
+  interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  isIosPhysicalDeviceAvailable = isAvailableIosPhysicalDevice,
+  chooseDevice = promptIosSimulator,
+  runForOutputCommand = runForOutput,
+  runCheckedCommand = runChecked,
+}) {
   const candidates =
     platform === 'android'
-      ? parseAndroidDevices(runForOutput('adb', ['devices', '-l']))
+      ? parseAndroidDevices(runForOutputCommand('adb', ['devices', '-l']))
       : parseIosSimulators(
-          runForOutput('xcrun', [
+          runForOutputCommand('xcrun', [
             'simctl',
             'list',
             'devices',
@@ -1070,7 +1184,252 @@ function resolveTargetDevice({ platform, requestedDevice }) {
             '--json',
           ]),
         );
-  return selectTargetDevice({ candidates, platform, requestedDevice });
+  let selected;
+  if (
+    platform === 'ios' &&
+    requestedDevice &&
+    !candidates.some(({ id }) => id === requestedDevice) &&
+    isIosPhysicalDeviceAvailable(requestedDevice)
+  ) {
+    selected = {
+      id: requestedDevice,
+      name: requestedDevice,
+      physical: true,
+    };
+  }
+  if (platform === 'ios' && !requestedDevice) {
+    const booted = candidates.filter(({ state }) => state === 'Booted');
+    if (booted.length === 1) {
+      [selected] = booted;
+    } else if (candidates.length > 1 && interactive) {
+      selected = await chooseDevice(candidates);
+    }
+  }
+  selected ??= selectTargetDevice({ candidates, platform, requestedDevice });
+  if (platform === 'ios' && !selected.physical) {
+    // Wait for the selected simulator to finish booting, starting it if necessary.
+    runCheckedCommand('xcrun', ['simctl', 'bootstatus', selected.id, '-b']);
+    runCheckedCommand('open', [
+      '-a',
+      'Simulator',
+      '--args',
+      '-CurrentDeviceUDID',
+      selected.id,
+    ]);
+  }
+  return selected;
+}
+
+async function launchIosPhysicalDeviceDevelopment({
+  acquireMetroPortCommand = acquireMetroPort,
+  acquireNamedLockCommand = acquireNamedLock,
+  acquirePreparationLockCommand = acquireWorktreePreparationLock,
+  deviceId,
+  launchAppCommand = launchIosPhysicalApp,
+  loadVendorManifestCommand = loadVendorManifest,
+  metroPort,
+  metroUrl,
+  prepareVendorCommand = prepareVendor,
+  prewarmCommand = prewarmNativeRuntimeBundles,
+  printRunSummaryCommand = printRunSummary,
+  resolveBuildArtifactCommand = resolveIosPhysicalBuildArtifact,
+  runCheckedCommand = runChecked,
+  shell,
+  spawnMetroCommand = spawn,
+  vendor,
+  waitForAppStartupCommand = waitForIosPhysicalAppStartup,
+  waitForMetroCommand = waitForMetro,
+  writeRunReportCommand = writeRunReport,
+}) {
+  if (metroUrl || shell !== 'auto' || vendor !== 'auto') {
+    throw new Error(
+      '[nativeDevShell] iOS physical-device development does not support DevSession shell, vendor, or --metro-url overrides.',
+    );
+  }
+  const sessionId = createSessionId({ deviceId });
+  const deviceLock = acquireNamedLockCommand({
+    key: `ios\0${deviceId}\0${IOS_BUNDLE_ID}`,
+    kind: 'device',
+    owner: {
+      deviceId,
+      pid: process.pid,
+      sessionId,
+      worktreeId: WORKTREE_ID,
+    },
+  });
+  let child;
+  let metroLock;
+  let preparationLock;
+  let report;
+  try {
+    const metroAllocation = await acquireMetroPortCommand({
+      deviceId,
+      requestedPort: metroPort,
+      sessionId,
+    });
+    metroLock = metroAllocation.lock;
+    const resolvedMetroPort = metroAllocation.port;
+    const deviceMetroUrl = getDefaultMetroUrl('ios', resolvedMetroPort);
+    report = createRunReport({
+      deviceId,
+      metroPort: resolvedMetroPort,
+      metroUrl: deviceMetroUrl,
+      platform: 'ios',
+      sessionId,
+      shell,
+      vendor,
+    });
+    report.shell = {
+      requested: shell,
+      source: 'local-build',
+      status: 'building',
+    };
+    await writeRunReportCommand(report);
+    preparationLock = await acquirePreparationLockCommand({ report });
+    runCheckedCommand('yarn', ['copy:inject'], {
+      cwd: REPO_ROOT,
+      env: process.env,
+    });
+    await prepareVendorCommand({
+      platform: 'ios',
+      report,
+      vendor,
+    });
+    const vendorManifest = loadVendorManifestCommand('ios');
+    console.log(
+      `[nativeDevShell] Using launcher-owned Metro port ${resolvedMetroPort} with a local Xcode Debug build and embedded DevVendor artifacts for iOS physical device ${deviceId}.`,
+    );
+    child = spawnMetroCommand(
+      'yarn',
+      [
+        'workspace',
+        '@onekeyhq/mobile',
+        'native-bundle',
+        '--port',
+        String(resolvedMetroPort),
+        '--host',
+        '0.0.0.0',
+      ],
+      {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          ONEKEY_DEV_BG_HMR: 'true',
+          ONEKEY_DEV_VENDOR: 'true',
+        },
+        stdio: 'inherit',
+      },
+    );
+    let metroSpawnError;
+    let metroExit;
+    child.once('error', (error) => {
+      metroSpawnError = error;
+    });
+    const metroCompletion = new Promise((resolve) => {
+      child.once('exit', (code, signal) => {
+        metroExit = { code, signal };
+        resolve(metroExit);
+      });
+    });
+    await waitForMetroCommand(resolvedMetroPort, child, () => metroSpawnError);
+    await prewarmCommand({
+      backgroundHMR: true,
+      embedded: true,
+      fingerprint: vendorManifest.fingerprint,
+      metroPort: resolvedMetroPort,
+      platform: 'ios',
+    });
+    const iosDirectory = path.join(MOBILE_ROOT, 'ios');
+    runCheckedCommand(
+      'xcodebuild',
+      [
+        '-workspace',
+        'OneKeyWallet.xcworkspace',
+        '-configuration',
+        'Debug',
+        '-scheme',
+        'OneKeyWallet',
+        '-destination',
+        `id=${deviceId}`,
+        '-quiet',
+        'COCOAPODS_PARALLEL_CODE_SIGN=true',
+        'COMPILER_INDEX_STORE_ENABLE=NO',
+        '-allowProvisioningUpdates',
+        '-allowProvisioningDeviceRegistration',
+      ],
+      {
+        cwd: iosDirectory,
+        env: {
+          ...process.env,
+          ENABLE_NATIVE_BACKGROUND_THREAD: 'true',
+          ONEKEY_DEV_BG_HMR: 'true',
+          ONEKEY_DEV_VENDOR: 'true',
+          RCT_NO_LAUNCH_PACKAGER: 'true',
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true',
+        },
+      },
+    );
+    const appPath = resolveBuildArtifactCommand(deviceId);
+    if (metroSpawnError || metroExit) {
+      throw new Error(
+        '[nativeDevShell] Metro exited while building the iOS physical-device app.',
+        { cause: metroSpawnError },
+      );
+    }
+    report.shell.status = 'installing';
+    await writeRunReportCommand(report);
+    runCheckedCommand('xcrun', [
+      'devicectl',
+      'device',
+      'install',
+      'app',
+      '--device',
+      deviceId,
+      '--quiet',
+      appPath,
+    ]);
+    preparationLock.release();
+    preparationLock = undefined;
+    report.shell.artifactPath = appPath;
+    report.shell.status = 'ready';
+    await writeRunReportCommand(report);
+    const nativeLaunch = launchAppCommand(deviceId, resolvedMetroPort);
+    report.launchedAt = new Date().toISOString();
+    await waitForAppStartupCommand({
+      deviceId,
+      processId: nativeLaunch.processId,
+    });
+    report.status = 'running';
+    await writeRunReportCommand(report);
+    printRunSummaryCommand(report);
+    const { code, signal } = await metroCompletion;
+    if (code !== 0 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
+      throw new Error(
+        `[nativeDevShell] Metro exited with code ${String(code)} signal ${String(signal)}.`,
+      );
+    }
+    report.finishedAt = new Date().toISOString();
+    report.status = 'finished';
+    await writeRunReportCommand(report);
+    printRunSummaryCommand(report);
+  } catch (error) {
+    if (report) {
+      report.finishedAt = new Date().toISOString();
+      report.status = 'failed';
+      report.failure = getErrorMessage(error);
+      addFailureNotice(report, report.failure);
+      await writeRunReportCommand(report);
+      printRunSummaryCommand(report);
+    }
+    throw error;
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+    }
+    preparationLock?.release();
+    metroLock?.release();
+    deviceLock.release();
+  }
 }
 
 function assertTargetDeviceArchitecture({
@@ -1548,15 +1907,22 @@ async function acquireWorktreePreparationLock({
   }
 }
 
-function canListenOnPort(port) {
+function canListenOnHost(port, host) {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.unref();
     server.once('error', () => resolve(false));
-    server.listen({ host: '0.0.0.0', port }, () => {
+    server.listen({ host, port }, () => {
       server.close(() => resolve(true));
     });
   });
+}
+
+async function canListenOnPort(port) {
+  return (
+    (await canListenOnHost(port, '127.0.0.1')) &&
+    (await canListenOnHost(port, '0.0.0.0'))
+  );
 }
 
 function parseMetroPort(value) {
@@ -1636,6 +2002,153 @@ function launchNativeApp(
   return { processId };
 }
 
+function resolveIosPhysicalBuildArtifact(
+  deviceId,
+  { fileSystem = fs, runForOutputCommand = runForOutput } = {},
+) {
+  const iosDirectory = path.join(MOBILE_ROOT, 'ios');
+  const buildSettings = JSON.parse(
+    runForOutputCommand(
+      'xcodebuild',
+      [
+        '-workspace',
+        'OneKeyWallet.xcworkspace',
+        '-configuration',
+        'Debug',
+        '-scheme',
+        'OneKeyWallet',
+        '-destination',
+        `id=${deviceId}`,
+        '-showBuildSettings',
+        '-json',
+      ],
+      { cwd: iosDirectory },
+    ),
+  );
+  const appBuildSettings = buildSettings.find(
+    ({ buildSettings: settings, target }) =>
+      target === 'OneKeyWallet' ||
+      settings?.WRAPPER_NAME === 'OneKeyWallet.app',
+  )?.buildSettings;
+  const targetBuildDirectory = appBuildSettings?.TARGET_BUILD_DIR;
+  const wrapperName = appBuildSettings?.WRAPPER_NAME;
+  if (
+    !path.isAbsolute(targetBuildDirectory || '') ||
+    !wrapperName?.endsWith('.app')
+  ) {
+    throw new Error(
+      '[nativeDevShell] Xcode did not report the iOS app build artifact.',
+    );
+  }
+  const appPath = path.join(targetBuildDirectory, wrapperName);
+  if (!fileSystem.existsSync(appPath)) {
+    throw new Error(
+      `[nativeDevShell] Built iOS app does not exist at ${appPath}.`,
+    );
+  }
+  return appPath;
+}
+
+function runDevicectlJson(
+  createArgs,
+  {
+    fileSystem = fs,
+    makeTemporaryDirectory = () =>
+      fileSystem.mkdtempSync(path.join(os.tmpdir(), 'onekey-devicectl-')),
+    runCheckedCommand = runChecked,
+  } = {},
+) {
+  const outputDirectory = makeTemporaryDirectory();
+  const outputPath = path.join(outputDirectory, 'result.json');
+  try {
+    runCheckedCommand('xcrun', ['devicectl', ...createArgs(outputPath)]);
+    return JSON.parse(fileSystem.readFileSync(outputPath, 'utf8'));
+  } finally {
+    fileSystem.rmSync(outputDirectory, { force: true, recursive: true });
+  }
+}
+
+function launchIosPhysicalApp(
+  deviceId,
+  metroPort,
+  { runDevicectlJsonCommand = runDevicectlJson } = {},
+) {
+  const result = runDevicectlJsonCommand((outputPath) => [
+    'device',
+    'process',
+    'launch',
+    '--device',
+    deviceId,
+    '--terminate-existing',
+    '--environment-variables',
+    JSON.stringify({ RCT_METRO_PORT: String(metroPort) }),
+    '--json-output',
+    outputPath,
+    '--quiet',
+    IOS_BUNDLE_ID,
+  ]);
+  const processId = result?.result?.process?.processIdentifier;
+  if (!Number.isSafeInteger(processId) || processId <= 0) {
+    throw new Error(
+      '[nativeDevShell] iOS physical-device launch returned no process ID.',
+    );
+  }
+  return { processId };
+}
+
+function getIosPhysicalAppProcessIds(
+  deviceId,
+  { runDevicectlJsonCommand = runDevicectlJson } = {},
+) {
+  const result = runDevicectlJsonCommand((outputPath) => [
+    'device',
+    'info',
+    'processes',
+    '--device',
+    deviceId,
+    '--json-output',
+    outputPath,
+    '--quiet',
+  ]);
+  return (result?.result?.runningProcesses || [])
+    .filter(({ executable }) =>
+      executable?.endsWith('/OneKeyWallet.app/OneKeyWallet'),
+    )
+    .map(({ processIdentifier }) => processIdentifier)
+    .filter((processId) => Number.isSafeInteger(processId) && processId > 0);
+}
+
+async function waitForIosPhysicalAppStartup({
+  deviceId,
+  pollIntervalMs = IOS_PHYSICAL_APP_STARTUP_POLL_INTERVAL_MS,
+  processId,
+  readProcessIds = getIosPhysicalAppProcessIds,
+  startupGraceMs = IOS_APP_STARTUP_GRACE_MS,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  try {
+    if (!Number.isSafeInteger(processId) || processId <= 0) {
+      throw new Error(
+        '[nativeDevShell] iOS physical-device process ID is missing.',
+      );
+    }
+    for (let elapsed = 0; elapsed < startupGraceMs; elapsed += pollIntervalMs) {
+      await wait(pollIntervalMs);
+      if (!readProcessIds(deviceId).includes(processId)) {
+        throw new Error(
+          '[nativeDevShell] iOS physical-device app process exited.',
+        );
+      }
+    }
+  } catch (error) {
+    throw new Error(
+      '[nativeDevShell] ios physical-device app exited during startup.',
+      { cause: error },
+    );
+  }
+}
+
 async function waitForNativeAppStartup({
   androidPollIntervalMs = ANDROID_APP_STARTUP_POLL_INTERVAL_MS,
   androidStartupTimeoutMs = ANDROID_APP_STARTUP_TIMEOUT_MS,
@@ -1687,18 +2200,24 @@ async function waitForNativeAppStartup({
         throw new Error('[nativeDevShell] Android app process exited.');
       }
     } else {
-      await wait(NATIVE_APP_STARTUP_GRACE_MS);
       if (!Number.isSafeInteger(launch.processId) || launch.processId <= 0) {
         throw new Error('[nativeDevShell] iOS app process ID is missing.');
       }
-      runForOutputCommand('xcrun', [
-        'simctl',
-        'spawn',
-        deviceId,
-        '/bin/kill',
-        '-0',
-        String(launch.processId),
-      ]);
+      for (
+        let elapsed = 0;
+        elapsed < IOS_APP_STARTUP_GRACE_MS;
+        elapsed += 1000
+      ) {
+        await wait(1000);
+        runForOutputCommand('xcrun', [
+          'simctl',
+          'spawn',
+          deviceId,
+          '/bin/kill',
+          '-0',
+          String(launch.processId),
+        ]);
+      }
     }
   } catch (error) {
     throw new Error(`[nativeDevShell] ${platform} app exited during startup.`, {
@@ -2029,15 +2548,31 @@ async function stagePrivateSession(options) {
   }
 }
 
-async function prepareWebEmbedForDevSession(report) {
+async function prepareWebEmbedForDevSession(
+  report,
+  {
+    getCache = () =>
+      require('../../web-embed/scripts/web-embed-prebundle').getPreparedWebEmbedCache(),
+    restore = () =>
+      require('../../web-embed/scripts/web-embed-prebundle').restoreRelease(),
+    build = () =>
+      runChecked(
+        'yarn',
+        ['workspace', '@onekeyhq/web-embed', 'prebundle:build'],
+        { cwd: REPO_ROOT },
+      ),
+  } = {},
+) {
+  const cached = await Promise.resolve(getCache());
+  if (cached) {
+    report.webEmbed = { ...cached, status: 'ready' };
+    await writeRunReport(report);
+    return;
+  }
   report.webEmbed = { status: 'restoring' };
   await writeRunReport(report);
   try {
-    runChecked(
-      'yarn',
-      ['workspace', '@onekeyhq/web-embed', 'prebundle:restore'],
-      { cwd: REPO_ROOT },
-    );
+    await restore();
     report.webEmbed = { source: 'remote', status: 'ready' };
   } catch (error) {
     const reason = getErrorMessage(error);
@@ -2048,11 +2583,7 @@ async function prepareWebEmbedForDevSession(report) {
       status: 'building',
     };
     await writeRunReport(report);
-    runChecked(
-      'yarn',
-      ['workspace', '@onekeyhq/web-embed', 'prebundle:build'],
-      { cwd: REPO_ROOT },
-    );
+    await Promise.resolve(build());
     report.webEmbed.status = 'ready';
     printFallbackDone(report, 'web-embed');
   }
@@ -2095,17 +2626,38 @@ async function buildLocalShell({ platform }) {
   }
 }
 
-async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
+async function resolveAndInstallShell(
+  { deviceId, platform, report, shell },
+  {
+    build = buildLocalShell,
+    cacheBuild = cacheLocalShellBuild,
+    getCache = readLocalShellCache,
+    install = installMobileDevShell,
+    restore = restoreMobileDevShell,
+  } = {},
+) {
   if (!['auto', 'local', 'remote'].includes(shell)) {
     throw new Error(
       `[nativeDevShell] --shell must be auto, local, or remote; received ${shell}.`,
     );
   }
   const compatibility = getShellCompatibility({ platform });
+  const buildDigest = getBuildDigest(platform);
   let artifactPath;
   let releaseCacheLease;
   let usedFallback = false;
-  if (shell === 'local') {
+  const cached =
+    shell === 'auto' ? await getCache({ compatibility }) : undefined;
+  if (cached) {
+    artifactPath = cached.artifactPath;
+    report.shell = {
+      requested: shell,
+      source: 'local-cache',
+      status: 'installing',
+      compatibilityTag: compatibility.compatibilityTag,
+      exactTag: compatibility.exactTag,
+    };
+  } else if (shell === 'local') {
     report.shell = {
       requested: shell,
       source: 'local-build',
@@ -2114,7 +2666,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
-    artifactPath = await buildLocalShell({ platform });
+    artifactPath = await build({ platform });
   } else {
     report.shell = {
       requested: shell,
@@ -2124,7 +2676,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
     };
     await writeRunReport(report);
     try {
-      const restored = await restoreMobileDevShell({ compatibility });
+      const restored = await restore({ compatibility });
       artifactPath = restored.artifactPath;
       releaseCacheLease = restored.releaseCacheLease;
       report.shell.source = restored.source;
@@ -2147,21 +2699,46 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       report.shell.source = 'local-build';
       report.shell.status = 'building';
       await writeRunReport(report);
-      artifactPath = await buildLocalShell({ platform });
+      artifactPath = await build({ platform });
     }
   }
-  await runWithCacheLeaseCleanup({
-    operation: async () => {
-      report.shell.status = 'installing';
-      await writeRunReport(report);
-      await installMobileDevShell({ artifactPath, deviceId, platform });
-      if (usedFallback) printFallbackDone(report, 'shell');
-      report.shell.artifactPath = artifactPath;
-      report.shell.status = 'ready';
-      await writeRunReport(report);
-    },
-    releaseCacheLease,
-  });
+  const installArtifact = async () => {
+    report.shell.status = 'installing';
+    await writeRunReport(report);
+    const installed = await install({ artifactPath, deviceId, platform });
+    if (installed?.signing) report.shell.signing = installed.signing;
+  };
+  try {
+    await runWithCacheLeaseCleanup({
+      operation: installArtifact,
+      releaseCacheLease,
+    });
+  } catch (error) {
+    if (
+      shell !== 'auto' ||
+      report.shell.source === 'local-build' ||
+      !(error instanceof IosSimulatorEntitlementsError)
+    ) {
+      throw error;
+    }
+    const reason = getErrorMessage(error);
+    addFallbackNotice(report, { reason, resource: 'shell' });
+    usedFallback = true;
+    report.shell.fallbackReason = reason;
+    report.shell.source = 'local-build';
+    report.shell.status = 'building';
+    delete report.shell.ociDigest;
+    await writeRunReport(report);
+    artifactPath = await build({ platform });
+    await installArtifact();
+  }
+  if (report.shell.source === 'local-build') {
+    await cacheBuild({ artifactPath, compatibility, buildDigest });
+  }
+  if (usedFallback) printFallbackDone(report, 'shell');
+  report.shell.artifactPath = artifactPath;
+  report.shell.status = 'ready';
+  await writeRunReport(report);
 }
 
 async function prepareVendor({ platform, report, vendor }) {
@@ -2213,10 +2790,20 @@ async function launchDevShell({
   const requestedDeviceMetroUrl = metroUrl
     ? parseMetroBaseUrl(metroUrl)
     : undefined;
-  const selectedDevice = resolveTargetDevice({
+  const selectedDevice = await resolveTargetDevice({
     platform,
     requestedDevice: device,
   });
+  if (platform === 'ios' && selectedDevice.physical) {
+    await launchIosPhysicalDeviceDevelopment({
+      deviceId: selectedDevice.id,
+      metroPort: requestedMetroPort,
+      metroUrl,
+      shell,
+      vendor,
+    });
+    return;
+  }
   assertTargetDeviceArchitecture({
     deviceId: selectedDevice.id,
     platform,
@@ -2446,11 +3033,15 @@ module.exports = {
   getAndroidPrivateSessionRenewalArgs,
   getAndroidLocalBuildEnvironment,
   getContractManifest,
+  getIosPhysicalAppProcessIds,
   getNativeRuntimeBundleUrl,
   getPlatformArtifact,
   getShellArtifactTag,
   getShellCompatibility,
+  isAvailableIosPhysicalDevice,
+  launchIosPhysicalApp,
   launchNativeApp,
+  launchIosPhysicalDeviceDevelopment,
   loadVendorManifest,
   parseAndroidDevices,
   parseArgs,
@@ -2458,11 +3049,17 @@ module.exports = {
   parseMetroBaseUrl,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
+  prepareWebEmbedForDevSession,
   printRunSummary,
+  promptIosSimulator,
   pruneSessionDirectories,
   quoteAdbShellArgument,
   renewPrivateSession,
+  resolveAndInstallShell,
+  resolveIosPhysicalBuildArtifact,
+  resolveTargetDevice,
   selectTargetDevice,
+  waitForIosPhysicalAppStartup,
   waitForNativeAppStartup,
   waitForMetroCompletionWithSessionRenewal,
   writeContractManifest,

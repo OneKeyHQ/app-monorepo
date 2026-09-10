@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import {
@@ -24,6 +24,7 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
+  leading?: ReactNode;
   onLongPress?: (event: GestureResponderEvent) => void;
   onPressIn?: (event: GestureResponderEvent) => void;
   onTouchMove?: (event: GestureResponderEvent) => void;
@@ -59,6 +60,7 @@ if (platformEnv.isNativeIOS) {
 const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
+  leading,
   onLongPress,
   onPressIn,
   onTouchMove,
@@ -114,7 +116,8 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       bg={isHighlighted ? '$bgActive' : '$bgApp'}
       style={isDragging ? DRAGGING_STYLE : undefined}
     >
-      <XStack flex={1} alignItems="center" minWidth={0}>
+      <XStack flex={1} alignItems="center" minWidth={0} gap="$2">
+        {leading}
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
           tokenLogoURIs={item.tokenImageUris}

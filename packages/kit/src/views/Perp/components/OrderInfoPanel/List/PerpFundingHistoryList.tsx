@@ -24,6 +24,7 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   buildFundingHistoryExportRecords,
   filterFundingHistoryRecords,
@@ -87,6 +88,7 @@ function FundingHistoryExportAction({
       const records =
         await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
           accountAddress,
+          force: true,
         });
       const exportRecords = buildFundingHistoryExportRecords({
         records,
@@ -582,7 +584,20 @@ function PerpFundingHistoryList({
         `${record.hash}-${record.time}-${record.delta.coin}`
       }
       listLoading={isLoading}
-      ListEmptyComponent={errorState}
+      ListEmptyComponent={
+        errorState ??
+        (isMobile ? (
+          <PerpMobileEmptyState
+            contentOffsetY={-96}
+            title={intl.formatMessage({
+              id:
+                hasActiveFilter && records.length > 0
+                  ? ETranslations.perp_funding_history_no_match__title
+                  : ETranslations.perp_funding_history_empty__title,
+            })}
+          />
+        ) : undefined)
+      }
       paginationAction={
         !isMobile ? (
           <FundingHistoryExportAction

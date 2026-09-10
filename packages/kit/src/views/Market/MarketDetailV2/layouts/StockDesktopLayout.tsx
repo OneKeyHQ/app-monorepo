@@ -44,6 +44,8 @@ import {
   StockAnalystGauge,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
+import { stockFinancialLabels } from '../components/StockFinancials/stockFinancialLabels';
+import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
   type IStockSimpleChartRange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
@@ -69,6 +71,7 @@ import {
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
+import { getStockTokenVariantActionIdentity } from '../utils/stockTokenVariant';
 
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
@@ -97,16 +100,21 @@ function StockPageHeader({
   showFavoriteButton: boolean;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const { stockDetail, stockId, stockPreview } = useStockDetail();
+  const { selectedTokenVariant, stockDetail, stockId, stockPreview } =
+    useStockDetail();
   const stock = tokenDetail?.stock;
-  const tokenActionIdentity =
-    networkId && tokenDetail?.address && tokenDetail.symbol
+  const selectedTokenActionIdentity =
+    getStockTokenVariantActionIdentity(selectedTokenVariant);
+  const tokenDetailActionIdentity =
+    networkId && tokenDetail?.address
       ? {
           networkId,
           address: tokenDetail.address,
           symbol: tokenDetail.symbol,
         }
       : undefined;
+  const tokenActionIdentity =
+    selectedTokenActionIdentity ?? tokenDetailActionIdentity;
 
   return (
     <XStack
@@ -188,7 +196,7 @@ function StockPageHeader({
 
       {/* The stock route can share the listing before any token variant
           resolves, so the row also stands on a bare `stockId`. The favorite
-          button still needs a real chain/contract/symbol triple. */}
+          button still needs a real chain/contract identity. */}
       {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
           {showFavoriteButton && tokenActionIdentity ? (
@@ -359,13 +367,17 @@ function StockPriceHeader({
 
   return (
     <XStack
-      height={68}
-      alignItems="flex-start"
+      testID="stock-price-header"
+      minHeight={68}
+      flexWrap="wrap-reverse"
+      alignItems="flex-end"
       justifyContent="space-between"
       gap="$2"
     >
-      <YStack flex={1} gap="$2">
-        <XStack alignItems="baseline" gap="$3.5">
+      {/* Keep the intrinsic price width when deciding whether the controls fit.
+          Reverse wrapping places the controls above the quote on narrow charts. */}
+      <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
+        <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
           {hoverPoint ? (
             <NumberSizeableText
               testID="stock-price-hover-value"
@@ -382,7 +394,7 @@ function StockPriceHeader({
               isSharePrice={isSharePrice}
             />
           )}
-          <XStack alignItems="baseline" gap="$1.5">
+          <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
               <NumberSizeableText
                 testID="stock-price-change-value"
@@ -417,7 +429,14 @@ function StockPriceHeader({
       {/* Figma widths are minimums: Spanish/Italian labels outgrow the
           English boxes, and a fixed width would truncate both options into
           the same truncated string. */}
-      <XStack minWidth={191} height={38} py="$1" gap="$0.5" alignItems="center">
+      <XStack
+        minWidth={191}
+        height={38}
+        flexShrink={0}
+        py="$1"
+        gap="$0.5"
+        alignItems="center"
+      >
         <Button
           testID="stock-price-mode-share"
           minWidth={94}
@@ -1082,6 +1101,7 @@ function StockOverview({
 }) {
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
+  const { stockId } = useStockDetail();
 
   return (
     <YStack>
@@ -1139,6 +1159,9 @@ function StockOverview({
           </YStack>
           <StockEventsSection />
           <StockAnalystRatings />
+          {stockId ? (
+            <StockFinancials stockId={stockId} labels={stockFinancialLabels} />
+          ) : null}
           <StockNewsSection />
           <StockAbout />
         </>

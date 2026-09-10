@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import pRetry from 'p-retry';
 import { View } from 'react-native';
 
-import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  DelayedFreeze,
+  Page,
+  RefreshControl,
+  ScrollView,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -192,7 +198,7 @@ function DashboardContent({
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        {content}
+        <DelayedFreeze freeze={!isContentActive}>{content}</DelayedFreeze>
       </ScrollView>
     );
   }

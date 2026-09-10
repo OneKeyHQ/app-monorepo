@@ -239,26 +239,37 @@ describe('SecurityCheckCard address risk boundaries', () => {
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
       }),
     ).toBe(true);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: true,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: false,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
         isSecurityCheckPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoIssueSection({
+        hasCardFindings: false,
+        hasAddressRisk: true,
+        hasResolvedRequiredChecks: true,
       }),
     ).toBe(false);
   });

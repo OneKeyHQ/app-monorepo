@@ -6,7 +6,8 @@ import {
   type ITradingViewNativeSource,
   TradingViewNative,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
+import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
+import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -28,6 +29,7 @@ import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/La
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -169,9 +171,6 @@ export function DesktopLayout({
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const marketAssetId = shouldUseTopCoinsDesktopLayout
-    ? marketTokenId?.trim()
-    : undefined;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
@@ -194,6 +193,11 @@ export function DesktopLayout({
       ? routeIsNative
       : storeIsNative;
   const isNative = shouldUseStockDesktopLayout ? false : tokenDetailIsNative;
+  const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
+    networkId,
+    tokenAddress,
+    enabled: !isStockSharePrice,
+  });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -279,9 +283,6 @@ export function DesktopLayout({
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
     }
-    if (marketAssetId) {
-      return { kind: 'asset', assetId: marketAssetId };
-    }
     return getMarketDetailTradingViewNativeSource({
       hyperliquidCoin: nativeHyperliquidCoin,
       isNative,
@@ -292,7 +293,6 @@ export function DesktopLayout({
     });
   }, [
     isStockSharePrice,
-    marketAssetId,
     marketTradingViewParams?.dataSource,
     nativeHyperliquidCoin,
     isNative,
@@ -314,19 +314,6 @@ export function DesktopLayout({
             })
         : undefined,
     [stockId],
-  );
-  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
-    () =>
-      marketAssetId
-        ? ({ interval, timeFrom, timeTo }) =>
-            fetchMarketAssetKLineData({
-              assetId: marketAssetId,
-              interval,
-              timeFrom,
-              timeTo,
-            })
-        : undefined,
-    [marketAssetId],
   );
   // Redesigned desktop detail pages lay their Simple/Pro switch over the
   // trailing edge of the Pro widget's control row. Drop the row's own trailing
@@ -353,20 +340,18 @@ export function DesktopLayout({
   let marketTradingViewKey = 'token';
   if (isStockSharePrice) {
     marketTradingViewKey = `stock-share:${stockId ?? ''}`;
-  } else if (marketAssetId) {
-    marketTradingViewKey = `asset:${marketAssetId}`;
   }
   const proKLineDataFallback = isStockSharePrice
     ? stockKLineDataFallback
-    : assetKLineDataFallback;
+    : undefined;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId ||
-        tradingViewNativeSource.kind === 'asset' ||
-        tradingViewNativeSource.kind === 'stock' ? (
+      return networkId || tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
+          key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
           }
@@ -392,6 +377,9 @@ export function DesktopLayout({
     return (
       <LazyDesktopMarketTradingView
         key={marketTradingViewKey}
+        intervalStorageNamespace={getTradingViewNativeIntervalStorageNamespace(
+          tradingViewNativeSource,
+        )}
         tokenAddress={
           isStockSharePrice
             ? ''
@@ -428,22 +416,20 @@ export function DesktopLayout({
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
         kLineDataFallback={proKLineDataFallback}
-        primaryKLineDataUnavailable={
-          isStockSharePrice || Boolean(marketAssetId)
-        }
+        primaryKLineDataUnavailable={isStockSharePrice}
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
     );
   }, [
+    handleNativeChartPriceUpdate,
     handleTradingViewTouchScroll,
     hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
     isStockSharePrice,
     marketTradingViewKey,
-    marketAssetId,
     shouldUseStockDesktopLayout,
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
@@ -469,7 +455,7 @@ export function DesktopLayout({
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
           }
-          disableTrade={shouldDisableTrade}
+          disableTrade={disableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}

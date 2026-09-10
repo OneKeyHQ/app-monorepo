@@ -19,6 +19,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   completeBroadcastedSwapSuccess,
   completeSignedNoSendSwapSuccess,
+  persistBroadcastedSendHistory,
 } from './swapBroadcastSuccess';
 
 const swapInfo = {} as ISwapTxInfo;
@@ -173,5 +174,38 @@ describe('Swap broadcast success effects', () => {
     });
 
     expect(mockLogError).not.toHaveBeenCalled();
+  });
+
+  it('keeps a broadcast successful when decoding its send history fails', async () => {
+    const saveHistory = jest.fn();
+
+    await expect(
+      persistBroadcastedSendHistory({
+        buildDecodedTx: jest.fn().mockRejectedValue(new Error('decode failed')),
+        saveHistory,
+      }),
+    ).resolves.toBe(false);
+
+    expect(saveHistory).not.toHaveBeenCalled();
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.stringContaining('decode failed'),
+    );
+  });
+
+  it('keeps a broadcast successful when saving its send history fails', async () => {
+    const decodedTx = { txid: 'tx-id' };
+
+    await expect(
+      persistBroadcastedSendHistory({
+        buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
+        saveHistory: jest
+          .fn()
+          .mockRejectedValue(new Error('send history unavailable')),
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.stringContaining('send history unavailable'),
+    );
   });
 });
