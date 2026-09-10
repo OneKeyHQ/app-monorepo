@@ -9,10 +9,8 @@ export const PrimeTestIDs = {
   redemptionLandingPage: 'prime-redemption-landing-page',
   redemptionLandingBody: 'prime-redemption-landing-body',
   redemptionAccountChip: 'prime-redemption-account-chip',
-  redemptionSuccessAccount: 'prime-redemption-success-account',
   redemptionLoginBtn: 'prime-redemption-login-btn',
   redemptionSubmitBtn: 'prime-redemption-submit-btn',
-  redemptionDoneBtn: 'prime-redemption-done-btn',
   redemptionBenefitsToggle: 'prime-redemption-benefits-toggle',
   redemptionDownloadBtn: 'prime-redemption-download-btn',
 

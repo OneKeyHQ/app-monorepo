@@ -51,7 +51,6 @@ let mockIsLoggedIn = false;
 let mockGtMd = true;
 const mockUser: {
   displayEmail?: string;
-  nickname?: string;
   onekeyAccount?: IOneKeyIdAccount;
   onekeyUserId?: string;
   primeSubscription?: { isActive: boolean };
@@ -364,7 +363,6 @@ describe('PrimeRedeemLandingPage', () => {
     mockGtMd = true;
     mockRouteParams = undefined;
     mockUser.displayEmail = 'user@example.com';
-    mockUser.nickname = undefined;
     mockUser.onekeyAccount = undefined;
     mockUser.onekeyUserId = 'user-a';
     mockUser.primeSubscription = undefined;
@@ -533,6 +531,8 @@ describe('PrimeRedeemLandingPage', () => {
     expect(
       screen.getAllByText(ETranslations.global_download_onekey_wallet),
     ).toHaveLength(1);
+    expect(screen.getByText('u***@example.com')).toBeTruthy();
+    expect(screen.queryByText(ETranslations.redemption_done_button)).toBeNull();
     expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
       code: 'OKP-PJ37L-DYXWR',
       expectedOneKeyUserId: 'user-a',
@@ -542,12 +542,6 @@ describe('PrimeRedeemLandingPage', () => {
       isPrimeActiveBeforeRedeem: false,
       addedDays: 30,
     });
-    expect(
-      screen.getByTestId(PrimeTestIDs.redemptionSuccessAccount).textContent,
-    ).toContain('u***@example.com');
-    expect(
-      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionSuccessAccount)),
-    ).toEqual(['PeopleOutline']);
   });
 
   it('does not log entry again after a successful redemption refreshes Prime membership', async () => {
@@ -667,9 +661,8 @@ describe('PrimeRedeemLandingPage', () => {
     expect(screen.getByText('user@example.com')).toBeTruthy();
   });
 
-  it('shows the Google icon and nickname for a Google OneKey ID', () => {
+  it('shows the Google icon for a Google OneKey ID and keeps the email', () => {
     mockIsLoggedIn = true;
-    mockUser.nickname = 'Alice';
     mockUser.onekeyAccount = buildOneKeyAccount([
       EOneKeyIdOAuthProvider.Google,
     ]);
@@ -680,11 +673,8 @@ describe('PrimeRedeemLandingPage', () => {
       'GoogleIllus',
       'ChevronDownSmallOutline',
     ]);
-    expect(chip.getAttribute('aria-label')).toBe(
-      'Google · Alice · user@example.com',
-    );
-    expect(screen.getByText('Alice')).toBeTruthy();
-    expect(screen.queryByText('user@example.com')).toBeNull();
+    expect(chip.getAttribute('aria-label')).toBe('Google · user@example.com');
+    expect(screen.getByText('user@example.com')).toBeTruthy();
   });
 
   it('shows the Apple icon for an Apple OneKey ID with the same email', () => {
@@ -714,9 +704,8 @@ describe('PrimeRedeemLandingPage', () => {
     ).toEqual(['GoogleIllus', 'AppleBrand', 'ChevronDownSmallOutline']);
   });
 
-  it('keeps the Google identity on the success account row', async () => {
+  it('keeps the Google icon on the logged-in chip and hides the web-home done button after redeem', async () => {
     mockIsLoggedIn = true;
-    mockUser.nickname = 'Alice';
     mockUser.onekeyAccount = buildOneKeyAccount([
       EOneKeyIdOAuthProvider.Google,
     ]);
@@ -727,17 +716,18 @@ describe('PrimeRedeemLandingPage', () => {
     });
 
     render(<PrimeRedeemLandingPage />);
+    expect(
+      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
+    ).toEqual(['GoogleIllus', 'ChevronDownSmallOutline']);
+
     fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionSubmitBtn));
 
     await waitFor(() => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
-    const successAccount = screen.getByTestId(
-      PrimeTestIDs.redemptionSuccessAccount,
-    );
-    expect(getIconNames(successAccount)).toEqual(['GoogleIllus']);
-    expect(successAccount.textContent).toContain('Alice');
     expect(screen.getByText('u***@example.com')).toBeTruthy();
+    expect(screen.queryByText(ETranslations.redemption_done_button)).toBeNull();
+    expect(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn)).toBeTruthy();
   });
 
   it('preserves the typed code after logout and shows the login action', () => {

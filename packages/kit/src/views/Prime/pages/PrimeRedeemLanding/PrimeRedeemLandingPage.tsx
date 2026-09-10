@@ -22,6 +22,7 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -38,7 +39,11 @@ import {
   type ETabHomeRoutes as ETabHomeRoutesType,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
-import { getOneKeyIdOAuthProviderIcon } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import {
+  getBoundOAuthProviders,
+  getOneKeyIdOAuthProviderIcon,
+  getOneKeyIdOAuthProviderName,
+} from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   EOneKeyIdOAuthProvider,
@@ -53,15 +58,6 @@ import {
 import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
 import { PrimeTestIDs } from '../../testIDs';
 import { PRIME_FEATURE_INTROS } from '../PrimeFeatures/primeFeatureIntroUtils';
-
-import {
-  getRedeemLandingAccountAccessibilityLabel,
-  getRedeemLandingAccountActionTitle,
-  getRedeemLandingAccountLabel,
-  getRedeemLandingOAuthIdentity,
-  getRedeemLandingSuccessAccountLabel,
-  shouldShowRedeemLandingMaskedEmail,
-} from './primeRedeemLandingAccountDisplay';
 
 const LANDING_ACTION_BUTTON = {
   variant: 'accent' as const,
@@ -285,24 +281,21 @@ function RedeemLandingAccountIcons({
 function RedeemLandingEmailChip({
   disabled,
   displayEmail,
-  nickname,
   onekeyAccount,
   onLogout,
 }: {
   disabled?: boolean;
   displayEmail: string | undefined;
-  nickname: string | undefined;
   onekeyAccount: IOneKeyIdAccount | undefined;
   onLogout: () => void;
 }) {
   const intl = useIntl();
-  const { oauthProviderNames, oauthProviders } =
-    getRedeemLandingOAuthIdentity(onekeyAccount);
-  const accountLabel = getRedeemLandingAccountLabel({
+  const oauthProviders = getBoundOAuthProviders(onekeyAccount);
+  const displayEmailLabel = getDisplayEmailOrUnknown({
     displayEmail,
     intl,
-    nickname,
   });
+  const oauthProviderNames = oauthProviders.map(getOneKeyIdOAuthProviderName);
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => (
       <ActionList.Item
@@ -317,7 +310,7 @@ function RedeemLandingEmailChip({
 
   return (
     <ActionList
-      title={getRedeemLandingAccountActionTitle(oauthProviderNames)}
+      title="OneKey ID"
       placement="bottom"
       disabled={disabled}
       floatingPanelProps={{ w: '$64' }}
@@ -343,11 +336,11 @@ function RedeemLandingEmailChip({
           hoverStyle={disabled ? undefined : { opacity: 0.8 }}
           pressStyle={disabled ? undefined : { opacity: 0.6 }}
           focusable={!disabled}
-          accessibilityLabel={getRedeemLandingAccountAccessibilityLabel({
-            accountLabel,
-            displayEmail,
-            oauthProviderNames,
-          })}
+          accessibilityLabel={
+            oauthProviderNames.length
+              ? `${oauthProviderNames.join(' · ')} · ${displayEmailLabel}`
+              : displayEmailLabel
+          }
         >
           <RedeemLandingAccountIcons oauthProviders={oauthProviders} />
           <SizableText
@@ -357,7 +350,7 @@ function RedeemLandingEmailChip({
             ellipsizeMode="middle"
             flexShrink={1}
           >
-            {accountLabel}
+            {displayEmailLabel}
           </SizableText>
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
@@ -397,7 +390,6 @@ function PrimeRedeemFormSection({
   initialCode,
   isLoginLoading,
   isPrimeActiveBeforeRedeem,
-  nickname,
   onekeyAccount,
   onLogin,
 }: {
@@ -407,7 +399,6 @@ function PrimeRedeemFormSection({
   initialCode: string;
   isLoginLoading: boolean;
   isPrimeActiveBeforeRedeem: boolean;
-  nickname: string | undefined;
   onekeyAccount: IOneKeyIdAccount | undefined;
   onLogin: () => void;
 }) {
@@ -447,48 +438,15 @@ function PrimeRedeemFormSection({
   }, [isPrimeActiveBeforeRedeem, redemptionResult]);
 
   const maskedEmail = maskRedeemLandingEmail(displayEmail);
-  const { oauthProviders } = getRedeemLandingOAuthIdentity(onekeyAccount);
-  const successAccountLabel = getRedeemLandingSuccessAccountLabel({
-    displayEmail,
-    intl,
-    maskedEmail,
-    nickname,
-  });
 
   if (redemptionResult) {
     return (
       <RedeemLandingLayout showDownload={false}>
         <RedeemLandingContent testID={PrimeTestIDs.redemptionSuccess}>
           <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
-          <YStack gap="$1.5" width="100%" alignItems="center">
-            <XStack
-              testID={PrimeTestIDs.redemptionSuccessAccount}
-              alignItems="center"
-              justifyContent="center"
-              gap="$1.5"
-              maxWidth="100%"
-            >
-              <RedeemLandingAccountIcons oauthProviders={oauthProviders} />
-              <SizableText
-                size="$bodyMd"
-                textAlign="center"
-                numberOfLines={1}
-                ellipsizeMode="middle"
-                flexShrink={1}
-              >
-                {successAccountLabel}
-              </SizableText>
-            </XStack>
-            {shouldShowRedeemLandingMaskedEmail({
-              accountLabel: successAccountLabel,
-              maskedEmail,
-              nickname,
-            }) ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-              >
+          <YStack gap="$1.5" width="100%">
+            {maskedEmail ? (
+              <SizableText size="$bodyMd" textAlign="center">
                 {maskedEmail}
               </SizableText>
             ) : null}
@@ -509,15 +467,6 @@ function PrimeRedeemFormSection({
               })}
             </Button>
           </RedeemLandingAction>
-          <Button
-            variant="tertiary"
-            testID={PrimeTestIDs.redemptionDoneBtn}
-            onPress={goToWebHome}
-          >
-            {intl.formatMessage({
-              id: ETranslations.redemption_done_button,
-            })}
-          </Button>
         </RedeemLandingContent>
       </RedeemLandingLayout>
     );
@@ -533,7 +482,6 @@ function PrimeRedeemFormSection({
               <RedeemLandingEmailChip
                 disabled={isSubmitting}
                 displayEmail={displayEmail}
-                nickname={nickname}
                 onekeyAccount={onekeyAccount}
                 onLogout={handleLogout}
               />
@@ -657,7 +605,6 @@ function PrimeRedeemLandingPage() {
                 isPrimeActiveBeforeRedeem={Boolean(
                   user?.primeSubscription?.isActive,
                 )}
-                nickname={user?.nickname}
                 onekeyAccount={user?.onekeyAccount}
                 onLogin={handleLogin}
               />
