@@ -1,30 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
-  Icon,
+  ColorPicker,
   Input,
+  SegmentSlider,
   SizableText,
-  Slider,
   Stack,
   XStack,
-  YStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  TRADING_VIEW_CHART_BG,
-  TRADING_VIEW_CHART_SELECT_BG,
-  TRADING_VIEW_CHART_SELECT_BORDER,
-  TRADING_VIEW_CHART_TEXT,
-  TRADING_VIEW_LINE_PREVIEW_DASHES,
-  TradingViewChartCheckbox,
-  TradingViewChartColorPicker,
-  TradingViewChartSelectMock,
-  TradingViewChartSolidSwatch,
-} from './TradingViewSettingsShared';
+  SettingsCheckboxRow,
+  SettingsColorField,
+  SettingsColorPicker,
+  SettingsRow,
+  SettingsSelect,
+} from './TradingViewSettingsPrimitives';
+import { TRADING_VIEW_SETTINGS_COLOR_PALETTE } from './TradingViewSettingsShared';
+import {
+  resolveTradingViewSettingsThemeColor,
+  useTradingViewSettingsThemeColors,
+} from './TradingViewSettingsThemeColors';
 
 import type {
   ITradingViewSettingsMockColorRole,
@@ -32,26 +33,34 @@ import type {
   ITradingViewSettingsMockLineStyle,
   ITradingViewSettingsMockNumberParam,
 } from './TradingViewSettingsMockState';
-const TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH = 136;
-const TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
-const TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;
+
+const TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH = 128;
+// Same footprint as the settings dialog's line preview (`$8` wide, 2px tall).
+const TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH = 32;
+const TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES = [0, 1, 2, 3, 4, 5];
 const TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] =
   ['solid', 'medium', 'bold', 'extraBold'];
+const TRADING_VIEW_INDICATOR_SECONDARY_STYLE_OPTIONS = [
+  'solid',
+  'dashed',
+] as const satisfies readonly ITradingViewSettingsMockLineStyle[];
+const TRADING_VIEW_INDICATOR_OPACITY_SEGMENTS = 4;
 
 function TradingViewIndicatorLinePreview({
   style,
-  color = TRADING_VIEW_CHART_TEXT,
-  width = 76,
 }: {
   style: ITradingViewSettingsMockLineStyle;
-  color?: string;
-  width?: number;
 }) {
   if (style === 'dashed') {
     return (
-      <XStack w={width} h={2} gap={4} alignItems="center">
-        {TRADING_VIEW_LINE_PREVIEW_DASHES.map((dash) => (
-          <Stack key={dash} w={6} h={1} bg={color} />
+      <XStack
+        w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
+        h={2}
+        gap="$0.5"
+        alignItems="center"
+      >
+        {TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES.map((dash) => (
+          <Stack key={dash} w="$1" h={2} bg="$iconSubdued" />
         ))}
       </XStack>
     );
@@ -59,9 +68,14 @@ function TradingViewIndicatorLinePreview({
 
   if (style === 'dotted') {
     return (
-      <XStack w={width} h={2} gap={6} alignItems="center">
-        {TRADING_VIEW_LINE_PREVIEW_DASHES.map((dot) => (
-          <Stack key={dot} w={2} h={2} borderRadius={1} bg={color} />
+      <XStack
+        w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
+        h={2}
+        gap="$1"
+        alignItems="center"
+      >
+        {TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES.map((dot) => (
+          <Stack key={dot} w={2} h={2} borderRadius="$full" bg="$iconSubdued" />
         ))}
       </XStack>
     );
@@ -74,82 +88,108 @@ function TradingViewIndicatorLinePreview({
     extraBold: 4,
   }[style];
 
-  return <Stack w={width} h={lineHeight} bg={color} />;
+  return (
+    <Stack
+      w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
+      h={lineHeight}
+      bg="$iconSubdued"
+    />
+  );
 }
 
-function TradingViewIndicatorLineStyleSelect({
-  value,
+function TradingViewIndicatorCheckerColorTrigger({
   testID,
+  color,
+  checkerColor,
+  disabled,
+  onPress,
+}: {
+  testID?: string;
+  color: string;
+  checkerColor: string;
+  disabled?: boolean;
+  // The ColorPicker popover clones its trigger element to inject the press
+  // handler, the same way the design-system default trigger receives it.
+  onPress?: IStackProps['onPress'];
+}) {
+  return (
+    <Stack
+      testID={testID}
+      w={32}
+      h={32}
+      p="$1"
+      borderRadius="$2"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+      bg="$bgStrong"
+      opacity={disabled ? 0.5 : 1}
+      cursor={disabled ? 'default' : 'pointer'}
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+    >
+      <Stack
+        flex={1}
+        borderRadius="$1"
+        style={{
+          background: `repeating-conic-gradient(${color} 0% 25%, ${checkerColor} 0% 50%) 50% / 6px 6px`,
+        }}
+      />
+    </Stack>
+  );
+}
+
+function TradingViewIndicatorColorPicker({
+  testID,
+  value,
+  pattern,
   onChange,
 }: {
-  value: ITradingViewSettingsMockLineStyle;
   testID?: string;
-  onChange: (value: ITradingViewSettingsMockLineStyle) => void;
+  value: string;
+  pattern?: 'checker';
+  onChange: (value: string) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const themeColors = useTradingViewSettingsThemeColors();
+  const themeName = useThemeName();
+
+  if (pattern !== 'checker') {
+    return (
+      <SettingsColorPicker
+        testID={testID}
+        value={value}
+        disabled={false}
+        onChange={onChange}
+      />
+    );
+  }
+
+  // Band fills keep their checker swatch so a translucent fill reads as one;
+  // the trigger frame matches the design-system ColorPicker trigger.
+  const resolvedValue = resolveTradingViewSettingsThemeColor(
+    value,
+    themeColors,
+  );
+  const checkerColor =
+    themeName === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
 
   return (
-    <Stack position="relative" zIndex={isOpen ? 30 : 1}>
-      <XStack
-        testID={testID}
-        w={120}
-        h={34}
-        px={12}
-        alignItems="center"
-        justifyContent="space-between"
-        borderRadius={6}
-        borderWidth={1}
-        borderColor={
-          isOpen ? '$borderActive' : TRADING_VIEW_CHART_SELECT_BORDER
-        }
-        bg={TRADING_VIEW_CHART_SELECT_BG}
-        hoverStyle={{ borderColor: '$borderStrong', bg: '$bgStrongHover' }}
-        pressStyle={{ bg: '$bgStrongActive' }}
-        cursor="pointer"
-        onPress={() => setIsOpen((current) => !current)}
-      >
-        <TradingViewIndicatorLinePreview style={value} />
-        <Icon
-          name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-          size="$4"
-          color="$icon"
+    <ColorPicker
+      value={value}
+      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
+      columns={5}
+      triggerSize={32}
+      testID={testID}
+      onChange={onChange}
+      renderTrigger={({ disabled }) => (
+        <TradingViewIndicatorCheckerColorTrigger
+          testID={testID ? `${testID}-trigger` : undefined}
+          color={resolvedValue}
+          checkerColor={checkerColor}
+          disabled={disabled}
         />
-      </XStack>
-      {isOpen ? (
-        <YStack
-          position="absolute"
-          top={42}
-          left={0}
-          w={120}
-          overflow="hidden"
-          borderRadius={6}
-          bg="$bgSubdued"
-          zIndex={100}
-        >
-          {TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.map((option) => (
-            <XStack
-              key={option}
-              h={33}
-              px={13}
-              alignItems="center"
-              bg="$bgSubdued"
-              hoverStyle={{ bg: '$bgStrongHover' }}
-              cursor="pointer"
-              onPress={() => {
-                onChange(option);
-                setIsOpen(false);
-              }}
-            >
-              <TradingViewIndicatorLinePreview
-                style={option}
-                color="$text"
-                width={94}
-              />
-            </XStack>
-          ))}
-        </YStack>
-      ) : null}
-    </Stack>
+      )}
+    />
   );
 }
 
@@ -248,77 +288,38 @@ function TradingViewIndicatorNumberInput({
   );
 
   return (
-    <XStack
-      w={120}
-      h={32}
-      overflow="hidden"
-      alignItems="center"
-      borderRadius={6}
-      bg={TRADING_VIEW_CHART_SELECT_BG}
-      hoverStyle={{ bg: '$bgStrongHover' }}
-    >
-      <Input
-        testID="trading-view-indicator-number-input"
-        size="small"
-        value={inputValue}
-        keyboardType="decimal-pad"
-        returnKeyType="done"
-        selectTextOnFocus
-        autoCorrect={false}
-        fontSize={14}
-        color={TRADING_VIEW_CHART_TEXT}
-        containerProps={{
-          flex: 1,
-          h: 32,
-          borderWidth: 0,
-          borderRadius: 0,
-          bg: 'transparent',
-        }}
-        InputComponentStyle={{
-          h: 32,
-          px: 11,
-          py: 0,
-          bg: 'transparent',
-        }}
-        onChangeText={setInputValue}
-        onBlur={commitInputValue}
-        onSubmitEditing={commitInputValue}
-      />
-      <YStack w={24} h={32} borderLeftWidth={1} borderLeftColor="$borderStrong">
-        <Stack
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{ bg: '$bgStrongHover' }}
-          pressStyle={{ bg: '$bgStrongActive' }}
-          cursor="pointer"
-          onPress={() => stepInputValue(1)}
-        >
-          <Icon name="ChevronTopSmallOutline" size="$4" color="$iconSubdued" />
-        </Stack>
-        <Stack h={1} bg="$borderStrong" />
-        <Stack
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{ bg: '$bgStrongHover' }}
-          pressStyle={{ bg: '$bgStrongActive' }}
-          cursor="pointer"
-          onPress={() => stepInputValue(-1)}
-        >
-          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
-        </Stack>
-      </YStack>
-    </XStack>
+    <Input
+      testID="trading-view-indicator-number-input"
+      size="small"
+      containerProps={{ w: TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH }}
+      value={inputValue}
+      keyboardType="decimal-pad"
+      returnKeyType="done"
+      selectTextOnFocus
+      autoCorrect={false}
+      addOns={[
+        {
+          testID: 'trading-view-indicator-number-input-increment',
+          iconName: 'ChevronTopSmallOutline',
+          onPress: () => stepInputValue(1),
+        },
+        {
+          testID: 'trading-view-indicator-number-input-decrement',
+          iconName: 'ChevronDownSmallOutline',
+          onPress: () => stepInputValue(-1),
+        },
+      ]}
+      onChangeText={setInputValue}
+      onBlur={commitInputValue}
+      onSubmitEditing={commitInputValue}
+    />
   );
 }
 
 export function TradingViewIndicatorParameterRow({
-  compact = false,
   parameters,
   onChange,
 }: {
-  compact?: boolean;
   parameters: ITradingViewSettingsMockNumberParam[];
   onChange: (parameterId: string, value: number) => void;
 }) {
@@ -328,23 +329,11 @@ export function TradingViewIndicatorParameterRow({
   }
 
   return (
-    <XStack
-      h={compact ? undefined : 48}
-      minHeight={48}
-      py={compact ? 8 : undefined}
-      rowGap={compact ? 8 : undefined}
-      flexWrap={compact ? 'wrap' : 'nowrap'}
-      alignItems="center"
+    <SettingsRow
+      label={firstParameter.rowLabel ?? firstParameter.label}
+      testID={`trading-view-indicator-parameter-${firstParameter.rowId ?? firstParameter.id}`}
     >
-      <SizableText
-        w={compact ? '100%' : TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH}
-        fontSize={14}
-        lineHeight={18}
-        color={TRADING_VIEW_CHART_TEXT}
-      >
-        {firstParameter.rowLabel ?? firstParameter.label}
-      </SizableText>
-      <XStack gap={8}>
+      <XStack gap="$2" alignItems="center" flexWrap="wrap" flexShrink={1}>
         {parameters.map((parameter) => (
           <TradingViewIndicatorNumberInput
             key={parameter.id}
@@ -356,7 +345,7 @@ export function TradingViewIndicatorParameterRow({
           />
         ))}
       </XStack>
-    </XStack>
+    </SettingsRow>
   );
 }
 
@@ -382,18 +371,14 @@ export function groupTradingViewIndicatorParameters(
 }
 
 export function TradingViewIndicatorLineRow({
-  compact = false,
   line,
-  colorPickerPlacement,
   onToggleLine,
   onPeriodChange,
   onStyleChange,
   onSecondaryStyleChange,
   onColorChange,
 }: {
-  compact?: boolean;
   line: ITradingViewSettingsMockLine;
-  colorPickerPlacement: 'bottom' | 'top';
   onToggleLine: (lineId: string, enabled: boolean) => void;
   onPeriodChange: (lineId: string, period: number) => void;
   onStyleChange: (
@@ -412,42 +397,12 @@ export function TradingViewIndicatorLineRow({
   const showStyle = line.showStyle !== false;
   const showColor = line.showColor !== false;
   const showSecondaryStyle = line.showSecondaryStyle === true;
-  const solidLineLabel = intl.formatMessage({
-    id: ETranslations.market_chart_settings__solid_line,
+  const lineStyleTitle = intl.formatMessage({
+    id: ETranslations.market_chart_settings__line_style,
   });
-  const dashedLineLabel = intl.formatMessage({
-    id: ETranslations.market_chart_indicator_dashed_line__label,
-  });
-  const secondaryStyleOptions = [solidLineLabel, dashedLineLabel];
 
-  return (
-    <XStack
-      h={compact ? undefined : 48}
-      minHeight={48}
-      py={compact ? 8 : undefined}
-      rowGap={compact ? 8 : undefined}
-      flexWrap={compact ? 'wrap' : 'nowrap'}
-      alignItems="center"
-    >
-      <XStack
-        w={compact ? '100%' : TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH}
-        alignItems="center"
-      >
-        {showCheckbox ? (
-          <TradingViewChartCheckbox
-            checked={line.enabled}
-            onChange={(checked) => onToggleLine(line.id, checked)}
-          />
-        ) : null}
-        <SizableText
-          ml={showCheckbox ? 12 : 0}
-          fontSize={14}
-          lineHeight={18}
-          color={TRADING_VIEW_CHART_TEXT}
-        >
-          {line.label}
-        </SizableText>
-      </XStack>
+  const controls = (
+    <XStack gap="$3" alignItems="center" flexWrap="wrap" flexShrink={1}>
       {showPeriod ? (
         <TradingViewIndicatorNumberInput
           value={line.period}
@@ -456,61 +411,73 @@ export function TradingViewIndicatorLineRow({
         />
       ) : null}
       {showStyle ? (
-        <Stack ml={8}>
-          <TradingViewIndicatorLineStyleSelect
-            value={line.style}
-            testID={`trading-view-indicator-line-style-${line.id}`}
-            onChange={(style) => onStyleChange(line.id, style)}
-          />
-        </Stack>
+        <SettingsSelect
+          testID={`indicator-line-style-${line.id}`}
+          title={lineStyleTitle}
+          value={line.style}
+          options={TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS}
+          disabled={false}
+          renderTriggerContent={(style) => (
+            <TradingViewIndicatorLinePreview style={style} />
+          )}
+          renderOption={(style) => (
+            <TradingViewIndicatorLinePreview style={style} />
+          )}
+          onChange={(style) => onStyleChange(line.id, style)}
+        />
       ) : null}
       {showColor ? (
-        <Stack
-          ml={
-            compact
-              ? 8
-              : (line.colorOffset ?? (showPeriod || showStyle ? 8 : 0))
-          }
-        >
-          <TradingViewChartColorPicker
-            placement={line.colorPickerPlacement ?? colorPickerPlacement}
-            align="right"
-            pattern={line.colorPattern}
-            value={line.color}
-            testID={`trading-view-indicator-color-${line.id}`}
-            onChange={(color) => onColorChange(line.id, color)}
-          />
-        </Stack>
+        <TradingViewIndicatorColorPicker
+          testID={`trading-view-indicator-color-${line.id}`}
+          value={line.color}
+          pattern={line.colorPattern}
+          onChange={(color) => onColorChange(line.id, color)}
+        />
       ) : null}
       {showSecondaryStyle ? (
-        <Stack ml={8}>
-          <TradingViewChartSelectMock
-            value={
-              line.secondaryStyle === 'dashed'
-                ? dashedLineLabel
-                : solidLineLabel
-            }
-            width={97}
-            options={secondaryStyleOptions}
-            showLinePreview
-            getLinePreviewVariant={(value) =>
-              value === dashedLineLabel ? 'dashed' : 'solid'
-            }
-            onChange={(value) =>
-              onSecondaryStyleChange(
-                line.id,
-                value === dashedLineLabel ? 'dashed' : 'solid',
-              )
-            }
-          />
-        </Stack>
+        <SettingsSelect
+          testID={`indicator-line-secondary-style-${line.id}`}
+          title={lineStyleTitle}
+          value={line.secondaryStyle === 'dashed' ? 'dashed' : 'solid'}
+          options={TRADING_VIEW_INDICATOR_SECONDARY_STYLE_OPTIONS}
+          // Keep the indicator's own "Dashed Line" copy; the shared settings
+          // map labels `dashed` as "Dotted line".
+          optionTranslationIds={{
+            dashed: ETranslations.market_chart_indicator_dashed_line__label,
+          }}
+          disabled={false}
+          showLinePreview
+          onChange={(style) => onSecondaryStyleChange(line.id, style)}
+        />
       ) : null}
     </XStack>
+  );
+
+  if (showCheckbox) {
+    return (
+      <SettingsCheckboxRow
+        label={line.label}
+        testID={`indicator-line-${line.id}`}
+        value={line.enabled}
+        disabled={false}
+        onChange={(enabled) => onToggleLine(line.id, enabled)}
+      >
+        {controls}
+      </SettingsCheckboxRow>
+    );
+  }
+
+  return (
+    <SettingsRow
+      label={line.label}
+      testID={`trading-view-indicator-line-${line.id}`}
+    >
+      {controls}
+    </SettingsRow>
   );
 }
 
 export function TradingViewIndicatorOpacitySlider({
-  compact = false,
   value,
   label,
   upColor,
@@ -518,7 +485,6 @@ export function TradingViewIndicatorOpacitySlider({
   onChange,
   onColorChange,
 }: {
-  compact?: boolean;
   value: number;
   label: string;
   upColor: string;
@@ -529,138 +495,56 @@ export function TradingViewIndicatorOpacitySlider({
     color: string,
   ) => void;
 }) {
-  const points = [0, 25, 50, 75, 100];
-  const [isSliderHovered, setIsSliderHovered] = useState(false);
-  const [isSliderDragging, setIsSliderDragging] = useState(false);
-  const isCurrentPointActive = isSliderHovered || isSliderDragging;
-  const currentPointSize = isCurrentPointActive ? 12 : 8;
-  const sliderWidth = compact
-    ? TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH
-    : TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH;
-  const sliderTouchWidth = sliderWidth + 16;
-  const handleSliderPointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const pointerX = event.clientX - bounds.left;
-      const currentPointX = 8 + (value / 100) * sliderWidth;
-      setIsSliderHovered(Math.abs(pointerX - currentPointX) <= 8);
-    },
-    [sliderWidth, value],
-  );
+  const intl = useIntl();
 
   return (
-    <YStack mt={18} gap={8}>
-      <XStack alignItems="center" justifyContent="space-between">
-        <SizableText
-          fontSize={14}
-          lineHeight={18}
-          color={TRADING_VIEW_CHART_TEXT}
-        >
-          {label}
-        </SizableText>
-        <XStack gap={18}>
-          <TradingViewChartSolidSwatch
-            color={upColor}
-            placement="top"
-            align="right"
-            bare
+    <>
+      <SettingsRow label={label} testID="trading-view-indicator-opacity-row">
+        <XStack gap="$3" alignItems="center" flexWrap="wrap" flexShrink={1}>
+          <SettingsColorField
+            label={intl.formatMessage({
+              id: ETranslations.market_chart_settings__up,
+            })}
+            testID="trading-view-indicator-opacity-up-color"
+            value={upColor}
+            disabled={false}
             onChange={(color) => onColorChange('up', color)}
           />
-          <TradingViewChartSolidSwatch
-            color={downColor}
-            placement="top"
-            align="right"
-            bare
+          <SettingsColorField
+            label={intl.formatMessage({
+              id: ETranslations.market_chart_settings__down,
+            })}
+            testID="trading-view-indicator-opacity-down-color"
+            value={downColor}
+            disabled={false}
             onChange={(color) => onColorChange('down', color)}
           />
         </XStack>
-      </XStack>
-      <XStack h={34} position="relative" alignItems="center">
-        <Stack w={sliderWidth} h={2} position="relative" bg="$borderStrong">
-          <Stack w={(value / 100) * sliderWidth} h={2} bg="$text" />
+      </SettingsRow>
+      {/* Same inset as a settings row so the track lines up with the labels. */}
+      <XStack mx="$2.5" px="$2.5" py="$1.5" gap="$4" alignItems="center">
+        {/* SegmentSlider takes no testID, so the wrapper carries it. */}
+        <Stack testID="trading-view-indicator-opacity-slider" flex={1}>
+          <SegmentSlider
+            min={0}
+            max={100}
+            segments={TRADING_VIEW_INDICATOR_OPACITY_SEGMENTS}
+            sliderHeight={2}
+            showBubble={false}
+            value={value}
+            onChange={(nextValue) => onChange(Math.round(nextValue))}
+          />
         </Stack>
         <SizableText
           testID="trading-view-indicator-opacity-value"
-          ml={compact ? 12 : 28}
-          fontSize={14}
-          lineHeight={18}
-          color={TRADING_VIEW_CHART_TEXT}
+          size="$bodyMd"
+          color="$textSubdued"
+          minWidth={44}
+          textAlign="right"
         >
           {value}%
         </SizableText>
-        {points.map((point) => (
-          <Stack
-            key={point}
-            position="absolute"
-            left={(point / 100) * sliderWidth - 4}
-            top={13}
-            w={8}
-            h={8}
-            borderRadius={4}
-            borderWidth={1}
-            borderColor={point < value ? '$text' : '$borderStrong'}
-            bg={TRADING_VIEW_CHART_BG}
-            pointerEvents="none"
-          />
-        ))}
-        <Stack
-          position="absolute"
-          left={(value / 100) * sliderWidth - currentPointSize / 2}
-          top={17 - currentPointSize / 2}
-          w={currentPointSize}
-          h={currentPointSize}
-          borderRadius={currentPointSize / 2}
-          borderWidth={2}
-          borderColor="$text"
-          bg={TRADING_VIEW_CHART_BG}
-          pointerEvents="none"
-        />
-        <Stack
-          position="absolute"
-          top={0}
-          left={-8}
-          w={sliderTouchWidth}
-          h={34}
-          opacity={0.001}
-          cursor="pointer"
-          onPointerEnter={(event) =>
-            handleSliderPointerMove(
-              event as unknown as PointerEvent<HTMLDivElement>,
-            )
-          }
-          onPointerMove={handleSliderPointerMove}
-          onPointerLeave={() => setIsSliderHovered(false)}
-        >
-          <Slider
-            testID="trading-view-indicator-opacity-slider"
-            w={sliderTouchWidth}
-            h={34}
-            min={0}
-            max={100}
-            step={1}
-            value={value}
-            onChange={(nextValue) => onChange(Math.round(nextValue))}
-            onSlideStart={() => setIsSliderDragging(true)}
-            onSlideEnd={() => setIsSliderDragging(false)}
-          />
-        </Stack>
       </XStack>
-      <XStack w={sliderWidth} justifyContent="space-between">
-        <SizableText
-          fontSize={12}
-          lineHeight={14}
-          color={TRADING_VIEW_CHART_TEXT}
-        >
-          0
-        </SizableText>
-        <SizableText
-          fontSize={12}
-          lineHeight={14}
-          color={TRADING_VIEW_CHART_TEXT}
-        >
-          100%
-        </SizableText>
-      </XStack>
-    </YStack>
+    </>
   );
 }
