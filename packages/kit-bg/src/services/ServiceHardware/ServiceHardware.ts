@@ -2611,8 +2611,11 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     refreshInfo?: boolean;
   }): Promise<IDeviceManagementSnapshot> {
-    const hardwareCallContext =
-      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    // The post-update refresh may run while USB is still re-enumerating.
+    // Keep it on the current transport without raising BLE pairing errors.
+    const hardwareCallContext = refreshInfo
+      ? EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+      : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext,
@@ -3368,19 +3371,19 @@ class ServiceHardware extends ServiceBase {
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      // Check the reachable device before the update page asks the user to connect USB.
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
     });
     const { connectId: compatibleConnectId, transportType } = resolvedTransport;
-    const forceProtocolDetection =
-      transportType === EHardwareTransportType.DesktopWebBle;
+    const isDesktopBle = transportType === EHardwareTransportType.DesktopWebBle;
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
           params: {
             retryCount: 1,
-            forceProtocolDetection,
-            ...(forceProtocolDetection
+            // Update checks reuse the protocol confirmed during connection.
+            ...(isDesktopBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
           },

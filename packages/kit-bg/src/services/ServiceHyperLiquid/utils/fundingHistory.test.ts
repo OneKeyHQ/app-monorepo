@@ -1,11 +1,14 @@
 import { HttpRequestError } from '@nktkas/hyperliquid';
 
+import { PERP_USER_FUNDING_HISTORY_LIMIT } from '@onekeyhq/shared/src/consts/perp';
+import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   PERP_FUNDING_HISTORY_PAGE_SIZE,
   fetchFundingPageWithRetry,
   fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
 } from './fundingHistory';
 
 jest.mock('@nktkas/hyperliquid', () => ({
@@ -30,6 +33,59 @@ function buildRecords(
     time: startTime + index,
   }));
 }
+
+describe('fetchRecentUserFundingHistory', () => {
+  const buildUserRecords = (count: number): IUserFunding[] =>
+    Array.from({ length: count }, (_, index) => ({
+      time: index + 1,
+      hash: `0x${index.toString(16)}`,
+      delta: {
+        type: 'funding',
+        coin: 'BTC',
+        szi: '1',
+        usdc: '0.01',
+        fundingRate: '0.00001',
+        nSamples: null,
+      },
+    }));
+
+  it('loads once and retains the newest records without an age cutoff', async () => {
+    const page = buildUserRecords(PERP_USER_FUNDING_HISTORY_LIMIT + 1);
+    const fetchRecent = jest.fn().mockResolvedValue(page);
+    const result = await fetchRecentUserFundingHistory(fetchRecent);
+
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+    expect(fetchRecent).toHaveBeenCalledWith();
+    expect(result).toHaveLength(PERP_USER_FUNDING_HISTORY_LIMIT);
+    expect(result[0]).toEqual(page.at(-1));
+    expect(result.at(-1)).toEqual(page[1]);
+    expect(page[0].time).toBe(1);
+  });
+
+  it('does not paginate a full recent response', async () => {
+    const fetchRecent = jest
+      .fn()
+      .mockResolvedValue(buildUserRecords(PERP_USER_FUNDING_HISTORY_LIMIT));
+    await fetchRecentUserFundingHistory(fetchRecent);
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an empty history without additional requests', async () => {
+    const fetchRecent = jest.fn().mockResolvedValue([]);
+    await expect(fetchRecentUserFundingHistory(fetchRecent)).resolves.toEqual(
+      [],
+    );
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves failures so callers can retain their last successful result', async () => {
+    await expect(
+      fetchRecentUserFundingHistory(
+        jest.fn().mockRejectedValue(new Error('offline')),
+      ),
+    ).rejects.toThrow('offline');
+  });
+});
 
 describe('fetchPerpFundingHistoryPages', () => {
   it('continues after a full page without repeating the inclusive boundary', async () => {
