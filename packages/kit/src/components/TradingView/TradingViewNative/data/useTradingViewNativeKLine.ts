@@ -4098,6 +4098,11 @@ export function useTradingViewNativeKLine({
           }
           const points = normalizeKLinePoints(data.points);
           if (!points.length) {
+            if (sourceKind === 'stock' && !data.points.length) {
+              // The stock provider already scanned the empty history windows.
+              lastError = new OneKeyLocalError('No candle data is available');
+              break;
+            }
             throw new OneKeyLocalError('No candle data is available');
           }
           initialData = data;

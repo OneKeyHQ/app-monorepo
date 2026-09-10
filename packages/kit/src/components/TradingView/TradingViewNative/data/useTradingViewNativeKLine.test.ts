@@ -12,6 +12,7 @@ import {
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -19,6 +20,7 @@ import type {
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
+import { createTradingViewNativeStockDataProvider } from './providers/stock/stockDataProvider';
 import { emitTradingViewNativeDebugEvent } from './tradingViewNativeDebugLogger';
 import {
   readTradingViewNativeActiveInterval,
@@ -42,6 +44,13 @@ const mockFetchHistory = jest.fn<
   Promise<ITradingViewNativeHistoryResponse | null>,
   [ITradingViewNativeHistoryRequest]
 >();
+
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData',
+  () => ({
+    fetchMarketStockKLineData: jest.fn(),
+  }),
+);
 const mockHasMoreHistory = jest.fn<
   boolean,
   [ITradingViewNativeHistoryPageInfo]
@@ -267,6 +276,64 @@ describe('TradingViewNative K-line data state machine', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('stops after one empty stock scan and allows a manual retry', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockResolvedValue({ pointType: 'ohlc', points: [], total: 0 });
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.dataState.status).toBe('error');
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    act(() => result.current.handleRetry());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.points).toHaveLength(1);
+    expect(fetchStock).toHaveBeenCalledTimes(9);
+  });
+
+  it('retries stock transport failures before accepting history', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockRejectedValueOnce(new Error('Network unavailable'));
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(2);
+    expect(result.current.points).toHaveLength(1);
   });
 
   it.each(['1W', '1M'] as const)(
