@@ -19750,6 +19750,7 @@
     "packages/kit/src/components/KeylessWallet/useKeylessWallet.tsx": 4121,
     "packages/kit/src/components/LastActivityTracker/index.ts": 15596,
     "packages/kit/src/components/LastActivityTracker/installAttribution.android.ts": 10777,
+    "packages/kit/src/components/LastActivityTracker/installAttribution.ios.ts": 3469,
     "packages/kit/src/components/LastActivityTracker/installAttribution.ts": 13270,
     "packages/kit/src/components/LazyLoadPage/index.tsx": 16309,
     "packages/kit/src/components/LazyPageContainer/index.tsx": 705,
