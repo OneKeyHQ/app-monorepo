@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
 
+import type { IZcashSdkApi } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+
 import { OffscreenApiProxyBase } from '../OffscreenApiProxyBase';
 
 import type { IOffscreenApi } from './IOffscreenApi';
@@ -34,6 +36,10 @@ class OffscreenApiProxy extends OffscreenApiProxyBase implements IOffscreenApi {
       asyncThenSupport: true,
     },
   );
+
+  zcashSdk: IZcashSdkApi = this._createProxyModule('zcashSdk', undefined, {
+    asyncThenSupport: true,
+  });
 
   thirdPartyHardware: OffscreenApiThirdPartyHardware = this._createProxyModule(
     'thirdPartyHardware',

@@ -1,0 +1,1 @@
+export { runStorageBenchmark } from './storageBenchmark';

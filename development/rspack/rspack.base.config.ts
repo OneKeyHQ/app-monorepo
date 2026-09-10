@@ -95,6 +95,16 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+// The Zcash runtime ships wasm-pack `-t web` output whose wasm imports (`wbg`)
+// are supplied by the JS glue at runtime, so it must NOT be parsed as a webpack
+// wasm module (that fails with "Can't resolve 'wbg'"). Emit it as a URL asset
+// and let the glue fetch it — same treatment as canvaskit / kaspa's `.wasm.bin`.
+const ZCASH_WASM_TEST =
+  /onekey_zcash_(runtime|keys|storage_benchmark)_bg\.wasm$/;
+const ZCASH_STORAGE_BENCHMARK_ENTRY =
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/storageBenchmarkEntry$';
+const ZCASH_STORAGE_BENCHMARK_ENABLED =
+  isDev || process.env.ZCASH_STORAGE_BENCHMARK === '1';
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -157,12 +167,29 @@ const baseResolve = ({
   configName,
   basePath,
   enableSentryMinimalCompat,
-}: IBaseResolveOptions): RspackOptions['resolve'] =>
-  createBaseResolveOptions({
+}: IBaseResolveOptions): RspackOptions['resolve'] => {
+  const resolve = createBaseResolveOptions({
     basePath,
     enableSentryMinimalCompat,
     extensions: createResolveExtensions({ platform, configName }),
   });
+  return {
+    ...resolve,
+    alias: {
+      ...(resolve?.alias as Record<string, unknown> | undefined),
+      // The storage benchmark pulls its own wasm; outside dev it resolves to
+      // a stub so the bundle never ships it.
+      ...(!ZCASH_STORAGE_BENCHMARK_ENABLED
+        ? {
+            [ZCASH_STORAGE_BENCHMARK_ENTRY]: path.join(
+              basePath,
+              '../../packages/core/src/chains/zcash/sdkZcash/impl/storageBenchmark.disabled.ts',
+            ),
+          }
+        : {}),
+    },
+  };
+};
 
 // Builds the full DefinePlugin map = webpack `transform-inline-environment-variables`
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
@@ -228,6 +255,18 @@ const buildBasePlugins: (
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
+  platform === 'web-embed' &&
+    new rspack.NormalModuleReplacementPlugin(
+      /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
+      (resource) => {
+        if (/[\\/]zcash[\\/]sdkZcash[\\/]sdk$/.test(resource.context)) {
+          resource.request = path.join(
+            basePath,
+            '../../packages/core/src/chains/zcash/sdkZcash/sdk/inlineWorkerRuntime.js',
+          );
+        }
+      },
+    ),
   !isDev &&
     platform === 'web' &&
     new rspack.NormalModuleReplacementPlugin(
@@ -454,8 +493,20 @@ export function createBaseConfig({
           generator: { filename: 'static/canvaskit/[name][ext]' },
         },
         {
+          test: ZCASH_WASM_TEST,
+          // web-embed runs from file:// in native WebViews, where fetch() cannot
+          // load file URLs — inline as a data: URI there (kaspa embeds base64
+          // for the same reason). Other platforms keep the fetchable file asset.
+          ...(platform === 'web-embed'
+            ? { type: 'asset/inline' as const }
+            : {
+                type: 'asset/resource' as const,
+                generator: { filename: 'static/zcash/[name][ext]' },
+              }),
+        },
+        {
           test: /\.wasm$/,
-          exclude: CANVASKIT_WASM_TEST,
+          exclude: [CANVASKIT_WASM_TEST, ZCASH_WASM_TEST],
           type: 'webassembly/async',
         },
         {
@@ -784,7 +835,17 @@ export function createBaseConfig({
           use: ['html-loader', 'template-ejs-loader'],
         },
         {
+          test: /zcashSdkInline\.worker\.js$/,
+          use: {
+            loader: 'worker-rspack-loader',
+            // WKWebView's file-backed page needs a self-contained Blob Worker.
+            // Do not also ship an unused copy of its embedded WASM assets.
+            options: { inline: 'no-fallback' },
+          },
+        },
+        {
           test: /\.worker\.(js|ts)$/,
+          exclude: /zcashSdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {

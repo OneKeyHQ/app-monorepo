@@ -31,6 +31,7 @@ export type INetworkShortCode =
   | 'fil'
   | 'dot'
   | 'kaspa'
+  | 'zec'
   | 'nexa'
   | 'nostr'
   | 'dnx'

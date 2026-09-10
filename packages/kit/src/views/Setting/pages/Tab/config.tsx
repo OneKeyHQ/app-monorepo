@@ -542,6 +542,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'privacy',
+                  icon: 'ShieldOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.trade_privacy_mode,
+                  }),
+                  testID: 'settings-wallet-privacy',
+                  settingRoute: EModalSettingRoutes.SettingPrivacy,
+                  onPress: (navigation) => {
+                    navigation?.push(EModalSettingRoutes.SettingPrivacy);
+                  },
+                },
+                {
                   id: 'address-book',
                   icon: 'ContactsOutline',
                   title: intl.formatMessage({

@@ -33,6 +33,7 @@ export function createWebEmbedConfig({
       /node_modules[\\/]@sentry(-internal)?[\\/]/,
       /node_modules[\\/]@onekeyfe[\\/]kaspa-wasm/,
       /node_modules[\\/]@revenuecat[\\/]purchases-js/,
+      /node_modules[\\/]onekey-zcash-(runtime|keys)/,
     ],
   });
   const entryConfig: RspackOptions = {
@@ -53,6 +54,11 @@ export function createWebEmbedConfig({
         {
           optimization: {
             splitChunks: false,
+            // The Zcash wasm glue and its emitted asset URL reference
+            // each other's hashed URLs; RealContentHashPlugin panics on the
+            // circular hash dependency. Module-graph hashing keeps filenames
+            // unique per build, which is enough for app-bundled assets.
+            realContentHash: false,
           },
           output: {
             publicPath: publicUrl || './',

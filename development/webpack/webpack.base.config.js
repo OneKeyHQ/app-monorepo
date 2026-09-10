@@ -20,6 +20,15 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+// The Zcash runtime ships wasm-pack `-t web` output whose wasm imports (`wbg`) are
+// supplied by the JS glue at runtime, so it must NOT be parsed as a webpack wasm
+// module. Emit it as a URL asset — same treatment as canvaskit / kaspa.
+const ZCASH_WASM_TEST =
+  /onekey_zcash_(runtime|keys|storage_benchmark)_bg\.wasm$/;
+const ZCASH_STORAGE_BENCHMARK_ENTRY =
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/storageBenchmarkEntry$';
+const ZCASH_STORAGE_BENCHMARK_ENABLED =
+  isDev || process.env.ZCASH_STORAGE_BENCHMARK === '1';
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -83,6 +92,14 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
     'bn.js$': require.resolve('bn.js'),
+    ...(!ZCASH_STORAGE_BENCHMARK_ENABLED
+      ? {
+          [ZCASH_STORAGE_BENCHMARK_ENTRY]: path.join(
+            basePath,
+            '../../packages/core/src/chains/zcash/sdkZcash/impl/storageBenchmark.disabled.ts',
+          ),
+        }
+      : {}),
   },
   fallback: {
     'crypto':
@@ -294,8 +311,13 @@ module.exports = ({ platform, basePath, configName }) => {
               generator: { filename: 'static/canvaskit/[name][ext]' },
             },
             {
+              test: ZCASH_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/zcash/[name][ext]' },
+            },
+            {
               test: /\.wasm$/,
-              exclude: CANVASKIT_WASM_TEST,
+              exclude: [CANVASKIT_WASM_TEST, ZCASH_WASM_TEST],
               type: 'webassembly/async',
             },
             {

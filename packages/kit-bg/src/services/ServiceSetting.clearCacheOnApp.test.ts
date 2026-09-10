@@ -41,7 +41,58 @@ const oneKeyIdOnlyValues: IClearCacheOnAppState = {
   signatureRecord: false,
 };
 
+const transactionHistoryOnlyValues: IClearCacheOnAppState = {
+  ...oneKeyIdOnlyValues,
+  oneKeyId: false,
+  transactionHistory: true,
+};
+
 describe('ServiceSetting.clearCacheOnApp', () => {
+  it('clears privacy-chain scanner history through the transaction history option', async () => {
+    const clearTransactionHistoryCache = jest.fn().mockResolvedValue(undefined);
+    const clearLocalHistory = jest.fn().mockResolvedValue(undefined);
+    const clearAddressInfo = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceSetting({
+      backgroundApi: {
+        simpleDb: {
+          appStatus: {},
+          localHistory: { clearRawData: clearLocalHistory },
+          addressInfo: { clearRawData: clearAddressInfo },
+        },
+        servicePrivacyChain: { clearTransactionHistoryCache },
+      },
+    });
+
+    await service.clearCacheOnApp(transactionHistoryOnlyValues);
+
+    expect(clearTransactionHistoryCache).toHaveBeenCalledTimes(1);
+    expect(clearLocalHistory).toHaveBeenCalledTimes(1);
+    expect(clearAddressInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('still clears generic history when a privacy-chain reset fails', async () => {
+    const error = new OneKeyLocalError('privacy reset failed');
+    const clearTransactionHistoryCache = jest.fn().mockRejectedValue(error);
+    const clearLocalHistory = jest.fn().mockResolvedValue(undefined);
+    const clearAddressInfo = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceSetting({
+      backgroundApi: {
+        simpleDb: {
+          appStatus: {},
+          localHistory: { clearRawData: clearLocalHistory },
+          addressInfo: { clearRawData: clearAddressInfo },
+        },
+        servicePrivacyChain: { clearTransactionHistoryCache },
+      },
+    });
+
+    await expect(
+      service.clearCacheOnApp(transactionHistoryOnlyValues),
+    ).rejects.toBe(error);
+    expect(clearLocalHistory).toHaveBeenCalledTimes(1);
+    expect(clearAddressInfo).toHaveBeenCalledTimes(1);
+  });
+
   it('marks OneKey ID logout failures for automatic toast and preserves the error', async () => {
     const error = new OneKeyLocalError('OneKey ID session read failed');
     const clearOneKeyIdLocalAuthCache = jest.fn().mockRejectedValue(error);

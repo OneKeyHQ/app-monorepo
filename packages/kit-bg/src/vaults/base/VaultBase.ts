@@ -29,6 +29,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
+  getOnChainHistoryTransferDisplayAddress,
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -77,7 +78,10 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -121,6 +125,7 @@ import type {
   IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
+import type { ILocalWalletCapability } from '../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -417,6 +422,13 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       valid: false,
     });
   }
+
+  // Client-scanned chains expose one capability object instead of adding
+  // inert hooks to every vault. The capability is the complete scheduler and
+  // UI contract; server-indexed chains simply return undefined.
+  getLocalWalletCapability(): ILocalWalletCapability | undefined {
+    return undefined;
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -564,6 +576,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({
       encodedTx,
     });
+  }
+
+  // Client-computed history source. Chains whose history the backend cannot
+  // index return their transactions here; a defined result
+  // replaces the server query in ServiceHistory entirely. Default: undefined
+  // = server-indexed chain, no behavior change.
+  async fetchAccountHistoryFromLocal(_params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+  }): Promise<IAccountHistoryTx[] | undefined> {
+    return undefined;
   }
 
   async buildFetchHistoryListParams(params: {
@@ -927,21 +952,29 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
+    const isShielded = transfer.type === EOnChainHistoryTransferType.Shielded;
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
-        key: transfer.key,
-        tokenAddress: transfer.token,
+        key: transfer.key ?? '',
+        tokenAddress: isShielded ? '' : (transfer.token ?? ''),
         tokens,
         nfts,
       });
 
     return {
-      from: transfer.from,
-      to: transfer.to,
-      tokenIdOnNetwork: transfer.token,
+      from: getOnChainHistoryTransferDisplayAddress({
+        transfer,
+        endpoint: 'from',
+      }),
+      to: getOnChainHistoryTransferDisplayAddress({
+        transfer,
+        endpoint: 'to',
+      }),
+      tokenIdOnNetwork: isShielded ? '' : (transfer.token ?? ''),
       amount: transfer.amount,
       label: transfer.label,
       isOwn: transfer.isOwn,
+      isShielded,
       icon,
       name,
       symbol,

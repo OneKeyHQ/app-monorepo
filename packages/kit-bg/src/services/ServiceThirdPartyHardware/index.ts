@@ -923,6 +923,43 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return hw.listInstalledApps(params.connectId);
   }
 
+  // Dev-only probe for the Ledger Zcash app (viewing key + shielded address).
+  // Typed locally until the adapter release carrying these methods is pinned.
+  @backgroundMethod()
+  async thirdPartyHardwareZcashProbe(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    path: string;
+    showOnDevice?: boolean;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+    }
+    const hw = adapter.hw as unknown as {
+      zcashGetFullViewingKey: (
+        connectId: string,
+        deviceId: string | null,
+        params: { path: string },
+      ) => Promise<{ success: boolean; payload: unknown }>;
+      zcashGetShieldedAddress: (
+        connectId: string,
+        deviceId: string | null,
+        params: { path: string; showOnDevice?: boolean },
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    const viewingKey = await hw.zcashGetFullViewingKey(params.connectId, null, {
+      path: params.path,
+    });
+    const shieldedAddress = await hw.zcashGetShieldedAddress(
+      params.connectId,
+      null,
+      { path: params.path, showOnDevice: params.showOnDevice },
+    );
+    return { viewingKey, shieldedAddress };
+  }
+
   @backgroundMethod()
   async thirdPartyHardwareListInstalledAppNames(params: {
     vendor: EHardwareVendor;

@@ -164,6 +164,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -175,6 +176,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     });
   }
 
@@ -312,6 +314,15 @@ class ServiceSend extends ServiceBase {
         params.networkId,
       );
       if (isLightningNetwork) {
+        return false;
+      }
+      // Networks the backend doesn't index can't be pre-checked server-side --
+      // the call always fails and the catch below would flag every send as
+      // high-fee.
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: params.networkId,
+      });
+      if (network.backendIndex === false) {
         return false;
       }
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -1500,6 +1511,7 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      transferPayload,
       wrappedInfo,
       swapInfo,
       stakingInfo,
@@ -1527,6 +1539,7 @@ class ServiceSend extends ServiceBase {
         encodedTx,
         approveInfo,
         transfersInfo,
+        transferPayload,
         wrappedInfo,
         swapInfo,
         specifiedFeeRate,

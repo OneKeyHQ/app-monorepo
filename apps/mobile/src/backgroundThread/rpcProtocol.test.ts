@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 
 import {
+  buildBackgroundThreadErrorResponse,
   buildSafeBackgroundThreadErrorData,
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadMainCapabilitiesPayload,
@@ -15,6 +16,49 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
+  it('preserves Zcash runtime payloads across response serialization', () => {
+    const error = Object.assign(new Error('INSUFFICIENT_FUNDS'), {
+      code: 'INSUFFICIENT_FUNDS',
+      payload: {
+        code: 'INSUFFICIENT_FUNDS',
+        params: { shortfallZat: 20_000 },
+        detail: 'proposal failed',
+      },
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      message: 'INSUFFICIENT_FUNDS',
+      code: 'INSUFFICIENT_FUNDS',
+      payload: error.payload,
+    });
+  });
+
+  it('preserves flat keys-runtime diagnostics without a payload wrapper', () => {
+    const error = Object.assign(new Error('PCZT_SIGN_FAILED'), {
+      code: 'PCZT_SIGN_FAILED',
+      params: { missingSignatures: 1 },
+      detail: 'one action was not signed',
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      code: 'PCZT_SIGN_FAILED',
+      params: error.params,
+      detail: error.detail,
+    });
+  });
+
   it('preserves hardware error identity across response serialization', () => {
     const payload = {
       connectId: 'CE:1F:0C:F1:CA:A9',

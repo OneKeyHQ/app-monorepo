@@ -527,7 +527,8 @@ export const isExtensionDevelopmentBuild: boolean =
 
 export const isManifestV3: boolean =
   // TODO firefox check v3
-  isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
+  isExtension &&
+  globalThis.chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 
 export const supportAutoUpdate: boolean =
   isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);

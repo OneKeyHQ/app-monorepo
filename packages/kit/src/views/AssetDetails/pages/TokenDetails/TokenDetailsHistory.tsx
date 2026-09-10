@@ -6,6 +6,7 @@ import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -34,6 +35,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  isPrivacyChainHistoryVisible,
+  projectPrivacyChainHistoryTxToPool,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
+import { privacyChainPerfSpan } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -61,7 +67,31 @@ function TokenDetailsHistoryContent({
     ListHeaderComponent,
     isTabView,
     inTabList,
+    privacyHistoryPoolId,
   } = props;
+  const { vaultSettings } = useAccountData({ networkId });
+  const isPrivateZcashPool =
+    privacyHistoryPoolId !== undefined &&
+    vaultSettings?.localWallet?.pools.find(
+      (pool) => pool.id === privacyHistoryPoolId,
+    )?.kind === 'private';
+
+  const { result: privacyModeState, run: refreshPrivacyModeState } =
+    usePromiseResult(
+      async () => {
+        if (!isPrivateZcashPool) return undefined;
+        return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
+          { networkId, accountId },
+        );
+      },
+      [accountId, networkId, isPrivateZcashPool],
+      {
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && (isTabView ? focusParam : true),
+      },
+    );
+  const isPrivateHistoryEnabled =
+    !isPrivateZcashPool || privacyModeState?.enabled === true;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
   const isRouteFocused = useRouteIsFocused();
@@ -85,6 +115,7 @@ function TokenDetailsHistoryContent({
         settings.isFilterScamHistoryEnabled ? '1' : '0',
         settings.isFilterLowValueHistoryEnabled ? '1' : '0',
         settings.currencyInfo.id,
+        isPrivateHistoryEnabled ? 'privacy-on' : 'privacy-off',
       ].join('_'),
     [
       accountId,
@@ -93,12 +124,11 @@ function TokenDetailsHistoryContent({
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
+      isPrivateHistoryEnabled,
     ],
   );
-  const cachedHistory = useMemo(
-    () => tokenHistoryCache.get(historyCacheKey),
-    [historyCacheKey],
-  );
+  const [, setHistoryCacheEpoch] = useState(0);
+  const cachedHistory = tokenHistoryCache.get(historyCacheKey);
 
   const [historyInit, setHistoryInit] = useState(cachedHistory !== undefined);
 
@@ -129,7 +159,7 @@ function TokenDetailsHistoryContent({
     reset: resetLoadMore,
     onFirstPageResponse,
   } = useHistoryListLoadMore({
-    enabled: true,
+    enabled: isPrivateHistoryEnabled,
     accountId,
     networkId,
     tokenIdOnNetwork: tokenInfo.address,
@@ -143,24 +173,43 @@ function TokenDetailsHistoryContent({
   // `run()` body so a slow stale response can't re-seed the load-more cursor
   // after `resetLoadMore()` ran.
   const fetchRequestIdRef = useRef(0);
-  const { result: tokenHistory, run } = usePromiseResult(
+  const {
+    result: tokenHistory,
+    run,
+    setResult,
+  } = usePromiseResult(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
       try {
-        const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId,
-          tokenIdOnNetwork: tokenInfo.address,
-          filterScam: settings.isFilterScamHistoryEnabled,
-          filterLowValue: settings.isFilterLowValueHistoryEnabled,
-          sourceCurrency: settings.currencyInfo.id,
-          currencyMap,
-        });
+        if (!isPrivateHistoryEnabled) {
+          tokenHistoryCache.delete(historyCacheKey);
+          onFirstPageResponse({
+            txs: [],
+            next: undefined,
+            hasMore: false,
+            isIndexer: false,
+          });
+          return [];
+        }
+        const r = await privacyChainPerfSpan(
+          'ui history fetch',
+          () =>
+            backgroundApiProxy.serviceHistory.fetchAccountHistory({
+              accountId,
+              networkId,
+              tokenIdOnNetwork: tokenInfo.address,
+              filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              currencyMap,
+            }),
+          (res) => ({ txs: res.txs?.length ?? 0 }),
+        );
         // Skip side effects if a newer fetch superseded this one.
         if (!isCurrentRequest()) {
-          return r.txs ?? [];
+          return undefined;
         }
         updateAddressesInfo({
           data: r.addressMap ?? {},
@@ -196,6 +245,7 @@ function TokenDetailsHistoryContent({
       recomputeLayout,
       historyCacheKey,
       onFirstPageResponse,
+      isPrivateHistoryEnabled,
     ],
     historyPromiseOptions,
   );
@@ -208,11 +258,37 @@ function TokenDetailsHistoryContent({
   }, [historyCacheKey, resetLoadMore]);
 
   const resolvedHistory = useMemo(() => {
+    if (!isPrivateHistoryEnabled) {
+      return [];
+    }
     const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
-    return appendedTxs.length
+    const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
-  }, [tokenHistory, cachedHistory, appendedTxs]);
+    if (privacyHistoryPoolId === undefined) {
+      return mergedHistory;
+    }
+    return mergedHistory
+      .filter((tx) =>
+        isPrivacyChainHistoryVisible({
+          txPoolIds: tx.privacyChainHistoryPoolIds,
+          txSide: tx.privacyChainHistorySide,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      )
+      .map((tx) =>
+        projectPrivacyChainHistoryTxToPool({
+          tx,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      );
+  }, [
+    tokenHistory,
+    cachedHistory,
+    appendedTxs,
+    isPrivateHistoryEnabled,
+    privacyHistoryPoolId,
+  ]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
@@ -227,7 +303,12 @@ function TokenDetailsHistoryContent({
     useFrozenTopHistoryData(resolvedHistory, frozenTopEnabled, historyCacheKey);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
-  const effectiveInit = historyInit || cachedHistory !== undefined;
+  const effectiveInit =
+    (isPrivateZcashPool && privacyModeState !== undefined
+      ? !isPrivateHistoryEnabled
+      : false) ||
+    historyInit ||
+    cachedHistory !== undefined;
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
@@ -280,11 +361,31 @@ function TokenDetailsHistoryContent({
 
   useEffect(() => {
     const reloadCallback = () => run({ alwaysSetState: true });
+    const refreshCallback = () => {
+      fetchRequestIdRef.current += 1;
+      tokenHistoryCache.clear();
+      setHistoryCacheEpoch((value) => value + 1);
+      resetLoadMore();
+      setResult(undefined);
+      setHistoryInit(false);
+      if (isPrivateZcashPool) {
+        void refreshPrivacyModeState();
+      }
+      void run({ alwaysSetState: true });
+    };
     appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+    appEventBus.on(EAppEventBusNames.RefreshHistoryList, refreshCallback);
     return () => {
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+      appEventBus.off(EAppEventBusNames.RefreshHistoryList, refreshCallback);
     };
-  }, [run]);
+  }, [
+    isPrivateZcashPool,
+    refreshPrivacyModeState,
+    resetLoadMore,
+    run,
+    setResult,
+  ]);
 
   return (
     <>
@@ -311,6 +412,13 @@ function TokenDetailsHistoryContent({
         onEndReached={loadMore}
         isLoadingMore={isLoadingMore}
         hasMore={loadMoreHasMore}
+        emptyComponent={
+          isPrivateZcashPool &&
+          privacyModeState !== undefined &&
+          !isPrivateHistoryEnabled
+            ? null
+            : undefined
+        }
       />
     </>
   );

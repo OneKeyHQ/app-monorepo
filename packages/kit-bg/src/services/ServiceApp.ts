@@ -104,6 +104,15 @@ class ServiceApp extends ServiceBase {
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
 
+    // Client-scanned chains keep decrypted state in their own databases,
+    // outside every store cleared below.
+    try {
+      await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+    } catch {
+      console.error('servicePrivacyChain.dropAllLocalWalletData() error');
+    }
+    defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
+
     // clean app storage
     try {
       await appStorage.clear();

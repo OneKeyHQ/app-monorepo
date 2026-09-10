@@ -14,6 +14,7 @@ import {
   Image,
   Page,
   QRCode,
+  SegmentControl,
   SizableText,
   Stack,
   Theme,
@@ -142,9 +143,40 @@ function ReceiveToken() {
 
   const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
 
+  // Local-wallet chains: one account exposes a public and a private receive
+  // form; the segment control in the card header switches them and the
+  // QR / copy / share all follow displayAddress. On-device address
+  // verification must target the currently displayed form.
+  const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
+  const { result: localWalletAddresses } = usePromiseResult(async () => {
+    if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+      return undefined;
+    }
+    return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+      {
+        networkId: network.id,
+        accountId: currentAccount.id,
+      },
+    );
+  }, [localWalletAddressForms, network?.id, currentAccount?.id]);
+  const [receiveAddressForm, setReceiveAddressForm] = useState<
+    'public' | 'private'
+  >('public');
+  const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
+
+  useEffect(() => {
+    if (!localWalletPrivateAddress) {
+      setReceiveAddressForm('public');
+    }
+  }, [localWalletPrivateAddress]);
+
   const displayAddress = isBtcUsedAddressVerifyMode
     ? btcUsedAddress
-    : (currentAccount?.address ?? '');
+    : ((receiveAddressForm === 'private'
+        ? localWalletPrivateAddress
+        : undefined) ??
+      currentAccount?.address ??
+      '');
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
@@ -796,6 +828,20 @@ function ReceiveToken() {
   }, [network, arrivalTimeText]);
 
   const cardHeaderRight = useMemo(() => {
+    // Switch between the two receive forms of the same account
+    // (labels come from the chain's vault settings, not yet localized)
+    if (localWalletPrivateAddress && localWalletAddressForms) {
+      return (
+        <SegmentControl
+          value={receiveAddressForm}
+          onChange={(v) => setReceiveAddressForm(v as 'public' | 'private')}
+          options={[
+            { label: localWalletAddressForms.publicLabel, value: 'public' },
+            { label: localWalletAddressForms.privateLabel, value: 'private' },
+          ]}
+        />
+      );
+    }
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
@@ -827,6 +873,9 @@ function ReceiveToken() {
       />
     );
   }, [
+    localWalletAddressForms,
+    localWalletPrivateAddress,
+    receiveAddressForm,
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
     disableSelector,

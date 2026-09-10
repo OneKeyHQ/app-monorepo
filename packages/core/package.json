@@ -56,6 +56,8 @@
     "ethereumjs-util": "7.1.5",
     "js-conflux-sdk": "^2.1.12",
     "near-api-js": "^2.1.4",
+    "onekey-zcash-keys": "portal:../../../app-modules/chain-runtimes/zcash/pkg-keys",
+    "onekey-zcash-runtime": "portal:../../../app-modules/chain-runtimes/zcash/pkg",
     "ripple-keypairs": "^1.3.1",
     "tonweb-mnemonic": "^1.0.1",
     "tronweb": "^6.1.0",

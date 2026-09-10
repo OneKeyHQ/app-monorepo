@@ -19,6 +19,10 @@ export const AccountManagerTestIDs = {
   walletBackupButton: 'AccountSelector-WalletOption-Backup', // preserve existing
   walletBoundReferralCode: 'wallet-bound-referral-code-button', // preserve existing
   batchCreateAccountButton: 'batch-create-account-button-trigger', // preserve existing
+  privacyNetworksButton: 'account-manager-privacy-networks-button',
+  privacyNetworkAccount: (accountId: string) =>
+    `account-manager-privacy-network-account-${accountId}`,
+  privacyNetworkSettings: 'account-manager-privacy-network-settings',
 
   // Account edit
   accountEditButton: (name: string) => `account-item-edit-button-${name}`, // preserve existing

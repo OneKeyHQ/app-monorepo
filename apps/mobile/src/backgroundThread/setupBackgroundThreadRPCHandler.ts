@@ -62,6 +62,7 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   BACKGROUND_THREAD_READY_WAKE_KEY,
   buildBackgroundThreadFailedPayload,
+  getBackgroundThreadBootId,
   serializeBackgroundThreadRuntimePayload,
 } from './runtimeReady';
 
@@ -236,7 +237,7 @@ let handleWebEmbedBridgeResponse: (
 
 function buildErrorPayload(error: unknown) {
   const runtimeError = error as
-    | { $isHardwareError?: unknown }
+    | { $isHardwareError?: unknown; params?: unknown; detail?: unknown }
     | null
     | undefined;
   const {
@@ -256,6 +257,18 @@ function buildErrorPayload(error: unknown) {
   const safeData = buildSafeBackgroundThreadErrorData(data);
   if (safeData) {
     errorPayload.data = safeData;
+  }
+  // Structured runtime errors (zcash wasm) carry params/detail the UI keys
+  // its copy off; keep them alongside the plain-error contract.
+  if (
+    runtimeError?.params &&
+    typeof runtimeError.params === 'object' &&
+    !Array.isArray(runtimeError.params)
+  ) {
+    errorPayload.params = runtimeError.params as Record<string, unknown>;
+  }
+  if (typeof runtimeError?.detail === 'string') {
+    errorPayload.detail = runtimeError.detail;
   }
   return {
     ok: false,
@@ -775,6 +788,33 @@ export function reportBackgroundThreadInitializationFailure(error: unknown) {
 // --- WebEmbed bridge reverse RPC (background → main thread) ---
 
 const WEBEMBED_BRIDGE_CALL_TIMEOUT_MS = 30_000;
+
+// Per-module timeouts for long-running webembed modules. A local-wallet
+// runtime serializes every call behind one carrier lease, so any method can
+// wait out a whole sync turn (ServicePrivacyChain's 5-minute watchdog); proofs
+// additionally run after that lease. Registered here per module, never
+// derived from the chain at call time.
+const WEBEMBED_MODULE_TIMEOUTS_MS: Record<
+  string,
+  { default: number; methods?: Record<string, number> }
+> = {
+  chainZcash: { default: 360_000, methods: { provePczt: 540_000 } },
+};
+
+export function getWebEmbedBridgeCallTimeoutMs(data: unknown): number {
+  const request = data as { module?: unknown; method?: unknown } | null;
+  const moduleTimeouts =
+    typeof request?.module === 'string'
+      ? WEBEMBED_MODULE_TIMEOUTS_MS[request.module]
+      : undefined;
+  if (!moduleTimeouts) {
+    return WEBEMBED_BRIDGE_CALL_TIMEOUT_MS;
+  }
+  if (typeof request?.method === 'string') {
+    return moduleTimeouts.methods?.[request.method] ?? moduleTimeouts.default;
+  }
+  return WEBEMBED_BRIDGE_CALL_TIMEOUT_MS;
+}
 let webEmbedBridgeCallSequence = 0;
 const pendingWebEmbedBridgeCalls = new Map<
   string,
@@ -802,16 +842,21 @@ handleWebEmbedBridgeResponse = (
     if (response?.ok) {
       pending.resolve(response.result);
     } else {
-      pending.reject(
-        new OneKeyLocalError(
-          response?.error?.message || 'WebEmbed bridge call failed',
-        ),
-      );
+      pending.reject(rehydrateWebEmbedBridgeError(response?.error));
     }
   } catch (error) {
     pending.reject(error);
   }
 };
+
+export function rehydrateWebEmbedBridgeError(
+  errorInfo?: IBackgroundThreadResponseErrorPayload,
+): OneKeyLocalError {
+  const error = new OneKeyLocalError(
+    errorInfo?.message || 'WebEmbed bridge call failed',
+  );
+  return Object.assign(error, errorInfo);
+}
 
 export function callWebEmbedBridgeViaMainThread(
   data: unknown,
@@ -824,13 +869,18 @@ export function callWebEmbedBridgeViaMainThread(
   }
 
   webEmbedBridgeCallSequence += 1;
-  const callId = `${webEmbedBridgeCallSequence}`;
+  const callId = `${getBackgroundThreadBootId()}:${webEmbedBridgeCallSequence}`;
+  const timeoutMs = getWebEmbedBridgeCallTimeoutMs(data);
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingWebEmbedBridgeCalls.delete(callId);
-      reject(new OneKeyLocalError('WebEmbed bridge call timeout (30s)'));
-    }, WEBEMBED_BRIDGE_CALL_TIMEOUT_MS);
+      reject(
+        new OneKeyLocalError(
+          `WebEmbed bridge call timeout (${timeoutMs / 1000}s)`,
+        ),
+      );
+    }, timeoutMs);
 
     pendingWebEmbedBridgeCalls.set(callId, { resolve, reject, timer });
 

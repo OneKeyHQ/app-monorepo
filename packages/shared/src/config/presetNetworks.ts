@@ -1401,6 +1401,30 @@ const bch: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+// Zcash remains dev-only via SUPPORTED_IMPLS (not PRODUCTION_IMPLS). The test
+// environment indexes zec--0; keep it disabled by default until transaction
+// verification is complete.
+const zec: IServerNetwork = {
+  'chainId': '0',
+  'code': 'zec',
+  'decimals': 8,
+  'id': 'zec--0',
+  'impl': 'zec',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zcash.png',
+  'name': 'Zcash',
+  'shortcode': 'zec',
+  'shortname': 'ZEC',
+  'symbol': 'ZEC',
+  'feeMeta': {
+    'decimals': 8,
+    'symbol': 'ZEC',
+  },
+  'defaultEnabled': false,
+  'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const ltc: IServerNetwork = {
   'chainId': '0',
   'code': 'ltc',
@@ -2355,6 +2379,7 @@ export const presetNetworksMap = {
   doge,
   bch,
   ltc,
+  zec,
   neurai,
   tbtc,
   sbtc,
@@ -2522,6 +2547,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     doge,
     bch,
     ltc,
+    zec,
     neurai,
     tbtc,
     sbtc,

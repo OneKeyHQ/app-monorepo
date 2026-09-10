@@ -61,6 +61,8 @@ const createOffscreenApiModule = memoizee(
         return new (await import('../OffscreenApiAdaSdk')).default();
       case 'kaspaSdk':
         return new (await import('../OffscreenApiKaspaSdk')).default();
+      case 'zcashSdk':
+        return new (await import('../OffscreenApiZcashSdk')).default();
       case 'thirdPartyHardware':
         return new (
           await import('../OffscreenApiThirdPartyHardware')

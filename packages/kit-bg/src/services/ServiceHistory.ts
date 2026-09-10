@@ -2281,10 +2281,15 @@ class ServiceHistory extends ServiceBase {
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
-      // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
-      let confirmedTxsToSave: IAccountHistoryTx[] = [];
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      const historySourceIsAuthoritative =
+        vaultSettings.localWallet?.historySource === 'vault-authoritative';
 
-      confirmedTxsToSave = confirmedTxs
+      // Server-indexed chains preserve locally confirmed rows that fall
+      // outside the current page. A complete client-scanned source instead
+      // owns the full set and may remove rows it no longer reports.
+      const confirmedTxsToSave = confirmedTxs
         .map((tx) => {
           const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
             this.isSameScopedHistoryTx(item, tx),
@@ -2292,9 +2297,12 @@ class ServiceHistory extends ServiceBase {
           if (onChainHistoryTx) {
             return onChainHistoryTx;
           }
-          return tx;
+          return historySourceIsAuthoritative ? undefined : tx;
         })
-        .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+        .filter(
+          (tx): tx is IAccountHistoryTx =>
+            !!tx && tx.decodedTx.status !== EDecodedTxStatus.Pending,
+        );
 
       const resp = unionBy(
         [...mergedOnChainHistoryTxs, ...confirmedTxsToSave],
@@ -2302,7 +2310,14 @@ class ServiceHistory extends ServiceBase {
       );
 
       const finalConfirmedTxs = [];
-      const confirmedTxsToRemove = [];
+      const confirmedTxsToRemove = historySourceIsAuthoritative
+        ? confirmedTxs.filter(
+            (tx) =>
+              !mergedOnChainHistoryTxs.some((item) =>
+                this.isSameScopedHistoryTx(item, tx),
+              ),
+          )
+        : [];
 
       for (let i = 0; i < resp.length; i += 1) {
         const tx = resp[i];
@@ -2317,9 +2332,6 @@ class ServiceHistory extends ServiceBase {
           finalConfirmedTxs.push(tx);
         }
       }
-
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
 
       const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
       let finalPendingTxs: IAccountHistoryTx[] = [];
@@ -2349,8 +2361,10 @@ class ServiceHistory extends ServiceBase {
       // detection fires and the pending record is cleaned from simpleDb.
       const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
       finalPendingTxs = finalPendingTxs.filter((tx) => {
-        const matched = onChainHistoryTxs.find((onChainTx) =>
-          this.isSameScopedHistoryTx(onChainTx, tx),
+        const matched = onChainHistoryTxs.find(
+          (onChainTx) =>
+            onChainTx.decodedTx.status !== EDecodedTxStatus.Pending &&
+            this.isSameScopedHistoryTx(onChainTx, tx),
         );
         if (matched) {
           onChainMatchedPendingTxs.push(tx);
@@ -2521,6 +2535,24 @@ class ServiceHistory extends ServiceBase {
     if (isCustomNetwork) {
       return {
         txs: [],
+        addressMap: {},
+        hasMore: false,
+        next: undefined as string | undefined,
+        isIndexer: false,
+      };
+    }
+
+    // Client-computed history (e.g. zcash shielded): every data source flows
+    // through this pipeline; a defined local result replaces the server query.
+    const localTxs = await vault.fetchAccountHistoryFromLocal({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    });
+    if (localTxs) {
+      return {
+        txs: localTxs,
         addressMap: {},
         hasMore: false,
         next: undefined as string | undefined,

@@ -71,6 +71,7 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type { ILocalWalletPoolDescriptor } from './localWallet/types';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
@@ -227,6 +228,32 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+  localWallet?: {
+    // Some chains scan whenever the account exists; others require an
+    // explicit per-account opt-in because scanning has a material cost.
+    activation: 'always' | 'account-opt-in';
+    // Pooled chains expose distinct balances that users can move between.
+    balanceShape: 'single' | 'pooled';
+    // A vault-authoritative source may compose runtime and server history, but
+    // ServiceHistory must treat its returned snapshot as canonical.
+    historySource: 'server' | 'vault-authoritative';
+    // Blocks are chain-specific units. The generic UI must not assume that a
+    // fixed block count represents the same amount of elapsed time on every
+    // client-scanned chain.
+    tipLagWarningBlocks: number;
+    // Display order is tab order. Exactly one public pool is expected.
+    pools: ILocalWalletPoolDescriptor[];
+    accountSetup: {
+      // Enabling asks the user for a recovery month or height.
+      requiresBirthday: boolean;
+    };
+    // Labels for the two receive forms one account exposes.
+    addressForms: { publicLabel: string; privateLabel: string };
+    // Turns a block lag into elapsed time for the sync status line.
+    blockTimeSeconds: number;
+    // Height ranges worth naming while the scanner is inside them.
+    scanRegionHints?: { fromHeight: number; toHeight: number; label: string }[];
+  };
   saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
@@ -534,6 +561,14 @@ export type IBuildAccountAddressDetailParams = {
 };
 
 // Internal txInfo ----------------------------------------------
+// Scan-start selector for VaultBase.rescanLocalWallet: the same repair
+// expressed at three precisions ("exact block" / "around this date" /
+// "roughly N days ago").
+export type IRescanLocalWalletFrom =
+  | { type: 'height'; height: number }
+  | { type: 'timestamp'; timestamp: number }
+  | { type: 'daysAgo'; daysAgo: number };
+
 export type ITransferInfo = {
   from: string;
   to: string;
@@ -559,6 +594,15 @@ export type ITransferInfo = {
   lnurl?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  // Local-wallet chains (settings.localWallet). Pool keys come from
+  // settings.localWallet.pools; the chain's vault validates them.
+  // Sweep the public balance into the account's own private pool.
+  localWalletShield?: boolean;
+  // Withdraw: restrict input selection to this private pool key.
+  localWalletSpendSource?: string;
+  // Pool key chosen on the pool screen or the send-pool picker.
+  localWalletSourcePool?: string;
 
   note?: string; // Algo chain note
 
@@ -663,6 +707,7 @@ export type INativeAmountInfo = {
 // Send ------------
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
+  transferPayload?: ITransferPayload;
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   specifiedFeeRate?: string;

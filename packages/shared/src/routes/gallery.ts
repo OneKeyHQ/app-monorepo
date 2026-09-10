@@ -58,6 +58,7 @@ export enum EGalleryRoutes {
   ComponentWebEmbed = 'component-WebEmbed',
   ComponentWebview = 'component-Webview',
   ComponentWebViewOverlay = 'component-WebViewOverlay',
+  ComponentZcashWasm = 'component-ZcashWasm',
   HyperlinkTextGallery = 'component-HyperlinkText',
   LetterAvatarGallery = 'component-LetterAvatar',
   SignatureConfirmationGallery = 'component-SignatureConfirmation',

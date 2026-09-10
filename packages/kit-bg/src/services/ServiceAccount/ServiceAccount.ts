@@ -1,6 +1,7 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
+import { md5 } from 'js-md5';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -618,9 +619,38 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  // md5(mnemonic) -> generatedAt ms. Lets createHDWallet recognize "this is
+  // a mnemonic I just generated" with no onboarding-UI plumbing. In-memory,
+  // one-time-use, pruned by age -- a lost record just defaults to "not
+  // proven fresh".
+  private freshMnemonicFingerprints = new Map<string, number>();
+
+  private static readonly FRESH_MNEMONIC_TTL_MS = 30 * 60 * 1000;
+
+  private pruneFreshMnemonicFingerprints() {
+    const cutoff = Date.now() - ServiceAccount.FRESH_MNEMONIC_TTL_MS;
+    for (const [fp, ts] of this.freshMnemonicFingerprints) {
+      if (ts < cutoff) {
+        this.freshMnemonicFingerprints.delete(fp);
+      }
+    }
+  }
+
+  // Consumes on match -- a retried createHDWallet call doesn't stay fresh.
+  private consumeFreshMnemonicFlag(mnemonic: string): boolean {
+    this.pruneFreshMnemonicFingerprints();
+    const fp = md5(mnemonic);
+    const isFresh = this.freshMnemonicFingerprints.has(fp);
+    this.freshMnemonicFingerprints.delete(fp);
+    return isFresh;
+  }
+
   @backgroundMethod()
   async generateMnemonic(strength?: number): Promise<string> {
-    return generateMnemonic(strength);
+    const mnemonic = generateMnemonic(strength);
+    this.pruneFreshMnemonicFingerprints();
+    this.freshMnemonicFingerprints.set(md5(mnemonic), Date.now());
+    return mnemonic;
   }
 
   @backgroundMethod()
@@ -4246,6 +4276,9 @@ class ServiceAccount extends ServiceBase {
       throw new OneKeyLocalError('TON mnemonic is not supported');
     }
 
+    const isFreshlyGeneratedMnemonic =
+      this.consumeFreshMnemonicFlag(realMnemonic);
+
     await this.generateAllHdAndQrWalletsHashAndXfp({ password });
 
     let revealableSeed: IBip39RevealableSeed;
@@ -4285,6 +4318,7 @@ class ServiceAccount extends ServiceBase {
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
       applyRestoreSyncPolicy,
+      isFreshlyGeneratedMnemonic,
     });
   }
 
@@ -4318,6 +4352,9 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
+    const isFreshlyGeneratedMnemonic =
+      this.consumeFreshMnemonicFlag(mnemonicFromRs);
+
     await this.generateAllHdAndQrWalletsHashAndXfp({ password });
 
     const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
@@ -4344,6 +4381,7 @@ class ServiceAccount extends ServiceBase {
       keylessDetailsInfo,
       skipAddHDNextIndexedAccount,
       applyRestoreSyncPolicy,
+      isFreshlyGeneratedMnemonic,
     });
   }
 
@@ -4470,6 +4508,7 @@ class ServiceAccount extends ServiceBase {
     keylessDetailsInfo,
     skipAddHDNextIndexedAccount,
     applyRestoreSyncPolicy,
+    isFreshlyGeneratedMnemonic,
   }: {
     rs: string;
     password: string;
@@ -4482,6 +4521,8 @@ class ServiceAccount extends ServiceBase {
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
     skipAddHDNextIndexedAccount?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    // See EAppEventBusNames.WalletAdded. Omitted callers default to false.
+    isFreshlyGeneratedMnemonic?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -4649,6 +4690,19 @@ class ServiceAccount extends ServiceBase {
     if (this.backupMigrationSettledThisSession) {
       void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
     }
+
+    // Persist local-scanner provenance through one explicit capability fanout.
+    // An event-only listener can miss this because the service is lazy.
+    await this.backgroundApi.servicePrivacyChain.onWalletCreated({
+      walletId: result.wallet.id,
+      isFreshlyGeneratedMnemonic: !!isFreshlyGeneratedMnemonic,
+      createdAt: Date.now(),
+    });
+
+    appEventBus.emit(EAppEventBusNames.WalletAdded, {
+      walletId: result.wallet.id,
+      isFreshlyGeneratedMnemonic: !!isFreshlyGeneratedMnemonic,
+    });
 
     return result;
   }
@@ -5449,12 +5503,22 @@ class ServiceAccount extends ServiceBase {
     //  OK-26980 remove account without password
     if (account) {
       const accountId = account.id;
+      await this.backgroundApi.servicePrivacyChain.assertCanRemoveAccounts({
+        accountIds: [accountId],
+      });
       await localDb.removeAccount({ accountId, walletId });
       await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
         { accountId },
       );
     }
     if (indexedAccount) {
+      const { accounts: derivedAccounts } =
+        await this.getAccountsInSameIndexedAccountId({
+          indexedAccountId: indexedAccount.id,
+        });
+      await this.backgroundApi.servicePrivacyChain.assertCanRemoveAccounts({
+        accountIds: derivedAccounts.map((item) => item.id),
+      });
       await localDb.removeIndexedAccount({
         indexedAccountId: indexedAccount.id,
         walletId,
@@ -5703,6 +5767,16 @@ class ServiceAccount extends ServiceBase {
       : undefined;
 
     const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    const { accounts } = await this.getAllAccounts();
+    await this.backgroundApi.servicePrivacyChain.assertCanRemoveAccounts({
+      accountIds: accounts
+        .filter((account) =>
+          walletIds.includes(
+            accountUtils.getWalletIdFromAccountId({ accountId: account.id }),
+          ),
+        )
+        .map((account) => account.id),
+    });
     const result = relatedWalletIds?.length
       ? await localDb.removeWallets({ walletIds, isRemoveToMocked })
       : await localDb.removeWallet({ walletId, isRemoveToMocked });

@@ -12,6 +12,7 @@ import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
+import { PrivacyChainSyncLight } from './PrivacyChainSyncLight';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
 export function FullWindowOverlayContainer() {
@@ -62,6 +63,7 @@ export function FullWindowOverlayContainer() {
       </Stack>
       <ShowToastProvider />
       <DevOverlayWindowContainer />
+      <PrivacyChainSyncLight />
       <TradingViewNativeDebugPanelContainer />
       {/* E2E mode, enable tap in iOS */}
       {platformEnv.isE2E ? <></> : <Toaster />}

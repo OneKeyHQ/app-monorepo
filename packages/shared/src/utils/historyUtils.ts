@@ -4,7 +4,10 @@ import { isNil } from 'lodash';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
-import { EOnChainHistoryTxStatus } from '../../types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxStatus,
+} from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 import { ETranslations } from '../locale';
@@ -19,10 +22,24 @@ import type {
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
+  IOnChainHistoryTxTransfer,
 } from '../../types/history';
 
 // usd
 const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
+
+export function getOnChainHistoryTransferDisplayAddress({
+  transfer,
+  endpoint,
+}: {
+  transfer: IOnChainHistoryTxTransfer;
+  endpoint: 'from' | 'to';
+}): string {
+  if (transfer.type === EOnChainHistoryTransferType.Shielded) {
+    return transfer.address || transfer.label || 'Shielded';
+  }
+  return transfer[endpoint];
+}
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,

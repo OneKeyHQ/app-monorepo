@@ -17,6 +17,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getPrivacyChainPublicDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
@@ -548,6 +549,7 @@ function TxActionTransferListView(props: ITxActionProps) {
   } = props;
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
+  const nativeAmountIsUnknown = decodedTx.nativeAmountIsUnknown === true;
   const { type } = payload ?? {};
   const isPrivateSend = type === EOnChainHistoryTxType.PrivateSend;
   const intl = useIntl();
@@ -558,6 +560,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     });
 
   const { vaultSettings } = useAccountData({ networkId });
+  // Local-wallet history rows carry pool labels the public flow must hide,
+  // and their server label describes the wrong side of the transaction.
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
 
   const isUTXO = vaultSettings?.isUtxo;
   const isPending = decodedTx.status === EDecodedTxStatus.Pending;
@@ -583,9 +588,15 @@ function TxActionTransferListView(props: ITxActionProps) {
       })
     : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
-  const descriptionTarget = isPrivateSend
+  let descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
+  if (isLocalWalletHistory) {
+    descriptionTarget = getPrivacyChainPublicDisplayAddress({
+      networkId,
+      address: descriptionTarget,
+    });
+  }
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
@@ -698,6 +709,13 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.fallbackIcon = 'CoinsOutline';
     }
 
+    if (nativeAmountIsUnknown) {
+      change = (
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.global_not_available })}
+        </SizableText>
+      );
+    }
     changeDescription = null;
   } else {
     const isStackedLayout = !tableLayout;
@@ -785,7 +803,11 @@ function TxActionTransferListView(props: ITxActionProps) {
       ].filter(Boolean);
     }
 
-    change = change ? (
+    change = nativeAmountIsUnknown ? (
+      <SizableText size="$bodyLgMedium">
+        {intl.formatMessage({ id: ETranslations.global_not_available })}
+      </SizableText>
+    ) : change ? (
       <NumberSizeableTextWrapper
         hideValue={hideValue}
         formatter="balance"
@@ -859,7 +881,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     title = intl.formatMessage({
       id: ETranslations.private_send_private_send,
     });
-  } else if (!isPending && label) {
+  } else if (!isPending && label && !isLocalWalletHistory) {
     title = label;
   }
 
@@ -937,6 +959,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     isSendNativeToken,
     swapInfo,
   } = props;
+  const nativeAmountIsUnknown = decodedTx.nativeAmountIsUnknown === true;
 
   const {
     sends,
@@ -1027,18 +1050,22 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 networkId={transfer.networkId}
               />
               <Stack flex={1}>
-                <SizableText size="$bodyLgMedium">{`${
-                  block.direction === EDecodedTxDirection.OUT ? '-' : '+'
-                }${
-                  isSendNativeToken &&
-                  !isNil(nativeTokenTransferAmountToUpdate) &&
-                  transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT
-                    ? nativeTokenTransferAmountToUpdate
-                    : transfer.amount
-                } ${
-                  transfer.isNFT ? transfer.name : transfer.symbol
-                }`}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {nativeAmountIsUnknown
+                    ? intl.formatMessage({
+                        id: ETranslations.global_not_available,
+                      })
+                    : `${
+                        block.direction === EDecodedTxDirection.OUT ? '-' : '+'
+                      }${
+                        isSendNativeToken &&
+                        !isNil(nativeTokenTransferAmountToUpdate) &&
+                        transfer.isNative &&
+                        block.direction === EDecodedTxDirection.OUT
+                          ? nativeTokenTransferAmountToUpdate
+                          : transfer.amount
+                      } ${transfer.isNFT ? transfer.name : transfer.symbol}`}
+                </SizableText>
                 {/* <SizableText size="$bodyMd" color="$textSubdued">
               TODO: Fiat value
             </SizableText> */}
@@ -1220,6 +1247,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isInternalStaking,
       isSendNativeToken,
+      nativeAmountIsUnknown,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.name,

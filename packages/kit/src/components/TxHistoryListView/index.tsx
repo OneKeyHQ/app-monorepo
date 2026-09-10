@@ -151,6 +151,7 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  emptyComponent?: ReactElement | null;
   onEndReached?: () => void;
   onEndReachedThreshold?: number;
   isLoadingMore?: boolean;
@@ -384,6 +385,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    emptyComponent,
     onEndReached,
     onEndReachedThreshold,
     isLoadingMore,
@@ -551,6 +553,9 @@ function BaseTxHistoryListView(props: IProps) {
     if (!initialized) {
       return <HistoryLoadingView tableLayout={tableLayout} />;
     }
+    if (emptyComponent !== undefined) {
+      return emptyComponent ?? <Stack />;
+    }
     if (searchKey && data.length > 0) {
       return <EmptySearch />;
     }
@@ -577,6 +582,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
+    emptyComponent,
   ]);
 
   if (plainMode) {

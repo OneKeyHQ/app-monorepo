@@ -1,3 +1,4 @@
+import type { IZcashSdkApi } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -124,6 +125,14 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   chainKaspa: WebEmbedApiChainKaspa = this._createProxyModule<IWebembedApiKeys>(
     'chainKaspa',
+    undefined,
+    {
+      asyncThenSupport: true,
+    },
+  );
+
+  chainZcash: IZcashSdkApi = this._createProxyModule<IWebembedApiKeys>(
+    'chainZcash',
     undefined,
     {
       asyncThenSupport: true,

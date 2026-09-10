@@ -31,6 +31,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2ImportPhraseOrPrivateKeyTab,
 } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -266,6 +267,17 @@ export default function ImportPhraseOrPrivateKey() {
         try {
           const { mnemonic, mnemonicType } =
             await phaseInputAreaRef.current.submit();
+          if (mnemonicType === EMnemonicType.TON) {
+            navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+              mnemonic,
+              mnemonicType,
+              isWalletBackedUp: true,
+            });
+            return;
+          }
+          // No zcash birthday interruption: import flows straight through.
+          // The zcash scan-start question is asked once on the token details
+          // page instead (first visit, LocalWalletPoolStatus).
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
             mnemonicType,

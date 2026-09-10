@@ -15,6 +15,10 @@
     "ios:pod-install": "cd ios && pod install && cd ..",
     "native-bundle": "ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start",
     "native-bundle:bg": "ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start --port 8082",
+    "prewarm": "node ./scripts/prewarm-metro-bundles.js",
+    "prewarm:android": "node ./scripts/prewarm-metro-bundles.js --platform android",
+    "prewarm:ios": "node ./scripts/prewarm-metro-bundles.js --platform ios",
+    "reattach:android": "node ./scripts/reattach-android.js",
     "storybook": "NODE_OPTIONS='--max_old_space_size=8192' STORYBOOK_ENABLED=true expo start",
     "detox:build:ios:sim:debug": "detox build -c ios.sim.debug",
     "detox:test:ios:sim:debug": "detox test -c ios.sim.debug",
@@ -69,7 +73,8 @@
     "@storybook/react-native": "10.4.7",
     "detox": "^20.46.3",
     "hermes-compiler": "250829098.0.16",
-    "rimraf": "3.0.2"
+    "rimraf": "3.0.2",
+    "typescript": "~5.9.2"
   },
   "dependencies": {
     "@backpackapp-io/react-native-toast": "0.14.0",
