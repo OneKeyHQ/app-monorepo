@@ -590,90 +590,94 @@ function PerpFundingHistoryList({
     </YStack>
   ) : undefined;
 
+  const historyLimitNotice =
+    records.length >= PERP_USER_FUNDING_HISTORY_LIMIT ? (
+      <SizableText size="$bodySm" color="$textSubdued" px="$3" py="$2">
+        {intl.formatMessage({ id: ETranslations.recent })}
+        {` · ${intl.formatNumber(PERP_USER_FUNDING_HISTORY_LIMIT)}`}
+      </SizableText>
+    ) : undefined;
+
   return (
-    <CommonTableListView
-      onPullToRefresh={refresh}
-      listViewDebugRenderTrackerProps={useMemo(
-        (): IDebugRenderTrackerProps => ({
-          name: 'PerpFundingHistoryList',
-          position: 'top-left',
-        }),
-        [],
-      )}
-      useTabsList={useTabsList}
-      currentListPage={currentListPage}
-      setCurrentListPage={setCurrentListPage}
-      enablePagination
-      paginationToBottom={isMobile}
-      pageSize={FUNDING_HISTORY_PAGE_SIZE}
-      columns={columnsConfig}
-      minTableWidth={totalMinWidth}
-      data={sortedRecords}
-      ListHeaderComponent={
-        records.length >= PERP_USER_FUNDING_HISTORY_LIMIT ? (
-          <SizableText size="$bodySm" color="$textSubdued" px="$3" py="$2">
-            {intl.formatMessage({ id: ETranslations.recent })}
-            {` · ${intl.formatNumber(PERP_USER_FUNDING_HISTORY_LIMIT)}`}
-          </SizableText>
-        ) : undefined
-      }
-      isMobile={isMobile}
-      renderRow={renderFundingHistoryRow}
-      keyExtractor={(record) =>
-        `${record.hash}-${record.time}-${record.delta.coin}`
-      }
-      listLoading={isLoading}
-      ListEmptyComponent={
-        errorState ??
-        (isMobile ? (
-          <PerpMobileEmptyState
-            contentOffsetY={-96}
-            title={intl.formatMessage({
-              id:
-                hasActiveFilter && records.length > 0
-                  ? ETranslations.perp_funding_history_no_match__title
-                  : ETranslations.perp_funding_history_empty__title,
-            })}
-          />
-        ) : undefined)
-      }
-      paginationAction={
-        !isMobile && hasFilteredRecords ? (
-          <FundingHistoryExportAction
-            sideFilter={sideFilter}
-            marketFilter={marketFilter}
-          />
-        ) : null
-      }
-      onViewAll={
-        !isMobile &&
-        accountAddress &&
-        records.length > FUNDING_HISTORY_PAGE_SIZE
-          ? onViewAllUrl
-          : undefined
-      }
-      mobileLoadingComponent={
-        isMobile ? <MobileFundingHistoryLoadingSkeleton /> : undefined
-      }
-      emptyMessage={
-        hasActiveFilter && records.length > 0
-          ? intl.formatMessage({
-              id: ETranslations.perp_funding_history_no_match__title,
-            })
-          : intl.formatMessage({
-              id: ETranslations.perp_funding_history_empty__title,
-            })
-      }
-      emptySubMessage={
-        hasActiveFilter && records.length > 0
-          ? intl.formatMessage({
-              id: ETranslations.perp_funding_history_filter_hint__desc,
-            })
-          : intl.formatMessage({
-              id: ETranslations.perp_funding_history_empty__desc,
-            })
-      }
-    />
+    <YStack flex={1}>
+      {!isMobile ? historyLimitNotice : null}
+      <CommonTableListView
+        onPullToRefresh={refresh}
+        listViewDebugRenderTrackerProps={useMemo(
+          (): IDebugRenderTrackerProps => ({
+            name: 'PerpFundingHistoryList',
+            position: 'top-left',
+          }),
+          [],
+        )}
+        useTabsList={useTabsList}
+        currentListPage={currentListPage}
+        setCurrentListPage={setCurrentListPage}
+        enablePagination
+        paginationToBottom={isMobile}
+        pageSize={FUNDING_HISTORY_PAGE_SIZE}
+        columns={columnsConfig}
+        minTableWidth={totalMinWidth}
+        data={sortedRecords}
+        ListHeaderComponent={isMobile ? historyLimitNotice : undefined}
+        isMobile={isMobile}
+        renderRow={renderFundingHistoryRow}
+        keyExtractor={(record) =>
+          `${record.hash}-${record.time}-${record.delta.coin}`
+        }
+        listLoading={isLoading}
+        ListEmptyComponent={
+          errorState ??
+          (isMobile ? (
+            <PerpMobileEmptyState
+              contentOffsetY={-96}
+              title={intl.formatMessage({
+                id:
+                  hasActiveFilter && records.length > 0
+                    ? ETranslations.perp_funding_history_no_match__title
+                    : ETranslations.perp_funding_history_empty__title,
+              })}
+            />
+          ) : undefined)
+        }
+        paginationAction={
+          !isMobile && hasFilteredRecords ? (
+            <FundingHistoryExportAction
+              sideFilter={sideFilter}
+              marketFilter={marketFilter}
+            />
+          ) : null
+        }
+        onViewAll={
+          !isMobile &&
+          accountAddress &&
+          records.length > FUNDING_HISTORY_PAGE_SIZE
+            ? onViewAllUrl
+            : undefined
+        }
+        mobileLoadingComponent={
+          isMobile ? <MobileFundingHistoryLoadingSkeleton /> : undefined
+        }
+        emptyMessage={
+          hasActiveFilter && records.length > 0
+            ? intl.formatMessage({
+                id: ETranslations.perp_funding_history_no_match__title,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_funding_history_empty__title,
+              })
+        }
+        emptySubMessage={
+          hasActiveFilter && records.length > 0
+            ? intl.formatMessage({
+                id: ETranslations.perp_funding_history_filter_hint__desc,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_funding_history_empty__desc,
+              })
+        }
+      />
+    </YStack>
   );
 }
 

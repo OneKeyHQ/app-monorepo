@@ -255,6 +255,8 @@ function FundingHistoryMarketFilterContent({
         ),
       )
     : 480;
+  const isKeyboardBounded = isMobile && platformEnv.isNativeIOS;
+  const scrollMaxHeight = isMobile ? 420 : 260;
   const [searchText, setSearchText] = useState('');
   const filteredMarketOptions = useMemo(
     () =>
@@ -283,7 +285,8 @@ function FundingHistoryMarketFilterContent({
         size={isMobile ? 'medium' : 'small'}
       />
       <Dialog.ScrollView
-        maxHeight={isMobile ? 420 : 260}
+        maxHeight={isKeyboardBounded ? undefined : scrollMaxHeight}
+        {...(isKeyboardBounded ? { flex: 1, minHeight: 0 } : {})}
         flexShrink={1}
         mx={isMobile ? '$-2' : undefined}
         nestedScrollEnabled
