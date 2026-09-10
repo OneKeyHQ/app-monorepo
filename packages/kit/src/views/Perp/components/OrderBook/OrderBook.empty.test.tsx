@@ -4,9 +4,13 @@ import type { ReactNode } from 'react';
 
 import { OrderBook, OrderBookMobile } from '.';
 
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
+
+import type { LayoutChangeEvent } from 'react-native';
+
+let mockVerticalLayout: ((event: LayoutChangeEvent) => void) | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -51,7 +55,16 @@ jest.mock('react-native', () => ({
   TouchableOpacity: ({ children }: { children?: ReactNode }) => (
     <button type="button">{children}</button>
   ),
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  View: ({
+    children,
+    onLayout,
+  }: {
+    children?: ReactNode;
+    onLayout?: (event: LayoutChangeEvent) => void;
+  }) => {
+    if (onLayout) mockVerticalLayout = onLayout;
+    return <div>{children}</div>;
+  },
 }));
 
 jest.mock('@onekeyhq/components', () => ({
@@ -113,6 +126,36 @@ jest.mock('../../hooks/useTradingPrice', () => ({
 }));
 
 describe('OrderBook empty vertical state', () => {
+  it('updates both sides immediately as the available height changes', () => {
+    const props = {
+      asks: [],
+      bids: [],
+      horizontal: false,
+      initialContainerHeight: 640,
+      maxLevelsPerSide: 18,
+      showTickSelector: false,
+      variant: 'web' as const,
+    };
+    const view = render(<OrderBook {...props} />);
+    const resize = (height: number) => {
+      act(() => {
+        mockVerticalLayout?.({
+          nativeEvent: { layout: { height, width: 300, x: 0, y: 0 } },
+        } as LayoutChangeEvent);
+      });
+    };
+    resize(640);
+    expect(view.getAllByText('--')).toHaveLength(73);
+    resize(500);
+    expect(view.getAllByText('--')).toHaveLength(55);
+    resize(546);
+    expect(view.getAllByText('--')).toHaveLength(61);
+    resize(660);
+    expect(view.getAllByText('--')).toHaveLength(73);
+    resize(500);
+    expect(view.getAllByText('--')).toHaveLength(55);
+  });
+
   it('fills the measured desktop layout with placeholder levels', () => {
     const containerHeight = 640;
     const maxLevelsPerSide = 18;
