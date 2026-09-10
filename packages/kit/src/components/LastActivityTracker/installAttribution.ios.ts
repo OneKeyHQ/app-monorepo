@@ -18,7 +18,7 @@ type IAppClipAttributionRecord = IAppClipInstallAttributionParams & {
 };
 
 type IAppClipAttributionNativeModule = {
-  clearPending: () => Promise<void>;
+  clearPending: (clickId: string) => Promise<void>;
   readPending: () => Promise<unknown>;
   savePending: (record: IAppClipAttributionRecord) => Promise<boolean>;
 };
@@ -150,7 +150,7 @@ async function reportPendingInstallAttribution(): Promise<void> {
     return;
   }
   if (pending.reportCompleted) {
-    await nativeModule.clearPending();
+    await nativeModule.clearPending(pending.clickId);
     return;
   }
   await analytics.whenInitialized();
@@ -166,7 +166,7 @@ async function reportPendingInstallAttribution(): Promise<void> {
   );
   const claim = response.data.data;
   if (!claim.found) {
-    await nativeModule.clearPending();
+    await nativeModule.clearPending(pending.clickId);
     return;
   }
   const attribution = mergeClaimWithPending(claim, pending);
@@ -186,7 +186,7 @@ async function reportPendingInstallAttribution(): Promise<void> {
       'Failed to persist App Clip attribution report completion.',
     );
   }
-  await nativeModule.clearPending();
+  await nativeModule.clearPending(pending.clickId);
 }
 
 export function reportInstallAttribution(): Promise<void> {

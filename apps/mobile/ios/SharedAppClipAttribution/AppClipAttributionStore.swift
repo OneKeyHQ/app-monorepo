@@ -130,9 +130,12 @@ enum AppClipAttributionStore {
     return save(record)
   }
 
-  static func clear() throws {
+  static func clear(matchingClickId clickId: String) throws {
     guard let pendingRecordURL else {
       throw AppClipAttributionStoreError.appGroupContainerUnavailable
+    }
+    guard let record = load(), record.clickId == clickId else {
+      return
     }
     do {
       try FileManager.default.removeItem(at: pendingRecordURL)

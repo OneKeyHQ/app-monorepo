@@ -9,7 +9,8 @@ RCT_EXTERN_METHOD(savePending:(NSDictionary *)record
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(clearPending:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(clearPending:(NSString *)clickId
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 @end

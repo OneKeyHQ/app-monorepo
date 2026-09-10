@@ -102,7 +102,7 @@ describe('reportInstallAttribution', () => {
     expect(mockSavePending.mock.invocationCallOrder[0]).toBeLessThan(
       mockReportAttribution.mock.invocationCallOrder[0],
     );
-    expect(mockClearPending).toHaveBeenCalledTimes(1);
+    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
   });
 
   it('reports the pending record for a repeated claim before clearing it', async () => {
@@ -123,7 +123,7 @@ describe('reportInstallAttribution', () => {
         lastAction: pendingRecord.lastAction,
       }),
     );
-    expect(mockClearPending).toHaveBeenCalledTimes(1);
+    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
   });
 
   it('clears a terminal missing claim', async () => {
@@ -138,7 +138,7 @@ describe('reportInstallAttribution', () => {
     await reportInstallAttribution();
 
     expect(mockReportAttribution).not.toHaveBeenCalled();
-    expect(mockClearPending).toHaveBeenCalledTimes(1);
+    expect(mockClearPending).toHaveBeenCalledWith(pendingRecord.clickId);
   });
 
   it('waits for analytics initialization before claiming', async () => {

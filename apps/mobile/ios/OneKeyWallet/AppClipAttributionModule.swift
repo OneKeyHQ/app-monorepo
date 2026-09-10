@@ -27,18 +27,26 @@ final class AppClipAttributionModule: NSObject {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     let savedToAppGroup = AppClipAttributionStore.saveReportingSnapshot(record)
+    guard
+      let clickId = record["clickId"] as? String,
+      AppClipAttributionStore.load()?.clickId == clickId
+    else {
+      resolve(savedToAppGroup)
+      return
+    }
     let savedToFallback = AppClipAttributionFallbackStore.save(record)
     resolve(savedToAppGroup || savedToFallback)
   }
 
-  @objc(clearPending:rejecter:)
+  @objc(clearPending:resolver:rejecter:)
   func clearPending(
-    _ resolve: RCTPromiseResolveBlock,
+    _ clickId: String,
+    resolver resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
     do {
-      try AppClipAttributionStore.clear()
-      AppClipAttributionFallbackStore.clear()
+      try AppClipAttributionStore.clear(matchingClickId: clickId)
+      AppClipAttributionFallbackStore.clear(matchingClickId: clickId)
       resolve(nil)
     } catch {
       reject(
@@ -69,6 +77,10 @@ private enum AppClipAttributionFallbackStore {
     guard let sharedRecord else {
       return fallbackRecord
     }
+    guard fallbackRecord["clickId"] as? String == sharedRecord.clickId else {
+      clear()
+      return sharedRecord.bridgeDictionary
+    }
     let fallbackUpdatedAt = defaults.double(forKey: updatedAtKey)
     if fallbackUpdatedAt >= sharedRecord.updatedAt.timeIntervalSince1970 {
       return fallbackRecord
@@ -91,7 +103,22 @@ private enum AppClipAttributionFallbackStore {
     return defaults.data(forKey: recordKey) == data
   }
 
-  static func clear() {
+  static func clear(matchingClickId clickId: String) {
+    guard
+      let data = defaults.data(forKey: recordKey),
+      let record = try? PropertyListSerialization.propertyList(
+        from: data,
+        options: [],
+        format: nil
+      ) as? [String: Any],
+      record["clickId"] as? String == clickId
+    else {
+      return
+    }
+    clear()
+  }
+
+  private static func clear() {
     defaults.removeObject(forKey: recordKey)
     defaults.removeObject(forKey: updatedAtKey)
   }
