@@ -226,4 +226,89 @@ describe('AuthFailureCard fail-closed actions', () => {
     expect(screen.getByTestId('device-stage-auth-support')).toBeTruthy();
     expect(screen.queryByTestId('device-stage-auth-retry')).toBeNull();
   });
+
+  it.each(['network', 'unavailable'] as const)(
+    'offers Continue anyway behind the NOTE beat for %s',
+    (reason) => {
+      const onContinueAnyway = jest.fn();
+      const onRetry = jest.fn();
+      const { rerender } = render(
+        <AuthFailureCard
+          reason={reason}
+          onRetry={onRetry}
+          onSupport={jest.fn()}
+          onContinueAnyway={onContinueAnyway}
+          resetSignal={0}
+        />,
+      );
+      expect(screen.getByTestId('device-stage-auth-retry')).toBeTruthy();
+      expect(screen.queryByTestId('device-stage-auth-support')).toBeNull();
+      fireEvent.click(screen.getByTestId('device-stage-auth-note-open'));
+      expect(onContinueAnyway).not.toHaveBeenCalled();
+      expect(
+        screen.getByText(ETranslations.device_stage_auth_note__title),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          ETranslations.device_auth_continue_anyway_warning_message,
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('device-stage-auth-note-back'));
+      expect(screen.getByTestId('device-stage-auth-note-open')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('device-stage-auth-note-open'));
+      fireEvent.click(screen.getByTestId('device-stage-auth-continue-anyway'));
+      expect(onContinueAnyway).toHaveBeenCalledTimes(1);
+
+      // A fresh visit opens on the failure, never on a stale NOTE.
+      rerender(
+        <AuthFailureCard
+          reason={reason}
+          onRetry={onRetry}
+          onSupport={jest.fn()}
+          onContinueAnyway={onContinueAnyway}
+          resetSignal={1}
+        />,
+      );
+      expect(screen.getByTestId('device-stage-auth-note-open')).toBeTruthy();
+      expect(
+        screen.queryByTestId('device-stage-auth-continue-anyway'),
+      ).toBeNull();
+    },
+  );
+
+  it('offers only Retry for a device that vanished mid-check', () => {
+    render(
+      <AuthFailureCard
+        reason="disconnected"
+        onRetry={jest.fn()}
+        onSupport={jest.fn()}
+        onContinueAnyway={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.hardware_third_party_device_disconnected),
+    ).toBeTruthy();
+    expect(screen.getByTestId('device-stage-auth-retry')).toBeTruthy();
+    expect(screen.queryByTestId('device-stage-auth-support')).toBeNull();
+    expect(screen.queryByTestId('device-stage-auth-note-open')).toBeNull();
+    expect(screen.queryByTestId('device-stage-auth-dev-skip')).toBeNull();
+  });
+
+  it.each(['unknown', 'unofficialDevice', 'defective'] as const)(
+    'never opens the NOTE bypass for %s',
+    (reason) => {
+      render(
+        <AuthFailureCard
+          reason={reason}
+          onRetry={jest.fn()}
+          onSupport={jest.fn()}
+          onContinueAnyway={jest.fn()}
+        />,
+      );
+      expect(screen.queryByTestId('device-stage-auth-note-open')).toBeNull();
+      expect(
+        screen.queryByText(ETranslations.global_continue_anyway),
+      ).toBeNull();
+    },
+  );
 });

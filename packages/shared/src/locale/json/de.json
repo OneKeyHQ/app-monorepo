@@ -817,6 +817,7 @@
   "device_stage_pin_keypad__desc": "Folgen Sie den Zahlen am Gerät",
   "device_stage_pin_set_to_app__desc": "Gilt ab dem nächsten Mal. Geben Sie die PIN diesmal auf dem Gerät ein.",
   "device_stage_pin_set_to_app__title": "PIN-Eingabe auf die App umgestellt",
+  "device_stage_pin_too_short__msg": "Mindestens 4 Ziffern.",
   "device_stage_prefer_pin_in_app__action": "PIN lieber in der App eingeben?",
   "device_stage_processing__title": "Verarbeitung…",
   "device_stage_reconnect__action": "Erneut verbinden",
