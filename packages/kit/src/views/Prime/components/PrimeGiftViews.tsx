@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -5,47 +7,87 @@ import {
   Button,
   Dialog,
   Icon,
+  IconButton,
   LottieView,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { SetupCard } from '@onekeyhq/kit/src/views/Onboardingv2/components/SetupCard';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IPrimeGiftClaimResult } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IPrimeGiftClaimResult,
+  IPrimeGiftEligibility,
+} from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
-import { usePrimeGiftMessages } from '../hooks/usePrimeGiftMessages';
+import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
+import { PrimeBenefitsItem } from '../pages/PrimeDashboard/PrimeBenefitsList';
 import { PRIME_FEATURE_INTROS } from '../pages/PrimeFeatures/primeFeatureIntroUtils';
 
-function PrimeGiftStatusRow({
+import type { IntlShape } from 'react-intl';
+
+// UI transplanted from yikZero/app-monorepo, commit 120881a7a66e806bbf45858e937db0402c7f7607.
+// Callers supply live state and actions; layout and copy follow the original demo.
+
+export function PrimeGiftHeader({
   title,
-  status,
-  done,
-  onPress,
+  onBack,
 }: {
   title: string;
-  status: string;
+  onBack?: () => void;
+}) {
+  return (
+    <XStack h={52} px="$2" alignItems="center">
+      {onBack ? (
+        <IconButton
+          variant="tertiary"
+          size="large"
+          icon="ChevronLeftOutline"
+          testID="prime-gift-back"
+          onPress={onBack}
+        />
+      ) : (
+        <Stack w="$10" />
+      )}
+      <SizableText flex={1} textAlign="center" size="$headingMd">
+        {title}
+      </SizableText>
+      <Stack w="$10" />
+    </XStack>
+  );
+}
+
+function StatusCheckRow({
+  done,
+  title,
+  status,
+  testID,
+}: {
   done: boolean;
-  onPress?: () => void;
+  title: string;
+  status: string;
+  testID: string;
 }) {
   return (
     <ListItem
+      testID={testID}
       mx="$0"
-      minHeight={72}
-      py="$3"
+      minHeight={44}
+      py="$2"
       alignItems="flex-start"
-      onPress={onPress}
-      drillIn={Boolean(onPress)}
       renderIcon={
-        <Icon
-          name={done ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'}
-          size="$5"
-          color={done ? '$brand9' : '$iconSubdued'}
-          mt="$0.5"
-        />
+        <Stack pt="$0.5" flexShrink={0}>
+          <Icon
+            name={done ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'}
+            size="$5"
+            color={done ? '$brand9' : '$iconSubdued'}
+          />
+        </Stack>
       }
       title={title}
       titleProps={{ size: '$bodyLgMedium' }}
@@ -55,123 +97,171 @@ function PrimeGiftStatusRow({
   );
 }
 
-function PrimeGiftBenefits() {
-  const intl = useIntl();
-  return (
-    <ScrollView maxHeight={440}>
-      <YStack gap="$4" py="$2">
+function openBenefits(intl: IntlShape) {
+  Dialog.show({
+    testID: 'prime-gift-dialog-benefits',
+    title: intl.formatMessage({ id: ETranslations.prime_gift_benefits__title }),
+    renderContent: (
+      <ScrollView maxHeight={360}>
         {PRIME_FEATURE_INTROS.filter((feature) => !feature.isComingSoon).map(
           (feature) => (
-            <XStack key={feature.id} gap="$3" alignItems="flex-start">
-              <YStack p="$2" bg="$brand4" borderRadius="$3">
-                <Icon name={feature.listIcon} size="$6" color="$brand9" />
-              </YStack>
-              <YStack flex={1} gap="$1">
-                <SizableText size="$bodyLgMedium">
-                  {intl.formatMessage({ id: feature.title })}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: feature.description },
-                    feature.descriptionValues,
-                  )}
-                </SizableText>
-              </YStack>
-            </XStack>
+            <PrimeBenefitsItem
+              key={feature.id}
+              feature={feature}
+              itemProps={{ mx: 0, px: 0 }}
+            />
           ),
         )}
-      </YStack>
-    </ScrollView>
-  );
+      </ScrollView>
+    ),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.prime_gift_back_to_claim__action,
+    }),
+    showCancelButton: false,
+  });
 }
 
 export function PrimeGiftClaimContent({
+  deviceModelName,
   giftMonths,
+  giftDays,
   eligibilityStatus,
   isEligible,
   accountName,
   isAccountReady,
-  isProcessing,
   isDeviceVerified = false,
   error,
-  onAccount,
-}: {
-  giftMonths?: number;
+  errorDescription,
+}: Partial<Pick<IPrimeGiftEligibility, 'giftMonths' | 'giftDays'>> & {
+  deviceModelName: string;
   eligibilityStatus: string;
   isEligible: boolean;
   accountName?: string;
   isAccountReady: boolean;
-  isProcessing: boolean;
   isDeviceVerified?: boolean;
   error?: string;
-  onAccount?: () => void;
+  errorDescription?: string;
 }) {
-  const message = usePrimeGiftMessages();
-  const theme = useThemeName();
-  let verificationStatus = ETranslationsMock.prime_gift_verify_desc;
-  if (isProcessing)
-    verificationStatus = ETranslationsMock.prime_gift_processing;
-  else if (isDeviceVerified)
-    verificationStatus = ETranslationsMock.prime_gift_verified;
+  const intl = useIntl();
+  const giftDuration = getPrimeGiftDurationText({ giftMonths, giftDays }, intl);
+  const icon =
+    useThemeName() === 'light'
+      ? 'OnekeyPrimeLightColored'
+      : 'OnekeyPrimeDarkColored';
   return (
-    <YStack px="$5" pb="$5" gap="$5" testID="pro2-prime-claim-content">
+    <YStack px="$5" pb="$5" gap="$5" testID="prime-gift-claim-content">
       <YStack alignItems="center" gap="$2" pt="$2">
-        <Icon
-          name={
-            theme === 'light'
-              ? 'OnekeyPrimeLightColored'
-              : 'OnekeyPrimeDarkColored'
-          }
-          size="$12"
-        />
+        <Icon name={icon} size="$12" />
         <SizableText size="$heading2xl" textAlign="center">
-          {giftMonths
-            ? message(ETranslationsMock.prime_gift_claim, { count: giftMonths })
-            : message(ETranslationsMock.prime_gift_title)}
+          {giftDuration
+            ? intl.formatMessage(
+                { id: ETranslations.prime_gift_claim_duration__action },
+                { duration: giftDuration },
+              )
+            : intl.formatMessage({ id: ETranslations.prime_gift__title })}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {message(ETranslationsMock.prime_gift_thanks)}
+          {intl.formatMessage(
+            { id: ETranslations.prime_gift_thanks__desc },
+            { deviceName: deviceModelName },
+          )}
         </SizableText>
         <Button
           variant="tertiary"
           size="small"
           minHeight={44}
           iconAfter="ChevronRightSmallOutline"
-          testID="pro2-prime-open-benefits"
-          onPress={() =>
-            Dialog.show({
-              title: message(ETranslationsMock.prime_gift_benefits),
-              renderContent: <PrimeGiftBenefits />,
-              showFooter: false,
-            })
-          }
+          testID="prime-gift-open-benefits"
+          onPress={() => openBenefits(intl)}
         >
-          {message(ETranslationsMock.prime_gift_benefits)}
+          {intl.formatMessage({
+            id: ETranslations.prime_gift_benefits__action,
+          })}
         </Button>
       </YStack>
-      <YStack bg="$bgSubdued" borderRadius="$4" overflow="hidden" py="$1">
-        <PrimeGiftStatusRow
-          done={isEligible}
-          title={message(ETranslationsMock.prime_gift_eligibility)}
-          status={eligibilityStatus}
-        />
-        <PrimeGiftStatusRow
-          done={isAccountReady}
-          title={message(ETranslationsMock.prime_gift_account)}
-          status={
-            accountName || message(ETranslationsMock.prime_gift_account_desc)
-          }
-          onPress={onAccount}
-        />
-        <PrimeGiftStatusRow
-          done={isDeviceVerified}
-          title={message(ETranslationsMock.prime_gift_verify)}
-          status={message(verificationStatus)}
-        />
-      </YStack>
+      <SetupCard elevated={false}>
+        <YStack bg="$bgSubdued" borderRadius="$4" overflow="hidden" py="$1">
+          <StatusCheckRow
+            testID="prime-gift-check-account"
+            done={isAccountReady}
+            title={intl.formatMessage({
+              id: ETranslations.sign_in_to_onekey_id__title,
+            })}
+            status={
+              isAccountReady && accountName
+                ? accountName
+                : intl.formatMessage({
+                    id: ETranslations.prime_gift_account__desc,
+                  })
+            }
+          />
+          <StatusCheckRow
+            testID="prime-gift-check-device"
+            done={isDeviceVerified}
+            title={intl.formatMessage({
+              id: ETranslations.prime_gift_verify__title,
+            })}
+            status={intl.formatMessage({
+              id: isDeviceVerified
+                ? ETranslations.prime_gift_verified__desc
+                : ETranslations.prime_gift_verify__desc,
+            })}
+          />
+          <StatusCheckRow
+            testID="prime-gift-check-eligibility"
+            done={isDeviceVerified && isEligible}
+            title={intl.formatMessage({
+              id: ETranslations.prime_gift_eligibility__title,
+            })}
+            status={
+              isDeviceVerified
+                ? eligibilityStatus
+                : intl.formatMessage({
+                    id: ETranslations.prime_gift_eligibility_pending__desc,
+                  })
+            }
+          />
+        </YStack>
+      </SetupCard>
       {error ? (
-        <Alert type="critical" title={error} testID="pro2-prime-error" />
+        <Alert
+          type="critical"
+          title={error}
+          testID="prime-gift-error"
+          description={errorDescription}
+        />
       ) : null}
+    </YStack>
+  );
+}
+
+export function PrimeGiftClaimFooter({
+  primaryLabel,
+  isProcessing,
+  onSubmit,
+}: {
+  primaryLabel: string;
+  isProcessing: boolean;
+  onSubmit: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack px="$5" pt="$3" pb="$5" gap="$3" flexShrink={0}>
+      <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+        {intl.formatMessage({
+          id: ETranslations.prime_gift_eligible_device_once__desc,
+        })}
+      </SizableText>
+      <Button
+        size="large"
+        variant="primary"
+        loading={isProcessing}
+        disabled={isProcessing}
+        testID="prime-gift-claim-primary"
+        onPress={onSubmit}
+      >
+        {primaryLabel}
+      </Button>
     </YStack>
   );
 }
@@ -180,31 +270,23 @@ export function PrimeGiftSuccessContent({
   result,
   isKytEnabled,
   isKytLoading,
+  isNotificationEnabled = false,
   onKyt,
 }: {
   result: IPrimeGiftClaimResult;
   isKytEnabled: boolean;
   isKytLoading: boolean;
+  isNotificationEnabled?: boolean;
   onKyt: () => void;
 }) {
   const intl = useIntl();
-  const message = usePrimeGiftMessages();
-  const theme = useThemeName();
+  const icon =
+    useThemeName() === 'light'
+      ? 'OnekeyPrimeLightColored'
+      : 'OnekeyPrimeDarkColored';
   return (
-    <YStack
-      flex={1}
-      px="$5"
-      py="$4"
-      minHeight={360}
-      testID="pro2-prime-success"
-    >
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        gap="$3"
-        py="$6"
-      >
+    <YStack flex={1} px="$5" py="$4" testID="prime-gift-success">
+      <YStack flex={1} justifyContent="center" alignItems="center" gap="$3">
         <LottieView
           source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
           width={96}
@@ -213,82 +295,159 @@ export function PrimeGiftSuccessContent({
           loop={false}
         />
         <SizableText size="$heading3xl" textAlign="center">
-          {message(ETranslationsMock.prime_gift_success)}
+          {intl.formatMessage({ id: ETranslations.prime_gift_success__title })}
         </SizableText>
         <YStack alignItems="center" gap="$2">
           <XStack alignItems="center" gap="$1.5">
-            <Icon
-              name={
-                theme === 'light'
-                  ? 'OnekeyPrimeLightColored'
-                  : 'OnekeyPrimeDarkColored'
-              }
-              size="$5"
-            />
+            <Icon name={icon} size="$5" />
             <SizableText size="$bodyLgMedium">
-              {message(ETranslationsMock.prime_gift_months, {
-                count: result.giftMonths,
-              })}
+              {intl.formatMessage(
+                { id: ETranslations.prime_gift_duration__desc },
+                {
+                  duration: getPrimeGiftDurationText(
+                    {
+                      giftMonths: result.giftMonths,
+                      giftDays: result.addedDays,
+                    },
+                    intl,
+                  ),
+                },
+              )}
             </SizableText>
           </XStack>
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign="center"
-            testID="pro2-prime-success-account"
-          >
-            {result.email || result.onekeyUserId}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {intl.formatMessage(
-              { id: ETranslations.prime_membership_valid_until__desc },
-              { date: formatDateFns(new Date(result.finalExpiresAt)) },
-            )}
-          </SizableText>
+          <YStack alignItems="center" gap="$0.5">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {result.email || result.onekeyUserId}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                { id: ETranslations.prime_membership_valid_until__desc },
+                { date: formatDateFns(new Date(result.finalExpiresAt), 'PP') },
+              )}
+            </SizableText>
+          </YStack>
         </YStack>
       </YStack>
-      <XStack
-        mt="$4"
-        width="100%"
-        minHeight={72}
-        bg="$bgSubdued"
-        borderRadius="$4"
-        p="$4"
-        alignItems="center"
-        gap="$3"
-        accessibilityRole={isKytEnabled ? undefined : 'button'}
-        focusable={!isKytEnabled && !isKytLoading}
-        testID="pro2-prime-open-kyt"
-        onPress={isKytEnabled || isKytLoading ? undefined : onKyt}
-        opacity={isKytLoading ? 0.5 : 1}
-      >
-        <Icon
-          name={isKytEnabled ? 'CheckRadioSolid' : 'ShieldOutline'}
-          size="$5"
-          color={isKytEnabled ? '$brand9' : '$iconSubdued'}
-        />
-        <YStack flex={1} minWidth={0} gap="$0.5">
-          <SizableText size="$bodyLgMedium">
-            {intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__title,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: isKytEnabled
-                ? ETranslations.global_enabled
-                : ETranslations.prime_feature_receive_risk_monitoring__desc,
-            })}
-          </SizableText>
+      {isKytEnabled ? (
+        <YStack mt="$4" width="100%" bg="$bgSubdued" borderRadius="$4" p="$4">
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="CheckRadioSolid"
+              size="$5"
+              color="$brand9"
+              flexShrink={0}
+              pt="$0.5"
+            />
+            <YStack flex={1} minWidth={0} gap="$1">
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage({
+                  id: ETranslations.prime_gift_kyt_enabled__title,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: isNotificationEnabled
+                    ? ETranslations.prime_gift_kyt_notifications__desc
+                    : ETranslations.prime_gift_kyt_history__desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
         </YStack>
-        {isKytEnabled ? null : (
+      ) : (
+        <XStack
+          mt="$4"
+          width="100%"
+          minHeight={44}
+          bg="$bgSubdued"
+          borderRadius="$4"
+          p="$4"
+          alignItems="center"
+          gap="$3"
+          accessibilityRole="button"
+          focusable
+          testID="prime-gift-open-kyt"
+          onPress={isKytLoading ? undefined : onKyt}
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+        >
+          <Icon
+            name="ShieldOutline"
+            size="$5"
+            color="$iconSubdued"
+            flexShrink={0}
+          />
+          <YStack flex={1} minWidth={0} gap="$0.5">
+            <SizableText size="$bodyLgMedium">
+              {intl.formatMessage({
+                id: ETranslations.prime_feature_receive_risk_monitoring__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.prime_gift_kyt__desc })}
+            </SizableText>
+          </YStack>
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"
             color="$iconSubdued"
+            flexShrink={0}
           />
-        )}
-      </XStack>
+        </XStack>
+      )}
+    </YStack>
+  );
+}
+
+export function PrimeGiftClaimView({
+  onBack,
+  primaryLabel,
+  isProcessing,
+  onSubmit,
+  ...contentProps
+}: ComponentProps<typeof PrimeGiftClaimContent> &
+  ComponentProps<typeof PrimeGiftClaimFooter> & { onBack: () => void }) {
+  const intl = useIntl();
+  return (
+    <YStack flex={1}>
+      <PrimeGiftHeader
+        title={intl.formatMessage({ id: ETranslations.prime_gift__title })}
+        onBack={onBack}
+      />
+      <ScrollView flex={1}>
+        <PrimeGiftClaimContent {...contentProps} />
+      </ScrollView>
+      <PrimeGiftClaimFooter
+        primaryLabel={primaryLabel}
+        isProcessing={isProcessing}
+        onSubmit={onSubmit}
+      />
+    </YStack>
+  );
+}
+
+export function PrimeGiftSuccessView({
+  onEnterWallet,
+  ...contentProps
+}: ComponentProps<typeof PrimeGiftSuccessContent> & {
+  onEnterWallet: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack flex={1}>
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <PrimeGiftSuccessContent {...contentProps} />
+      </ScrollView>
+      <YStack px="$5" pb="$5">
+        <Button
+          size="large"
+          variant="primary"
+          testID="prime-gift-enter-wallet"
+          onPress={onEnterWallet}
+        >
+          {intl.formatMessage({ id: ETranslations.enter_wallet })}
+        </Button>
+      </YStack>
     </YStack>
   );
 }

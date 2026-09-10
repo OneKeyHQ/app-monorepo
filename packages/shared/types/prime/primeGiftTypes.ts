@@ -3,19 +3,11 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 export type IPrimeGiftDevice = Omit<SearchDevice, 'commType'>;
 
 export type IPrimeGiftEligibility = {
-  canClaim: boolean;
-  status: 'eligible' | 'redeemed' | 'unavailable';
-  giftMonths: number;
-  reason?: string;
-};
-
-export type IPrimeGiftAccountEligibility = {
-  canClaim: boolean;
-  reason?: string;
-};
-
-export type IPrimeGiftClaimProgress = {
-  deviceVerified: boolean;
+  sno: string;
+  eligible: boolean;
+  hasUnclaimedGift: boolean;
+  giftDays: number;
+  giftMonths?: number | null | '';
 };
 
 export type IPrimeGiftClaimParams = {
@@ -24,37 +16,29 @@ export type IPrimeGiftClaimParams = {
   expectedOneKeyUserId: string;
 };
 
-// Internal verification response; the redemption code must remain in background.
-export type IPrimeGiftVerifyV2Result = {
+export type IPrimeGiftPreparedRedemption = {
   serialNo: string;
-  primeRedeemCode: string;
+  onekeyUserId: string;
+  code?: string;
+  verification: IPrimeGiftDeviceVerification;
+};
+
+// Normalized result; the code is passed only to the redemption dialog, never persisted.
+export type IPrimeGiftVerifyV2Result = {
+  code?: string;
+  status?: string;
+};
+
+export type IPrimeGiftDeviceVerification = {
+  hasCode: boolean;
+  status?: string;
 };
 
 export type IPrimeGiftClaimResult = {
   serialNo: string;
-  giftMonths: number;
+  giftMonths?: IPrimeGiftEligibility['giftMonths'];
   addedDays: number;
   finalExpiresAt: number;
   onekeyUserId: string;
   email?: string;
-};
-
-export type IPrimeGiftMockConfig = {
-  enabled: boolean;
-  serialNo: string;
-  giftMonths?: number;
-  redeemCode?: string;
-};
-
-export type IPrimeGiftStoredRecord = {
-  giftMonths: number;
-  redemptionCodeStorageKey?: string;
-  codeOwnerOneKeyUserId?: string;
-  claimStatus?: 'codeReady' | 'submitting' | 'resultUnknown';
-  result?: IPrimeGiftClaimResult;
-};
-
-export type IPrimeGiftMockState = {
-  enabled: boolean;
-  devices: Record<string, IPrimeGiftStoredRecord>;
 };

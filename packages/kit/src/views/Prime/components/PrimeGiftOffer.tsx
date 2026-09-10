@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -11,86 +12,77 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
-import { usePrimeGiftMessages } from '../hooks/usePrimeGiftMessages';
-
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
 
 export function PrimeGiftOffer({
   device,
-  serialNo,
   source,
+  onboardingRouteKey,
+  skipInitialRefresh = false,
 }: {
-  device: Omit<SearchDevice, 'commType'>;
-  serialNo?: string;
+  device: IDBDevice;
   source: 'onboarding' | 'deviceDetails';
+  onboardingRouteKey?: string;
+  skipInitialRefresh?: boolean;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const theme = useThemeName();
-  const message = usePrimeGiftMessages();
-  const requestRef = useRef(0);
-  const [offer, setOffer] = useState<{
-    serialNo: string;
-    eligibility: IPrimeGiftEligibility;
-  }>();
+  const serialNo = deviceUtils.getDeviceSerialNoFromDbDevice(device);
+  const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
+  const eligibility = serialNo ? eligibilityBySerialNo[serialNo] : undefined;
+  const skipInitialRefreshRef = useRef(skipInitialRefresh);
   const refresh = useCallback(() => {
-    requestRef.current += 1;
-    const request = requestRef.current;
-    if (!serialNo || device.deviceType !== 'pro2') {
-      setOffer(undefined);
+    if (!serialNo) {
       return;
     }
     void backgroundApiProxy.servicePrime
       .apiGetPrimeGiftEligibility({ serialNo })
-      .then(
-        (eligibility) => {
-          if (request === requestRef.current)
-            setOffer({ serialNo, eligibility });
-        },
-        () => {
-          if (request === requestRef.current) setOffer(undefined);
-        },
-      );
-  }, [device.deviceType, serialNo]);
+      .catch(() => undefined);
+  }, [serialNo]);
   useFocusEffect(
     useCallback(() => {
+      if (skipInitialRefreshRef.current) {
+        skipInitialRefreshRef.current = false;
+        return;
+      }
       refresh();
-      return () => {
-        requestRef.current += 1;
-      };
     }, [refresh]),
   );
   useEffect(() => {
     const onRedeemed = (event: { serialNo: string }) => {
       if (event.serialNo === serialNo) {
-        requestRef.current += 1;
-        setOffer(undefined);
+        refresh();
       }
     };
     appEventBus.on(EAppEventBusNames.PrimeGiftRedeemed, onRedeemed);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeGiftRedeemed, onRedeemed);
     };
-  }, [serialNo]);
-  if (!serialNo || offer?.serialNo !== serialNo || !offer.eligibility.canClaim)
+  }, [serialNo, refresh]);
+  if (!serialNo || !eligibility?.eligible || !eligibility.hasUnclaimedGift)
     return null;
   return (
     <XStack
-      testID={`pro2-prime-offer-${source}`}
+      testID={`prime-gift-offer-${source}`}
       accessibilityRole="button"
       focusable
       alignItems="center"
       gap="$3"
       minHeight={88}
-      p="$4"
+      px="$4"
+      py="$4"
       bg="$bgSubdued"
       borderRadius="$4"
       hoverStyle={{ bg: '$bgHover' }}
@@ -98,7 +90,12 @@ export function PrimeGiftOffer({
       onPress={() =>
         navigation.pushModal(EModalRoutes.PrimeModal, {
           screen: EPrimePages.PrimeGift,
-          params: { device, serialNo, source },
+          params: {
+            device: deviceUtils.dbDeviceToSearchDevice(device),
+            serialNo,
+            source,
+            onboardingRouteKey,
+          },
         })
       }
     >
@@ -112,19 +109,26 @@ export function PrimeGiftOffer({
       />
       <YStack flex={1} minWidth={0} gap="$0.5">
         <SizableText size="$bodyLgMedium">
-          {message(ETranslationsMock.prime_gift_offer, {
-            count: offer.eligibility.giftMonths,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {message(
-            source === 'onboarding'
-              ? ETranslationsMock.prime_gift_later
-              : ETranslationsMock.prime_gift_device_once,
+          {intl.formatMessage(
+            { id: ETranslations.prime_gift_offer__title },
+            { duration: getPrimeGiftDurationText(eligibility, intl) },
           )}
         </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id:
+              source === 'onboarding'
+                ? ETranslations.prime_gift_later__desc
+                : ETranslations.prime_gift_device_once__desc,
+          })}
+        </SizableText>
       </YStack>
-      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      <XStack alignItems="center" gap="$0.5" flexShrink={0}>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({ id: ETranslations.earn_claim })}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+      </XStack>
     </XStack>
   );
 }

@@ -10,7 +10,7 @@ export enum ETranslationsMock {
   prime_gift_title = 'Claim Prime',
   prime_gift_offer = '{count} months of Prime included',
   prime_gift_claim = 'Claim {count} months of Prime',
-  prime_gift_thanks = 'Thank you for choosing OneKey Pro 2',
+  prime_gift_thanks = 'Thank you for choosing OneKey',
   prime_gift_later = 'You can claim later in device details',
   prime_gift_once = 'Each device can claim once. Each month equals 30 days.',
   prime_gift_device_once = 'Each device can claim once',

@@ -2,20 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  IPrimeGiftAccountEligibility,
   IPrimeGiftClaimResult,
+  IPrimeGiftDeviceVerification,
   IPrimeGiftEligibility,
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+
+import { showPrimeRedemptionDialog } from '../pages/PrimeDashboard/PrimeRedemptionDialog';
 
 import { getPrimeRedemptionErrorPresentation } from './primeRedemptionError';
 import { usePrimeGiftMessages } from './usePrimeGiftMessages';
@@ -24,10 +23,11 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 
 type IClaimSnapshot = {
   serialNo: string;
+  localUserId?: string;
+  localIsLoggedIn?: boolean;
   onekeyUserId?: string;
   eligibility?: IPrimeGiftEligibility;
-  accountEligibility?: IPrimeGiftAccountEligibility;
-  deviceVerified?: boolean;
+  verification?: IPrimeGiftDeviceVerification;
   result?: IPrimeGiftClaimResult;
   error?: string;
 };
@@ -39,19 +39,32 @@ export function usePrimeGiftClaim({
   device: Omit<SearchDevice, 'commType'>;
   serialNo: string;
 }) {
-  const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
+  const { user, loginOneKeyId } = useOneKeyAuth();
+  const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
   const message = usePrimeGiftMessages();
-  const onekeyUserId = isLoggedIn ? user?.onekeyUserId : undefined;
-  const contextRef = useRef({ serialNo, onekeyUserId, mounted: true });
-  contextRef.current.serialNo = serialNo;
-  contextRef.current.onekeyUserId = onekeyUserId;
+  const localUserId = user?.onekeyUserId;
+  const localIsLoggedIn = user?.isLoggedIn;
+  const contextRef = useRef({
+    serialNo,
+    localUserId,
+    localIsLoggedIn,
+    mounted: true,
+  });
+  Object.assign(contextRef.current, { serialNo, localUserId, localIsLoggedIn });
   const requestRef = useRef(0);
   const submittingRef = useRef(false);
+  const redemptionDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const [snapshot, setSnapshot] = useState<IClaimSnapshot>();
-  const snapshotRef = useRef(snapshot);
-  snapshotRef.current = snapshot;
   const [isQuerying, setIsQuerying] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isCurrent = useCallback(
+    () =>
+      contextRef.current.mounted &&
+      contextRef.current.serialNo === serialNo &&
+      contextRef.current.localUserId === localUserId &&
+      contextRef.current.localIsLoggedIn === localIsLoggedIn,
+    [serialNo, localUserId, localIsLoggedIn],
+  );
   useEffect(() => {
     const context = contextRef.current;
     context.mounted = true;
@@ -60,169 +73,176 @@ export function usePrimeGiftClaim({
       requestRef.current += 1;
     };
   }, []);
-  const isCurrent = useCallback(
-    () =>
-      contextRef.current.mounted &&
-      contextRef.current.serialNo === serialNo &&
-      contextRef.current.onekeyUserId === onekeyUserId,
-    [serialNo, onekeyUserId],
-  );
-  const refresh = useCallback(
-    async (preserveOutcome = false) => {
-      if (submittingRef.current) return;
-      requestRef.current += 1;
-      const request = requestRef.current;
-      const previous = snapshotRef.current;
-      const sameContext =
-        previous?.serialNo === serialNo &&
-        previous.onekeyUserId === onekeyUserId;
-      if (sameContext && previous.result) {
-        setIsQuerying(false);
-        return;
-      }
-      const next: IClaimSnapshot = {
-        serialNo,
-        onekeyUserId,
-        error: preserveOutcome && sameContext ? previous.error : undefined,
-      };
-      setIsQuerying(true);
-      try {
-        next.eligibility =
-          await backgroundApiProxy.servicePrime.apiGetPrimeGiftEligibility({
-            serialNo,
-          });
-        if (!isCurrent() || request !== requestRef.current) return;
-        if (onekeyUserId) {
-          const restored =
-            await backgroundApiProxy.servicePrime.apiGetPrimeGiftClaimResult({
-              serialNo,
-              expectedOneKeyUserId: onekeyUserId,
-            });
-          if (
-            restored &&
-            (restored.serialNo !== serialNo ||
-              restored.onekeyUserId !== onekeyUserId)
-          ) {
-            throw new OneKeyLocalError(
-              message(ETranslationsMock.prime_gift_session_changed),
-            );
-          }
-          next.result = restored;
-          if (!next.result && next.eligibility.canClaim) {
-            const progress =
-              await backgroundApiProxy.servicePrime.apiGetPrimeGiftClaimProgress(
-                {
-                  serialNo,
-                  expectedOneKeyUserId: onekeyUserId,
-                },
-              );
-            next.deviceVerified = progress.deviceVerified;
-            next.accountEligibility =
-              await backgroundApiProxy.servicePrime.apiCheckPrimeGiftAccountEligibility(
-                { expectedOneKeyUserId: onekeyUserId },
-              );
-          }
-        }
-      } catch (error) {
-        next.error =
-          next.error ||
-          getPrimeRedemptionErrorPresentation({
-            error,
-            fallbackMessage: message(ETranslationsMock.prime_gift_error),
-          }).message;
-      } finally {
-        if (isCurrent() && request === requestRef.current) {
-          setSnapshot(next);
-          setIsQuerying(false);
-        }
-      }
+  useEffect(
+    () => () => {
+      const dialog = redemptionDialogRef.current;
+      redemptionDialogRef.current = undefined;
+      if (dialog) void Promise.resolve(dialog.close()).catch(() => undefined);
     },
-    [serialNo, onekeyUserId, isCurrent, message],
-  );
-  useFocusEffect(
-    useCallback(() => {
-      if (!isSubmitting) void refresh(true);
-    }, [refresh, isSubmitting]),
+    [serialNo, localUserId, localIsLoggedIn],
   );
 
-  const submit = useCallback(async () => {
-    if (submittingRef.current || !onekeyUserId || !isCurrent()) return;
-    submittingRef.current = true;
+  const refresh = useCallback(async () => {
     requestRef.current += 1;
+    const request = requestRef.current;
+    const isLatest = () => isCurrent() && request === requestRef.current;
+    setIsQuerying(true);
+    setSnapshot({ serialNo, localUserId, localIsLoggedIn });
+    // A slow or failed offer preview must not delay the login check.
+    void backgroundApiProxy.servicePrime
+      .apiGetPrimeGiftEligibility({ serialNo })
+      .then((eligibility) => {
+        if (isLatest()) {
+          setSnapshot((current) => ({
+            ...current,
+            serialNo,
+            localUserId,
+            localIsLoggedIn,
+            eligibility,
+          }));
+        }
+      })
+      .catch(() => undefined);
+    try {
+      const onekeyUserId =
+        await backgroundApiProxy.servicePrime.apiGetPrimeGiftUserId();
+      if (isLatest()) {
+        setSnapshot((current) => ({
+          ...current,
+          serialNo,
+          localUserId,
+          localIsLoggedIn,
+          onekeyUserId,
+        }));
+      }
+    } catch (error) {
+      if (isLatest() && localIsLoggedIn) {
+        setSnapshot((current) => ({
+          ...current,
+          serialNo,
+          localUserId,
+          localIsLoggedIn,
+          error: getPrimeRedemptionErrorPresentation({
+            error,
+            fallbackMessage: message(ETranslations.prime_gift_error__msg),
+          }).message,
+        }));
+      }
+    } finally {
+      if (isLatest()) setIsQuerying(false);
+    }
+  }, [serialNo, localUserId, localIsLoggedIn, isCurrent, message]);
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+      return () => {
+        requestRef.current += 1;
+      };
+    }, [refresh]),
+  );
+
+  const current =
+    snapshot?.serialNo === serialNo &&
+    snapshot.localUserId === localUserId &&
+    snapshot.localIsLoggedIn === localIsLoggedIn
+      ? snapshot
+      : undefined;
+  const onekeyUserId = current?.onekeyUserId;
+  const eligibility = eligibilityBySerialNo[serialNo] ?? current?.eligibility;
+  const submit = useCallback(async () => {
+    if (
+      submittingRef.current ||
+      redemptionDialogRef.current?.isExist() ||
+      !onekeyUserId ||
+      !isCurrent()
+    )
+      return;
+    submittingRef.current = true;
     setIsSubmitting(true);
-    setIsQuerying(false);
-    setSnapshot((current) => ({
-      ...current,
+    setSnapshot((value) => ({
+      ...value,
       serialNo,
-      onekeyUserId,
+      localUserId,
       error: undefined,
     }));
     try {
-      const result = await backgroundApiProxy.servicePrime.apiClaimPrimeGift({
-        device,
-        serialNo,
-        expectedOneKeyUserId: onekeyUserId,
-      });
+      const prepared =
+        await backgroundApiProxy.servicePrime.apiPreparePrimeGiftRedemption({
+          device,
+          serialNo,
+          expectedOneKeyUserId: onekeyUserId,
+        });
       if (!isCurrent()) return;
-      if (
-        result.serialNo !== serialNo ||
-        result.onekeyUserId !== onekeyUserId
-      ) {
-        throw new OneKeyLocalError(
-          message(ETranslationsMock.prime_gift_session_changed),
-        );
-      }
-      setSnapshot((current) => ({
-        ...current,
+      const isAlreadyRedeemed = prepared.verification.status === 'redeemed';
+      setSnapshot((value) => ({
+        ...value,
         serialNo,
-        onekeyUserId,
-        result,
+        localUserId,
+        localIsLoggedIn,
+        verification: prepared.verification,
+        error: isAlreadyRedeemed
+          ? message(ETranslations.prime_gift_already_claimed__msg)
+          : undefined,
       }));
-      appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, { serialNo });
-      // The confirmed redemption result remains valid if a profile refresh fails.
-      void backgroundApiProxy.servicePrime
-        .apiFetchPrimeUserInfo({ forceRefresh: true })
-        .catch(() => undefined);
-    } catch (error) {
-      if (isCurrent()) {
-        const result = await backgroundApiProxy.servicePrime
-          .apiGetPrimeGiftClaimResult({
+      if (isAlreadyRedeemed || !prepared.code?.trim()) return;
+      redemptionDialogRef.current = showPrimeRedemptionDialog({
+        expectedOneKeyUserId: onekeyUserId,
+        initialCode: prepared.code,
+        primeGiftSerialNo: serialNo,
+        isPrimeActiveBeforeRedeem: Boolean(user?.primeSubscription?.isActive),
+        onRedeemed: (redemption) => {
+          if (!isCurrent()) return;
+          setSnapshot((value) => ({
+            ...value,
             serialNo,
-            expectedOneKeyUserId: onekeyUserId,
-          })
-          .catch(() => undefined);
-        if (!isCurrent()) return;
-        if (
-          result?.serialNo === serialNo &&
-          result.onekeyUserId === onekeyUserId
-        ) {
-          setSnapshot((current) => ({
-            ...current,
-            serialNo,
-            onekeyUserId,
-            result,
+            localUserId,
+            localIsLoggedIn,
+            result: {
+              ...redemption,
+              serialNo,
+              onekeyUserId,
+              giftMonths:
+                redemption.addedDays === eligibility?.giftDays
+                  ? eligibility?.giftMonths
+                  : undefined,
+              email: user?.displayEmail ?? user?.email,
+            },
             error: undefined,
           }));
-          appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, { serialNo });
-        } else {
-          setSnapshot((current) => ({
-            ...current,
-            serialNo,
-            onekeyUserId,
-            error: errorToastUtils.isUserCancelStyleError(error)
-              ? undefined
-              : getPrimeRedemptionErrorPresentation({
-                  error,
-                  fallbackMessage: message(ETranslationsMock.prime_gift_error),
-                }).message,
-          }));
-        }
+        },
+      });
+    } catch (error) {
+      if (isCurrent()) {
+        setSnapshot((value) => ({
+          ...value,
+          serialNo,
+          localUserId,
+          localIsLoggedIn,
+          error: errorToastUtils.isUserCancelStyleError(error)
+            ? undefined
+            : getPrimeRedemptionErrorPresentation({
+                error,
+                fallbackMessage: message(ETranslations.prime_gift_error__msg),
+              }).message,
+        }));
       }
     } finally {
       submittingRef.current = false;
       if (contextRef.current.mounted) setIsSubmitting(false);
     }
-  }, [device, serialNo, onekeyUserId, isCurrent, message]);
+  }, [
+    device,
+    serialNo,
+    localUserId,
+    localIsLoggedIn,
+    onekeyUserId,
+    isCurrent,
+    message,
+    user?.primeSubscription?.isActive,
+    user?.displayEmail,
+    user?.email,
+    eligibility,
+  ]);
 
   const login = useCallback(async () => {
     if (submittingRef.current) return;
@@ -230,15 +250,17 @@ export function usePrimeGiftClaim({
     setIsSubmitting(true);
     try {
       await loginOneKeyId();
+      if (isCurrent()) await refresh();
     } catch (error) {
       if (isCurrent() && !errorToastUtils.isUserCancelStyleError(error)) {
-        setSnapshot((current) => ({
-          ...current,
+        setSnapshot((value) => ({
+          ...value,
           serialNo,
-          onekeyUserId,
+          localUserId,
+          localIsLoggedIn,
           error: getPrimeRedemptionErrorPresentation({
             error,
-            fallbackMessage: message(ETranslationsMock.prime_gift_error),
+            fallbackMessage: message(ETranslations.prime_gift_error__msg),
           }).message,
         }));
       }
@@ -246,19 +268,22 @@ export function usePrimeGiftClaim({
       submittingRef.current = false;
       if (contextRef.current.mounted) setIsSubmitting(false);
     }
-  }, [loginOneKeyId, isCurrent, serialNo, onekeyUserId, message]);
-  // Identity can change before effects run; never render the previous account's result.
-  const current =
-    snapshot?.serialNo === serialNo && snapshot.onekeyUserId === onekeyUserId
-      ? snapshot
-      : undefined;
+  }, [
+    loginOneKeyId,
+    refresh,
+    isCurrent,
+    serialNo,
+    localUserId,
+    localIsLoggedIn,
+    message,
+  ]);
   return {
     user,
-    isLoggedIn,
+    isLoggedIn: Boolean(!isQuerying && onekeyUserId),
     onekeyUserId,
-    eligibility: current?.eligibility,
-    accountEligibility: current?.accountEligibility,
-    deviceVerified: Boolean(current?.deviceVerified || current?.result),
+    eligibility,
+    deviceVerified: Boolean(current?.verification || current?.result),
+    verification: current?.verification,
     result: current?.result,
     error: current?.error,
     isQuerying,

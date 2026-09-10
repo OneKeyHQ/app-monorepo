@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -29,7 +28,6 @@ import type {
   ITabDeviceManagementParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -228,14 +226,8 @@ function DeviceDetailsModalV2Cmp({
                   vendorProfile?.supportsFirmwareVerify,
                 )}
               />
-              {!isQrWallet && device?.deviceType === EDeviceType.Pro2 ? (
-                <PrimeGiftOffer
-                  device={deviceUtils.dbDeviceToSearchDevice(device)}
-                  serialNo={
-                    device.deviceStateInfo?.identity.serialNo || device.uuid
-                  }
-                  source="deviceDetails"
-                />
+              {device ? (
+                <PrimeGiftOffer device={device} source="deviceDetails" />
               ) : null}
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}

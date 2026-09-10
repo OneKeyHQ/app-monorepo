@@ -93,5 +93,6 @@ export type IPrimeParamList = {
     device: Omit<SearchDevice, 'commType'>;
     serialNo: string;
     source: 'onboarding' | 'deviceDetails';
+    onboardingRouteKey?: string;
   };
 };

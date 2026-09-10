@@ -18,10 +18,14 @@ export function usePrimeRedemptionSubmit({
   expectedOneKeyUserId,
   initialCode = '',
   isPrimeActiveBeforeRedeem,
+  primeGiftSerialNo,
+  onRedeemed,
 }: {
   expectedOneKeyUserId: string | undefined;
   initialCode?: string;
   isPrimeActiveBeforeRedeem: boolean;
+  primeGiftSerialNo?: string;
+  onRedeemed?: (result: IPrimeRedemptionResult) => void;
 }) {
   const intl = useIntl();
   const form = useForm<IPrimeRedemptionFormValues>({
@@ -68,6 +72,7 @@ export function usePrimeRedemptionSubmit({
           {
             code: form.getValues('code').trim(),
             expectedOneKeyUserId,
+            ...(primeGiftSerialNo ? { primeGiftSerialNo } : {}),
           },
         );
         defaultLogger.prime.subscription.primeRedemptionResult({
@@ -76,6 +81,7 @@ export function usePrimeRedemptionSubmit({
           addedDays: result.addedDays,
         });
         setRedemptionResult(result);
+        onRedeemed?.(result);
         void backgroundApiProxy.servicePrime
           .apiFetchPrimeUserInfo({ forceRefresh: true })
           .catch(() => undefined); // best-effort persist refresh; success UI is already shown
@@ -98,7 +104,14 @@ export function usePrimeRedemptionSubmit({
         form.setError('code', { message: presentation.message });
       }
     },
-    [expectedOneKeyUserId, form, intl, isPrimeActiveBeforeRedeem],
+    [
+      expectedOneKeyUserId,
+      form,
+      intl,
+      isPrimeActiveBeforeRedeem,
+      primeGiftSerialNo,
+      onRedeemed,
+    ],
   );
 
   return {

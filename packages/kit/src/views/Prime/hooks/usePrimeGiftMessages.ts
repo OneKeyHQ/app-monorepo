@@ -1,52 +1,35 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { createIntl, createIntlCache, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
-
-const mockIntlCache = createIntlCache();
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function usePrimeGiftMessages() {
   const intl = useIntl();
-  const mockIntl = useMemo(
-    () =>
-      createIntl(
-        { locale: intl.locale, defaultLocale: intl.locale },
-        mockIntlCache,
-      ),
-    [intl.locale],
-  );
   return useCallback(
-    (id: ETranslationsMock, values?: Record<string, string | number>) =>
-      mockIntl.formatMessage({ id, defaultMessage: id }, values),
-    [mockIntl],
+    (id: ETranslations, values?: Record<string, string | number>) =>
+      intl.formatMessage({ id }, values),
+    [intl],
   );
 }
 
 export function usePrimeGiftReasonMessage() {
-  const intl = useIntl();
   const message = usePrimeGiftMessages();
   return useCallback(
     (reason: string | undefined) => {
       switch (reason) {
         case 'campaign_unavailable':
-          return message(ETranslationsMock.prime_gift_unavailable);
+          return message(ETranslations.prime_gift_unavailable__msg);
         case 'already_redeemed':
-          return message(ETranslationsMock.prime_gift_claimed);
+          return message(ETranslations.prime_gift_already_claimed__msg);
         case 'account_changed':
-          return message(ETranslationsMock.prime_gift_session_changed);
-        case 'paid_prime_active':
-          return intl.formatMessage({
-            id: ETranslations.prime_redemption_paid_subscription_blocked__desc,
-          });
-        case 'account_eligibility_unavailable':
-          return message(ETranslationsMock.prime_gift_error);
+          return message(ETranslations.prime_onekey_id_session_changed__msg);
         case 'claim_result_unknown':
-          return message(ETranslationsMock.prime_gift_result_unknown);
+          return message(ETranslations.prime_gift_result_unknown__msg);
         default:
           return reason;
       }
     },
-    [intl, message],
+    [message],
   );
 }

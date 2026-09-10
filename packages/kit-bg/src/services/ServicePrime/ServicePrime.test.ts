@@ -1,13 +1,31 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
-import type { IPrimeGiftMockState } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
 import type {
   IKeylessOAuthSessionPersistenceJournal,
   IKeylessOAuthSessionPersistenceJournalPreparation,
   SimpleDbEntityPrime,
 } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+import type { IPrimeGiftEligibilityCache } from '../../states/jotai/atoms/prime';
+
+let mockGiftEligibilityCache: IPrimeGiftEligibilityCache = {};
+const mockPrimeGiftEligibilityPersistAtom = {
+  set: jest.fn(
+    async (
+      update: (
+        cached: IPrimeGiftEligibilityCache,
+      ) => IPrimeGiftEligibilityCache,
+    ) => {
+      mockGiftEligibilityCache = update(mockGiftEligibilityCache);
+    },
+  ),
+};
 
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
@@ -72,7 +90,7 @@ jest.mock(
   () => ({
     __esModule: true,
     default: {
-      supportSecureStorage: jest.fn(async () => true),
+      supportSecureStorage: jest.fn(async () => false),
       setSecureItem: jest.fn(async () => undefined),
       getSecureItem: jest.fn(async () => 'TEST_CODE'),
       removeSecureItem: jest.fn(async () => undefined),
@@ -113,13 +131,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     intl: {
-      formatMessage: jest.fn(() => ''),
+      formatMessage: jest.fn(({ id }: { id: string }) => id),
     },
     onLocaleChange: jest.fn(),
   },
 }));
 
 jest.mock('../../states/jotai/atoms/prime', () => ({
+  primeGiftEligibilityPersistAtom: mockPrimeGiftEligibilityPersistAtom,
   primePersistAtom: mockPrimePersistAtom,
   primePersistAtomInitialValue: { isLoggedIn: false },
   primeServerMasterPasswordStatusAtom: mockPrimeServerMasterPasswordStatusAtom,
@@ -286,6 +305,8 @@ const {
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
+const errorToastUtils =
+  require('@onekeyhq/shared/src/errors/utils/errorToastUtils').default;
 const {
   toPlainErrorObject,
 } = require('@onekeyhq/shared/src/errors/utils/errorUtils');
@@ -1248,7 +1269,7 @@ describe('ServicePrime Prime redemption API', () => {
           code: 'OKP-PJ37L-DYXWR',
           expectedOneKeyUserId: 'user-a',
         }),
-      ).rejects.toThrow('Invalid Prime redemption response');
+      ).rejects.toThrow('prime_redemption_invalid_response__msg');
     },
   );
 
@@ -6784,20 +6805,24 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
   });
 });
 
-describe('ServicePrime Pro 2 Prime gift orchestration', () => {
+describe('ServicePrime hardware Prime gift orchestration', () => {
   let giftEventSpy: jest.SpyInstance;
   const user = {
     isLoggedIn: true,
-    isLoggedInOnServer: true,
     onekeyUserId: 'user-a',
     displayEmail: 'receiver@example.com',
   };
-  const claimParams = {
-    serialNo: 'PRO2_SERIAL',
+  const prepareParams = {
+    serialNo: 'DEVICE_SERIAL',
     expectedOneKeyUserId: 'user-a',
-    device: { connectId: 'PRO2_USB', deviceType: 'pro2' },
+    device: { connectId: 'DEVICE_USB', deviceType: 'pro' },
   };
   const redemption = { addedDays: 180, finalExpiresAt: 1_800_000_000_000 };
+  const redeemParams = {
+    code: 'TEST_CODE',
+    expectedOneKeyUserId: 'user-a',
+    primeGiftSerialNo: 'DEVICE_SERIAL',
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -6805,6 +6830,8 @@ describe('ServicePrime Pro 2 Prime gift orchestration', () => {
       .spyOn(appEventBus, 'emit')
       .mockImplementation(() => true);
     mockPrimePersistAtom.get.mockResolvedValue(user);
+    mockGiftEligibilityCache = {};
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
       accessToken: 'token-a',
@@ -6828,477 +6855,591 @@ describe('ServicePrime Pro 2 Prime gift orchestration', () => {
       EPrimeAuthSessionSource.KeylessOAuth,
     );
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
-    let state: IPrimeGiftMockState = {
-      enabled: true,
+    // Legacy metadata must not be consulted or updated by the new flow.
+    const legacyRead = jest.fn(async () => ({
       devices: {
-        PRO2_SERIAL: {
+        DEVICE_SERIAL: {
           giftMonths: 6,
-          redemptionCodeStorageKey: 'test-code-key',
+          codeOwnerOneKeyUserId: 'another-user',
+          claimStatus: 'resultUnknown',
+          result: { onekeyUserId: 'another-user', ...redemption },
         },
       },
-    };
-    const setState = jest.fn(async (next: IPrimeGiftMockState) => {
-      state = next;
-    });
+    }));
+    const legacyWrite = jest.fn();
     Object.assign(simpleDbPrime, {
-      getPrimeGiftMockState: jest.fn(async () => state),
-      setPrimeGiftMockState: setState,
+      getPrimeGiftClaimState: legacyRead,
+      setPrimeGiftClaimState: legacyWrite,
     });
-    service.getEnabledPrimeGiftMock = jest.fn(async () => ({
-      ...state,
-      devices: Object.fromEntries(
-        Object.entries(state.devices).map(([key, value]) => [
-          key,
-          { ...value },
-        ]),
-      ),
-    }));
-    service.apiFetchPrimeUserInfo = jest.fn(async () => ({
-      userInfo: user,
-      serverUserInfo: { userId: 'user-a' },
-      primeSubscription: undefined,
-    }));
-    service.redeemPrimeCode = jest.fn(
-      async (
-        _params: unknown,
-        onConfirmed?: (result: typeof redemption) => Promise<void>,
-      ) => {
-        await onConfirmed?.(redemption);
-        return redemption;
-      },
+    service.apiFetchPrimeUserInfo = jest.fn(async () => ({ userInfo: user }));
+    const verify = jest.fn<Promise<IPrimeGiftVerifyV2Result>, [unknown]>(
+      async () => ({ code: 'TEST_CODE', status: 'available' }),
     );
-    const verify = jest.fn(async () => ({ serialNo: 'PRO2_SERIAL' }));
     backgroundApi.serviceHardware = {
       hardwareVerifyManager: { firmwareAuthenticateForPrimeGift: verify },
     };
-    return { ...result, verify, setState, getState: () => state };
-  }
-
-  it.each([
-    [undefined, true, undefined],
-    [
-      {
-        isActive: true,
-        willRenew: false,
-        subscriptions: [{ channel: 'redemption' }],
-      },
-      true,
-      undefined,
-    ],
-    [
-      {
-        isActive: true,
-        willRenew: false,
-        subscriptions: [{ channel: 'revenuecat' }],
-      },
-      false,
-      'paid_prime_active',
-    ],
-    [
-      {
-        isActive: true,
-        willRenew: false,
-        subscriptions: [{ channel: 'infini' }],
-      },
-      false,
-      'paid_prime_active',
-    ],
-    [
-      { isActive: true, subscriptions: [] },
-      false,
-      'account_eligibility_unavailable',
-    ],
-  ])(
-    'checks paid entitlement metadata before verification: %j',
-    async (primeSubscription, canClaim, reason) => {
-      const { service } = createGiftService();
-      service.apiFetchPrimeUserInfo.mockResolvedValue({
-        userInfo: user,
-        serverUserInfo: { userId: 'user-a' },
-        primeSubscription,
-      });
-      await expect(
-        service.apiCheckPrimeGiftAccountEligibility({
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).resolves.toEqual({ canClaim, ...(reason ? { reason } : {}) });
-    },
-  );
-
-  it('does not authenticate or consume a device for an active paid member', async () => {
-    const { service, verify, setState } = createGiftService();
-    service.apiFetchPrimeUserInfo.mockResolvedValue({
-      userInfo: user,
-      serverUserInfo: { userId: 'user-a' },
-      primeSubscription: {
-        isActive: true,
-        willRenew: false,
-        subscriptions: [{ channel: 'revenuecat' }],
-      },
-    });
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'paid_prime_active',
-    );
-    expect(verify).not.toHaveBeenCalled();
-    expect(service.redeemPrimeCode).not.toHaveBeenCalled();
-    expect(setState).not.toHaveBeenCalled();
-  });
-
-  it('keeps an issued code after redemption failure and retries the same code', async () => {
-    const { service, verify, getState } = createGiftService();
-    service.redeemPrimeCode.mockRejectedValueOnce(
-      new Error('Network unavailable'),
-    );
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'Network unavailable',
-    );
-    expect(getState().devices.PRO2_SERIAL).toMatchObject({
-      redemptionCodeStorageKey: 'test-code-key',
-      codeOwnerOneKeyUserId: 'user-a',
-    });
-    expect(getState().devices.PRO2_SERIAL.result).toBeUndefined();
-    expect(giftEventSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeGiftRedeemed,
-      expect.anything(),
-    );
-    await expect(service.apiClaimPrimeGift(claimParams)).resolves.toMatchObject(
-      { ...redemption, giftMonths: 6, onekeyUserId: 'user-a' },
-    );
-    expect(verify).toHaveBeenCalledTimes(1);
-    expect(service.redeemPrimeCode).toHaveBeenNthCalledWith(
-      1,
-      { code: 'TEST_CODE', expectedOneKeyUserId: 'user-a' },
-      expect.any(Function),
-    );
-    expect(service.redeemPrimeCode).toHaveBeenNthCalledWith(
-      2,
-      { code: 'TEST_CODE', expectedOneKeyUserId: 'user-a' },
-      expect.any(Function),
-    );
-    expect(
-      getState().devices.PRO2_SERIAL.redemptionCodeStorageKey,
-    ).toBeUndefined();
-  });
-
-  it('serializes concurrent entry submissions and hides a confirmed gift', async () => {
-    const { service, verify } = createGiftService();
-    const [first, second] = await Promise.all([
-      service.apiClaimPrimeGift(claimParams),
-      service.apiClaimPrimeGift(claimParams),
-    ]);
-    expect(first).toEqual(second);
-    expect(verify).toHaveBeenCalledTimes(1);
-    expect(service.redeemPrimeCode).toHaveBeenCalledTimes(1);
-    await expect(
-      service.apiGetPrimeGiftEligibility({ serialNo: 'PRO2_SERIAL' }),
-    ).resolves.toMatchObject({ canClaim: false, status: 'redeemed' });
-  });
-
-  it('announces the persisted gift from background without depending on a claim page', async () => {
-    const { service, getState } = createGiftService();
-    giftEventSpy.mockImplementation((event: unknown, payload: unknown) => {
-      if (event === EAppEventBusNames.PrimeGiftRedeemed) {
-        expect(getState().devices.PRO2_SERIAL.result).toMatchObject(redemption);
-        expect(payload).toEqual({ serialNo: 'PRO2_SERIAL' });
-      }
-      return true;
-    });
-    await service.apiClaimPrimeGift(claimParams);
-    await service.apiClaimPrimeGift(claimParams);
-    expect(giftEventSpy).toHaveBeenCalledTimes(1);
-    expect(giftEventSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeGiftRedeemed,
-      { serialNo: 'PRO2_SERIAL' },
-    );
-  });
-
-  it('does not announce a gift when its confirmed receipt cannot be persisted', async () => {
-    const { service, setState } = createGiftService();
-    setState
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('Receipt storage unavailable'));
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'Receipt storage unavailable',
-    );
-    expect(giftEventSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeGiftRedeemed,
-      expect.anything(),
-    );
-  });
-
-  it('rejects a different authenticated serial without issuing or redeeming', async () => {
-    const { service, verify, setState } = createGiftService();
-    verify.mockResolvedValueOnce({ serialNo: 'ANOTHER_SERIAL' });
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'does not match',
-    );
-    expect(service.redeemPrimeCode).not.toHaveBeenCalled();
-    expect(setState).not.toHaveBeenCalled();
-  });
-
-  it('rejects an account switch during hardware authentication', async () => {
-    const { service, verify, setState } = createGiftService();
-    verify.mockImplementationOnce(async () => {
-      mockPrimePersistAtom.get.mockResolvedValue({
-        ...user,
-        onekeyUserId: 'user-b',
-      });
-      return { serialNo: 'PRO2_SERIAL' };
-    });
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'OneKey ID changed',
-    );
-    expect(service.redeemPrimeCode).not.toHaveBeenCalled();
-    expect(setState).not.toHaveBeenCalled();
-  });
-
-  it('does not expose another account receipt through the recovery query', async () => {
-    const { service } = createGiftService();
-    await service.apiClaimPrimeGift(claimParams);
-    mockPrimePersistAtom.get.mockResolvedValue({
-      ...user,
-      onekeyUserId: 'user-b',
-    });
-    await expect(
-      service.apiGetPrimeGiftClaimResult({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-b',
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it.each(['account switch', 'auth-session ABA change'])(
-    'rejects a receipt query across an %s',
-    async (change) => {
-      const { service, getState, simpleDbPrime } = createGiftService();
-      await service.apiClaimPrimeGift(claimParams);
-      service.getEnabledPrimeGiftMock.mockImplementationOnce(async () => {
-        if (change === 'account switch') {
-          mockPrimePersistAtom.get.mockResolvedValue({
-            ...user,
-            onekeyUserId: 'user-b',
-          });
-        } else {
-          simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
-        }
-        return getState();
-      });
-      await expect(
-        service.apiGetPrimeGiftClaimResult({
-          serialNo: 'PRO2_SERIAL',
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).rejects.toThrow('OneKey ID changed');
-    },
-  );
-
-  it('rejects a cached claim receipt across an auth-session ABA change', async () => {
-    const { service, getState, simpleDbPrime } = createGiftService();
-    await service.apiClaimPrimeGift(claimParams);
-    giftEventSpy.mockClear();
-    service.getEnabledPrimeGiftMock.mockImplementationOnce(async () => {
-      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
-      return getState();
-    });
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'OneKey ID changed',
-    );
-    expect(service.redeemPrimeCode).toHaveBeenCalledTimes(1);
-    expect(giftEventSpy).not.toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeGiftRedeemed,
-      expect.anything(),
-    );
-  });
-
-  it('preserves the original account receipt when the session changes after the real redeem response', async () => {
-    const { service, getState } = createGiftService();
-    service.redeemPrimeCode =
-      Object.getPrototypeOf(service).redeemPrimeCode.bind(service);
-    const get = jest.fn(async () => ({
-      data: { data: { onekeyAccount: { onekeyUserId: 'user-a' } } },
-    }));
-    const post = jest.fn(async () => {
-      mockPrimePersistAtom.get.mockResolvedValue({
-        ...user,
-        onekeyUserId: 'user-b',
-      });
-      return {
+    const get = jest.fn(
+      async (): Promise<{
         data: {
+          code: number;
+          message?: string;
           data: {
-            daysAdded: redemption.addedDays,
-            primeExpiresAt: redemption.finalExpiresAt,
+            userId: string;
+            onekeyAccount?: { onekeyUserId: string };
+          };
+        };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            userId: 'user-a',
+            onekeyAccount: { onekeyUserId: 'user-a' },
           },
         },
-      };
-    });
-    service.getPrimeClient = jest.fn(async () => ({ get, post }));
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toBeInstanceOf(
-      OneKeyLocalError,
-    );
-    expect(post).toHaveBeenCalledTimes(1);
-    expect(getState().devices.PRO2_SERIAL.result).toMatchObject({
-      ...redemption,
-      onekeyUserId: 'user-a',
-    });
-    expect(giftEventSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.PrimeGiftRedeemed,
-      { serialNo: 'PRO2_SERIAL' },
-    );
-    mockPrimePersistAtom.get.mockResolvedValue(user);
-    await expect(
-      service.apiGetPrimeGiftClaimResult({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-a',
       }),
-    ).resolves.toMatchObject({ ...redemption, onekeyUserId: 'user-a' });
-  });
+    );
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    }));
+    const eligibilityPost = jest.fn(
+      async (): Promise<{
+        data: { code: number; message?: string; data: unknown };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            sno: 'DEVICE_SERIAL',
+            eligible: true,
+            hasUnclaimedGift: true,
+            giftDays: 180,
+            giftMonths: 6,
+          },
+        },
+      }),
+    );
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    service.getClient = jest.fn(async () => ({ post: eligibilityPost }));
+    return {
+      ...result,
+      verify,
+      get,
+      post,
+      eligibilityPost,
+      legacyRead,
+      legacyWrite,
+    };
+  }
 
-  it('can retry an issued secure-storage code after a background service restart', async () => {
-    const first = createGiftService();
-    first.service.redeemPrimeCode.mockRejectedValueOnce(
-      new Error('Network unavailable'),
-    );
-    await expect(first.service.apiClaimPrimeGift(claimParams)).rejects.toThrow(
-      'Network unavailable',
-    );
-    expect(first.getState().devices.PRO2_SERIAL.claimStatus).toBe(
-      'resultUnknown',
-    );
-    const restarted = createGiftService();
-    await restarted.setState(first.getState());
-    await expect(
-      restarted.service.apiGetPrimeGiftEligibility({ serialNo: 'PRO2_SERIAL' }),
-    ).resolves.toMatchObject({
-      canClaim: true,
-      reason: 'claim_result_unknown',
+  describe('resetting a device Prime gift in developer mode', () => {
+    const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+
+    beforeEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
     });
-    await expect(
-      restarted.service.apiClaimPrimeGift(claimParams),
-    ).resolves.toMatchObject(redemption);
-    expect(restarted.verify).not.toHaveBeenCalled();
-    expect(restarted.service.redeemPrimeCode).toHaveBeenCalledWith(
-      { code: 'TEST_CODE', expectedOneKeyUserId: 'user-a' },
-      expect.any(Function),
+
+    afterEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    });
+
+    it('posts the current serial number and accepts success without response data', async () => {
+      const { service, eligibilityPost, legacyRead, legacyWrite } =
+        createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 0, data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toBeUndefined();
+      expect(service.getClient).toHaveBeenCalledWith('wallet');
+      expect(eligibilityPost).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/prime-gift/reset',
+        { sno: 'DEVICE_SERIAL' },
+      );
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+    });
+
+    it('does not call the server when developer mode is disabled', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('prime_gift_developer_mode_required__msg');
+      expect(eligibilityPost).not.toHaveBeenCalled();
+    });
+
+    it('preserves a failed reset response instead of reporting success', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 500, message: 'Reset failed', data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('Reset failed');
+    });
+  });
+
+  it('queries user info on every call without a profile or local user fallback', async () => {
+    const { service, get } = createGiftService();
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBe('user-a');
+    get.mockResolvedValueOnce({ data: { code: 0, data: { userId: '' } } });
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBeUndefined();
+    expect(get.mock.calls).toEqual([
+      ['/prime/v1/user/info'],
+      ['/prime/v1/user/info'],
+    ]);
+  });
+
+  it('does not accept a userId returned in a failed user-info response', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValue({
+      data: { code: 500, message: 'Info failed', data: { userId: 'user-a' } },
+    });
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toThrow(
+      'Info failed',
     );
   });
 
-  it('keeps an unknown grant unresolved when retrying the code returns a business error', async () => {
-    const { service, getState } = createGiftService();
-    service.redeemPrimeCode.mockRejectedValueOnce(
-      new Error('Network unavailable'),
-    );
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow();
-    service.redeemPrimeCode.mockRejectedValueOnce(
-      new OneKeyServerApiError({ code: 400, message: 'Code already used' }),
-    );
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow();
-    expect(getState().devices.PRO2_SERIAL.claimStatus).toBe('resultUnknown');
-    expect(getState().devices.PRO2_SERIAL.result).toBeUndefined();
-  });
+  it.each([90_002, 90_003, 500])(
+    'prevents the background proxy from toasting automatic user-info error %s',
+    async (code) => {
+      const { service, get } = createGiftService();
+      mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+      const error =
+        code === 500
+          ? new OneKeyServerApiError({
+              code,
+              message: 'User info unavailable',
+              autoToast: true,
+            })
+          : new OneKeyErrorPrimeLoginInvalidToken({ code });
+      expect(error.autoToast).toBe(true);
+      get.mockRejectedValueOnce(error);
 
-  it.each(['codeReady', 'submitting', 'resultUnknown'] as const)(
-    'reports verified device progress without exposing its code for %s',
-    async (claimStatus) => {
-      const { service, getState, setState } = createGiftService();
-      const state = getState();
-      state.devices.PRO2_SERIAL.codeOwnerOneKeyUserId = 'user-a';
-      state.devices.PRO2_SERIAL.claimStatus = claimStatus;
-      await setState(state);
-      await expect(
-        service.apiGetPrimeGiftClaimProgress({
-          serialNo: 'PRO2_SERIAL',
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).resolves.toEqual({ deviceVerified: true });
-      await expect(
-        service.apiGetPrimeGiftClaimProgress({
-          serialNo: 'OTHER_SERIAL',
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).resolves.toEqual({ deviceVerified: false });
+      await expect(service.apiGetPrimeGiftUserId()).rejects.toBe(error);
+
+      expect(error.autoToast).toBe(false);
+      expect(toPlainErrorObject(error).autoToast).toBe(false);
+      errorToastUtils.showToastOfError(error);
+      await Promise.resolve();
+      expect(
+        giftEventSpy.mock.calls.filter(
+          ([event]) => event === EAppEventBusNames.ShowToast,
+        ),
+      ).toHaveLength(0);
     },
   );
 
-  it('does not expose verified progress belonging to another account', async () => {
-    const { service, getState, setState } = createGiftService();
-    const state = getState();
-    state.devices.PRO2_SERIAL.codeOwnerOneKeyUserId = 'user-b';
-    state.devices.PRO2_SERIAL.claimStatus = 'codeReady';
-    await setState(state);
-    await expect(
-      service.apiGetPrimeGiftClaimProgress({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-a',
-      }),
-    ).resolves.toEqual({ deviceVerified: false });
-    await expect(
-      service.apiGetPrimeGiftClaimProgress({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-b',
-      }),
-    ).resolves.toEqual({ deviceVerified: false });
-  });
-
-  it('does not treat a local-only login as verified progress', async () => {
-    const { service } = createGiftService();
-    mockPrimePersistAtom.get.mockResolvedValue({
-      ...user,
-      isLoggedInOnServer: false,
+  it('mutes user-info authentication errors returned as response data', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValueOnce({
+      data: { code: 90_003, message: 'Login required', data: { userId: '' } },
     });
-    await expect(
-      service.apiGetPrimeGiftClaimProgress({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-a',
-      }),
-    ).resolves.toEqual({ deviceVerified: false });
-    expect(service.getEnabledPrimeGiftMock).not.toHaveBeenCalled();
-  });
-
-  it('retains verified progress for a confirmed receipt after its code is removed', async () => {
-    const { service } = createGiftService();
-    await service.apiClaimPrimeGift(claimParams);
-    await expect(
-      service.apiGetPrimeGiftClaimProgress({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-a',
-      }),
-    ).resolves.toEqual({ deviceVerified: true });
-  });
-
-  it('rejects progress read across an auth-session ABA change', async () => {
-    const { service, getState, simpleDbPrime } = createGiftService();
-    service.getEnabledPrimeGiftMock.mockImplementationOnce(async () => {
-      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
-      return getState();
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toMatchObject({
+      code: 90_003,
+      autoToast: false,
     });
-    await expect(
-      service.apiGetPrimeGiftClaimProgress({
-        serialNo: 'PRO2_SERIAL',
-        expectedOneKeyUserId: 'user-a',
-      }),
-    ).rejects.toThrow('OneKey ID changed');
   });
 
-  it('does not reassign an unknown grant to a different receiving account', async () => {
-    const { service, getState, verify } = createGiftService();
-    service.redeemPrimeCode.mockRejectedValueOnce(
-      new Error('Network unavailable'),
+  it('uses server eligibility even when legacy storage says another account claimed', async () => {
+    const { service, eligibilityPost, legacyRead, legacyWrite } =
+      createGiftService();
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).resolves.toMatchObject({ eligible: true, hasUnclaimedGift: true });
+    expect(service.getClient).toHaveBeenCalledWith('wallet');
+    expect(eligibilityPost).toHaveBeenCalledWith(
+      '/wallet/v1/hardware/prime-gift/eligibility',
+      {
+        sno: 'DEVICE_SERIAL',
+      },
     );
-    await expect(service.apiClaimPrimeGift(claimParams)).rejects.toThrow();
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toMatchObject({
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: true,
+    });
+  });
+
+  it('persists separate device results and replaces previous duration fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const anotherDevice = {
+      sno: 'ANOTHER_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 45,
+    };
+    eligibilityPost.mockResolvedValue({
+      data: { code: 0, data: anotherDevice },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'ANOTHER_SERIAL' });
+    const updated = { ...anotherDevice, sno: 'DEVICE_SERIAL' };
+    eligibilityPost.mockResolvedValue({ data: { code: 0, data: updated } });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache).toEqual({
+      DEVICE_SERIAL: updated,
+      ANOTHER_SERIAL: anotherDevice,
+    });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL?.giftMonths).toBeUndefined();
+  });
+
+  it('retains the last successful result when a refresh fails or returns invalid data', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const cached = mockGiftEligibilityCache;
+    eligibilityPost.mockRejectedValueOnce(new Error('Offline'));
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow('Offline');
+    eligibilityPost.mockResolvedValueOnce({
+      data: { code: 0, data: { eligible: false } },
+    });
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow();
+    expect(mockGiftEligibilityCache).toBe(cached);
+  });
+
+  it('does not let an older request overwrite a newer no-gift response', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    type IResponse = Awaited<ReturnType<typeof eligibilityPost>>;
+    let resolveOld!: (response: IResponse) => void;
+    let resolveNew!: (response: IResponse) => void;
+    eligibilityPost
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve;
+        }),
+      );
+    const oldRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    const newRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    await Promise.resolve();
+    const noGift = {
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 180,
+      giftMonths: 6,
+    };
+    resolveNew({ data: { code: 0, data: noGift } });
+    await newRequest;
+    resolveOld({
+      data: { code: 0, data: { ...noGift, hasUnclaimedGift: true } },
+    });
+    await oldRequest;
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toEqual(noGift);
+  });
+
+  it('persists only eligibility metadata even if the response contains extra fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    eligibilityPost.mockResolvedValue({
+      data: {
+        code: 0,
+        data: {
+          sno: 'DEVICE_SERIAL',
+          eligible: true,
+          hasUnclaimedGift: true,
+          giftDays: 180,
+          primeCode: 'EXTRA_SERVER_FIELD',
+        },
+      },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).not.toHaveProperty(
+      'primeCode',
+    );
+  });
+
+  it.each([
+    { eligible: true, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: true },
+    { eligible: true, hasUnclaimedGift: true },
+  ])(
+    'preserves the real eligibility flags and gift duration: %j',
+    async (flags) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        ...flags,
+        giftDays: 360,
+        giftMonths: 12,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each([
+    {
+      code: 500,
+      message: 'Eligibility failed',
+      data: {
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    { code: 0, data: null },
+    { code: 0, data: { eligible: true, giftDays: 180, giftMonths: 6 } },
+    {
+      code: 0,
+      data: {
+        eligible: 'true',
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    {
+      code: 0,
+      data: { eligible: true, hasUnclaimedGift: true, giftMonths: 6 },
+    },
+  ])(
+    'rejects failed or incomplete eligibility responses instead of fabricating an offer: %j',
+    async (response) => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValue({ data: response });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow();
+    },
+  );
+
+  it.each([false, true])(
+    'propagates eligibility errors without a local override for isDev=%s',
+    async (isDev) => {
+      const { service, eligibilityPost } = createGiftService();
+      const error = new Error('Offer unavailable');
+      eligibilityPost.mockRejectedValue(error);
+      const environment = jest.replaceProperty(platformEnv, 'isDev', isDev);
+      try {
+        const request = service.apiGetPrimeGiftEligibility({
+          serialNo: 'DEVICE_SERIAL',
+        });
+        await expect(request).rejects.toBe(error);
+      } finally {
+        environment.restore();
+      }
+    },
+  );
+
+  it.each([undefined, null, '', 0])(
+    'preserves giftDays when giftMonths is empty or zero: %j',
+    async (giftMonths) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 45,
+        giftMonths,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each(['available', 'processing', 'redeemed', 'future-status'])(
+    'passes the server code through for status=%s',
+    async (status) => {
+      const { service, verify, legacyRead, legacyWrite, post } =
+        createGiftService();
+      verify.mockResolvedValue({ code: '  SERVER_CODE  ', status });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toEqual({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: '  SERVER_CODE  ',
+        verification: { hasCode: true, status },
+      });
+      expect(post).not.toHaveBeenCalled();
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+      expect(
+        jest.mocked(secureStorageInstance).supportSecureStorage.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).getSecureItem.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).setSecureItem.mock.calls,
+      ).toHaveLength(0);
+    },
+  );
+
+  it.each([undefined, '', '   '])(
+    'returns verification with an empty code without redeeming: %j',
+    async (code) => {
+      const { service, verify, post } = createGiftService();
+      verify.mockResolvedValue({ code, status: 'redeemed' });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        verification: { hasCode: false, status: 'redeemed' },
+      });
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('re-verifies without a claim cache and checks the session only when redeeming', async () => {
+    const { service, verify, simpleDbPrime, legacyRead, legacyWrite } =
+      createGiftService();
+    verify.mockRejectedValueOnce(new Error('Device cancelled'));
+    await expect(
+      service.apiPreparePrimeGiftRedemption(prepareParams),
+    ).rejects.toThrow('Device cancelled');
+    await service.apiPreparePrimeGiftRedemption(prepareParams);
+    expect(simpleDbPrime.getAuthSessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    await service.apiRedeemPrimeCode(redeemParams);
     mockPrimePersistAtom.get.mockResolvedValue({
       ...user,
       onekeyUserId: 'user-b',
     });
     await expect(
-      service.apiClaimPrimeGift({
-        ...claimParams,
+      service.apiPreparePrimeGiftRedemption({
+        ...prepareParams,
         expectedOneKeyUserId: 'user-b',
       }),
-    ).rejects.toThrow('original receiving account');
-    expect(getState().devices.PRO2_SERIAL.codeOwnerOneKeyUserId).toBe('user-a');
-    expect(getState().devices.PRO2_SERIAL.claimStatus).toBe('resultUnknown');
+    ).resolves.toMatchObject({ onekeyUserId: 'user-b', code: 'TEST_CODE' });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(simpleDbPrime.getAuthSessionSource).toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses only the login atom before device verification', async () => {
+    const { service, verify } = createGiftService();
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: true });
+    await expect(
+      service.apiPreparePrimeGiftRedemption(prepareParams),
+    ).resolves.toMatchObject({ code: 'TEST_CODE' });
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+    await expect(
+      service.apiPreparePrimeGiftRedemption(prepareParams),
+    ).rejects.toThrow();
     expect(verify).toHaveBeenCalledTimes(1);
-    expect(service.redeemPrimeCode).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'missing token',
+    'persisted token mismatch',
+    'different token owner',
+    'session changed during profile lookup',
+  ])('blocks hardware redemption for %s', async (scenario) => {
+    const { service, simpleDbPrime, get, post } = createGiftService();
+    if (scenario === 'missing token') {
+      simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    } else if (scenario === 'persisted token mismatch') {
+      mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+        status: 'ok',
+        accessToken: 'token-b',
+      });
+    } else {
+      get.mockImplementationOnce(async () => {
+        if (scenario === 'session changed during profile lookup') {
+          simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        }
+        return {
+          data: {
+            code: 0,
+            data: {
+              userId: 'user-a',
+              onekeyAccount: {
+                onekeyUserId:
+                  scenario === 'different token owner' ? 'user-b' : 'user-a',
+              },
+            },
+          },
+        };
+      });
+    }
+
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(post).not.toHaveBeenCalled();
+    expect(giftEventSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects hardware redemption success after the session changes in flight', async () => {
+    const { service, simpleDbPrime, post } = createGiftService();
+    const postStarted = createDeferred();
+    const response = createDeferred<Awaited<ReturnType<typeof post>>>();
+    post.mockImplementationOnce(() => {
+      postStarted.resolve();
+      return response.promise;
+    });
+
+    const request = service.apiRedeemPrimeCode(redeemParams);
+    await postStarted.promise;
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    response.resolve({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    });
+
+    await expect(request).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(giftEventSpy).not.toHaveBeenCalled();
+    expect(service.apiFetchPrimeUserInfo).not.toHaveBeenCalled();
+  });
+
+  it('submits each redemption to the server and preserves server failures without recording a receipt', async () => {
+    const { service, post, get, legacyRead, legacyWrite } = createGiftService();
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).resolves.toMatchObject(redemption);
+    const error = new OneKeyServerApiError({
+      code: 400,
+      message: 'Already redeemed on server',
+    });
+    post.mockRejectedValueOnce(error);
+    await expect(service.apiRedeemPrimeCode(redeemParams)).rejects.toBe(error);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/redemption/redeem',
+      { code: 'TEST_CODE' },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(giftEventSpy).toHaveBeenCalledTimes(1);
   });
 });

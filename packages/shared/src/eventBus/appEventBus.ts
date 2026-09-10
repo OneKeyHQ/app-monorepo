@@ -215,6 +215,8 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
+    walletId?: string;
+    dbDeviceId?: string;
   };
   [EAppEventBusNames.FinalizeWalletSetupError]: {
     error: IOneKeyError | undefined;

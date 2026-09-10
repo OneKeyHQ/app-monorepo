@@ -27,7 +27,6 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
-import type { IPrimeGiftMockState } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPayment,
@@ -105,7 +104,6 @@ type IPrimeInfiniSupersededPaymentSession =
   };
 
 export interface ISimpleDBPrime {
-  primeGiftMock?: IPrimeGiftMockState;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
@@ -569,14 +567,6 @@ export type IKeylessOAuthSessionIdentity = Pick<
  * (`backgroundApiProxy.simpleDb.prime.*`).
  */
 export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
-  async getPrimeGiftMockState(): Promise<IPrimeGiftMockState | undefined> {
-    return (await this.getRawData())?.primeGiftMock;
-  }
-
-  async setPrimeGiftMockState(state: IPrimeGiftMockState): Promise<void> {
-    await this.setRawData((data) => ({ ...data, primeGiftMock: state }));
-  }
-
   entityName = 'prime';
 
   override enableCache = true;

@@ -44,6 +44,9 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeGift,
     component: PrimeGift,
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EPrimePages.PrimeDashboard,
