@@ -703,6 +703,12 @@ function SwapPanelWrapContent({
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
   ]);
+  // Review preparation and rebuilding belong to the dialog. Keep the stock
+  // form behind it stable while preserving execution guards below.
+  const reviewOwnsLoading =
+    stockDetailDesktopLayout && (isReviewOpening || isReviewDialogOpen);
+  const isSwapPanelLoading =
+    !reviewOwnsLoading && (isActionLoading || isReviewOpening);
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
@@ -710,6 +716,7 @@ function SwapPanelWrapContent({
         !executionReady ||
         isActionLoading ||
         isReviewOpening ||
+        isReviewDialogOpen ||
         marketPresetLoading
       ) {
         return;
@@ -812,6 +819,7 @@ function SwapPanelWrapContent({
       intl,
       isActionLoading,
       isReviewOpening,
+      isReviewDialogOpen,
       effectiveCustomPriorityFee,
       effectiveNetworkFeeLevel,
       marketPresetEnabled,
@@ -909,8 +917,11 @@ function SwapPanelWrapContent({
       paymentTokenDisplayLoading={
         Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay
       }
-      isLoading={isActionLoading || isReviewOpening}
-      quoteLoading={!executionReady || quoteActionLoading}
+      isLoading={isSwapPanelLoading}
+      isReviewActive={Boolean(reviewOwnsLoading)}
+      quoteLoading={
+        !executionReady || (!reviewOwnsLoading && quoteActionLoading)
+      }
       isActionDisabled={
         !executionReady ||
         (isStockRoute && !selectedVariantTradable) ||
