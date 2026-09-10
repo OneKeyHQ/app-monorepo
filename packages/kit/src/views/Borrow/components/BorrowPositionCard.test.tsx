@@ -43,6 +43,13 @@ jest.mock('@onekeyhq/components', () => {
       transition,
       ...rest
     }: IMockProps) {
+      // accessibilityActions / onAccessibilityAction are native-only, so they
+      // have no DOM surface to assert against. Park every rendered prop set
+      // where a test can reach it.
+      (
+        ((globalThis as Record<string, unknown>).__positionCardStackProps ??=
+          []) as IMockProps[]
+      ).push({ ...rest, role, tabIndex, testID });
       return React.createElement(
         tag,
         {
@@ -164,6 +171,90 @@ function renderCard(
     />,
   );
 }
+
+const stackProps = () =>
+  ((globalThis as Record<string, unknown>).__positionCardStackProps ??
+    []) as Record<string, unknown>[];
+
+const disclosureProps = () =>
+  stackProps().find((p) => p.accessibilityRole === 'button');
+
+describe('BorrowPositionCard screen-reader activation', () => {
+  beforeEach(() => {
+    (globalThis as Record<string, unknown>).__positionCardStackProps = [];
+  });
+
+  // onAccessibilityTap routes through iOS accessibilityActivate only, and this
+  // row deliberately has no onPress for a TalkBack ACTION_CLICK to land on, so
+  // the generic action is the only path that works on both platforms.
+  it('exposes an activate action rather than an iOS-only tap handler', () => {
+    const onToggleExpand = jest.fn();
+    renderCard({ onToggleExpand });
+    const props = disclosureProps();
+
+    expect(props?.onAccessibilityTap).toBeUndefined();
+    expect(props?.accessibilityActions).toEqual([{ name: 'activate' }]);
+
+    (
+      props?.onAccessibilityAction as (e: {
+        nativeEvent: { actionName: string };
+      }) => void
+    )({ nativeEvent: { actionName: 'activate' } });
+
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores an accessibility action it does not own', () => {
+    const onToggleExpand = jest.fn();
+    renderCard({ onToggleExpand });
+
+    (
+      disclosureProps()?.onAccessibilityAction as (e: {
+        nativeEvent: { actionName: string };
+      }) => void
+    )({ nativeEvent: { actionName: 'increment' } });
+
+    expect(onToggleExpand).not.toHaveBeenCalled();
+  });
+});
+
+describe('BorrowPositionCard collateral slot', () => {
+  // The card is pressable end to end, so the switch inside it has to stop the
+  // press from reaching the card. CollateralSwitchCell is what does that; this
+  // pins the card's half of the contract, that a stopped press is honoured.
+  it('does not expand when the collateral control swallows the press', () => {
+    const onToggleExpand = jest.fn();
+    const { getByTestId } = renderCard({
+      onToggleExpand,
+      collateral: (
+        <button
+          type="button"
+          aria-label="Use as Collateral"
+          data-testid="collateral-switch"
+          onClick={(event) => event.stopPropagation()}
+        />
+      ),
+    });
+
+    fireEvent.click(getByTestId('collateral-switch'));
+
+    expect(onToggleExpand).not.toHaveBeenCalled();
+  });
+
+  // The mirror case: without the stop the press does reach the card, which is
+  // why CollateralSwitchCell's wrapper cannot be dropped.
+  it('expands when the collateral control lets the press through', () => {
+    const onToggleExpand = jest.fn();
+    const { getByTestId } = renderCard({
+      onToggleExpand,
+      collateral: <span data-testid="collateral-inert">x</span>,
+    });
+
+    fireEvent.click(getByTestId('collateral-inert'));
+
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('BorrowPositionCard expand behaviour', () => {
   it('keeps the actions out of the tree until the card is expanded', () => {
