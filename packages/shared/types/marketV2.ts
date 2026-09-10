@@ -198,6 +198,10 @@ export interface IMarketStockInfo {
   // Whether trading in the underlying stock is temporarily halted (per-stock signal)
   isPaused?: boolean;
   pausedUpdatedAt?: string;
+  // When the underlying market next opens. The timestamp is authoritative;
+  // the minute count is a snapshot that ages with the response.
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;

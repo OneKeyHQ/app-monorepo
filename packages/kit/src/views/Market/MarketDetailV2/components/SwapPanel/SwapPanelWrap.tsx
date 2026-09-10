@@ -75,12 +75,14 @@ interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
   stockDetailDesktopLayout?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
+  resolvedVariantKeys?: string[];
 }
 
 function SwapPanelWrapContent({
   onCloseDialog,
   stockDetailDesktopLayout,
   portfolioData,
+  resolvedVariantKeys,
 }: ISwapPanelWrapProps) {
   const {
     networkId,
@@ -943,6 +945,7 @@ function SwapPanelWrapContent({
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
       stockDetailDesktopLayout={stockDetailDesktopLayout}
       portfolioData={portfolioData}
+      resolvedVariantKeys={resolvedVariantKeys}
     />
   );
 }
