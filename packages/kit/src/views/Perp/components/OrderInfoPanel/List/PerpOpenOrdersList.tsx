@@ -4,7 +4,10 @@ import { useIntl } from 'react-intl';
 
 import {
   type IDebugRenderTrackerProps,
+  SizableText,
+  Spinner,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -71,10 +74,12 @@ type IOpenOrdersDisplayRow =
     };
 
 function useOpenOrdersColumnsConfig({
+  actionColumnWidth,
   openOrdersLength,
   enableCancelAll,
   scopedAccountAddress,
 }: {
+  actionColumnWidth: number;
   openOrdersLength: number;
   enableCancelAll: boolean;
   scopedAccountAddress?: string | null;
@@ -168,7 +173,7 @@ function useOpenOrdersColumnsConfig({
         title: intl.formatMessage({
           id: ETranslations.perp_open_orders_cancel_all,
         }),
-        minWidth: 80,
+        width: actionColumnWidth,
         align: 'right',
         flex: 1,
         fixed: true,
@@ -179,7 +184,13 @@ function useOpenOrdersColumnsConfig({
           }),
       },
     ],
-    [enableCancelAll, intl, openOrdersLength, scopedAccountAddress],
+    [
+      actionColumnWidth,
+      enableCancelAll,
+      intl,
+      openOrdersLength,
+      scopedAccountAddress,
+    ],
   );
 }
 
@@ -376,7 +387,29 @@ function PerpOpenOrdersList({
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
 
+  const hasChaseAction = displayRows.some(
+    (row) =>
+      row.type === 'single' &&
+      canMutateScopedOrders &&
+      canChasePerpsOrder(row.order),
+  );
+  const hasChasingAction =
+    hasChaseAction &&
+    displayRows.some(
+      (row) => row.type === 'single' && chasingOrderIds.has(row.order.oid),
+    );
+  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}:${hasChasingAction}`;
+  const [actionMeasurement, setActionMeasurement] = useState({
+    key: '',
+    width: 80,
+  });
+  const actionColumnWidth =
+    actionMeasurement.key === actionMeasurementKey
+      ? actionMeasurement.width
+      : 80;
+
   const columnsConfig = useOpenOrdersColumnsConfig({
+    actionColumnWidth,
     openOrdersLength: openOrders.length,
     enableCancelAll: canMutateScopedOrders,
     scopedAccountAddress: accountScopedAddress,
@@ -749,36 +782,84 @@ function PerpOpenOrdersList({
   }
 
   return (
-    <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-        if (isMobile) {
-          await actions.current.loadTwapData();
-        }
-      }}
-      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-      useTabsList={useTabsList}
-      disableListScroll={disableListScroll}
-      enablePagination
-      pageSize={isMobile ? 20 : 40}
-      paginationToBottom={isMobile}
-      currentListPage={currentListPage}
-      setCurrentListPage={setCurrentListPage}
-      columns={columnsConfig}
-      minTableWidth={totalMinWidth}
-      data={displayRows}
-      isMobile={isMobile}
-      renderRow={renderOrderRow}
-      listLoading={listLoading}
-      emptyMessage={intl.formatMessage({
-        id: ETranslations.perp_open_order_empty,
-      })}
-      emptySubMessage={intl.formatMessage({
-        id: ETranslations.perp_open_order_empty_desc,
-      })}
-      ListEmptyComponent={listEmptyComponent}
-      ListHeaderComponent={mobileListHeader}
-    />
+    <YStack flex={1}>
+      {!isMobile && platformEnv.isRuntimeBrowser ? (
+        <YStack
+          key={actionMeasurementKey}
+          position="absolute"
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+          alignItems="flex-start"
+          $platform-web={{ width: 'max-content' }}
+          onLayout={(event) => {
+            const width = Math.ceil(event.nativeEvent.layout.width);
+            if (width > 0) {
+              setActionMeasurement((previous) =>
+                previous.key === actionMeasurementKey &&
+                previous.width === width
+                  ? previous
+                  : { key: actionMeasurementKey, width },
+              );
+            }
+          }}
+        >
+          {/* Include hover weight and active chase indicators in the fixed column width. */}
+          <XStack gap="$3" alignItems="center">
+            {hasChaseAction ? (
+              <XStack gap="$1" alignItems="center">
+                {hasChasingAction ? (
+                  <Spinner size="small" scale={0.65} />
+                ) : null}
+                <SizableText size="$bodySmMedium" fontWeight={600}>
+                  {intl.formatMessage({ id: ETranslations.chase__action })}
+                </SizableText>
+              </XStack>
+            ) : null}
+            <SizableText size="$bodySmMedium" fontWeight={600}>
+              {intl.formatMessage({
+                id: ETranslations.perp_open_orders_cancel,
+              })}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodySmMedium" fontWeight={600}>
+            {intl.formatMessage({
+              id: ETranslations.perp_open_orders_cancel_all,
+            })}
+          </SizableText>
+        </YStack>
+      ) : null}
+      <CommonTableListView
+        onPullToRefresh={async () => {
+          await actions.current.refreshAllPerpsData();
+          if (isMobile) {
+            await actions.current.loadTwapData();
+          }
+        }}
+        listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
+        useTabsList={useTabsList}
+        disableListScroll={disableListScroll}
+        enablePagination
+        pageSize={isMobile ? 20 : 40}
+        paginationToBottom={isMobile}
+        currentListPage={currentListPage}
+        setCurrentListPage={setCurrentListPage}
+        columns={columnsConfig}
+        minTableWidth={totalMinWidth}
+        data={displayRows}
+        isMobile={isMobile}
+        renderRow={renderOrderRow}
+        listLoading={listLoading}
+        emptyMessage={intl.formatMessage({
+          id: ETranslations.perp_open_order_empty,
+        })}
+        emptySubMessage={intl.formatMessage({
+          id: ETranslations.perp_open_order_empty_desc,
+        })}
+        ListEmptyComponent={listEmptyComponent}
+        ListHeaderComponent={mobileListHeader}
+      />
+    </YStack>
   );
 }
 
