@@ -215,6 +215,7 @@ type IEstimateNetworkFeeOptions = {
 
 type IUseSwapBuildTxOptions = {
   onSwapBroadcast?: () => void | Promise<void>;
+  marketSwapApprovalFlowId?: string;
 };
 
 type ISwapSignAndSendProgressEvent = {
@@ -265,6 +266,7 @@ function getSwapCreateFrom({
  */
 export function useSwapBuildTx({
   onSwapBroadcast,
+  marketSwapApprovalFlowId,
 }: IUseSwapBuildTxOptions = {}) {
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
@@ -4061,6 +4063,7 @@ export function useSwapBuildTx({
                           ...pre,
                           swapApprovingTransaction: {
                             txId: approveSendTx?.txid,
+                            marketSwapApprovalFlowId,
                             swapType:
                               getSwapExecutionTypeFromQuoteResult(
                                 quoteResultFinal,
@@ -4268,6 +4271,7 @@ export function useSwapBuildTx({
       swapActionState.approveUnLimit,
       intl,
       setInAppNotificationAtom,
+      marketSwapApprovalFlowId,
       fromUserAddress,
       fromAccountId,
       wrappedTx,

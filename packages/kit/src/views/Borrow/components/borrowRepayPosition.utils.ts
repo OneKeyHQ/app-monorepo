@@ -236,27 +236,6 @@ export function buildAaveNativeGatewayReceiveToken({
   } as IToken;
 }
 
-export function shouldDowngradeAaveNativeRepayAll({
-  action,
-  networkId,
-  providerName,
-  reserveAddress,
-}: {
-  action?: string;
-  networkId?: string;
-  providerName?: string;
-  reserveAddress?: string;
-}) {
-  return (
-    action === 'repay' &&
-    shouldUseAaveNativeGateway({
-      networkId,
-      providerName,
-      reserveAddress,
-    })
-  );
-}
-
 export function resolveBorrowTokenApproveSpenderAddress({
   providerName,
   marketAddress,
