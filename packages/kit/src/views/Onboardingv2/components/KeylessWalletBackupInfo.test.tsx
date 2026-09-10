@@ -4,12 +4,8 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import type {
-  IBackupCloudServerDownloadData,
-  IBackupDataExportPayload,
-} from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,30 +17,18 @@ const mockDialogShow = jest.fn();
 const mockToastSuccess = jest.fn();
 const mockToastError = jest.fn();
 const mockDialogClose = jest.fn(async () => {});
-const mockBackup: IBackupCloudServerDownloadData = {
-  content: 'encrypted backup',
-  payload: {
-    privateDataEncrypted: 'encrypted-payload',
-    publicData: undefined,
-    isEmptyData: false,
-    isWatchingOnly: false,
-    appVersion: '5.17.0',
-  },
-};
-const mockDownload = jest.fn(async (_options: unknown) => mockBackup);
-const mockGetCloudAccountInfo = jest.fn(async () => ({
-  userId: 'test-google-user-id',
-  userEmail: 'test@example.com',
-  googleDrive: {
-    userInfo: {
-      user: { id: 'test-google-user-id', email: 'test@example.com' },
-      idToken: 'test-id-token',
-    },
-  },
+const mockExportBackupArchive = jest.fn(async (_options: unknown) => ({
+  archiveBase64: 'UEsDBA==',
+  password: 'random-zip-password',
 }));
-const mockDownloadAsFile = jest.fn(
-  async (_options: { content: string; filename: string }) => {},
-);
+const mockDownloadAsFile = jest.fn(async (_options: unknown) => {});
+const mockPasswordDialogClose = jest.fn(async () => {});
+const mockPasswordDialogExists = jest.fn(() => true);
+const mockPasswordDialogShow = jest.fn<
+  void,
+  [{ onSubmit: (password: string) => Promise<void> }]
+>();
+const mockCopyText = jest.fn();
 const mockFormatMessage = jest.fn();
 let mockDevSettingsEnabled = true;
 
@@ -90,6 +74,7 @@ jest.mock('@onekeyhq/components', () => ({
     </button>
   ),
   useDialogInstance: () => ({ close: mockDialogClose }),
+  useClipboard: () => ({ copyText: mockCopyText }),
   Toast: {
     success: (options: unknown) => {
       mockToastSuccess(options);
@@ -134,15 +119,26 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceCloudBackupV2: {
-      download: (options: unknown) => mockDownload(options),
-      getCloudAccountInfo: () => mockGetCloudAccountInfo(),
+      exportBackupArchive: (options: unknown) =>
+        mockExportBackupArchive(options),
     },
   },
 }));
 
 jest.mock('../../../utils/downloadAsFile', () => ({
-  downloadAsFile: (options: { content: string; filename: string }) =>
-    mockDownloadAsFile(options),
+  downloadAsFile: (options: unknown) => mockDownloadAsFile(options),
+}));
+
+jest.mock('./CloudBackupDialogs', () => ({
+  showCloudBackupPasswordDialog: (options: {
+    onSubmit: (password: string) => Promise<void>;
+  }) => {
+    mockPasswordDialogShow(options);
+    return {
+      close: mockPasswordDialogClose,
+      isExist: mockPasswordDialogExists,
+    };
+  },
 }));
 
 describe('KeylessWalletBackupInfo', () => {
@@ -288,110 +284,126 @@ describe('KeylessWalletBackupInfo', () => {
     },
   );
 
-  it('waits for dialog dismissal before sharing and does not report dismissal as success', async () => {
-    platformEnv.isNativeIOS = true;
-    platformEnv.isNative = true;
-    let finishClose: (() => void) | undefined;
-    mockDialogClose.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishClose = resolve;
-        }),
-    );
-    const page = render(<KeylessWalletBackupInfo backupRecordId="backup-id" />);
-    fireEvent.click(
-      page.getByTestId(OnboardingTestIDs.iCloudBackupKeylessWalletHint),
-    );
-    const options: { renderContent: ReactNode } =
-      mockDialogShow.mock.calls[0][0];
-    const dialog = render(<>{options.renderContent}</>);
-    const title = dialog.getByTestId(
-      OnboardingTestIDs.iCloudBackupKeylessWalletDialogTitle,
-    );
-    for (let index = 0; index < 3; index += 1) {
-      fireEvent.click(title);
-    }
-    fireEvent.click(
-      dialog.getByTestId(OnboardingTestIDs.iCloudBackupDevDownloadDataBtn),
-    );
-    expect(mockDialogClose).toHaveBeenCalledTimes(1);
-    expect(mockDownload).not.toHaveBeenCalled();
-    expect(mockDownloadAsFile).not.toHaveBeenCalled();
-    await act(async () => {
-      finishClose?.();
-    });
-    await waitFor(() =>
-      expect(mockDownloadAsFile).toHaveBeenCalledWith({
-        content: 'encrypted backup',
-        filename: 'onekey-cloud-backup-backup-id.json',
-      }),
-    );
-    expect(mockDownload).toHaveBeenCalledWith({ recordId: 'backup-id' });
-    expect(mockGetCloudAccountInfo).not.toHaveBeenCalled();
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-  });
-
-  it('exports the Google user ID with the original encrypted payload on Android', async () => {
-    platformEnv.isNativeAndroid = true;
-    platformEnv.isNative = true;
+  async function startExport() {
     const dialog = openDownloadDialog();
     fireEvent.click(
       dialog.getByTestId(OnboardingTestIDs.iCloudBackupDevDownloadDataBtn),
     );
-    await waitFor(() => expect(mockDownloadAsFile).toHaveBeenCalledTimes(1));
-    const exportedFile = mockDownloadAsFile.mock.calls[0][0];
-    const exportedPayload = JSON.parse(
-      exportedFile.content,
-    ) as IBackupDataExportPayload;
-    expect(exportedPayload).toEqual({
-      privateDataEncrypted: mockBackup.payload.privateDataEncrypted,
-      isEmptyData: false,
-      isWatchingOnly: false,
-      appVersion: '5.17.0',
-      googleUserId: 'test-google-user-id',
-    });
-    expect(exportedFile.filename).toBe('onekey-cloud-backup-backup-id.json');
-    expect(mockBackup.payload).not.toHaveProperty('googleUserId');
-    expect(exportedFile.content).not.toContain('test@example.com');
-    expect(exportedFile.content).not.toContain('test-id-token');
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-  });
+    await waitFor(() =>
+      expect(mockPasswordDialogShow).toHaveBeenCalledTimes(1),
+    );
+    return mockPasswordDialogShow.mock.calls[0][0].onSubmit;
+  }
 
-  it.each(['missing ID', 'lookup failure'])(
-    'does not export an Android backup on Google account %s',
-    async (failure) => {
-      platformEnv.isNativeAndroid = true;
-      platformEnv.isNative = true;
-      if (failure === 'missing ID') {
-        const cloudAccountInfo = await mockGetCloudAccountInfo();
-        mockGetCloudAccountInfo.mockResolvedValueOnce({
-          ...cloudAccountInfo,
-          userId: '',
-        });
-      } else {
-        mockGetCloudAccountInfo.mockRejectedValueOnce(
-          new Error('Google account lookup failed'),
-        );
-      }
-      const disableToast = jest
-        .spyOn(errorToastUtils, 'toastIfErrorDisable')
-        .mockImplementation(() => {});
-      try {
-        const dialog = openDownloadDialog();
-        fireEvent.click(
-          dialog.getByTestId(OnboardingTestIDs.iCloudBackupDevDownloadDataBtn),
-        );
-        await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
-        expect(mockToastError).toHaveBeenCalledWith({
-          title:
-            failure === 'missing ID'
-              ? 'Google user ID is required to export backup data'
-              : 'Google account lookup failed',
-        });
-        expect(mockDownloadAsFile).not.toHaveBeenCalled();
-      } finally {
-        disableToast.mockRestore();
-      }
+  it.each(['Android', 'iOS', 'macOS'])(
+    'downloads a ZIP and offers its extraction password on %s',
+    async (platform) => {
+      platformEnv.isNativeAndroid = platform === 'Android';
+      platformEnv.isNativeIOS = platform === 'iOS';
+      platformEnv.isDesktopMac = platform === 'macOS';
+      platformEnv.isNative = platform !== 'macOS';
+      const submit = await startExport();
+      expect(mockExportBackupArchive).not.toHaveBeenCalled();
+      await act(async () => submit('original-backup-password'));
+      expect(mockExportBackupArchive).toHaveBeenCalledWith({
+        recordId: 'backup-id',
+        password: 'original-backup-password',
+      });
+      expect(mockDownloadAsFile).toHaveBeenCalledWith({
+        content: 'UEsDBA==',
+        filename: expect.stringMatching(/^onekey-cloud-backup-\d+\.zip$/),
+        encoding: 'base64',
+        mimeType: 'application/zip',
+        UTI: 'public.zip-archive',
+      });
+      const options: IDialogShowProps = mockDialogShow.mock.calls[1][0];
+      expect(options.title).toBe('ZIP extraction password');
+      const result = render(<>{options.renderContent}</>);
+      expect(result.getByText('random-zip-password')).toBeTruthy();
+      expect(mockCopyText).not.toHaveBeenCalled();
+      fireEvent.click(result.getByTestId('cloud-backup-copy-zip-password'));
+      expect(mockCopyText).toHaveBeenCalledWith('random-zip-password');
+      expect(mockToastSuccess).not.toHaveBeenCalled();
     },
   );
+
+  it('dismisses both dialogs before sharing and waits for sharing before showing the password', async () => {
+    platformEnv.isNativeIOS = true;
+    platformEnv.isNative = true;
+    let finishExplanationClose: (() => void) | undefined;
+    mockDialogClose.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishExplanationClose = resolve;
+        }),
+    );
+    const started = startExport();
+    expect(mockPasswordDialogShow).not.toHaveBeenCalled();
+    await act(async () => {
+      finishExplanationClose?.();
+    });
+    const submit = await started;
+    let finishPasswordClose: (() => void) | undefined;
+    let finishSharing: (() => void) | undefined;
+    mockPasswordDialogClose.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPasswordClose = resolve;
+        }),
+    );
+    mockDownloadAsFile.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSharing = resolve;
+        }),
+    );
+    const submitted = submit('original-backup-password');
+    await waitFor(() =>
+      expect(mockPasswordDialogClose).toHaveBeenCalledTimes(1),
+    );
+    expect(mockDownloadAsFile).not.toHaveBeenCalled();
+    await act(async () => {
+      finishPasswordClose?.();
+    });
+    await waitFor(() => expect(mockDownloadAsFile).toHaveBeenCalledTimes(1));
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishSharing?.();
+      await submitted;
+    });
+    expect(mockDialogShow).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the password prompt open on a wrong backup password', async () => {
+    platformEnv.isNativeAndroid = true;
+    const submit = await startExport();
+    mockExportBackupArchive.mockRejectedValueOnce(
+      new Error('Incorrect password'),
+    );
+    await expect(submit('wrong-password')).rejects.toThrow(
+      'Incorrect password',
+    );
+    expect(mockPasswordDialogClose).not.toHaveBeenCalled();
+    expect(mockDownloadAsFile).not.toHaveBeenCalled();
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not share if the password prompt was dismissed while preparing the ZIP', async () => {
+    platformEnv.isNativeAndroid = true;
+    const submit = await startExport();
+    mockPasswordDialogExists.mockReturnValueOnce(false);
+    await submit('original-backup-password');
+    expect(mockDownloadAsFile).not.toHaveBeenCalled();
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show the result dialog when saving or sharing fails', async () => {
+    platformEnv.isNativeIOS = true;
+    const submit = await startExport();
+    mockDownloadAsFile.mockRejectedValueOnce(new Error('Share failed'));
+    await expect(submit('original-backup-password')).rejects.toThrow(
+      'Share failed',
+    );
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+  });
 });

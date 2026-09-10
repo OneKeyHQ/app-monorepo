@@ -4,11 +4,13 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@zip.js/zip.js": "2.14.0",
     "eth-url-parser": "^1.0.4",
     "fflate": "0.8.2",
     "idb": "^7.1.1",
     "ipaddr.js": "^2.3.0",
     "miscreant": "^0.3.2",
+    "web-streams-polyfill": "4.2.0",
     "yauzl": "2.10.0"
   },
   "devDependencies": {

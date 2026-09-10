@@ -10,18 +10,19 @@ import {
   Toast,
   XStack,
   YStack,
+  useClipboard,
   useDialogInstance,
 } from '@onekeyhq/components';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import type { IBackupDataExportPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { downloadAsFile } from '../../../utils/downloadAsFile';
 import { OnboardingTestIDs } from '../testIDs';
+
+import { showCloudBackupPasswordDialog } from './CloudBackupDialogs';
 
 function KeylessWalletBackupDetails({
   backupRecordId,
@@ -32,38 +33,58 @@ function KeylessWalletBackupDetails({
   const provider = platformEnv.isNativeAndroid ? 'Google Drive' : 'iCloud';
   const dialog = useDialogInstance();
 
-  const handleDownload = useCallback(async () => {
+  const { copyText } = useClipboard();
+  const handleDownload = useCallback(() => {
     if (!backupRecordId) {
       throw new OneKeyLocalError('Backup record ID is required');
     }
-    const { default: backgroundApiProxy } =
-      await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-    const backup = await backgroundApiProxy.serviceCloudBackupV2.download({
-      recordId: backupRecordId,
+    const passwordDialog = showCloudBackupPasswordDialog({
+      intl,
+      isRestoreAction: true,
+      description:
+        'Enter your cloud backup password to export a ZIP with a new, random extraction password. The JSON inside contains decrypted wallet data.',
+      onSubmit: async (password) => {
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        const { archiveBase64, password: zipPassword } =
+          await backgroundApiProxy.serviceCloudBackupV2.exportBackupArchive({
+            recordId: backupRecordId,
+            password,
+          });
+        if (!passwordDialog.isExist()) return;
+        await passwordDialog.close();
+        await downloadAsFile({
+          content: archiveBase64,
+          filename: `onekey-cloud-backup-${Date.now()}.zip`,
+          encoding: 'base64',
+          mimeType: 'application/zip',
+          UTI: 'public.zip-archive',
+        });
+        // Native sharing resolves on dismissal, including cancellation.
+        Dialog.show({
+          title: 'ZIP extraction password',
+          description:
+            'Copy and save this password to extract this ZIP. Every export generates a new password.',
+          dismissOnOverlayPress: false,
+          renderContent: (
+            <YStack gap="$4">
+              <SizableText userSelect="text" textAlign="center">
+                {zipPassword}
+              </SizableText>
+              <Button
+                testID="cloud-backup-copy-zip-password"
+                onPress={() => copyText(zipPassword)}
+              >
+                Copy password
+              </Button>
+            </YStack>
+          ),
+          showCancelButton: false,
+          onConfirmText: intl.formatMessage({ id: ETranslations.global_done }),
+        });
+      },
     });
-    if (!backup?.content) {
-      throw new OneKeyLocalError('Backup data is empty');
-    }
-    let content = backup.content;
-    if (platformEnv.isNativeAndroid) {
-      const { userId } =
-        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-      if (!userId) {
-        throw new OneKeyLocalError(
-          'Google user ID is required to export backup data',
-        );
-      }
-      const payload: IBackupDataExportPayload = {
-        ...backup.payload,
-        googleUserId: userId,
-      };
-      content = stringUtils.stableStringify(payload);
-    }
-    await downloadAsFile({
-      content,
-      filename: `onekey-cloud-backup-${backupRecordId}.json`,
-    });
-  }, [backupRecordId]);
+  }, [backupRecordId, copyText, intl]);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const handleDownloadPress = useCallback(async () => {
@@ -71,11 +92,7 @@ function KeylessWalletBackupDetails({
     setIsDownloading(true);
     try {
       await dialog.close();
-      await handleDownload();
-      // Native sharing resolves on dismissal, including cancellation.
-      if (!platformEnv.isNative) {
-        Toast.success({ title: 'Backup data downloaded' });
-      }
+      handleDownload();
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       Toast.error({

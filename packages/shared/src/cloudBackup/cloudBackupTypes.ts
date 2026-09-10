@@ -64,9 +64,9 @@ export type IBackupDataEncryptedPayload = Omit<
   privateDataEncrypted: string; // base64 string
 };
 
-export type IBackupDataExportPayload = IBackupDataEncryptedPayload & {
-  // Included in Google Drive file exports for password-only offline recovery.
-  googleUserId?: string;
+export type IBackupDataExportArchive = {
+  archiveBase64: string;
+  password: string;
 };
 
 export type IBackupDataManifestItem = Omit<
