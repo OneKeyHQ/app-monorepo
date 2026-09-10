@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Cronologia del tasso di finanziamento",
   "perp_funding_rate_history_empty__desc": "La cronologia dei tassi di finanziamento non è disponibile per questo mercato.",
   "perp_funding_rate_short__title": "Tasso",
+  "perp_funding_settlement_currency__title": "Valuta di regolamento",
   "perp_funding_side__label": "Direzione",
   "perp_guide_title": "Guida al trading",
   "perp_holdings_empty_message": "Nessun asset spot",

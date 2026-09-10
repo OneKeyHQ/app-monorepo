@@ -160,6 +160,7 @@ describe('fundingHistoryDisplay', () => {
         marketFilter: 'xyz:USDJPY',
         longLabel: 'Long',
         shortLabel: 'Short',
+        paymentTokens: { 'xyz:USDJPY': 'USDC' },
       }),
     ).toEqual([
       {
@@ -168,9 +169,46 @@ describe('fundingHistoryDisplay', () => {
         size: '2',
         side: 'Short',
         payment: '1',
+        paymentToken: 'USDC',
         rate: '0.0100%',
       },
     ]);
+  });
+
+  it('exports each market settlement token without converting payment amounts', () => {
+    const records = [
+      createFundingRecord({ coin: 'BTC', signedSize: '1', time: 1 }),
+      createFundingRecord({ coin: 'xyz:USDJPY', signedSize: '-2', time: 2 }),
+    ];
+    const result = buildFundingHistoryExportRecords({
+      records,
+      sideFilter: 'all',
+      marketFilter: undefined,
+      longLabel: 'Long',
+      shortLabel: 'Short',
+      paymentTokens: { BTC: 'USDC', 'xyz:USDJPY': 'USDH' },
+    });
+    expect(
+      result.map(({ payment, paymentToken }) => ({ payment, paymentToken })),
+    ).toEqual([
+      { payment: '1', paymentToken: 'USDH' },
+      { payment: '1', paymentToken: 'USDC' },
+    ]);
+  });
+
+  it('rejects missing settlement token metadata instead of assuming USDC', () => {
+    expect(() =>
+      buildFundingHistoryExportRecords({
+        records: [
+          createFundingRecord({ coin: 'xyz:BTC', signedSize: '1', time: 1 }),
+        ],
+        sideFilter: 'all',
+        marketFilter: undefined,
+        longLabel: 'Long',
+        shortLabel: 'Short',
+        paymentTokens: {},
+      }),
+    ).toThrow('Funding payment token metadata is unavailable');
   });
 
   it('prevents spreadsheet formulas in exported text fields', () => {
@@ -187,6 +225,7 @@ describe('fundingHistoryDisplay', () => {
         marketFilter: undefined,
         longLabel: '+Long',
         shortLabel: '=CMD()',
+        paymentTokens: { 'xyz:=CMD()': 'USDC' },
       }),
     ).toEqual([
       expect.objectContaining({

@@ -3255,6 +3255,7 @@ export enum ETranslations {
   perp_funding_rate_history__title = 'perp_funding_rate_history__title',
   perp_funding_rate_history_empty__desc = 'perp_funding_rate_history_empty__desc',
   perp_funding_rate_short__title = 'perp_funding_rate_short__title',
+  perp_funding_settlement_currency__title = 'perp_funding_settlement_currency__title',
   perp_funding_side__label = 'perp_funding_side__label',
   perp_guide_title = 'perp_guide_title',
   perp_holdings_empty_message = 'perp_holdings_empty_message',

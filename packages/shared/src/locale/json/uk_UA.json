@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Історія ставки фінансування",
   "perp_funding_rate_history_empty__desc": "Історія ставок фінансування для цього ринку недоступна.",
   "perp_funding_rate_short__title": "Ставка",
+  "perp_funding_settlement_currency__title": "Валюта розрахунку",
   "perp_funding_side__label": "Сторона",
   "perp_guide_title": "Посібник з торгівлі",
   "perp_holdings_empty_message": "Немає спотових активів",

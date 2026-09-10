@@ -3250,6 +3250,7 @@
   "perp_funding_rate_history__title": "Riwayat tingkat pendanaan",
   "perp_funding_rate_history_empty__desc": "Riwayat tingkat pendanaan tidak tersedia untuk pasar ini.",
   "perp_funding_rate_short__title": "Tingkat",
+  "perp_funding_settlement_currency__title": "Mata uang penyelesaian",
   "perp_funding_side__label": "Arah",
   "perp_guide_title": "Panduan Trading",
   "perp_holdings_empty_message": "Tidak ada aset spot",
