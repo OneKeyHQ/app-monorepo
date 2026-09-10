@@ -15,9 +15,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export function EModeGetFundsAction({
   symbol,
   onPress,
+  loading,
 }: {
   symbol: string;
   onPress: () => void;
+  loading?: boolean;
 }) {
   const intl = useIntl();
 
@@ -25,8 +27,13 @@ export function EModeGetFundsAction({
     <Button
       testID={BorrowTestIDs.eModeNeedActionGetFundsBtn}
       variant="primary"
+      loading={loading}
       flexGrow={1}
       flexShrink={1}
+      // flexBasis 0 so the pair splits the row in half; without it the two
+      // buttons take content-proportional widths. Matches the kit's own
+      // confirmButtonMdStyle.
+      flexBasis={0}
       textEllipsis
       $md={
         {
