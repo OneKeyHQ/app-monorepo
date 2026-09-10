@@ -151,4 +151,4 @@ jobs:
           else
             PROFILE="production"
           fi
-          eas build --profile="${PROFILE}" --platform android --non-interactive --no-wait --resource-class large
+          eas build --profile="${PROFILE}" --platform android --non-interactive --wait --resource-class large
