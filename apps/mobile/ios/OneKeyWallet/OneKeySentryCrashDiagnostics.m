@@ -10,7 +10,7 @@
 #import <Sentry/SentryStacktrace.h>
 #import <Sentry/SentryThread.h>
 @import Sentry.Swift;
-#import <RNSentry/RNSentrySDK.h>
+#import <RNSentry/RNSentryStart.h>
 
 static NSUInteger const OneKeyCrashDiagnosticsSchemaVersion = 1;
 static NSUInteger const OneKeyCrashDiagnosticsMaxReportCount = 5;
@@ -350,28 +350,38 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(initialize:(NSDictionary *)configuration)
     }
 
     OneKeyCleanupCrashReports(OneKeyCrashDiagnosticsDirectory(), NSDate.date);
+    __block BOOL didStart = NO;
     void (^startSentry)(void) = ^{
-      [RNSentrySDK startWithConfigureOptions:^(SentryOptions *options) {
-        options.dsn = dsn;
-        options.enabled = [configuration[@"enabled"] boolValue];
-        options.maxBreadcrumbs = [configuration[@"maxBreadcrumbs"] unsignedIntValue];
-        options.maxCacheItems = [configuration[@"maxCacheItems"] unsignedIntValue];
-        options.enableAppHangTracking =
-            [configuration[@"enableAppHangTracking"] boolValue];
-        options.appHangTimeoutInterval =
-            [configuration[@"appHangTimeoutInterval"] doubleValue];
-        options.enableCrashHandler =
-            [configuration[@"enableNativeCrashHandling"] boolValue];
-        options.enableWatchdogTerminationTracking =
-            [configuration[@"enableWatchdogTerminationTracking"] boolValue];
-        options.attachScreenshot = [configuration[@"attachScreenshot"] boolValue];
-        options.attachViewHierarchy =
-            [configuration[@"attachViewHierarchy"] boolValue];
-        options.sendDefaultPii = [configuration[@"sendDefaultPii"] boolValue];
-        options.onCrashedLastRun = ^(SentryEvent *event) {
-          OneKeyPersistCrashEvent(event);
-        };
-      }];
+      NSError *optionsError = nil;
+      SentryOptions *options =
+          [RNSentryStart createOptionsWithDictionary:@{ @"dsn" : dsn }
+                                               error:&optionsError];
+      if (options == nil || optionsError != nil) {
+        NSLog(@"[OneKeySentryCrashDiagnostics] Failed to create Sentry options");
+        return;
+      }
+      [RNSentryStart updateWithReactDefaults:options];
+      options.enabled = [configuration[@"enabled"] boolValue];
+      options.maxBreadcrumbs = [configuration[@"maxBreadcrumbs"] unsignedIntValue];
+      options.maxCacheItems = [configuration[@"maxCacheItems"] unsignedIntValue];
+      options.enableAppHangTracking =
+          [configuration[@"enableAppHangTracking"] boolValue];
+      options.appHangTimeoutInterval =
+          [configuration[@"appHangTimeoutInterval"] doubleValue];
+      options.enableCrashHandler =
+          [configuration[@"enableNativeCrashHandling"] boolValue];
+      options.enableWatchdogTerminationTracking =
+          [configuration[@"enableWatchdogTerminationTracking"] boolValue];
+      options.attachScreenshot = [configuration[@"attachScreenshot"] boolValue];
+      options.attachViewHierarchy =
+          [configuration[@"attachViewHierarchy"] boolValue];
+      options.sendDefaultPii = [configuration[@"sendDefaultPii"] boolValue];
+      options.onCrashedLastRun = ^(SentryEvent *event) {
+        OneKeyPersistCrashEvent(event);
+      };
+      [RNSentryStart updateWithReactFinals:options];
+      [RNSentryStart startWithOptions:options];
+      didStart = YES;
     };
 
     if (NSThread.isMainThread) {
@@ -379,8 +389,8 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(initialize:(NSDictionary *)configuration)
     } else {
       dispatch_sync(dispatch_get_main_queue(), startSentry);
     }
-    initialized = YES;
-    return @YES;
+    initialized = didStart;
+    return @(didStart);
   }
 }
 
