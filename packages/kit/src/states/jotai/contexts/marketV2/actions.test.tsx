@@ -16,6 +16,7 @@ import {
   ProviderJotaiContextMarketV2,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
+  perpsInfoAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
@@ -53,6 +54,9 @@ const mockSyncToPerpsAtom: jest.MockedFunction<
 const mockRecordTaskCompleted: jest.MockedFunction<
   (taskType: unknown) => Promise<unknown>
 > = jest.fn();
+const mockResolveMarketPerpsInfoBySymbol: jest.MockedFunction<
+  (params: { symbol: string }) => Promise<{ hlTicker: string } | undefined>
+> = jest.fn();
 const mockLogError = jest.fn();
 
 function createDeferred<T>() {
@@ -80,6 +84,11 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHyperliquid: {
+      resolveMarketPerpsInfoBySymbol: (
+        ...args: Parameters<typeof mockResolveMarketPerpsInfoBySymbol>
+      ) => mockResolveMarketPerpsInfoBySymbol(...args),
+    },
     serviceMarket: {
       fetchMarketAssetDetail: (
         ...args: Parameters<typeof mockFetchMarketAssetDetail>
@@ -313,6 +322,7 @@ describe('marketV2 asset token detail actions', () => {
     jest.clearAllMocks();
     jest.spyOn(Date, 'now').mockReturnValue(1_788_332_400_000);
     mockFetchMarketAssetDetail.mockResolvedValue(dogeAssetDetail);
+    mockResolveMarketPerpsInfoBySymbol.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -375,6 +385,98 @@ describe('marketV2 asset token detail actions', () => {
       price: '0.25',
       lastUpdated: 1_788_332_400_000,
     });
+  });
+
+  it('resolves perps info for the asset detail path', async () => {
+    mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    act(() => {
+      result.current.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    // The resolver is intentionally not awaited by the fetch, so let its
+    // microtasks settle before asserting.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledWith({
+      symbol: 'DOGE',
+    });
+    expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
+  });
+
+  it('keeps existing perps info when the asset symbol has no perps market', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    act(() => {
+      result.current.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    act(() => {
+      store.set(perpsInfoAtom(), { hlTicker: 'DOGE' });
+    });
+
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
   });
 
   it('uses local network decimals for a preview-less native asset', async () => {
@@ -783,11 +885,9 @@ describe('marketV2 watchlist optimistic actions', () => {
 
     await act(async () => {
       newerRequest.resolve(undefined);
-      await newerAction;
-    });
-    await act(async () => {
       olderRequest.reject(new Error('older add failed'));
       await expect(olderAction).rejects.toThrow('older add failed');
+      await newerAction;
     });
 
     expect(store.get(marketWatchListV2Atom()).data).toEqual([
