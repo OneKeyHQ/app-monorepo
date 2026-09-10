@@ -19,6 +19,7 @@ export function navigateToMarketTokenDetail(
     beforeNavigate?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -30,10 +31,21 @@ export function navigateToMarketTokenDetail(
 
   const stockId = resolveMarketStockId({
     stock: opts.tokenDetailPreview?.stock,
+    name: opts.tokenDetailPreview?.name,
+    symbol: opts.tokenDetailPreview?.symbol,
   });
+  const shouldResolveMarketAsset = Boolean(opts.resolveMarketAsset && !stockId);
 
   if (stockId) {
     opts.tokenDetailActions.current.clearTokenDetail();
+  } else if (shouldResolveMarketAsset) {
+    if (opts.tokenDetailPreview) {
+      opts.tokenDetailActions.current.prepareTokenDetailPreview(
+        opts.tokenDetailPreview,
+      );
+    } else {
+      opts.tokenDetailActions.current.clearTokenDetail();
+    }
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -52,6 +64,13 @@ export function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(shouldResolveMarketAsset
+      ? {
+          resolveMarketAsset: true,
+          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
+          legacyTokenPreview: opts.tokenDetailPreview,
+        }
+      : undefined),
     ...(opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),
