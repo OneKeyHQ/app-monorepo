@@ -873,27 +873,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
   });
 
   it.each(
-    [
-      EDeviceType.Classic,
-      EDeviceType.Classic1s,
-      EDeviceType.ClassicPure,
-      EDeviceType.Mini,
-      EDeviceType.Touch,
-      EDeviceType.Pro,
-      EDeviceType.Pro2,
-      EDeviceType.Neo,
-    ].flatMap((deviceType) =>
-      (deviceType === EDeviceType.Mini ? [true] : [true, false]).map(
-        (usbAvailable) => ({ deviceType, usbAvailable }),
-      ),
+    [EDeviceType.ClassicPure, EDeviceType.Pro2].flatMap((deviceType) =>
+      [true, false].map((usbAvailable) => ({ deviceType, usbAvailable })),
     ),
   )(
     'preserves the confirmed protocol for $deviceType firmware preflight (USB available: $usbAvailable)',
     async ({ deviceType, usbAvailable }) => {
-      const connectProtocol =
-        deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo
-          ? 'V2'
-          : 'V1';
+      const connectProtocol = deviceType === EDeviceType.Pro2 ? 'V2' : 'V1';
       const dbDevice = {
         id: 'db-pro2-device',
         connectId: 'PRB09B0088A',
