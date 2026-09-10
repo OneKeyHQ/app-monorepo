@@ -405,14 +405,16 @@ export function DesktopLayout({
             : (effectiveMarketTradingViewParams?.tokenAddress ?? '')
         }
         networkId={
-          isStockSharePrice
+          isStockSharePrice || marketAssetId
             ? ''
             : (effectiveMarketTradingViewParams?.networkId ?? '')
         }
         tokenSymbol={
           isStockSharePrice
             ? stockId
-            : effectiveMarketTradingViewParams?.tokenSymbol
+            : marketAssetId
+              ? marketAssetId
+              : effectiveMarketTradingViewParams?.tokenSymbol
         }
         isNative={
           isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
@@ -432,7 +434,7 @@ export function DesktopLayout({
         forceCandlestickChart={shouldUseStockDesktopLayout}
         kLineDataFallback={proKLineDataFallback}
         primaryKLineDataUnavailable={
-          isStockSharePrice || Boolean(marketAssetId)
+          isStockSharePrice
         }
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
