@@ -1021,6 +1021,7 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
+              deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}
               contentContainerStyle={tableContentContainerStyle}
               stickyHeader
               showHeader={showTableHeader ? !useDesktopPortal : false}

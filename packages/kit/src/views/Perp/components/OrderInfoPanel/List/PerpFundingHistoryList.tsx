@@ -88,6 +88,7 @@ function FundingHistoryExportAction({
       const records =
         await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
           accountAddress,
+          force: true,
         });
       const exportRecords = buildFundingHistoryExportRecords({
         records,

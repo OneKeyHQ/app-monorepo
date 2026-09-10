@@ -31,6 +31,7 @@ import {
   MARKET_CELL_LINE_GAP,
   MARKET_CELL_LOGO_GAP,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -61,7 +62,7 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 const EMPTY_MARKET_VALUE = '--';
 
 function getDefaultMarketValue(text: number) {
-  return text === 0 ? EMPTY_MARKET_VALUE : text;
+  return !Number.isFinite(text) || text === 0 ? EMPTY_MARKET_VALUE : text;
 }
 
 function shouldUseLightweightCell(
@@ -214,6 +215,8 @@ export const useColumnsDesktop = (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
                 <MarketStarV2
+                  assetId={record.assetId}
+                  stockId={record.stockId}
                   chainId={record.chainId || networkId || ''}
                   contractAddress={record.address}
                   from={watchlistFrom || EWatchlistFrom.Homepage}
@@ -319,7 +322,9 @@ export const useColumnsDesktop = (
         columnProps: { flex: 1 },
         render: (text: string, _record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(text);
+            return renderLightweightText(
+              Number.isFinite(Number(text)) ? text : EMPTY_MARKET_VALUE,
+            );
           }
 
           return (
@@ -328,7 +333,7 @@ export const useColumnsDesktop = (
               formatter={Number(text) > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
-              {text}
+              {Number.isFinite(Number(text)) ? text : EMPTY_MARKET_VALUE}
             </NumberSizeableText>
           );
         },
@@ -337,13 +342,10 @@ export const useColumnsDesktop = (
       {
         title:
           change24hColumnTitle ??
-          (isWatchlistMode
-            ? intl.formatMessage({
-                id: ETranslations.perp_token_selector_24h_change,
-              })
-            : `${intl.formatMessage({
-                id: ETranslations.dexmarket_token_change,
-              })}(%)`),
+          intl.formatMessage(
+            { id: ETranslations.market_change_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -367,7 +369,7 @@ export const useColumnsDesktop = (
           return (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               color={changeColor}
               formatterOptions={{
                 showPlusMinusSigns,
@@ -410,9 +412,10 @@ export const useColumnsDesktop = (
         ? undefined
         : {
             title: useStockMetadataColumns
-              ? intl.formatMessage({
-                  id: ETranslations.dexmarket_stock_24h_volume,
-                })
+              ? intl.formatMessage(
+                  { id: ETranslations.market_volume_in_range },
+                  { range: MARKET_FIXED_24H_RANGE },
+                )
               : intl.formatMessage({ id: ETranslations.global_liquidity }),
             dataIndex: 'liquidity',
             columnProps: { flex: 1.2 },
@@ -445,9 +448,10 @@ export const useColumnsDesktop = (
             });
           }
           return isWatchlistMode
-            ? intl.formatMessage({
-                id: ETranslations.dexmarket_stock_24h_volume,
-              })
+            ? intl.formatMessage(
+                { id: ETranslations.market_volume_in_range },
+                { range: MARKET_FIXED_24H_RANGE },
+              )
             : intl.formatMessage({ id: ETranslations.dexmarket_turnover });
         })(),
         dataIndex: 'turnover',

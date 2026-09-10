@@ -10,6 +10,7 @@ import type { GestureResponderEvent } from 'react-native';
 export function MultipleClickStack({
   children,
   onPress,
+  onSinglePress,
   showDevBgColor = false,
   triggerAt = platformEnv.isDev ? 3 : 10,
   debugComponent,
@@ -19,6 +20,7 @@ export function MultipleClickStack({
   showDevBgColor?: boolean;
   triggerAt?: number;
   onPress?: ((event: GestureResponderEvent) => void) | null | undefined;
+  onSinglePress?: ((event: GestureResponderEvent) => void) | null | undefined;
   children?: ReactNode;
   debugComponent?: ReactNode;
   // Restrict the whole trigger to developer mode. Off by default so entries
@@ -44,6 +46,7 @@ export function MultipleClickStack({
         bg={showDevBgColor && platformEnv.isDev ? '$bgCritical' : undefined}
         {...others}
         onPress={(event) => {
+          onSinglePress?.(event);
           clickCountRef.current += 1;
           // Fires on the configured click and on every click after it
           if (clickCountRef.current >= triggerAt && isTriggerAllowed) {

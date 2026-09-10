@@ -25,6 +25,7 @@ const mockWatchlistApiResult = {
       decimals: 18,
       networkId: 'evm--143',
       isNative: false,
+      stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
     },
   ],
 };
@@ -81,6 +82,8 @@ describe('useMarketWatchlistTokenList network logos', () => {
 
     await waitFor(() => {
       expect(latestData).toHaveLength(1);
+      expect(latestData[0]?.stockId).toBeUndefined();
+      expect(latestData[0]?.stock?.stockId).toBe('AAPL');
       expect(latestData[0]?.networkLogoUri).toBe(
         'https://example.com/monad.png',
       );

@@ -128,6 +128,7 @@ export type ISwapPanelContentProps = {
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
   stockDetailDesktopLayout?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
+  resolvedVariantKeys?: string[];
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -172,6 +173,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     onCloseDialog,
     stockDetailDesktopLayout,
     portfolioData,
+    resolvedVariantKeys,
   } = props;
 
   const {
@@ -543,17 +545,21 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           justifyContent="space-between"
           gap="$2"
         >
-          <StockTokenVariantSelector portfolioData={portfolioData} />
-          <XStack alignItems="center" justifyContent="flex-end" gap="$3">
-            <BaseMarketTokenPrice
-              price={currentMarketToken?.price || '--'}
-              tokenName={currentMarketToken?.name || ''}
-              tokenSymbol={currentMarketToken?.symbol || ''}
-              currency="$"
-              size="$bodyLgMedium"
-            />
-            <StockTokenInfoPopover />
-          </XStack>
+          <StockTokenVariantSelector
+            portfolioData={portfolioData}
+            resolvedVariantKeys={resolvedVariantKeys}
+          />
+          <StockTokenInfoPopover
+            label={
+              <BaseMarketTokenPrice
+                price={currentMarketToken?.price || '--'}
+                tokenName={currentMarketToken?.name || ''}
+                tokenSymbol={currentMarketToken?.symbol || ''}
+                currency="$"
+                size="$bodyLgMedium"
+              />
+            }
+          />
         </XStack>
 
         <TokenInputSection

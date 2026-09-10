@@ -26,6 +26,7 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: Stack,
     InteractiveIcon: Stack,
     SizableText: Stack,
+    Stack,
     XStack: Stack,
     YStack: Stack,
     Popover: ({ renderContent }: { renderContent: () => ReactNode }) =>
@@ -51,6 +52,13 @@ jest.mock('../../hooks/StockDetailContext', () => ({
 jest.mock('../TokenSelector/StockTokenVariantSelector', () => ({
   getIssuerLabel: (issuer: string) => issuer,
 }));
+// The dashed label pulls in Tooltip and DashText, neither of which this
+// file's component mock provides. The row only has to render its label here.
+jest.mock('../../../components/MarketTooltipLabel', () => ({
+  MarketTooltipLabel: ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  ),
+}));
 
 const variant: IMarketStockTokenVariant = {
   tokenId: 'apple',
@@ -71,7 +79,7 @@ describe('StockTokenInfoPopover shares', () => {
         selectedTokenVariant: { ...variant, tokenToAssetRatio: ratio },
         stockId: 'AAPL',
       });
-      render(<StockTokenInfoPopover />);
+      render(<StockTokenInfoPopover label="$319.97" />);
       expect(screen.queryByTestId('stock-token-info-shares')).toBeNull();
       expect(
         screen.getByTestId('stock-token-info-underlying').textContent,
@@ -89,7 +97,7 @@ describe('StockTokenInfoPopover shares', () => {
         selectedTokenVariant: { ...variant, tokenToAssetRatio: ratio },
         stockId: 'AAPL',
       });
-      render(<StockTokenInfoPopover />);
+      render(<StockTokenInfoPopover label="$319.97" />);
       expect(
         screen.getByTestId('stock-token-info-shares').textContent,
       ).toContain(`${ratio.trim()} AAPL`);
