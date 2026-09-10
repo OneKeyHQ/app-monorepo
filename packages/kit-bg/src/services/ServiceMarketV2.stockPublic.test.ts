@@ -377,6 +377,44 @@ describe('ServiceMarketV2 public stock APIs', () => {
     );
   });
 
+  it('sends Pro intervals and time bounds without injecting a default period', async () => {
+    const service = createService();
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          stockId: 'AAPL',
+          interval: '5min',
+          currency: 'USD',
+          points: [],
+        },
+      },
+    });
+    await service.fetchMarketStockChart({
+      stockId: 'AAPL',
+      interval: '5min',
+      from: 1_786_041_000,
+      to: 1_786_132_800,
+    });
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/AAPL/chart', {
+      params: { interval: '5min', from: 1_786_041_000, to: 1_786_132_800 },
+      autoHandleError: false,
+    });
+  });
+
+  it('defaults Simple to one day without requesting a point limit', async () => {
+    const service = createService();
+    mockGet.mockResolvedValue({
+      data: {
+        data: { stockId: 'AAPL', period: '1d', currency: 'USD', points: [] },
+      },
+    });
+    await service.fetchMarketStockChart({ stockId: 'AAPL' });
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/AAPL/chart', {
+      params: { period: '1d' },
+      autoHandleError: false,
+    });
+  });
+
   it('uses independent chart, events, and news endpoints', async () => {
     const service = createService();
     mockGet
@@ -400,7 +438,6 @@ describe('ServiceMarketV2 public stock APIs', () => {
     await service.fetchMarketStockChart({
       stockId: 'AAPL',
       period: '1w',
-      points: 200,
     });
     await service.fetchMarketStockEvents({ stockId: 'AAPL' });
     await service.fetchMarketStockNews({ stockId: 'AAPL', limit: 5 });
@@ -409,7 +446,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
       1,
       '/utility/v1/stocks/AAPL/chart',
       {
-        params: { period: '1w', points: 200 },
+        params: { period: '1w' },
         autoHandleError: false,
       },
     );

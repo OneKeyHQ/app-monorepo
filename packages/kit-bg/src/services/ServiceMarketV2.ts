@@ -43,7 +43,7 @@ import type {
   IMarketStockDetail,
   IMarketStockEventsResponse,
   IMarketStockNewsResponse,
-  IMarketStockPublicChartPeriod,
+  IMarketStockPublicChartRequest,
   IMarketStockPublicChartResponse,
   IMarketStockPublicDetail,
   IMarketStockPublicListRequest,
@@ -1225,20 +1225,16 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketStockChart({
-    stockId,
-    period = '1d',
-    points = 100,
-  }: {
-    stockId: string;
-    period?: IMarketStockPublicChartPeriod;
-    points?: number;
-  }) {
+  async fetchMarketStockChart(params: IMarketStockPublicChartRequest) {
+    const { stockId } = params;
+    const chartParams = params.interval
+      ? { interval: params.interval, from: params.from, to: params.to }
+      : { period: params.period ?? '1d' };
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
-      params: { period, points },
+      params: chartParams,
       autoHandleError: false,
     };
     const response = await client.get<{
