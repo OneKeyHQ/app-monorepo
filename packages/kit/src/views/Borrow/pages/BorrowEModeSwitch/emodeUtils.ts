@@ -75,12 +75,8 @@ export interface IEModeRow {
   isOff: boolean;
 }
 
-// Two screens call this: the switch page, and the category picker it pushes.
-// They derive separately on purpose — the picker reads the status from the hook
-// rather than taking the caller's snapshot, so passing rows down freezes it
-// (see the BorrowEModeCategorySelect route params). Anything that should shape
-// the list for both — filtering, ordering, a new row — belongs in here, not at
-// a call site.
+// Both screens derive rows from their live status so the picker can follow
+// category changes while it is open.
 export function buildEModeRows(
   status: IBorrowEModeStatus | null | undefined,
   offLabel: string,
@@ -115,49 +111,20 @@ export function buildEModeRows(
   return [offRow, ...categoryRows];
 }
 
-export function buildEModeSelectDescription({
-  row,
-  currentEModeId,
-  currentText,
-  offText,
-  formatMaxLtv,
-  needsActionText,
-}: {
+type IEModeRowSubtitleParams = {
   row: IEModeRow;
-  currentEModeId: number;
-  currentText: string;
   offText: string;
   formatMaxLtv: (ltv: string) => string;
   needsActionText: string;
-}): string {
-  if (row.eModeId === currentEModeId) {
-    return currentText;
-  }
-  if (row.isOff) {
-    return offText;
-  }
-  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
-  if (row.canSwitch === false) {
-    parts.push(needsActionText);
-  }
-  return parts.join(' · ');
-}
+};
 
-// The picker rows keep Max LTV as the subtitle rather than swapping it for
-// "Current" the way the collapsed trigger does: the whole screen exists to
-// compare that number across categories, and the Off row's ltv already carries
-// the market LTV before any e-mode boost, so it stays comparable there too.
+// Picker rows always show LTV, including the base market LTV for Off.
 export function buildEModeRowSubtitle({
   row,
   offText,
   formatMaxLtv,
   needsActionText,
-}: {
-  row: IEModeRow;
-  offText: string;
-  formatMaxLtv: (ltv: string) => string;
-  needsActionText: string;
-}): string {
+}: IEModeRowSubtitleParams): string {
   const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
   if (!parts.length && row.isOff) {
     parts.push(offText);
@@ -166,6 +133,24 @@ export function buildEModeRowSubtitle({
     parts.push(needsActionText);
   }
   return parts.join(' · ');
+}
+
+export function buildEModeSelectDescription({
+  currentEModeId,
+  currentText,
+  ...subtitleParams
+}: IEModeRowSubtitleParams & {
+  currentEModeId: number;
+  currentText: string;
+}): string {
+  const { row, offText } = subtitleParams;
+  if (row.eModeId === currentEModeId) {
+    return currentText;
+  }
+  if (row.isOff) {
+    return offText;
+  }
+  return buildEModeRowSubtitle(subtitleParams);
 }
 
 export interface IEModeSelectionResolution {

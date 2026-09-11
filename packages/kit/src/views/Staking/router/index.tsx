@@ -134,10 +134,7 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.BorrowEModeCategorySelect,
     component: BorrowEModeCategorySelectModal,
-    // This screen replaced a Select popover, where clicking outside dismissed
-    // the popover and left the user on the switch page. Without this the web
-    // navigator's backdrop handler goes to the parent instead and drops the
-    // whole e-mode flow, losing the pending selection and any running check.
+    // Backdrop clicks return to the switch page and preserve its selection.
     shouldPopOnClickBackdrop: true,
   },
   {
