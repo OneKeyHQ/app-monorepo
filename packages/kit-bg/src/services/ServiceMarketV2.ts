@@ -1074,7 +1074,7 @@ class ServiceMarketV2 extends ServiceBase {
       return data.data;
     },
     {
-      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
       promise: true,
     },
   );
