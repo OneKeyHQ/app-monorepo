@@ -27,6 +27,7 @@ import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
 
 public class RecoveryActivity extends AppCompatActivity {
 
+    private static final String EXPORT_ARCHIVE_NAME = "onekey_logs.zip";
     private final ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor();
 
     // i18n locale strings
@@ -173,7 +174,7 @@ public class RecoveryActivity extends AppCompatActivity {
                 return;
             }
 
-            File zipFile = new File(getCacheDir(), "onekey_logs.zip");
+            File zipFile = exportArchiveFile();
             zipDirectory(logDir, zipFile);
 
             Uri uri = OnekeyFileProvider.getUriForFile(this, zipFile);
@@ -185,6 +186,10 @@ public class RecoveryActivity extends AppCompatActivity {
         } catch (Exception e) {
             showError(sExportError + ": " + e.getMessage());
         }
+    }
+
+    private File exportArchiveFile() {
+        return new File(getCacheDir(), EXPORT_ARCHIVE_NAME);
     }
 
     private File findNativeLoggerDir() {
