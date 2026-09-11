@@ -433,6 +433,7 @@ class ServiceAccountProfile extends ServiceBase {
     checkAddressContract,
     tokenAddress,
     result,
+    pendingBadges,
   }: {
     accountId?: string;
     fromAddress?: string;
@@ -442,14 +443,18 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
     tokenAddress?: string;
     result: IAddressQueryResult;
+    // A /badges request already in flight for this address; when given,
+    // it is awaited instead of issuing a new one.
+    pendingBadges?: Promise<IAccountBadgeResult>;
   }): Promise<void> {
-    const merged = await this.fetchBadgesDeduped({
-      networkId,
-      accountId,
-      toAddress,
-      checkInteractionStatus,
-      tokenAddress,
-    });
+    const merged = await (pendingBadges ??
+      this.fetchBadgesDeduped({
+        networkId,
+        accountId,
+        toAddress,
+        checkInteractionStatus,
+        tokenAddress,
+      }));
 
     const {
       isContract,
@@ -531,6 +536,7 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
+    let isLocalValid = false;
     try {
       const { displayAddress, isValid } =
         await this.backgroundApi.serviceValidator.localValidateAddress({
@@ -540,6 +546,7 @@ class ServiceAccountProfile extends ServiceBase {
       if (isValid) {
         address = displayAddress;
         result.validAddress = address;
+        isLocalValid = true;
       }
     } catch (_e) {
       // noop
@@ -547,6 +554,34 @@ class ServiceAccountProfile extends ServiceBase {
 
     if (!networkId) {
       return result;
+    }
+
+    const shouldCheckBadges = Boolean(
+      enableAddressContract || (enableAddressInteractionStatus && accountId),
+    );
+    const checkInteractionStatus = Boolean(
+      enableAddressInteractionStatus && accountId,
+    );
+
+    // Server validation and /badges are independent round trips (~0.5 s each).
+    // Once the local validator accepts the input, start /badges right away so
+    // it overlaps with /validate-address instead of running after it. The
+    // promise is only consumed if the address survives validation and name
+    // resolution; otherwise it is dropped (the catch below keeps an unused
+    // rejection from surfacing as unhandled).
+    let speculativeBadges:
+      | { toAddress: string; promise: Promise<IAccountBadgeResult> }
+      | undefined;
+    if (isLocalValid && shouldCheckBadges) {
+      const promise = this.fetchBadgesDeduped({
+        networkId,
+        accountId,
+        toAddress: address,
+        checkInteractionStatus,
+        tokenAddress,
+      });
+      promise.catch(() => undefined);
+      speculativeBadges = { toAddress: address, promise };
     }
 
     if (!skipValidateAddress) {
@@ -704,10 +739,7 @@ class ServiceAccountProfile extends ServiceBase {
         }
       }
     }
-    if (
-      resolveAddress &&
-      (enableAddressContract || (enableAddressInteractionStatus && accountId))
-    ) {
+    if (resolveAddress && shouldCheckBadges) {
       let senderAddress: string | undefined;
       if (accountId) {
         try {
@@ -726,11 +758,15 @@ class ServiceAccountProfile extends ServiceBase {
         toAddress: resolveAddress,
         fromAddress: senderAddress,
         checkAddressContract: enableAddressContract,
-        checkInteractionStatus: Boolean(
-          enableAddressInteractionStatus && accountId,
-        ),
+        checkInteractionStatus,
         tokenAddress,
         result,
+        // Reuse the early request only when it targeted the same address
+        // (name resolution may have swapped the input for a resolved one).
+        pendingBadges:
+          speculativeBadges?.toAddress === resolveAddress
+            ? speculativeBadges.promise
+            : undefined,
       });
 
       // For EVM networks, override interaction status with transfer-recipient data

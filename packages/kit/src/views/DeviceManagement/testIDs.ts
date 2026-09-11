@@ -35,6 +35,7 @@ export const DeviceManagementTestIDs = {
   // --- Danger Zone Section ---
   switchFirmwareTypeItem: 'device-mgmt-switch-firmware-type-item',
   wipeDeviceItem: 'device-mgmt-wipe-device-item',
+  resetPrimeGiftItem: 'device-mgmt-reset-prime-gift-item',
 
   // --- Device Guide ---
   connectHardwareBtn: 'device-mgmt-connect-hardware-btn',
