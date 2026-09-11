@@ -3,6 +3,9 @@ const path = require('path');
 const { merge } = require('webpack-merge');
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 
+const {
+  CHROMIUM_BASELINE_TARGET,
+} = require('../../apps/web-embed/scripts/browser-compat-baseline');
 const { LavaMoatError } = require('../lavamoat/error.cjs');
 const { createBaseResolveOptions } = require('../rspack/rspack.resolve.config');
 
@@ -64,7 +67,10 @@ module.exports = ({ basePath }) => {
                   [
                     '@babel/preset-env',
                     {
-                      targets: { chrome: '67', safari: '15.5' },
+                      targets: {
+                        chrome: CHROMIUM_BASELINE_TARGET,
+                        safari: '15.5',
+                      },
                       modules: false,
                     },
                   ],
