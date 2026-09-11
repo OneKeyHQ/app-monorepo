@@ -61,7 +61,7 @@ describe('explicit modern-engine native E2E assets', () => {
     fs.mkdirSync(path.dirname(checker), { recursive: true });
     fs.writeFileSync(
       checker,
-      "console.error('ses.js uses unsupported Chromium 67 syntax'); process.exitCode = 1;",
+      "console.error('ses.js uses unsupported Chromium 80 syntax'); process.exitCode = 1;",
     );
     jest.spyOn(console, 'log').mockImplementation(() => {});
   });
@@ -96,7 +96,7 @@ describe('explicit modern-engine native E2E assets', () => {
   test('copies all exact bytes to both native assets and retains the failed existing baseline', () => {
     const report = prepareCandidateWebEmbed({ env, repoRoot });
     expect(report.releaseEligible).toBe(false);
-    expect(report.existingChromium67Baseline.status).toBe('failed');
+    expect(report.existingChromium80Baseline.status).toBe('failed');
     expect(report.files).toEqual(manifest);
     for (const relative of [
       'apps/web-embed/web-build',
@@ -120,10 +120,10 @@ describe('explicit modern-engine native E2E assets', () => {
   test('retains a successful baseline without declaring release eligibility', () => {
     fs.writeFileSync(
       checker,
-      "console.log('Verified 2 assets for Chromium 67 syntax compatibility.');",
+      "console.log('Verified 2 assets for Chromium 80 syntax compatibility.');",
     );
     const report = prepareCandidateWebEmbed({ env, repoRoot });
-    expect(report.existingChromium67Baseline.status).toBe('passed');
+    expect(report.existingChromium80Baseline.status).toBe('passed');
     expect(report.releaseEligible).toBe(false);
   });
 

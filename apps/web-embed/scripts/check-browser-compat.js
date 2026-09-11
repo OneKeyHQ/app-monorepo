@@ -5,19 +5,15 @@ const path = require('path');
 
 const parser = require('@babel/parser');
 
+const { CHROMIUM_BASELINE_LABEL } = require('./browser-compat-baseline');
+
 const buildDir = path.resolve(__dirname, '../web-build');
 const indexHtmlPath = path.join(buildDir, 'index.html');
 const unsupportedNodeTypes = new Set([
   'ClassAccessorProperty',
   'ClassPrivateMethod',
-  'ClassPrivateProperty',
-  'ClassProperty',
   'DecimalLiteral',
-  'ExportNamespaceSpecifier',
   'ModuleExpression',
-  'OptionalCallExpression',
-  'OptionalMemberExpression',
-  'PrivateName',
   'RecordExpression',
   'StaticBlock',
   'TupleExpression',
@@ -82,15 +78,6 @@ function getUnsupportedReason(node, functionDepth) {
     unsupportedAssignmentOperators.has(node.operator)
   ) {
     return `assignment operator ${node.operator}`;
-  }
-  if (node.type === 'LogicalExpression' && node.operator === '??') {
-    return 'nullish coalescing';
-  }
-  if (
-    (node.type === 'NumericLiteral' || node.type === 'BigIntLiteral') &&
-    node.extra?.raw?.includes('_')
-  ) {
-    return 'numeric separator';
   }
   if (
     node.type === 'RegExpLiteral' &&
@@ -321,7 +308,7 @@ function main() {
   if (failures.length > 0) {
     failures.slice(0, 20).forEach((failure) => {
       console.error(
-        `${failure.filePath}:${failure.line}:${failure.column} uses unsupported Chromium 67 syntax (${failure.reason})`,
+        `${failure.filePath}:${failure.line}:${failure.column} uses unsupported ${CHROMIUM_BASELINE_LABEL} syntax (${failure.reason})`,
       );
     });
     if (failures.length > 20) {
@@ -334,7 +321,7 @@ function main() {
   }
 
   console.log(
-    `Verified ${javaScriptFiles.length} web-embed JavaScript assets and ${inlineScriptCount} inline scripts for Chromium 67 syntax compatibility.`,
+    `Verified ${javaScriptFiles.length} web-embed JavaScript assets and ${inlineScriptCount} inline scripts for ${CHROMIUM_BASELINE_LABEL} syntax compatibility.`,
   );
 }
 

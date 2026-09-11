@@ -6,6 +6,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+const {
+  CHROMIUM_BASELINE_LABEL,
+} = require('../../web-embed/scripts/browser-compat-baseline');
 const { getMobileLockdownE2ERunId } = require('../plugins/mobileLockdown');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -202,8 +205,11 @@ function prepareCandidateWebEmbed({
   assert.match(
     baselineOutput,
     baseline.status === 0
-      ? /Verified .*Chromium 67 syntax compatibility/u
-      : /uses unsupported Chromium 67 syntax/u,
+      ? new RegExp(
+          `Verified .*${CHROMIUM_BASELINE_LABEL} syntax compatibility`,
+          'u',
+        )
+      : new RegExp(`uses unsupported ${CHROMIUM_BASELINE_LABEL} syntax`, 'u'),
     'The existing browser baseline checker failed unexpectedly',
   );
   const report = {
@@ -212,7 +218,7 @@ function prepareCandidateWebEmbed({
     manifestSha256: manifestDigest,
     files: manifest,
     protectedArtifact,
-    existingChromium67Baseline: {
+    existingChromium80Baseline: {
       status: baseline.status === 0 ? 'passed' : 'failed',
       output: baselineOutput,
     },
@@ -229,7 +235,7 @@ function prepareCandidateWebEmbed({
     mode: 0o600,
   });
   console.log(
-    `[mobile-lockdown] Modern-engine E2E candidate only; Chromium 67 baseline ${report.existingChromium67Baseline.status}; not release eligible. Receipt: ${receipt}`,
+    `[mobile-lockdown] Modern-engine E2E candidate only; ${CHROMIUM_BASELINE_LABEL} baseline ${report.existingChromium80Baseline.status}; Chromium 67-79 are unsupported; not release eligible. Receipt: ${receipt}`,
   );
   return report;
 }
