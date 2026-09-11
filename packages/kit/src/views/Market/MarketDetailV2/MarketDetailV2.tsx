@@ -178,8 +178,8 @@ function MarketDetail({
   );
   const hasValidTokenDetailPreview = Boolean(
     tokenDetailPreview &&
-      tokenDetailPreview.address === tokenAddress &&
-      tokenDetailPreview.networkId === networkId,
+    tokenDetailPreview.address === tokenAddress &&
+    tokenDetailPreview.networkId === networkId,
   );
 
   // Track market entry analytics

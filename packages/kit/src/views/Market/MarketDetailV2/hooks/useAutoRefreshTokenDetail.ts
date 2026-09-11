@@ -203,8 +203,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     // Keep the previous detail snapshot while the new identity is fetching.
     // Clearing these atoms creates an intermediate empty render, then the
     // response creates a second render and makes the whole detail page flash.
-  // Request-key guards below prevent the previous request from updating the
-  // current identity.
+    // Request-key guards below prevent the previous request from updating the
+    // current identity.
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
       prevToken &&
