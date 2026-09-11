@@ -698,10 +698,11 @@ export interface IMorphOverlayProps<T> {
    * The live in-card move the height should ride `ARRANGE_MS` for
    * instead of the spring: while the card stays put and this token
    * changes between two defined values, the height runs on the
-   * arrangement clock (DeviceStage passes its staged port height — the
-   * confirm shrink and back). Undefined-to-value edges keep the spring.
+   * arrangement clock (DeviceStage passes its staged arrangement kind —
+   * the confirm shrink and back). Compared, never measured.
+   * Undefined-to-value edges keep the spring.
    */
-  heightArrangeToken?: number;
+  heightArrangeToken?: string | number;
   /** The caller's own flow aimed on the container's clock — see
    * IMorphAimFacts. Its identity is an effect dependency on purpose:
    * wrap it in useCallback over the flow targets, and a target change
