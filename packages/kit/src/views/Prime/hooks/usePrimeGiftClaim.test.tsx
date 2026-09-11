@@ -25,6 +25,7 @@ const mockClose = jest.fn(async () => {
   mockDialogExists = false;
 });
 const mockMessage = (id: string) => id;
+const mockPrimeGiftStage = jest.fn();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimeGiftEligibilityPersistAtom: () => [mockEligibilityCache],
@@ -74,6 +75,18 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   default: { isUserCancelStyleError: () => false },
 }));
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        primeGiftStage: (...args: unknown[]) => {
+          mockPrimeGiftStage(...args);
+        },
+      },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/locale', () => ({
   ETranslations: {
     id_login_expired_description: 'login_expired',
@@ -110,7 +123,11 @@ function createDevice(serialNo = 'DEVICE-A'): IPrimeGiftDevice {
   };
 }
 
-const initialProps = { device: createDevice(), serialNo: 'DEVICE-A' };
+const initialProps = {
+  device: createDevice(),
+  serialNo: 'DEVICE-A',
+  source: 'onboarding' as const,
+};
 const prepared: IPrimeGiftPreparedRedemption = {
   serialNo: 'DEVICE-A',
   onekeyUserId: 'user-a',
@@ -283,8 +300,15 @@ describe('usePrimeGiftClaim', () => {
       await result.current.submit();
     });
     expect(showDialog).toHaveBeenCalledWith(
-      expect.objectContaining({ initialCode: 'SERVER_CODE' }),
+      expect.objectContaining({
+        initialCode: 'SERVER_CODE',
+        giftSource: 'onboarding',
+      }),
     );
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'success' }],
+    ]);
   });
 
   it.each(['available', 'processing', 'future-status'])(
@@ -419,7 +443,11 @@ describe('usePrimeGiftClaim', () => {
         mockLocalUserId = 'user-b';
         rerender(initialProps);
       } else
-        rerender({ device: createDevice('DEVICE-B'), serialNo: 'DEVICE-B' });
+        rerender({
+          device: createDevice('DEVICE-B'),
+          serialNo: 'DEVICE-B',
+          source: 'onboarding',
+        });
       await act(async () => {
         pending.resolve(prepared);
         await submission;
@@ -449,5 +477,30 @@ describe('usePrimeGiftClaim', () => {
     await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
     expect(result.current.result).toBeUndefined();
     expect(result.current.deviceVerified).toBe(false);
+  });
+
+  it('logs login success once when identity rerenders while login is pending', async () => {
+    mockLocalIsLoggedIn = false;
+    mockLocalUserId = undefined;
+    const pending = deferred<void>();
+    mockLogin.mockReturnValue(pending.promise);
+    servicePrime.apiGetPrimeGiftUserId.mockResolvedValue(undefined);
+    const { result, rerender } = renderClaim();
+    await waitFor(() => expect(result.current.isQuerying).toBe(false));
+    let loginPromise: Promise<void> | undefined;
+    act(() => {
+      loginPromise = result.current.login();
+    });
+    mockLocalIsLoggedIn = true;
+    mockLocalUserId = 'user-a';
+    rerender(initialProps);
+    await act(async () => {
+      pending.resolve();
+      await loginPromise;
+    });
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'login', status: 'start' }],
+      [{ source: 'onboarding', stage: 'login', status: 'success' }],
+    ]);
   });
 });

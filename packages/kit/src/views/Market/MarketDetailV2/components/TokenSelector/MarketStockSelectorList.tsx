@@ -1,10 +1,16 @@
-import { memo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Empty, Spinner, Table, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  Button,
+  Empty,
+  ListEndIndicator,
+  Spinner,
+  Stack,
+  Table,
+  YStack,
+} from '@onekeyhq/components';
 import { useMarketStockColumns } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -14,11 +20,7 @@ import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
   TOKEN_SELECTOR_ROW_HEIGHT,
 } from './constants';
-
-type IMarketStockSelectorResult = {
-  items: IMarketStockPublicItem[];
-  failed?: boolean;
-};
+import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
 const STOCK_SELECTOR_LIST_HEIGHT = 350;
 const STOCK_SELECTOR_TABLE_HEIGHT =
@@ -43,29 +45,56 @@ const MarketStockSelectorList = memo(
     });
     const normalizedQuery = query?.trim() ?? '';
     const {
-      result = { items: [] },
+      items,
       isLoading,
-      run: retry,
-    } = usePromiseResult<IMarketStockSelectorResult>(
-      async () => {
-        try {
-          const response = normalizedQuery
-            ? await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
-                query: normalizedQuery,
-                limit: 50,
-              })
-            : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
-                limit: 50,
-              });
-          return { items: response.items };
-        } catch {
-          return { items: [], failed: true };
-        }
-      },
-      [normalizedQuery],
-      { initResult: { items: [] }, watchLoading: true },
-    );
-    if (isLoading && result.items.length === 0) {
+      isError,
+      isLoadingMore,
+      isLoadMoreError,
+      canLoadMore,
+      loadMore,
+      refresh: retry,
+    } = useMarketStockSelectorList({ query: normalizedQuery });
+    const handleEndReached = useCallback(() => {
+      if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+        void loadMore();
+      }
+    }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+    const tableFooterComponent = useMemo(() => {
+      if (isLoadingMore) {
+        return (
+          <Stack alignItems="center" justifyContent="center" py="$4">
+            <Spinner size="small" />
+          </Stack>
+        );
+      }
+      if (isLoadMoreError) {
+        return (
+          <Stack alignItems="center" justifyContent="center" py="$4">
+            <Button
+              testID="market-stock-selector-load-more-retry"
+              size="small"
+              variant="tertiary"
+              onPress={() => void loadMore()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          </Stack>
+        );
+      }
+      if (items.length > 0 && !canLoadMore) {
+        return <ListEndIndicator />;
+      }
+      return null;
+    }, [
+      canLoadMore,
+      intl,
+      isLoadMoreError,
+      isLoadingMore,
+      items.length,
+      loadMore,
+    ]);
+
+    if (isLoading && items.length === 0) {
       return (
         <YStack
           testID="market-stock-selector-loading"
@@ -78,7 +107,7 @@ const MarketStockSelectorList = memo(
       );
     }
 
-    if (result.failed) {
+    if (isError) {
       return (
         <YStack
           height={STOCK_SELECTOR_TABLE_HEIGHT}
@@ -103,7 +132,7 @@ const MarketStockSelectorList = memo(
       );
     }
 
-    if (result.items.length === 0) {
+    if (items.length === 0 && !canLoadMore) {
       return (
         <YStack
           height={STOCK_SELECTOR_TABLE_HEIGHT}
@@ -122,7 +151,7 @@ const MarketStockSelectorList = memo(
       <YStack height={STOCK_SELECTOR_TABLE_HEIGHT}>
         <Table<IMarketStockPublicItem>
           columns={columns}
-          dataSource={result.items}
+          dataSource={items}
           keyExtractor={(item) => item.stockId}
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
@@ -141,6 +170,9 @@ const MarketStockSelectorList = memo(
             height: TOKEN_SELECTOR_HEADER_HEIGHT,
             minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
           }}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.2}
+          TableFooterComponent={tableFooterComponent}
           onRow={(item) => ({
             onPress: () => onItemPress(item),
             rowProps: {
