@@ -161,12 +161,8 @@ jest.mock('./BorrowPositionCard', () => ({
     isExpanded,
     onToggleExpand,
     collateral,
-  }: {
-    testID?: string;
-    isExpanded?: boolean;
-    onToggleExpand?: () => void;
-    collateral?: React.ReactNode;
-  }) => (
+    actions,
+  }: import('./BorrowPositionCard').IBorrowPositionCardProps) => (
     <div>
       <button
         type="button"
@@ -176,6 +172,19 @@ jest.mock('./BorrowPositionCard', () => ({
         onClick={onToggleExpand}
       />
       <div data-testid={`${testID ?? ''}-collateral`}>{collateral}</div>
+      {isExpanded
+        ? actions.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              data-testid={action.testID}
+              disabled={action.disabled}
+              onClick={action.onPress}
+            >
+              {action.label}
+            </button>
+          ))
+        : null}
     </div>
   ),
 }));
@@ -184,6 +193,9 @@ import { fireEvent, render } from '@testing-library/react';
 
 import { BorrowMobilePositions } from './BorrowMobilePositions';
 
+const { BorrowNavigation: navigationMock } = jest.requireMock<{
+  BorrowNavigation: { pushToBorrowManagePosition: jest.Mock<void, unknown[]> };
+}>('../borrowUtils');
 const entries = (globalThis as Record<string, unknown>)
   .__mobilePositionEntries as unknown[];
 const scope = (globalThis as Record<string, unknown>).__mobilePositionScope as {
@@ -228,6 +240,59 @@ function buildEntry(
 
 const cardId = (kind: 'supplied' | 'borrowed', reserveAddress: string) =>
   `borrow-position-card-${kind}-${reserveAddress.toLowerCase()}`;
+
+describe('BorrowMobilePositions actions', () => {
+  beforeEach(() => {
+    entries.length = 0;
+    jest.clearAllMocks();
+  });
+
+  it.each([
+    ['supplied', 'withdraw'],
+    ['supplied', 'supply'],
+    ['borrowed', 'repay'],
+    ['borrowed', 'borrow'],
+  ] as const)('opens %s %s for the tapped reserve', (kind, action) => {
+    entries.push(buildEntry(kind, '0xAaa'));
+    const { getByTestId } = render(<BorrowMobilePositions />);
+
+    fireEvent.click(getByTestId(cardId(kind, '0xAaa')));
+    fireEvent.click(
+      getByTestId(`borrow-position-card-${action}-btn-${kind}-0xaaa`),
+    );
+
+    expect(navigationMock.pushToBorrowManagePosition).toHaveBeenCalledTimes(1);
+    expect(navigationMock.pushToBorrowManagePosition).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        accountId: scope.accountId,
+        networkId: scope.networkId,
+        marketAddress: scope.marketAddress,
+        reserveAddress: '0xAaa',
+        type: action,
+      }),
+    );
+  });
+
+  it.each([
+    ['supplied', 'withdraw', 'withdrawButton'],
+    ['borrowed', 'repay', 'repayButton'],
+  ] as const)('blocks a disabled %s %s', (kind, action, buttonKey) => {
+    entries.push(
+      buildEntry(kind, '0xAaa', { [buttonKey]: { disabled: true } }),
+    );
+    const { getByTestId } = render(<BorrowMobilePositions />);
+
+    fireEvent.click(getByTestId(cardId(kind, '0xAaa')));
+    const button = getByTestId(
+      `borrow-position-card-${action}-btn-${kind}-0xaaa`,
+    );
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+
+    expect(navigationMock.pushToBorrowManagePosition).not.toHaveBeenCalled();
+  });
+});
 
 describe('BorrowMobilePositions expand bookkeeping', () => {
   beforeEach(() => {
