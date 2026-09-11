@@ -180,6 +180,7 @@ export function useTrackTokenAllowance({
     isLegacyApprove,
     isExistApproveTarget,
     refreshOnMount,
+    initialValue,
     shouldFetchInitialAllowance,
   ]);
   const trackAllowance = useCallback((txid: string) => {

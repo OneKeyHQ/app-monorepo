@@ -379,7 +379,11 @@ function BorrowHistoryList() {
             networkId,
             marketAddress,
           });
-          if (!action || BORROW_HISTORY_REMOTE_ACTIONS.has(action)) {
+          const isPending = tx.decodedTx.status === EDecodedTxStatus.Pending;
+          if (
+            !action ||
+            (BORROW_HISTORY_REMOTE_ACTIONS.has(action) && !isPending)
+          ) {
             return undefined;
           }
 
@@ -415,7 +419,7 @@ function BorrowHistoryList() {
 
           return {
             item: historyItem,
-            isPending: tx.decodedTx.status === EDecodedTxStatus.Pending,
+            isPending,
           };
         })
         .filter(
