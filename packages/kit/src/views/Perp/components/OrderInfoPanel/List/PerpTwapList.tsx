@@ -66,6 +66,7 @@ import {
   normalizeEpochMs,
 } from '../utils';
 import {
+  PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT,
   PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
   PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
 } from '../utils/tableLayout';
@@ -1707,6 +1708,11 @@ function PerpTwapList({
           paginationToBottom={isMobile}
           renderRow={renderActiveRow}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_active_twap__title,
           })}
@@ -1731,6 +1737,11 @@ function PerpTwapList({
           renderRow={renderHistoryRow}
           onViewAll={isMobile ? undefined : historyViewAll}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
           })}
@@ -1755,6 +1766,11 @@ function PerpTwapList({
           renderRow={renderFillRow}
           onViewAll={isMobile ? undefined : fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,
           })}

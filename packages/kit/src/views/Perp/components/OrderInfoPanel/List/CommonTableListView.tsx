@@ -415,6 +415,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   emptyMessage?: string;
   emptySubMessage?: string;
   ListEmptyComponent?: ReactElement | null;
+  desktopEmptyStateTopInset?: number;
   minTableWidth?: number;
   headerBgColor?: string;
   headerTextColor?: string;
@@ -453,6 +454,7 @@ export function CommonTableListView<T>({
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
   ListEmptyComponent,
+  desktopEmptyStateTopInset = 0,
   minTableWidth: _minTableWidth,
   headerBgColor = '$bgApp',
   headerTextColor = '$textSubdued',
@@ -965,7 +967,6 @@ export function CommonTableListView<T>({
                 <Spinner size="large" />
               </YStack>
             ) : null}
-            {showDesktopEmptyState ? desktopEmptyComponent : null}
             {!effectiveListLoading && paginatedData.length > 0
               ? paginatedData.map((item, index) => (
                   <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
@@ -1040,7 +1041,18 @@ export function CommonTableListView<T>({
         nestedScrollEnabled
         showsVerticalScrollIndicator
       >
-        {desktopTable}
+        {showDesktopEmptyState ? (
+          // Anchor empty content independently of column widths, fixed columns,
+          // pagination and optional sub-tabs above the table.
+          <YStack
+            testID="perp-desktop-table-empty"
+            pt={Math.max(0, 40 - desktopEmptyStateTopInset)}
+          >
+            {desktopEmptyComponent}
+          </YStack>
+        ) : (
+          desktopTable
+        )}
       </ScrollView>
       {enablePagination && currentListPage ? (
         <PaginationFooter

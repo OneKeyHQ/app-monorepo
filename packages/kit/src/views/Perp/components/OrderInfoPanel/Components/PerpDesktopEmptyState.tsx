@@ -10,7 +10,7 @@ export function PerpDesktopEmptyState({
   return (
     <YStack
       flex={1}
-      justifyContent="center"
+      justifyContent="flex-start"
       alignItems="center"
       px="$5"
       py="$6"
