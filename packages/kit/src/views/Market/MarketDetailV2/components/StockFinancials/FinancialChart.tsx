@@ -21,6 +21,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { splitGraphemes } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   getFinancialDomain,
@@ -80,43 +81,47 @@ function roundedBarPath(
   return `M${x} ${bottom}V${top + r}Q${x} ${top} ${x + r} ${top}H${right - r}Q${right} ${top} ${right} ${top + r}V${bottom}Z`;
 }
 
-// Label width in 5.5px units at fontSize 11: Latin glyphs take one unit,
-// CJK and other full-width glyphs take two.
-function glyphUnits(char: string) {
-  return (char.codePointAt(0) ?? 0) >= 0x2e_80 ? 2 : 1;
+// Label width in 5.5px units at fontSize 11: a character takes one unit, or
+// two for CJK and other full-width glyphs. Graphemes keep combining marks
+// (Thai, Bengali, …) with their base, so the marks add no width.
+function graphemeUnits(grapheme: string) {
+  return (grapheme.codePointAt(0) ?? 0) >= 0x2e_80 ? 2 : 1;
 }
 
-function textUnits(text: string) {
-  return Array.from(text).reduce((total, char) => total + glyphUnits(char), 0);
-}
+type ILabelLine = { text: string; units: number };
 
 function wrapLabel(label: string, columnWidth: number) {
   const maxUnits = Math.max(5, Math.floor((columnWidth - 4) / 5.5));
-  const lines: string[] = [];
+  const lines: ILabelLine[] = [];
   label.split(/[\s/]+/).forEach((word) => {
     // SvgText never wraps on its own, so a word wider than the column (German
     // compounds, CJK labels without spaces) is broken across lines rather than
-    // running into the neighboring columns.
-    const pieces: string[] = [];
-    let piece = '';
-    Array.from(word).forEach((char) => {
-      if (piece && textUnits(piece) + glyphUnits(char) > maxUnits) {
+    // running into the neighboring columns. Breaks fall between graphemes, so
+    // a combining mark never starts a line.
+    const pieces: ILabelLine[] = [];
+    let piece: ILabelLine = { text: '', units: 0 };
+    splitGraphemes(word).forEach((grapheme) => {
+      const units = graphemeUnits(grapheme);
+      if (piece.text && piece.units + units > maxUnits) {
         pieces.push(piece);
-        piece = '';
+        piece = { text: '', units: 0 };
       }
-      piece += char;
+      piece = { text: piece.text + grapheme, units: piece.units + units };
     });
-    if (piece) pieces.push(piece);
+    if (piece.text) pieces.push(piece);
     pieces.forEach((part) => {
       const last = lines.at(-1);
-      if (last && textUnits(last) + 1 + textUnits(part) <= maxUnits) {
-        lines[lines.length - 1] = `${last} ${part}`;
+      if (last && last.units + 1 + part.units <= maxUnits) {
+        lines[lines.length - 1] = {
+          text: `${last.text} ${part.text}`,
+          units: last.units + 1 + part.units,
+        };
       } else {
         lines.push(part);
       }
     });
   });
-  return lines;
+  return lines.map((line) => line.text);
 }
 
 export function FinancialChart({

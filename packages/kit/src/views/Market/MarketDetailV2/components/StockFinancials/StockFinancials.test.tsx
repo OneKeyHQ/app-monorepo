@@ -554,7 +554,8 @@ it('breaks labels wider than their column instead of letting them overlap', () =
   const rows = [
     'Betriebsfremde',
     '费用及调整项',
-    ...Array.from({ length: 8 }, (_, index) => `Q${index + 1}`),
+    'กำไรขั้นต้น',
+    ...Array.from({ length: 7 }, (_, index) => `Q${index + 1}`),
   ].map((label, index) => ({ key: String(index), label, values: [index + 1] }));
   render(
     <IntlProvider locale="en" messages={intlMessages}>
@@ -576,6 +577,8 @@ it('breaks labels wider than their column instead of letting them overlap', () =
   );
   expect(lines).not.toContain('Betriebsfremde');
   expect(lines).not.toContain('费用及调整项');
+  // A forced break must never leave a combining mark at the start of a line.
+  expect(lines.filter((line) => /^\p{M}/u.test(line ?? ''))).toEqual([]);
 });
 
 it('shows hover values and missing fields without converting them to zero', () => {

@@ -16,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import { splitGraphemes } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -54,26 +55,6 @@ const HERO_WORD_DISPLAY_MS = 2600;
 // Long enough for the last char's staggered exit to finish (400ms animation +
 // 20 × 45ms stagger covers words up to 20 graphemes).
 const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
-
-// Unicode-safe grapheme split: handles CJK, combining marks, emoji ZWJ
-// sequences. Falls back to codepoint split where Intl.Segmenter is missing
-// (Hermes without intl polyfill).
-function splitGraphemes(str: string): string[] {
-  try {
-    const Seg = (Intl as unknown as { Segmenter?: unknown }).Segmenter;
-    if (typeof Seg === 'function') {
-      const SegCtor = Seg as new (
-        locale: string | undefined,
-        options: { granularity: 'grapheme' },
-      ) => { segment: (s: string) => Iterable<{ segment: string }> };
-      const segmenter = new SegCtor(undefined, { granularity: 'grapheme' });
-      return Array.from(segmenter.segment(str), (s) => s.segment);
-    }
-  } catch {
-    // fall through to codepoint split
-  }
-  return Array.from(str);
-}
 
 function HeroCharLayer({
   word,
