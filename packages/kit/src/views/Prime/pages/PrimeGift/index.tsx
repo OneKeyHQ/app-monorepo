@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { NavCloseButton, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -14,8 +14,8 @@ import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
-  EPrimePages,
-  IPrimeParamList,
+  EPrimeGiftPages,
+  IPrimeGiftParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -28,6 +28,29 @@ import {
 import { getPrimeGiftDurationText } from '../../hooks/primeGiftDuration';
 import { usePrimeGiftClaim } from '../../hooks/usePrimeGiftClaim';
 import { usePrimeGiftReasonMessage } from '../../hooks/usePrimeGiftMessages';
+
+function PrimeGiftPageHeader({
+  headerShown,
+  onClose,
+}: {
+  headerShown: boolean;
+  onClose: () => void;
+}) {
+  const intl = useIntl();
+  const renderHeaderLeft = useCallback(
+    () => <NavCloseButton onPress={onClose} />,
+    [onClose],
+  );
+  return (
+    <Page.Header
+      headerShown={headerShown}
+      headerTitle={intl.formatMessage({
+        id: ETranslations.prime_gift__title,
+      })}
+      headerLeft={renderHeaderLeft}
+    />
+  );
+}
 
 function Success({
   result,
@@ -63,10 +86,16 @@ function Success({
 
 export default function PrimeGiftPage() {
   const intl = useIntl();
-  const { params } = useAppRoute<IPrimeParamList, EPrimePages.PrimeGift>();
+  const { params } = useAppRoute<
+    IPrimeGiftParamList,
+    EPrimeGiftPages.PrimeGift
+  >();
   const navigation = useAppNavigation();
   const reasonMessage = usePrimeGiftReasonMessage();
   const claim = usePrimeGiftClaim(params);
+  const closePage = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
   const enterWallet = useCallback(async () => {
     if (params.source === 'onboarding') {
       if (params.onboardingRouteKey) {
@@ -124,9 +153,17 @@ export default function PrimeGiftPage() {
         ? ETranslations.prime_gift_retry_claim__action
         : ETranslations.prime_gift_retry_verify__action,
     });
+  else if (
+    verification &&
+    !verification.hasCode &&
+    verification.status !== 'redeemed'
+  )
+    primaryLabel = intl.formatMessage({
+      id: ETranslations.prime_gift_retry_verify__action,
+    });
   return (
-    <Page>
-      <Page.Header headerShown={false} />
+    <Page backgroundColor="$bgApp">
+      <PrimeGiftPageHeader headerShown={!claim.result} onClose={closePage} />
       <Page.Body>
         {claim.result ? (
           <Success
@@ -137,7 +174,6 @@ export default function PrimeGiftPage() {
           />
         ) : (
           <PrimeGiftClaimView
-            onBack={() => navigation.pop()}
             deviceModelName={
               deviceUtils.getDeviceModelNameByType(params.device.deviceType) ||
               'OneKey'
