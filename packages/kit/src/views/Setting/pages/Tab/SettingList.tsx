@@ -80,16 +80,7 @@ function SettingCategoryListItem({
   useMobilePresentation?: boolean;
 }) {
   const navigation = useAppNavigation();
-  const isTravelMode =
-    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-    'travel-mode';
-  const ignorePress =
-    isTravelMode &&
-    [
-      ESettingsTabNames.Backup,
-      ESettingsTabNames.Network,
-      ESettingsTabNames.AppData,
-    ].includes(config.name);
+  const { ignorePress } = config;
   const title = getSettingsDisplayTitle(config, useMobilePresentation);
   const icon = getSettingsDisplayIcon(config, useMobilePresentation);
   const iconProps = useMemo<IIconProps | undefined>(
@@ -198,13 +189,10 @@ export function SettingList() {
   const { headerBackgroundColor, headerStyle, pageBackgroundColor } =
     useSettingsPageStyle(isMobileLayout);
   const settingsConfig = useSettingsConfig();
-  const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig
-      .filter(isVisibleSettingsCategory)
-      .filter(
-        (config) => !isTravelMode || config.name !== ESettingsTabNames.About,
-      );
-  }, [isTravelMode, settingsConfig]);
+  const filteredSettingsConfig = useMemo(
+    () => settingsConfig.filter(isVisibleSettingsCategory),
+    [settingsConfig],
+  );
   const { mobileSections, mobileHomeOrphans } = useMemo(() => {
     const categoryMap = new Map(
       filteredSettingsConfig.map((config) => [config.name, config]),
@@ -358,7 +346,9 @@ export function SettingList() {
             {content}
           </ScrollView>
         </YStack>
-        {isMobileLayout ? null : <SocialButtonGroup />}
+        {isMobileLayout ? null : (
+          <SocialButtonGroup hideChannels={isTravelMode} />
+        )}
       </Page.Body>
     </Page>
   );

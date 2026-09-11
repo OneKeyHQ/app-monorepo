@@ -873,7 +873,11 @@ export function MobileSettingsVersionFooter() {
   );
 }
 
-export function SocialButtonGroup() {
+export function SocialButtonGroup({
+  hideChannels = false,
+}: {
+  hideChannels?: boolean;
+}) {
   const intl = useIntl();
   const officialChannels = useOfficialChannels();
   const {
@@ -888,26 +892,28 @@ export function SocialButtonGroup() {
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
-      <XStack
-        flex={platformEnv.isNative ? undefined : 1}
-        jc={isTabNavigator ? 'flex-start' : 'center'}
-        gap={isTabNavigator ? '$1.5' : '$3'}
-      >
-        {officialChannels.map((channel) => (
-          <SocialButton
-            key={channel.id}
-            icon={channel.icon}
-            url={channel.url}
-            text={channel.title}
-            testID={channel.testID}
+      {hideChannels ? null : (
+        <XStack
+          flex={platformEnv.isNative ? undefined : 1}
+          jc={isTabNavigator ? 'flex-start' : 'center'}
+          gap={isTabNavigator ? '$1.5' : '$3'}
+        >
+          {officialChannels.map((channel) => (
+            <SocialButton
+              key={channel.id}
+              icon={channel.icon}
+              url={channel.url}
+              text={channel.title}
+              testID={channel.testID}
+            />
+          ))}
+          <SupportButton
+            text={intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            })}
           />
-        ))}
-        <SupportButton
-          text={intl.formatMessage({
-            id: ETranslations.settings_contact_us,
-          })}
-        />
-      </XStack>
+        </XStack>
+      )}
       <YStack
         jc="center"
         pl={isTabNavigator ? '$1' : '$4'}

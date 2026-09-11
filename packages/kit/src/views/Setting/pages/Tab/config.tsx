@@ -177,6 +177,7 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      ignorePress?: boolean;
       /**
        * Synthetic category derived from an item's `desktopTab` annotation.
        * Rendered only by the tab navigator; list layouts must skip it.
@@ -1093,6 +1094,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           category
             ? {
                 ...category,
+                isHidden:
+                  category.isHidden ||
+                  category.name === ESettingsTabNames.About,
+                ignorePress:
+                  category.ignorePress ||
+                  [
+                    ESettingsTabNames.Backup,
+                    ESettingsTabNames.Network,
+                    ESettingsTabNames.AppData,
+                  ].includes(category.name),
                 configs: category.configs
                   .map((group) =>
                     group.filter(
