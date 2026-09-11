@@ -93,8 +93,11 @@ Never violate this dependency order:
 - Base branch is `x`; never work directly on `x`.
 - Commit format: `type: short description`. Do not add tool attribution or
   `Co-Authored-By` lines.
-- Before commit run `yarn agent:check --profile commit`; before PR readiness run
-  `yarn agent:check --profile pr`.
+- Do not automatically run `agent:check` during development, debugging, log
+  instrumentation, or preparation for manual testing. A request to edit code
+  does not authorize a commit or PR readiness check.
+- Run `yarn agent:check --profile commit` only when the user requests a commit;
+  run `yarn agent:check --profile pr` only when the user requests PR readiness.
 - For remote-only status run `yarn agent:check --profile ci --pr <number>`.
 - Use lower-level commands only to debug a failed `agent:check`; logs are under
   `node_modules/.cache/agent-checks`.

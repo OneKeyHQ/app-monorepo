@@ -1,8 +1,14 @@
 import bs58check from 'bs58check';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { getKeys, getRuntime, pickLightwalletdUrl } from './carrier';
+import {
+  getKeys,
+  getRuntime,
+  getRuntimeWasm,
+  pickLightwalletdUrl,
+} from './carrier';
 
 import type {
   IZcashDeriveAccountParams,
@@ -162,8 +168,43 @@ export async function quoteTransparentTx(
 ): Promise<IZcashTransparentTxQuote> {
   const keys = await getKeys();
   return JSON.parse(
-    keys.transparentTxQuote(JSON.stringify(params)),
+    keys.transparentTxQuote(stringUtils.stableStringify(params)),
   ) as IZcashTransparentTxQuote;
+}
+
+async function buildStatelessShielding({
+  request,
+  create,
+  sign,
+}: {
+  request: IZcashTransparentTxRequest;
+  create: () => Uint8Array;
+  sign: (original: Uint8Array, proved: Uint8Array) => Uint8Array;
+}): Promise<IZcashTransparentTxBuildResult> {
+  const quote = await quoteTransparentTx(request);
+  // Load only the computation module: getRuntime() would initialize OPFS.
+  const runtime = await getRuntimeWasm();
+  const original = create();
+  let proved: Uint8Array | undefined;
+  let signed: Uint8Array | undefined;
+  try {
+    proved = runtime.pcztProveAtHeight(request.targetHeight, original);
+    signed = sign(original, proved);
+    const extracted = JSON.parse(runtime.pcztExtractStateless(signed)) as {
+      rawTx: string;
+      txid: string;
+    };
+    return {
+      ...extracted,
+      feeZat: quote.feeZat,
+      expiryHeight: quote.expiryHeight,
+      spentOutpoints: quote.spentOutpoints,
+    };
+  } finally {
+    original.fill(0);
+    proved?.fill(0);
+    signed?.fill(0);
+  }
 }
 
 export async function buildTransparentTxWithSeed(
@@ -173,8 +214,27 @@ export async function buildTransparentTxWithSeed(
   const keys = await getKeys();
   const seed = hexToBytes(seedHex);
   try {
+    if (
+      request.recipients.some((recipient) => recipient.address.startsWith('u1'))
+    ) {
+      const requestJson = stringUtils.stableStringify(request);
+      return await buildStatelessShielding({
+        request,
+        create: () => keys.transparentShieldCreateWithSeed(requestJson, seed),
+        sign: (original, proved) =>
+          keys.transparentShieldSignWithSeed(
+            requestJson,
+            seed,
+            original,
+            proved,
+          ),
+      });
+    }
     return JSON.parse(
-      keys.transparentTxBuildWithSeed(JSON.stringify(request), seed),
+      keys.transparentTxBuildWithSeed(
+        stringUtils.stableStringify(request),
+        seed,
+      ),
     ) as IZcashTransparentTxBuildResult;
   } finally {
     seed.fill(0);
@@ -188,9 +248,27 @@ export async function buildTransparentTxWithAccountXprv(
   const keys = await getKeys();
   const accountXprvBytes = hexToBytes(accountXprvHex);
   try {
+    if (
+      request.recipients.some((recipient) => recipient.address.startsWith('u1'))
+    ) {
+      const requestJson = stringUtils.stableStringify(request);
+      const accountXprv = bs58check.encode(accountXprvBytes);
+      return await buildStatelessShielding({
+        request,
+        create: () =>
+          keys.transparentShieldCreateWithAccountXprv(requestJson, accountXprv),
+        sign: (original, proved) =>
+          keys.transparentShieldSignWithAccountXprv(
+            requestJson,
+            accountXprv,
+            original,
+            proved,
+          ),
+      });
+    }
     return JSON.parse(
       keys.transparentTxBuildWithAccountXprv(
-        JSON.stringify(request),
+        stringUtils.stableStringify(request),
         bs58check.encode(accountXprvBytes),
       ),
     ) as IZcashTransparentTxBuildResult;

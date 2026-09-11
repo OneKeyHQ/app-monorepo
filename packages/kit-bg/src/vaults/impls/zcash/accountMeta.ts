@@ -14,6 +14,9 @@ import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntit
 export type IZcashDerivedViewingMeta = {
   ufvk: string;
   unifiedAddress: string;
+  // Only the hardware keyring sets this: the app-derived counterpart of a
+  // device-displayed address. See IZcashAccountMeta.derivedUnifiedAddress.
+  derivedUnifiedAddress?: string;
   transparentAddress: string;
   seedFingerprintHex: string;
 };
@@ -62,14 +65,11 @@ export async function resolveAndSaveZcashAccountMeta({
     });
     birthdaySource = 'manual-height';
   } else {
-    if (!derived.chainTip) {
-      throw new OneKeyLocalError(
-        'zcash: chain tip is required to resolve the privacy birthday month',
-      );
-    }
     const birthdayTimestamp = checkIsDefined(
       privacyModeState.birthdayTimestamp,
     );
+    // A null tip (offline, or a carrier that cannot reach lightwalletd)
+    // falls back to the clock-based estimate instead of blocking enable.
     birthdayHeight = estimateZcashBirthdayHeight({
       birthdayTimestamp,
       chainTip: derived.chainTip,
@@ -85,6 +85,7 @@ export async function resolveAndSaveZcashAccountMeta({
     meta: {
       ufvk: derived.ufvk,
       unifiedAddress: derived.unifiedAddress,
+      derivedUnifiedAddress: derived.derivedUnifiedAddress,
       transparentAddress: derived.transparentAddress,
       seedFingerprintHex: derived.seedFingerprintHex,
       hdIndex,

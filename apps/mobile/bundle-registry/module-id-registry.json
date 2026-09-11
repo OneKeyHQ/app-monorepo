@@ -18535,6 +18535,7 @@
     "packages/core/src/chains/zcash/index.ts": 13715,
     "packages/core/src/chains/zcash/sdkZcash/constants.ts": 19882,
     "packages/core/src/chains/zcash/sdkZcash/errorCopy.ts": 7827,
+    "packages/core/src/chains/zcash/sdkZcash/impl/chainTipDirect.ts": 19733,
     "packages/core/src/chains/zcash/sdkZcash/impl/policy.ts": 4205,
     "packages/core/src/chains/zcash/sdkZcash/index.ts": 16370,
     "packages/core/src/chains/zcash/sdkZcash/runtimeError.ts": 10300,

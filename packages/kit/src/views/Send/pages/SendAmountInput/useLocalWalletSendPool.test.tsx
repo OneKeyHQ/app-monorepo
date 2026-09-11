@@ -84,11 +84,11 @@ describe('local wallet source pool selection', () => {
     ).toBe('orchard');
   });
 
-  it('ignores a preferred pool the vault did not offer', () => {
+  it('does not replace an unavailable preferred pool', () => {
     expect(
       getDefaultLocalWalletSendPool({ pools, preferredPool: 'unsupported' })
         ?.key,
-    ).toBe('ironwood');
+    ).toBeUndefined();
   });
 
   it('hides pools the vault marked ineligible for the recipient', () => {
@@ -159,6 +159,27 @@ describe('useLocalWalletSendPool', () => {
     expect(result.current.selectedPool?.key).toBe('orchard');
     expect(result.current.isReady).toBe(true);
   });
+
+  it.each([false, true])(
+    'requires an explicit source change after a scanner failure (manual selection=%s)',
+    (manual) => {
+      mockSnapshot.result = { scope: scopeFor(props), pools };
+      const { result, rerender } = renderHook(() =>
+        useLocalWalletSendPool(props),
+      );
+      if (manual) act(() => result.current.selectPool('orchard'));
+      mockSnapshot.result = { scope: scopeFor(props), pools: [pools[2]] };
+      rerender({});
+      expect(result.current.isReady).toBe(false);
+      expect(result.current.selectedPool).toBeUndefined();
+      expect(result.current.pools?.map((pool) => pool.key)).toEqual([
+        'transparent',
+      ]);
+      act(() => result.current.selectPool('transparent'));
+      expect(result.current.isReady).toBe(true);
+      expect(result.current.selectedPool?.key).toBe('transparent');
+    },
+  );
 
   it('does not carry another account or destination balance into the new form', () => {
     mockSnapshot.result = { scope: scopeFor(props), pools };

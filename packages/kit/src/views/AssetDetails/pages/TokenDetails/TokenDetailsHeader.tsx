@@ -60,6 +60,7 @@ import {
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { debugZcashSendLog } from '@onekeyhq/shared/src/utils/debugZcashSend';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -596,16 +597,24 @@ function TokenDetailsHeaderContent({
   );
 
   const poolAction = poolDisplay?.action;
-  // Both pool moves keep the standard transaction review. Shield marks the
-  // transparent sweep for the dedicated proposer; Withdraw explicitly uses
-  // Max so the proposer subtracts its fee from the selected pool's balance.
+  // Both pool moves use Max so the selected source pays its own fee. Shield
+  // spends the indexer's transparent UTXOs; Withdraw spends scanned notes.
   const handlePoolActionPress = useCallback(() => {
+    debugZcashSendLog('main.pool-action', {
+      action: poolAction?.type,
+      spendSource: poolAction?.spendSource,
+      hasRecipient: !!poolAction?.toAddress,
+      hasAmount: !!poolAction?.amount,
+      isMaxSend: true,
+    });
     if (!poolAction?.toAddress || !poolAction.amount) return;
     const transfer = {
       from: poolAction.fromAddress,
       to: poolAction.toAddress,
       amount: poolAction.amount,
-      ...(poolAction.type === 'shield' ? { localWalletShield: true } : {}),
+      ...(poolAction.type === 'shield'
+        ? { localWalletShield: true, localWalletSourcePool: 'transparent' }
+        : {}),
       ...(poolAction.spendSource
         ? { localWalletSpendSource: poolAction.spendSource }
         : {}),
@@ -615,7 +624,7 @@ function TokenDetailsHeaderContent({
       transferPayload: {
         amountToSend: poolAction.amount,
         originalRecipient: poolAction.toAddress,
-        isMaxSend: poolAction.type === 'withdraw',
+        isMaxSend: true,
         isNFT: false,
       },
       isInternalTransfer: true,

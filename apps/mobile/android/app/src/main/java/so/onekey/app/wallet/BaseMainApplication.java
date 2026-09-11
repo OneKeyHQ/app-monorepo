@@ -451,6 +451,9 @@ public class BaseMainApplication extends Application implements ReactApplication
     if (!isDefaultMainProcess) {
       return;
     }
+    // Single-process app: every WebView lives here. A future android:process
+    // component that hosts a WebView would need its own install() call.
+    so.onekey.app.wallet.webview.WebEmbedLocalOrigin.install(this);
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
     OneKeyLog.info(

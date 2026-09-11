@@ -3722,26 +3722,22 @@ function SendAmountInputContainer() {
       );
     }
 
-    if (selectedSendPool && sendPools && sendPools.length > 1) {
+    if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
       addons.push(
         <Select
           key="send-pool-picker"
           testID="send-pool-picker"
-          disabled={isSubmitting || !isSendPoolReady}
+          disabled={isSubmitting}
           title={intl.formatMessage({ id: ETranslations.global_from })}
           placement="top-end"
-          value={selectedSendPool.key}
+          value={selectedSendPool?.key ?? ''}
           items={sendPools.map((pool) => ({
             label: pool.label,
             value: pool.key,
             description: `${pool.spendableParsed} ${tokenSymbol}`.trim(),
           }))}
           onChange={(value) => {
-            if (
-              !isSubmitting &&
-              isSendPoolReady &&
-              value !== selectedSendPool.key
-            ) {
+            if (!isSubmitting && value !== selectedSendPool?.key) {
               selectSendPool(value);
               setIsMaxSend(false);
             }
@@ -3755,13 +3751,16 @@ function SendAmountInputContainer() {
               gap="$0.5"
               hoverStyle={{ bg: '$bgStrongHover' }}
               onPress={async (event: GestureResponderEvent) => {
-                if (isSubmitting || !isSendPoolReady) return;
+                if (isSubmitting) return;
                 event.persist();
                 await dismissAmountInputKeyboardBeforeOverlayOpen();
                 onPress?.(event);
               }}
             >
-              <Badge.Text>{selectedSendPool.label}</Badge.Text>
+              <Badge.Text>
+                {selectedSendPool?.label ??
+                  intl.formatMessage({ id: ETranslations.global_from })}
+              </Badge.Text>
               <Icon
                 size="$4"
                 name="ChevronDownSmallOutline"
@@ -3811,7 +3810,6 @@ function SendAmountInputContainer() {
     intl,
     selectedSendPool,
     isSubmitting,
-    isSendPoolReady,
     sendPools,
     selectSendPool,
     tokenSymbol,

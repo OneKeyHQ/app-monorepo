@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -14,11 +14,10 @@ export function getDefaultLocalWalletSendPool({
   pools: ILocalWalletSendPool[];
   preferredPool?: string;
 }): ILocalWalletSendPool | undefined {
-  return (
-    pools.find((pool) => pool.key === preferredPool) ??
-    pools.find((pool) => pool.isDefault) ??
-    pools[0]
-  );
+  if (preferredPool !== undefined) {
+    return pools.find((pool) => pool.key === preferredPool);
+  }
+  return pools.find((pool) => pool.isDefault) ?? pools[0];
 }
 
 export function useLocalWalletSendPool({
@@ -67,12 +66,21 @@ export function useLocalWalletSendPool({
     () => currentResult?.pools?.filter((pool) => pool.eligible !== false),
     [currentResult?.pools],
   );
+  const preferredPool =
+    selection?.scope === scope ? selection.key : initialPool;
   const selectedPool = pools
     ? getDefaultLocalWalletSendPool({
         pools,
-        preferredPool: selection?.scope === scope ? selection.key : initialPool,
+        preferredPool,
       })
     : undefined;
+  useEffect(() => {
+    // Freeze even the initial default: a balance refresh is not permission to
+    // spend from another pool after the user has started entering an amount.
+    if (selectedPool && selection?.scope !== scope) {
+      setSelection({ scope, key: selectedPool.key });
+    }
+  }, [scope, selectedPool, selection?.scope]);
   const selectPool = useCallback(
     (value: string | number) => {
       const pool = pools?.find((item) => item.key === value);
@@ -87,6 +95,8 @@ export function useLocalWalletSendPool({
     selectPool,
     isReady:
       !enabled ||
-      (!!currentResult && (pools === undefined || selectedPool !== undefined)),
+      (!!currentResult &&
+        ((pools === undefined && preferredPool === undefined) ||
+          selectedPool !== undefined)),
   };
 }

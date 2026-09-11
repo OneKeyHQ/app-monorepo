@@ -3,6 +3,7 @@ import {
   ZCASH_LIGHTWALLETD_MAINNET,
   ZCASH_NETWORK_MAIN,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -237,21 +238,41 @@ export class KeyringHardware extends KeyringHardwareBase {
             ufvk,
             lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
           }),
-          api.getChainTip({
-            network: ZCASH_NETWORK_MAIN,
-            lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
-          }),
+          api
+            .getChainTip({
+              network: ZCASH_NETWORK_MAIN,
+              lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+            })
+            .then((tip) =>
+              tip !== null
+                ? tip
+                : fetchZcashChainTipDirect({
+                    lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+                  }),
+            ),
         ]);
         if (derived.transparentAddress !== account.address) {
           throw new OneKeyLocalError(
             'zcash: device viewing key does not match this account',
           );
         }
+        if (derived.unifiedAddress === item.address) {
+          // Firmware dropped its P2PKH receiver (docs/05 D17): the device now
+          // shows the same Orchard-only address the app derives, so there is
+          // no second string left to keep.
+          console.log('[zcash] device unified address matches app derivation', {
+            accountId,
+          });
+        }
         return {
           ufvk,
           // The device is the address authority for hardware accounts: what
           // it displays is what the user verifies.
           unifiedAddress: item.address,
+          derivedUnifiedAddress:
+            derived.unifiedAddress === item.address
+              ? undefined
+              : derived.unifiedAddress,
           transparentAddress: derived.transparentAddress,
           seedFingerprintHex: checkIsDefined(item.seedFingerprint),
           chainTip,

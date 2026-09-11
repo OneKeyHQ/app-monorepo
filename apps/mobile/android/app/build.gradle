@@ -611,6 +611,8 @@ dependencies {
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
+    // Virtual https origin for the local web-embed page (WebEmbedLocalOrigin).
+    implementation("androidx.webkit:webkit:1.14.0")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

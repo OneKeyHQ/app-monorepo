@@ -253,6 +253,11 @@ export type IVaultSettings = {
     blockTimeSeconds: number;
     // Height ranges worth naming while the scanner is inside them.
     scanRegionHints?: { fromHeight: number; toHeight: number; label: string }[];
+    // Ceiling on concurrently scanning identities, for 'account-opt-in' chains.
+    // Trial decryption runs once per active viewing key per block, so this is
+    // the one number that multiplies scan cost. Aliases that share a viewing
+    // key count once: they add no decryption work.
+    maxEnabledAccounts?: number;
   };
   saveConfirmedTxsEnabled?: boolean;
 

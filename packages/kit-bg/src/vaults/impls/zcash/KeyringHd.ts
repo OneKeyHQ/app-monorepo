@@ -2,6 +2,7 @@ import {
   ZCASH_LIGHTWALLETD_MAINNET,
   ZCASH_NETWORK_MAIN,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -343,12 +344,20 @@ export class KeyringHd extends KeyringHdBtc {
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           try {
             // eslint-disable-next-line no-await-in-loop
-            return await api.deriveAccount({
+            const derived = await api.deriveAccount({
               network: ZCASH_NETWORK_MAIN,
               seedHex,
               hdIndex,
               lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
             });
+            if (derived.chainTip !== null) return derived;
+            return {
+              ...derived,
+              // eslint-disable-next-line no-await-in-loop
+              chainTip: await fetchZcashChainTipDirect({
+                lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+              }),
+            };
           } catch (e) {
             if (attempt === maxAttempts) {
               throw e;

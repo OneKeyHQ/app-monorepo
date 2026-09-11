@@ -20,6 +20,10 @@ export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET = 419_201;
 // which heights lightwalletd can serve a treestate for, not about which
 // heights are worth reading.
 export const ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET = 1_687_104;
+// Wall-clock time of that activation block (2022-05-31, +/- a day). Paired
+// with the block interval it estimates a chain tip when the network is
+// unreachable.
+export const ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2022, 4, 31);
 
 export const ZCASH_SPAM_REGION_START_MAINNET = 1_710_000;
 export const ZCASH_SPAM_REGION_END_MAINNET = 1_960_000;
