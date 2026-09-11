@@ -1649,3 +1649,9 @@ poolsfun
 poolstrade
 pumpfun
 sunpump
+
+# AndroidX WebView asset loader host, referenced in web-embed origin comments
+androidx
+
+# protobuf code generation, referenced in the zcash grpc-web comment
+codegen

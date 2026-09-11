@@ -91,6 +91,11 @@ const settings: IVaultSettings = {
       },
     ],
     accountSetup: { requiresBirthday: true },
+    // Every enabled account adds one Orchard key that every block is trial-
+    // decrypted against, and the wasm scanner runs that loop inline (no
+    // batched trial decryption -- see scan_blocks_inline), so the cost is
+    // linear with no amortization. Five keeps a low-end device usable.
+    maxEnabledAccounts: 5,
     addressForms: { publicLabel: 'Transparent', privateLabel: 'Unified' },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
     scanRegionHints: [

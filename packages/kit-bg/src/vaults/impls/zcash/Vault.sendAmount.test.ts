@@ -88,11 +88,17 @@ describe('Zcash send amount intent', () => {
     return { vault, quotePczt };
   }
 
-  it('does not treat an unavailable privacy balance as transparent-only mode', async () => {
+  it('keeps indexer funds spendable when the privacy scanner is unavailable', async () => {
     const { vault } = createVault(null);
     await expect(
       vault.listLocalWalletSendPools({ accountId: 'test-account' }),
-    ).rejects.toThrow('Zcash spendable balance is unavailable');
+    ).resolves.toEqual([
+      expect.objectContaining({
+        key: 'transparent',
+        spendable: '500000000',
+        eligible: true,
+      }),
+    ]);
   });
 
   function request(amount: string, isMaxSend = false, to = 'u1-recipient') {
@@ -168,6 +174,40 @@ describe('Zcash send amount intent', () => {
     expect(encoded.zcashAmountValue).toBe('99990000');
     expect(encoded.zcashSpendTransparent).toBe(false);
   });
+
+  it.each(['ironwood', 'orchard'])(
+    'preserves the Withdraw source %s for a transparent recipient',
+    async (source) => {
+      const { vault, quotePczt } = createVault(
+        balance('100000000', '0', '200000000'),
+      );
+      const encoded = await vault.buildEncodedTx({
+        transfersInfo: [
+          {
+            from: 't1-from',
+            to: 't1-recipient',
+            amount: '2',
+            localWalletSpendSource: source,
+          },
+        ],
+        transferPayload: {
+          amountToSend: '2',
+          originalRecipient: 't1-recipient',
+          isMaxSend: true,
+          isNFT: false,
+        },
+      });
+      expect(encoded.zcashMode).toBe('privacy');
+      expect(encoded.zcashSpendSource).toBe(source);
+      expect(quotePczt).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          spendSource: source,
+          spendTransparent: false,
+        }),
+      );
+    },
+  );
 
   it('does not silently use an entered amount when Max has no reliable balance', async () => {
     const { vault } = createVault(null);
@@ -266,7 +306,40 @@ describe('Zcash transparent send amount intent', () => {
     );
   });
 
-  it('uses the transparent runtime send-max path only for explicit Max', async () => {
+  it.each([false, true])(
+    'quotes transparent funds to a Unified recipient with scanning disabled (Shield=%s)',
+    async (shield) => {
+      const { vault, quoteTransparentTx } = createVault();
+      const encoded = await vault.buildEncodedTx({
+        transfersInfo: [
+          {
+            from: 't1-from',
+            to: 'u1-recipient',
+            amount: '1',
+            ...(shield ? { localWalletShield: true } : {}),
+          },
+        ],
+        transferPayload: {
+          amountToSend: '1',
+          originalRecipient: 'u1-recipient',
+          isMaxSend: true,
+          isNFT: false,
+        },
+      });
+      expect(encoded.zcashMode).toBe('transparent');
+      expect(encoded.zcashAmountValue).toBe('99990000');
+      expect(encoded.isShielding).not.toBe(true);
+      expect(quoteTransparentTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sendMax: true,
+          selectedOutpoints: [{ txid, vout: 0 }],
+          recipients: [{ address: 'u1-recipient' }],
+        }),
+      );
+    },
+  );
+
+  it('uses the stateless transparent send-max path only for explicit Max', async () => {
     const { vault } = createVault();
     const encoded = await vault.buildEncodedTx({
       transfersInfo: [{ from: 't1-from', to: 't1-recipient', amount: '1' }],

@@ -1,11 +1,13 @@
 import bs58check from 'bs58check';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getZcashAccountIndexFromXpub } from '..';
 
 import {
   buildTransparentTxWithAccountXprv,
+  buildTransparentTxWithSeed,
   deriveAccount,
   deriveTransparentXpubFromUfvk,
   getChainTip,
@@ -20,6 +22,15 @@ const mockTransparentAddressFromUfvk = jest.fn();
 const mockTransparentAccountPubKeyFromUfvk = jest.fn();
 const mockTransparentTxQuote = jest.fn();
 const mockTransparentTxBuildWithAccountXprv = jest.fn();
+const mockShieldCreate = jest.fn();
+const mockShieldSign = jest.fn();
+const mockProveAtHeight = jest.fn();
+const mockExtractStateless = jest.fn();
+const mockGetRuntime = jest.fn(async () => ({ chainTipAt: mockChainTipAt }));
+const mockGetRuntimeWasm = jest.fn(async () => ({
+  pcztProveAtHeight: mockProveAtHeight,
+  pcztExtractStateless: mockExtractStateless,
+}));
 const mockGetKeys = jest.fn(async () => ({
   ufvkFromSeed: mockUfvkFromSeed,
   seedFingerprint: mockSeedFingerprint,
@@ -27,14 +38,15 @@ const mockGetKeys = jest.fn(async () => ({
   transparentAddressFromUfvk: mockTransparentAddressFromUfvk,
   transparentAccountPubKeyFromUfvk: mockTransparentAccountPubKeyFromUfvk,
   transparentTxQuote: mockTransparentTxQuote,
+  transparentShieldCreateWithSeed: mockShieldCreate,
+  transparentShieldSignWithSeed: mockShieldSign,
   transparentTxBuildWithAccountXprv: mockTransparentTxBuildWithAccountXprv,
 }));
 
 jest.mock('./carrier', () => ({
   getKeys: () => mockGetKeys(),
-  getRuntime: jest.fn(async () => ({
-    chainTipAt: mockChainTipAt,
-  })),
+  getRuntime: () => mockGetRuntime(),
+  getRuntimeWasm: () => mockGetRuntimeWasm(),
   pickLightwalletdUrl: (url: string) => url,
 }));
 
@@ -130,9 +142,67 @@ describe('transparent keys-only transaction API', () => {
       feeZat: '10000',
     });
     expect(mockTransparentTxQuote).toHaveBeenCalledWith(
-      JSON.stringify(request),
+      stringUtils.stableStringify(request),
     );
   });
+
+  it.each([false, true])(
+    'keeps shielding proof computation independent of wallet storage and clears PCZT buffers (proof fails=%s)',
+    async (fails) => {
+      const original = new Uint8Array([1, 2]);
+      const proved = new Uint8Array([3, 4]);
+      const signed = new Uint8Array([5, 6]);
+      const order: string[] = [];
+      mockGetRuntime.mockClear();
+      mockShieldCreate.mockImplementation(() => {
+        order.push('create');
+        return original;
+      });
+      mockProveAtHeight.mockImplementation(() => {
+        order.push('prove');
+        if (fails) throw new OneKeyLocalError('proof failed');
+        return proved;
+      });
+      mockShieldSign.mockImplementation((_request, _seed, source, proof) => {
+        expect(source).toBe(original);
+        expect(proof).toBe(proved);
+        order.push('sign');
+        return signed;
+      });
+      mockExtractStateless.mockImplementation(() => {
+        order.push('extract');
+        return JSON.stringify({ rawTx: 'abcd', txid: '11'.repeat(32) });
+      });
+      mockTransparentTxQuote.mockReturnValue(
+        JSON.stringify({
+          feeZat: '15000',
+          expiryHeight: request.expiryHeight,
+          spentOutpoints: request.selectedOutpoints,
+        }),
+      );
+      const result = buildTransparentTxWithSeed({
+        ...request,
+        recipients: [{ address: 'u1-recipient', amountZat: '50000' }],
+        seedHex: '07'.repeat(32),
+      });
+      if (fails) {
+        await expect(result).rejects.toThrow('proof failed');
+        expect(order).toEqual(['create', 'prove']);
+      } else {
+        await expect(result).resolves.toMatchObject({
+          rawTx: 'abcd',
+          feeZat: '15000',
+        });
+        expect(order).toEqual(['create', 'prove', 'sign', 'extract']);
+        expect([...proved, ...signed]).toEqual([0, 0, 0, 0]);
+      }
+      expect([...original]).toEqual([0, 0]);
+      expect(mockGetRuntime).not.toHaveBeenCalled();
+      expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toEqual(
+        new Uint8Array(32),
+      );
+    },
+  );
 
   it('converts the stored account-xprv bytes at the wasm boundary', async () => {
     mockTransparentTxBuildWithAccountXprv.mockReturnValue(
@@ -150,7 +220,7 @@ describe('transparent keys-only transaction API', () => {
       accountXprvHex: accountXprv.toString('hex'),
     });
     expect(mockTransparentTxBuildWithAccountXprv).toHaveBeenCalledWith(
-      JSON.stringify(request),
+      stringUtils.stableStringify(request),
       bs58check.encode(accountXprv),
     );
   });

@@ -110,7 +110,9 @@ export type ILocalWalletAccountBalance = {
 
 export type ILocalWalletAccountAddresses = {
   publicAddress: string;
-  privateAddress: string;
+  // Absent while the account is not enabled: a paused account is no longer
+  // scanned, so anything paid to its private address stays invisible.
+  privateAddress?: string;
 };
 
 export type ILocalWalletCapability = {
