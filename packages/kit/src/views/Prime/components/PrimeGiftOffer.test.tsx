@@ -17,6 +17,8 @@ import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IPrimeGiftEligibilityCache } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeGiftPages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import { PrimeGiftOffer } from './PrimeGiftOffer';
@@ -413,8 +415,9 @@ describe('PrimeGiftOffer real server eligibility', () => {
     fireEvent.click(screen.getByTestId(offerTestId));
     expect(mockOfferClick).toHaveBeenCalledWith({ source: 'deviceDetails' });
     expect(mockNavigate).toHaveBeenCalledWith(
-      'PrimeModal',
+      EModalRoutes.PrimeGiftModal,
       expect.objectContaining({
+        screen: EPrimeGiftPages.PrimeGift,
         params: expect.objectContaining({
           serialNo: 'DEVICE-A',
           source: 'deviceDetails',
@@ -429,5 +432,14 @@ describe('PrimeGiftOffer real server eligibility', () => {
     expect(mockOfferShown).toHaveBeenCalledWith({ source: 'onboarding' });
     fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
     expect(mockOfferClick).toHaveBeenCalledWith({ source: 'onboarding' });
+    expect(mockNavigate).toHaveBeenLastCalledWith(
+      EModalRoutes.PrimeGiftModal,
+      expect.objectContaining({
+        screen: EPrimeGiftPages.PrimeGift,
+        params: expect.objectContaining({
+          source: 'onboarding',
+        }),
+      }),
+    );
   });
 });

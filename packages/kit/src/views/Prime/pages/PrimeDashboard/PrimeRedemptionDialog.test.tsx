@@ -359,6 +359,8 @@ describe('PrimeRedemptionDialog', () => {
 
   it('keeps submission disabled for an empty code', () => {
     renderDialog();
+    const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
+    expect(config.dialogContainer).toBeUndefined();
 
     expect(
       screen.getByRole('textbox', {
@@ -765,7 +767,7 @@ describe('PrimeRedemptionDialog', () => {
   });
 
   it('forwards Dialog.show injected onClose through the dark dialog container', async () => {
-    renderDialog();
+    renderDialog({ primeGiftSerialNo: 'DEVICE-A' });
     const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
     const injectedOnClose = jest.fn(async () => undefined);
     const element = config.dialogContainer?.({ ref: { current: null } });

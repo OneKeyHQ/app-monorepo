@@ -172,18 +172,23 @@ export function showPrimeRedemptionDialog(
   params: IPrimeRedemptionDialogParams,
 ): IDialogInstance {
   const renderContent = <PrimeRedemptionDialogContent {...params} />;
+  const isHardwarePrimeGift = Boolean(params.primeGiftSerialNo);
   return Dialog.show({
     testID: 'prime-redemption-dialog',
     showFooter: false,
     renderContent,
-    dialogContainer: ({ ref }) => (
-      <PrimeDarkDialogContainer
-        ref={ref}
-        testID="prime-redemption-dialog"
-        showFooter={false}
-        renderContent={renderContent}
-        onClose={async () => undefined}
-      />
-    ),
+    ...(isHardwarePrimeGift
+      ? {
+          dialogContainer: ({ ref }) => (
+            <PrimeDarkDialogContainer
+              ref={ref}
+              testID="prime-redemption-dialog"
+              showFooter={false}
+              renderContent={renderContent}
+              onClose={async () => undefined}
+            />
+          ),
+        }
+      : {}),
   });
 }

@@ -356,7 +356,7 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
     ).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
     expect(mockNavigation.pushModal).toHaveBeenCalledWith(
-      EModalRoutes.PrimeModal,
+      EModalRoutes.PrimeGiftModal,
       expect.objectContaining({
         params: expect.objectContaining({
           source: 'onboarding',

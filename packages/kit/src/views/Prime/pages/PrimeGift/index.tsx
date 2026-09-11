@@ -14,8 +14,8 @@ import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
-  EPrimePages,
-  IPrimeParamList,
+  EPrimeGiftPages,
+  IPrimeGiftParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -87,7 +87,10 @@ function Success({
 
 export default function PrimeGiftPage() {
   const intl = useIntl();
-  const { params } = useAppRoute<IPrimeParamList, EPrimePages.PrimeGift>();
+  const { params } = useAppRoute<
+    IPrimeGiftParamList,
+    EPrimeGiftPages.PrimeGift
+  >();
   const navigation = useAppNavigation();
   const reasonMessage = usePrimeGiftReasonMessage();
   const claim = usePrimeGiftClaim(params);

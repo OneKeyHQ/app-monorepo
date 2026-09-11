@@ -21,7 +21,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeGiftPages } from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
@@ -101,8 +101,8 @@ export function PrimeGiftOffer({
       pressStyle={{ bg: '$bgActive' }}
       onPress={() => {
         defaultLogger.prime.subscription.primeGiftOfferClick({ source });
-        navigation.pushModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeGift,
+        navigation.pushModal(EModalRoutes.PrimeGiftModal, {
+          screen: EPrimeGiftPages.PrimeGift,
           params: {
             device: deviceUtils.dbDeviceToSearchDevice(device),
             serialNo,
