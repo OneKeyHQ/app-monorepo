@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -253,17 +252,11 @@ const ProtocolHeader = ({
           </XStack>
           {formattedMaturityDate ? (
             <>
-              {/* A filled hairline, not a vertical Divider: iOS never painted
+              {/* A filled 1pt line, not a vertical Divider: iOS never painted
                   the hairline right border the Divider draws on its zero-width
-                  Separator, so the line was missing (OK-62886). $border rather
-                  than $borderSubdued: at hairline width the subdued tone all
-                  but vanished next to the text. */}
-              <Stack
-                w={StyleSheet.hairlineWidth}
-                h="$6"
-                bg="$border"
-                flexShrink={0}
-              />
+                  Separator, so the line was missing, and at hairline width
+                  even $border all but vanished next to the text (OK-62886). */}
+              <Stack w={1} h="$6" bg="$border" flexShrink={0} />
               <SizableText
                 size="$bodyLgMedium"
                 numberOfLines={1}
