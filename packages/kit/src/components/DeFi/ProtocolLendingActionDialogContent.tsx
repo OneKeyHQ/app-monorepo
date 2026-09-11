@@ -1394,6 +1394,11 @@ function ProtocolLendingActionBorrowContent({
       const tags: string[] = [
         EEarnLabels.Borrow,
         buildBorrowTag({ provider, action: actionType }),
+        buildBorrowTag({
+          provider,
+          action: actionType,
+          borrowScope: { networkId, marketAddress },
+        }),
       ];
       if (protocolInfo?.stakeTag) {
         tags.push(protocolInfo.stakeTag);

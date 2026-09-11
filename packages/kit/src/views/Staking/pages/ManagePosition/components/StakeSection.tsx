@@ -738,7 +738,14 @@ export const StakeSection = ({
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const tags: string[] = [EEarnLabels.Borrow];
       if (action === 'supply' || action === 'borrow') {
-        tags.push(buildBorrowTag({ provider, action }));
+        tags.push(
+          buildBorrowTag({ provider, action }),
+          buildBorrowTag({
+            provider,
+            action,
+            borrowScope: { networkId, marketAddress },
+          }),
+        );
       }
       // Keep legacy stakeTag for backward compatibility
       if (protocolInfo?.stakeTag) {

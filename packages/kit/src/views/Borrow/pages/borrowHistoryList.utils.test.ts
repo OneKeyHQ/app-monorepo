@@ -102,6 +102,24 @@ describe('getBorrowHistoryActionForLocalTx', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('recognizes a scoped pending supply for its market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: buildLocalBorrowTx(['borrow:aave:supply:v1:evm--1:0xmarket']),
+        ...marketParams,
+      }),
+    ).toBe('supply');
+  });
+
+  it('does not leak a scoped pending supply to another market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: buildLocalBorrowTx(['borrow:aave:supply:v1:evm--1:0xother-market']),
+        ...marketParams,
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe('borrowHistoryList utils', () => {

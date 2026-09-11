@@ -1139,6 +1139,11 @@ export const WithdrawSection = ({
         const tags: string[] = [
           EEarnLabels.Borrow,
           buildBorrowTag({ provider, action: actionType }),
+          buildBorrowTag({
+            provider,
+            action: actionType,
+            borrowScope: { networkId, marketAddress },
+          }),
         ];
         // Keep legacy stakeTag for backward compatibility
         if (protocolInfo?.stakeTag) {
@@ -1297,6 +1302,11 @@ export const WithdrawSection = ({
       const tags: string[] = [
         EEarnLabels.Borrow,
         buildBorrowTag({ provider, action: 'repay' }),
+        buildBorrowTag({
+          provider,
+          action: 'repay',
+          borrowScope: { networkId, marketAddress },
+        }),
       ];
       if (protocolInfo?.stakeTag) {
         tags.push(protocolInfo.stakeTag);

@@ -148,3 +148,26 @@ describe('borrow set-eMode tags', () => {
     });
   });
 });
+
+describe('borrow action market scopes', () => {
+  it('round-trips a scoped balance-changing action', () => {
+    const tag = buildBorrowTag({
+      provider: 'Aave',
+      action: 'supply',
+      borrowScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xAbCd',
+      },
+    });
+
+    expect(tag).toBe('borrow:aave:supply:v1:evm--1:0xabcd');
+    expect(parseBorrowTag(tag)).toEqual({
+      provider: 'aave',
+      action: 'supply',
+      borrowScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xabcd',
+      },
+    });
+  });
+});
