@@ -12,7 +12,6 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -118,15 +117,7 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       );
       const state = vendorProfile.isThirdParty
         ? undefined
-        : await backgroundApiProxy.serviceHardware
-            .getDeviceState({
-              connectId: device.connectId,
-              params: {
-                scope: 'firmware',
-              },
-              silentMode: true,
-            })
-            .catch(() => device.deviceStateInfo);
+        : device.deviceStateInfo;
 
       let versions;
       if (vendorProfile.isThirdParty) {
