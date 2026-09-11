@@ -104,12 +104,17 @@ function TabPage({
   onContentLayout: (height: number) => void;
   children: React.ReactNode;
 }) {
-  const style = useAnimatedStyle(
-    () => ({
-      transform: [{ translateX: (index - progress.value) * pageWidth }],
-    }),
-    [index, pageWidth],
-  );
+  const style = useAnimatedStyle(() => {
+    const offset = index - progress.value;
+    return {
+      transform: [{ translateX: offset * pageWidth }],
+      // A page that has fully left the viewport is hidden outright: Android
+      // rounds the translation to whole pixels on its own, which left a
+      // sliver of the next page's left edge inside the clipped container
+      // (OK-62948). It shows again the moment a drag brings it back.
+      opacity: Math.abs(offset) >= 1 ? 0 : 1,
+    };
+  }, [index, pageWidth]);
   return (
     // Every page stays mounted so it can slide in, but only the active one is
     // a page as far as touches and screen readers are concerned: the others
