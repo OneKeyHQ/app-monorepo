@@ -22,6 +22,8 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = () => Promise.resolve('');
 
+const removeLogFilePath = async () => {};
+
 const flushPendingRepeat = () => {};
 
 const getDeviceInfo = () =>
@@ -40,6 +42,7 @@ const getDeviceInfo = () =>
 const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
+  removeLogFilePath,
   consoleFunc,
   flushPendingRepeat,
 };

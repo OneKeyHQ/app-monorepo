@@ -15,9 +15,127 @@
 
 static NSUInteger const OneKeyCrashDiagnosticsSchemaVersion = 1;
 static NSUInteger const OneKeyCrashDiagnosticsMaxReportCount = 5;
-static NSUInteger const OneKeyCrashDiagnosticsMaxFrameCount = 256;
-static NSUInteger const OneKeyCrashDiagnosticsMaxStringLength = 1024;
+static NSUInteger const OneKeyCrashDiagnosticsMaxTransportExceptionCount = 8;
+static NSUInteger const OneKeyCrashDiagnosticsMaxTransportThreadCount = 16;
+static NSUInteger const OneKeyCrashDiagnosticsMaxTransportDebugImageCount = 256;
+static NSUInteger const OneKeyCrashDiagnosticsMaxTransportFrameCount = 128;
 static NSTimeInterval const OneKeyCrashDiagnosticsMaxReportAge = 7 * 24 * 60 * 60;
+
+static dispatch_queue_t OneKeyCrashDiagnosticsQueue(void)
+{
+  static dispatch_queue_t queue;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    queue = dispatch_queue_create(
+        "so.onekey.wallet.crash-diagnostics",
+        dispatch_queue_attr_make_with_qos_class(
+            DISPATCH_QUEUE_SERIAL,
+            QOS_CLASS_UTILITY,
+            0));
+  });
+  return queue;
+}
+
+static NSSet<NSString *> *OneKeyMnemonicWords(void)
+{
+  static NSSet<NSString *> *words;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    NSString *path = [NSBundle.mainBundle pathForResource:@"OneKeyBip39English"
+                                                   ofType:@"json"];
+    NSData *data = path.length > 0 ? [NSData dataWithContentsOfFile:path] : nil;
+    NSArray *source = data.length > 0
+        ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil]
+        : nil;
+    NSMutableSet<NSString *> *loadedWords = [NSMutableSet set];
+    if ([source isKindOfClass:NSArray.class]) {
+      for (id item in source) {
+        if ([item isKindOfClass:NSString.class]) {
+          [loadedWords addObject:[item lowercaseString]];
+        }
+      }
+    }
+    words = [loadedWords copy];
+  });
+  return words;
+}
+
+static NSString *OneKeyRedactMnemonicSequences(NSString *value)
+{
+  if (value.length == 0 || OneKeyMnemonicWords().count == 0) {
+    return value;
+  }
+  static NSRegularExpression *wordPattern;
+  static NSCharacterSet *invalidSeparatorCharacters;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    wordPattern = [NSRegularExpression regularExpressionWithPattern:@"[A-Za-z]+"
+                                                            options:0
+                                                              error:nil];
+    NSCharacterSet *allowedSeparators =
+        [NSCharacterSet characterSetWithCharactersInString:@" \t\r\n,"];
+    invalidSeparatorCharacters = allowedSeparators.invertedSet;
+  });
+
+  NSMutableArray<NSValue *> *sequence = [NSMutableArray array];
+  NSMutableArray<NSValue *> *sensitiveRanges = [NSMutableArray array];
+  __block NSRange previousRange = NSMakeRange(NSNotFound, 0);
+  void (^retainSequence)(void) = ^{
+    if (sequence.count >= 3) {
+      [sensitiveRanges addObjectsFromArray:sequence];
+    }
+    [sequence removeAllObjects];
+  };
+  NSArray<NSTextCheckingResult *> *matches =
+      [wordPattern matchesInString:value options:0 range:NSMakeRange(0, value.length)];
+  for (NSTextCheckingResult *match in matches) {
+    NSRange range = match.range;
+    BOOL followsSequence = previousRange.location == NSNotFound;
+    if (!followsSequence) {
+      NSUInteger separatorStart = NSMaxRange(previousRange);
+      NSRange separatorRange = NSMakeRange(separatorStart, range.location - separatorStart);
+      NSString *separator = [value substringWithRange:separatorRange];
+      followsSequence =
+          [separator rangeOfCharacterFromSet:invalidSeparatorCharacters].location == NSNotFound;
+    }
+    NSString *word = [[value substringWithRange:range] lowercaseString];
+    BOOL isMnemonicWord = [OneKeyMnemonicWords() containsObject:word];
+    if (!followsSequence || !isMnemonicWord) {
+      retainSequence();
+    }
+    if (isMnemonicWord) {
+      [sequence addObject:[NSValue valueWithRange:range]];
+    }
+    previousRange = range;
+  }
+  retainSequence();
+  if (sensitiveRanges.count == 0) {
+    return value;
+  }
+  NSMutableString *result = [value mutableCopy];
+  for (NSValue *rangeValue in sensitiveRanges.reverseObjectEnumerator) {
+    [result replaceCharactersInRange:rangeValue.rangeValue withString:@"[REDACTED]"];
+  }
+  return result;
+}
+
+static BOOL OneKeyIsSensitiveKey(NSString *key)
+{
+  NSString *normalized = [[[key lowercaseString]
+      componentsSeparatedByCharactersInSet:NSCharacterSet.alphanumericCharacterSet.invertedSet]
+      componentsJoinedByString:@""];
+  NSArray<NSString *> *markers = @[
+    @"password", @"passwd", @"passphrase", @"secret", @"token",
+    @"authorization", @"cookie", @"sessionid", @"apikey", @"privatekey",
+    @"mnemonic", @"seed", @"recoveryphrase", @"credential", @"bearer",
+  ];
+  for (NSString *marker in markers) {
+    if ([normalized containsString:marker]) {
+      return YES;
+    }
+  }
+  return NO;
+}
 
 static NSString *OneKeySanitizeCrashString(id value)
 {
@@ -28,17 +146,66 @@ static NSString *OneKeySanitizeCrashString(id value)
   NSString *result = [[value description]
       stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
   result = [result stringByReplacingOccurrencesOfString:@"\r" withString:@" "];
+  result = OneKeyRedactMnemonicSequences(result);
+
+  static NSArray<NSRegularExpression *> *sensitiveValuePatterns;
+  static NSArray<NSString *> *sensitiveValueReplacements;
+  static NSRegularExpression *bearerPattern;
+  static dispatch_once_t sensitiveValueOnceToken;
+  dispatch_once(&sensitiveValueOnceToken, ^{
+    NSArray<NSString *> *rawPatterns = @[
+      @"(?i)([\"']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)[\"']?\\s*[:=]\\s*)[\\[{][\\s\\S]*",
+      @"(?i)([\"']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)[\"']?\\s*[:=]\\s*)\"[^\"]*\"",
+      @"(?i)([\"']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)[\"']?\\s*[:=]\\s*)'[^']*'",
+      @"(?i)([\"']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)[\"']?\\s*[:=]\\s*)[^\"'\\s,;}]+",
+    ];
+    NSMutableArray<NSRegularExpression *> *compiled = [NSMutableArray array];
+    for (NSString *pattern in rawPatterns) {
+      NSRegularExpression *expression =
+          [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:nil];
+      if (expression != nil) {
+        [compiled addObject:expression];
+      }
+    }
+    sensitiveValuePatterns = [compiled copy];
+    sensitiveValueReplacements = @[
+      @"$1[REDACTED]",
+      @"$1\"[REDACTED]\"",
+      @"$1'[REDACTED]'",
+      @"$1[REDACTED]",
+    ];
+    bearerPattern = [NSRegularExpression
+        regularExpressionWithPattern:@"(?i)(\\bbearer\\s+)[A-Za-z0-9._~+/-]+=*"
+                              options:0
+                                error:nil];
+  });
+  result = [bearerPattern stringByReplacingMatchesInString:result
+                                                   options:0
+                                                     range:NSMakeRange(0, result.length)
+                                              withTemplate:@"$1[REDACTED]"];
+  for (NSUInteger index = 0; index < sensitiveValuePatterns.count; index += 1) {
+    NSRegularExpression *pattern = sensitiveValuePatterns[index];
+    result = [pattern stringByReplacingMatchesInString:result
+                                               options:0
+                                                 range:NSMakeRange(0, result.length)
+                                          withTemplate:sensitiveValueReplacements[index]];
+  }
 
   static NSArray<NSRegularExpression *> *patterns;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
     NSArray<NSString *> *rawPatterns = @[
-      @"(?:0x)?[0-9a-fA-F]{64}",
+      @"(?i)\\b(?:https?|wss?)://[^\\s]+",
+      @"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b",
+      @"\\b0x[0-9a-fA-F]{40,64}\\b",
+      @"\\b[0-9a-fA-F]{64}\\b",
       @"\\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b",
       @"\\b[xyzXYZ](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\\b",
-      @"(?:\\b[a-z]{3,8}\\b[\\s,]+){11,}\\b[a-z]{3,8}\\b",
-      @"(?i)(?:Bearer|token[=:]?)\\s*[A-Za-z0-9_.\\-+/=]{20,}",
-      @"(?:eyJ|AAAA)[A-Za-z0-9+/=]{40,}",
+      @"(?i)\\b(?:[a-z0-9]{1,20}1)[a-z0-9]{20,90}\\b",
+      @"\\b[1-9A-HJ-NP-Za-km-z]{32,128}\\b",
+      @"\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b",
+      @"(?i)\\b(?:mnemonic|seed(?:\\s+phrase)?)\\s*[=:]\\s*(?:\\p{L}{2,16}[\\s,]+){2,}\\p{L}{2,16}\\b",
+      @"(?i)(?:\\b\\p{L}{2,16}\\b[\\s,]+){11,}\\b\\p{L}{2,16}\\b",
     ];
     NSMutableArray<NSRegularExpression *> *compiledPatterns = [NSMutableArray array];
     for (NSString *pattern in rawPatterns) {
@@ -57,22 +224,12 @@ static NSString *OneKeySanitizeCrashString(id value)
                                                  range:NSMakeRange(0, result.length)
                                           withTemplate:@"[REDACTED]"];
   }
-  if (result.length > OneKeyCrashDiagnosticsMaxStringLength) {
-    result = [[result substringToIndex:OneKeyCrashDiagnosticsMaxStringLength]
-        stringByAppendingString:@"...(truncated)"];
-  }
   return result;
 }
 
-static void OneKeyPutCrashString(
-    NSMutableDictionary<NSString *, id> *dictionary,
-    NSString *key,
-    id value)
+static NSString *OneKeyFileNameOnly(NSString *value)
 {
-  NSString *sanitized = OneKeySanitizeCrashString(value);
-  if (sanitized.length > 0) {
-    dictionary[key] = sanitized;
-  }
+  return value.length > 0 ? value.lastPathComponent : value;
 }
 
 static NSString *OneKeyCrashDateString(NSDate *date)
@@ -93,131 +250,213 @@ static NSString *OneKeyCrashDateString(NSDate *date)
   }
 }
 
-static NSArray<NSDictionary<NSString *, id> *> *OneKeyCrashFrames(
-    SentryStacktrace *stacktrace)
+static void OneKeySanitizeStacktraceForTransport(SentryStacktrace *stacktrace)
 {
-  if (stacktrace.frames.count == 0) {
-    return @[];
+  if (stacktrace == nil) {
+    return;
   }
-  NSUInteger start = stacktrace.frames.count > OneKeyCrashDiagnosticsMaxFrameCount
-      ? stacktrace.frames.count - OneKeyCrashDiagnosticsMaxFrameCount
+  NSArray<SentryFrame *> *allFrames = stacktrace.frames ?: @[];
+  NSUInteger start = allFrames.count > OneKeyCrashDiagnosticsMaxTransportFrameCount
+      ? allFrames.count - OneKeyCrashDiagnosticsMaxTransportFrameCount
       : 0;
-  NSMutableArray<NSDictionary<NSString *, id> *> *frames = [NSMutableArray array];
-  for (NSUInteger index = start; index < stacktrace.frames.count; index += 1) {
-    SentryFrame *frame = stacktrace.frames[index];
-    NSMutableDictionary<NSString *, id> *item = [NSMutableDictionary dictionary];
-    OneKeyPutCrashString(item, @"function", frame.function);
-    OneKeyPutCrashString(item, @"module", frame.module);
-    OneKeyPutCrashString(item, @"package", frame.package);
-    OneKeyPutCrashString(item, @"fileName", frame.fileName);
-    OneKeyPutCrashString(item, @"platform", frame.platform);
-    OneKeyPutCrashString(item, @"imageAddress", frame.imageAddress);
-    OneKeyPutCrashString(item, @"instructionAddress", frame.instructionAddress);
-    OneKeyPutCrashString(item, @"symbolAddress", frame.symbolAddress);
-    if (frame.lineNumber != nil) {
-      item[@"lineNumber"] = frame.lineNumber;
-    }
-    if (frame.columnNumber != nil) {
-      item[@"columnNumber"] = frame.columnNumber;
-    }
-    if (frame.inApp != nil) {
-      item[@"inApp"] = frame.inApp;
-    }
-    [frames addObject:item];
+  NSMutableArray<SentryFrame *> *frames = [NSMutableArray array];
+  for (NSUInteger index = start; index < allFrames.count; index += 1) {
+    SentryFrame *frame = allFrames[index];
+    frame.fileName = OneKeyFileNameOnly(frame.fileName);
+    frame.contextLine = nil;
+    frame.preContext = nil;
+    frame.postContext = nil;
+    frame.vars = nil;
+    [frames addObject:frame];
   }
-  return frames;
+  stacktrace.frames = frames;
+  stacktrace.registers = @{};
 }
 
-static NSArray<NSDictionary<NSString *, id> *> *OneKeyCrashExceptions(
-    NSArray<SentryException *> *exceptions)
+static NSDictionary<NSString *, NSDictionary<NSString *, id> *> *
+OneKeySafeSentryContexts(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *contexts)
 {
-  NSMutableArray<NSDictionary<NSString *, id> *> *result = [NSMutableArray array];
-  for (SentryException *exception in exceptions ?: @[]) {
-    NSMutableDictionary<NSString *, id> *item = [NSMutableDictionary dictionary];
-    OneKeyPutCrashString(item, @"type", exception.type);
-    OneKeyPutCrashString(item, @"value", exception.value);
-    OneKeyPutCrashString(item, @"module", exception.module);
-    if (exception.threadId != nil) {
-      item[@"threadId"] = exception.threadId;
-    }
-    if (exception.mechanism != nil) {
-      NSMutableDictionary<NSString *, id> *mechanism = [NSMutableDictionary dictionary];
-      OneKeyPutCrashString(mechanism, @"type", exception.mechanism.type);
-      OneKeyPutCrashString(mechanism, @"description", exception.mechanism.desc);
-      if (exception.mechanism.handled != nil) {
-        mechanism[@"handled"] = exception.mechanism.handled;
-      }
-      item[@"mechanism"] = mechanism;
-    }
-    NSArray<NSDictionary<NSString *, id> *> *frames =
-        OneKeyCrashFrames(exception.stacktrace);
-    if (frames.count > 0) {
-      item[@"frames"] = frames;
-    }
-    [result addObject:item];
+  if (contexts.count == 0) {
+    return nil;
   }
-  return result;
-}
-
-static NSArray<NSDictionary<NSString *, id> *> *OneKeyCrashThreads(
-    NSArray<SentryThread *> *threads)
-{
-  NSMutableArray<NSDictionary<NSString *, id> *> *result = [NSMutableArray array];
-  for (SentryThread *thread in threads ?: @[]) {
-    if (!thread.crashed.boolValue && !thread.current.boolValue && !thread.isMain.boolValue) {
+  NSDictionary<NSString *, NSSet<NSString *> *> *safeFields = @{
+    @"app": [NSSet setWithArray:@[
+      @"app_identifier", @"app_name", @"app_version", @"app_build",
+      @"build_type", @"in_foreground", @"app_start_time", @"start_type",
+    ]],
+    @"device": [NSSet setWithArray:@[
+      @"manufacturer", @"brand", @"family", @"model", @"model_id", @"archs",
+      @"simulator", @"memory_size", @"free_memory", @"usable_memory",
+      @"low_memory", @"storage_size", @"free_storage", @"orientation",
+      @"screen_width_pixels", @"screen_height_pixels", @"screen_density",
+      @"screen_dpi", @"processor_count", @"processor_frequency", @"chipset",
+    ]],
+    @"os": [NSSet setWithArray:@[
+      @"name", @"version", @"build", @"kernel_version", @"rooted",
+    ]],
+    @"runtime": [NSSet setWithArray:@[ @"name", @"version" ]],
+    @"gpu": [NSSet setWithArray:@[
+      @"name", @"id", @"vendor_id", @"vendor_name", @"memory_size",
+      @"api_type", @"multi_threaded_rendering", @"version", @"npot_support",
+    ]],
+  };
+  NSMutableDictionary<NSString *, NSDictionary<NSString *, id> *> *result =
+      [NSMutableDictionary dictionary];
+  for (NSString *contextKey in safeFields) {
+    NSDictionary<NSString *, id> *source = contexts[contextKey];
+    if (![source isKindOfClass:NSDictionary.class]) {
       continue;
     }
-    NSMutableDictionary<NSString *, id> *item = [NSMutableDictionary dictionary];
-    if (thread.threadId != nil) {
-      item[@"id"] = thread.threadId;
+    NSMutableDictionary<NSString *, id> *safeContext = [NSMutableDictionary dictionary];
+    for (NSString *field in safeFields[contextKey]) {
+      id value = source[field];
+      if ([value isKindOfClass:NSString.class]) {
+        NSString *sanitized = OneKeySanitizeCrashString(value);
+        if (sanitized.length > 0) {
+          safeContext[field] = sanitized;
+        }
+      } else if ([value isKindOfClass:NSNumber.class]) {
+        safeContext[field] = value;
+      } else if ([value isKindOfClass:NSArray.class]) {
+        NSArray *sourceItems = value;
+        NSUInteger itemCount = MIN(
+            sourceItems.count,
+            OneKeyCrashDiagnosticsMaxTransportFrameCount);
+        NSMutableArray<NSString *> *strings = [NSMutableArray array];
+        for (NSUInteger index = 0; index < itemCount; index += 1) {
+          id item = sourceItems[index];
+          NSString *sanitized = [item isKindOfClass:NSString.class]
+              ? OneKeySanitizeCrashString(item)
+              : nil;
+          if (sanitized.length > 0) {
+            [strings addObject:sanitized];
+          }
+        }
+        if (strings.count > 0) {
+          safeContext[field] = strings;
+        }
+      }
     }
-    OneKeyPutCrashString(item, @"name", thread.name);
-    if (thread.crashed != nil) {
-      item[@"crashed"] = thread.crashed;
+    if (safeContext.count > 0) {
+      result[contextKey] = safeContext;
     }
-    if (thread.current != nil) {
-      item[@"current"] = thread.current;
-    }
-    if (thread.isMain != nil) {
-      item[@"main"] = thread.isMain;
-    }
-    NSArray<NSDictionary<NSString *, id> *> *frames = OneKeyCrashFrames(thread.stacktrace);
-    if (frames.count > 0) {
-      item[@"frames"] = frames;
-    }
-    [result addObject:item];
   }
-  return result;
+  return result.count > 0 ? result : nil;
 }
 
-static NSArray<NSDictionary<NSString *, id> *> *OneKeyCrashDebugImages(
-    NSArray<SentryDebugMeta *> *debugMeta)
+static void OneKeySanitizeSentryEventForTransport(SentryEvent *event)
 {
-  NSMutableArray<NSDictionary<NSString *, id> *> *result = [NSMutableArray array];
-  for (SentryDebugMeta *image in debugMeta ?: @[]) {
-    NSMutableDictionary<NSString *, id> *item = [NSMutableDictionary dictionary];
-    OneKeyPutCrashString(item, @"type", image.type);
-    OneKeyPutCrashString(item, @"debugId", image.debugID);
-    OneKeyPutCrashString(item, @"codeFile", image.codeFile);
-    OneKeyPutCrashString(item, @"imageAddress", image.imageAddress);
-    OneKeyPutCrashString(item, @"imageVmAddress", image.imageVmAddress);
-    if (image.imageSize != nil) {
-      item[@"imageSize"] = image.imageSize;
-    }
-    [result addObject:item];
+  event.message = nil;
+  event.error = nil;
+  event.startTimestamp = nil;
+  event.logger = nil;
+  event.serverName = nil;
+  event.transaction = nil;
+  event.tags = nil;
+  event.extra = nil;
+  event.modules = nil;
+  event.fingerprint = nil;
+  event.user = nil;
+  event.breadcrumbs = nil;
+  event.request = nil;
+  event.context = OneKeySafeSentryContexts(event.context);
+
+  NSArray<SentryException *> *allExceptions = event.exceptions ?: @[];
+  NSUInteger exceptionStart =
+      allExceptions.count > OneKeyCrashDiagnosticsMaxTransportExceptionCount
+      ? allExceptions.count - OneKeyCrashDiagnosticsMaxTransportExceptionCount
+      : 0;
+  NSMutableArray<SentryException *> *exceptions = [NSMutableArray array];
+  for (NSUInteger index = exceptionStart; index < allExceptions.count; index += 1) {
+    SentryException *exception = allExceptions[index];
+    exception.value = nil;
+    exception.mechanism.desc = nil;
+    exception.mechanism.data = nil;
+    exception.mechanism.helpLink = nil;
+    OneKeySanitizeStacktraceForTransport(exception.stacktrace);
+    [exceptions addObject:exception];
   }
-  return result;
+  event.exceptions = exceptions;
+
+  NSMutableArray<SentryThread *> *threads = [NSMutableArray array];
+  for (SentryThread *thread in event.threads ?: @[]) {
+    thread.name = nil;
+    OneKeySanitizeStacktraceForTransport(thread.stacktrace);
+    if (thread.crashed.boolValue || thread.current.boolValue || thread.isMain.boolValue) {
+      [threads addObject:thread];
+      if (threads.count >= OneKeyCrashDiagnosticsMaxTransportThreadCount) {
+        break;
+      }
+    }
+  }
+  if (threads.count < OneKeyCrashDiagnosticsMaxTransportThreadCount) {
+    for (SentryThread *thread in event.threads ?: @[]) {
+      if (![threads containsObject:thread]) {
+        [threads addObject:thread];
+        if (threads.count >= OneKeyCrashDiagnosticsMaxTransportThreadCount) {
+          break;
+        }
+      }
+    }
+  }
+  event.threads = threads;
+  OneKeySanitizeStacktraceForTransport(event.stacktrace);
+
+  NSMutableArray<SentryDebugMeta *> *debugMeta = [NSMutableArray array];
+  NSUInteger debugCount = MIN(
+      event.debugMeta.count,
+      OneKeyCrashDiagnosticsMaxTransportDebugImageCount);
+  for (NSUInteger index = 0; index < debugCount; index += 1) {
+    SentryDebugMeta *image = event.debugMeta[index];
+    image.codeFile = OneKeyFileNameOnly(image.codeFile);
+    [debugMeta addObject:image];
+  }
+  event.debugMeta = debugMeta;
 }
 
-static id OneKeySanitizeCrashJSONValue(id value)
+static id OneKeySanitizeJSONValue(id value);
+
+static NSString *OneKeySanitizeJSONStringValue(NSString *value)
 {
+  NSString *trimmed = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+  if ([trimmed hasPrefix:@"{"] || [trimmed hasPrefix:@"["]) {
+    NSData *sourceData = [trimmed dataUsingEncoding:NSUTF8StringEncoding];
+    id parsed = sourceData.length > 0
+        ? [NSJSONSerialization JSONObjectWithData:sourceData options:0 error:nil]
+        : nil;
+    if ([parsed isKindOfClass:NSDictionary.class] ||
+        [parsed isKindOfClass:NSArray.class]) {
+      id sanitized = OneKeySanitizeJSONValue(parsed);
+      NSData *sanitizedData = [NSJSONSerialization dataWithJSONObject:sanitized
+                                                               options:0
+                                                                 error:nil];
+      if (sanitizedData.length > 0) {
+        return [[NSString alloc] initWithData:sanitizedData encoding:NSUTF8StringEncoding];
+      }
+    }
+  }
+  return OneKeySanitizeCrashString(value) ?: @"";
+}
+
+static id OneKeySanitizeJSONValue(id value)
+{
+  if (value == nil) {
+    return nil;
+  }
   if ([value isKindOfClass:NSString.class]) {
-    return OneKeySanitizeCrashString(value) ?: @"";
+    return OneKeySanitizeJSONStringValue(value);
+  }
+  if ([value isKindOfClass:NSNumber.class] || value == NSNull.null) {
+    return value;
   }
   if ([value isKindOfClass:NSArray.class]) {
-    NSMutableArray *result = [NSMutableArray array];
-    for (id item in (NSArray *)value) {
-      [result addObject:OneKeySanitizeCrashJSONValue(item) ?: NSNull.null];
+    NSArray *source = value;
+    NSMutableArray *result = [NSMutableArray arrayWithCapacity:source.count];
+    for (id item in source) {
+      id sanitized = OneKeySanitizeJSONValue(item);
+      if (sanitized != nil) {
+        [result addObject:sanitized];
+      }
     }
     return result;
   }
@@ -227,11 +466,17 @@ static id OneKeySanitizeCrashJSONValue(id value)
       if (![key isKindOfClass:NSString.class]) {
         continue;
       }
-      result[key] = OneKeySanitizeCrashJSONValue(((NSDictionary *)value)[key]) ?: NSNull.null;
+      NSString *sanitizedKey = OneKeySanitizeCrashString(key);
+      id sanitized = OneKeyIsSensitiveKey(key)
+          ? @"[REDACTED]"
+          : OneKeySanitizeJSONValue(((NSDictionary *)value)[key]);
+      if (sanitizedKey.length > 0 && sanitized != nil) {
+        result[sanitizedKey] = sanitized;
+      }
     }
     return result;
   }
-  return value;
+  return nil;
 }
 
 static NSString *OneKeyCrashDiagnosticsDirectory(void)
@@ -249,10 +494,14 @@ static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
   NSArray<NSString *> *names = [fileManager contentsOfDirectoryAtPath:directoryPath error:nil];
   NSMutableArray<NSDictionary<NSString *, id> *> *retained = [NSMutableArray array];
   for (NSString *name in names ?: @[]) {
+    NSString *path = [directoryPath stringByAppendingPathComponent:name];
+    if ([name hasSuffix:@".tmp"]) {
+      [fileManager removeItemAtPath:path error:nil];
+      continue;
+    }
     if (![name hasSuffix:@".json"]) {
       continue;
     }
-    NSString *path = [directoryPath stringByAppendingPathComponent:name];
     NSDictionary<NSFileAttributeKey, id> *attributes =
         [fileManager attributesOfItemAtPath:path error:nil];
     NSDate *modifiedAt = attributes[NSFileModificationDate] ?: NSDate.distantPast;
@@ -275,7 +524,11 @@ static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
   }
 }
 
-static BOOL OneKeyWriteCrashDiagnosticsData(NSData *data, NSString *fileName)
+static BOOL OneKeyWriteCrashDiagnosticsData(
+    NSData *data,
+    NSString *fileName,
+    NSDate *eventDate,
+    BOOL replaceExisting)
 {
   if (data.length == 0 || fileName.length == 0) {
     return NO;
@@ -286,16 +539,19 @@ static BOOL OneKeyWriteCrashDiagnosticsData(NSData *data, NSString *fileName)
     [fileManager createDirectoryAtPath:directoryPath
            withIntermediateDirectories:YES
                             attributes:@{
-                              NSFileProtectionKey:
-                                  NSFileProtectionCompleteUntilFirstUserAuthentication,
+                              NSFileProtectionKey: NSFileProtectionComplete,
                             }
                                  error:nil];
     NSString *path = [directoryPath stringByAppendingPathComponent:fileName];
+    if (!replaceExisting && [fileManager fileExistsAtPath:path]) {
+      return YES;
+    }
     if (![data writeToFile:path options:NSDataWritingAtomic error:nil]) {
       return NO;
     }
     [fileManager setAttributes:@{
-      NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
+      NSFileProtectionKey: NSFileProtectionComplete,
+      NSFileModificationDate: eventDate ?: NSDate.date,
     } ofItemAtPath:path error:nil];
     OneKeyCleanupCrashReports(directoryPath, NSDate.date);
     return YES;
@@ -304,11 +560,14 @@ static BOOL OneKeyWriteCrashDiagnosticsData(NSData *data, NSString *fileName)
 
 static BOOL OneKeyMetricKitPayloadHasDiagnostics(MXDiagnosticPayload *payload)
 {
-  return payload.crashDiagnostics.count > 0 ||
+  BOOL hasDiagnostics = payload.crashDiagnostics.count > 0 ||
       payload.hangDiagnostics.count > 0 ||
       payload.cpuExceptionDiagnostics.count > 0 ||
-      payload.diskWriteExceptionDiagnostics.count > 0 ||
-      payload.appLaunchDiagnostics.count > 0;
+      payload.diskWriteExceptionDiagnostics.count > 0;
+  if (@available(iOS 16.0, *)) {
+    hasDiagnostics = hasDiagnostics || payload.appLaunchDiagnostics.count > 0;
+  }
+  return hasDiagnostics;
 }
 
 static void OneKeyPersistMetricKitPayloads(NSArray<MXDiagnosticPayload *> *payloads)
@@ -317,10 +576,12 @@ static void OneKeyPersistMetricKitPayloads(NSArray<MXDiagnosticPayload *> *paylo
   OneKeyCleanupCrashReports(OneKeyCrashDiagnosticsDirectory(), now);
   for (MXDiagnosticPayload *payload in payloads ?: @[]) {
     if (!OneKeyMetricKitPayloadHasDiagnostics(payload) ||
-        [now timeIntervalSinceDate:payload.timeStampEnd] > OneKeyCrashDiagnosticsMaxReportAge) {
+        [now timeIntervalSinceDate:payload.timeStampEnd] >
+            OneKeyCrashDiagnosticsMaxReportAge) {
       continue;
     }
-    id sanitizedPayload = OneKeySanitizeCrashJSONValue(payload.dictionaryRepresentation);
+
+    id sanitizedPayload = OneKeySanitizeJSONValue(payload.dictionaryRepresentation);
     if (![sanitizedPayload isKindOfClass:NSDictionary.class]) {
       continue;
     }
@@ -343,11 +604,11 @@ static void OneKeyPersistMetricKitPayloads(NSArray<MXDiagnosticPayload *> *paylo
     if ([NSFileManager.defaultManager fileExistsAtPath:filePath]) {
       continue;
     }
-    OneKeyWriteCrashDiagnosticsData(data, fileName);
+    OneKeyWriteCrashDiagnosticsData(data, fileName, payload.timeStampEnd, NO);
   }
 }
 
-static void OneKeyPersistCrashEvent(SentryEvent *event)
+static void OneKeyPersistCrashEvent(SentryEvent *event, BOOL replaceExisting)
 {
   @try {
     NSMutableDictionary<NSString *, id> *report = [@{
@@ -356,52 +617,27 @@ static void OneKeyPersistCrashEvent(SentryEvent *event)
       @"platform": @"ios",
       @"capturedAt": OneKeyCrashDateString(NSDate.date),
     } mutableCopy];
-    OneKeyPutCrashString(report, @"eventId", event.eventId.sentryIdString);
-    OneKeyPutCrashString(
-        report,
-        @"level",
-        event.level == kSentryLevelFatal ? @"fatal" : @"error");
-    OneKeyPutCrashString(report, @"release", event.releaseName);
-    OneKeyPutCrashString(report, @"dist", event.dist);
-    OneKeyPutCrashString(report, @"environment", event.environment);
-    NSString *timestamp = OneKeyCrashDateString(event.timestamp);
-    if (timestamp.length > 0) {
-      report[@"timestamp"] = timestamp;
+    NSMutableDictionary<NSString *, id> *serializedEvent = [[event serialize] mutableCopy];
+    [serializedEvent removeObjectsForKeys:@[ @"user", @"request" ]];
+    id sanitizedEvent = OneKeySanitizeJSONValue(serializedEvent);
+    if ([sanitizedEvent isKindOfClass:NSDictionary.class]) {
+      report[@"event"] = sanitizedEvent;
     }
 
-    NSArray<NSDictionary<NSString *, id> *> *exceptions =
-        OneKeyCrashExceptions(event.exceptions);
-    if (exceptions.count > 0) {
-      report[@"exceptions"] = exceptions;
-    }
-    NSArray<NSDictionary<NSString *, id> *> *threads = OneKeyCrashThreads(event.threads);
-    if (threads.count > 0) {
-      report[@"threads"] = threads;
-    }
-    NSArray<NSDictionary<NSString *, id> *> *debugImages =
-        OneKeyCrashDebugImages(event.debugMeta);
-    if (debugImages.count > 0) {
-      report[@"debugImages"] = debugImages;
-    }
-
-    NSError *serializationError = nil;
     NSData *data = [NSJSONSerialization dataWithJSONObject:report
                                                    options:NSJSONWritingPrettyPrinted
-                                                     error:&serializationError];
-    if (data == nil || serializationError != nil) {
-      return;
-    }
-
+                                                     error:nil];
     NSString *eventId = event.eventId.sentryIdString;
     if (eventId.length == 0) {
       eventId = [NSString stringWithFormat:@"%.0f", NSDate.date.timeIntervalSince1970 * 1000];
     }
     OneKeyWriteCrashDiagnosticsData(
         data,
-        [NSString stringWithFormat:@"sentry-native-%@.json", eventId]);
+        [NSString stringWithFormat:@"sentry-native-%@.json", eventId],
+        event.timestamp ?: NSDate.date,
+        replaceExisting);
   } @catch (NSException *exception) {
-    NSLog(@"[OneKeySentryCrashDiagnostics] Failed to persist native crash diagnostics: %@",
-          exception.reason);
+    NSLog(@"[OneKeySentryCrashDiagnostics] Failed to persist native crash diagnostics");
   }
 }
 
@@ -428,16 +664,92 @@ static void OneKeyPersistCrashEvent(SentryEvent *event)
   dispatch_once(&onceToken, ^{
     MXMetricManager *manager = MXMetricManager.sharedManager;
     [manager addSubscriber:self];
-    OneKeyPersistMetricKitPayloads(manager.pastDiagnosticPayloads);
+    dispatch_async(OneKeyCrashDiagnosticsQueue(), ^{
+      OneKeyPersistMetricKitPayloads(manager.pastDiagnosticPayloads);
+    });
   });
 }
 
 - (void)didReceiveDiagnosticPayloads:(NSArray<MXDiagnosticPayload *> *)payloads
 {
-  OneKeyPersistMetricKitPayloads(payloads);
+  NSArray<MXDiagnosticPayload *> *payloadCopy = [payloads copy];
+  dispatch_async(OneKeyCrashDiagnosticsQueue(), ^{
+    OneKeyPersistMetricKitPayloads(payloadCopy);
+  });
 }
 
 @end
+
+BOOL OneKeyInitializeSentryCrashDiagnostics(NSString *dsn)
+{
+  [[OneKeyMetricKitDiagnosticsSubscriber sharedSubscriber] start];
+  static BOOL initialized = NO;
+  static NSObject *initializationLock;
+  static dispatch_once_t lockOnceToken;
+  dispatch_once(&lockOnceToken, ^{
+    initializationLock = [[NSObject alloc] init];
+  });
+  @synchronized(initializationLock) {
+    if (initialized) {
+      return YES;
+    }
+    if (![dsn isKindOfClass:NSString.class] || dsn.length == 0) {
+      return NO;
+    }
+
+    __block BOOL didStart = NO;
+    void (^startSentry)(void) = ^{
+      NSError *optionsError = nil;
+      SentryOptions *options =
+          [RNSentryStart createOptionsWithDictionary:@{ @"dsn": dsn }
+                                               error:&optionsError];
+      if (options == nil || optionsError != nil) {
+        NSLog(@"[OneKeySentryCrashDiagnostics] Failed to create Sentry options");
+        return;
+      }
+      [RNSentryStart updateWithReactDefaults:options];
+      options.enabled = YES;
+      options.maxBreadcrumbs = 100;
+      options.maxCacheItems = 60;
+      options.enableAppHangTracking = YES;
+      options.appHangTimeoutInterval = 5.0;
+      options.enableCrashHandler = YES;
+      options.enableWatchdogTerminationTracking = NO;
+      options.attachScreenshot = NO;
+      options.attachViewHierarchy = NO;
+      options.sendDefaultPii = NO;
+      SentryBeforeSendEventCallback existingBeforeSend = options.beforeSend;
+      options.beforeSend = ^SentryEvent *(SentryEvent *event) {
+        SentryEvent *preparedEvent = existingBeforeSend == nil
+            ? event
+            : existingBeforeSend(event);
+        if (preparedEvent != nil) {
+          if (preparedEvent.level == kSentryLevelFatal) {
+            OneKeyPersistCrashEvent(preparedEvent, YES);
+          }
+          OneKeySanitizeSentryEventForTransport(preparedEvent);
+        }
+        return preparedEvent;
+      };
+      options.onCrashedLastRun = ^(SentryEvent *event) {
+        dispatch_async(OneKeyCrashDiagnosticsQueue(), ^{
+          OneKeyPersistCrashEvent(event, NO);
+        });
+      };
+      [RNSentryStart updateWithReactFinals:options];
+      [RNSentryStart startWithOptions:options];
+      didStart = YES;
+    };
+
+    if (NSThread.isMainThread) {
+      startSentry();
+    } else {
+      dispatch_sync(dispatch_get_main_queue(), startSentry);
+    }
+    initialized = didStart;
+    return didStart;
+  }
+}
 
 @interface OneKeySentryCrashDiagnostics : NSObject <RCTBridgeModule>
 @end
@@ -453,63 +765,10 @@ RCT_EXPORT_MODULE(OneKeySentryCrashDiagnostics)
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(initialize:(NSDictionary *)configuration)
 {
-  [[OneKeyMetricKitDiagnosticsSubscriber sharedSubscriber] start];
-  static BOOL initialized = NO;
-  @synchronized([OneKeySentryCrashDiagnostics class]) {
-    if (initialized) {
-      return @YES;
-    }
-
-    NSString *dsn = [configuration[@"dsn"] isKindOfClass:NSString.class]
-        ? configuration[@"dsn"]
-        : @"";
-    if (dsn.length == 0) {
-      return @NO;
-    }
-
-    OneKeyCleanupCrashReports(OneKeyCrashDiagnosticsDirectory(), NSDate.date);
-    __block BOOL didStart = NO;
-    void (^startSentry)(void) = ^{
-      NSError *optionsError = nil;
-      SentryOptions *options =
-          [RNSentryStart createOptionsWithDictionary:@{ @"dsn" : dsn }
-                                               error:&optionsError];
-      if (options == nil || optionsError != nil) {
-        NSLog(@"[OneKeySentryCrashDiagnostics] Failed to create Sentry options");
-        return;
-      }
-      [RNSentryStart updateWithReactDefaults:options];
-      options.enabled = [configuration[@"enabled"] boolValue];
-      options.maxBreadcrumbs = [configuration[@"maxBreadcrumbs"] unsignedIntValue];
-      options.maxCacheItems = [configuration[@"maxCacheItems"] unsignedIntValue];
-      options.enableAppHangTracking =
-          [configuration[@"enableAppHangTracking"] boolValue];
-      options.appHangTimeoutInterval =
-          [configuration[@"appHangTimeoutInterval"] doubleValue];
-      options.enableCrashHandler =
-          [configuration[@"enableNativeCrashHandling"] boolValue];
-      options.enableWatchdogTerminationTracking =
-          [configuration[@"enableWatchdogTerminationTracking"] boolValue];
-      options.attachScreenshot = [configuration[@"attachScreenshot"] boolValue];
-      options.attachViewHierarchy =
-          [configuration[@"attachViewHierarchy"] boolValue];
-      options.sendDefaultPii = [configuration[@"sendDefaultPii"] boolValue];
-      options.onCrashedLastRun = ^(SentryEvent *event) {
-        OneKeyPersistCrashEvent(event);
-      };
-      [RNSentryStart updateWithReactFinals:options];
-      [RNSentryStart startWithOptions:options];
-      didStart = YES;
-    };
-
-    if (NSThread.isMainThread) {
-      startSentry();
-    } else {
-      dispatch_sync(dispatch_get_main_queue(), startSentry);
-    }
-    initialized = didStart;
-    return @(didStart);
-  }
+  NSString *dsn = [configuration[@"dsn"] isKindOfClass:NSString.class]
+      ? configuration[@"dsn"]
+      : @"";
+  return @(OneKeyInitializeSentryCrashDiagnostics(dsn));
 }
 
 @end

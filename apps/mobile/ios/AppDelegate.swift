@@ -120,6 +120,21 @@ private func isStartupProfileEnabled() -> Bool {
   return false
 }
 
+private func initializeNativeCrashDiagnostics() {
+  guard
+    let configURL = Bundle.main.url(
+      forResource: "OneKeySentryConfig",
+      withExtension: "plist"
+    ),
+    let config = NSDictionary(contentsOf: configURL),
+    let dsn = config["dsn"] as? String,
+    !dsn.isEmpty
+  else {
+    return
+  }
+  _ = OneKeyInitializeSentryCrashDiagnostics(dsn)
+}
+
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
 /// `handleHostDidStart` can decide whether the main entry bundle still needs
 /// to be loaded. In single-bundle Release builds (no `common.bundle`) the
@@ -177,6 +192,7 @@ class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
+    initializeNativeCrashDiagnostics()
     NitroModuleBridge.logInfo(
       "StartupTiming",
       "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch"

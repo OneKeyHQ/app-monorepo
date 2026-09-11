@@ -396,6 +396,7 @@ public class BaseMainApplication extends Application implements ReactApplication
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
+      backgroundPackages.add(new OneKeySentryCrashDiagnosticsPackage());
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
       backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
       manager.setReactPackages(backgroundPackages);
@@ -456,8 +457,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       return;
     }
 
-    OneKeySentryCrashDiagnosticsModule.persistHistoricalProcessExitDiagnostics(this);
-    OneKeySentryCrashDiagnosticsModule.persistPendingNativeCrashEnvelopes(this);
+    OneKeySentryCrashDiagnosticsModule.initializeNativeSentry(
+      this,
+      BuildConfig.SENTRY_DSN_REACT_NATIVE
+    );
+    OneKeySentryCrashDiagnosticsModule.collectHistoricalDiagnosticsAsync(this);
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
     OneKeyLog.info(

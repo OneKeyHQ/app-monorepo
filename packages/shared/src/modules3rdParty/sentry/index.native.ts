@@ -11,7 +11,11 @@ import { NativeModules } from 'react-native';
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions, sanitizeSentryEvent } from './basicOptions';
+import {
+  buildBasicOptions,
+  sanitizeNavigationBreadcrumbsForLocalLog,
+  sanitizeSentryEvent,
+} from './basicOptions';
 
 import type { ISentrySanitizationErrorHandler } from './basicOptions';
 import type { FallbackRender } from '@sentry/react';
@@ -67,7 +71,31 @@ export const initSentry = () => {
   type INativeSentryOptions = Parameters<typeof init>[0];
   const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
     event,
-  ) => sanitizeSentryEvent(event, onError);
+  ) => {
+    const navigationBreadcrumbs = sanitizeNavigationBreadcrumbsForLocalLog(
+      event.breadcrumbs,
+    );
+    if (navigationBreadcrumbs.length > 0) {
+      const breadcrumbText = navigationBreadcrumbs
+        .map(({ message, from, to }) =>
+          [message, from ? `from=${from}` : '', to ? `to=${to}` : '']
+            .filter(Boolean)
+            .join(' '),
+        )
+        .filter(Boolean)
+        .join(' | ');
+      if (breadcrumbText) {
+        appGlobals.$defaultLogger?.app.error.log(
+          `[SentryNavigationBreadcrumbs] ${breadcrumbText}`,
+        );
+      }
+    }
+    const sanitizedEvent = sanitizeSentryEvent(event, onError);
+    if (sanitizedEvent) {
+      sanitizedEvent.breadcrumbs = [];
+    }
+    return sanitizedEvent;
+  };
   const nativeBasicOptions = {
     enabled: basicOptions.enabled,
     maxBreadcrumbs: basicOptions.maxBreadcrumbs,

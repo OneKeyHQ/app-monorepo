@@ -51,15 +51,19 @@ export const exportLogs = async (filename: string) => {
   await prepareLoggerExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
-  const Share = await getShareModule();
-  if (!Share) return;
-  Share.shareAsync(logFilePath, {
-    dialogTitle: 'OneKey Logs',
-    mimeType: 'application/zip',
-    UTI: 'public.zip-archive',
-  }).catch(() => {
-    /** ignore */
-  });
+  try {
+    const Share = await getShareModule();
+    if (!Share) return;
+    await Share.shareAsync(logFilePath, {
+      dialogTitle: 'OneKey Logs',
+      mimeType: 'application/zip',
+      UTI: 'public.zip-archive',
+    }).catch(() => {
+      /** ignore */
+    });
+  } finally {
+    await utils.removeLogFilePath(logFilePath);
+  }
 };
 
 export const collectLogDigest = async (
@@ -127,7 +131,13 @@ export const collectLogDigest = async (
   };
 };
 
-export const uploadLogBundle = async ({
+export const disposeLogDigest = async (digest: ILogDigest) => {
+  if (digest.bundle?.type === 'file') {
+    await utils.removeLogFilePath(digest.bundle.filePath);
+  }
+};
+
+const uploadLogBundleInternal = async ({
   uploadToken,
   digest,
 }: {
@@ -324,4 +334,15 @@ export const uploadLogBundle = async ({
     digest,
     result: payload.data as ILogUploadResponse,
   };
+};
+
+export const uploadLogBundle = async (args: {
+  uploadToken: string;
+  digest: ILogDigest;
+}): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
+  try {
+    return await uploadLogBundleInternal(args);
+  } finally {
+    await disposeLogDigest(args.digest);
+  }
 };

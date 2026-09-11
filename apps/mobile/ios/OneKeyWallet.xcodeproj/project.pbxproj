@@ -366,6 +366,7 @@
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
+				07B1C3AA2F08000000E00006 /* Inject Native Sentry Configuration */,
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
 				F14A4B1031B7C10000000001 /* Bundle Background React Native code */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
@@ -520,6 +521,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		07B1C3AA2F08000000E00006 /* Inject Native Sentry Configuration */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Native Sentry Configuration";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/OneKeySentryConfig.plist",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/OneKeyBip39English.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$PROJECT_DIR/../scripts/inject-sentry-native-config.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -532,7 +551,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export SENTRY_ALLOW_FAILURE=true\n/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
+			shellScript = "export SENTRY_ALLOW_FAILURE=true\nexport SENTRY_INCLUDE_NATIVE_SOURCES=true\n/bin/sh ../../../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
+			showEnvVarsInLog = 0;
 		};
 		3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;

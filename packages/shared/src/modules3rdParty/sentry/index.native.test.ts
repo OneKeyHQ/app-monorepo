@@ -91,6 +91,12 @@ describe('initSentry', () => {
 
     const event = {
       type: undefined,
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: { from: 'Home', to: 'WalletDetails' },
+        },
+      ],
       exception: {
         values: [
           {
@@ -116,5 +122,6 @@ describe('initSentry', () => {
     expect(event.exception.values[0].stacktrace.frames[0].context_line).toBe(
       '**** **** ****',
     );
+    expect(event.breadcrumbs).toEqual([]);
   });
 });
