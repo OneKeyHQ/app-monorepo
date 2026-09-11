@@ -2,6 +2,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IStockFinancialConversion,
+  IStockFinancialEarning,
   IStockFinancialPeriod,
   IStockFinancialReportingPeriod,
   IStockFinancials,
@@ -47,6 +48,28 @@ export function getFinancialPeriodLabel(row: IStockFinancialReportingPeriod) {
   return /^Q[1-4]$/.test(row.fiscalPeriod ?? '')
     ? `${row.fiscalPeriod} '${row.fiscalYear.slice(-2)}`
     : `FY${row.fiscalYear}`;
+}
+
+export function getFinancialEarningsRows(
+  rows: IStockFinancialEarning[],
+  period: IStockFinancialPeriod,
+  currency?: string,
+) {
+  const reportedRows = getFinancialRows(rows, period, currency);
+  if (period !== 'quarter') return reportedRows;
+  // Analyst forecasts carry a date but may omit the fiscal quarter. Keep
+  // those forecasts without treating their calendar date as a fiscal label.
+  const forecasts = rows.filter(
+    (row) =>
+      !row.fiscalPeriod &&
+      row.actual === null &&
+      isFinancialNumber(row.estimate) &&
+      matchesFinancialPeriod(row, 'annual') &&
+      (!currency || !row.reportedCurrency || row.reportedCurrency === currency),
+  );
+  return [...reportedRows, ...forecasts]
+    .toSorted((a, b) => a.date.localeCompare(b.date))
+    .slice(-5);
 }
 
 export function getNetMargin(revenue: number | null, netIncome: number | null) {

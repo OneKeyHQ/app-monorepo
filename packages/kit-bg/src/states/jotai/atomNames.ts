@@ -59,6 +59,7 @@ export enum EAtomNames {
   notificationStatusAtom = 'notificationStatusAtom',
   // prime
   primePersistAtom = 'primePersistAtom',
+  primeGiftEligibilityPersistAtom = 'primeGiftEligibilityPersistAtom',
   primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
   primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeServerMasterPasswordStatusAtom = 'primeServerMasterPasswordStatusAtom',
@@ -141,6 +142,7 @@ export enum EAtomNames {
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
   swapTradingViewIndicatorSettingsPersistAtom = 'swapTradingViewIndicatorSettingsPersistAtom',
   // market
+  marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
@@ -166,6 +168,9 @@ export const atomsConfig: Partial<
     deepCompare: true,
   },
   [EAtomNames.primePersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.primeGiftEligibilityPersistAtom]: {
     mergeInitialValue: false,
   },
   // Nested force-target arrays must replace, not lodash-merge. merge({},

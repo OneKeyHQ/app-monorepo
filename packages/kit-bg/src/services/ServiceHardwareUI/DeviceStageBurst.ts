@@ -11,11 +11,15 @@ import {
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  getDeviceErrorPayloadMessage,
+  toPlainErrorObject,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -83,8 +87,11 @@ const END_GRACE_MS = 250;
  * transactions, messages alike — keeping the surface clean; the device
  * screen is the one read of what is being confirmed. The whole confirm
  * channel stays wired (business registrations, the builders, the atom
- * fields, the component's card and its stories), so flipping this single
- * gate re-lights the card unchanged; the gate only keeps the payload out
+ * fields, the component's parked card). Since 2026-09-11 the component
+ * also rests confirm as the capsule, which has no seat for a payload, so
+ * re-lighting the card is this flip plus the pose: `STEP_POSE.confirm`
+ * back to 'card' and confirm back on `COMPACT_STAGED_STEPS`, both in
+ * components' DeviceStage/stepCopy. The gate only keeps the payload out
  * of the atom, at the one point every content path converges.
  */
 const CONFIRM_PAYLOAD_HIDDEN = true;
@@ -116,18 +123,21 @@ const DEDICATED_DIALOG_ERROR_CODES = [
   HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
+  // Bluetooth off / no BLE permission / location services off: the SDK
+  // (and the Android pre-check) raise the "Enable Bluetooth" family of
+  // dialogs for these, so the stage stands down instead of landing a
+  // second notice under the sheet (OK-62113).
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleLocationServicesDisabled,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
- * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
-const DISCONNECTED_CODES = [
-  HardwareErrorCode.PollingTimeout,
-  HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BleScanError,
-  HardwareErrorCode.BleTimeoutError,
-];
+ * territory (doc §05 mapping A), classified apart in mapErrorToReason.
+ * The set itself lives in shared so the authenticity flow's classifier
+ * reads "disconnected" the same way. */
+const DISCONNECTED_CODES = DEVICE_STAGE_DISCONNECTED_CODES;
 
 const ACTION_TO_STEP: Partial<Record<string, IDeviceStageStepValue>> = {
   [EHardwareUiStateAction.DeviceChecking]: 'connecting',
@@ -252,6 +262,32 @@ export function resolveDeviceNotFoundLanding({
     return 'disconnected';
   }
   return 'deviceNotFound';
+}
+
+/**
+ * The devices that confirm a passphrase typed on the app on their own
+ * screen with no ButtonRequest to announce it — so no `ui-button` ever
+ * reaches the stage, and the submit has to paint the confirm itself.
+ *
+ * Each asks "use this passphrase?" for every non-empty host passphrase:
+ * - Pro: since firmware 4.13.0 the screen is a bare wait (firmware-pro
+ *   09b371804e dropped the ProtectCall `interact`); older builds still
+ *   send the request, which only repaints the same step.
+ * - Pro 2 / Neo: the V2 session's confirm page (firmware-pro2
+ *   `wallet_session_show_passphrase_confirm`) reports to the device
+ *   alone, and the SDK closes no phase until the call returns.
+ * Touch still sends the request; Classic and Mini show no confirm at all.
+ */
+const HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES: ReadonlySet<
+  IHardwareUiPayload['deviceType']
+> = new Set([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]);
+
+export function confirmsHostPassphraseOnScreen(
+  payload: IHardwareUiPayload | undefined,
+): boolean {
+  return Boolean(
+    payload && HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES.has(payload.deviceType),
+  );
 }
 
 /** The steps that ask something of the person. Only an ask outranks an
@@ -804,6 +840,12 @@ export class DeviceStageBurstScope {
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // Firmware rejected the package; later cleanup must not turn this into
+    // a transport failure or a firmware-upgrade suggestion.
+    const isInvalidPortfolioPackage =
+      isHardwareErrorByCode({ error, code: HardwareErrorCode.RuntimeError }) &&
+      getDeviceErrorPayloadMessage(error?.payload ?? {}) ===
+        'Failure_DataError,Invalid portfolio package';
     // DeviceNotFound splits by whether this burst ever heard from the
     // device (see resolveDeviceNotFoundLanding). The at-initiation half
     // lands the Device-not-connected card and is done — synchronously,
@@ -828,11 +870,13 @@ export class DeviceStageBurstScope {
     if (
       reason === 'generic' &&
       !wasVendorBurst &&
+      !isInvalidPortfolioPackage &&
       // These failures identify the cause even when the transport tracker
       // has already cleared the connection (for example USB blocking BLE).
       !isHardwareErrorByCode({
         error,
         code: [
+          HardwareErrorCode.BleDeviceNotBonded,
           HardwareErrorCode.BleUnavailableWhileUsbConnected,
           HardwareErrorCode.DeviceCheckUnlockTypeError,
           HardwareErrorCode.DeviceCheckPassphraseStateError,
@@ -889,6 +933,7 @@ export class DeviceStageBurstScope {
     }
     if (
       reason === 'generic' &&
+      !isInvalidPortfolioPackage &&
       isHardwareErrorByCode({
         error,
         code: [
@@ -1464,8 +1509,14 @@ export class DeviceStageBurstScope {
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
-   * instead of the legacy close-then-reopen. */
-  async noteInputSubmitted() {
+   * instead of the legacy close-then-reopen — or, for a passphrase typed
+   * on the app, as the confirm the device goes on to show without asking
+   * (see confirmsHostPassphraseOnScreen). */
+  async noteInputSubmitted({
+    hostPassphraseEntered = false,
+  }: {
+    hostPassphraseEntered?: boolean;
+  } = {}) {
     // Not gated on the firmware workflow: the card this answers was the
     // device's own ask, which plays there too (OK-62087) — and no authored
     // narrative can be standing behind an update.
@@ -1474,8 +1525,14 @@ export class DeviceStageBurstScope {
     if (!prev || prev.step === 'off') {
       return;
     }
+    const narrative = firmwareWorkflow ? undefined : this.authoredAuthStep;
+    const confirmsOnScreen =
+      hostPassphraseEntered &&
+      prev.step === 'passphraseOnApp' &&
+      !prev.vendor &&
+      confirmsHostPassphraseOnScreen(prev.payload);
     await this.setStep(
-      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      narrative ?? (confirmsOnScreen ? 'confirm' : 'processing'),
       {},
     );
   }
@@ -1574,8 +1631,9 @@ export class DeviceStageBurstScope {
    * not at the end of the call that painted it. The burst's own
    * bookkeeping is untouched — its end() still releases the layer, and
    * finds nothing left to take down; a later beat from the same burst
-   * (the device speaking again) repaints as usual. */
-  async silence() {
+   * (the device speaking again) repaints as usual. Reports whether a
+   * stage actually left, so the surface can let the exit play first. */
+  async silence(): Promise<boolean> {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
@@ -1587,7 +1645,20 @@ export class DeviceStageBurstScope {
     // by the burst's own end, a user close, a new burst, or the device
     // asking again (see onHardwareUiEvent).
     this.yieldedToDialog = true;
-    await this.forceOff({ force: true });
+    // A paint racing this yield — a straggler landing between forceOff's
+    // read and its write — bumps the claim and keeps its own stage up,
+    // right where the dialog is about to rise. The yield outranks it, so
+    // the exit runs again; only the device asking again (which lifts the
+    // yield, see onHardwareUiEvent) may keep the stage.
+    let left = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const claim = this.claimSeq;
+      left = (await this.forceOff({ force: true })) || left;
+      if (claim === this.claimSeq || !this.yieldedToDialog) {
+        break;
+      }
+    }
+    return left;
   }
 
   /** A flow abandoned before any burst began — the checking beat a connect
@@ -1683,7 +1754,9 @@ export class DeviceStageBurstScope {
     }, delayMs);
   }
 
-  private async forceOff(options: { force?: boolean } = {}) {
+  /** Writes the off; false when nothing was on stage to take down (or a
+   * newer claim, an outcome, or a live burst kept it). */
+  private async forceOff(options: { force?: boolean } = {}): Promise<boolean> {
     const claim = this.claimSeq;
     const prev = await deviceStageAtom.get();
     // Re-checked after the await: a burst that claimed the stage while
@@ -1693,10 +1766,10 @@ export class DeviceStageBurstScope {
     // painted while its device call ran on without a PIN or confirm
     // surface.
     if (claim !== this.claimSeq || (!options.force && this.depth > 0)) {
-      return;
+      return false;
     }
     if (!prev || prev.step === 'off') {
-      return;
+      return false;
     }
     // An error outcome owns its own exit: the notice form leaves through
     // onClose after its readable hold, the ask form waits for the person.
@@ -1707,7 +1780,7 @@ export class DeviceStageBurstScope {
       (prev.step === 'error' || prev.step === 'deviceNotFound') &&
       !options.force
     ) {
-      return;
+      return false;
     }
     await deviceStageAtom.set({
       burstId: prev.burstId,
@@ -1723,6 +1796,7 @@ export class DeviceStageBurstScope {
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.
     appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);
+    return true;
   }
 
   private async setStep(

@@ -31,6 +31,8 @@ export enum EWebViewRoutes {
 
 export interface IWebViewPageParams {
   url: string;
+  /** Restricts an App Clip campaign handoff to official hosts and disables the wallet bridge. */
+  appClipCampaign?: boolean;
   title?: string;
   hideHeader?: boolean;
   /** Address bar is hidden by default — opt-in by passing `true`. */

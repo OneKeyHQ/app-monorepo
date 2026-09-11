@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { cloneDeep } from 'lodash';
 
+import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -12,6 +13,18 @@ import { globalAtom } from '../utils';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export type IPrimePersistAtomData = IPrimeUserInfo;
+export type IPrimeGiftEligibilityCache = Partial<
+  Record<string, IPrimeGiftEligibility>
+>;
+export const {
+  target: primeGiftEligibilityPersistAtom,
+  use: usePrimeGiftEligibilityPersistAtom,
+} = globalAtom<IPrimeGiftEligibilityCache>({
+  name: EAtomNames.primeGiftEligibilityPersistAtom,
+  persist: true,
+  initialValue: {},
+});
+
 export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
   isLoggedIn: false,

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
+  Toast,
   rootNavigationRef,
   useMedia,
   useSplitViewType,
@@ -15,8 +17,10 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -77,6 +81,7 @@ interface IUseToDetailPageOptions {
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
@@ -127,20 +132,58 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   );
 
   const toMarketDetailPage = useCallback(
-    async (item: IMarketToken) => {
+    async (selectedItem: IMarketToken) => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
         return;
       }
+      let item = selectedItem;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
+      if (item.assetId) {
+        try {
+          const { default: backgroundApiProxy } =
+            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+          if (navigationGenerationRef.current !== navigationGeneration) return;
+          const { selectedVariant } =
+            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+              assetId: item.assetId,
+              currency: 'usd',
+              autoHandleError: false,
+            });
+          if (navigationGenerationRef.current !== navigationGeneration) {
+            return;
+          }
+          item = {
+            ...item,
+            marketTokenId: item.assetId,
+            marketVariantId: selectedVariant.variantId,
+            networkId: selectedVariant.networkId,
+            tokenAddress: selectedVariant.tokenAddress,
+            address: selectedVariant.tokenAddress,
+            isNative: selectedVariant.isNative,
+          };
+        } catch {
+          if (navigationGenerationRef.current !== navigationGeneration) {
+            return;
+          }
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+          return;
+        }
+      }
       const shouldResolveMarketAsset = Boolean(
         options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
       );
       const resolvedItem = item;
-      const marketTokenCategory = options?.marketTokenCategory;
+      const marketTokenCategory = item.assetId
+        ? MARKET_TOP_COINS_CATEGORY_ID
+        : options?.marketTokenCategory;
       const stockId = resolveMarketStockId(resolvedItem);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
@@ -334,6 +377,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       currentRouteName,
+      intl,
       navigation,
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,

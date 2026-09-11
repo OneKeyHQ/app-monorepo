@@ -261,7 +261,13 @@ export function CollateralSwitchCell({
   );
   const confirmationScopeRef = useRef(renderedConfirmationScope);
   const pendingSetCollateral = market
-    ? hasPendingSetCollateral({ pendingTxs, provider: market.provider })
+    ? hasPendingSetCollateral({
+        pendingTxs,
+        provider: market.provider,
+        networkId: market.networkId,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+      })
     : false;
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
@@ -535,6 +541,15 @@ export function CollateralSwitchCell({
               buildBorrowTag({
                 provider: market.provider,
                 action: 'setCollateral',
+              }),
+              buildBorrowTag({
+                provider: market.provider,
+                action: 'setCollateral',
+                setCollateralScope: {
+                  networkId: market.networkId,
+                  marketAddress: market.marketAddress,
+                  reserveAddress: item.reserveAddress,
+                },
               }),
             ],
           },

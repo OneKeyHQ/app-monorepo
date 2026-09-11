@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   accountSelectorDeFiMapAtom,
   accountSelectorValuesMapAtom,
@@ -13,6 +13,8 @@ import type {
   IAccountSelectorValueItem,
   IAccountSelectorValuesMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { buildAccountSelectorAccountsValuesDataOnce } from './accountSelectorValuesRequest';
 
 const BATCH_SIZE = 50;
 const WORK_BUDGET_MS = 8;
@@ -92,10 +94,7 @@ export async function loadAccountSelectorValuesV2(
     isCancelled,
     valuesAtom = accountSelectorValuesMapAtom,
     deFiAtom = accountSelectorDeFiMapAtom,
-    buildValues = (params) =>
-      backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData(
-        params,
-      ),
+    buildValues = buildAccountSelectorAccountsValuesDataOnce,
     yieldToUI = yieldAccountSelectorValuesV2,
     now = () => performance.now(),
     networkByNum = deFiNetworkByNum,

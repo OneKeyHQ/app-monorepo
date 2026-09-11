@@ -348,6 +348,24 @@ export function Container({
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
 
+  const syncFocusedTabPosition = useCallback(() => {
+    const listContainer = listContainerRef.current;
+    if (!listContainer) {
+      return;
+    }
+    const index = tabNamesRef.current.findIndex(
+      (name) => name === focusedTab.value,
+    );
+    const width = listContainer.clientWidth || ref.current?.clientWidth || 0;
+    if (index < 0 || !width) {
+      return;
+    }
+    listContainer.scrollTo({
+      left: width * index,
+      behavior: 'instant',
+    });
+  }, [focusedTab]);
+
   const stickyHeaderHeight = useRef(0);
   const handlerStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     stickyHeaderHeight.current = event.nativeEvent.layout.height;
@@ -689,11 +707,9 @@ export function Container({
           (name) => name === focusedTab.value,
         );
       },
-      syncCurrentPage: () => {
-        // no-op on web, only needed for native PagerView
-      },
+      syncCurrentPage: syncFocusedTabPosition,
     }),
-    [focusedTab, onTabPress],
+    [focusedTab, onTabPress, syncFocusedTabPosition],
   );
 
   // Memoised args for renderHeader/renderTabBar. tabNames identity may

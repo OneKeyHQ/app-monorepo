@@ -10,6 +10,7 @@ import {
   usePerpsTradesHistoryRefreshHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  PERPS_FUNDING_HISTORY_URL,
   PERPS_HISTORY_FILLS_URL,
   PERPS_TWAP_HISTORY_URL,
 } from '@onekeyhq/shared/src/consts/perp';
@@ -131,6 +132,7 @@ export function usePerpUserFundingHistory({
   const lastSuccessfulResultRef = useRef<IUserFundingHistoryResult | undefined>(
     undefined,
   );
+  const forceRefreshAddressRef = useRef<string | undefined>(undefined);
   const query = usePromiseResult<IUserFundingHistoryResult>(
     async () => {
       if (!accountAddress) {
@@ -142,10 +144,13 @@ export function usePerpUserFundingHistory({
 
       const normalizedRequestAddress = accountAddress.toLowerCase();
       const previousResult = lastSuccessfulResultRef.current;
+      const force = forceRefreshAddressRef.current === normalizedRequestAddress;
+      forceRefreshAddressRef.current = undefined;
       try {
         const records =
           await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
             accountAddress,
+            force,
           });
         return {
           accountAddress: normalizedRequestAddress,
@@ -186,10 +191,14 @@ export function usePerpUserFundingHistory({
         : undefined;
   }, [isCurrentAccountResult, normalizedAccountAddress, query.result]);
   const { run: refreshFundingHistory } = query;
+  const refresh = useCallback(() => {
+    forceRefreshAddressRef.current = normalizedAccountAddress;
+    return refreshFundingHistory();
+  }, [normalizedAccountAddress, refreshFundingHistory]);
   useEffect(() => {
     if (!isActive || !isCurrentAccountResult || query.isLoading) return;
 
-    // History is fetched in full. Refresh long-lived views hourly, resetting
+    // Refresh the recent history snapshot hourly in long-lived views, resetting
     // the timer after focus/manual requests so refreshes do not accumulate.
     const timer = setTimeout(
       () => {
@@ -210,19 +219,21 @@ export function usePerpUserFundingHistory({
     dataAccountAddress: query.result?.accountAddress,
     data: query.result?.records ?? [],
   });
-  const isError = Boolean(
+  const hasRequestError = Boolean(
     isCurrentAccountResult && query.result?.isError === true,
   );
   const isLoading = Boolean(
-    accountAddress && !isError && !isCurrentAccountResult,
+    accountAddress &&
+    (!isCurrentAccountResult || (hasRequestError && query.isLoading)),
   );
+  const isError = hasRequestError && !isLoading;
 
   return {
     accountAddress: normalizedAccountAddress,
     records,
     isError,
     isLoading,
-    refresh: query.run,
+    refresh,
   };
 }
 
@@ -251,4 +262,8 @@ export function usePerpTradesHistoryViewAllUrl() {
 
 export function usePerpTwapHistoryViewAllUrl() {
   return usePerpViewAllUrl(PERPS_TWAP_HISTORY_URL);
+}
+
+export function usePerpFundingHistoryViewAllUrl() {
+  return usePerpViewAllUrl(PERPS_FUNDING_HISTORY_URL);
 }

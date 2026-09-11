@@ -18,6 +18,7 @@ function EmptyWallet() {
       })}
       buttonProps={{
         disabled: shouldRedirectOnboardingToTravelMode(),
+        testID: 'empty-wallet-create-button',
         children: intl.formatMessage({
           id: ETranslations.global_create_wallet,
         }),

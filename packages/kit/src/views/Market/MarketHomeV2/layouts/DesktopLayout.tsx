@@ -8,7 +8,16 @@ import {
   useState,
 } from 'react';
 
-import { Tabs, XStack, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  SizableText,
+  Tabs,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,6 +38,7 @@ import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  getMarketCategoryTooltipId,
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
@@ -90,6 +100,7 @@ export function DesktopLayout({
   useMarketRenderCommitProbe('MarketHome.DesktopLayout', {
     selectedNetworkId,
   });
+  const intl = useIntl();
   const {
     watchlistTabName,
     showWatchlistTab,
@@ -203,6 +214,42 @@ export function DesktopLayout({
   const stockDataCategoryMapRef = useRef(stockDataCategoryMap);
   stockDataCategoryMapRef.current = stockDataCategoryMap;
 
+  // Keyed by tab name because that is all TabBar hands back to `renderItem`.
+  const tabTooltips = useMemo(() => {
+    const tooltips: Record<string, string> = {};
+    for (const item of spotTabItems) {
+      const category = filterBarProps.categories?.find(
+        (each) => each.id === item.categoryId,
+      );
+      const tooltipId = category
+        ? getMarketCategoryTooltipId(category)
+        : undefined;
+      if (tooltipId) {
+        tooltips[item.tabName] = intl.formatMessage({ id: tooltipId });
+      }
+    }
+    return tooltips;
+  }, [filterBarProps.categories, intl, spotTabItems]);
+  const tabTooltipsRef = useRef(tabTooltips);
+  tabTooltipsRef.current = tabTooltips;
+
+  // Read through a ref so the callback stays stable: TabBar takes it as a
+  // prop, and a new identity each render would remount every tab item.
+  const renderTabBarItem = useCallback((itemProps: ITabBarItemProps) => {
+    const tooltip = tabTooltipsRef.current[itemProps.name];
+    const tabItem = <Tabs.TabBarItem {...itemProps} />;
+    if (!tooltip) {
+      return tabItem;
+    }
+    return (
+      <Tooltip
+        placement="top"
+        renderTrigger={tabItem}
+        renderContent={<SizableText size="$bodySm">{tooltip}</SizableText>}
+      />
+    );
+  }, []);
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -252,6 +299,7 @@ export function DesktopLayout({
                 // inactive ones stay on the bar's `$bodyLgMedium`.
                 hideActiveIndicator
                 focusedTextSize="$headingMd"
+                renderItem={renderTabBarItem}
                 containerStyle={MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE}
               />
             </XStack>
@@ -283,7 +331,12 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [ensureTabActivated, getSpotCategoryIdByTabName, portalRefCallback],
+    [
+      ensureTabActivated,
+      getSpotCategoryIdByTabName,
+      portalRefCallback,
+      renderTabBarItem,
+    ],
   );
 
   const onTabChangeHandler = useCallback(

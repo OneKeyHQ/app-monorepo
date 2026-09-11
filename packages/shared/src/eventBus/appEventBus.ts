@@ -215,6 +215,8 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
+    walletId?: string;
+    dbDeviceId?: string;
   };
   [EAppEventBusNames.FinalizeWalletSetupError]: {
     error: IOneKeyError | undefined;
@@ -532,6 +534,7 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {
     operationId: string;

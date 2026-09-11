@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { collectLogDigest, exportLogs, uploadLogBundle } from '.';
+import {
+  collectLogDigest,
+  disposeLogDigest,
+  exportLogs,
+  uploadLogBundle,
+} from '.';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -159,17 +164,20 @@ function UploadLogsDialogContent({
 
       const attemptUpload = async () => {
         const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        const { result } = await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-        return result.objectKey;
+        try {
+          const token =
+            await backgroundApiProxy.serviceLogger.requestUploadToken({
+              sizeBytes: digest.sizeBytes,
+              sha256: digest.sha256,
+            });
+          const { result } = await uploadLogBundle({
+            uploadToken: token.uploadToken,
+            digest,
+          });
+          return result.objectKey;
+        } finally {
+          await disposeLogDigest(digest);
+        }
       };
 
       try {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { MarketTestIDs } from '../testIDs';
@@ -23,12 +23,16 @@ import { useWatchListV2Action } from './watchListHooksV2';
 import type { IMarketStarV2Props } from './MarketStarV2.types';
 
 export const useStarV2Checked = ({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   from,
   tokenSymbol,
   isNative = false,
 }: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
@@ -37,55 +41,95 @@ export const useStarV2Checked = ({
 }) => {
   const actions = useWatchListV2Action();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+  const [isMutating, setIsMutating] = useState(false);
+  const isMutatingRef = useRef(false);
 
   // Calculate checked state based on atom data
   const checked = useMemo(() => {
     if (!isMounted || watchListData.length === 0) {
       return false;
     }
-    return !!watchListData?.find((item) =>
-      equalTokenNoCaseSensitive({
-        token1: { networkId: chainId, contractAddress },
-        token2: {
-          networkId: item.chainId,
-          contractAddress: item.contractAddress,
-        },
-      }),
-    );
-  }, [watchListData, isMounted, chainId, contractAddress]);
+    const key = getMarketWatchlistKey({
+      chainId,
+      contractAddress,
+      assetId,
+      stockId,
+    });
+    return watchListData.some((item) => getMarketWatchlistKey(item) === key);
+  }, [watchListData, isMounted, chainId, contractAddress, assetId, stockId]);
 
   const handlePress = useCallback(async () => {
-    if (checked) {
-      actions.removeFromWatchListV2(chainId, contractAddress);
-      // Dex analytics
-      defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
-        network: chainId,
-        tokenSymbol: tokenSymbol || '',
-        tokenContract: contractAddress,
-        removeFrom: from,
-      });
-    } else {
-      actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
-      // Dex analytics
-      defaultLogger.dex.watchlist.dexAddToWatchlist({
-        network: chainId,
-        tokenSymbol: tokenSymbol || '',
-        tokenContract: contractAddress,
-        addFrom: from,
-      });
+    if (!isMounted || isMutatingRef.current) {
+      return;
     }
-  }, [checked, actions, chainId, contractAddress, from, tokenSymbol, isNative]);
+    isMutatingRef.current = true;
+    setIsMutating(true);
+    try {
+      if (checked) {
+        const removed = await actions.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          { assetId, stockId },
+        );
+        if (!removed) {
+          return;
+        }
+        defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+          network: chainId,
+          tokenSymbol: tokenSymbol || '',
+          tokenContract: contractAddress,
+          removeFrom: from,
+        });
+      } else {
+        const added = await actions.addIntoWatchListV2([
+          {
+            chainId: assetId || stockId ? '' : chainId,
+            contractAddress: assetId || stockId ? '' : contractAddress,
+            isNative,
+            assetId,
+            stockId,
+          },
+        ]);
+        if (!added) {
+          return;
+        }
+        defaultLogger.dex.watchlist.dexAddToWatchlist({
+          network: chainId,
+          tokenSymbol: tokenSymbol || '',
+          tokenContract: contractAddress,
+          addFrom: from,
+        });
+      }
+    } finally {
+      isMutatingRef.current = false;
+      setIsMutating(false);
+    }
+  }, [
+    actions,
+    assetId,
+    stockId,
+    chainId,
+    checked,
+    contractAddress,
+    from,
+    isMounted,
+    isNative,
+    tokenSymbol,
+  ]);
 
   return useMemo(
     () => ({
       checked,
+      disabled: !isMounted || isMutating,
       onPress: handlePress,
     }),
-    [checked, handlePress],
+    [checked, handlePress, isMounted, isMutating],
   );
 };
 
 function BasicMarketStarV2({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   size,
@@ -96,7 +140,9 @@ function BasicMarketStarV2({
   ...props
 }: IMarketStarV2Props) {
   const intl = useIntl();
-  const { onPress, checked } = useStarV2Checked({
+  const { onPress, checked, disabled } = useStarV2Checked({
+    assetId,
+    stockId,
     chainId,
     contractAddress,
     from,
@@ -128,6 +174,7 @@ function BasicMarketStarV2({
         ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
+      disabled={disabled}
       {...(props as IXStackProps)}
     />
   );
