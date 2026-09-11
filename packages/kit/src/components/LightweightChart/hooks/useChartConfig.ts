@@ -57,6 +57,7 @@ interface IUseChartConfigProps {
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
 }
@@ -97,6 +98,7 @@ export function useChartConfig({
   showLastPointMarker,
   showTimeScale = true,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
 }: IUseChartConfigProps): ILightweightChartConfig {
@@ -181,6 +183,7 @@ export function useChartConfig({
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     }),
@@ -223,6 +226,7 @@ export function useChartConfig({
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     ],

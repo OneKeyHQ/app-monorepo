@@ -18,6 +18,8 @@ const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
 // a stable width instead of resizing with the figures it prints.
 const PRICE_SCALE_WIDTH = 64;
+// Keeps the pulsing tail dot clear of the current price label on the axis.
+const LAST_POINT_RIGHT_GAP = 8;
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
 // still fit on one line.
@@ -326,6 +328,7 @@ export function StockPriceLineChart({
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
         priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
+        timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit

@@ -5,6 +5,7 @@ import {
   TOKEN_SIMPLE_CHART_RANGES,
   fetchStockSimpleChartPoints,
   resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -618,5 +619,41 @@ describe('resolveStockSimpleChartPreviousClose', () => {
         stockDetail: { previousClose: '' },
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveStockSimpleChartPulseLastPoint', () => {
+  it('always pulses crypto, which trades around the clock', () => {
+    expect(resolveStockSimpleChartPulseLastPoint({})).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockDetail: null,
+        tokenStock: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('pulses a stock only while its market is open', () => {
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: true } },
+      }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: false } },
+      }),
+    ).toBe(false);
+    expect(resolveStockSimpleChartPulseLastPoint({ stockId: 'AAPL' })).toBe(
+      false,
+    );
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: true } }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: false } }),
+    ).toBe(false);
   });
 });

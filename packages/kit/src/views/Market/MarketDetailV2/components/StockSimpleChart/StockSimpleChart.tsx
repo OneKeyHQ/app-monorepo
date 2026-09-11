@@ -26,6 +26,7 @@ import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
   resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -59,7 +60,7 @@ export function StockSimpleChart({
   const [chartHeight, setChartHeight] = useState(
     STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
   );
-  const { isNative, networkId, tokenAddress } = useTokenDetail();
+  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
   const {
     coinGeckoId: requestCoinGeckoId,
@@ -85,6 +86,11 @@ export function StockSimpleChart({
     priceMode: requestPriceMode,
     range: requestRange,
     stockDetail,
+  });
+  const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
+    stockDetail,
+    stockId,
+    tokenStock: tokenDetail?.stock,
   });
 
   const {
@@ -187,6 +193,7 @@ export function StockSimpleChart({
         testID="stock-simple-chart-content"
         data={chartState.data}
         height={chartHeight}
+        pulseLastPoint={pulseLastPoint}
         previousClose={previousClose}
         showCurrentPriceLabel
         // Design decision: the hover card keeps its price even though the

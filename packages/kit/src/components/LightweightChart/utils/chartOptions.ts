@@ -207,6 +207,7 @@ export function createChartOptions(
   // Opt-in crosshair overrides. Charts that pass nothing keep the faint default
   // line below.
   crosshairVertLine?: { color?: string; style?: number },
+  timeScaleRightOffsetPixels?: number,
 ): DeepPartial<ChartOptions> {
   const priceScaleOptions = {
     visible: showPriceScale,
@@ -259,7 +260,11 @@ export function createChartOptions(
       timeVisible: true,
       secondsVisible: false,
       fixLeftEdge: true,
-      fixRightEdge: true,
+      // `fixRightEdge` clamps any right offset back to zero. Scrolling and
+      // scaling are off below, so the lock can go when a tail gap is asked for.
+      ...(timeScaleRightOffsetPixels && timeScaleRightOffsetPixels > 0
+        ? { fixRightEdge: false, rightOffsetPixels: timeScaleRightOffsetPixels }
+        : { fixRightEdge: true }),
       lockVisibleTimeRangeOnResize: true,
       ...(tickMarkFormatter ? { tickMarkFormatter } : {}),
     },

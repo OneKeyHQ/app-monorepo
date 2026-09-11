@@ -107,6 +107,7 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
   pulseLastPoint,
@@ -160,6 +161,7 @@ export function LightweightChart({
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeScaleRightOffsetPixels,
     timeZone,
     locale,
   });
@@ -226,6 +228,7 @@ export function LightweightChart({
             color: currentChartConfig.crosshairVertLineColor,
             style: currentChartConfig.crosshairVertLineStyle,
           },
+          currentChartConfig.timeScaleRightOffsetPixels,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -550,6 +553,7 @@ export function LightweightChart({
     chartConfig.theme.lineColor,
     chartConfig.theme.textSubduedColor,
     chartConfig.theme.topColor,
+    chartConfig.timeScaleRightOffsetPixels,
     chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,

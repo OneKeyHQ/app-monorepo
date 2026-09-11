@@ -50,6 +50,27 @@ export function resolveStockSimpleChartPreviousClose({
   return getMarketStockPreviousClose(stockDetail);
 }
 
+// The line ends on a live pulse while the asset is trading. Crypto trades
+// around the clock, so it always pulses; a stock only pulses while its market
+// is open.
+export function resolveStockSimpleChartPulseLastPoint({
+  stockDetail,
+  stockId,
+  tokenStock,
+}: {
+  stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
+  stockId?: string;
+  tokenStock?: { isOpen?: boolean } | null;
+}): boolean {
+  const isStock = Boolean(stockId) || Boolean(tokenStock);
+  if (!isStock) {
+    return true;
+  }
+  return (
+    stockDetail?.marketStatus?.isOpen === true || tokenStock?.isOpen === true
+  );
+}
+
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
   isNative: boolean;

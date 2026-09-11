@@ -93,6 +93,7 @@ export interface ILightweightChartConfig {
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
@@ -154,6 +155,8 @@ export interface ILightweightChartProps {
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  // Blank space between the last point and the price scale, in pixels.
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
   // Native WebView only. Keeps the default axis hover label unless a chart

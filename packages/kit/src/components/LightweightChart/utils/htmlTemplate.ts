@@ -85,15 +85,21 @@ function getChartInitScript(): string {
         return formatter.format(date);
       }
       function getTimeScaleOptions(nextConfig) {
+        // fixRightEdge clamps any right offset back to zero. Scrolling and
+        // scaling are off, so the lock can go when a tail gap is asked for.
+        var rightGap = Number(nextConfig.timeScaleRightOffsetPixels) || 0;
         var options = {
           visible: nextConfig.showTimeScale !== false,
           borderVisible: false,
           timeVisible: true,
           secondsVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: rightGap <= 0,
           lockVisibleTimeRangeOnResize: true,
         };
+        if (rightGap > 0) {
+          options.rightOffsetPixels = rightGap;
+        }
         if (nextConfig.timeZone) {
           options.tickMarkFormatter = function(time, tickMarkType) {
             return formatTimeScaleTickMark(time, tickMarkType, nextConfig);

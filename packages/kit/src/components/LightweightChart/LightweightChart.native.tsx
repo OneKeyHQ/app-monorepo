@@ -57,6 +57,7 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
   hideCrosshairPriceLabel,
@@ -100,6 +101,7 @@ export function LightweightChart({
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeScaleRightOffsetPixels,
     timeZone,
     locale,
   });
