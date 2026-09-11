@@ -15,6 +15,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useBorrowEModeStatus } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -81,11 +82,18 @@ function EModeCategoryRow({
         </SizableText>
       </YStack>
       {isSelected ? (
+        // Decorative: the row itself reports the pick through aria-checked, so
+        // labelling the mark too would announce the same fact twice.
         <Icon
           flexShrink={0}
           name="CheckLargeOutline"
           size="$5"
           color="$iconActive"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          {...(platformEnv.isRuntimeBrowser
+            ? { 'aria-hidden': true as const }
+            : {})}
         />
       ) : (
         <Stack flexShrink={0} w="$5" h="$5" />
@@ -145,15 +153,24 @@ export default function BorrowEModeCategorySelectModal() {
     [navigation, observedCurrentEModeId, onSelect],
   );
 
+  const title = intl.formatMessage({
+    id: ETranslations.defi_emode_select_category,
+  });
+
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.defi_emode_select_category,
-        })}
-      />
+      <Page.Header title={title} />
       <Page.Body>
-        <YStack py="$2">
+        {/* The rows announce as radios, so they need the group that says how
+            many there are and which one is picked. */}
+        <YStack
+          py="$2"
+          accessibilityRole="radiogroup"
+          accessibilityLabel={title}
+          {...(platformEnv.isRuntimeBrowser
+            ? { role: 'radiogroup' as const, 'aria-label': title }
+            : {})}
+        >
           {rows.map((row) => (
             <EModeCategoryRow
               key={row.eModeId}

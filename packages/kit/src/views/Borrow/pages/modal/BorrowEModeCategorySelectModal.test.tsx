@@ -37,13 +37,20 @@ jest.mock('@onekeyhq/components', () => {
       name,
       ...rest
     }: IMockProps) {
+      // Forward every aria-* the component produced rather than a whitelist.
+      // A whitelist makes these tests assert what the mock remembers to pass
+      // on, so a newly added attribute reads as absent and a dropped one still
+      // passes.
+      const aria = Object.fromEntries(
+        Object.entries(rest).filter(([key]) => key.startsWith('aria-')),
+      );
       return React.createElement(
         tag,
         {
           'data-testid': testID,
           'data-icon': name,
           'data-opacity': rest.opacity,
-          'aria-disabled': rest['aria-disabled'],
+          ...aria,
           role,
           tabIndex,
           onKeyDown,
@@ -285,7 +292,7 @@ describe('BorrowEModeCategorySelectModal', () => {
     const { container, onSelect } = renderModal();
     const row = rowOf(container, 0);
 
-    expect(row.getAttribute('role')).toBe('button');
+    expect(row.getAttribute('role')).toBe('radio');
     expect(row.getAttribute('tabindex')).toBe('0');
 
     fireEvent.keyDown(row, { key: 'Enter' });
@@ -293,6 +300,28 @@ describe('BorrowEModeCategorySelectModal', () => {
 
     fireEvent.keyDown(row, { key: ' ' });
     expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  // react-native-web 0.21 dropped accessibilityState from its forwarded props,
+  // so a row that only carries accessibilityState={{checked}} announces nothing
+  // on the web. These assert the DOM, not the prop object.
+  it('tells a web screen reader which category is picked', () => {
+    const { container } = renderModal();
+
+    // The fixture opens with category 1 picked.
+    expect(rowOf(container, 1).getAttribute('role')).toBe('radio');
+    expect(rowOf(container, 1).getAttribute('aria-checked')).toBe('true');
+    expect(rowOf(container, 0).getAttribute('aria-checked')).toBe('false');
+    // A disabled row still reports its state rather than going silent.
+    expect(rowOf(container, 2).getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('groups the rows so the count and the pick are announced together', () => {
+    const { container } = renderModal();
+    const group = container.querySelector('[role="radiogroup"]');
+
+    expect(group).not.toBeNull();
+    expect(group?.getAttribute('aria-label')).not.toBeNull();
   });
 
   it('ignores keys that are not Enter or Space', () => {
@@ -304,13 +333,15 @@ describe('BorrowEModeCategorySelectModal', () => {
   });
 
   it('keeps a disabled category off the tab order and marks it for a11y', () => {
-    const { container } = renderModal();
+    const { container, onSelect } = renderModal();
     const row = rowOf(container, 2);
 
     expect(row.getAttribute('tabindex')).toBeNull();
     expect(row.getAttribute('aria-disabled')).toBe('true');
 
     fireEvent.keyDown(row, { key: 'Enter' });
+
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   // Route params are captured once at push time. Reading the status through
