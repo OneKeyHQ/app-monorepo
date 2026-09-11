@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)
 OUTPUT_PATH="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/OneKeySentryConfig.plist"
-WORD_LIST_SOURCE="$REPOSITORY_ROOT/apps/mobile/android/app/src/main/assets/onekey-bip39-english.json"
+WORD_LIST_SOURCE="$REPOSITORY_ROOT/node_modules/bip39/src/wordlists/english.json"
 WORD_LIST_OUTPUT="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/OneKeyBip39English.json"
 
 read_env_value() {
