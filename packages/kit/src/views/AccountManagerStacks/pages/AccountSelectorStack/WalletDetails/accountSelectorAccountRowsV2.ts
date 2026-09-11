@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -402,27 +402,41 @@ export function buildAccountSelectorRowPatchesV2(
 
 // A structural change replaces the prop; field patches keep the mounted base stable.
 export function useAccountSelectorNativeSnapshotV2({
+  identity,
   snapshot,
   listRef,
   listHeight,
 }: {
+  identity: string;
   snapshot: NativeListSnapshot;
   listRef: RefObject<NativeListRef | null>;
   listHeight: number;
 }) {
-  const [nativeSnapshot, setNativeSnapshot] = useState(snapshot);
+  const nativeStateRef = useRef({ identity, snapshot });
   const appliedSnapshotRef = useRef<
     { base: NativeListSnapshot; latest: NativeListSnapshot } | undefined
   >(undefined);
+  const identityChanged = nativeStateRef.current.identity !== identity;
+  if (identityChanged) {
+    nativeStateRef.current = { identity, snapshot };
+    appliedSnapshotRef.current = undefined;
+  }
+  let nativeSnapshot = nativeStateRef.current.snapshot;
   const previousSnapshot =
     appliedSnapshotRef.current?.base === nativeSnapshot
       ? appliedSnapshotRef.current.latest
       : nativeSnapshot;
   const rowPatches = useMemo(
-    () => buildAccountSelectorRowPatchesV2(previousSnapshot, snapshot),
-    [previousSnapshot, snapshot],
+    () =>
+      identityChanged
+        ? []
+        : buildAccountSelectorRowPatchesV2(previousSnapshot, snapshot),
+    [identityChanged, previousSnapshot, snapshot],
   );
-  if (rowPatches === undefined) setNativeSnapshot(snapshot);
+  if (!identityChanged && rowPatches === undefined) {
+    nativeStateRef.current = { identity, snapshot };
+    nativeSnapshot = snapshot;
+  }
   useEffect(() => {
     const list = listRef.current;
     if (!list) {

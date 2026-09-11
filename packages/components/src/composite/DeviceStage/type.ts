@@ -169,6 +169,13 @@ export interface IDeviceStageProps {
    * third-party flows (`vendor` set) omit it — their devices have no
    * code-drawn replica and the capsule wears the product shot instead. */
   deviceType?: IHardwareDeviceType;
+  /**
+   * The standing replica's width on the full stage, in pt — the design's
+   * tuning knob (OK-62091). The full port and the words' tuck scale with
+   * it; the capsule thumbnail and the confirm miniature keep their own
+   * widths. Defaults to REPLICA_WIDTH (see ./consts).
+   */
+  replicaWidth?: number;
   step: IDeviceStageStep;
   /**
    * Dresses the stage for a third-party device: the capsule's left seat

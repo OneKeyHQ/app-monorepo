@@ -53,6 +53,7 @@ describe('account V2 snapshot updates', () => {
     const { result, rerender } = renderHook(
       ({ current }) =>
         useAccountSelectorNativeSnapshotV2({
+          identity: 'wallet-1',
           snapshot: current,
           listRef,
           listHeight: 600,
@@ -91,28 +92,31 @@ describe('account V2 snapshot updates', () => {
     const listRef: { current: NativeListRef | null } = { current: null };
     const initial = snapshot();
     const { result, rerender } = renderHook(
-      ({ current, height }) =>
+      ({ current, height, identity }) =>
         useAccountSelectorNativeSnapshotV2({
+          identity,
           snapshot: current,
           listRef,
           listHeight: height,
         }),
-      { initialProps: { current: initial, height: 0 } },
+      {
+        initialProps: { current: initial, height: 0, identity: 'wallet-1' },
+      },
     );
     const balance = snapshot({
       ...baseRow,
       subtitleSegments: [{ text: '$1.00' }],
     });
-    rerender({ current: balance, height: 0 });
+    rerender({ current: balance, height: 0, identity: 'wallet-1' });
     const selected = snapshot({
       ...baseRow,
       selected: true,
       subtitleSegments: [{ text: '$1.00' }],
     });
-    rerender({ current: selected, height: 0 });
+    rerender({ current: selected, height: 0, identity: 'wallet-1' });
     const applyPatches = jest.fn();
     listRef.current = { applyPatches } as unknown as NativeListRef;
-    rerender({ current: selected, height: 600 });
+    rerender({ current: selected, height: 600, identity: 'wallet-1' });
     expect(applyPatches).toHaveBeenCalledWith([
       {
         type: 'identity',
@@ -121,7 +125,7 @@ describe('account V2 snapshot updates', () => {
       },
     ]);
     const replacement = snapshot({ ...baseRow, key: 'new-wallet-account' }, 2);
-    rerender({ current: replacement, height: 600 });
+    rerender({ current: replacement, height: 600, identity: 'wallet-1' });
     expect(result.current).toBe(replacement);
     const removed = snapshot(
       {
@@ -132,9 +136,31 @@ describe('account V2 snapshot updates', () => {
       },
       2,
     );
-    rerender({ current: removed, height: 600 });
+    rerender({ current: removed, height: 600, identity: 'wallet-1' });
     expect(result.current).toBe(removed);
     expect(applyPatches).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the target snapshot immediately when the list identity changes', () => {
+    const applyPatches = jest.fn();
+    const listRef = {
+      current: { applyPatches } as unknown as NativeListRef,
+    };
+    const initial = snapshot();
+    const { result, rerender } = renderHook(
+      ({ current, identity }) =>
+        useAccountSelectorNativeSnapshotV2({
+          identity,
+          snapshot: current,
+          listRef,
+          listHeight: 600,
+        }),
+      { initialProps: { current: initial, identity: 'wallet-1' } },
+    );
+    const replacement = snapshot({ ...baseRow, key: 'wallet-2-account' }, 2);
+    rerender({ current: replacement, identity: 'wallet-2' });
+    expect(result.current).toBe(replacement);
+    expect(applyPatches).not.toHaveBeenCalled();
   });
 
   it('replaces reordered/deleted/action rows but permits explicit empty subtitle patches', () => {
