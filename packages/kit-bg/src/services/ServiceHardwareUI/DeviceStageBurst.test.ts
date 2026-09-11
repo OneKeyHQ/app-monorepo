@@ -17,6 +17,7 @@ import {
 
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   deviceStageAtom,
   firmwareUpdateWorkflowRunningAtom,
 } from '../../states/jotai/atoms';
@@ -735,11 +736,13 @@ describe('DeviceStageBurstScope', () => {
   });
 
   it('takes down a wait a straggler paints while the yield reads the stage', async () => {
-    // The Ledger install sheet (OK-62656): the probe's call-end clear is
-    // still crossing the event queue when the dialog asks the stage to
-    // yield. Landing between the yield's read and its write, it repaints
-    // `processing` under the hold and bumps the claim, so a single exit
-    // would stand down and leave that capsule right under the sheet.
+    // The Ledger install sheet (OK-62656): the probe's last beat on the
+    // third-party rail is still crossing the event queue when the dialog
+    // asks the stage to yield. Landing between the yield's read and its
+    // write, a `ui` action claims the stage (clearOffTimer bumps the
+    // claim) and repaints `processing` under the hold, so a single exit
+    // stands down on the stale read and leaves that capsule right under
+    // the sheet.
     const scope = new DeviceStageBurstScope();
     const token = await scope.beginExplicit({
       connectId: CONNECT_ID,
@@ -750,7 +753,10 @@ describe('DeviceStageBurstScope', () => {
     stageAtom.get.mockImplementationOnce(async () => {
       const read = stage;
       await scope.onThirdPartyState({
-        ui: undefined,
+        ui: {
+          action: EThirdPartyHardwareUiAction.processing,
+          vendor: EHardwareVendor.ledger,
+        },
         install: undefined,
         batch: undefined,
       });
