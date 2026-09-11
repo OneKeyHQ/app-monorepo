@@ -5,6 +5,7 @@ internal import Expo
 import MMKV
 import React
 import ReactAppDependencyProvider
+import RNSentry
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
 // NativeLogger) because their umbrella headers contain C++ (.hpp) files that cause Clang
 // dependency scanner failures. Using NSClassFromString + KVC as a workaround.
@@ -120,19 +121,22 @@ private func isStartupProfileEnabled() -> Bool {
   return false
 }
 
-private func initializeNativeCrashDiagnostics() {
-  guard
-    let configURL = Bundle.main.url(
-      forResource: "OneKeySentryConfig",
-      withExtension: "plist"
-    ),
-    let config = NSDictionary(contentsOf: configURL),
-    let dsn = config["dsn"] as? String,
-    !dsn.isEmpty
-  else {
+private func initializeNativeSentry() {
+  guard Bundle.main.url(forResource: "sentry.options", withExtension: "json") != nil else {
     return
   }
-  _ = OneKeyInitializeSentryCrashDiagnostics(dsn)
+  RNSentrySDK.start { options in
+    options.enabled = true
+    options.maxBreadcrumbs = 100
+    options.maxCacheItems = 60
+    options.enableAppHangTracking = true
+    options.appHangTimeoutInterval = 5.0
+    options.enableCrashHandler = true
+    options.enableWatchdogTerminationTracking = false
+    options.attachScreenshot = false
+    options.attachViewHierarchy = false
+    options.sendDefaultPii = false
+  }
 }
 
 /// Tracks which bundle `bundleURL()` returned as RN's initial bundle, so
@@ -192,7 +196,7 @@ class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
-    initializeNativeCrashDiagnostics()
+    initializeNativeSentry()
     NitroModuleBridge.logInfo(
       "StartupTiming",
       "ios.app.did_finish_launching.start: +\(String(format: "%.0f", (didFinishLaunchingStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch"

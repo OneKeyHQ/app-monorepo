@@ -35,6 +35,8 @@ import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ExpoReactHostFactory;
+import io.sentry.Sentry;
+import io.sentry.react.RNSentrySDK;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -44,8 +46,6 @@ import java.util.List;
 
 import org.json.JSONObject;
 
-import so.onekey.app.wallet.sentry.OneKeySentryCrashDiagnosticsModule;
-import so.onekey.app.wallet.sentry.OneKeySentryCrashDiagnosticsPackage;
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
@@ -110,7 +110,6 @@ public class BaseMainApplication extends Application implements ReactApplication
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
-        packages.add(new OneKeySentryCrashDiagnosticsPackage());
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
         return packages;
       }
@@ -185,7 +184,6 @@ public class BaseMainApplication extends Application implements ReactApplication
         if (mReactHost == null) {
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
-          mainPackages.add(new OneKeySentryCrashDiagnosticsPackage());
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
@@ -396,7 +394,6 @@ public class BaseMainApplication extends Application implements ReactApplication
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
-      backgroundPackages.add(new OneKeySentryCrashDiagnosticsPackage());
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
       backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
       manager.setReactPackages(backgroundPackages);
@@ -444,6 +441,30 @@ public class BaseMainApplication extends Application implements ReactApplication
     return 2;
   }
 
+  private void initializeNativeSentry() {
+    String dsn = BuildConfig.SENTRY_DSN_REACT_NATIVE;
+    if (dsn.isEmpty() || Sentry.isEnabled()) {
+      return;
+    }
+
+    try {
+      RNSentrySDK.init(this, options -> {
+        options.setDsn(dsn);
+        options.setEnabled(true);
+        options.setMaxBreadcrumbs(100);
+        options.setMaxCacheItems(60);
+        options.setAnrEnabled(true);
+        options.setAnrTimeoutIntervalMillis(5000L);
+        options.setEnableNdk(true);
+        options.setAttachScreenshot(false);
+        options.setAttachViewHierarchy(false);
+        options.setSendDefaultPii(false);
+      });
+    } catch (RuntimeException exception) {
+      Log.e("Sentry", "Failed to initialize native Sentry", exception);
+    }
+  }
+
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
@@ -457,11 +478,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       return;
     }
 
-    OneKeySentryCrashDiagnosticsModule.initializeNativeSentry(
-      this,
-      BuildConfig.SENTRY_DSN_REACT_NATIVE
-    );
-    OneKeySentryCrashDiagnosticsModule.collectHistoricalDiagnosticsAsync(this);
+    initializeNativeSentry();
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
     OneKeyLog.info(

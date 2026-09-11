@@ -7,7 +7,6 @@
 
 BOOL OneKeyIsTravelModeMaskingData(void);
 BOOL OneKeyForceDisableTravelModeForRecovery(void);
-BOOL OneKeyInitializeSentryCrashDiagnostics(NSString *dsn);
 // Forward declaration for SplitBundleLoader (C++ TurboModule header can't be imported in Swift bridging)
 @interface SplitBundleLoader : NSObject
 + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host;

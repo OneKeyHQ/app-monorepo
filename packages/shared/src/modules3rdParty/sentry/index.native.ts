@@ -7,7 +7,6 @@ import {
   withProfiler,
   wrap,
 } from '@sentry/react-native';
-import { NativeModules } from 'react-native';
 
 import appGlobals from '../../appGlobals';
 
@@ -24,23 +23,6 @@ import type { FallbackRender } from '@sentry/react';
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
-
-type IOneKeySentryCrashDiagnosticsModule = {
-  initialize: (options: {
-    appHangTimeoutInterval: number;
-    attachScreenshot: boolean;
-    attachViewHierarchy: boolean;
-    dsn: string;
-    enableAppHangTracking: boolean;
-    enableNativeCrashHandling: boolean;
-    enableNdk: boolean;
-    enableWatchdogTerminationTracking: boolean;
-    enabled: boolean;
-    maxBreadcrumbs: number;
-    maxCacheItems: number;
-    sendDefaultPii: boolean;
-  }) => boolean;
-};
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -115,24 +97,10 @@ export const initSentry = () => {
     attachViewHierarchy: false,
     sendDefaultPii: false,
   };
-  const crashDiagnosticsModule = NativeModules.OneKeySentryCrashDiagnostics as
-    | IOneKeySentryCrashDiagnosticsModule
-    | undefined;
-  let didInitializeNativeSdk = false;
-  try {
-    didInitializeNativeSdk =
-      crashDiagnosticsModule?.initialize(nativeInitializationOptions) === true;
-  } catch (error) {
-    console.error(
-      'Failed to initialize native Sentry crash diagnostics',
-      error,
-    );
-  }
-
   init({
     ...nativeInitializationOptions,
     ...nativeBasicOptions,
-    ...(didInitializeNativeSdk ? { autoInitializeNativeSdk: false } : {}),
+    autoInitializeNativeSdk: false,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
