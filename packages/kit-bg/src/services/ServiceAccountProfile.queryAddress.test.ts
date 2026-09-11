@@ -96,8 +96,14 @@ jest.mock('../dbs/simple/simpleDb', () => ({
 
 /* eslint-disable import/first, import/order */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAddressInteractionStatus,
+  EServerInteractedStatus,
+} from '@onekeyhq/shared/types/address';
 
 import ServiceAccountProfile from './ServiceAccountProfile';
+
+import type { IServerAccountBadgeResp } from '@onekeyhq/shared/types/address';
 /* eslint-enable import/first, import/order */
 
 const NETWORK_ID = 'evm--1';
@@ -126,16 +132,25 @@ async function flushMicrotasks() {
   }
 }
 
+// Node only emits `unhandledRejection` after the microtask queue drains and
+// control returns to the event loop, so assertions on it need a macrotask
+// boundary, not just microtask flushes.
+async function flushMacrotask() {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
 function makeService({
   localValid = true,
   badgesResp = {
-    interacted: 'true',
+    interacted: EServerInteractedStatus.TRUE,
     badges: [{ type: 'success', label: 'ok' }],
   },
   getAccount,
 }: {
   localValid?: boolean;
-  badgesResp?: Record<string, unknown>;
+  badgesResp?: Partial<IServerAccountBadgeResp>;
   getAccount?: jest.Mock;
 } = {}) {
   const validate = deferred<'valid' | 'invalid'>();
@@ -228,6 +243,9 @@ describe('ServiceAccountProfile.queryAddress request overlap', () => {
 
     expect(result.validStatus).toBe('valid');
     expect(result.addressBadges).toEqual([{ type: 'success', label: 'ok' }]);
+    expect(result.addressInteractionStatus).toBe(
+      EAddressInteractionStatus.INTERACTED,
+    );
     // The speculative response is reused; no second badges round trip.
     expect(
       clientGet.mock.calls.filter(([path]) => path === BADGES_PATH),
@@ -264,7 +282,8 @@ describe('ServiceAccountProfile.queryAddress request overlap', () => {
     await flushMicrotasks();
     validate.resolve('invalid');
     const result = await pending;
-    await flushMicrotasks();
+    // A rejection only becomes "unhandled" once Node reaches the event loop.
+    await flushMacrotask();
 
     expect(result.validStatus).toBe('invalid');
     expect(unhandled).toHaveLength(0);
