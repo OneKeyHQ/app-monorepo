@@ -35,6 +35,12 @@ done
 /bin/rm -f "$OUTPUT_PATH"
 /bin/mkdir -p "$(dirname "$OUTPUT_PATH")"
 if [ -z "$SENTRY_DSN_VALUE" ]; then
+  case "${CONFIGURATION:-}" in
+    *Release*)
+      echo "error: SENTRY_DSN_REACT_NATIVE is required for release builds" >&2
+      exit 1
+      ;;
+  esac
   exit 0
 fi
 

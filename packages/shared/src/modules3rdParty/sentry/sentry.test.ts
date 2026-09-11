@@ -581,6 +581,35 @@ describe('buildBasicOptions', () => {
       expect(onError.mock.calls[0][1].frames[0].vars.secret).toBe('****');
     });
 
+    test('should sanitize stacktrace variables without an exception message', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              stacktrace: {
+                frames: [
+                  {
+                    vars: {
+                      secret: TEST_ETH_PRIVATE_KEY,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].stacktrace.frames[0].vars.secret).toBe(
+        '****',
+      );
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     test('should sanitize credentials, addresses, URLs, emails, and short mnemonic sequences', () => {
       const onError = jest.fn();
       const options = buildBasicOptions({ onError });

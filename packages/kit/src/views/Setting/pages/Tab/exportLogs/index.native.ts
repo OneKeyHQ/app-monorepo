@@ -51,19 +51,15 @@ export const exportLogs = async (filename: string) => {
   await prepareLoggerExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
-  try {
-    const Share = await getShareModule();
-    if (!Share) return;
-    await Share.shareAsync(logFilePath, {
-      dialogTitle: 'OneKey Logs',
-      mimeType: 'application/zip',
-      UTI: 'public.zip-archive',
-    }).catch(() => {
-      /** ignore */
-    });
-  } finally {
-    await utils.removeLogFilePath(logFilePath);
-  }
+  const Share = await getShareModule();
+  if (!Share) return;
+  await Share.shareAsync(logFilePath, {
+    dialogTitle: 'OneKey Logs',
+    mimeType: 'application/zip',
+    UTI: 'public.zip-archive',
+  }).catch(() => {
+    /** ignore */
+  });
 };
 
 export const collectLogDigest = async (
@@ -131,13 +127,11 @@ export const collectLogDigest = async (
   };
 };
 
-export const disposeLogDigest = async (digest: ILogDigest) => {
-  if (digest.bundle?.type === 'file') {
-    await utils.removeLogFilePath(digest.bundle.filePath);
-  }
-};
+// Native archives stay available for deferred readers and are removed by the
+// next launch's background idle cleanup.
+export const disposeLogDigest = async (_digest: ILogDigest) => {};
 
-const uploadLogBundleInternal = async ({
+export const uploadLogBundle = async ({
   uploadToken,
   digest,
 }: {
@@ -334,15 +328,4 @@ const uploadLogBundleInternal = async ({
     digest,
     result: payload.data as ILogUploadResponse,
   };
-};
-
-export const uploadLogBundle = async (args: {
-  uploadToken: string;
-  digest: ILogDigest;
-}): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
-  try {
-    return await uploadLogBundleInternal(args);
-  } finally {
-    await disposeLogDigest(args.digest);
-  }
 };

@@ -291,10 +291,10 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
       const exceptionValue = event.exception.values[index];
       const { type: originalType, value: originalValue } = exceptionValue;
       try {
+        sanitizeStacktrace(exceptionValue.stacktrace);
         // Sanitize error message
         if (exceptionValue.value) {
           const newErrorText = sanitizeText(exceptionValue.value);
-          sanitizeStacktrace(exceptionValue.stacktrace);
           // Save error message locally
           onError(newErrorText, exceptionValue.stacktrace);
           exceptionValue.value = newErrorText;

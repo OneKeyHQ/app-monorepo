@@ -147,6 +147,8 @@ expoEnvConfig.each { key, value ->
 }
 def enableNativeBackgroundThread =
     defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+def sentryDsnReactNative =
+    defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')
 
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
@@ -172,7 +174,7 @@ android {
         buildConfigField(
             "String",
             "SENTRY_DSN_REACT_NATIVE",
-            groovy.json.JsonOutput.toJson(defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')),
+            groovy.json.JsonOutput.toJson(sentryDsnReactNative),
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
@@ -296,6 +298,17 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
 }
 
 android.applicationVariants.configureEach { variant ->
+    if (variant.buildType?.name?.equalsIgnoreCase("release")) {
+        variant.preBuildProvider.configure {
+            doFirst {
+                if (sentryDsnReactNative.isEmpty()) {
+                    throw new GradleException(
+                        "SENTRY_DSN_REACT_NATIVE is required for release builds",
+                    )
+                }
+            }
+        }
+    }
     if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
         def targetName = capitalizeVariantName(variant.name)
         tasks.named("merge${targetName}Assets").configure {

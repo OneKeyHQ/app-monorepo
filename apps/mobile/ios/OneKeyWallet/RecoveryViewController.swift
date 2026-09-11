@@ -409,9 +409,6 @@ final class RecoveryViewController: UIViewController {
       let zipURL = URL(fileURLWithPath: zipPath)
       try fm.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: zipPath)
       let activityVC = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
-      activityVC.completionWithItemsHandler = { _, _, _, _ in
-        try? FileManager.default.removeItem(atPath: zipPath)
-      }
       activityVC.popoverPresentationController?.sourceView = exportLogsButton
       activityVC.popoverPresentationController?.sourceRect = exportLogsButton.bounds
       present(activityVC, animated: true)

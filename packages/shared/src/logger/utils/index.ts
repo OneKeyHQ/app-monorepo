@@ -59,6 +59,7 @@ const getLogFilePath = async (filename: string) => {
 };
 
 const removeLogFilePath = async () => {};
+const cleanupLogArchives = async (_createdBefore: number) => {};
 
 const getDeviceInfo = () =>
   [
@@ -74,6 +75,7 @@ const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
   removeLogFilePath,
+  cleanupLogArchives,
   consoleFunc,
   flushPendingRepeat,
 };

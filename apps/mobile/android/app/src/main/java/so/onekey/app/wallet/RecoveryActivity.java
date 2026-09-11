@@ -28,9 +28,7 @@ import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
 public class RecoveryActivity extends AppCompatActivity {
 
     private static final String EXPORT_ARCHIVE_NAME = "onekey_logs.zip";
-    private static final String EXPORT_CLEANUP_STATE = "export_cleanup_pending";
     private final ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor();
-    private boolean exportArchivePendingCleanup;
 
     // i18n locale strings
     private String sTitle, sSubtitle, sExportLogs, sTryAgain, sAutoRepair;
@@ -136,29 +134,9 @@ public class RecoveryActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        exportArchivePendingCleanup = savedInstanceState != null &&
-            savedInstanceState.getBoolean(EXPORT_CLEANUP_STATE, false);
-        if (savedInstanceState == null) {
-            deleteExportArchive();
-        }
         setContentView(R.layout.activity_recovery);
         resolveLocale();
         setupUI();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (exportArchivePendingCleanup) {
-            exportArchivePendingCleanup = false;
-            deleteExportArchive();
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putBoolean(EXPORT_CLEANUP_STATE, exportArchivePendingCleanup);
-        super.onSaveInstanceState(outState);
     }
 
     private void setupUI() {
@@ -204,24 +182,14 @@ public class RecoveryActivity extends AppCompatActivity {
             shareIntent.setType("application/zip");
             shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
             shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            exportArchivePendingCleanup = true;
             startActivity(Intent.createChooser(shareIntent, sExportLogs));
         } catch (Exception e) {
-            exportArchivePendingCleanup = false;
-            deleteExportArchive();
             showError(sExportError + ": " + e.getMessage());
         }
     }
 
     private File exportArchiveFile() {
         return new File(getCacheDir(), EXPORT_ARCHIVE_NAME);
-    }
-
-    private void deleteExportArchive() {
-        File archive = exportArchiveFile();
-        if (archive.isFile()) {
-            archive.delete();
-        }
     }
 
     private File findNativeLoggerDir() {
