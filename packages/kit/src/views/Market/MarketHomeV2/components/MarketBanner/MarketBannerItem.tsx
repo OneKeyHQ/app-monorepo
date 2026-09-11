@@ -119,7 +119,7 @@ function LegacyMarketBannerItem({
       onPress={handlePress}
       transition="quick"
       animateOnly={ANIMATE_ONLY_BORDER_COLOR}
-      borderWidth={StyleSheet.hairlineWidth}
+      borderWidth={StyleSheet?.hairlineWidth ?? 1}
       borderColor="$neutral3"
       hoverStyle={{ borderColor: '$neutral4' }}
       pressStyle={{ borderColor: '$neutral5' }}
