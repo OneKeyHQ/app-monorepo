@@ -46,6 +46,13 @@ describe('initSentry', () => {
     expect(initMock.mock.calls[0][0].tracesSampleRate).toBeUndefined();
     expect(initMock.mock.calls[0][0].profilesSampleRate).toBeUndefined();
     expect(initMock.mock.calls[0][0].autoInitializeNativeSdk).toBe(false);
+    expect(initMock.mock.calls[0][0].enableNativeCrashHandling).toBeUndefined();
+    expect(initMock.mock.calls[0][0].enableNdk).toBeUndefined();
+    expect(initMock.mock.calls[0][0].enableAppHangTracking).toBeUndefined();
+    expect(initMock.mock.calls[0][0].maxCacheItems).toBeUndefined();
+    expect(initMock.mock.calls[0][0].attachScreenshot).toBe(false);
+    expect(initMock.mock.calls[0][0].attachViewHierarchy).toBe(false);
+    expect(initMock.mock.calls[0][0].sendDefaultPii).toBe(false);
   });
 
   test('sanitizes sensitive data with the React Native v10 event callback', () => {

@@ -15,6 +15,11 @@ def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == '
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
 def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
 def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
+def easBuildEnv = System.getenv('EAS_BUILD')
+def isEasAndroidBuild =
+    System.getenv('PLATFORM') == 'android' ||
+    (easBuildEnv != null && !easBuildEnv.isEmpty()) ||
+    System.getenv('EAS_BUILD_RUNNER') == 'eas-build'
 def shouldAutoUploadSentryNativeSymbols =
     System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true' &&
     System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
@@ -323,9 +328,9 @@ android.applicationVariants.configureEach { variant ->
     if (variant.buildType?.name?.equalsIgnoreCase("release")) {
         variant.preBuildProvider.configure {
             doFirst {
-                if (sentryDsnReactNative.isEmpty()) {
+                if (isEasAndroidBuild && sentryDsnReactNative.isEmpty()) {
                     throw new GradleException(
-                        "SENTRY_DSN_REACT_NATIVE is required for release builds",
+                        "SENTRY_DSN_REACT_NATIVE is required for EAS release builds",
                     )
                 }
             }

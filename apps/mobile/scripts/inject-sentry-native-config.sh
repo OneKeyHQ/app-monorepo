@@ -39,8 +39,10 @@ done
 if [ -z "$SENTRY_DSN_VALUE" ]; then
   case "${CONFIGURATION:-}" in
     *Release*)
-      echo "error: SENTRY_DSN_REACT_NATIVE is required for release builds" >&2
-      exit 1
+      if [ "${PLATFORM:-}" = "ios" ] || [ -n "${EAS_BUILD:-}" ] || [ "${EAS_BUILD_RUNNER:-}" = "eas-build" ]; then
+        echo "error: SENTRY_DSN_REACT_NATIVE is required for EAS release builds" >&2
+        exit 1
+      fi
       ;;
   esac
   exit 0

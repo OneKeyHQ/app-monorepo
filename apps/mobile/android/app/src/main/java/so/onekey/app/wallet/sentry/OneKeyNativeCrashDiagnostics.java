@@ -43,12 +43,12 @@ public final class OneKeyNativeCrashDiagnostics {
   private static final Object MNEMONIC_WORDS_LOCK = new Object();
   private static final String SENSITIVE_LABELS =
     "password|passwd|passphrase|secret|token|auth(?:entication)?|authorization|cookie|session(?:id)?|" +
-    "api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|" +
+    "api[-_]?key|private[-_]?key|pin[-_]?hash|backend[-_]?share|mnemonic|seed(?:[-_ ]?phrase)?|" +
     "recovery(?:[-_ ]?phrase)?|credential|email|username|phone|full[-_ ]?name|" +
     "device[-_ ]?id|installation[-_ ]?id|user[-_ ]?id|ip[-_ ]?address|client[-_ ]?ip";
 
   private static final Pattern SENSITIVE_KEY_PATTERN = Pattern.compile(
-    "(?i).*(?:password|passwd|passphrase|secret|token|auth|authentication|authorization|cookie|session|sessionid|apikey|privatekey|mnemonic|seed|recoveryphrase|credential|bearer|email|username|phone|fullname|deviceid|installationid|userid|ipaddress|clientip).*"
+    "(?i).*(?:password|passwd|passphrase|secret|token|auth|authentication|authorization|cookie|session|sessionid|apikey|privatekey|pinhash|backendshare|mnemonic|seed|recoveryphrase|credential|bearer|email|username|phone|fullname|deviceid|installationid|userid|ipaddress|clientip).*"
   );
   private static final Pattern SENSITIVE_DOUBLE_QUOTED_VALUE_PATTERN = Pattern.compile(
     "(?i)([\"']?(?:" + SENSITIVE_LABELS + ")[\"']?\\s*[:=]\\s*)\"[^\"]*\""
@@ -75,12 +75,14 @@ public final class OneKeyNativeCrashDiagnostics {
     "(?i)(\\b(?:https?|wss?)://)(?:[^@\\s/]+@)?([^\\s/?#]+)([^\\s?#]*)[^\\s]*"
   );
   private static final Pattern ASCII_WORD_PATTERN = Pattern.compile("[A-Za-z]+");
-  private static final Pattern MNEMONIC_SEPARATOR_PATTERN = Pattern.compile("[\\s,]*");
+  private static final Pattern MNEMONIC_SEPARATOR_PATTERN = Pattern.compile(
+    "[\\s,\\[\\]\\\"'\\\\]*"
+  );
 
   private static final List<Pattern> SENSITIVE_PATTERNS = Arrays.asList(
     Pattern.compile("(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"),
     Pattern.compile("\\b0x[0-9a-fA-F]{40,64}\\b"),
-    Pattern.compile("\\b[0-9a-fA-F]{64}\\b"),
+    Pattern.compile("\\b(?:[0-9a-fA-F]{64}|[0-9a-fA-F]{128})\\b"),
     Pattern.compile("\\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b"),
     Pattern.compile("\\b[xyzXYZ](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\\b"),
     Pattern.compile("(?i)\\b(?:[a-z0-9]{1,20}1)[a-z0-9]{20,90}\\b"),

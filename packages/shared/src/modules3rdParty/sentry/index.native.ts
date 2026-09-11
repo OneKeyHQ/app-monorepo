@@ -83,36 +83,18 @@ export const initSentry = () => {
     maxBreadcrumbs: basicOptions.maxBreadcrumbs,
     beforeSend: nativeBeforeSend,
   };
-  const nativeInitializationOptions = {
+  init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    enabled: nativeBasicOptions.enabled,
-    maxBreadcrumbs: nativeBasicOptions.maxBreadcrumbs,
-    maxCacheItems: 60,
-    enableAppHangTracking: true,
-    appHangTimeoutInterval: 5,
-    enableNativeCrashHandling: true,
-    enableNdk: true,
-    enableWatchdogTerminationTracking: false,
+    ...nativeBasicOptions,
     attachScreenshot: false,
     attachViewHierarchy: false,
     sendDefaultPii: false,
-  };
-  init({
-    ...nativeInitializationOptions,
-    ...nativeBasicOptions,
     autoInitializeNativeSdk: false,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
     integrations: [],
     enableAutoPerformanceTracing: false,
-    // Disable Hermes profiling on React Native. With multiple Hermes runtimes
-    // in the iOS release smoke test, native stopProfiling can throw on a
-    // background queue and crash during TurboModule error conversion.
-    // Disable options that may include sensitive memory context or visual data.
-    // enableNativeCrashHandling and enableNdk are kept enabled because they only
-    // collect stack traces and thread stack memory (not Hermes JS
-    // heap), which is safe for privacy and essential for diagnosing native crashes.
   });
 };
 

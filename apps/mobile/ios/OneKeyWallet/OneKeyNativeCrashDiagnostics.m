@@ -6,6 +6,20 @@
 static NSUInteger const OneKeyCrashDiagnosticsMaxReportCount = 5;
 static NSTimeInterval const OneKeyCrashDiagnosticsMaxReportAge = 7 * 24 * 60 * 60;
 
+static dispatch_queue_t OneKeyCrashDiagnosticsQueue(void)
+{
+  static dispatch_queue_t queue;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    dispatch_queue_attr_t attributes = dispatch_queue_attr_make_with_qos_class(
+        DISPATCH_QUEUE_SERIAL,
+        QOS_CLASS_UTILITY,
+        0);
+    queue = dispatch_queue_create("so.onekey.crash-diagnostics", attributes);
+  });
+  return queue;
+}
+
 static NSSet<NSString *> *OneKeyMnemonicWords(void)
 {
   static NSSet<NSString *> *words;
@@ -43,7 +57,7 @@ static NSString *OneKeyRedactMnemonicSequences(NSString *value)
                                                             options:0
                                                               error:nil];
     NSCharacterSet *allowedSeparators =
-        [NSCharacterSet characterSetWithCharactersInString:@" \t\r\n,"];
+        [NSCharacterSet characterSetWithCharactersInString:@" \t\r\n,[]\"'\\"];
     invalidSeparatorCharacters = allowedSeparators.invertedSet;
   });
 
@@ -107,7 +121,7 @@ static BOOL OneKeyIsSensitiveKey(NSString *key)
   NSArray<NSString *> *markers = @[
     @"password", @"passwd", @"passphrase", @"secret", @"token",
     @"auth", @"authentication", @"authorization", @"cookie", @"session", @"sessionid",
-    @"apikey", @"privatekey",
+    @"apikey", @"privatekey", @"pinhash", @"backendshare",
     @"mnemonic", @"seed", @"recoveryphrase", @"credential", @"bearer",
     @"email", @"username", @"phone", @"fullname", @"deviceid",
     @"installationid", @"userid", @"ipaddress", @"clientip",
@@ -137,7 +151,7 @@ static NSString *OneKeySanitizeCrashString(NSString *value)
   dispatch_once(&sensitiveValueOnceToken, ^{
     NSString *sensitiveLabels =
         @"password|passwd|passphrase|secret|token|auth(?:entication)?|authorization|cookie|session(?:id)?|"
-         "api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|"
+         "api[-_]?key|private[-_]?key|pin[-_]?hash|backend[-_]?share|mnemonic|seed(?:[-_ ]?phrase)?|"
          "recovery(?:[-_ ]?phrase)?|credential|email|username|phone|full[-_ ]?name|"
          "device[-_ ]?id|installation[-_ ]?id|user[-_ ]?id|ip[-_ ]?address|client[-_ ]?ip";
     NSArray<NSString *> *rawPatterns = @[
@@ -204,7 +218,7 @@ static NSString *OneKeySanitizeCrashString(NSString *value)
     NSArray<NSString *> *rawPatterns = @[
       @"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b",
       @"\\b0x[0-9a-fA-F]{40,64}\\b",
-      @"\\b[0-9a-fA-F]{64}\\b",
+      @"\\b(?:[0-9a-fA-F]{64}|[0-9a-fA-F]{128})\\b",
       @"\\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b",
       @"\\b[xyzXYZ](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\\b",
       @"(?i)\\b(?:[a-z0-9]{1,20}1)[a-z0-9]{20,90}\\b",
@@ -459,7 +473,7 @@ static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
 
 static void OneKeyScheduleCrashReportCleanup(void)
 {
-  dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+  dispatch_async(OneKeyCrashDiagnosticsQueue(), ^{
     @synchronized(NSFileManager.defaultManager) {
       NSString *cachesDirectory = NSSearchPathForDirectoriesInDomains(
           NSCachesDirectory,
@@ -509,23 +523,19 @@ static BOOL OneKeyWriteCrashDiagnosticsData(
   }
 }
 
-static void OneKeyPersistNativeSentryCrashEvent(SentryEvent *event)
+static void OneKeyPersistNativeSentryCrashSnapshot(
+    NSData *eventSnapshot,
+    NSString *eventId,
+    NSDate *eventDate)
 {
-  if (event.level != kSentryLevelFatal) {
+  if (eventSnapshot.length == 0 || eventId.length == 0) {
     return;
   }
-  for (SentryException *exception in event.exceptions) {
-    if (exception.value != nil &&
-        [exception.value rangeOfString:@"ExceptionsManager.reportException"].location != NSNotFound) {
-      return;
-    }
-  }
   @try {
-    NSDictionary<NSString *, id> *serializedEvent = [event serialize];
-    NSString *eventPlatform = [serializedEvent[@"platform"] isKindOfClass:NSString.class]
-        ? serializedEvent[@"platform"]
-        : @"";
-    if ([eventPlatform caseInsensitiveCompare:@"javascript"] == NSOrderedSame) {
+    id serializedEvent = [NSJSONSerialization JSONObjectWithData:eventSnapshot
+                                                         options:0
+                                                           error:nil];
+    if (![serializedEvent isKindOfClass:NSDictionary.class]) {
       return;
     }
     id sanitizedEvent = OneKeySanitizeJSONValue(serializedEvent, nil);
@@ -542,16 +552,49 @@ static void OneKeyPersistNativeSentryCrashEvent(SentryEvent *event)
     NSData *data = [NSJSONSerialization dataWithJSONObject:report
                                                    options:NSJSONWritingPrettyPrinted
                                                      error:nil];
-    NSString *eventId = event.eventId.sentryIdString;
-    if (eventId.length == 0) {
-      eventId = [NSString stringWithFormat:@"%.0f", NSDate.date.timeIntervalSince1970 * 1000];
-    }
     OneKeyWriteCrashDiagnosticsData(
         data,
         [NSString stringWithFormat:@"sentry-native-%@.json", eventId],
-        event.timestamp ?: NSDate.date);
+        eventDate);
   } @catch (NSException *exception) {
     NSLog(@"[OneKeyCrashDiagnostics] Failed to persist native crash diagnostics");
+  }
+}
+
+static void OneKeyScheduleNativeSentryCrashEvent(SentryEvent *event)
+{
+  NSString *eventPlatform = event.platform;
+  if (event.level != kSentryLevelFatal ||
+      (eventPlatform != nil &&
+       [eventPlatform caseInsensitiveCompare:@"javascript"] == NSOrderedSame)) {
+    return;
+  }
+  for (SentryException *exception in event.exceptions) {
+    if (exception.value != nil &&
+        [exception.value rangeOfString:@"ExceptionsManager.reportException"].location != NSNotFound) {
+      return;
+    }
+  }
+  @try {
+    NSDictionary<NSString *, id> *serializedEvent = [event serialize];
+    NSData *eventSnapshot = [NSJSONSerialization dataWithJSONObject:serializedEvent
+                                                            options:0
+                                                              error:nil];
+    if (eventSnapshot.length == 0) {
+      return;
+    }
+    NSString *eventId = [event.eventId.sentryIdString copy];
+    if (eventId.length == 0) {
+      eventId = [NSString stringWithFormat:@"%.0f", NSDate.date.timeIntervalSince1970 * 1000];
+    }
+    NSDate *eventDate = [event.timestamp copy] ?: NSDate.date;
+    dispatch_async(OneKeyCrashDiagnosticsQueue(), ^{
+      @autoreleasepool {
+        OneKeyPersistNativeSentryCrashSnapshot(eventSnapshot, eventId, eventDate);
+      }
+    });
+  } @catch (NSException *exception) {
+    NSLog(@"[OneKeyCrashDiagnostics] Failed to snapshot native crash diagnostics");
   }
 }
 
@@ -568,7 +611,7 @@ void OneKeyConfigureNativeSentryCrashDiagnostics(id optionsValue)
       SentryEvent *preparedEvent =
           existingBeforeSend == nil ? event : existingBeforeSend(event);
       if (preparedEvent != nil) {
-        OneKeyPersistNativeSentryCrashEvent(preparedEvent);
+        OneKeyScheduleNativeSentryCrashEvent(preparedEvent);
       }
       return preparedEvent;
     };
