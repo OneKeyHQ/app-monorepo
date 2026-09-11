@@ -22,6 +22,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -580,6 +581,24 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   );
 }
 
+// A link opened from inside one of the intro dialogs. On the phone the page
+// it opens lands on top of the sheet, which is still sitting there when the
+// user comes back (OK-62885), so the sheet goes first. On desktop the link
+// opens a browser tab and the dialog stays where it was. Outside a dialog the
+// close is a no-op.
+function useOpenLinkFromDialog() {
+  const dialog = useDialogInstance();
+  return useCallback(
+    (url: string) => {
+      if (platformEnv.isNative) {
+        void dialog.close();
+      }
+      openUrlExternal(url);
+    },
+    [dialog],
+  );
+}
+
 function SocialLinkButton({ link }: { link: IEarnProtocolIntroSocialLink }) {
   const intl = useIntl();
   const title = getLinkTitle({ link, intl });
@@ -933,11 +952,12 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
 
 function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
   const url = getLinkUrl(link);
+  const openLink = useOpenLinkFromDialog();
   const handlePress = useCallback(() => {
     if (url) {
-      openUrlExternal(url);
+      openLink(url);
     }
-  }, [url]);
+  }, [openLink, url]);
 
   if (!url || link.disabled) {
     return null;
@@ -1377,11 +1397,12 @@ function AuditAccordionItem({
     getText(audit.button?.title) ||
     intl.formatMessage({ id: ETranslations.global_view });
   const hasContent = hasScopeText || shouldShowButton;
+  const openLink = useOpenLinkFromDialog();
   const handleOpen = useCallback(() => {
     if (url && !isButtonDisabled) {
-      openUrlExternal(url);
+      openLink(url);
     }
-  }, [isButtonDisabled, url]);
+  }, [isButtonDisabled, openLink, url]);
 
   return (
     <Accordion.Item value={String(index)}>
