@@ -622,10 +622,12 @@ class ServiceHardwareUI extends ServiceBase {
    * bootloader hand-off during onboarding, OK-62105): the stage leaves
    * first, whether or not a flow holds a burst — a stage standing behind
    * its own touch wall would otherwise cover the dialog until that hold
-   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence). */
+   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence).
+   * Returns whether a stage actually left, so the caller can let the exit
+   * play before its dialog rises. */
   @backgroundMethod()
   async deviceStageYieldToDialog() {
-    await this.deviceStageBurst.silence();
+    return this.deviceStageBurst.silence();
   }
 
   /**
