@@ -82,8 +82,7 @@ function EModeCategoryRow({
         </SizableText>
       </YStack>
       {isSelected ? (
-        // Decorative: the row itself reports the pick through aria-checked, so
-        // labelling the mark too would announce the same fact twice.
+        // The row already announces selection; hide the decorative checkmark.
         <Icon
           flexShrink={0}
           name="CheckLargeOutline"
@@ -137,10 +136,7 @@ export default function BorrowEModeCategorySelectModal() {
     [eModeStatus, intl],
   );
 
-  // Both the checkmark and the Current badge resolve against the same live
-  // status. Taking the caller's already-collapsed selection would pin the
-  // checkmark to the category that was current when this opened while the
-  // badge moved on without it.
+  // Without an explicit pick, keep the checkmark on the live current category.
   const currentEModeId = eModeStatus?.eModeId ?? 0;
   const resolvedSelection = selectedEModeId ?? currentEModeId;
 
@@ -161,8 +157,6 @@ export default function BorrowEModeCategorySelectModal() {
     <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body>
-        {/* The rows announce as radios, so they need the group that says how
-            many there are and which one is picked. */}
         <YStack
           py="$2"
           accessibilityRole="radiogroup"

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -656,12 +657,7 @@ function BorrowEModeNeedActionView() {
   // history still reports the original transaction as pending.
   const pendingGuardBlocksAction = pendingGuardActive && !canRetryCheck;
 
-  // The footer is disabled for exactly as long as the active repay is
-  // underfunded, so leaving the remedy inline on the step left the page with no
-  // live control at the one moment something has to happen. Hand the footer to
-  // the swap and state the blocker beside it, disabled — the shape Send uses
-  // for an insufficient balance. While a swap is confirming there is nothing to
-  // press, so the plain footer comes back.
+  // Offer Swap beside the blocked action while the active repay needs funds.
   const activeSwapToken = activeUnderfundedRepay
     ? resolveStepSwapToken(activeUnderfundedRepay)
     : undefined;
@@ -780,9 +776,6 @@ function BorrowEModeNeedActionView() {
         ) : null}
       </Page.Body>
       {showFundingFooter && activeSwapToken ? (
-        // The blocked step's own label gives way to the blocker itself: the
-        // checklist above already names the step, so repeating it on a dead
-        // button spends the row's other half saying nothing new.
         <Page.Footer
           confirmButton={
             <XStack gap="$2.5" flex={1}>
@@ -801,7 +794,7 @@ function BorrowEModeNeedActionView() {
                 $md={
                   {
                     size: 'large',
-                  } as any
+                  } as IButtonProps
                 }
               >
                 {intl.formatMessage({

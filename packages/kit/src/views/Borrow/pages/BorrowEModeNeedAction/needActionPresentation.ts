@@ -111,12 +111,7 @@ export function getAuxiliaryLineKind({
   return null;
 }
 
-// The wallet-balance-and-shortfall message joins two whole phrases with a
-// mid-dot, and every locale keeps that exact separator. Split it so each phrase
-// gets its own line: run together, the two figures read as peers when they are
-// really "what you hold" and "what you still need". A translation that ever
-// drops the separator falls back to the single joined line — never to a lost
-// number.
+// Preserve the whole translation when it cannot be split into two lines.
 const BALANCE_SHORTFALL_SEPARATOR = ' \u00b7 ';
 
 export function splitBalanceShortfallLines(message: string): string[] {
@@ -124,12 +119,7 @@ export function splitBalanceShortfallLines(message: string): string[] {
   return parts.length === 2 ? parts : [message];
 }
 
-// Whether the footer hands itself to the remedy. The footer's confirm is
-// disabled for exactly as long as the active repay is underfunded, so without
-// this the page has no live control at the one moment something has to happen.
-// Every other blocking state keeps the plain footer: a retry has its own label,
-// a confirming swap has nothing left to press, and a busy or guarded flow
-// must not offer a second detour mid-signature.
+// Offer funding only for an idle, underfunded repay with a swap target.
 export function shouldShowFundingFooter({
   canRetryCheck,
   funding,

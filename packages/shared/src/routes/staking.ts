@@ -126,23 +126,14 @@ export type IModalStakingParamList = {
     provider: string;
     marketAddress: string;
   };
-  // Scope, not a snapshot. Route params are captured once at push time and
-  // never refresh, so handing this screen a resolved IBorrowEModeStatus froze
-  // it against a page that actively polls: a setEMode confirming while the
-  // picker is open left it comparing against a stale current id. It reads the status
-  // through the same cache key instead, so there is still no skeleton flash.
+  // Pass the scope so the picker can read live status while it is open.
   [EModalStakingRoutes.BorrowEModeCategorySelect]: {
     networkId: string;
     provider: string;
     marketAddress: string;
     accountId: string;
     selectedEModeId: number | null;
-    // The picker reports the current id it actually showed the user alongside
-    // the pick. Both screens now hold independently fetched copies of the same
-    // status, and only this screen stays focused while it is open, so the
-    // pusher's copy can be the older of the two — deciding "did they pick the
-    // category they are already in" against it would answer for a screen the
-    // user was not looking at.
+    // The focused picker may have fresher status than the switch page.
     onSelect: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {

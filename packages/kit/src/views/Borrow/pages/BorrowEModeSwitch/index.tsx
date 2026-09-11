@@ -166,11 +166,8 @@ function BorrowEModeSwitchView() {
     isFocused,
     previousIsFocused,
   });
-  // Picking a category pushes and pops a screen, so this page blurs and
-  // refocuses on every pick — and the pick has already run its own check for
-  // that id. Without this the revalidation below fires a second identical
-  // request and flashes the footer's pending guard. Returning from the
-  // background still revalidates, which is what this exists for.
+  // A pick runs its own check; skip the duplicate revalidation on refocus.
+  // Returning from the background must still revalidate.
   const pickRanOwnCheckRef = useRef(false);
   useEffect(() => {
     if (!focusActivationPending) {
@@ -211,11 +208,8 @@ function BorrowEModeSwitchView() {
     }
   }, [currentEModeId, requiresRevalidation, runCheck, selection.userSelection]);
 
-  // The category picker is a pushed route, and route params are captured once:
-  // whatever function reference it receives is the one it keeps. Keep this
-  // reference stable and route the call through a ref, so a pick made after a
-  // pending setEMode confirms still compares against the current category
-  // instead of the one that was current when the picker opened.
+  // Route params retain the callback passed at push time. Forward through a
+  // ref so a later pick uses the latest category and check handlers.
   const selectCategoryRef = useRef<
     (eModeId: number, observedCurrentEModeId: number | null) => void
   >(() => {});

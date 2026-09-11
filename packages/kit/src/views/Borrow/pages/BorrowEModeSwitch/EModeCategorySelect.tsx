@@ -20,8 +20,7 @@ export function EModeCategorySelect({
   onChange,
 }: {
   rows: IEModeRow[];
-  // The picker reads the status from the hook, not from a snapshot, so
-  // it needs the scope that identifies it. See the route params for why.
+  // Identifies the live status shared with the picker.
   scope: {
     networkId: string;
     provider: string;
@@ -30,9 +29,7 @@ export function EModeCategorySelect({
   };
   currentEModeId: number;
   value: number | null;
-  // The raw pick, before it collapses onto the current category. The picker
-  // resolves the fallback against its own live status; handing it the already
-  // collapsed value would freeze the checkmark while the Current badge moves.
+  // Null lets the picker follow its current category as live status changes.
   userSelection: number | null;
   disabled?: boolean;
   onChange: (eModeId: number, observedCurrentEModeId: number | null) => void;
@@ -57,10 +54,7 @@ export function EModeCategorySelect({
     });
   }, [currentEModeId, intl, selectedRow]);
 
-  // A pushed modal page instead of a Select popover: the picker rows carry two
-  // token groups each, and Select hard-codes its desktop panel to $56 (224px).
-  // Inside a modal stack this is `push`, not `pushModal` — the screen slides in
-  // as a full-size page in the same modal card.
+  // Push within the existing modal so returning preserves the switch page.
   const openCategoryPicker = useCallback(() => {
     if (disabled) {
       return;
