@@ -1,7 +1,10 @@
 import {
+  SETTINGS_ROW_PADDING_X_DEFAULT,
+  SETTINGS_ROW_PADDING_X_MOBILE,
   isVisibleSubSettingsItem,
   resolveSettingsHeaderBackgroundTokenKey,
   resolveSettingsPageBackgroundTokenKey,
+  resolveSettingsRowPaddingX,
   resolveSettingsSectionPresentation,
   resolveSettingsSectionSurface,
 } from './settingsSurface';
@@ -190,4 +193,13 @@ describe('resolveSettingsSectionSurface', () => {
       expect(resolveSettingsSectionSurface(presentation)).toEqual(expected);
     },
   );
+});
+
+describe('resolveSettingsRowPaddingX', () => {
+  it('keeps the phone row token at 16px and other layouts at 20px', () => {
+    expect(SETTINGS_ROW_PADDING_X_MOBILE).toBe('$4');
+    expect(SETTINGS_ROW_PADDING_X_DEFAULT).toBe('$5');
+    expect(resolveSettingsRowPaddingX({ isMobileLayout: true })).toBe('$4');
+    expect(resolveSettingsRowPaddingX({ isMobileLayout: false })).toBe('$5');
+  });
 });

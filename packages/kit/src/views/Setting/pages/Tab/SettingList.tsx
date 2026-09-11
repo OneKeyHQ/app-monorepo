@@ -53,7 +53,10 @@ import {
   isVisibleSettingsCategory,
   resolveSettingsRootInsets,
 } from './settingsRootLayout';
-import { SETTINGS_PAGE_CONTENT_PADDING_X } from './settingsSurface';
+import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
+  SETTINGS_ROW_PADDING_X_MOBILE,
+} from './settingsSurface';
 import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 import { useSettingsPageStyle } from './useSettingsPageStyle';
@@ -134,7 +137,11 @@ function SettingCategoryListItem({
       iconProps={iconProps}
       title={title}
       subtitle={config.subtitle}
-      px={SETTINGS_PAGE_CONTENT_PADDING_X}
+      px={
+        useMobilePresentation
+          ? SETTINGS_ROW_PADDING_X_MOBILE
+          : SETTINGS_PAGE_CONTENT_PADDING_X
+      }
       titleProps={titleProps}
       onPress={handlePress}
     />

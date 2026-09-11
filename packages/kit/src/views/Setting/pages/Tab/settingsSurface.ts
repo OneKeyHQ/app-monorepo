@@ -16,6 +16,21 @@ export const SETTINGS_PAGE_BODY_INSET_X = platformEnv.isNative
   ? undefined
   : '$1';
 
+// Phone inset-grouped rows follow iOS UITableViewCell layoutMargins (16pt).
+// Desktop, web, extension, and iPad keep the existing 20px row inset.
+export const SETTINGS_ROW_PADDING_X_MOBILE = '$4' as const;
+export const SETTINGS_ROW_PADDING_X_DEFAULT = '$5' as const;
+
+export function resolveSettingsRowPaddingX({
+  isMobileLayout,
+}: {
+  isMobileLayout: boolean;
+}): '$4' | '$5' {
+  return isMobileLayout
+    ? SETTINGS_ROW_PADDING_X_MOBILE
+    : SETTINGS_ROW_PADDING_X_DEFAULT;
+}
+
 export function resolveSettingsSectionPresentation({
   isMobileLayout,
   isNative,
