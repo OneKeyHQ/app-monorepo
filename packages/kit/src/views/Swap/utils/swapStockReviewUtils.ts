@@ -5,6 +5,31 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { getSwapTokenDisplayFiatValue } from './swapDisplayFiatValue';
 
+export function getValidStockTokenToAssetRatio(value?: string) {
+  const ratio = value?.trim();
+  const ratioBN = new BigNumber(ratio ?? '');
+  return ratioBN.isFinite() && ratioBN.gt(0) ? ratio : undefined;
+}
+
+export function resolveStockTokenToAssetRatio({
+  selectedVariantRatio,
+  tokenDetailRatio,
+  hasSelectedVariant,
+  selectedVariantMatchesTokenDetail,
+}: {
+  selectedVariantRatio?: string;
+  tokenDetailRatio?: string;
+  hasSelectedVariant: boolean;
+  selectedVariantMatchesTokenDetail: boolean;
+}) {
+  return (
+    getValidStockTokenToAssetRatio(selectedVariantRatio) ??
+    (!hasSelectedVariant || selectedVariantMatchesTokenDetail
+      ? getValidStockTokenToAssetRatio(tokenDetailRatio)
+      : undefined)
+  );
+}
+
 export function calculateSwapStockEstimatedShares({
   stockTokenAmount,
   tokenToAssetRatio,
@@ -13,17 +38,12 @@ export function calculateSwapStockEstimatedShares({
   tokenToAssetRatio?: string;
 }) {
   const amountBN = new BigNumber(stockTokenAmount ?? '');
-  const ratioBN = new BigNumber(tokenToAssetRatio ?? '');
-  if (
-    !amountBN.isFinite() ||
-    !amountBN.gt(0) ||
-    !ratioBN.isFinite() ||
-    !ratioBN.gt(0)
-  ) {
+  const ratio = getValidStockTokenToAssetRatio(tokenToAssetRatio);
+  if (!amountBN.isFinite() || !amountBN.gt(0) || !ratio) {
     return undefined;
   }
 
-  return amountBN.multipliedBy(ratioBN).toFixed();
+  return amountBN.multipliedBy(ratio).toFixed();
 }
 
 export function buildSwapStockReviewDisplay({

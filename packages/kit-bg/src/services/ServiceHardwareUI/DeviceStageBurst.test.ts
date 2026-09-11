@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
   EHardwareUiStateAction,
@@ -27,7 +28,10 @@ import {
   resolveDeviceNotFoundLanding,
 } from './DeviceStageBurst';
 
-import type { IDeviceStageState } from '../../states/jotai/atoms';
+import type {
+  IDeviceStageState,
+  IHardwareUiPayload,
+} from '../../states/jotai/atoms';
 
 jest.mock('../../states/jotai/atoms', () => {
   // Real enum objects: the burst scope builds its action-to-step maps at
@@ -272,6 +276,66 @@ describe('DeviceStageBurstScope', () => {
   /** Lets the scheduled exit run out. */
   const letTheExitRun = () => jest.advanceTimersByTimeAsync(OFF_GRACE_MS);
 
+  it('rolls back a failed join so the explicit holder can close its stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = new OneKeyLocalError('Stage broadcast failed');
+    stageAtom.set.mockRejectedValueOnce(error);
+
+    await expect(scope.begin({ connectId: CONNECT_ID })).rejects.toBe(error);
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.endExplicit({ token });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
+  it('releases a failed initial open and allows the next operation to close', async () => {
+    const scope = new DeviceStageBurstScope();
+    const error = new OneKeyLocalError('Stage read failed');
+    stageAtom.get.mockRejectedValueOnce(error);
+
+    await expect(scope.begin({ connectId: CONNECT_ID })).rejects.toBe(error);
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('does not release a new burst when a dismissed join later fails', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    stageAtom.set.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    const error = new OneKeyLocalError('Late stage broadcast failed');
+    const joining = scope
+      .begin({ connectId: CONNECT_ID })
+      .catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(rejectWrite).toBeDefined();
+    await scope.userClose();
+    await scope.begin({ connectId: 'NEW_DEVICE' });
+    await paintOpeningBeat();
+    rejectWrite?.(error);
+    await expect(joining).resolves.toBe(error);
+
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
   it.each([false, true])(
     'closes skipped verification immediately without ending an outer flow (%s)',
     async (hasOuterFlow) => {
@@ -429,7 +493,7 @@ describe('DeviceStageBurstScope', () => {
     expect(releaseRead).toBeDefined();
 
     firmwareWorkflowAtom.get.mockResolvedValue(true);
-    await scope.silenceForFirmwareWorkflow();
+    await scope.silence();
 
     releaseRead?.();
     await expect(opening).resolves.toBe(false);
@@ -472,6 +536,224 @@ describe('DeviceStageBurstScope', () => {
 
     expect(stageAtom.set).not.toHaveBeenCalled();
     expect(stage).toBeUndefined();
+  });
+
+  it('plays the device’s own asks during the firmware workflow and leaves on their close (OK-62087)', async () => {
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const scope = new DeviceStageBurstScope();
+    // Nothing holds a burst: the workflow's wrapper is refused, yet the
+    // device's PIN ask lands, the answer holds as processing, and the
+    // call's close takes the stage down again.
+    await expect(scope.begin({ connectId: CONNECT_ID })).resolves.toBe(false);
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    await scope.noteInputSubmitted();
+    expect(stage?.step).toBe('processing');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  const passphraseAsk = (deviceType: EDeviceType) =>
+    ({ deviceType, connectId: CONNECT_ID }) as IHardwareUiPayload;
+
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
+    'lands a %s on its on-screen confirm once an app-typed passphrase is handed over',
+    async (deviceType) => {
+      // The firmware confirms a host passphrase with no ButtonRequest, so no
+      // ui-button follows the submit — the stage used to sit on processing
+      // while the device waited on the person.
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID });
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_PASSPHRASE,
+        connectId: CONNECT_ID,
+        payload: passphraseAsk(deviceType),
+      });
+      expect(stage?.step).toBe('passphraseOnApp');
+
+      await scope.noteInputSubmitted({ hostPassphraseEntered: true });
+      expect(stage?.step).toBe('confirm');
+      expect(stage?.connectId).toBe(CONNECT_ID);
+
+      // The person confirms on the device and the call ends: back to the
+      // wait while the flow's next call runs.
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+        connectId: CONNECT_ID,
+      });
+      expect(stage?.step).toBe('processing');
+      await scope.end();
+      await letTheExitRun();
+      expect(stage?.step).toBe('off');
+    },
+  );
+
+  it.each([
+    [
+      'a Touch, whose own ButtonRequest paints the confirm',
+      EDeviceType.Touch,
+      true,
+    ],
+    ['a Classic 1S, which shows no confirm', EDeviceType.Classic1s, true],
+    ['a Pro given an empty passphrase', EDeviceType.Pro, false],
+  ])(
+    'holds %s on processing after the passphrase submit',
+    async (_label, deviceType, hostPassphraseEntered) => {
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID });
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_PASSPHRASE,
+        connectId: CONNECT_ID,
+        payload: passphraseAsk(deviceType),
+      });
+      await scope.noteInputSubmitted({ hostPassphraseEntered });
+      expect(stage?.step).toBe('processing');
+    },
+  );
+
+  it('keeps the plain wait for input that did not answer a passphrase ask', async () => {
+    // A PIN typed on the app is followed by whatever the device asks next;
+    // the confirm is the passphrase screen's alone.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: passphraseAsk(EDeviceType.Pro),
+    });
+    await scope.noteInputSubmitted({ hostPassphraseEntered: true });
+    expect(stage?.step).toBe('processing');
+  });
+
+  it('plays the install confirm tip as the confirm ask and steps aside for the transfer', async () => {
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const scope = new DeviceStageBurstScope();
+    const tip = (message: EFirmwareUpdateTipMessages) =>
+      ({ firmwareTipData: { message } }) as IHardwareUiPayload;
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.ConfirmOnDevice),
+    });
+    expect(stage?.step).toBe('confirm');
+    // Pro 2 / Touch post InstallingFirmware and the install's 0% tick
+    // right behind the confirm tip, before the person has pressed
+    // anything: the card stands through both.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.InstallingFirmware),
+    });
+    expect(stage?.step).toBe('confirm');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: CONNECT_ID,
+      payload: {
+        firmwareProgress: 0,
+        firmwareProgressType: 'installingFirmware',
+        firmwareTipData: {
+          message: EFirmwareUpdateTipMessages.ConfirmOnDevice,
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('confirm');
+    // The transfer moving is the person's approval: the screen goes to
+    // the page's progress bar.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: CONNECT_ID,
+      payload: { firmwareProgress: 3 } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('off');
+    // A late InstallingFirmware tip raises nothing by itself.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.InstallingFirmware),
+    });
+    expect(stage?.step).toBe('off');
+    // A PIN the device still wants is not narration: it stands through
+    // a tip that is not the confirm.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: CONNECT_ID,
+      payload: tip(EFirmwareUpdateTipMessages.DownloadFirmware),
+    });
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
+  it('keeps a yielded stage off the dialog through the interrupted call’s stragglers', async () => {
+    // The bootloader hand-off: the connect flow holds a burst, the stage
+    // yields to the dialog, and the features call it interrupted still
+    // drains its close and a trailing tick through the event queue.
+    // Neither may put a wait back over the dialog; the device asking
+    // again is news and lifts the yield.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.silence();
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    // Lifted: the hold's own beats play again.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('processing');
+    await scope.endExplicit({ token });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {
+    // Onboarding holds across the update page. Its hold must not turn the
+    // update's call-end closes into a processing capsule over the page,
+    // nor keep the confirm the device just had answered.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    await scope.silence();
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('confirm');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    firmwareWorkflowAtom.get.mockResolvedValue(false);
+    await scope.endExplicit({ token });
   });
 
   it('keeps a failure the hardware layer never claimed off the stage', async () => {
@@ -517,6 +799,9 @@ describe('DeviceStageBurstScope', () => {
     HardwareErrorCode.BleBondInvalid,
     HardwareErrorCode.DeviceNotOpenedPassphrase,
     HardwareErrorCode.NewFirmwareForceUpdate,
+    HardwareErrorCode.BlePermissionError,
+    HardwareErrorCode.BleLocationError,
+    HardwareErrorCode.BleLocationServicesDisabled,
   ])('leaves the stage when recovery UI owns error %s', async (code) => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });
@@ -641,6 +926,31 @@ describe('DeviceStageBurstScope', () => {
       step: 'pinOnApp',
       connectId: 'NEXT_DEVICE_ID',
     });
+    expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+  });
+
+  it('preserves a portfolio package rejection after RPC and cleanup', async () => {
+    const scope = new DeviceStageBurstScope({
+      isDeviceStillConnected: async () => false,
+    });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.RuntimeError,
+      error: 'Failure_DataError,Invalid portfolio package',
+    });
+    const landedError: unknown = JSON.parse(
+      JSON.stringify(toPlainErrorObject(error)),
+    );
+
+    await scope.end({ error: landedError });
+
+    expect(stage).toMatchObject({
+      step: 'error',
+      errorMessage: error.message,
+      errorI18n: { key: error.key, info: error.info },
+    });
+    expect(stage?.errorReason).toBeUndefined();
     expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
   });
 
@@ -964,7 +1274,7 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
 
     firmwareWorkflowAtom.get.mockImplementationOnce(async () => {
-      await scope.silenceForFirmwareWorkflow();
+      await scope.silence();
       return false;
     });
     expect(
@@ -1012,7 +1322,7 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
     expect(stage?.step).toBe('connecting');
 
-    await scope.silenceForFirmwareWorkflow();
+    await scope.silence();
     expect(stage?.step).toBe('off');
 
     // The burst's own bookkeeping still lands on its end.

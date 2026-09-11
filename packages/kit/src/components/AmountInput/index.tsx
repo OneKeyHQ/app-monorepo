@@ -70,6 +70,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
+      selectedTokenImageRecyclingKey?: string;
       /**
        * Skeleton just the token image while its URI is still being resolved,
        * keeping the symbol readable. `loading` above blanks the whole trigger;
@@ -211,6 +212,7 @@ export function AmountInput({
     const {
       popover: popoverProps,
       selectedTokenImageUri,
+      selectedTokenImageRecyclingKey,
       selectedTokenImageLoading,
       selectedNetworkImageUri,
       selectedTokenSymbol,
@@ -268,9 +270,9 @@ export function AmountInput({
             <Image
               size="$7"
               borderRadius="$full"
-              source={{
-                uri: selectedTokenImageUri,
-              }}
+              src={selectedTokenImageUri}
+              recyclingKey={selectedTokenImageRecyclingKey}
+              placeholder={<Stack width="100%" height="100%" />}
               fallback={
                 <Image.Fallback
                   borderRadius="$full"
@@ -301,9 +303,8 @@ export function AmountInput({
               <Image
                 size="$3"
                 borderRadius="$full"
-                source={{
-                  uri: selectedNetworkImageUri,
-                }}
+                src={selectedNetworkImageUri}
+                placeholder={<Stack width="100%" height="100%" />}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
                     <Icon

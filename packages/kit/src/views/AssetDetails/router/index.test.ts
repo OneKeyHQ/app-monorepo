@@ -6,9 +6,9 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 jest.mock('../../../components/LazyLoadPage', () => ({
   LazyLoadPage: (load: () => Promise<unknown>) => load,
 }));
-jest.mock('../pages/MarketDetail', () => ({
+jest.mock('../pages/NativeMarketDetail', () => ({
   __esModule: true,
-  default: 'asset-market-modal',
+  default: 'native-asset-market-modal',
 }));
 jest.mock('../../Market/LegacyMarketDetailRoute', () => ({
   __esModule: true,
@@ -34,17 +34,17 @@ describe('asset market modal routes', () => {
     return (await load()).default;
   }
 
-  it('loads the dedicated asset modal on desktop/web', async () => {
+  it('preserves the existing desktop/web detail entry', async () => {
     platformEnv.isNative = false;
     expect(await loadRoute(EModalAssetDetailRoutes.MarketDetail)).toBe(
-      'asset-market-modal',
+      'legacy-market-v2',
     );
   });
 
-  it('preserves the existing native detail entry', async () => {
+  it('opens the simple asset modal on native phones and tablets', async () => {
     platformEnv.isNative = true;
     expect(await loadRoute(EModalAssetDetailRoutes.MarketDetail)).toBe(
-      'legacy-market-v2',
+      'native-asset-market-modal',
     );
   });
 

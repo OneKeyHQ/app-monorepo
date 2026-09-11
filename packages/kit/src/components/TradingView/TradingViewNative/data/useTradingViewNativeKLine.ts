@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   getCurrentVisibilityState,
@@ -20,7 +27,9 @@ import {
   getTradingViewNativeDebugErrorMessage,
 } from './tradingViewNativeDebugLogger';
 import {
+  DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL,
   TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+  TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS,
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT,
   getTradingViewNativeKLineInterval,
 } from './tradingViewNativeIntervals';
@@ -1623,6 +1632,10 @@ export function useTradingViewNativeKLine({
   storageNamespace?: ITradingViewNativeStorageNamespace;
 }) {
   const sourceKind = source.kind;
+  const supportedIntervals =
+    sourceKind === 'stock'
+      ? TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS
+      : TRADING_VIEW_NATIVE_KLINE_INTERVALS;
   const assetId = source.kind === 'asset' ? source.assetId : '';
   const stockId = source.kind === 'stock' ? source.stockId : '';
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
@@ -1856,7 +1869,6 @@ export function useTradingViewNativeKLine({
     storageNamespace,
   );
   const currentSeriesKeyRef = useRef(seriesKey);
-  currentSeriesKeyRef.current = seriesKey;
   const latestRequestIdRef = useRef(0);
   const viewportRequestIdRef = useRef(0);
   const initialHistoryAbortControllerRef = useRef<AbortController | null>(null);
@@ -1885,10 +1897,13 @@ export function useTradingViewNativeKLine({
       interval: restoredActiveInterval,
       namespace: intervalStorageNamespace,
     }));
-  const activeInterval =
+  const selectedInterval =
     activeIntervalState.namespace === intervalStorageNamespace
       ? activeIntervalState.interval
       : restoredActiveInterval;
+  const activeInterval =
+    supportedIntervals.find((interval) => interval.value === selectedInterval)
+      ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
   const setActiveInterval = useCallback(
     (
       nextInterval:
@@ -1954,8 +1969,13 @@ export function useTradingViewNativeKLine({
     seriesKey,
   });
   const visiblePointRangeRef = useRef<IScopedVisiblePointRange | null>(null);
-  onRealtimePointRef.current = onRealtimePoint;
   chartDataRef.current = chartData;
+
+  useLayoutEffect(() => {
+    // Suspended renders must not change the active subscription's identity or callback.
+    currentSeriesKeyRef.current = seriesKey;
+    onRealtimePointRef.current = onRealtimePoint;
+  }, [onRealtimePoint, seriesKey]);
 
   useEffect(() => {
     emitTradingViewNativeDebugEvent({
@@ -2074,10 +2094,10 @@ export function useTradingViewNativeKLine({
     ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
   const intervalConfig = useMemo(
     () => ({
-      intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+      intervals: supportedIntervals,
       activeInterval,
     }),
-    [activeInterval],
+    [activeInterval, supportedIntervals],
   );
 
   useEffect(() => {
@@ -2108,7 +2128,9 @@ export function useTradingViewNativeKLine({
         skipNextHistoryRequest?: boolean;
       },
     ) => {
-      const nextInterval = getTradingViewNativeKLineInterval(interval);
+      const nextInterval = supportedIntervals.find(
+        (option) => option.value === interval,
+      );
       if (nextInterval) {
         viewportHistoryAbortControllerRef.current?.abort();
         viewportHistoryAbortControllerRef.current = null;
@@ -2120,9 +2142,18 @@ export function useTradingViewNativeKLine({
           };
         }
         setActiveInterval(nextInterval.value);
+        void saveTradingViewNativeActiveInterval({
+          interval: nextInterval.value,
+          namespace: intervalStorageNamespace,
+        });
       }
     },
-    [seriesKey, setActiveInterval],
+    [
+      intervalStorageNamespace,
+      seriesKey,
+      setActiveInterval,
+      supportedIntervals,
+    ],
   );
 
   const handleRetry = useCallback(() => {
@@ -3404,6 +3435,7 @@ export function useTradingViewNativeKLine({
           const data = await fetchRequiredHistoryPage({
             historyProvider,
             request: {
+              ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
               interval,
               signal: abortController.signal,
               timeFrom,
@@ -3578,6 +3610,7 @@ export function useTradingViewNativeKLine({
     (point: IMarketTokenKLineDataPoint) => {
       const realtimeScope = realtimeScopeRef.current;
       if (
+        currentSeriesKeyRef.current !== seriesKey ||
         realtimeScope.seriesKey !== seriesKey ||
         realtimeScope.interval !== activeInterval
       ) {
@@ -3637,7 +3670,15 @@ export function useTradingViewNativeKLine({
         seriesKey,
         to: point.t,
       });
-      onRealtimePointRef.current?.(point);
+      // Historical corrections must not replace the latest price, including
+      // when multiple ticks arrive before React commits the chart update.
+      const latestTimestamp = Math.max(
+        currentChartData.points.at(-1)?.t ?? point.t,
+        ...realtimePointBufferRef.current.keys(),
+      );
+      if (point.t >= latestTimestamp) {
+        onRealtimePointRef.current?.(point);
+      }
       const updatedAt = Date.now();
       lastRealtimeActivityAtRef.current = updatedAt;
       setRealtimeState({
@@ -4043,6 +4084,7 @@ export function useTradingViewNativeKLine({
         try {
           consumeHistoryRequestAttempt(requestAttemptBudget);
           const data = await historyProvider.fetchHistory({
+            ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
@@ -4056,6 +4098,11 @@ export function useTradingViewNativeKLine({
           }
           const points = normalizeKLinePoints(data.points);
           if (!points.length) {
+            if (sourceKind === 'stock' && !data.points.length) {
+              // The stock provider already scanned the empty history windows.
+              lastError = new OneKeyLocalError('No candle data is available');
+              break;
+            }
             throw new OneKeyLocalError('No candle data is available');
           }
           initialData = data;

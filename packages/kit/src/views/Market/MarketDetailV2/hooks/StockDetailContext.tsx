@@ -35,6 +35,7 @@ type IStockDetailContextValue = {
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
   isTokenVariantsLoading: boolean;
+  isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
   retryTokenVariants: () => Promise<void>;
   selectedTokenId?: string;
@@ -53,6 +54,7 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   retryStockDetail: async () => undefined,
   tokenVariants: [],
   isTokenVariantsLoading: false,
+  isTokenVariantPending: false,
   isTokenVariantsError: false,
   retryTokenVariants: async () => undefined,
   setSelectedTokenId: () => undefined,
@@ -283,6 +285,13 @@ export function StockDetailProvider({
       ),
       retryStockDetail,
       tokenVariants,
+      isTokenVariantPending: Boolean(
+        normalizedStockId &&
+        (!hasCurrentTokenVariants ||
+          (!tokenVariantResult?.failed &&
+            tokenVariants.some(isStockTokenVariantTradable) &&
+            !selectedTokenVariant)),
+      ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
       ),
@@ -298,6 +307,7 @@ export function StockDetailProvider({
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
     }),
     [
+      hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,

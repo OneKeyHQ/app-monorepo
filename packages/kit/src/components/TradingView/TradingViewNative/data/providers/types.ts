@@ -7,6 +7,8 @@ import type { IMarketKLinePointType } from '../../../utils/fetchMarketKLineData'
 import type { ITradingViewNativeKLineInterval } from '../tradingViewNativeIntervals';
 
 export interface ITradingViewNativeHistoryRequest {
+  // Initial/latest and backward pagination may cross non-trading windows.
+  allowEarlierHistory?: boolean;
   interval: ITradingViewNativeKLineInterval;
   signal: AbortSignal;
   timeFrom: number;

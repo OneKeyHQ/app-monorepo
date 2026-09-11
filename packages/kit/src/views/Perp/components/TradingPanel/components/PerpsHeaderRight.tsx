@@ -307,10 +307,14 @@ function DepositButton() {
       borderWidth={platformEnv.isNative ? 0 : 1}
       borderColor="$transparent"
       hoverStyle={
-        platformEnv.isNative ? undefined : { borderColor: '$borderHover' }
+        platformEnv.isNative
+          ? undefined
+          : { bg: isDepositVariant ? '$bgAccentHover' : '$bgStrongHover' }
       }
       pressStyle={
-        platformEnv.isNative ? undefined : { borderColor: '$borderActive' }
+        platformEnv.isNative
+          ? undefined
+          : { bg: isDepositVariant ? '$bgAccentActive' : '$bgStrongActive' }
       }
       onLayout={handleLayout}
       {...(glassActive && { hoverStyle: undefined, pressStyle: undefined })}

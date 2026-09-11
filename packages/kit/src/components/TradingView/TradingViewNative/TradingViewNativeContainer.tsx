@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -49,6 +57,7 @@ import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
+import { TradingViewNativePresentation } from './TradingViewNativePresentation';
 import { useTradingViewNativeChartComponents } from './useTradingViewNativeChartComponents';
 import {
   type ITradingViewNativeAnyIndicator,
@@ -74,6 +83,7 @@ import {
 } from './utils/subIndicatorRender';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
+import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type {
   ITradingViewNativeChartType,
   ITradingViewNativeDataState,
@@ -318,7 +328,9 @@ const TradingViewNativeContent = memo(
         ),
       [subIndicatorInstances],
     );
-    onPriceUpdateRef.current = onPriceUpdate;
+    useLayoutEffect(() => {
+      onPriceUpdateRef.current = onPriceUpdate;
+    }, [onPriceUpdate]);
     const handleRealtimePoint = useCallback(
       (point: { c: number; t: number }) => {
         realtimePointRef.current = point;
@@ -662,6 +674,7 @@ const TradingViewNativeContent = memo(
           const targetInterval = getTradingViewNativeKLineIntervalForTimeRange({
             chartWidth,
             currentInterval: intervalConfig.activeInterval,
+            intervals: intervalConfig.intervals,
             from: target.from,
             to: target.to,
           });
@@ -688,6 +701,7 @@ const TradingViewNativeContent = memo(
         getVisibleTimeRange,
         handleViewportTargetChange,
         intervalConfig.activeInterval,
+        intervalConfig.intervals,
       ],
     );
 
@@ -748,134 +762,148 @@ const TradingViewNativeContent = memo(
       points.length === 0 && dataState.status !== 'error';
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
+    const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
+      () => ({ current: null }),
+      // A new symbol or interval owns a fresh viewport; presentation changes reuse it.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [dataProviderKey, candleIntervalSeconds],
+    );
 
     return (
-      <Stack flex={1} w="100%" h="100%" bg="$transparent">
-        <TradingViewNativeChartControlsContainer
-          activeChartType={chartType}
-          calendarAvailableTimeRange={calendarAvailableTimeRange}
-          compactMobileLayout={isCompactDisplayMode}
-          enableNativeChartSettings={enableNativeChartSettings}
-          intervalConfig={intervalConfig}
-          activeIndicatorValues={activeIndicatorValues}
-          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
-          layoutMode={nativeControlsLayoutMode}
-          flushDesktopControls={nativeControlsFlushHorizontalInset}
-          showChartCloseControl={showNativeChartCloseControl}
-          isFullscreen={isNativeChartFullscreen}
-          fullscreenHeader={nativeChartFullscreenHeader}
-          isChartSwitchDisabled={isChartSwitchDisabled}
-          onChartSwitch={onChartSwitch}
-          onChartTypeChange={handleChartTypeChange}
-          onIntervalChange={handleChartIntervalChange}
-          onIndicatorChange={handleIndicatorChange}
-          onChartClose={onNativeChartClose}
-          onIndicatorSettingsPress={handleIndicatorSettingsPress}
-          onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
-          onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
-          onCalendarPanelSubmit={handleCalendarPanelSubmit}
-          onFullscreenChange={
-            isMobileControlsLayout ? undefined : onNativeChartFullscreenChange
-          }
-        />
-        <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
-          <TradingViewNativeChart
-            key={`${dataProviderKey}:${candleIntervalSeconds}`}
-            candleIntervalSeconds={candleIntervalSeconds}
-            chartComponents={chartComponentRenderNodes}
-            chartSettings={chartSettings}
-            chartType={forcedChartType ?? chartType}
-            chartPictureVersion={chartPictureVersion}
-            currentPriceLabel={currentPriceLabel}
-            extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
-            hasVolume={false}
-            indicatorSeries={indicatorSeries}
-            indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
-            initialRightOffset={initialRightOffset}
-            isMobileLayout={isMobileControlsLayout}
-            isSwitchingInterval={isSwitchingInterval}
-            locale={intl.locale}
-            priceAxisTickCount={
-              isCompactDisplayMode
-                ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
-                : undefined
+      <TradingViewNativePresentation
+        isFullscreen={Boolean(isNativeChartFullscreen)}
+      >
+        <Stack flex={1} w="100%" h="100%" bg="$transparent">
+          <TradingViewNativeChartControlsContainer
+            activeChartType={chartType}
+            calendarAvailableTimeRange={calendarAvailableTimeRange}
+            compactMobileLayout={isCompactDisplayMode}
+            enableNativeChartSettings={enableNativeChartSettings}
+            intervalConfig={intervalConfig}
+            activeIndicatorValues={activeIndicatorValues}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+            layoutMode={nativeControlsLayoutMode}
+            flushDesktopControls={nativeControlsFlushHorizontalInset}
+            showChartCloseControl={showNativeChartCloseControl}
+            isFullscreen={isNativeChartFullscreen}
+            fullscreenHeader={nativeChartFullscreenHeader}
+            isChartSwitchDisabled={isChartSwitchDisabled}
+            onChartSwitch={onChartSwitch}
+            onChartTypeChange={handleChartTypeChange}
+            onIntervalChange={handleChartIntervalChange}
+            onIndicatorChange={handleIndicatorChange}
+            onChartClose={onNativeChartClose}
+            onIndicatorSettingsPress={handleIndicatorSettingsPress}
+            onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
+            onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
+            onCalendarPanelSubmit={handleCalendarPanelSubmit}
+            onFullscreenChange={
+              isMobileControlsLayout && !isNativeChartFullscreen
+                ? undefined
+                : onNativeChartFullscreenChange
             }
-            priceAxisFontSize={
-              isCompactDisplayMode
-                ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
-                : undefined
-            }
-            showLegend={!isCompactDisplayMode}
-            timeAxisFontSize={
-              isCompactDisplayMode
-                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
-                : undefined
-            }
-            timeAxisHeight={timeAxisHeight}
-            timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
-            onChartWidthChange={setChartWidth}
-            onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
-            onViewportRequestApplied={handleViewportRequestApplied}
-            onVisiblePointRangeChange={handleVisiblePointRangeChange}
-            candleLabels={candleLabels}
-            points={primarySeriesPoints}
-            subIndicatorPanes={subIndicatorPanes}
-            testID={testID}
-            viewportRequest={viewportRequest}
           />
-          {showChartLoadingMask ? (
-            <TradingViewChartLoadingMask
-              testID={testID ? `${testID}-loading` : undefined}
-            />
-          ) : null}
-          {dataState.status === 'error' && points.length === 0 ? (
-            <YStack
-              position="absolute"
-              top={0}
-              right={0}
-              bottom={0}
-              left={0}
-              ai="center"
-              jc="center"
-              gap="$3"
-              bg="$transparent"
-              testID={testID ? `${testID}-error` : undefined}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.global_no_data })}
-              </SizableText>
-              <Button
-                size="small"
-                variant="secondary"
-                onPress={handleRetry}
-                testID={testID ? `${testID}-retry` : undefined}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-            </YStack>
-          ) : null}
-          {isMobileControlsLayout &&
-          enableNativeChartSettings &&
-          !isNativeChartFullscreen ? (
-            <TradingViewNativeChartSettingsButton
-              priceAxisWidth={priceAxisWidth}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-            />
-          ) : null}
-          {!showChartLoadingMask &&
-          isMobileControlsLayout &&
-          onNativeChartFullscreenChange ? (
-            <TradingViewNativeFullscreenButton
-              chartHeight={chartHeight}
-              isFullscreen={Boolean(isNativeChartFullscreen)}
-              onPress={handleMobileFullscreenToggle}
+          <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
+            <TradingViewNativeChart
+              key={`${dataProviderKey}:${candleIntervalSeconds}`}
+              runtimeRef={chartRuntimeRef}
+              candleIntervalSeconds={candleIntervalSeconds}
+              chartComponents={chartComponentRenderNodes}
+              chartSettings={chartSettings}
+              chartType={forcedChartType ?? chartType}
+              chartPictureVersion={chartPictureVersion}
+              currentPriceLabel={currentPriceLabel}
+              extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
+              hasVolume={false}
+              indicatorSeries={indicatorSeries}
+              indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
+              initialRightOffset={initialRightOffset}
+              isMobileLayout={isMobileControlsLayout}
+              isSwitchingInterval={isSwitchingInterval}
+              locale={intl.locale}
+              priceAxisTickCount={
+                isCompactDisplayMode
+                  ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
+                  : undefined
+              }
+              priceAxisFontSize={
+                isCompactDisplayMode
+                  ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
+                  : undefined
+              }
+              showLegend={!isCompactDisplayMode}
+              timeAxisFontSize={
+                isCompactDisplayMode
+                  ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
+                  : undefined
+              }
               timeAxisHeight={timeAxisHeight}
-              visibleSubIndicatorCount={visibleSubIndicatorCount}
+              timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
+              onChartWidthChange={setChartWidth}
+              onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
+              onViewportRequestApplied={handleViewportRequestApplied}
+              onVisiblePointRangeChange={handleVisiblePointRangeChange}
+              candleLabels={candleLabels}
+              points={primarySeriesPoints}
+              subIndicatorPanes={subIndicatorPanes}
+              testID={testID}
+              viewportRequest={viewportRequest}
             />
-          ) : null}
+            {showChartLoadingMask ? (
+              <TradingViewChartLoadingMask
+                testID={testID ? `${testID}-loading` : undefined}
+              />
+            ) : null}
+            {dataState.status === 'error' && points.length === 0 ? (
+              <YStack
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                left={0}
+                ai="center"
+                jc="center"
+                gap="$3"
+                bg="$transparent"
+                testID={testID ? `${testID}-error` : undefined}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({ id: ETranslations.global_no_data })}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  onPress={handleRetry}
+                  testID={testID ? `${testID}-retry` : undefined}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              </YStack>
+            ) : null}
+            {isMobileControlsLayout &&
+            enableNativeChartSettings &&
+            !isNativeChartFullscreen ? (
+              <TradingViewNativeChartSettingsButton
+                priceAxisWidth={priceAxisWidth}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+              />
+            ) : null}
+            {!showChartLoadingMask &&
+            isMobileControlsLayout &&
+            !isNativeChartFullscreen &&
+            onNativeChartFullscreenChange ? (
+              <TradingViewNativeFullscreenButton
+                chartHeight={chartHeight}
+                isFullscreen={Boolean(isNativeChartFullscreen)}
+                onPress={handleMobileFullscreenToggle}
+                timeAxisHeight={timeAxisHeight}
+                visibleSubIndicatorCount={visibleSubIndicatorCount}
+              />
+            ) : null}
+          </Stack>
         </Stack>
-      </Stack>
+      </TradingViewNativePresentation>
     );
   },
 );

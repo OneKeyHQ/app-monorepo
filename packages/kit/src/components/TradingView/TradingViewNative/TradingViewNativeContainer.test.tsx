@@ -3,6 +3,7 @@
  */
 
 import type { ReactNode, SetStateAction } from 'react';
+import { Suspense, startTransition, use } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -13,6 +14,7 @@ import {
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { TRADING_VIEW_NATIVE_KLINE_INTERVALS } from './data/tradingViewNativeIntervals';
 import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
@@ -23,6 +25,7 @@ import {
 } from './TradingViewNativeContainer';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
+import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type {
   ITradingViewNativeChartType,
   ITradingViewNativeDataState,
@@ -113,7 +116,10 @@ const mockUseTradingViewNativeKLine = jest.fn(
       handleViewportTargetChange: mockHandleViewportTargetChange,
       handleViewportRequestApplied: mockHandleViewportRequestApplied,
       handleVisiblePointRangeChange: jest.fn(),
-      intervalConfig: { activeInterval: mockActiveInterval, intervals: [] },
+      intervalConfig: {
+        activeInterval: mockActiveInterval,
+        intervals: TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+      },
       isSwitchingInterval: false,
       points: mockPoints,
       viewportRequest: mockViewportRequest,
@@ -1217,6 +1223,51 @@ describe('TradingViewNativeContainer', () => {
     expect(handleFullscreenChange).toHaveBeenCalledWith(true);
   });
 
+  it('reuses the native runtime across fullscreen and resets it for another data provider', () => {
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const onFullscreenChange = jest.fn();
+    const chart = (isFullscreen: boolean) => (
+      <TradingViewNativeContainer
+        source={{ ...source }}
+        nativeControlsLayoutMode="mobile"
+        isNativeChartFullscreen={isFullscreen}
+        onNativeChartFullscreenChange={onFullscreenChange}
+      />
+    );
+    const getRuntimeRef = () =>
+      (
+        mockTradingViewNativeChart.mock.calls.at(
+          -1,
+        )?.[0] as ITradingViewNativeChartProps
+      ).runtimeRef;
+    const { rerender } = render(chart(false));
+    const inlineRuntimeRef = getRuntimeRef();
+    expect(inlineRuntimeRef).toBeDefined();
+
+    rerender(chart(true));
+    expect(getRuntimeRef()).toBe(inlineRuntimeRef);
+    expect(
+      screen.queryByTestId('trading-view-native-fullscreen-toggle'),
+    ).toBeNull();
+    expect(
+      mockTradingViewNativeChartControlsContainer,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isFullscreen: true, onFullscreenChange }),
+    );
+
+    rerender(chart(false));
+    expect(getRuntimeRef()).toBe(inlineRuntimeRef);
+    mockDataProviderKey = 'market:evm--1:0xdef:OTHER';
+    rerender(chart(false));
+    expect(getRuntimeRef()).not.toBe(inlineRuntimeRef);
+  });
+
   it('renders chart settings inside the opted-in mobile native chart', () => {
     const handleChartSwitch = jest.fn();
     const source = {
@@ -1709,6 +1760,62 @@ describe('TradingViewNativeContainer', () => {
       source: 'realtime',
       timestamp: realtimePoint.t,
     });
+  });
+
+  it('keeps the committed price callback while a replacement render is suspended', async () => {
+    const currentPriceUpdate = jest.fn();
+    const pendingPriceUpdate = jest.fn();
+    const suspendedRender = jest.fn();
+    const suspension = new Promise<void>(() => undefined);
+    function SuspendedContent({ shouldSuspend }: { shouldSuspend: boolean }) {
+      if (shouldSuspend) {
+        suspendedRender();
+        use(suspension);
+      }
+      return null;
+    }
+    const renderChart = (
+      onPriceUpdate: typeof currentPriceUpdate,
+      shouldSuspend = false,
+    ) => (
+      <Suspense fallback={null}>
+        <TradingViewNativeContainer
+          source={{
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xabc',
+            symbol: 'TOKEN',
+            realtime: 'websocket',
+          }}
+          onPriceUpdate={onPriceUpdate}
+        />
+        <SuspendedContent shouldSuspend={shouldSuspend} />
+      </Suspense>
+    );
+    const { rerender } = render(renderChart(currentPriceUpdate));
+    const currentListener = mockRealtimePointListener;
+    currentPriceUpdate.mockClear();
+
+    await act(async () => {
+      startTransition(() => rerender(renderChart(pendingPriceUpdate, true)));
+    });
+
+    expect(suspendedRender).toHaveBeenCalled();
+    const point = { o: 100, h: 106, l: 99, c: 105, v: 12, t: 2000 };
+    act(() => currentListener?.(point));
+    expect(currentPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(currentPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: point.c, source: 'realtime' }),
+    );
+    expect(pendingPriceUpdate).not.toHaveBeenCalled();
+
+    rerender(renderChart(pendingPriceUpdate));
+    pendingPriceUpdate.mockClear();
+    act(() => currentListener?.({ ...point, c: 110 }));
+    expect(pendingPriceUpdate).toHaveBeenCalledTimes(1);
+    expect(pendingPriceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 110, source: 'realtime' }),
+    );
   });
 
   it('uses the compact chart presentation without legends or volume', () => {

@@ -1,6 +1,7 @@
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 
@@ -30,6 +31,7 @@ const {
   parseMetroBaseUrl,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
+  prepareWebEmbedForDevSession,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,
@@ -204,7 +206,7 @@ describe('native-dev-shell', () => {
     ).toEqual(candidates[1]);
   });
 
-  it('parses only usable Android and booted iOS devices', () => {
+  it('parses usable Android devices and available iOS simulators', () => {
     expect(
       parseAndroidDevices(
         'List of devices attached\nemulator-5554 device product:sdk\nemulator-5556 offline\n',
@@ -214,7 +216,7 @@ describe('native-dev-shell', () => {
       parseIosSimulators(
         JSON.stringify({
           devices: {
-            runtime: [
+            'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
               {
                 isAvailable: true,
                 name: 'iPhone A',
@@ -227,11 +229,28 @@ describe('native-dev-shell', () => {
                 state: 'Shutdown',
                 udid: 'B',
               },
+              {
+                isAvailable: false,
+                name: 'Unavailable iPhone',
+                state: 'Shutdown',
+                udid: 'C',
+              },
+            ],
+            'com.apple.CoreSimulator.SimRuntime.watchOS-26-5': [
+              {
+                isAvailable: true,
+                name: 'Apple Watch',
+                state: 'Booted',
+                udid: 'D',
+              },
             ],
           },
         }),
       ),
-    ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+    ).toEqual([
+      { id: 'A', name: 'iPhone A', runtime: 'iOS 26.5', state: 'Booted' },
+      { id: 'B', name: 'iPhone B', runtime: 'iOS 26.5', state: 'Shutdown' },
+    ]);
   });
 
   it('accepts only targets that can run the published shell architecture', () => {
@@ -262,8 +281,9 @@ describe('native-dev-shell', () => {
     expect(iosOutput).toHaveBeenCalledWith('xcrun', [
       'simctl',
       'spawn',
+      '--arch=arm64',
       'SIMULATOR-A',
-      'uname',
+      '/usr/bin/uname',
       '-m',
     ]);
   });
@@ -492,6 +512,23 @@ describe('native-dev-shell', () => {
     );
   });
 
+  it('prewarms an embedded physical-device runtime without a DevSession ID', () => {
+    const url = getNativeRuntimeBundleUrl({
+      backgroundHMR: true,
+      embedded: true,
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+    });
+
+    expect(url.searchParams.get('resolver.devVendorEmbedded')).toBe('true');
+    expect(url.searchParams.get('resolver.devVendorBackgroundHMR')).toBe(
+      'true',
+    );
+    expect(url.searchParams.has('resolver.devSessionId')).toBe(false);
+  });
+
   it('selects a Java 17 JDK for Android local shell builds', () => {
     const androidSdkRoot = path.join(temporaryDirectory, 'android-sdk');
     fs.mkdirSync(path.join(androidSdkRoot, 'platform-tools'), {
@@ -556,16 +593,88 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
-    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
-      'simctl',
-      'spawn',
-      'SIMULATOR-A',
-      '/bin/kill',
-      '-0',
-      '4321',
-    ]);
-    expect(wait).toHaveBeenCalledTimes(1);
-    expect(wait).toHaveBeenCalledWith(1500);
+    expect(iosOutput).toHaveBeenCalledWith('/bin/kill', ['-0', '4321']);
+    expect(wait).toHaveBeenCalledTimes(15);
+    expect(wait).toHaveBeenCalledWith(1000);
+  });
+
+  it('detects an iOS app crash after the first process check', async () => {
+    const iosOutput = jest
+      .fn()
+      .mockReturnValueOnce('')
+      .mockImplementationOnce(() => {
+        throw new TypeError('process exited');
+      });
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'SIMULATOR-A',
+        launch: { processId: 4321 },
+        platform: 'ios',
+        runForOutputCommand: iosOutput,
+        wait: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow('ios app exited during startup');
+  });
+
+  it('automatically builds WebEmbed after a remote 404 and records the reason', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const reason =
+      '[webEmbedPrebundle] OCI manifest download failed: HTTP 404.';
+    const restore = jest.fn().mockRejectedValue(new Error(reason));
+    const build = jest.fn(async () => {
+      expect(report.webEmbed).toMatchObject({
+        source: 'local-build',
+        status: 'building',
+      });
+    });
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await prepareWebEmbedForDevSession(report, {
+        restore,
+        build,
+        getCache: jest.fn(),
+      });
+      expect(build).toHaveBeenCalledTimes(1);
+      expect(report.webEmbed).toEqual({
+        fallbackReason: reason,
+        source: 'local-build',
+        status: 'ready',
+      });
+      expect(report.userNoticeRequired).toBe(true);
+      expect(report.userNotices).toEqual([
+        expect.objectContaining({ reason, resource: 'web-embed' }),
+      ]);
+      expect(
+        JSON.parse(fs.readFileSync(report.runReportPath, 'utf8')).webEmbed
+          .status,
+      ).toBe('ready');
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
+  it('keeps WebEmbed build failures visible instead of reporting readiness', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const buildError = new Error('local build failed');
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(
+        prepareWebEmbedForDevSession(report, {
+          getCache: jest.fn(),
+          restore: jest.fn().mockRejectedValue(new Error('HTTP 404')),
+          build: jest.fn().mockRejectedValue(buildError),
+        }),
+      ).rejects.toBe(buildError);
+      expect(report.webEmbed.status).toBe('building');
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   it('fails when Android startup exhausts its process wait budget', async () => {
@@ -1541,6 +1650,25 @@ describe('native-dev-shell', () => {
     }
   });
 
+  it('does not allocate a port already bound on localhost', async () => {
+    const server = net.createServer();
+    await new Promise((resolve) => {
+      server.listen({ host: '127.0.0.1', port: 0 }, resolve);
+    });
+    try {
+      const address = server.address();
+      await expect(
+        acquireMetroPort({
+          deviceId: 'device-localhost-port',
+          requestedPort: String(address.port),
+          sessionId: 'session-localhost-port',
+        }),
+      ).rejects.toThrow('already in use');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it('serializes shared worktree preparation across device sessions', async () => {
     const consoleError = jest
       .spyOn(console, 'error')
@@ -1729,8 +1857,11 @@ describe('native-dev-shell', () => {
     const cleanupSource = installSource.slice(
       installSource.indexOf('await runWithCacheLeaseCleanup({'),
     );
-    expect(cleanupSource).toContain('operation: async () => {');
-    expect(cleanupSource.indexOf('await installMobileDevShell({')).toBeLessThan(
+    expect(installSource).toContain(
+      'await install({ artifactPath, deviceId, platform })',
+    );
+    expect(cleanupSource).toContain('operation: installArtifact,');
+    expect(cleanupSource.indexOf('operation: installArtifact,')).toBeLessThan(
       cleanupSource.indexOf('releaseCacheLease,'),
     );
   });
@@ -1797,18 +1928,18 @@ describe('native-dev-shell', () => {
       "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
     );
     expect(nativeDevShell).not.toContain("['app:web-embed:build']");
-    expect(nativeDevShell.indexOf('await stagePrivateSession({')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    expect(nativeDevShell.indexOf('preparationLock.release();')).toBeLessThan(
-      nativeDevShell.indexOf('await prewarmNativeRuntimeBundles({'),
-    );
     const launchSource = nativeDevShell.slice(
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),
+    );
+    expect(launchSource.indexOf('await stagePrivateSession({')).toBeLessThan(
+      launchSource.indexOf('preparationLock.release();'),
+    );
+    expect(launchSource.indexOf('await waitForMetro(')).toBeLessThan(
+      launchSource.indexOf('preparationLock.release();'),
+    );
+    expect(launchSource.indexOf('preparationLock.release();')).toBeLessThan(
+      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
     );
     expect(
       launchSource.indexOf('await prepareWebEmbedForDevSession(report)'),
@@ -1903,6 +2034,28 @@ describe('native-dev-shell', () => {
     expect(iosSource).toContain(
       'private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()',
     );
+    expect(iosProductionSource).toContain(
+      'if devVendorBundleInfo != nil {\n      return bundleURL()',
+    );
+    expect(iosProductionSource).toContain(
+      '#if targetEnvironment(simulator)\n    return false\n#else\n    return true',
+    );
+    expect(iosProductionSource).toContain(
+      'ProcessInfo.processInfo.environment["RCT_METRO_PORT"]',
+    );
+    expect(iosProductionSource).toContain(
+      'Bundle.main.path(forResource: "ip", ofType: "txt")',
+    );
+    expect(iosProductionSource).toContain(
+      'let runtimeMetroURL = runtimeMetroBaseURL()',
+    );
+    expect(iosProductionSource).toContain(
+      'RCTBundleURLProvider.sharedSettings().jsLocation = "\\(host):\\(port)"',
+    );
+    expect(iosProductionSource).toContain(
+      'let packagerURL = runtimeMetroURL ??',
+    );
+    expect(iosProductionSource).toContain('baseComponents.port = port');
     expect(iosSource).toContain('runtimeTarget: "main"');
     expect(iosSource).toContain('runtimeTarget: "background"');
   });

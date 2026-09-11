@@ -13,8 +13,8 @@ const TokenDetails = LazyLoadPage(() => import('../pages/TokenDetails'));
 const UTXODetails = LazyLoadPage(() => import('../pages/UTXODetails'));
 const MarketDetail = LazyLoadPage(() =>
   platformEnv.isNative
-    ? import('../../Market/LegacyMarketDetailRoute')
-    : import('../pages/MarketDetail'),
+    ? import('../pages/NativeMarketDetail')
+    : import('../../Market/LegacyMarketDetailRoute'),
 );
 const MarketChart = LazyLoadPage(() => import('../pages/MarketChart'));
 const DeFiProtocolDetails = LazyLoadPage(

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import type { ITableColumn } from '@onekeyhq/components';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -130,6 +131,8 @@ describe('MarketStockSelectorList', () => {
     expect(mockUseMarketStockColumns).toHaveBeenCalledWith({
       compact: true,
       showSparkline: false,
+      showWatchlist: true,
+      watchlistFrom: EWatchlistFrom.Search,
     });
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,

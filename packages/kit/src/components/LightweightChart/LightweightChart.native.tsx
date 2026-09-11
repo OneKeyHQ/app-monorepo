@@ -107,9 +107,28 @@ export function LightweightChart({
     }),
     [chartConfig, hideCrosshairPriceLabel, showLastValue],
   );
-  const [webViewSource] = useState(() =>
+  const [webViewSource, setWebViewSource] = useState(() =>
     buildStaticWebViewSource(nativeConfig),
   );
+  const latestConfigRef = useRef(nativeConfig);
+  latestConfigRef.current = nativeConfig;
+  // Bumped on every recovery: it keys the WebView, so recovery is a remount.
+  // Android does not let a WebView whose renderer is gone be reused, so a new
+  // source on the old instance can stay blank; a fresh instance is the only
+  // reliable path there, and it serves iOS just as well.
+  const [webViewGeneration, setWebViewGeneration] = useState(0);
+
+  // The OS can kill the WebView's content process while the page sits idle
+  // (memory pressure on the phone), and react-native-webview does nothing
+  // about it: the chart area just goes blank until something injects script
+  // again, which is why switching the date range "repaired" it (OK-62409).
+  // Rebuild the source from the latest config so the reload paints the
+  // current data straight away; the ready handshake then resumes updates.
+  const handleContentProcessGone = useCallback(() => {
+    setWebViewReady(false);
+    setWebViewSource(buildStaticWebViewSource(latestConfigRef.current));
+    setWebViewGeneration((generation) => generation + 1);
+  }, []);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -161,11 +180,14 @@ export function LightweightChart({
     <Stack position="relative" height={height} width="100%">
       <View style={{ flex: 1 }}>
         <WebView
+          key={webViewGeneration}
           ref={webViewRef}
           source={webViewSource}
           onLoadStart={() => {
             setWebViewReady(false);
           }}
+          onContentProcessDidTerminate={handleContentProcessGone}
+          onRenderProcessGone={handleContentProcessGone}
           onMessage={handleMessage}
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}

@@ -63,7 +63,11 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: ['expo-image-loader', 'expo-navigation-bar'],
+  android: [
+    '@onekeyfe/react-native-text',
+    'expo-image-loader',
+    'expo-navigation-bar',
+  ],
   ios: [
     'burnt',
     'expo-apple-authentication',
@@ -269,6 +273,7 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
     'apps/mobile/package.json',

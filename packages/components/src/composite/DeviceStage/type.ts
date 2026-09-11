@@ -127,9 +127,15 @@ export type IDeviceStageErrorReason =
   | 'busy';
 
 /**
- * What ended the authenticity check, in stage vocabulary. The first
- * three are terminal — the device (or its firmware) is the problem, and
- * Support is the only exit. The last three offer Retry and Support.
+ * What ended the authenticity check, in stage vocabulary — sorted by
+ * whose fault the check did not stand (OK-62484). Terminal, the device
+ * or its firmware is the problem, Support is the only exit:
+ * unofficialDevice, unofficialFirmware, defective. The device stayed on
+ * the line but could not prove itself: unknown — Retry and Support,
+ * never a bypass (OK-61777). The device vanished mid-check:
+ * disconnected — Retry only, there is nothing to continue with. The
+ * device did its part and our side could not finish: network,
+ * unavailable — Retry, or Continue anyway behind the NOTE beat.
  * Mapping concrete SDK/server errors onto these is the integration
  * layer's.
  */
@@ -139,7 +145,8 @@ export type IAuthFailureReason =
   | 'defective'
   | 'network'
   | 'unknown'
-  | 'unavailable';
+  | 'unavailable'
+  | 'disconnected';
 
 /**
  * One row of the authenticity checklist — the per-component verification

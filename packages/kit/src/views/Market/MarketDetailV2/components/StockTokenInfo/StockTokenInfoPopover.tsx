@@ -4,27 +4,29 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Icon,
-  IconButton,
   InteractiveIcon,
   Popover,
   SizableText,
+  Stack,
+  Tooltip,
   XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketTooltipLabel } from '../../../components/MarketTooltipLabel';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { getIssuerLabel } from '../TokenSelector/StockTokenVariantSelector';
 
-// Matches the trade panel's own Output row (Figma 25672:55964). The design
-// never specs an empty state for Shares Per Token, whose ratio some issuers
-// omit, so that row reuses this convention pending design sign-off.
+// Matches the trade panel's own Output row (Figma 25672:55964).
 const VALUE_FALLBACK = '--';
 // Figma 25881:22529: the block matches the trade panel content width (344),
 // rows are 20 high with a 14 gap and the card keeps a 16 inset.
@@ -49,18 +51,28 @@ function formatTradingHours(days?: string) {
 
 function InfoRow({
   label,
+  labelTooltip,
   children,
   testID,
 }: {
   label: string;
+  labelTooltip?: string;
   children: ReactNode;
   testID?: string;
 }) {
   return (
     <XStack minHeight={20} alignItems="center" gap="$2" testID={testID}>
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-        {label}
-      </SizableText>
+      {labelTooltip ? (
+        <Stack flexShrink={0}>
+          <MarketTooltipLabel tooltip={labelTooltip}>
+            {label}
+          </MarketTooltipLabel>
+        </Stack>
+      ) : (
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          {label}
+        </SizableText>
+      )}
       <XStack
         flex={1}
         minWidth={0}
@@ -110,7 +122,9 @@ function StockTokenInfoContent({
   }, [copyText, variant.contractAddress]);
 
   const ticker = stockId || variant.symbol || '';
-  const sharesPerToken = variant.tokenToAssetRatio?.trim();
+  const sharesPerToken = getValidStockTokenToAssetRatio(
+    variant.tokenToAssetRatio,
+  );
   const tradingHours = formatTradingHours(variant.tradingHours?.days);
 
   return (
@@ -153,18 +167,21 @@ function StockTokenInfoContent({
         <InfoValueText>{ticker || VALUE_FALLBACK}</InfoValueText>
       </InfoRow>
 
-      <InfoRow
-        label={intl.formatMessage({
-          id: ETranslations.market_shares_per_token,
-        })}
-        testID="stock-token-info-shares"
-      >
-        <InfoValueText>
-          {sharesPerToken
-            ? [sharesPerToken, ticker].filter(Boolean).join(' ')
-            : VALUE_FALLBACK}
-        </InfoValueText>
-      </InfoRow>
+      {sharesPerToken ? (
+        <InfoRow
+          label={intl.formatMessage({
+            id: ETranslations.market_shares_per_token,
+          })}
+          labelTooltip={intl.formatMessage({
+            id: ETranslations.market_shares_per_token_tooltip,
+          })}
+          testID="stock-token-info-shares"
+        >
+          <InfoValueText>
+            {[sharesPerToken, ticker].filter(Boolean).join(' ')}
+          </InfoValueText>
+        </InfoRow>
+      ) : null}
 
       <InfoRow
         label={intl.formatMessage({ id: ETranslations.trading_hours_title })}
@@ -212,20 +229,25 @@ function StockTokenInfoContent({
   );
 }
 
-export function StockTokenInfoPopover() {
+export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
   const intl = useIntl();
   const { selectedTokenVariant, stockId } = useStockDetail();
 
-  // Without a resolved variant there is nothing to show, so the icon stays
-  // decorative instead of opening an empty popover.
+  // The variant only goes missing while its request is in flight or after it
+  // failed, so this is a loading window rather than a state to design around:
+  // the same button, disabled, until there is something to open.
   if (!selectedTokenVariant) {
     return (
-      <Icon
+      <Button
         testID="stock-token-info-trigger-disabled"
-        name="InfoCircleOutline"
-        size="$5"
-        color="$iconSubdued"
-      />
+        iconAfter="InfoCircleOutline"
+        size="small"
+        variant="tertiary"
+        childrenAsText={false}
+        disabled
+      >
+        {label}
+      </Button>
     );
   }
 
@@ -237,14 +259,37 @@ export function StockTokenInfoPopover() {
       placement="bottom-end"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={
-        // Figma 25672:54934 - icon-only action with a 20 glyph and a circular
-        // hover background, which the tertiary IconButton provides by default.
+        // Figma 26555:24748 - the price and the info glyph are one action, so
+        // hovering anywhere over the pair lights the whole pill. The small
+        // tertiary button already supplies every measurement the node asks
+        // for: an 18px trailing icon $2 from the label, and a hover
+        // background bled 4px/8px past the content by the variant's own
+        // negative margins. Only the label keeps its own type, which is a
+        // step larger than the button's default.
+        // The hover hint rides on the trigger the same way an IconButton's
+        // `title` does, so press still opens the popover (see ThemeButton for
+        // the same pairing).
         // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
-        <IconButton
-          testID="stock-token-info-trigger"
-          icon="InfoCircleOutline"
-          size="small"
-          variant="tertiary"
+        <Tooltip
+          placement="top"
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_view_stock_token_details,
+              })}
+            </SizableText>
+          }
+          renderTrigger={
+            <Button
+              testID="stock-token-info-trigger"
+              iconAfter="InfoCircleOutline"
+              size="small"
+              variant="tertiary"
+              childrenAsText={false}
+            >
+              {label}
+            </Button>
+          }
         />
       }
       renderContent={() => (

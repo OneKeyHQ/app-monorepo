@@ -952,17 +952,23 @@ export function PerpOrderBook({
     // Spot settles on its own level count, and the perps account flags read
     // true until the account address resolves, so checking them first made every
     // spot cold start render 7 levels and then collapse the first-screen grid.
-    if (activeTradeInstrument.mode === 'spot')
+    if (activeTradeInstrument.mode === 'spot') {
+      if (formData.orderMode === 'scale') return 7;
+      if (formData.orderMode === 'twap') return 5;
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
+    }
     if (shouldCompactOrderBookForFirstDeposit) return 5;
     if (shouldShowEnableTradingButton) {
       return shouldCompactOrderBookForConnectWallet ? 6 : 7;
     }
+    if (formData.orderMode === 'twap') return 6;
+    if (formData.orderMode === 'scale') return 8;
     if (formData.hasTpsl) return 9;
     return 7;
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
+    formData.orderMode,
     shouldCompactOrderBookForConnectWallet,
     shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,

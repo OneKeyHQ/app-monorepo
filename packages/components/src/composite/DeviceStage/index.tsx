@@ -29,6 +29,10 @@ import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
+  restoreAndroidSoftInputMode,
+  suspendAndroidSoftInputPan,
+} from '../../hooks/useKeyboardController';
+import {
   Button,
   Haptics,
   Icon,
@@ -78,6 +82,7 @@ import {
   SCENE_ANIMATION,
   STEP_POSE,
   STEP_TEXT,
+  errorNoticeFits,
   resolveBtcHighIndexSub,
   resolveCapsuleText,
   resolveDeviceNotFoundText,
@@ -129,9 +134,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
  * pose flip ever builds native views mid-animation.
  *
- * The stage is modal without a scrim: while it is there the app behind
- * takes no touch — the person stays with the device — and nothing dims
- * (the design leaves the overlay layer off here). Dismissal is the
+ * The stage is modal, and undimmed for asks and waits: while it is there
+ * the app behind takes no touch — the person stays with the device — and
+ * nothing dims (the design leaves the overlay layer off here). The
+ * terminal failure cards are the exception (OK-62072): a bright app
+ * under an unnoticed error card read as "still tappable", so those
+ * three arrangements wear the scrim. Dismissal is the
  * container's (close button, drag, tap outside) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
@@ -510,11 +518,26 @@ export function DeviceStage({
   onBtcHighIndexConfirm,
   onInstallConfirm,
 }: IDeviceStageProps) {
+  const intl = useIntl();
+  const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
+  const localizedErrorMessage = resolveErrorMessage(
+    intl,
+    errorMessage,
+    errorI18n,
+  );
+  // The failure's own words, where no reason claims it — the message the
+  // live flow's toast used to speak. A reason's considered wording wins.
+  const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
   // The actionless error is the notice — `done`'s ✗ sibling: nothing is
   // asked, so it rests as the capsule (the failure glyph beside the
   // reason's title, no second line) and leaves on its own (see the exit
-  // effect below). With an action the step keeps its ask card.
-  const errorNotice = step === 'error' && !onErrorAction;
+  // effect below) — as long as its words fit a capsule. A failure's own
+  // words past that budget (a raw SDK message, OK-62077) play the card
+  // instead: the generic title, the words on the line under it, one
+  // Got-it exit, and no self-dismissal — a wall of text needs reading.
+  // With an action the step keeps its ask card.
+  const errorNoticeForm = !onErrorAction && errorNoticeFits(errorOwnWords);
+  const errorNotice = step === 'error' && errorNoticeForm;
   const pose = errorNotice ? 'capsule' : STEP_POSE[step];
   // While the box is in flight the screen holds still: the triage
   // (2026-08-21) caught the UI thread freezing once per capsule<->card
@@ -563,6 +586,25 @@ export function DeviceStage({
       fireStepHaptic(step);
     }
   }, [step]);
+  // The system-keyboard steps own their lift: the shell already rides the
+  // keyboard (MorphOverlay), so the Android window must not pan on top of
+  // it. The manifest's adjustPan did exactly that for the passphrase field
+  // — it sits low on the screen, so the OS shoved the whole window up by
+  // the overlap while the shell rose by the keyboard's height, and the card
+  // ended a keyboard's worth above the keys with its title in the status
+  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
+  // back the moment it leaves. No-op off Android.
+  const systemKeyboardStep =
+    step === 'passphraseOnApp' || step === 'pairingCode';
+  useEffect(() => {
+    if (!systemKeyboardStep) {
+      return undefined;
+    }
+    suspendAndroidSoftInputPan();
+    return () => {
+      restoreAndroidSoftInputMode();
+    };
+  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -892,7 +934,7 @@ export function DeviceStage({
   // re-creating its handler never restarts the hold; gated on the grant
   // existing at all — a driver that means the error to auto-leave grants
   // close with it (the notice is terminal, nothing to protect).
-  const errorNoticeShown = shownStep === 'error' && !onErrorAction;
+  const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const closeGranted = Boolean(onClose);
@@ -1129,15 +1171,9 @@ export function DeviceStage({
   // seat speaks for stageWordsStep (tracked above the measures); a
   // crossing's outgoing side keeps its own words because its seat
   // simply is not the one changing. App seats own their words outright;
-  // the pieces that vary (the passphrase title, the error copy) snap
-  // while parked, as StepText animates on the active seat alone.
-  const intl = useIntl();
-  const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
-  const localizedErrorMessage = resolveErrorMessage(
-    intl,
-    errorMessage,
-    errorI18n,
-  );
+  // the pieces that vary (the passphrase title, the error copy — resolved
+  // above, where the pose reads it) snap while parked, as StepText
+  // animates on the active seat alone.
   const stageText = resolveStageText(intl, stageWordsStep);
   const passphraseText = resolvePassphrasePanelText(intl, passphraseMode);
   const appStepSub = useMemo(
@@ -1524,13 +1560,17 @@ export function DeviceStage({
           {/* A vendor pinOnApp is the Trezor matrix by definition (Ledger
               never asks the app for a PIN): nine positions, and no
               on-device switch — the button devices that reach this step
-              cannot take the PIN themselves, whatever the driver wires. */}
+              cannot take the PIN themselves, whatever the driver wires.
+              The four-digit floor is OneKey's own rule (OK-62090): the
+              matrix takes a PIN from one position up, as its dedicated
+              pad always did. */}
           <PinPad
             onSubmit={onPinSubmit}
             onSwitchToDevice={vendor ? undefined : onSwitchToDevice}
             error={inputError}
             resetSignal={pinEpoch}
             noZeroKey={Boolean(vendor)}
+            minLength={vendor ? 1 : undefined}
           />
         </View>
       </YStack>
@@ -1715,14 +1755,19 @@ export function DeviceStage({
         <View onLayout={panelMeasureHandlers.error.words}>
           <StepText
             title={
-              // Same rule as the notice: the failure's own words when no
-              // reason claims it, the reason's considered wording when
-              // one does.
-              !errorReason && localizedErrorMessage
-                ? localizedErrorMessage
+              // The ask card follows the notice's rule: the failure's own
+              // words as the title when no reason claims it, the reason's
+              // considered wording when one does. The long notice keeps
+              // the generic title and speaks its words on the line under.
+              errorOwnWords && onErrorAction
+                ? errorOwnWords
                 : intl.formatMessage({ id: errorCopy.title })
             }
-            sub={intl.formatMessage({ id: errorCopy.sub })}
+            sub={
+              errorOwnWords && !onErrorAction
+                ? errorOwnWords
+                : intl.formatMessage({ id: errorCopy.sub })
+            }
             animated={errorAnimated}
           />
         </View>
@@ -1736,15 +1781,26 @@ export function DeviceStage({
               {intl.formatMessage({ id: errorCopy.action })}
             </Button>
           ) : null}
+          {!onErrorAction && onClose ? (
+            // The long notice's one exit: the same close grant the ✕
+            // fires, worn as a button so the card reads as answerable.
+            <Button
+              testID="device-stage-error-dismiss"
+              variant="primary"
+              onPress={onClose}
+            >
+              {intl.formatMessage({ id: ETranslations.global_got_it })}
+            </Button>
+          ) : null}
         </View>
       </YStack>
     ),
     [
       errorAnimated,
       errorCopy,
-      errorReason,
+      errorOwnWords,
       intl,
-      localizedErrorMessage,
+      onClose,
       onErrorAction,
       panelMeasureHandlers,
     ],
@@ -2108,6 +2164,15 @@ export function DeviceStage({
     [intl],
   );
 
+  // The failure cards dim the app behind them (OK-62072); the error
+  // notice keeps the capsule's undimmed grammar — it is a beat, not a
+  // wall, and leaves on its own.
+  const scrim =
+    pose === 'card' &&
+    (activeArrangement === 'error' ||
+      activeArrangement === 'authFailure' ||
+      activeArrangement === 'deviceNotFound');
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2119,6 +2184,7 @@ export function DeviceStage({
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
       modal
+      scrim={scrim}
       capsuleKey={capsuleText.title}
       capsule={capsule}
       stageLayer={stageLayer}
