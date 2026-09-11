@@ -132,7 +132,7 @@ const MarketStockSelectorList = memo(
       );
     }
 
-    if (items.length === 0) {
+    if (items.length === 0 && !canLoadMore) {
       return (
         <YStack
           height={STOCK_SELECTOR_TABLE_HEIGHT}

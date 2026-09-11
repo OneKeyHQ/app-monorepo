@@ -146,6 +146,7 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
     mockUseMarketStockSelectorList.mockClear();
     mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.items = [mockStock];
     mockSelectorListResult.isLoadMoreError = false;
     mockSelectorListResult.isLoadingMore = false;
     mockSelectorListResult.loadMore.mockClear();
@@ -192,5 +193,14 @@ describe('MarketStockSelectorList', () => {
     tableProps.onEndReached();
 
     expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the table mounted when an empty page has a continuation cursor', () => {
+    mockSelectorListResult.items = [];
+    mockSelectorListResult.canLoadMore = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    expect(screen.getByTestId('stock-table')).toBeTruthy();
+    expect(mockTableProps).toHaveBeenCalled();
   });
 });
