@@ -873,6 +873,7 @@ export class DeviceStageBurstScope {
       !isHardwareErrorByCode({
         error,
         code: [
+          HardwareErrorCode.BleDeviceNotBonded,
           HardwareErrorCode.BleUnavailableWhileUsbConnected,
           HardwareErrorCode.DeviceCheckUnlockTypeError,
           HardwareErrorCode.DeviceCheckPassphraseStateError,
