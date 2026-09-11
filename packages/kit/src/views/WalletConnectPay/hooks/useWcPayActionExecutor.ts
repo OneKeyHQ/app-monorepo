@@ -973,13 +973,19 @@ export function useWcPayActionExecutor() {
                 // the deadline tripped at the confirm click: no submission is
                 // in flight, so closing the (still open) confirm modal cannot
                 // lose a broadcast result — the only situation where closing
-                // it from the outside is safe
+                // it from the outside is safe. `pop`, not `popStack`: the
+                // flow is hosted by the root-level dialog container, not a
+                // navigator route, so its navigation is the container ref,
+                // whose `getParent()` is undefined (popStack would be a
+                // no-op and leave the confirm page over the sheet). A
+                // container-level goBack dispatches from the focused screen
+                // — the confirm page — and closes it.
                 if (
                   (error as undefined | Record<string, unknown>)?.[
                     deadlineBeforeSendFlag
                   ]
                 ) {
-                  navigation.popStack();
+                  navigation.pop();
                 }
                 throw error;
               } finally {

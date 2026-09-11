@@ -526,6 +526,17 @@ class ServiceSend extends ServiceBase {
       });
     }
 
+    // A skipped broadcast would return a txid that was neither recorded at
+    // the pre-broadcast boundary below nor sent; the executor would persist
+    // it as a completed action and hand it to WalletConnect Pay as if it
+    // were on chain. Same rule as Prime: fail loudly instead.
+    if (wcPayPreBroadcastRecord && broadcastSkipReason) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay requires a real broadcast',
+        autoToast: false,
+      });
+    }
+
     // skip external account send, as rawTx is empty
     if (!broadcastSkipReason) {
       const vaultSettings =

@@ -29,6 +29,7 @@ import {
   isWcPayInlineUserCancel,
   isWcPayUnlimitedApproveAmount,
   nextWcPayPagePhaseAfterAttempt,
+  resolveWcPayInlineFailureAfterAttempt,
   runWcPayInlineAttempts,
   sanitizeWcPayDisplayText,
 } from '../wcPayInlineUtils';
@@ -879,6 +880,68 @@ describe('runWcPayInlineAttempts', () => {
     );
     expect(controller.onInlineFailure).not.toHaveBeenCalled();
     expect(controller.onFallback).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveWcPayInlineFailureAfterAttempt', () => {
+  const sendFailed = {
+    failure: { kind: EWcPayInlineFailureKind.SendFailed, message: 'a' },
+    optionId: 'opt-a',
+    accountKey: 'acc-1',
+  };
+  const newerSendFailed = {
+    failure: { kind: EWcPayInlineFailureKind.SendFailed, message: 'b' },
+    optionId: 'opt-a',
+    accountKey: 'acc-1',
+  };
+  const insufficient = {
+    failure: {
+      kind: EWcPayInlineFailureKind.InsufficientBalance,
+      message: 'balance',
+    },
+    optionId: 'opt-a',
+    accountKey: 'acc-1',
+  };
+
+  it('restores the SendFailed lock over a retry that failed before signing', () => {
+    // the earlier transaction is still unaccounted for: a pre-sign failure
+    // (or a silent cancel that left nothing) must not unlock the option list
+    expect(
+      resolveWcPayInlineFailureAfterAttempt({
+        priorLock: sendFailed,
+        current: undefined,
+      }),
+    ).toBe(sendFailed);
+    expect(
+      resolveWcPayInlineFailureAfterAttempt({
+        priorLock: sendFailed,
+        current: insufficient,
+      }),
+    ).toBe(sendFailed);
+  });
+
+  it('lets a newer post-sign verdict replace the lock', () => {
+    expect(
+      resolveWcPayInlineFailureAfterAttempt({
+        priorLock: sendFailed,
+        current: newerSendFailed,
+      }),
+    ).toBe(newerSendFailed);
+  });
+
+  it('is a no-op without a SendFailed lock to restore', () => {
+    expect(
+      resolveWcPayInlineFailureAfterAttempt({
+        priorLock: undefined,
+        current: insufficient,
+      }),
+    ).toBe(insufficient);
+    expect(
+      resolveWcPayInlineFailureAfterAttempt({
+        priorLock: insufficient,
+        current: undefined,
+      }),
+    ).toBeUndefined();
   });
 });
 

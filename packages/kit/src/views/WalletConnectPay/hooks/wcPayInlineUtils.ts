@@ -6,7 +6,7 @@ import {
   extractWcPayTypedDataMessage,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
 import {
-  WC_PAY_SOLANA_TX_MAX_BYTES,
+  WC_PAY_SOLANA_TX_MAX_BASE64_CHARS,
   extractWcPaySolanaTransaction,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
 import {
@@ -555,11 +555,11 @@ export function getWcPayInlineSolanaRequest({
   } catch {
     return { mode: 'fallback', reason: 'unparseable params' };
   }
-  // Bounded before it crosses the proxy, at approximately the same bound as
-  // solPayUtils (base64 carries 3 bytes per 4 chars, so this char cap admits
-  // up to 4098 decoded bytes): a pre-filter that keeps an oversize blob off
-  // this thread's decoders — the exact byte cap is enforced there.
-  if (txBase64.length > Math.ceil(WC_PAY_SOLANA_TX_MAX_BYTES / 3) * 4) {
+  // Bounded before it crosses the proxy, with the validator's own base64
+  // bound: a pre-filter that keeps an oversize blob off this thread's
+  // decoders — the validator re-applies it and solPayUtils enforces the
+  // exact byte cap.
+  if (txBase64.length > WC_PAY_SOLANA_TX_MAX_BASE64_CHARS) {
     return { mode: 'fallback', reason: 'transaction too large' };
   }
   return { mode: 'request', txBase64, caip2ChainId };
@@ -982,6 +982,40 @@ export function nextWcPayPagePhaseAfterAttempt<T extends { name: string }>(
   prev: T,
 ): T | { name: 'idle' } {
   return prev.name === 'result' ? prev : { name: 'idle' };
+}
+
+/**
+ * The banner failure to keep when an attempt ends WITHOUT reaching the
+ * terminal result phase, given the SendFailed lock the attempt started under.
+ *
+ * A post-sign failure pins the payment to the option and account that
+ * produced it: a transaction may be on chain, and its Retry must re-enter the
+ * recovery machinery for that same target. The lock is cleared when the
+ * retry starts (the banner must not shadow the paying progress), so a retry
+ * that then fails BEFORE signing — offline, a refused resume, a dismissed
+ * prompt, a balance the earlier transaction already moved — would otherwise
+ * leave the option list unlocked while the earlier transaction is still
+ * unaccounted for. Such a failure says nothing about that transaction, so
+ * the lock is restored over it; only a NEWER post-sign verdict replaces it.
+ * The background's payment-level guard is the hard boundary behind this; the
+ * restore keeps the banner honest about why the selection stays pinned.
+ */
+export function resolveWcPayInlineFailureAfterAttempt<
+  T extends { failure: { kind: EWcPayInlineFailureKind } },
+>({
+  priorLock,
+  current,
+}: {
+  priorLock: T | undefined;
+  current: T | undefined;
+}): T | undefined {
+  if (priorLock?.failure.kind !== EWcPayInlineFailureKind.SendFailed) {
+    return current;
+  }
+  if (current?.failure.kind === EWcPayInlineFailureKind.SendFailed) {
+    return current;
+  }
+  return priorLock;
 }
 
 export type IWcPayInlineAttemptsOutcome =

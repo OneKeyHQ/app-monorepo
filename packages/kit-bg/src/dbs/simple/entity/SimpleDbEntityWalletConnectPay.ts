@@ -41,6 +41,12 @@ export interface IWcPayStoredProgressMeta {
   // with one account must never be replayed into an attempt made with another
   accountKey: string;
   updatedAt: number;
+  // Whether any entry of this record carries a broadcast txid. Mirrored into
+  // the plaintext index (a boolean reveals nothing the paymentId does not)
+  // so the payment-level duplicate guard can answer "was this payment
+  // already broadcast under ANOTHER option or account" without decrypting
+  // every sibling record. Recomputed on every write of the entries.
+  hasBroadcast?: boolean;
 }
 
 export interface IWcPayStoredProgress extends IWcPayStoredProgressMeta {
@@ -388,9 +394,16 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       buildSecurePayloadKey(key),
       JSON.stringify(entries),
     );
+    const hasBroadcast = entries.some((entry) => Boolean(entry?.broadcastMeta));
     await this.setRawData((rawData) => {
       const progress = { ...rawData?.progress };
-      progress[key] = { paymentId, optionId, accountKey, updatedAt: now };
+      progress[key] = {
+        paymentId,
+        optionId,
+        accountKey,
+        updatedAt: now,
+        hasBroadcast,
+      };
       return { progress };
     });
   }
@@ -452,13 +465,48 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       buildSecurePayloadKey(key),
       JSON.stringify(kept),
     );
+    const hasBroadcast = kept.some((entry) => Boolean(entry?.broadcastMeta));
     await this.setRawData((rawData) => {
       const progress = { ...rawData?.progress };
       if (progress[key]) {
-        progress[key] = { ...progress[key], updatedAt: Date.now() };
+        progress[key] = {
+          ...progress[key],
+          updatedAt: Date.now(),
+          hasBroadcast,
+        };
       }
       return { progress };
     });
+  }
+
+  /**
+   * Whether a DIFFERENT progress record of the same payment — another
+   * option, or another signing account — holds a broadcast txid. The
+   * per-key resume machinery only ever sees its own record, so without this
+   * a payment whose first leg is already on chain under option A could be
+   * paid again under option B (or A with another account) the moment the
+   * UI's soft lock is gone: the sheet is dismissible after a post-sign
+   * failure, and a re-scan remounts the flow with no memory of it.
+   *
+   * Answered from the plaintext index flag alone (no secure reads): the flag
+   * is written together with the entries on every save, and an expired
+   * sibling cannot be resumed anyway so it does not count.
+   */
+  async hasBroadcastElsewhereForPayment(params: {
+    paymentId: string;
+    optionId: string;
+    accountKey: string;
+  }): Promise<boolean> {
+    const ownKey = buildProgressKey(params);
+    const data = await this.getRawData();
+    const now = Date.now();
+    return Object.entries(data?.progress ?? {}).some(
+      ([key, meta]) =>
+        key !== ownKey &&
+        meta.paymentId === params.paymentId &&
+        meta.hasBroadcast === true &&
+        now - meta.updatedAt <= PROGRESS_TTL_MS,
+    );
   }
 
   async removeProgress(params: {

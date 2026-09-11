@@ -282,15 +282,51 @@ describe('getStoredActionResults', () => {
     },
   ] as never[];
 
-  function buildProgressService(entries: unknown[]) {
+  function buildProgressService(
+    entries: unknown[],
+    { hasBroadcastElsewhere = false }: { hasBroadcastElsewhere?: boolean } = {},
+  ) {
     const getProgress = jest.fn(async () => ({ entries }));
     const removeProgress = jest.fn(async () => {});
+    const hasBroadcastElsewhereForPayment = jest.fn(
+      async () => hasBroadcastElsewhere,
+    );
     const backgroundApi = {
-      simpleDb: { walletConnectPay: { getProgress, removeProgress } },
+      simpleDb: {
+        walletConnectPay: {
+          getProgress,
+          removeProgress,
+          hasBroadcastElsewhereForPayment,
+        },
+      },
     };
     const service = new ServiceWalletConnectPay({ backgroundApi });
-    return { service, removeProgress };
+    return {
+      service,
+      getProgress,
+      removeProgress,
+      hasBroadcastElsewhereForPayment,
+    };
   }
+
+  it('refuses the attempt when another option or account of the same payment already broadcast', async () => {
+    // the per-key record is clean (nothing stored for this option), but a
+    // sibling record holds a txid: a fresh sequence here would pay twice
+    const {
+      service,
+      getProgress,
+      removeProgress,
+      hasBroadcastElsewhereForPayment,
+    } = buildProgressService([], { hasBroadcastElsewhere: true });
+
+    await expect(
+      service.getStoredActionResults({ ...KEYS, actions: divergentActions }),
+    ).rejects.toThrow('This payment cannot be resumed safely on this device');
+    expect(hasBroadcastElsewhereForPayment).toHaveBeenCalledWith(KEYS);
+    // decided before the own-key read, and nothing is deleted
+    expect(getProgress).not.toHaveBeenCalled();
+    expect(removeProgress).not.toHaveBeenCalled();
+  });
 
   it('refuses instead of deleting when a divergent record carries broadcast evidence', async () => {
     // deleting a txid-bearing record would destroy the only

@@ -50,6 +50,7 @@ import {
   classifyWcPayInlineFailure,
   isWcPayInlinePostSignError,
   nextWcPayPagePhaseAfterAttempt,
+  resolveWcPayInlineFailureAfterAttempt,
 } from '../hooks/wcPayInlineUtils';
 
 import {
@@ -524,6 +525,11 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       return;
     }
     payInFlightRef.current = true;
+    // The SendFailed lock this attempt (a Retry) starts under: restored in
+    // the finally unless the attempt reaches the result phase or produces a
+    // newer post-sign verdict (see resolveWcPayInlineFailureAfterAttempt).
+    const priorSendFailedLock = isSendFailedLocked ? inlineFailure : undefined;
+    let reachedResult = false;
     // Raise the entry guard synchronously: the effect below only re-syncs it
     // after the paying render commits, and a deep link / QR link landing in
     // that gap would remount the flow over an attempt that already started.
@@ -762,6 +768,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         confirmResult = { status: EWcPayStatus.Processing, isFinal: false };
       }
       // the flow must never leave this phase again
+      reachedResult = true;
       setPagePhase({
         name: 'result',
         params: {
@@ -824,6 +831,14 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       // A summary describes one signature of one attempt; it must never
       // outlive it, whichever way the attempt ended.
       setSigningSummary(undefined);
+      if (!reachedResult) {
+        setInlineFailure((current) =>
+          resolveWcPayInlineFailureAfterAttempt({
+            priorLock: priorSendFailedLock,
+            current,
+          }),
+        );
+      }
     }
   }, [
     payResult,
@@ -836,6 +851,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     parkWcPayDialogAndWait,
     revealWcPayDialogAfterTransition,
     inlineFailure,
+    isSendFailedLocked,
     effectiveExpiryMs,
     navigation,
     executeActions,

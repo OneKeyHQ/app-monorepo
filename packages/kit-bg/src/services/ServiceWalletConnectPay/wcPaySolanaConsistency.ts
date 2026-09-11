@@ -16,6 +16,8 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
+import { WC_PAY_SOLANA_TX_MAX_BASE64_CHARS } from './solPayUtils';
+
 import type { TransactionInstruction } from '@solana/web3.js';
 
 export type IWcPaySolanaSummary = {
@@ -188,6 +190,16 @@ const MAX_DECIMAL_AMOUNT_CHARS = 78;
 const ORDER_AMOUNT_RE = new RegExp(`^[0-9]{1,${MAX_DECIMAL_AMOUNT_CHARS}}$`);
 
 function decodeTransaction(txBase64: string): VersionedTransaction | undefined {
+  // Self-contained size bound: the UI applies the same pre-filter before the
+  // blob crosses the proxy, but every check below is a @backgroundMethod
+  // reachable without it, and this module's own contract is to never let a
+  // hostile server response drive an unbounded decode.
+  if (
+    typeof txBase64 !== 'string' ||
+    txBase64.length > WC_PAY_SOLANA_TX_MAX_BASE64_CHARS
+  ) {
+    return undefined;
+  }
   try {
     return VersionedTransaction.deserialize(Buffer.from(txBase64, 'base64'));
   } catch {

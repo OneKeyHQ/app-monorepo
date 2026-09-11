@@ -15,6 +15,7 @@ import bs58 from 'bs58';
 import { EWcPayErrorCode } from '@onekeyhq/shared/src/walletConnect/payErrors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
+import { WC_PAY_SOLANA_TX_MAX_BASE64_CHARS } from './solPayUtils';
 import {
   WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS,
   assertWcPaySolanaEncodedTxParses,
@@ -209,6 +210,38 @@ function rawAtaInstruction(
 }
 
 describe('checkWcPaySolanaTxMatchesOrder', () => {
+  it('refuses an oversize blob before decoding it (self-contained bound)', () => {
+    // The UI pre-filters at the same bound, but the check is a background
+    // method reachable without it; the validator must own its own cap.
+    const valid = toBase64([
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1000,
+      }),
+    ]);
+    const atCap = valid.padEnd(WC_PAY_SOLANA_TX_MAX_BASE64_CHARS, 'A');
+    const overCap = `${atCap}AAAA`;
+
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: overCap,
+        caip2ChainId: CHAIN,
+        option: buildOption('1000'),
+      }),
+    ).toEqual({ ok: false, reason: 'undecodable transaction' });
+    // the bound is inclusive and on the text: a blob exactly at it still
+    // reaches the decoder (which tolerates the trailing zero padding)
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: atCap,
+        caip2ChainId: CHAIN,
+        option: buildOption('1000'),
+      }).ok,
+    ).toBe(true);
+    expect(isWcPaySolanaMessageUnchanged(overCap, overCap)).toBe(false);
+  });
+
   it('accepts a single native transfer of the order amount from the option account', () => {
     const tx = toBase64([
       SystemProgram.transfer({

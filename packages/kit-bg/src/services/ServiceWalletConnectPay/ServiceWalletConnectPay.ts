@@ -399,6 +399,25 @@ class ServiceWalletConnectPay extends ServiceBase {
     accountKey: string;
     actions: IWcPayAction[];
   }): Promise<string[]> {
+    // Payment-level duplicate guard, ahead of the per-key resume below: a
+    // broadcast txid recorded under another option or account of this same
+    // payment means a transfer for it is (or may be) on chain already. The
+    // UI's SendFailed lock is only a soft version of this rule (the sheet is
+    // dismissible there, and a re-scan remounts the flow without it), so the
+    // refusal has to live here. Same policy as the broadcast-evidence cases
+    // below: refuse this attempt, keep every record; the server-side final
+    // state (confirmPayment isFinal clears the whole payment) or the TTL
+    // resolves it.
+    if (
+      await this.backgroundApi.simpleDb.walletConnectPay.hasBroadcastElsewhereForPayment(
+        { paymentId, optionId, accountKey },
+      )
+    ) {
+      throw new WcPayError({
+        code: EWcPayErrorCode.CannotResumeOnDevice,
+        message: 'This payment cannot be resumed safely on this device',
+      });
+    }
     let record: IWcPayStoredProgress | undefined;
     try {
       record = await this.backgroundApi.simpleDb.walletConnectPay.getProgress({

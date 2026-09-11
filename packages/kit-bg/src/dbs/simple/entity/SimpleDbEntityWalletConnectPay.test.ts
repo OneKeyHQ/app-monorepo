@@ -173,3 +173,161 @@ describe('SimpleDbEntityWalletConnectPay.truncateActionResults', () => {
     expect(secureStorageMock.removeSecureItem).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SimpleDbEntityWalletConnectPay payment-level broadcast flag', () => {
+  const params = {
+    paymentId: 'payment',
+    optionId: 'option',
+    accountKey: 'account',
+  };
+  const secureStorageMock = appStorage.secureStorage as unknown as Record<
+    | 'getSecureItem'
+    | 'setSecureItem'
+    | 'removeSecureItem'
+    | 'supportSecureStorage',
+    jest.Mock
+  >;
+
+  function buildEntity(progress: Record<string, unknown> = {}) {
+    const entity = new SimpleDbEntityWalletConnectPay();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({ progress } as never);
+    // run the updater against the same map so the written index is visible
+    const setRawData = jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (updater) =>
+        (updater as (raw: unknown) => never)({ progress }),
+      );
+    return { entity, setRawData };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    secureStorageMock.supportSecureStorage.mockResolvedValue(true);
+    secureStorageMock.setSecureItem.mockResolvedValue(undefined);
+  });
+
+  it('saveActionResult mirrors broadcast evidence into the plaintext index', async () => {
+    const { entity, setRawData } = buildEntity();
+    secureStorageMock.getSecureItem.mockResolvedValueOnce(null);
+    await entity.saveActionResult({
+      ...params,
+      index: 0,
+      fingerprint: 'f0',
+      result: '0xsignature',
+    });
+    const first = setRawData.mock.results[0]?.value as Promise<{
+      progress: Record<string, { hasBroadcast?: boolean }>;
+    }>;
+    expect(
+      (await first).progress['payment__option__account'].hasBroadcast,
+    ).toBe(false);
+
+    // the pre-broadcast write of the next leg carries broadcastMeta
+    secureStorageMock.getSecureItem.mockResolvedValueOnce(
+      JSON.stringify([{ fingerprint: 'f0', result: '0xsignature' }]),
+    );
+    await entity.saveActionResult({
+      ...params,
+      index: 1,
+      fingerprint: 'f1',
+      result: '0xtxid',
+      broadcastMeta: { sender: '0xabc', nonce: 7 },
+    });
+    const second = setRawData.mock.results[1]?.value as Promise<{
+      progress: Record<string, { hasBroadcast?: boolean }>;
+    }>;
+    expect(
+      (await second).progress['payment__option__account'].hasBroadcast,
+    ).toBe(true);
+  });
+
+  it('truncateActionResults recomputes the flag from the retained prefix', async () => {
+    const existing = {
+      'payment__option__account': {
+        ...params,
+        updatedAt: Date.now(),
+        hasBroadcast: true,
+      },
+    };
+    const { entity, setRawData } = buildEntity(existing);
+    secureStorageMock.getSecureItem.mockResolvedValueOnce(
+      JSON.stringify([
+        { fingerprint: 'f0', result: '0xsignature' },
+        {
+          fingerprint: 'f1',
+          result: '0xtxid-reverted',
+          broadcastMeta: { sender: '0xabc', nonce: 7 },
+        },
+      ]),
+    );
+    await entity.truncateActionResults({ ...params, fromIndex: 1 });
+    const written = (
+      await (setRawData.mock.results[0]?.value as Promise<{
+        progress: Record<string, { hasBroadcast?: boolean }>;
+      }>)
+    ).progress['payment__option__account'];
+    expect(written.hasBroadcast).toBe(false);
+  });
+
+  it('hasBroadcastElsewhereForPayment sees only live, flagged siblings of the same payment', async () => {
+    const now = Date.now();
+    const { entity } = buildEntity({
+      // own record: excluded even when flagged
+      'payment__option__account': {
+        ...params,
+        updatedAt: now,
+        hasBroadcast: true,
+      },
+      // sibling under another option: counts
+      'payment__option-b__account': {
+        ...params,
+        optionId: 'option-b',
+        updatedAt: now,
+        hasBroadcast: true,
+      },
+    });
+    await expect(entity.hasBroadcastElsewhereForPayment(params)).resolves.toBe(
+      true,
+    );
+
+    const { entity: quiet } = buildEntity({
+      'payment__option__account': {
+        ...params,
+        updatedAt: now,
+        hasBroadcast: true,
+      },
+      // another payment entirely
+      'other__option-b__account': {
+        ...params,
+        paymentId: 'other',
+        optionId: 'option-b',
+        updatedAt: now,
+        hasBroadcast: true,
+      },
+      // sibling without broadcast evidence
+      'payment__option-c__account': {
+        ...params,
+        optionId: 'option-c',
+        updatedAt: now,
+        hasBroadcast: false,
+      },
+      // expired sibling: cannot be resumed, does not count
+      'payment__option-d__account': {
+        ...params,
+        optionId: 'option-d',
+        updatedAt: now - 49 * 60 * 60 * 1000,
+        hasBroadcast: true,
+      },
+      // same option, other account: counts once flagged — covered above by
+      // shape; here it is unflagged
+      'payment__option__account-2': {
+        ...params,
+        accountKey: 'account-2',
+        updatedAt: now,
+      },
+    });
+    await expect(quiet.hasBroadcastElsewhereForPayment(params)).resolves.toBe(
+      false,
+    );
+  });
+});

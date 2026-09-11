@@ -9,6 +9,11 @@ import {
 // can refuse an oversize blob before it crosses the background proxy, using
 // the very bound this module enforces.
 export const WC_PAY_SOLANA_TX_MAX_BYTES = 4096;
+// The same bound on the base64 text (3 bytes per 4 chars, rounded up to a
+// whole quantum, so it admits at most 4098 decoded bytes): a pre-decode
+// guard every entry point can apply without allocating the bytes first.
+export const WC_PAY_SOLANA_TX_MAX_BASE64_CHARS =
+  Math.ceil(WC_PAY_SOLANA_TX_MAX_BYTES / 3) * 4;
 
 /**
  * Extract the base64-encoded transaction from `solana_signTransaction`
