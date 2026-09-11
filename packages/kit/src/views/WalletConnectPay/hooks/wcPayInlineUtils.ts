@@ -685,7 +685,12 @@ export const WC_PAY_PERSONAL_SIGN_MAX_CHARS = 1000;
 // (any Unicode space separator or tab; column alignment never needs that
 // many). Three blank lines or more - two is content: an EIP-4361 message
 // without a statement is exactly `address LF LF LF "URI: "`.
-const PERSONAL_SIGN_PADDING_RE = /(?:\r?\n[\p{Zs}\t]*){4,}|[\p{Zs}\t]{32,}/u;
+// A line break is LF, CRLF or a lone CR: text layout treats a bare CR as a
+// mandatory break (UAX #14 class BK), so it pushes the tail out of view the
+// same way LF does and must count toward the line bound and the padding run.
+const PERSONAL_SIGN_LINE_BREAK_RE = /\r\n|\r|\n/;
+const PERSONAL_SIGN_PADDING_RE =
+  /(?:(?:\r\n|\r|\n)[\p{Zs}\t]*){4,}|[\p{Zs}\t]{32,}/u;
 
 /**
  * Strips the forbidden display characters above and bounds the length, for
@@ -740,7 +745,8 @@ function decodeWcPayPersonalSignText(message: string): string | undefined {
     return undefined;
   }
   if (
-    text.split(/\r?\n/).length > WC_PAY_PERSONAL_SIGN_MAX_LINES ||
+    text.split(PERSONAL_SIGN_LINE_BREAK_RE).length >
+      WC_PAY_PERSONAL_SIGN_MAX_LINES ||
     Array.from(text).length > WC_PAY_PERSONAL_SIGN_MAX_CHARS
   ) {
     return undefined;

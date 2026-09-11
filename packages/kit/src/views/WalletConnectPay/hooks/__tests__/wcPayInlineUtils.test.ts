@@ -1335,6 +1335,11 @@ describe('review-hardening: unlimited threshold and displayability', () => {
     // bounds catch all three shapes
     for (const padded of [
       `Order #123${'\n'.repeat(200)}I authorize a transfer`,
+      // a lone CR is a line break to text layout: neither the line bound
+      // nor the blank-line padding check may be blind to it
+      `Order #123${'\r'.repeat(900)}I authorize a transfer of all funds`,
+      'Order #123\r \r \r \rI authorize a transfer',
+      `Order #123\r${'x\r'.repeat(WC_PAY_PERSONAL_SIGN_MAX_LINES)}tail`,
       `Order #123${'.\n'.repeat(1000)}I authorize a transfer of all funds`,
       `Order #123${'.'.repeat(3900)}I authorize a transfer of all funds`,
       `Order #123\n${'x\n'.repeat(WC_PAY_PERSONAL_SIGN_MAX_LINES)}tail`,
