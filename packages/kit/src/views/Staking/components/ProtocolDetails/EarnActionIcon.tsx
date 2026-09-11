@@ -379,11 +379,16 @@ function BasicListaCheckActionIcon({
   protocolInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnListaCheckActionIcon;
   protocolInfo?: IProtocolInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  // Fires once the server has accepted the signature: the reward amount and
+  // its Claim button only exist in the next detail response, so the caller
+  // has to refetch (OK-62942). The positions page does the same.
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const signMessage = useEarnSignMessage();
@@ -400,8 +405,10 @@ function BasicListaCheckActionIcon({
       provider: protocolInfo.provider,
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
-    }).finally(() => setLoading(false));
-  }, [protocolInfo, signMessage, token]);
+    })
+      .then(() => onSuccess?.())
+      .finally(() => setLoading(false));
+  }, [protocolInfo, signMessage, token, onSuccess]);
 
   if (trigger) {
     return trigger({
@@ -631,6 +638,7 @@ function BasicEarnActionIcon({
           protocolInfo={protocolInfo}
           token={token}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case EStakingActionType.CancelWithdrawal:
