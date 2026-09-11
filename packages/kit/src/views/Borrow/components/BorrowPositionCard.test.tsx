@@ -52,6 +52,13 @@ jest.mock('@onekeyhq/components', () => {
         ((globalThis as Record<string, unknown>).__positionCardStackProps ??=
           []) as IMockProps[]
       ).push({ ...rest, role, tabIndex, testID });
+      // Forward every aria-* the component produced rather than a whitelist.
+      // A whitelist makes these assertions measure what the stub remembers to
+      // pass on, so a newly added attribute reads as absent and a dropped one
+      // still passes.
+      const aria = Object.fromEntries(
+        Object.entries(rest).filter(([key]) => key.startsWith('aria-')),
+      );
       return React.createElement(
         tag,
         {
@@ -62,8 +69,7 @@ jest.mock('@onekeyhq/components', () => {
           'data-size': size,
           'data-color': color,
           'data-transition': transition ?? 'none',
-          'aria-expanded': rest['aria-expanded'],
-          'aria-label': rest['aria-label'],
+          ...aria,
           role,
           tabIndex,
           disabled,
