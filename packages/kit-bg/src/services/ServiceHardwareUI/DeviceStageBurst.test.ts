@@ -991,6 +991,31 @@ describe('DeviceStageBurstScope', () => {
     expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
   });
 
+  it('preserves the unpaired error after RPC when Bluetooth has disconnected', async () => {
+    const isDeviceStillConnected = jest.fn(async () => false);
+    const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceNotBonded,
+      error: 'device is not bonded',
+    });
+    const landedError: unknown = JSON.parse(
+      JSON.stringify(toPlainErrorObject(error)),
+    );
+
+    await scope.endExplicit({ token, error: landedError });
+
+    expect(stage).toMatchObject({
+      step: 'error',
+      errorMessage: error.message,
+      errorI18n: { key: 'feedback.bluetooth_unpaired' },
+    });
+    expect(stage?.errorReason).toBeUndefined();
+    expect(isDeviceStillConnected).not.toHaveBeenCalled();
+    expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+  });
+
   it('keeps an unknown transport failure on the disconnected stage when unplugged', async () => {
     const isDeviceStillConnected = jest.fn(async () => false);
     const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
