@@ -186,7 +186,7 @@ export interface ITabContainerRef {
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
   syncCurrentPage: () => void;
-  restoreScrollPosition?: () => void;
+  restoreScrollPosition?: () => boolean;
 }
 
 export interface ITabContainerProps {
@@ -382,8 +382,9 @@ export function Container({
   const restoreScrollPosition = useCallback(() => {
     const element = scrollElement as HTMLElement | null;
     const savedScrollTop = scrollTopRef.current[focusedTab.value];
-    if (!element || typeof savedScrollTop !== 'number') return;
+    if (!element || typeof savedScrollTop !== 'number') return false;
     element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
+    return true;
   }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);

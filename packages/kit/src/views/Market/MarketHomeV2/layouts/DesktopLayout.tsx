@@ -147,10 +147,19 @@ export function DesktopLayout({
       const restore = tabsRef.current?.restoreScrollPosition;
       const frameIds: number[] = [];
       const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+      let restored = false;
       const scheduleRestore = (delay: number) => {
         timeoutIds.push(
           setTimeout(() => {
-            frameIds.push(requestAnimationFrame(() => restore?.()));
+            if (restored) return;
+            frameIds.push(
+              requestAnimationFrame(() => {
+                if (restore?.()) {
+                  restored = true;
+                  timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
+                }
+              }),
+            );
           }, delay),
         );
       };
