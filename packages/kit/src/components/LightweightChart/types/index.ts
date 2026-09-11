@@ -69,7 +69,9 @@ export interface ILightweightChartConfig {
   patternColor?: string;
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  priceScaleMinimumWidth?: number;
   priceFormatterType?: ILightweightChartPriceFormatterType;
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -124,6 +126,7 @@ export interface ILightweightChartProps {
   priceFormatter?: (price: number) => string;
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
