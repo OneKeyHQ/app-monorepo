@@ -68,6 +68,7 @@ import {
   formatRatioValue,
 } from '../utils/statValue';
 import {
+  STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH,
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
@@ -1038,14 +1039,6 @@ function StockAnalystRatings() {
     </YStack>
   );
 }
-
-// react-native-web does not fire `onTextLayout` reliably, so the toggle is
-// gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
-// approximation, so the clamp is only applied when the toggle is offered —
-// short-but-wide text renders unclamped rather than being cut with no way to
-// expand it.
-const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
 
 function StockAbout() {
   const intl = useIntl();

@@ -10,6 +10,14 @@ import { STAT_FALLBACK_VALUE } from './statValue';
 
 import type { IntlShape } from 'react-intl';
 
+// About description clamp shared by the desktop and mobile stock overviews.
+// react-native-web does not fire `onTextLayout` reliably, so the toggle is
+// gated on a character count that approximates two lines instead of measuring
+// the rendered text. Wider glyphs (CJK) can exceed the approximation, so the
+// clamp is only applied when the toggle is offered — short-but-wide text
+// renders unclamped rather than being cut with no way to expand it.
+export const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
+
 /**
  * The public stock endpoint describes the underlying listing, not the token
  * that wraps it, so it carries no issuer. `source` and `isPaused` have to be

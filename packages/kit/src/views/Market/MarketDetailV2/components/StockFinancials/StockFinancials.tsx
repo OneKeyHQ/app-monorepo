@@ -81,14 +81,18 @@ function FinancialCard({
       testID={`stock-financials-${kind}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
+      {/* When the title and the period switch cannot share a row (the narrow
+          mobile overview, long translations), the switch wraps onto its own
+          line, starting from the left. */}
       <XStack
         alignItems="center"
         justifyContent="space-between"
+        flexWrap="wrap"
         gap="$2"
         minHeight="$10"
       >
         <XStack alignItems="baseline" gap="$3" flexShrink={1}>
-          <SizableText size="$headingMd" flexShrink={0}>
+          <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
           {kind === 'earnings' && showNextDate ? (

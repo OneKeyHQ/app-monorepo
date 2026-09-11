@@ -142,8 +142,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   __esModule: true,
   default: () => ({ formatDate: () => '--' }),
 }));
+let mockStockDetailContext: {
+  stockId: string;
+  stockDetail: Record<string, unknown>;
+} = { stockId: 'AAPL', stockDetail: { symbol: 'AAPL' } };
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: 'AAPL', stockDetail: { symbol: 'AAPL' } }),
+  useStockDetail: () => mockStockDetailContext,
 }));
 jest.mock('../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({
@@ -159,9 +163,10 @@ jest.mock('../../hooks/useStockSecurityStats', () => ({
   }),
 }));
 jest.mock('../../utils/stockPublicDataUtils', () => ({
+  ...jest.requireActual<typeof import('../../utils/stockPublicDataUtils')>(
+    '../../utils/stockPublicDataUtils',
+  ),
   buildStockInfoFromPublicDetail: () => ({}),
-  formatDirectPercentValue: () => '--',
-  formatStockAnalystConsensus: () => '--',
 }));
 jest.mock('../StockDescriptionRows', () => ({
   StockDescriptionRows: () => null,
@@ -196,10 +201,12 @@ jest.mock('@onekeyhq/components', () => {
     onBlur?: () => void;
     'aria-pressed'?: boolean;
     'aria-label'?: string;
+    numberOfLines?: number;
   };
   const Stack = (props: IProps) => (
     <div
       data-testid={props.testID}
+      data-number-of-lines={props.numberOfLines}
       onMouseEnter={props.onHoverIn}
       onMouseLeave={props.onHoverOut}
       onClick={props.onPress}
@@ -264,6 +271,10 @@ function renderFinancials() {
 }
 
 beforeEach(() => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL' },
+  };
   mockResult = {
     stockId: 'AAPL',
     annual: { data: annual, failed: false },
@@ -538,6 +549,35 @@ it('preserves positive adjustments and losses when collapsing the waterfall', ()
   }
 });
 
+it('breaks labels wider than their column instead of letting them overlap', () => {
+  // Ten columns leave each label about 58px, a nine-unit budget.
+  const rows = [
+    'Betriebsfremde',
+    '费用及调整项',
+    ...Array.from({ length: 8 }, (_, index) => `Q${index + 1}`),
+  ].map((label, index) => ({ key: String(index), label, values: [index + 1] }));
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <FinancialChart
+        rows={rows}
+        series={[
+          { key: 'revenue', label: 'Revenue', color: 'blue9', kind: 'bar' },
+        ]}
+        testID="labels"
+      />
+    </IntlProvider>,
+  );
+  const lines = Array.from(
+    screen.getByTestId('labels').querySelectorAll('text'),
+    (node) => node.textContent,
+  );
+  expect(lines).toEqual(
+    expect.arrayContaining(['Betriebsf', 'remde', '费用及调', '整项']),
+  );
+  expect(lines).not.toContain('Betriebsfremde');
+  expect(lines).not.toContain('费用及调整项');
+});
+
 it('shows hover values and missing fields without converting them to zero', () => {
   const chart = buildFinancialChart(annual, 'debt', labels);
   render(
@@ -567,12 +607,56 @@ it('mounts the financial charts in the mobile stock overview', () => {
   );
   expect(screen.getByTestId('stock-financials')).toBeTruthy();
   expect(screen.getByTestId('stock-financials-performance-chart')).toBeTruthy();
+  expect(
+    screen.queryByText(
+      intlMessages[ETranslations.market_stock_analyst_ratings],
+    ),
+  ).toBeNull();
   fireEvent.click(screen.getByTestId('stock-financials-performance-quarter'));
   expect(
     screen
       .getByTestId('stock-financials-performance-quarter')
       .getAttribute('aria-pressed'),
   ).toBe('true');
+});
+
+it('clamps a long About description on the mobile overview until expanded', () => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL', about: { description: 'A'.repeat(220) } },
+  };
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockTokenOverview />
+    </IntlProvider>,
+  );
+  const description = screen.getByTestId('stock-overview-about-description');
+  const toggle = screen.getByTestId('stock-overview-about-description-toggle');
+  expect(description.getAttribute('data-number-of-lines')).toBe('4');
+  expect(toggle.textContent).toBe(intlMessages[ETranslations.global_show_more]);
+  fireEvent.click(toggle);
+  expect(description.hasAttribute('data-number-of-lines')).toBe(false);
+  expect(toggle.textContent).toBe(intlMessages[ETranslations.global_show_less]);
+});
+
+it('leaves a short About description unclamped without a toggle', () => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL', about: { description: 'Short summary.' } },
+  };
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockTokenOverview />
+    </IntlProvider>,
+  );
+  expect(
+    screen
+      .getByTestId('stock-overview-about-description')
+      .hasAttribute('data-number-of-lines'),
+  ).toBe(false);
+  expect(
+    screen.queryByTestId('stock-overview-about-description-toggle'),
+  ).toBeNull();
 });
 
 it('distinguishes failed requests from successful empty responses', () => {
