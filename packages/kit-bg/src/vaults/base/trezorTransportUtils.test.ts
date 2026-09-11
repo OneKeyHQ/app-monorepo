@@ -1,6 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
-import { callTrezorWithBleFallback } from './trezorTransportUtils';
+import { callTrezorWithDevice } from './trezorTransportUtils';
 
 import type { IDBDevice } from '../../dbs/local/types';
 
@@ -12,7 +12,7 @@ const dbDevice = {
   deviceId: 'FEATURES_DEVICE_ID',
 } as IDBDevice;
 
-describe('callTrezorWithBleFallback SDK ownership', () => {
+describe('callTrezorWithDevice SDK ownership', () => {
   it('passes the saved USB hint once while leaving target resolution to the SDK', async () => {
     const response = {
       success: true as const,
@@ -20,38 +20,29 @@ describe('callTrezorWithBleFallback SDK ownership', () => {
     };
     const fn = jest.fn(async () => response);
 
-    await expect(
-      callTrezorWithBleFallback(dbDevice, fn, { replayPolicy: 'read-only' }),
-    ).resolves.toBe(response);
+    await expect(callTrezorWithDevice(dbDevice, fn)).resolves.toBe(response);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(fn).toHaveBeenCalledWith('USB_CONNECT_ID');
   });
 
-  it.each(['read-only', 'never'] as const)(
-    'never replays a %s business call in App after a transport error',
-    async (replayPolicy) => {
-      const response = {
-        success: false as const,
-        payload: {
-          code: HardwareErrorCode.DeviceDisconnected,
-          error: 'Reply lost',
-        },
-      };
-      const fn = jest.fn(async () => response);
+  it('never replays a business call in App after a transport error', async () => {
+    const response = {
+      success: false as const,
+      payload: {
+        code: HardwareErrorCode.DeviceDisconnected,
+        error: 'Reply lost',
+      },
+    };
+    const fn = jest.fn(async () => response);
 
-      await expect(
-        callTrezorWithBleFallback(dbDevice, fn, { replayPolicy }),
-      ).resolves.toBe(response);
-      expect(fn).toHaveBeenCalledTimes(1);
-    },
-  );
+    await expect(callTrezorWithDevice(dbDevice, fn)).resolves.toBe(response);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 
   it('requires an expected identity before requesting operation-first resolution', async () => {
     const fn = jest.fn();
     await expect(
-      callTrezorWithBleFallback({ ...dbDevice, deviceId: '' }, fn, {
-        replayPolicy: 'read-only',
-      }),
+      callTrezorWithDevice({ ...dbDevice, deviceId: '' }, fn),
     ).rejects.toThrow('Trezor device identity is required');
     expect(fn).not.toHaveBeenCalled();
   });

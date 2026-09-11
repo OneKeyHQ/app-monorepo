@@ -719,7 +719,6 @@ describe('DeviceSettingsManager device adapters', () => {
           },
           serviceThirdPartyHardware: {
             getAdapterForVendor: jest.fn(async () => ({ deviceSettings })),
-            requestTrezorBleConnectIdForDevice: jest.fn(),
           },
         } as unknown as IBackgroundApi,
       });
@@ -782,7 +781,6 @@ describe('DeviceSettingsManager device adapters', () => {
             changePin,
             wipeDevice,
           })),
-          requestTrezorBleConnectIdForDevice: jest.fn(),
         },
       } as unknown as IBackgroundApi,
     });

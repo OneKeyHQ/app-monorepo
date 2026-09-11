@@ -2688,7 +2688,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             eventPayload,
             targetKey,
           });
-        } else if (deviceIdentityStatus === 'locked') {
+        }
+        if (deviceIdentityStatus === 'locked') {
           return this.handleDeviceLockedSkip({ eventPayload, targetKey });
         }
         return this.handleDeviceIdentityMismatch({ eventPayload, targetKey });

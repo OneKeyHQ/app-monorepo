@@ -163,8 +163,8 @@ const trezorProfile: IHardwareVendorProfile = {
   // reconnects, only changes on full device wipe.
   hasPersistentDeviceId: () => true,
   connectIdRole: 'transportLocator',
-  // Desktop runs USB and BLE side by side; the app-side fallback ladder
-  // (callTrezorWithBleFallback + force-transport atom) arbitrates.
+  // Explicit UI transport choices use the app's force-transport setting.
+  // Operation-first discovery and binding remain owned by the SDK.
   appManagesTransportSwitching: true,
   supportsCloudSync: false,
   supportsDeviceManagementDetails: true,

@@ -241,6 +241,10 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
           ...(interactionId ? { interactionId } : {}),
           path,
           data: JSON.parse(message.message) as EvmSignTypedDataFull['data'],
+          // Keystone signs the serialized payload, so send the dApp's own
+          // bytes: a JSON.parse/stringify round trip would rewrite integer
+          // literals wider than 2^53 before the device ever displays them.
+          dataJson: message.message,
         },
       );
       if (!result.success) {
