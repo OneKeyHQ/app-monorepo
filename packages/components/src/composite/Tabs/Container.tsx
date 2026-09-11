@@ -784,7 +784,8 @@ export function Container({
                 const tabName = focusedTab.value;
                 if (
                   currentScrollTop > 0 ||
-                  routeScrollSnapshotRef.current[tabName] === undefined
+                  (routeScrollSnapshotRef.current[tabName] === undefined &&
+                    scrollTopRef.current[tabName] === undefined)
                 ) {
                   scrollTopRef.current[focusedTab.value] = currentScrollTop;
                 }

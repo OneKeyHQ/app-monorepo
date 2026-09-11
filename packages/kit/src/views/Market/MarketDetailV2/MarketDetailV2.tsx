@@ -176,6 +176,11 @@ function MarketDetail({
         : tokenDetailPreview,
     [resolvedMarketAssetIdentity, tokenDetailPreview],
   );
+  const hasValidTokenDetailPreview = Boolean(
+    tokenDetailPreview &&
+      tokenDetailPreview.address === tokenAddress &&
+      tokenDetailPreview.networkId === networkId,
+  );
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -253,11 +258,13 @@ function MarketDetail({
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
-            isLayoutPending={shouldSkipMarketDataFetch}
+            isLayoutPending={
+              shouldSkipMarketDataFetch && !hasValidTokenDetailPreview
+            }
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
-              isTokenVariantPending ||
-              (isInitialTokenDetailPending && !resolvedTokenDetailPreview)
+              !hasValidTokenDetailPreview &&
+              (isTokenVariantPending || isInitialTokenDetailPending)
             }
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
