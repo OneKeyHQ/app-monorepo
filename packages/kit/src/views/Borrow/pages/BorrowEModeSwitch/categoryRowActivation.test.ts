@@ -21,7 +21,7 @@ describe('buildCategoryRowActivationProps', () => {
   describe('on the web', () => {
     beforeEach(() => setBrowser(true));
 
-    it('puts an enabled row in the tab order as a button', () => {
+    it('puts an enabled trigger in the tab order as a button', () => {
       const props = buildCategoryRowActivationProps({
         onActivate: jest.fn(),
         outlineOffset: -2,
@@ -30,6 +30,27 @@ describe('buildCategoryRowActivationProps', () => {
       expect(props.role).toBe('button');
       expect(props.tabIndex).toBe(0);
       expect(props.focusVisibleStyle).toMatchObject({ outlineOffset: -2 });
+      // No selection to report, so no aria-checked to mislead with.
+      expect(props['aria-checked']).toBeUndefined();
+    });
+
+    // react-native-web 0.21 no longer forwards accessibilityState, so a row
+    // carrying only that announces nothing here.
+    it('announces a row as a radio with an explicit aria-checked', () => {
+      const picked = buildCategoryRowActivationProps({
+        onActivate: jest.fn(),
+        selected: true,
+        outlineOffset: -2,
+      });
+      const other = buildCategoryRowActivationProps({
+        onActivate: jest.fn(),
+        selected: false,
+        outlineOffset: -2,
+      });
+
+      expect(picked.role).toBe('radio');
+      expect(picked['aria-checked']).toBe(true);
+      expect(other['aria-checked']).toBe(false);
     });
 
     it.each([
@@ -79,6 +100,25 @@ describe('buildCategoryRowActivationProps', () => {
       expect(props['aria-disabled']).toBe(true);
       expect(props.accessibilityState).toEqual({ disabled: true });
     });
+
+    // A disabled row can still be the one in effect; going silent about that
+    // leaves a screen reader unable to say where the user currently is.
+    it('still reports the state of a disabled row', () => {
+      const props = buildCategoryRowActivationProps({
+        disabled: true,
+        onActivate: jest.fn(),
+        selected: true,
+        outlineOffset: -2,
+      });
+
+      expect(props.role).toBe('radio');
+      expect(props['aria-checked']).toBe(true);
+      expect(props['aria-disabled']).toBe(true);
+      expect(props.accessibilityState).toEqual({
+        disabled: true,
+        checked: true,
+      });
+    });
   });
 
   describe('on native', () => {
@@ -96,6 +136,7 @@ describe('buildCategoryRowActivationProps', () => {
       expect(props.tabIndex).toBeUndefined();
       expect(props.onKeyDown).toBeUndefined();
       expect(props.accessibilityRole).toBe('button');
+      expect(props['aria-checked']).toBeUndefined();
       expect(typeof props.onPress).toBe('function');
     });
 
@@ -112,7 +153,7 @@ describe('buildCategoryRowActivationProps', () => {
     });
   });
 
-  it('reports selection to the screen reader', () => {
+  it('reports selection to a native screen reader', () => {
     setBrowser(true);
 
     expect(
@@ -121,14 +162,14 @@ describe('buildCategoryRowActivationProps', () => {
         selected: true,
         outlineOffset: -2,
       }).accessibilityState,
-    ).toEqual({ selected: true });
+    ).toEqual({ checked: true });
     expect(
       buildCategoryRowActivationProps({
         onActivate: jest.fn(),
         selected: false,
         outlineOffset: -2,
       }).accessibilityState,
-    ).toEqual({ selected: false });
+    ).toEqual({ checked: false });
   });
 
   // The collapsed trigger is one control with no selected state of its own.
