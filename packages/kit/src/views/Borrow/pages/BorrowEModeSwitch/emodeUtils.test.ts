@@ -34,6 +34,21 @@ describe('isEModeBorrowActionTag', () => {
 
     expect(
       isEModeBorrowActionTag({
+        tag: buildBorrowTag({
+          provider,
+          action: 'setEMode',
+          setEModeScope: {
+            networkId: 'evm--1',
+            marketAddress: '0xMarket',
+          },
+        }),
+        provider,
+        actions: E_MODE_PENDING_GUARD_ACTIONS,
+      }),
+    ).toBe(true);
+
+    expect(
+      isEModeBorrowActionTag({
         tag: buildBorrowTag({ provider, action: 'borrow' }),
         provider,
         actions: E_MODE_PENDING_GUARD_ACTIONS,

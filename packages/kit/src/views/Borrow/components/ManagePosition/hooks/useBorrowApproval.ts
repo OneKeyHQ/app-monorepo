@@ -136,6 +136,7 @@ export function useBorrowApproval({
   approveTarget,
   borrowDelegationApproveTarget,
   currentAllowance = '0',
+  refreshAllowanceOnMount = false,
   stakingInfo,
   onApprovedSubmit,
   onBeforeNavigateConfirm,
@@ -152,6 +153,8 @@ export function useBorrowApproval({
   approveTarget?: IBorrowApproveTarget;
   borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
   currentAllowance?: string;
+  /** Reconcile a seeded allowance with the latest on-chain value on mount. */
+  refreshAllowanceOnMount?: boolean;
   stakingInfo?: IStakingInfo;
   onApprovedSubmit: () => Promise<void>;
   // Runs right before any approval confirm screen opens, so modal hosts (the
@@ -445,6 +448,7 @@ export function useBorrowApproval({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
+    refreshOnMount: refreshAllowanceOnMount,
     approveType: effectiveApproveType,
   });
 

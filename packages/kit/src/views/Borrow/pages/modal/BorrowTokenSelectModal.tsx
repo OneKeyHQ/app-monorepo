@@ -112,7 +112,7 @@ export default function BorrowTokenSelectModal() {
     result: assetsList,
     isLoading,
     run: refreshAssets,
-  } = usePromiseResult<IBorrowAssetsList>(
+  } = usePromiseResult<IBorrowAssetsList | undefined>(
     async () => {
       if (!accountId || !networkId || !provider || !marketAddress) {
         return EMPTY_ASSETS_LIST;

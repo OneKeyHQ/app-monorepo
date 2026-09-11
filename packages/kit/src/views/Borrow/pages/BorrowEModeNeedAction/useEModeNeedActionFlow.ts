@@ -325,12 +325,39 @@ export function useEModeNeedActionFlow({
   checkRef.current = check;
 
   const stakingInfo = useCallback(
-    (action: 'repay' | 'setCollateral' | 'setEMode'): IStakingInfo => ({
+    (
+      action: 'repay' | 'setCollateral' | 'setEMode',
+      reserveAddress?: string,
+    ): IStakingInfo => ({
       label: EEarnLabels.Borrow,
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-      tags: [EEarnLabels.Borrow, buildBorrowTag({ provider, action })],
+      tags: [
+        EEarnLabels.Borrow,
+        ...(action === 'setEMode'
+          ? []
+          : [buildBorrowTag({ provider, action })]),
+        buildBorrowTag({
+          provider,
+          action,
+          ...(action === 'repay'
+            ? { borrowScope: { networkId, marketAddress } }
+            : {}),
+          ...(action === 'setEMode'
+            ? { setEModeScope: { networkId, marketAddress } }
+            : {}),
+          ...(action === 'setCollateral' && reserveAddress !== undefined
+            ? {
+                setCollateralScope: {
+                  networkId,
+                  marketAddress,
+                  reserveAddress,
+                },
+              }
+            : {}),
+        }),
+      ],
     }),
-    [provider],
+    [marketAddress, networkId, provider],
   );
 
   // Chain intent + re-entrancy — refs only, never drive the UI:
@@ -923,7 +950,7 @@ export function useEModeNeedActionFlow({
             marketAddress,
             reserveAddress: step.reserveAddress,
             useAsCollateral: false,
-            stakingInfo: stakingInfo('setCollateral'),
+            stakingInfo: stakingInfo('setCollateral', step.reserveAddress),
             ...callbacks,
             onCancel: disarm,
           });

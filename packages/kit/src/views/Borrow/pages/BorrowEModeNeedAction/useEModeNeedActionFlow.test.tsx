@@ -344,6 +344,12 @@ describe('useEModeNeedActionFlow approval continuation', () => {
         expect.objectContaining({ amount: '3', repayAll: true }),
       );
     });
+    const repayPayload = universalMock.repay.mock.calls[0][0] as {
+      stakingInfo: { tags: string[] };
+    };
+    expect(repayPayload.stakingInfo.tags).toContain(
+      'borrow:aave:repay:v1:evm--1:0xmarket',
+    );
     expect(switchMock.runCheck.mock.invocationCallOrder[0]).toBeLessThan(
       tokenMock.fetchTokensDetails.mock.invocationCallOrder[1],
     );
@@ -600,6 +606,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       onFail: expect.any(Function),
       onCancel: expect.any(Function),
     });
+    expect((payload.stakingInfo as { tags: string[] }).tags).toContain(
+      'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xreserve',
+    );
     expect(payload).not.toHaveProperty('eModeId');
   });
 

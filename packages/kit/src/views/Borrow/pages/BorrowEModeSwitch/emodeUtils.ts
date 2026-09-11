@@ -1,6 +1,6 @@
 import {
   type IBorrowAction,
-  buildBorrowTag,
+  parseBorrowTag,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type {
   IBorrowEModeAsset,
@@ -30,7 +30,11 @@ export function isEModeBorrowActionTag({
   provider: string;
   actions: readonly IEModeBorrowAction[];
 }): boolean {
-  return actions.some((action) => tag === buildBorrowTag({ provider, action }));
+  const parsedTag = parseBorrowTag(tag);
+  return (
+    parsedTag?.provider === provider.toLowerCase() &&
+    actions.some((action) => action === parsedTag.action)
+  );
 }
 
 export function isEModePendingGuardActive({

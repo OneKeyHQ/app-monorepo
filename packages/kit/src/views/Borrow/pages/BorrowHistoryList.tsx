@@ -39,7 +39,10 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../Staking/components/PageFrame';
-import { capitalizeString } from '../../Staking/utils/utils';
+import {
+  type IBorrowAction,
+  capitalizeString,
+} from '../../Staking/utils/utils';
 import { getBorrowTxTitle } from '../borrowTxTitle';
 import { BorrowTestIDs } from '../testIDs';
 
@@ -56,6 +59,7 @@ type IHistoryItemProps = {
 };
 
 type IEnrichedHistoryItem = IBorrowHistoryListItem & {
+  historyTx?: IAccountHistoryTx;
   token?: IBorrowHistory['tokens'][number];
   network?: IBorrowHistory['networks'][number];
   protocolLogoURI?: string;
@@ -105,7 +109,7 @@ const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
       networkId: item.networkId,
       accountId,
       transactionHash: item.txHash,
-      historyTx: undefined,
+      historyTx: item.historyTx,
       isAllNetworks: false,
     });
   }, [accountId, item, navigation]);
@@ -183,6 +187,12 @@ type IHistoryContentProps = {
 
 const keyExtractor = (item: IEnrichedHistoryItem) =>
   buildBorrowHistoryListItemKey(item);
+
+const HIDDEN_LOCAL_BORROW_HISTORY_STATUSES = new Set<EDecodedTxStatus>([
+  EDecodedTxStatus.Failed,
+  EDecodedTxStatus.Dropped,
+  EDecodedTxStatus.Removed,
+]);
 
 const HistoryContent = ({
   sections,
@@ -311,9 +321,12 @@ function BorrowHistoryList() {
       }
 
       // The remote Borrow history endpoint currently covers balance-changing
-      // actions only. Refresh the account history in the "all" view so
-      // metadata-only actions (for example setCollateral) remain visible
-      // through their locally persisted staking tags.
+      // actions only. Refresh local history for the "all" view and the
+      // balance-changing filters so pending rows remain visible; metadata-only
+      // actions (for example setCollateral) remain available in "all" only.
+      const shouldLoadLocalHistory =
+        filterType === 'all' ||
+        BORROW_HISTORY_REMOTE_ACTIONS.has(filterType as IBorrowAction);
       const [historyResp, localHistoryResp] = await Promise.all([
         backgroundApiProxy.serviceStaking.getBorrowHistory({
           accountId,
@@ -322,7 +335,7 @@ function BorrowHistoryList() {
           marketAddress,
           type: filterType,
         }),
-        filterType === 'all'
+        shouldLoadLocalHistory
           ? backgroundApiProxy.serviceHistory
               .fetchAccountHistory({ accountId, networkId })
               .catch((error) => {
@@ -362,6 +375,10 @@ function BorrowHistoryList() {
         historyResp.list.map((item) => item.txHash.toLowerCase()),
       );
       const localHistoryEntries = (localHistoryResp?.txs ?? [])
+        .filter(
+          (tx) =>
+            !HIDDEN_LOCAL_BORROW_HISTORY_STATUSES.has(tx.decodedTx.status),
+        )
         .map((tx: IAccountHistoryTx) => {
           const action = getBorrowHistoryActionForLocalTx({
             tx,
@@ -369,12 +386,17 @@ function BorrowHistoryList() {
             networkId,
             marketAddress,
           });
-          if (!action || BORROW_HISTORY_REMOTE_ACTIONS.has(action)) {
+          const isPending = tx.decodedTx.status === EDecodedTxStatus.Pending;
+          if (
+            !action ||
+            (filterType !== 'all' && action !== filterType) ||
+            (BORROW_HISTORY_REMOTE_ACTIONS.has(action) && !isPending)
+          ) {
             return undefined;
           }
 
           const actionToken = tx.stakingInfo?.send ?? tx.stakingInfo?.receive;
-          const token = actionToken
+          const remoteToken = actionToken
             ? tokenMap.get(actionToken.token.address) ||
               historyResp.tokens.find(
                 (item) =>
@@ -383,6 +405,26 @@ function BorrowHistoryList() {
                     actionToken.token.address.toLowerCase(),
               )
             : undefined;
+          const token =
+            remoteToken ??
+            (actionToken
+              ? {
+                  price: '0',
+                  price24h: '0',
+                  info: {
+                    ...actionToken.token,
+                    isNative: Boolean(actionToken.token.isNative),
+                    logoURI: actionToken.token.logoURI ?? '',
+                    networkId:
+                      actionToken.token.networkId ?? tx.decodedTx.networkId,
+                    riskLevel: actionToken.token.riskLevel ?? 0,
+                    totalSupply: '',
+                    coingeckoId: actionToken.token.coingeckoId ?? '',
+                    uniqueKey:
+                      actionToken.token.uniqueKey ?? actionToken.token.address,
+                  },
+                }
+              : undefined);
           const txHash = tx.decodedTx.txid;
           if (!txHash || remoteTxHashes.has(txHash.toLowerCase())) {
             return undefined;
@@ -398,6 +440,7 @@ function BorrowHistoryList() {
             timestamp: tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0,
             type: action,
             direction: tx.stakingInfo?.send ? 'send' : 'receive',
+            historyTx: tx,
             network: networkMap.get(tx.decodedTx.networkId),
             token,
             protocolLogoURI: tx.stakingInfo?.protocolLogoURI,
@@ -405,7 +448,7 @@ function BorrowHistoryList() {
 
           return {
             item: historyItem,
-            isPending: tx.decodedTx.status === EDecodedTxStatus.Pending,
+            isPending,
           };
         })
         .filter(
@@ -419,12 +462,15 @@ function BorrowHistoryList() {
 
       const pendingLocalItems = localHistoryEntries
         .filter((entry) => entry.isPending)
-        .map((entry) => entry.item);
+        .map((entry) => entry.item)
+        .toSorted((a, b) => b.timestamp - a.timestamp);
       const localHistoryItems = localHistoryEntries
         .filter((entry) => !entry.isPending)
-        .map((entry) => entry.item);
-      const listMap = [...enrichedList, ...localHistoryItems].reduce(
-        (map, item) => {
+        .map((entry) => entry.item)
+        .toSorted((a, b) => b.timestamp - a.timestamp);
+      const listMap = [...enrichedList, ...localHistoryItems]
+        .toSorted((a, b) => b.timestamp - a.timestamp)
+        .reduce((map, item) => {
           const sectionTitle = formatDate(new Date(item.timestamp), {
             hideTimeForever: true,
           });
@@ -435,9 +481,7 @@ function BorrowHistoryList() {
             map.set(sectionTitle, [item]);
           }
           return map;
-        },
-        new Map<string, IEnrichedHistoryItem[]>(),
-      );
+        }, new Map<string, IEnrichedHistoryItem[]>());
 
       const sections: IHistorySectionItem[] = Array.from(listMap)
         .map(([sectionTitle, data]) => ({

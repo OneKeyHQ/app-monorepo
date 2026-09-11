@@ -6,6 +6,7 @@ import {
 
 import {
   type IBorrowAction,
+  type IBorrowClaimScope,
   normalizeBorrowMarketAddress,
   parseBorrowTag,
 } from '../../Staking/utils/utils';
@@ -47,6 +48,14 @@ export function getBorrowHistoryActionForLocalTx({
     return undefined;
   }
 
+  const normalizedMarketAddress = normalizeBorrowMarketAddress({
+    networkId,
+    marketAddress,
+  });
+  const isMatchingMarketScope = (scope?: IBorrowClaimScope) =>
+    scope?.networkId === networkId &&
+    scope.marketAddress === normalizedMarketAddress;
+
   // A setCollateral transaction carries both a legacy provider-wide tag and
   // a scoped tag. Prefer the scoped form so a transaction from another Aave
   // market is not shown in this market's history.
@@ -58,21 +67,53 @@ export function getBorrowHistoryActionForLocalTx({
       (tag) => tag.setCollateralScope,
     );
     if (scopedCollateralTags.length > 0) {
-      const normalizedMarketAddress = normalizeBorrowMarketAddress({
-        networkId,
-        marketAddress,
-      });
       return scopedCollateralTags.some((tag) => {
         const scope = tag.setCollateralScope;
-        return (
-          scope?.networkId === networkId &&
-          scope.marketAddress === normalizedMarketAddress
-        );
+        return isMatchingMarketScope(scope);
       })
         ? 'setCollateral'
         : undefined;
     }
     return 'setCollateral';
+  }
+
+  const claimTags = parsedTags.filter((tag) => tag.action === 'claim');
+  if (claimTags.length > 0) {
+    // Scoped claim tags must match this market. Prefer the scoped form when a
+    // transaction carries both a legacy and a scoped tag.
+    const scopedClaimTags = claimTags.filter((tag) => tag.claimScope);
+    if (scopedClaimTags.length > 0) {
+      return scopedClaimTags.some((tag) => {
+        const scope = tag.claimScope;
+        return isMatchingMarketScope(scope);
+      })
+        ? 'claim'
+        : undefined;
+    }
+    return 'claim';
+  }
+
+  const eModeTags = parsedTags.filter((tag) => tag.action === 'setEMode');
+  if (eModeTags.length > 0) {
+    const scopedEModeTags = eModeTags.filter((tag) => tag.setEModeScope);
+    if (scopedEModeTags.length > 0) {
+      return scopedEModeTags.some((tag) => {
+        const scope = tag.setEModeScope;
+        return isMatchingMarketScope(scope);
+      })
+        ? 'setEMode'
+        : undefined;
+    }
+    return 'setEMode';
+  }
+
+  const scopedRemoteActionTags = parsedTags.filter(
+    (tag) => BORROW_HISTORY_REMOTE_ACTIONS.has(tag.action) && tag.borrowScope,
+  );
+  if (scopedRemoteActionTags.length > 0) {
+    return scopedRemoteActionTags.find((tag) =>
+      isMatchingMarketScope(tag.borrowScope),
+    )?.action;
   }
 
   return parsedTags[0]?.action;

@@ -40,6 +40,7 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {

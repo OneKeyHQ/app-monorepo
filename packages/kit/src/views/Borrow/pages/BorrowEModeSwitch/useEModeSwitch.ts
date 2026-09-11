@@ -61,10 +61,14 @@ export function useEModeSwitch({
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
       tags: [
         EEarnLabels.Borrow,
-        buildBorrowTag({ provider, action: 'setEMode' }),
+        buildBorrowTag({
+          provider,
+          action: 'setEMode',
+          setEModeScope: { networkId, marketAddress },
+        }),
       ],
     }),
-    [provider],
+    [marketAddress, networkId, provider],
   );
 
   const runCheck = useCallback(

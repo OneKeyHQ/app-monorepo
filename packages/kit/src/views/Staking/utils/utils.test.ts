@@ -119,3 +119,55 @@ describe('borrow set-collateral tags', () => {
     });
   });
 });
+
+describe('borrow set-eMode tags', () => {
+  it('preserves the provider-level tag when no market scope is provided', () => {
+    expect(buildBorrowTag({ provider: 'Aave', action: 'setEMode' })).toBe(
+      'borrow:aave:setEMode',
+    );
+  });
+
+  it('round-trips a versioned market scope and normalizes EVM addresses', () => {
+    const tag = buildBorrowTag({
+      provider: 'Aave',
+      action: 'setEMode',
+      setEModeScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xAbCd',
+      },
+    });
+
+    expect(tag).toBe('borrow:aave:setEMode:v1:evm--1:0xabcd');
+    expect(parseBorrowTag(tag)).toEqual({
+      provider: 'aave',
+      action: 'setEMode',
+      setEModeScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xabcd',
+      },
+    });
+  });
+});
+
+describe('borrow action market scopes', () => {
+  it('round-trips a scoped balance-changing action', () => {
+    const tag = buildBorrowTag({
+      provider: 'Aave',
+      action: 'supply',
+      borrowScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xAbCd',
+      },
+    });
+
+    expect(tag).toBe('borrow:aave:supply:v1:evm--1:0xabcd');
+    expect(parseBorrowTag(tag)).toEqual({
+      provider: 'aave',
+      action: 'supply',
+      borrowScope: {
+        networkId: 'evm--1',
+        marketAddress: '0xabcd',
+      },
+    });
+  });
+});
