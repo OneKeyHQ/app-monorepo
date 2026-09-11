@@ -294,6 +294,10 @@ def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
     }
 }
 
+tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
+    dependsOn(prepareSentryNativeAssets)
+}
+
 def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
     inputs.property("onekeyDevShellEnabled", useDevShell)
     outputs.dir(generatedDevShellAssetsDir)
