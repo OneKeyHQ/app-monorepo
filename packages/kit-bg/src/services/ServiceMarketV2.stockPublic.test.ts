@@ -417,6 +417,31 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(result.items[0]?.stockId).toBe('AAPL');
   });
 
+  it('passes the search cursor when loading the next page', async () => {
+    const service = createService();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [],
+          total: 1,
+          nextCursor: 'next',
+        },
+      },
+    });
+
+    await service.searchMarketStocks({
+      query: 'aapl',
+      cursor: 'next',
+      limit: 20,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/search', {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      params: { query: 'aapl', limit: 20, cursor: 'next' },
+      autoHandleError: false,
+    });
+  });
+
   it('loads stock detail and token variants by stockId', async () => {
     const service = createService();
     mockGet
