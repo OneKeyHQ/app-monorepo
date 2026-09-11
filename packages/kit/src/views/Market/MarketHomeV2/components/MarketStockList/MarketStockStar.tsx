@@ -18,7 +18,6 @@ export function MarketStockStar({
       from={from}
       tokenSymbol={stock.symbol}
       testID={MarketTestIDs.stockStarButton(stock.stockId)}
-      customIconSize="$5"
     />
   );
 }
