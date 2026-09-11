@@ -265,7 +265,7 @@ describe('stock navigation identity', () => {
     expect(store.get(networkIdAtom())).toBe('evm--1');
   });
 
-  it('leaves tokenless stock selection to the provider without clearing identity', () => {
+  it('clears stale detail while leaving tokenless stock selection to the provider', () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(() => useTokenDetailActions().current, {
       wrapper: Wrapper,
@@ -276,6 +276,17 @@ describe('stock navigation identity', () => {
         tokenAddress: 'AAPLx',
       }),
     );
+    act(() =>
+      result.current.setTokenDetail({
+        address: 'AAPLx',
+        networkId: 'sol--101',
+        name: 'Apple xStock',
+        symbol: 'AAPLx',
+        decimals: 8,
+        logoUrl: '',
+        price: '318',
+      }),
+    );
     const requestId = store.get(tokenDetailRequestIdAtom());
     act(() =>
       result.current.prepareStockTokenDetail({
@@ -283,7 +294,8 @@ describe('stock navigation identity', () => {
         tokenAddress: '',
       }),
     );
-    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId + 1);
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
     expect(store.get(networkIdAtom())).toBe('sol--101');
     expect(store.get(tokenAddressAtom())).toBe('AAPLx');
   });

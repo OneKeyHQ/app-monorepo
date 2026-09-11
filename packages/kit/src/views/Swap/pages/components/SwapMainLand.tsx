@@ -147,7 +147,10 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
-import { buildSwapPositionPrefetchScopes } from '../../utils/swapPositionPrefetchUtils';
+import {
+  type ISwapPositionPrefetchKey,
+  buildSwapPositionPrefetchScopes,
+} from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import {
@@ -1324,8 +1327,15 @@ const SwapMainLoad = ({
       : positionSupportNetworkLists.swap;
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
+  let activePositionPrefetchKey: ISwapPositionPrefetchKey = 'swap';
+  if (focusSwapPro) {
+    activePositionPrefetchKey = 'pro';
+  } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+    activePositionPrefetchKey = 'stock';
+  }
   const positionPrefetchScopes = useMemo(() => {
     return buildSwapPositionPrefetchScopes({
+      activeKey: activePositionPrefetchKey,
       swapNetworksReady: !fetchLoading,
       proNetworksReady: swapProSupportNetworksReady,
       swapNetworkList: positionSupportNetworkLists.swap,
@@ -1334,6 +1344,7 @@ const SwapMainLoad = ({
     });
   }, [
     SwapProSupportNetworksList,
+    activePositionPrefetchKey,
     fetchLoading,
     positionSupportNetworkLists.stock,
     positionSupportNetworkLists.swap,

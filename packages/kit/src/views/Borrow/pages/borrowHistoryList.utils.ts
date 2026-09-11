@@ -75,6 +75,29 @@ export function getBorrowHistoryActionForLocalTx({
     return 'setCollateral';
   }
 
+  const claimTags = parsedTags.filter((tag) => tag.action === 'claim');
+  if (claimTags.length > 0) {
+    // Scoped claim tags must match this market. Prefer the scoped form when a
+    // transaction carries both a legacy and a scoped tag.
+    const scopedClaimTags = claimTags.filter((tag) => tag.claimScope);
+    if (scopedClaimTags.length > 0) {
+      const normalizedMarketAddress = normalizeBorrowMarketAddress({
+        networkId,
+        marketAddress,
+      });
+      return scopedClaimTags.some((tag) => {
+        const scope = tag.claimScope;
+        return (
+          scope?.networkId === networkId &&
+          scope.marketAddress === normalizedMarketAddress
+        );
+      })
+        ? 'claim'
+        : undefined;
+    }
+    return 'claim';
+  }
+
   return parsedTags[0]?.action;
 }
 

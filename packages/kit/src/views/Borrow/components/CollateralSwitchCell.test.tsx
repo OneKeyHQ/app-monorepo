@@ -343,8 +343,33 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(preventDefault).not.toHaveBeenCalled();
   });
 
-  it('does not add a competing press responder around the native switch', () => {
+  it('keeps the row press guard around the native Android switch', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    const switchWrapper = view.UNSAFE_root.find(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    const onPress = switchWrapper.props.onPress as (event: {
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => void;
+    const stopPropagation = jest.fn();
+
+    act(() => {
+      onPress({
+        preventDefault: jest.fn(),
+        stopPropagation,
+      });
+    });
+
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add a competing press responder around the native switch', () => {
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
     );

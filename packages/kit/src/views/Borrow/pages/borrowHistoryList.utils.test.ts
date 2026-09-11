@@ -71,6 +71,26 @@ describe('getBorrowHistoryActionForLocalTx', () => {
       }),
     ).toBe('setEMode');
   });
+
+  it('does not leak a scoped claim transaction to another market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: buildLocalBorrowTx([
+          'borrow:aave:claim:claim-id:v1:evm--1:0xother-market',
+        ]),
+        ...marketParams,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps legacy unscoped claim transactions visible', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: buildLocalBorrowTx(['borrow:aave:claim:claim-id']),
+        ...marketParams,
+      }),
+    ).toBe('claim');
+  });
 });
 
 describe('borrowHistoryList utils', () => {

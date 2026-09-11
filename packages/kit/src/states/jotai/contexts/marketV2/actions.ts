@@ -187,6 +187,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     ) => {
       // A stock listing without a token leaves selection to the stock provider.
       if (!target.networkId || (!target.tokenAddress && !target.isNative)) {
+        // Do not keep showing the previous stock's detail while the provider
+        // resolves a variant (or when variant resolution fails).
+        set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+        set(tokenDetailAtom(), undefined);
+        set(tokenDetailPreviewAtom(), undefined);
+        set(tokenDetailLoadingAtom(), false);
+        set(tokenDetailWebsocketAtom(), undefined);
+        set(perpsInfoAtom(), undefined);
         return;
       }
       // Navigation can reuse the same stock page without rerunning its identity

@@ -667,7 +667,7 @@ export function CollateralSwitchCell({
       ai="center"
       jc="center"
       onPress={
-        platformEnv.isNative
+        platformEnv.isNativeIOS
           ? undefined
           : (e) => {
               e.stopPropagation();

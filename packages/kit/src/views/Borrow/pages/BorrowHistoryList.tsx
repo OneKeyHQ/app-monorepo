@@ -184,6 +184,12 @@ type IHistoryContentProps = {
 const keyExtractor = (item: IEnrichedHistoryItem) =>
   buildBorrowHistoryListItemKey(item);
 
+const HIDDEN_LOCAL_BORROW_HISTORY_STATUSES = new Set<EDecodedTxStatus>([
+  EDecodedTxStatus.Failed,
+  EDecodedTxStatus.Dropped,
+  EDecodedTxStatus.Removed,
+]);
+
 const HistoryContent = ({
   sections,
   filter,
@@ -362,6 +368,10 @@ function BorrowHistoryList() {
         historyResp.list.map((item) => item.txHash.toLowerCase()),
       );
       const localHistoryEntries = (localHistoryResp?.txs ?? [])
+        .filter(
+          (tx) =>
+            !HIDDEN_LOCAL_BORROW_HISTORY_STATUSES.has(tx.decodedTx.status),
+        )
         .map((tx: IAccountHistoryTx) => {
           const action = getBorrowHistoryActionForLocalTx({
             tx,
@@ -419,12 +429,15 @@ function BorrowHistoryList() {
 
       const pendingLocalItems = localHistoryEntries
         .filter((entry) => entry.isPending)
-        .map((entry) => entry.item);
+        .map((entry) => entry.item)
+        .toSorted((a, b) => b.timestamp - a.timestamp);
       const localHistoryItems = localHistoryEntries
         .filter((entry) => !entry.isPending)
-        .map((entry) => entry.item);
-      const listMap = [...enrichedList, ...localHistoryItems].reduce(
-        (map, item) => {
+        .map((entry) => entry.item)
+        .toSorted((a, b) => b.timestamp - a.timestamp);
+      const listMap = [...enrichedList, ...localHistoryItems]
+        .toSorted((a, b) => b.timestamp - a.timestamp)
+        .reduce((map, item) => {
           const sectionTitle = formatDate(new Date(item.timestamp), {
             hideTimeForever: true,
           });
@@ -435,9 +448,7 @@ function BorrowHistoryList() {
             map.set(sectionTitle, [item]);
           }
           return map;
-        },
-        new Map<string, IEnrichedHistoryItem[]>(),
-      );
+        }, new Map<string, IEnrichedHistoryItem[]>());
 
       const sections: IHistorySectionItem[] = Array.from(listMap)
         .map(([sectionTitle, data]) => ({

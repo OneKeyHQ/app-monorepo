@@ -7,13 +7,17 @@ export type ISwapPositionPrefetchScope = {
   stockOnly: boolean;
 };
 
+export type ISwapPositionPrefetchKey = ISwapPositionPrefetchScope['key'];
+
 export function buildSwapPositionPrefetchScopes({
+  activeKey,
   swapNetworksReady,
   proNetworksReady,
   swapNetworkList,
   stockNetworkList,
   proNetworkList,
 }: {
+  activeKey: ISwapPositionPrefetchKey;
   swapNetworksReady: boolean;
   proNetworksReady: boolean;
   swapNetworkList: ISwapNetwork[];
@@ -37,9 +41,15 @@ export function buildSwapPositionPrefetchScopes({
       stockOnly: false,
     },
   ];
-  return scopes.filter(
-    (scope) =>
-      (scope.key === 'pro' ? proNetworksReady : swapNetworksReady) &&
-      scope.networkList.length > 0,
-  );
+  return scopes
+    .filter(
+      (scope) =>
+        (scope.key === 'pro' ? proNetworksReady : swapNetworksReady) &&
+        scope.networkList.length > 0,
+    )
+    .toSorted((a, b) => {
+      if (a.key === activeKey) return -1;
+      if (b.key === activeKey) return 1;
+      return 0;
+    });
 }

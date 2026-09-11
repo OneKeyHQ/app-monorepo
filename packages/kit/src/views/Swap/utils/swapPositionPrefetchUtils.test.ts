@@ -26,6 +26,7 @@ describe('buildSwapPositionPrefetchScopes', () => {
   it('starts Pro independently when Swap networks are not ready', () => {
     expect(
       buildSwapPositionPrefetchScopes({
+        activeKey: 'pro',
         swapNetworksReady: false,
         proNetworksReady: true,
         swapNetworkList: [swapNetwork],
@@ -38,6 +39,7 @@ describe('buildSwapPositionPrefetchScopes', () => {
   it('does not block Swap and Stock on slow or failed Pro configuration', () => {
     expect(
       buildSwapPositionPrefetchScopes({
+        activeKey: 'swap',
         swapNetworksReady: true,
         proNetworksReady: false,
         swapNetworkList: [swapNetwork],
@@ -53,6 +55,7 @@ describe('buildSwapPositionPrefetchScopes', () => {
   it('does not start either source before it is ready', () => {
     expect(
       buildSwapPositionPrefetchScopes({
+        activeKey: 'swap',
         swapNetworksReady: false,
         proNetworksReady: false,
         swapNetworkList: [swapNetwork],
@@ -62,8 +65,9 @@ describe('buildSwapPositionPrefetchScopes', () => {
     ).toEqual([]);
   });
 
-  it('uses one stable tab-independent scope order', () => {
+  it('prioritizes the active scope while keeping the remaining order stable', () => {
     const scopes = buildSwapPositionPrefetchScopes({
+      activeKey: 'stock',
       swapNetworksReady: true,
       proNetworksReady: true,
       swapNetworkList: [swapNetwork],
@@ -71,16 +75,17 @@ describe('buildSwapPositionPrefetchScopes', () => {
       proNetworkList: [proNetwork],
     });
 
-    expect(scopes.map((scope) => scope.key)).toEqual(['swap', 'stock', 'pro']);
+    expect(scopes.map((scope) => scope.key)).toEqual(['stock', 'swap', 'pro']);
     expect(scopes.map((scope) => scope.stockOnly)).toEqual([
-      false,
       true,
+      false,
       false,
     ]);
   });
 
   it('omits unsupported empty scopes without reordering the others', () => {
     const scopes = buildSwapPositionPrefetchScopes({
+      activeKey: 'swap',
       swapNetworksReady: true,
       proNetworksReady: true,
       swapNetworkList: [swapNetwork],
