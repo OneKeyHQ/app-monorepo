@@ -13,13 +13,13 @@ Use this skill to list local worktrees, surface clean or dirty state, and judge 
 - Always start by listing every local worktree with numeric choices.
 - Ask the user to reply with `1`, `2,4`, or `A`.
 - Always fetch the latest `origin/x` before running the check.
-- Use commit graph data only to locate branch-side candidate files. Final judgment must come from content equality between the selected worktree snapshot and `origin/x`.
+- Use layered evidence for the final judgment: commit ancestry, a merged PR into `x`, a stable patch-id match for squash merges, and finally content equality between branch-side candidate files and `origin/x`. If these checks disagree or cannot prove the result, report `NEEDS_MANUAL_REVIEW` instead of guessing.
 - Surface metadata that helps cleanup decisions: last commit time, upstream branch, PR status, and whether the worktree is nested under another linked worktree.
 - PR status is best-effort only. Use `gh` when available; if auth or network is unavailable, report that explicitly and continue the local git-based check.
 - If a worktree is dirty, report that separately and make it clear the committed-branch result does not cover uncommitted local edits.
 - After the check result, always surface cleanup candidates:
-  - stale directories that exist under `.worktree/` but are no longer registered by `git worktree list`
-  - selected worktrees that are `MERGED_TO_ORIGIN_X_BY_CODE` or `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`, `clean`, and are neither the main worktree nor the current worktree
+  - stale directories that exist under `.worktree/` or `.worktrees/` but are no longer registered by `git worktree list`
+  - selected worktrees that have a merged result (`MERGED_TO_ORIGIN_X_BY_*`) or `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`, are `clean`, and are neither the main worktree nor the current worktree
 - After surfacing cleanup candidates, always ask whether the user wants to remove stale directories, removable worktrees, both, or neither.
 - Never auto-delete anything before the user explicitly confirms the cleanup action.
 
@@ -80,7 +80,7 @@ rtk proxy bash .skillshare/skills/1k-worktree-clean/scripts/1k-worktree-clean.sh
 Then summarize:
 
 - stale directory count and paths
-- removable worktrees with the reason (`MERGED_TO_ORIGIN_X_BY_CODE` or `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`)
+- removable worktrees with the reason (a `MERGED_TO_ORIGIN_X_BY_*` result or `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`)
 - skipped removable worktrees with the reason when applicable
 - For removable/skipped worktrees, keep the metadata visible: upstream, last commit time, PR status, and nested worktree status
 
@@ -117,8 +117,11 @@ rtk proxy rm -rf <path>
 
 ## How To Interpret The Result
 
+- `MERGED_TO_ORIGIN_X_BY_ANCESTOR`: the worktree HEAD is an ancestor of `origin/x`.
+- `MERGED_TO_ORIGIN_X_BY_PR`: GitHub reports a merged PR from this branch into `x`.
+- `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges.
 - `MERGED_TO_ORIGIN_X_BY_CODE`: every branch-side candidate file now matches `origin/x`.
-- `NOT_FULLY_MERGED_TO_ORIGIN_X_BY_CODE`: at least one branch-side candidate file still differs from `origin/x`.
+- `NEEDS_MANUAL_REVIEW`: later edits or conflict resolution prevent the script from proving equivalence.
 - `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`: the worktree has no committed branch-only code delta relative to the common base with `origin/x`. If it is also `clean` and is neither the main worktree nor the current worktree, treat it as a removable cleanup candidate.
 - `Working tree: dirty`: show the dirty files and state that current local edits still need separate review.
 
