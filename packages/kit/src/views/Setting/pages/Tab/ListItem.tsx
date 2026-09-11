@@ -30,7 +30,6 @@ import {
 } from './settingsDisplay';
 import {
   type ISettingsSectionPresentation,
-  resolveSettingsRowPaddingX,
   resolveSettingsSectionSurface,
 } from './settingsSurface';
 import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
@@ -75,13 +74,7 @@ export function TabSettingsListItem({
   }) {
   const { isMobileLayout } = useSettingsLayout();
   return (
-    <BaseListItem
-      py="$3"
-      px={resolveSettingsRowPaddingX({ isMobileLayout })}
-      mx={0}
-      borderRadius={0}
-      {...props}
-    >
+    <BaseListItem py="$3" px={isMobileLayout ? '$4' : '$5'} mx={0} borderRadius={0} {...props}>
       {children}
       {showDot ? (
         <Stack width="$2" height="$2" bg="$bgAccent" borderRadius="$full" />
@@ -103,10 +96,7 @@ export function TabSettingsInsetDivider({
 }) {
   const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   return (
-    <XStack
-      alignSelf="stretch"
-      pl={resolveSettingsRowPaddingX({ isMobileLayout })}
-    >
+    <XStack alignSelf="stretch" pl={isMobileLayout ? '$4' : '$5'}>
       <Stack
         w={iconWidth ?? (isTabNavigator ? '$5' : '$6')}
         mr="$3"
