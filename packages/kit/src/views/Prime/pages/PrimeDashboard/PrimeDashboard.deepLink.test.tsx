@@ -154,6 +154,7 @@ describe('PrimeDashboard subscription deep link', () => {
     jest.clearAllMocks();
     mockAuth.isReady = true;
     mockAuth.isLoggedIn = false;
+    mockAuth.isPrimeSubscriptionActive = false;
     mockLogin.mockImplementation(
       () =>
         new Promise<void>((resolve, reject) => {
@@ -386,5 +387,56 @@ describe('PrimeDashboard subscription deep link', () => {
     expect(mockNavigation.push).toHaveBeenCalledWith(
       EPrimePages.PrimeInfiniSubscription,
     );
+  });
+
+  it('keeps a manual login retry for an active Prime subscriber after unexpected login failure', async () => {
+    mockAuth.isLoggedIn = true;
+    mockAuth.isPrimeSubscriptionActive = true;
+    const loginError = new Error('preflight storage read failed');
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      cancelLogin(loginError);
+    });
+
+    expect(mockShowOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+      error: loginError,
+      intl: mockIntl,
+    });
+    expect(mockNavigation.push).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByRole('button', { name: LOGIN_PROMPT }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('Subscribe')).toBeNull();
+
+    await act(async () => {
+      clickLogin();
+    });
+    expect(mockLogin).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getAllByRole('button', { name: LOGIN_PROMPT }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('Subscribe')).toBeNull();
+
+    await act(async () => {
+      completeLogin();
+    });
+    expect(mockNavigation.push).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.push).toHaveBeenCalledWith(
+      EPrimePages.PrimeInfiniSubscription,
+    );
+  });
+
+  it('does not show purchase footer or login CTA for an already-active subscriber without login failure', () => {
+    mockAuth.isLoggedIn = true;
+    mockAuth.isPrimeSubscriptionActive = true;
+    route = {
+      ...route,
+      params: {},
+    };
+    render(<PrimeDashboard route={route} />);
+
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: LOGIN_PROMPT })).toBeNull();
+    expect(screen.queryByText('Subscribe')).toBeNull();
   });
 });

@@ -214,7 +214,6 @@ export default function PrimeDashboard({
   }, [navigation]);
 
   const handleDashboardLogin = useCallback(async () => {
-    setDidDashboardLoginFail(false);
     try {
       // Checks the service token and resolves after the login dialog closes.
       await ensureDashboardLogin();
@@ -225,6 +224,7 @@ export default function PrimeDashboard({
     if (!isMountedRef.current) {
       return;
     }
+    setDidDashboardLoginFail(false);
     consumeDeepLinkHandoff();
   }, [consumeDeepLinkHandoff, ensureDashboardLogin, handleDashboardLoginError]);
 
@@ -429,8 +429,12 @@ export default function PrimeDashboard({
   //   return isPrimeSubscriptionActive && platformEnv.isNativeIOS;
   // }, [isPrimeSubscriptionActive]);
 
+  // Persisted Prime flags hide the purchase footer, but a failed service-token
+  // login still needs the retry CTA in that footer.
+  const shouldShowLoginPrompt = !isLoggedInMaybe || didDashboardLoginFail;
+
   const renderLoginPrompt = useMemo(() => {
-    if (isLoggedInMaybe && !didDashboardLoginFail) {
+    if (!shouldShowLoginPrompt) {
       return null;
     }
     const fullText = intl.formatMessage({
@@ -472,7 +476,7 @@ export default function PrimeDashboard({
         </SizableText>
       </XStack>
     );
-  }, [didDashboardLoginFail, handleDashboardLogin, intl, isLoggedInMaybe]);
+  }, [handleDashboardLogin, intl, shouldShowLoginPrompt]);
 
   return (
     <>
@@ -563,7 +567,7 @@ export default function PrimeDashboard({
             ) : null}
           </Page.Body>
 
-          {shouldShowConfirmButton ? (
+          {shouldShowConfirmButton || shouldShowLoginPrompt ? (
             <Page.Footer>
               <FooterGradient />
               <Stack p="$5" pt="$1" gap="$4">
@@ -581,12 +585,14 @@ export default function PrimeDashboard({
                   }}
                 >
                   {renderLoginPrompt}
-                  <Page.FooterActions
-                    p="$0"
-                    confirmButtonProps={subscribeConfirmButtonProps}
-                    onConfirm={subscribe}
-                    onConfirmText={subscribeButtonText}
-                  />
+                  {shouldShowConfirmButton ? (
+                    <Page.FooterActions
+                      p="$0"
+                      confirmButtonProps={subscribeConfirmButtonProps}
+                      onConfirm={subscribe}
+                      onConfirmText={subscribeButtonText}
+                    />
+                  ) : null}
                 </XStack>
 
                 {/* Mobile layout: column with subscribe and login */}
@@ -596,13 +602,15 @@ export default function PrimeDashboard({
                   alignItems="center"
                   $gtMd={{ display: 'none' }}
                 >
-                  <Page.FooterActions
-                    p="$0"
-                    width="100%"
-                    confirmButtonProps={subscribeConfirmButtonProps}
-                    onConfirm={subscribe}
-                    onConfirmText={subscribeButtonText}
-                  />
+                  {shouldShowConfirmButton ? (
+                    <Page.FooterActions
+                      p="$0"
+                      width="100%"
+                      confirmButtonProps={subscribeConfirmButtonProps}
+                      onConfirm={subscribe}
+                      onConfirmText={subscribeButtonText}
+                    />
+                  ) : null}
                   {renderLoginPrompt}
                 </YStack>
               </Stack>

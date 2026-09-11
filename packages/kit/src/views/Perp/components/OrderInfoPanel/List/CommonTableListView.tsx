@@ -373,6 +373,7 @@ const PaginationFooter = ({
           testID="perp-btn"
           variant="tertiary"
           size="small"
+          ml={!isMobile && totalPages > 1 ? '$1.5' : undefined}
           onPress={() => {
             onViewAll();
           }}

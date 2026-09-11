@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -379,6 +380,11 @@ class ServiceMarketV2 extends ServiceBase {
       timeFrame,
     });
     if (options?.forceRemote) {
+      if (platformEnv.isNativeAndroid) {
+        // Android background can retain a rejected promise across network recovery.
+        // Invalidate only this query so later polling cannot reuse that failure.
+        void this.memoizedFetchMarketTokenList.delete(normalizedParams);
+      }
       return this._fetchMarketTokenListFromApi(normalizedParams);
     }
     return this.memoizedFetchMarketTokenList(normalizedParams);
@@ -1129,6 +1135,7 @@ class ServiceMarketV2 extends ServiceBase {
         sortBy: params.sortBy ?? 'default',
         sortType: params.sortType ?? 'asc',
       },
+      headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };
     const response = await client.get<{
@@ -1154,6 +1161,7 @@ class ServiceMarketV2 extends ServiceBase {
       autoHandleError?: boolean;
     } = {
       params: { query: normalizedQuery, limit },
+      headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };
     const response = await client.get<{
@@ -1169,7 +1177,10 @@ class ServiceMarketV2 extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
-    } = { autoHandleError: false };
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
     const response = await client.get<{
       code: number;
       message: string;
@@ -1191,6 +1202,7 @@ class ServiceMarketV2 extends ServiceBase {
       autoHandleError?: boolean;
     } = {
       params: { period, limit: 5 },
+      headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };
     const response = await client.get<{
@@ -1212,7 +1224,10 @@ class ServiceMarketV2 extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
-    } = { autoHandleError: false };
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
     const response = await client.get<{
       code: number;
       message: string;
@@ -1235,6 +1250,7 @@ class ServiceMarketV2 extends ServiceBase {
       autoHandleError?: boolean;
     } = {
       params: chartParams,
+      headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };
     const response = await client.get<{

@@ -1,8 +1,15 @@
+// cspell:ignore financials
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+let mockPauseMemoizationTasks = false;
+
+jest.mock('next-tick', () => (callback: () => void) => {
+  if (!mockPauseMemoizationTasks) queueMicrotask(callback);
+});
 const mockAssetDetail = jest.fn();
 let mockListingCache: Record<string, INotificationWatchlistToken> = {};
 const mockNotificationSettings = {
@@ -47,7 +54,41 @@ describe('ServiceMarketV2 public stock APIs', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGet.mockReset();
     mockListingCache = {};
+  });
+
+  afterEach(() => {
+    mockPauseMemoizationTasks = false;
+    jest.restoreAllMocks();
+  });
+
+  it('does not reuse an Android offline failure after an explicit token retry', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    const query = { networkId: 'evm--1', type: 'trending' };
+    const response = { list: [{ symbol: 'ETH' }], total: 1 };
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    mockGet.mockResolvedValue({ data: { data: response } });
+    await expect(
+      service.fetchMarketTokenList(query, { forceRemote: true }),
+    ).resolves.toEqual(response);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
   });
 
   it('loads a stock watchlist quote without resolving a token variant', async () => {
@@ -296,6 +337,26 @@ describe('ServiceMarketV2 public stock APIs', () => {
     },
   );
 
+  it.each(['annual', 'quarter'] as const)(
+    'requests %s financials in USD independently of display currency',
+    async (period) => {
+      const service = createService();
+      const financials = { stockId: 'AAPL', period, currency: 'USD' };
+      mockGet.mockResolvedValueOnce({ data: { code: 0, data: financials } });
+      expect(
+        await service.fetchMarketStockFinancials({ stockId: 'AAPL', period }),
+      ).toEqual(financials);
+      expect(mockGet).toHaveBeenCalledWith(
+        '/utility/v1/stocks/AAPL/financials',
+        {
+          params: { period, limit: 5 },
+          headers: { 'x-onekey-request-currency': 'usd' },
+          autoHandleError: false,
+        },
+      );
+    },
+  );
+
   it('loads the aggregated stock list without token identity fields', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({
@@ -315,6 +376,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     });
 
     expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks', {
+      headers: { 'x-onekey-request-currency': 'usd' },
       params: {
         cursor: undefined,
         limit: 50,
@@ -348,6 +410,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     });
 
     expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/search', {
+      headers: { 'x-onekey-request-currency': 'usd' },
       params: { query: 'aapl', limit: 10 },
       autoHandleError: false,
     });
@@ -368,12 +431,16 @@ describe('ServiceMarketV2 public stock APIs', () => {
     await service.fetchMarketStockTokenVariants({ stockId: 'BRK/B' });
 
     expect(mockGet).toHaveBeenNthCalledWith(1, '/utility/v1/stocks/BRK%2FB', {
+      headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     });
     expect(mockGet).toHaveBeenNthCalledWith(
       2,
       '/utility/v1/stocks/BRK%2FB/tokens',
-      { autoHandleError: false },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+        autoHandleError: false,
+      },
     );
   });
 
@@ -396,6 +463,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
       to: 1_786_132_800,
     });
     expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/AAPL/chart', {
+      headers: { 'x-onekey-request-currency': 'usd' },
       params: { interval: '5min', from: 1_786_041_000, to: 1_786_132_800 },
       autoHandleError: false,
     });
@@ -410,6 +478,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     });
     await service.fetchMarketStockChart({ stockId: 'AAPL' });
     expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/AAPL/chart', {
+      headers: { 'x-onekey-request-currency': 'usd' },
       params: { period: '1d' },
       autoHandleError: false,
     });
@@ -447,6 +516,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
       '/utility/v1/stocks/AAPL/chart',
       {
         params: { period: '1w' },
+        headers: { 'x-onekey-request-currency': 'usd' },
         autoHandleError: false,
       },
     );
