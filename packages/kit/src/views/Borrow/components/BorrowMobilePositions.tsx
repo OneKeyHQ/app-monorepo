@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -136,9 +136,31 @@ export function BorrowMobilePositions({
   const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
 
-  // Scoped keys hide the old card; clear the selection so returning stays collapsed.
+  // Collapse the open card when the user moves to a different account, network
+  // or market, so the next scope does not inherit the previous one's expansion.
+  //
+  // Compare against the last scope that actually resolved rather than reacting
+  // to every change of these values. A blank accountId is a loading frame, not
+  // a different account: BorrowDataGate publishes data: null whenever the
+  // derive scope resets or an in-flight market switch is cancelled, and this
+  // component stays mounted throughout because the position entries come from
+  // reserves alone. Treating that as a scope change would collapse the card on
+  // a background event the user never triggered, and it would not come back —
+  // exactly the failure this reset exists to prevent, in the other direction.
+  // X -> '' -> X is therefore a no-op here, while X -> '' -> Y still collapses.
+  const lastResolvedScopeRef = useRef<string | null>(null);
   useEffect(() => {
-    setExpandedKey(null);
+    if (!accountId || !networkId || !normalizedMarketAddress) {
+      return;
+    }
+    const resolvedScope = [accountId, networkId, normalizedMarketAddress].join(
+      '|',
+    );
+    const previousScope = lastResolvedScopeRef.current;
+    lastResolvedScopeRef.current = resolvedScope;
+    if (previousScope !== null && previousScope !== resolvedScope) {
+      setExpandedKey(null);
+    }
   }, [accountId, networkId, normalizedMarketAddress]);
 
   const labels = useMemo(
