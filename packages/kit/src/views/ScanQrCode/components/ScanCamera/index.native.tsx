@@ -13,7 +13,7 @@ export type { IScanCameraProps };
 /**
  * The screen-bound half of the native camera: unmount the Camera first,
  * dispatch the blocked navigation action a beat later — tearing the
- * camera down mid-transition wedges react-native-camera-kit. Both hooks
+ * camera down mid-transition wedges the native camera session. Both hooks
  * in here require a screen's navigation context, so hosts outside any
  * screen (the DeviceStage overlay) must opt out via
  * `disableNavigationGuard` — mounting this there throws at useRoute.

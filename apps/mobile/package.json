@@ -164,7 +164,6 @@
     "react-native-aes-crypto": "npm:@onekeyfe/react-native-aes-crypto@3.0.118",
     "react-native-awesome-slider": "^2.9.0",
     "react-native-ble-plx": "3.5.1",
-    "react-native-camera-kit": "17.0.1",
     "react-native-canvas": "^0.1.39",
     "react-native-capture-protection": "2.3.0",
     "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@3.0.118",

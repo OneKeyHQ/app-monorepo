@@ -96,5 +96,12 @@ describe('isTravelModeNetworkRequestAllowed', () => {
         url: '/utility/v2/market/banner/token-list',
       }),
     ).toBe(true);
+    expect(
+      isTravelModeNetworkRequestAllowed({
+        baseURL: 'https://utility.onekeycn.com',
+        method: 'get',
+        url: '/utility/v2/market/banner/token-list/banner-1/private',
+      }),
+    ).toBe(false);
   });
 });

@@ -152,7 +152,6 @@ const nativeContractDependencies = {
     'react-native',
     'react-native-aes-crypto',
     'react-native-ble-plx',
-    'react-native-camera-kit',
     'react-native-capture-protection',
     'react-native-cloud-fs',
     'react-native-dns-lookup',

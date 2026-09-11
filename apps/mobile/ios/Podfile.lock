@@ -2864,27 +2864,6 @@ PODS:
     - ReactNativeRangeDownloader
     - SSZipArchive (>= 2.5.4)
     - Yoga
-  - ReactNativeCameraKit (17.0.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
   - ReactNativeCheckBiometricAuthChanged (3.0.118):
     - hermes-engine
     - NitroModules
@@ -3962,7 +3941,6 @@ DEPENDENCIES:
   - "ReactNativeAppUpdate (from `../../../node_modules/@onekeyfe/react-native-app-update`)"
   - "ReactNativeBundleCrypto (from `../../../node_modules/@onekeyfe/react-native-bundle-crypto`)"
   - "ReactNativeBundleUpdate (from `../../../node_modules/@onekeyfe/react-native-bundle-update`)"
-  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "ReactNativeDeviceUtils (from `../../../node_modules/@onekeyfe/react-native-device-utils`)"
@@ -4341,8 +4319,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-crypto"
   ReactNativeBundleUpdate:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-update"
-  ReactNativeCameraKit:
-    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeCheckBiometricAuthChanged:
     :path: "../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed"
   ReactNativeDependencies:
@@ -4596,7 +4572,6 @@ SPEC CHECKSUMS:
   ReactNativeAppUpdate: c5378416fcdeabd944f1ae16df5a9dcb639a6c4c
   ReactNativeBundleCrypto: 7bb98cd8ecbfb936320847e6c2f311df9a0a865a
   ReactNativeBundleUpdate: 6de9f1d78a14822d25711376800c1c76ad0ea26f
-  ReactNativeCameraKit: 21f6c85397cfcb494dfa453a6fb4c9933a7c1bef
   ReactNativeCheckBiometricAuthChanged: ece2cfe7774bfb4a731da0c57e4f4909b02182af
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf
   ReactNativeDeviceUtils: 617e43942bb98c8926425ed1de01a19d22a24a97

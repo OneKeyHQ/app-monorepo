@@ -225,6 +225,12 @@ function BasicMarketPerpsStarV2({
   const intl = useIntl();
   const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
 
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
+
   return (
     <IconButton
       testID="market-intl-icon-btn"

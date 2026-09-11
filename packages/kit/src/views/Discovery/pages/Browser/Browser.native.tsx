@@ -828,7 +828,6 @@ function MobileBrowser() {
             <LegacyUniversalSearchInput
               size="medium"
               glass
-              allowInTravelMode
               initialTab={searchInitialTab}
               tabRoute={universalSearchTabRoute}
             />

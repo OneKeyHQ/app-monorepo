@@ -714,7 +714,7 @@ describe('ServicePassword', () => {
         passwordSettings,
       );
       expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
-      expect(clearCachedPassword).not.toHaveBeenCalled();
+      expect(clearCachedPassword).toHaveBeenCalled();
       expect(clearAgentSecretSession).not.toHaveBeenCalled();
       expect(setAgentSecretSessionUnlocked).not.toHaveBeenCalled();
     },

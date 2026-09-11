@@ -116,7 +116,11 @@ export function isTravelModeNetworkRequestAllowed(
   if (TRAVEL_MODE_ALLOWED_REQUESTS.has(requestKey)) {
     return true;
   }
-  return [...TRAVEL_MODE_ALLOWED_REQUEST_PREFIXES].some((prefix) =>
-    requestKey.startsWith(`${prefix}/`),
-  );
+  return [...TRAVEL_MODE_ALLOWED_REQUEST_PREFIXES].some((prefix) => {
+    if (!requestKey.startsWith(`${prefix}/`)) {
+      return false;
+    }
+    const suffix = requestKey.slice(prefix.length + 1);
+    return suffix.length > 0 && !suffix.includes('/');
+  });
 }

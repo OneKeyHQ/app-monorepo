@@ -1408,6 +1408,7 @@ export default class ServicePassword extends ServiceBase {
       travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
       'travel-mode'
     ) {
+      await this.clearCachedPassword();
       return;
     }
     const { manual = false } = options || {};
