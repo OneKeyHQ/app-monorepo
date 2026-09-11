@@ -3,6 +3,16 @@ name: release-desktop-mas
 on:
   workflow_dispatch:
     inputs:
+      build_number:
+        description: 'Build number for a manual build. Defaults to 1 if not provided.'
+        required: false
+        type: string
+        default: ''
+      mas_build_number:
+        description: 'Complete positive integer CFBundleVersion for MAS, with no appended zero. Defaults to build_number followed by 0.'
+        required: false
+        type: string
+        default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
         description: "Allow skipping GPG verification for bundle updates (default: false)"
         required: false
@@ -12,6 +22,7 @@ on:
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
+  MAS_BUILD_NUMBER: ${{ github.event.inputs.mas_build_number || '' }}
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
@@ -31,6 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+          ref: ${{ github.sha }}
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -46,6 +58,18 @@ jobs:
           sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Apply manual build number
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_number != '' }}
+        env:
+          INPUT_BUILD_NUMBER: ${{ github.event.inputs.build_number }}
+        run: |
+          if [[ ! "$INPUT_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::build_number must be a positive integer"
+            exit 1
+          fi
+          printf 'BUILD_NUMBER=%s\n' "$INPUT_BUILD_NUMBER" >> "$GITHUB_ENV"
+          sed -i '' "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${INPUT_BUILD_NUMBER}/" .env
 
       - name: Warn if GPG verification is skipped
         if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
@@ -153,6 +177,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: validate mas for Testflight
+        id: validate_mas
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -162,7 +187,8 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: upload mas for Testflight
-        continue-on-error: true
+        id: upload_mas
+        if: ${{ steps.validate_mas.outcome == 'success' }}
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -172,7 +198,7 @@ jobs:
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
+        if: ${{ github.event.workflow_run && steps.upload_mas.outcome == 'success' }}
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}

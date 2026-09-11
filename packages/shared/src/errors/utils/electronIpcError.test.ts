@@ -47,6 +47,22 @@ describe('unwrapElectronIpcError', () => {
     expect(unwrapped.data).toEqual({ foo: 'bar' });
   });
 
+  it('preserves RevenueCat cancellation when Electron prefixes a JSON error with Error', () => {
+    const raw = buildIpcError(
+      `Error: ${JSON.stringify({
+        code: 1,
+        message: 'Store purchase cancelled',
+        data: { revenueCat: true, userCancelled: true },
+      })}`,
+    );
+
+    expect(unwrapElectronIpcError(raw)).toMatchObject({
+      message: 'Store purchase cancelled',
+      code: 1,
+      data: { revenueCat: true, userCancelled: true },
+    });
+  });
+
   it('falls back to plain text when payload is not JSON', () => {
     const raw = buildIpcError('Error: something went wrong');
 

@@ -187,6 +187,7 @@ const mockPlatformEnv = platformEnv as {
   isNative: boolean;
   isNativeAndroidGooglePlay: boolean;
   isNativeIOS: boolean;
+  isMas: boolean;
 };
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -195,6 +196,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNative: false,
     isNativeAndroidGooglePlay: false,
     isNativeIOS: false,
+    isMas: false,
   },
 }));
 
@@ -241,6 +243,7 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
     jest.clearAllMocks();
     mockPlatformEnv.isNative = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
     mockUser.primeSubscription = undefined;
     mockUser.subscriptionManageUrl = undefined;
     mockManagementResolution = undefined;
@@ -272,6 +275,16 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
     mockUser.primeSubscription = { isActive: true };
     render(<PrimeUserInfoMoreButton />);
 
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionMenuItem)).toBeNull();
+    expect(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    ).toBeTruthy();
+  });
+
+  it('hides redemption on Mac App Store while preserving subscription management', () => {
+    mockPlatformEnv.isMas = true;
+    mockUser.primeSubscription = { isActive: true };
+    render(<PrimeUserInfoMoreButton />);
     expect(screen.queryByTestId(PrimeTestIDs.redemptionMenuItem)).toBeNull();
     expect(
       screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),

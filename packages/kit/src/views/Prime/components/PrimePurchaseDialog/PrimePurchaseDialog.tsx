@@ -13,6 +13,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isPrimeStoreOnlyPayment,
+  isPrimeStorePayment,
+} from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
@@ -410,7 +414,7 @@ export function usePrimePurchaseCallback({
         return;
       }
 
-      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+      if (isPrimeStoreOnlyPayment()) {
         if (
           !(await ensurePrimePurchaseEligible({
             expectedOneKeyUserId: user?.onekeyUserId,
@@ -552,7 +556,7 @@ export const PrimePurchaseDialog = (props: {
 
   const { result: packages } = usePromiseResult(
     async () =>
-      platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
+      isPrimeStorePayment() ? getPackagesNative?.() : getPackagesWeb?.(),
     [getPackagesNative, getPackagesWeb],
   );
 

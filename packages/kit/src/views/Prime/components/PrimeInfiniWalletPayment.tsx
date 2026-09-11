@@ -60,6 +60,7 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeCryptoPaymentSupported } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -5445,8 +5446,7 @@ export default function PrimeInfiniWalletPayment() {
     selectedSubscriptionPeriod === 'P1M' ? 'P1M' : 'P1Y';
   const plan: IPrimeInfiniSubscriptionPlan =
     effectiveSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-  const isCryptoPaymentSupported =
-    !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
+  const isCryptoPaymentSupported = isPrimeCryptoPaymentSupported();
 
   useEffect(() => {
     if (isCryptoPaymentSupported) {
