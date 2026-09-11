@@ -196,12 +196,24 @@ const WrappedActionButtonCmp = ({
       if (!stakeTag) {
         return false;
       }
-      return (
-        [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
-        tx.stakingInfo.tags?.includes(stakeTag)
-      );
+      if (
+        ![EEarnLabels.Claim].includes(tx.stakingInfo.label) ||
+        !tx.stakingInfo.tags?.includes(stakeTag)
+      ) {
+        return false;
+      }
+      // A vault can pay more than one reward token (Morpho on Katana pays
+      // MORPHO and KAT), and the tag is per vault: a MORPHO claim in flight
+      // put a spinner on the KAT button as well (OK-62924). Match the token
+      // the pending claim receives; a claim recorded without one keeps the
+      // vault-wide match.
+      const pendingRewardSymbol = tx.stakingInfo.receive?.token?.symbol;
+      if (pendingRewardSymbol && rewardSymbol) {
+        return pendingRewardSymbol.toLowerCase() === rewardSymbol.toLowerCase();
+      }
+      return true;
     },
-    [stakeTag],
+    [stakeTag, rewardSymbol],
   );
   const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
@@ -554,6 +566,17 @@ const ActionField = ({
   );
 };
 
+// iOS never paints the hairline border a vertical Divider draws on its
+// zero-width Separator, so the phone showed no rule between a provider's name
+// and its value, nor between a row's amount and its label (OK-62926). Native
+// gets a filled 1pt line; web and desktop keep the Divider they already render.
+const VerticalRule = ({ mx }: { mx: '$1' | '$3' }) =>
+  platformEnv.isNative ? (
+    <Stack w={1} h="$5" mx={mx} bg="$border" />
+  ) : (
+    <Divider vertical h="$5" mx={mx} />
+  );
+
 const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
   const currencyInfo = useCurrency();
   return (
@@ -594,7 +617,7 @@ const ProtocolHeader = ({
         <SizableText size="$headingLg">
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
-        <Divider bg="$headingSm" vertical mx="$3" height="$5" width="$1" />
+        <VerticalRule mx="$3" />
         <XStack ai="center" gap="$1">
           <NumberSizeableText
             size="$headingLg"
@@ -773,7 +796,7 @@ const ProtocolAirdrop = ({
                 ) : null}
               </XStack>
               {actionButtonNode}
-              {hasSecondary ? <Divider vertical h="$5" mx="$1" /> : null}
+              {hasSecondary ? <VerticalRule mx="$1" /> : null}
               {secondaryDescription ? (
                 <EarnText
                   size={secondaryTextSize}
