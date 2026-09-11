@@ -78,6 +78,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'setRouteSubscriptionState',
     'updateSubscriptions',
   ]),
+  serviceMarket: new Set(['fetchMarketAssetList']),
   serviceMarketV2: new Set([
     'fetchMarketBannerList',
     'fetchMarketBannerPerpsTokenList',
@@ -105,8 +106,6 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'rejectPasswordPromptDialog',
     'resetPasswordStatus',
     'resolvePasswordPromptDialog',
-    'setAppLockDuration',
-    'setEnableSystemIdleLock',
     'unLockApp',
     'verifyPassword',
     'waitPasswordEncryptorReady',

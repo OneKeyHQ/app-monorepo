@@ -62,6 +62,7 @@ import {
   displayAppUpdateVersion,
   displayFullVersion,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -76,6 +77,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -573,19 +575,27 @@ export function AutoLockListItem({
   ...props
 }: ICustomElementProps) {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
     logItemClick?.();
     navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
-  }, [logItemClick, navigation]);
+  }, [isTravelMode, logItemClick, navigation]);
   const options = useOptions();
   const text = useMemo(() => {
     const option = options.find(
-      (item) => item.value === String(appLockDuration),
+      (item) =>
+        item.value ===
+        (isTravelMode ? ELockDuration.Never : String(appLockDuration)),
     );
     return option?.title ?? '';
-  }, [options, appLockDuration]);
+  }, [options, appLockDuration, isTravelMode]);
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
       <ListItem.Text
@@ -606,12 +616,21 @@ export function ChangeOrSetPasswordListItem({
 }: ICustomElementProps) {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   useEffect(() => {
+    if (isTravelMode) {
+      return;
+    }
     void backgroundApiProxy.servicePassword.checkPasswordSet();
-  }, []);
+  }, [isTravelMode]);
 
   const onPress = useCallback(async () => {
+    if (isTravelMode) {
+      return;
+    }
     logItemClick?.();
     if (isPasswordSet) {
       const oldEncodedPassword =
@@ -637,7 +656,7 @@ export function ChangeOrSetPasswordListItem({
     } else {
       void backgroundApiProxy.servicePassword.promptPasswordVerify();
     }
-  }, [intl, isPasswordSet, logItemClick]);
+  }, [intl, isPasswordSet, isTravelMode, logItemClick]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 

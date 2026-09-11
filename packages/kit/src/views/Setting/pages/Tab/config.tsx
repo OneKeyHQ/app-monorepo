@@ -130,6 +130,7 @@ interface ISubSettingConfigBase {
   subtitle?: string;
   keywords?: string[];
   searchable?: boolean;
+  ignorePress?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -233,6 +234,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(() => {
+    const isTravelMode =
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode';
     const clearPendingTransactionsItem: ISubSettingConfig = {
       id: 'clear-pending-transactions',
       icon: 'ClockTimeHistoryOutline',
@@ -716,7 +720,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'allowlist',
                       ],
                       settingRoute: EModalSettingRoutes.SettingProtectModal,
+                      ignorePress: isTravelMode,
                       onPress: (navigation) => {
+                        if (isTravelMode) {
+                          return;
+                        }
                         navigation?.push(
                           EModalSettingRoutes.SettingProtectModal,
                         );
@@ -1070,9 +1078,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
-    const isTravelMode =
-      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-      'travel-mode';
     const hiddenTravelModeItemIds = new Set([
       'notifications',
       'onekey-transfer',

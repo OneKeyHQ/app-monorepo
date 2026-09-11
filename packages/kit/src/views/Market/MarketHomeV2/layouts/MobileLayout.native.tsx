@@ -321,6 +321,7 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -710,11 +711,17 @@ function MobileLayoutComponent({
   );
   const tabNames = useMemo(
     () => [
-      watchlistTabName,
+      ...(showWatchlistTab ? [watchlistTabName] : []),
       ...spotTabItems.map((item) => item.tabName),
       ...(showPerpsTab ? [perpsTabName] : []),
     ],
-    [perpsTabName, showPerpsTab, spotTabItems, watchlistTabName],
+    [
+      perpsTabName,
+      showPerpsTab,
+      showWatchlistTab,
+      spotTabItems,
+      watchlistTabName,
+    ],
   );
 
   const handlePagerPageSelected = useCallback(
@@ -817,13 +824,17 @@ function MobileLayoutComponent({
   );
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <MobileMarketWatchlistFlatList
-        selectedFilter={watchlistFilter}
-        listContainerProps={listContainerProps}
-        shouldSuppressItemPress={shouldSuppressItemPress}
-      />
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <MobileMarketWatchlistFlatList
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+              shouldSuppressItemPress={shouldSuppressItemPress}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,

@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1403,6 +1404,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     const { manual = false } = options || {};
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
@@ -1440,6 +1447,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   public async setAppLockDuration(value: number) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     await passwordAtom.set((v) => ({ ...v, unLock: true }));
     await passwordPersistAtom.set((prev) => ({
       ...prev,
@@ -1449,6 +1462,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   public async setEnableSystemIdleLock(value: boolean) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     await passwordPersistAtom.set((prev) => ({
       ...prev,
       enableSystemIdleLock: value,
@@ -1457,6 +1476,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async checkLockStatus() {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     const { isPasswordSet, appLockDuration } = await passwordPersistAtom.get();
     if (!isPasswordSet) {
       return;

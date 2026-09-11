@@ -28,5 +28,4 @@ export const buildTravelModeSettingsPersistView = buildPersistedView;
 export const buildTravelModeCurrencyReferenceView = buildPersistedView;
 
 export const mergeTravelModePasswordPersistWrite = mergePersistedWrite;
-export const mergeTravelModeManualLockPersistWrite = mergePersistedWrite;
 export const mergeTravelModeSettingsPersistWrite = mergePersistedWrite;
